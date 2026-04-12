@@ -1,0 +1,400 @@
+{
+  "components": [
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "direction",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".column"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "padding",
+              "value": {
+                "fields": {
+                  "x": {
+                    "kind": "ident",
+                    "name": "atoms.space.md"
+                  },
+                  "y": {
+                    "kind": "ident",
+                    "name": "atoms.space.sm"
+                  }
+                },
+                "kind": "edgeInsets",
+                "variant": "xy"
+              }
+            },
+            {
+              "chain": {
+                "branches": [
+                  {
+                    "body": [
+                      {
+                        "kind": "prop",
+                        "name": "background",
+                        "value": {
+                          "kind": "ident",
+                          "name": "atoms.color.rgb"
+                        }
+                      }
+                    ],
+                    "condition": {
+                      "kind": "cmp",
+                      "op": "==",
+                      "param": "tone",
+                      "rhs": ".accent"
+                    }
+                  },
+                  {
+                    "body": [
+                      {
+                        "kind": "prop",
+                        "name": "background",
+                        "value": {
+                          "kind": "ident",
+                          "name": "atoms.color.rgba"
+                        }
+                      }
+                    ],
+                    "condition": {
+                      "kind": "cmp",
+                      "op": "==",
+                      "param": "tone",
+                      "rhs": ".danger"
+                    }
+                  }
+                ],
+                "elseBody": [
+                  {
+                    "kind": "prop",
+                    "name": "background",
+                    "value": {
+                      "kind": "ident",
+                      "name": "atoms.color.sem.fromRgb"
+                    }
+                  }
+                ]
+              },
+              "kind": "if"
+            },
+            {
+              "entries": [],
+              "kind": "children",
+              "target": "root"
+            }
+          ],
+          "frameKind": "layout",
+          "id": "Swatch",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "Swatch",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomVariantSwatch",
+      "params": [
+        {
+          "defaultValue": {
+            "kind": "dotEnum",
+            "value": ".neutral"
+          },
+          "name": "tone",
+          "typeName": "AtomsTone"
+        }
+      ],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "gap",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.space.xs"
+              }
+            },
+            {
+              "chain": {
+                "branches": [
+                  {
+                    "body": [
+                      {
+                        "kind": "prop",
+                        "name": "direction",
+                        "value": {
+                          "kind": "dotEnum",
+                          "value": ".column"
+                        }
+                      },
+                      {
+                        "kind": "prop",
+                        "name": "background",
+                        "value": {
+                          "kind": "ident",
+                          "name": "atoms.color.sem.fromRgba"
+                        }
+                      }
+                    ],
+                    "condition": {
+                      "kind": "cmp",
+                      "op": "==",
+                      "param": "axis",
+                      "rhs": ".vertical"
+                    }
+                  }
+                ],
+                "elseBody": [
+                  {
+                    "kind": "prop",
+                    "name": "direction",
+                    "value": {
+                      "kind": "dotEnum",
+                      "value": ".row"
+                    }
+                  },
+                  {
+                    "kind": "prop",
+                    "name": "background",
+                    "value": {
+                      "kind": "ident",
+                      "name": "atoms.color.sem.fromRgb"
+                    }
+                  }
+                ]
+              },
+              "kind": "if"
+            },
+            {
+              "entries": [],
+              "kind": "children",
+              "target": "root"
+            }
+          ],
+          "frameKind": "layout",
+          "id": "Box",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "Box",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomVariantAxis",
+      "params": [
+        {
+          "defaultValue": {
+            "kind": "dotEnum",
+            "value": ".horizontal"
+          },
+          "name": "axis",
+          "typeName": "AtomsAxis"
+        }
+      ],
+      "rootKind": "layout"
+    }
+  ],
+  "entryPath": "<resolved>",
+  "expose": {},
+  "kind": "designGraph",
+  "modulePaths": [
+    "conditional_variant_atoms.pdl",
+    "tokens_color.pdl",
+    "tokens_distance_radius.pdl",
+    "variant_atoms.pdl"
+  ],
+  "previewBackground": null,
+  "primitives": [
+    {
+      "name": "atoms.color.rgb",
+      "tokenType": "Color",
+      "value": {
+        "kind": "hex",
+        "value": "#ABC"
+      }
+    },
+    {
+      "name": "atoms.color.rgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "hex",
+        "value": "#11223344"
+      }
+    },
+    {
+      "name": "atoms.space.xs",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 4
+      }
+    },
+    {
+      "name": "atoms.space.sm",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 8
+      }
+    },
+    {
+      "name": "atoms.space.md",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 16
+      }
+    },
+    {
+      "name": "atoms.radius.sm",
+      "tokenType": "Radius",
+      "value": {
+        "kind": "number",
+        "value": 4
+      }
+    },
+    {
+      "name": "atoms.radius.mixed",
+      "tokenType": "Radius",
+      "value": {
+        "bl": {
+          "kind": "number",
+          "value": 2
+        },
+        "br": {
+          "kind": "number",
+          "value": 2
+        },
+        "kind": "corner",
+        "tl": {
+          "kind": "number",
+          "value": 8
+        },
+        "tr": {
+          "kind": "number",
+          "value": 8
+        }
+      }
+    }
+  ],
+  "schemaVersion": "1.0.0-beta",
+  "semantics": [
+    {
+      "name": "atoms.color.sem.fromRgb",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgb"
+      }
+    },
+    {
+      "name": "atoms.color.sem.fromRgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgba"
+      }
+    },
+    {
+      "name": "atoms.color.scrimLiteral",
+      "tokenType": "Color",
+      "value": {
+        "base": {
+          "kind": "ident",
+          "name": "atoms.color.rgb"
+        },
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.25
+        }
+      }
+    },
+    {
+      "name": "atoms.color.scrimRgba",
+      "tokenType": "Color",
+      "value": {
+        "base": {
+          "kind": "ident",
+          "name": "atoms.color.rgba"
+        },
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.5
+        }
+      }
+    },
+    {
+      "name": "atoms.space.card.pad",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.space.md"
+      }
+    },
+    {
+      "name": "atoms.radius.card",
+      "tokenType": "Radius",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.radius.mixed"
+      }
+    }
+  ],
+  "themes": [],
+  "typeStyles": [],
+  "variants": [
+    {
+      "cases": [
+        "horizontal",
+        "vertical"
+      ],
+      "name": "AtomsAxis"
+    },
+    {
+      "cases": [
+        "sm",
+        "md",
+        "lg"
+      ],
+      "name": "AtomsSize"
+    },
+    {
+      "cases": [
+        "comfortable",
+        "compact"
+      ],
+      "name": "AtomsDensity"
+    },
+    {
+      "cases": [
+        "neutral",
+        "accent",
+        "danger"
+      ],
+      "name": "AtomsTone"
+    }
+  ]
+}

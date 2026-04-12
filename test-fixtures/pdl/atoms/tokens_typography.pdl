@@ -1,0 +1,10 @@
+// FontFamily, Size, Weight
+
+primitive atoms.font.ui: FontFamily = "system-ui, sans-serif"
+primitive atoms.font.mono: FontFamily = "ui-monospace, monospace"
+primitive atoms.type.size.caption: Size = 12
+primitive atoms.type.size.body: Size = 16
+primitive atoms.type.size.title: Size = 22
+primitive atoms.type.weight.regular: Weight = 400
+primitive atoms.type.weight.medium: Weight = 600
+primitive atoms.type.weight.bold: Weight = 700

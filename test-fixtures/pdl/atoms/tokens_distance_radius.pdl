@@ -1,0 +1,10 @@
+// Distance + Radius (number, Corner literal, token ref)
+
+primitive atoms.space.xs: Distance = 4
+primitive atoms.space.sm: Distance = 8
+primitive atoms.space.md: Distance = 16
+semantic atoms.space.card.pad: Distance = atoms.space.md
+
+primitive atoms.radius.sm: Radius = 4
+primitive atoms.radius.mixed: Radius = Corner(tl: 8, tr: 8, br: 2, bl: 2)
+semantic atoms.radius.card: Radius = atoms.radius.mixed

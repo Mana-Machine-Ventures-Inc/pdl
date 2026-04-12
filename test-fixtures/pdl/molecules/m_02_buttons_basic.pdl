@@ -1,0 +1,66 @@
+// Text-only “buttons” in pill rows + size / tone variants
+
+import "foundation.pdl"
+
+variant MoleculeBtnTone {
+  case primary
+  case secondary
+  case ghost
+}
+
+variant MoleculeBtnSize {
+  case sm
+  case lg
+}
+
+component MoleculeTextButton(
+  label: String = "Button",
+  tone: MoleculeBtnTone = .primary,
+  size: MoleculeBtnSize = .sm
+) layout {
+  direction = .row
+  justify = .center
+  align = .center
+  wrap = .nowrap
+  gap = atoms.space.xs
+  cornerRadius = atoms.radius.sm
+
+  if tone == .primary {
+    background = atoms.color.sem.fromRgb
+  } else if tone == .secondary {
+    background = atoms.color.sem.fromRgba
+  } else {
+    background = atoms.color.rgb
+    opacity = 0.15
+  }
+
+  if size == .sm {
+    padding = EdgeInsets(x: 10, y: 6)
+  } else {
+    padding = EdgeInsets(x: 18, y: 12)
+  }
+
+  let L: text = {
+    content = label
+    fontSize = 14
+    fontWeight = 600
+    color = atoms.color.rgba
+  }
+
+  children = [L]
+}
+
+component MoleculeButtonRowDemo() layout {
+  direction = .row
+  justify = .start
+  align = .center
+  wrap = .wrap
+  gap = atoms.space.sm
+  padding = EdgeInsets(x: 16, y: 16)
+  background = atoms.color.sem.fromRgb
+
+  let A = MoleculeTextButton(label: "Primary sm", tone: .primary, size: .sm)
+  let B = MoleculeTextButton(label: "Secondary lg", tone: .secondary, size: .lg)
+  let C = MoleculeTextButton(label: "Ghost sm", tone: .ghost, size: .sm)
+  children = [A, B, C]
+}

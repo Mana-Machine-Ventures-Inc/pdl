@@ -1,0 +1,79 @@
+// Intricate nested ifs: kind × size controls padding, background, and label style
+
+import "foundation.pdl"
+
+variant MoleculeMatrixKind {
+  case primary
+  case secondary
+  case danger
+}
+
+variant MoleculeMatrixSize {
+  case compact
+  case regular
+}
+
+component MoleculeMatrixButton(
+  label: String = "Submit",
+  kind: MoleculeMatrixKind = .primary,
+  size: MoleculeMatrixSize = .regular
+) layout {
+  direction = .row
+  justify = .center
+  align = .center
+  wrap = .nowrap
+  cornerRadius = atoms.radius.mixed
+
+  if kind == .primary {
+    if size == .compact {
+      padding = EdgeInsets(x: 10, y: 5)
+      background = atoms.color.sem.fromRgb
+    } else {
+      padding = EdgeInsets(x: 20, y: 12)
+      background = atoms.color.rgb
+    }
+  } else if kind == .secondary {
+    if size == .compact {
+      padding = EdgeInsets(x: 8, y: 4)
+      background = atoms.color.sem.fromRgba
+    } else {
+      padding = EdgeInsets(x: 16, y: 10)
+      background = atoms.color.rgba
+    }
+  } else {
+    if size == .compact {
+      padding = EdgeInsets(x: 8, y: 4)
+      background = atoms.color.rgba
+    } else {
+      padding = EdgeInsets(x: 16, y: 10)
+      background = atoms.color.sem.fromRgb
+    }
+  }
+
+  let L: text = {
+    content = label
+    fontWeight = 600
+    color = atoms.color.sem.fromRgba
+
+    if size == .compact {
+      fontSize = 12
+    } else {
+      fontSize = 16
+    }
+  }
+
+  children = [L]
+}
+
+component MoleculeMatrixButtonGallery() layout {
+  direction = .column
+  gap = atoms.space.md
+  padding = EdgeInsets(x: 16, y: 16)
+  background = atoms.color.rgb
+
+  let R0 = MoleculeMatrixButton(label: "P compact", kind: .primary, size: .compact)
+  let R1 = MoleculeMatrixButton(label: "P regular", kind: .primary, size: .regular)
+  let R2 = MoleculeMatrixButton(label: "S compact", kind: .secondary, size: .compact)
+  let R3 = MoleculeMatrixButton(label: "D regular", kind: .danger, size: .regular)
+  children = [R0, R1, R2, R3]
+}

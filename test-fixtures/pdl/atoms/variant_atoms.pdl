@@ -1,0 +1,23 @@
+// User-defined variant types (finite enums)
+
+variant AtomsAxis {
+  case horizontal
+  case vertical
+}
+
+variant AtomsSize {
+  case sm
+  case md
+  case lg
+}
+
+variant AtomsDensity {
+  case comfortable
+  case compact
+}
+
+variant AtomsTone {
+  case neutral
+  case accent
+  case danger
+}

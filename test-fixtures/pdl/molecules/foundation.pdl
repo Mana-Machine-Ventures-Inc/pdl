@@ -1,0 +1,10 @@
+// Shared token imports for all molecule fixtures (no duplicate `atoms/design` graph).
+
+import "../atoms/tokens_color.pdl"
+import "../atoms/tokens_distance_radius.pdl"
+import "../atoms/tokens_opacity.pdl"
+import "../atoms/tokens_typography.pdl"
+import "../atoms/tokens_shadow.pdl"
+import "../atoms/tokens_icon_media_ratio.pdl"
+import "../atoms/tokens_composite_bg_fg.pdl"
+import "../atoms/typestyle_atoms.pdl"

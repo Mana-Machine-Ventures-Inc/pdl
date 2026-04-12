@@ -1,0 +1,127 @@
+// Simple labels in fixed layouts + alignment sweeps
+
+import "foundation.pdl"
+
+component MoleculeLabelStack() layout {
+  direction = .column
+  gap = atoms.space.sm
+  padding = EdgeInsets(x: atoms.space.md, y: atoms.space.md)
+  background = atoms.color.sem.fromRgb
+
+  let A: text = {
+    content = "Caption"
+    style = AtomCaption
+  }
+
+  let B: text = {
+    content = "Title line"
+    style = AtomTitle
+  }
+
+  let C: text = {
+    content = "Muted supporting copy"
+    style = AtomBody
+  }
+
+  children = [A, B, C]
+}
+
+component MoleculeLabelRowJustifySweep() layout {
+  direction = .column
+  gap = atoms.space.md
+  background = atoms.color.sem.fromRgba
+
+  let RowStart: layout = {
+    direction = .row
+    justify = .start
+    align = .center
+    gap = atoms.space.sm
+    let L: text = {
+      content = "Start"
+      fontSize = 14
+      color = atoms.color.sem.fromRgb
+    }
+    children = [L]
+  }
+
+  let RowBetween: layout = {
+    direction = .row
+    justify = .spaceBetween
+    align = .center
+    gap = atoms.space.sm
+    let A: text = {
+      content = "A"
+      fontSize = 12
+      color = atoms.color.rgb
+    }
+    let B: text = {
+      content = "B"
+      fontSize = 12
+      color = atoms.color.rgba
+    }
+    children = [A, B]
+  }
+
+  let RowEnd: layout = {
+    direction = .row
+    justify = .end
+    align = .stretch
+    gap = atoms.space.xs
+    let L: text = {
+      content = "End"
+      fontSize = 14
+      color = atoms.color.sem.fromRgba
+    }
+    children = [L]
+  }
+
+  children = [RowStart, RowBetween, RowEnd]
+}
+
+component MoleculeThreeColumnLabels() layout {
+  direction = .row
+  justify = .stretch
+  align = .stretch
+  wrap = .nowrap
+  gap = atoms.space.md
+  padding = EdgeInsets(x: 12, y: 12)
+  background = atoms.color.rgb
+
+  let Col1: layout = {
+    direction = .column
+    align = .start
+    gap = 4
+    let T: text = {
+      content = "Column 1"
+      fontSize = 13
+      color = atoms.color.sem.fromRgb
+    }
+    children = [T]
+  }
+
+  let Col2: layout = {
+    direction = .column
+    align = .center
+    gap = 4
+    let T: text = {
+      content = "Column 2"
+      fontSize = 13
+      color = atoms.color.sem.fromRgba
+    }
+    children = [T]
+  }
+
+  let Col3: layout = {
+    direction = .column
+    align = .end
+    gap = 4
+    let T: text = {
+      content = "Column 3"
+      fontSize = 13
+      color = atoms.color.rgba
+    }
+    children = [T]
+  }
+
+  children = [Col1, Col2, Col3]
+}

@@ -1,0 +1,56 @@
+// Modal shell: full-screen scrim + hug-width panel + header / body / footer
+
+import "foundation.pdl"
+import "m_02_buttons_basic.pdl"
+
+component MoleculeModalShell(
+  heading: String = "Confirm",
+  body: String = "This cannot be undone.",
+  confirmLabel: String = "Delete",
+  cancelLabel: String = "Cancel"
+) layout {
+  direction = .column
+  justify = .center
+  align = .center
+  padding = EdgeInsets(x: 24, y: 48)
+  width = .fill
+  height = .fill
+  background = atoms.color.scrimLiteral
+
+  let Panel: layout = {
+    direction = .column
+    align = .stretch
+    gap = atoms.space.md
+    padding = EdgeInsets(x: atoms.space.md, y: atoms.space.md)
+    width = .hug
+    cornerRadius = atoms.radius.mixed
+    shadow = atoms.shadow.hard
+    background = atoms.color.sem.fromRgb
+    foreground = [atoms.color.rgb @ 0.06]
+
+    let Header: text = {
+      content = heading
+      style = AtomTitle
+    }
+
+    let Copy: text = {
+      content = body
+      style = AtomBody
+    }
+
+    let Footer: layout = {
+      direction = .row
+      justify = .end
+      align = .center
+      gap = atoms.space.sm
+
+      let Cancel = MoleculeTextButton(label: cancelLabel, tone: .ghost, size: .sm)
+      let Go = MoleculeTextButton(label: confirmLabel, tone: .primary, size: .sm)
+      children = [Cancel, Go]
+    }
+
+    children = [Header, Copy, Footer]
+  }
+
+  children = [Panel]
+}

@@ -1,0 +1,3 @@
+import "merge_b.pdl"
+
+primitive color.merge.token: Color = #222222

@@ -1,0 +1,6 @@
+// Sizing as token RHS (rare per §3, but valid)
+
+primitive atoms.sizing.hug: Sizing = .hug
+primitive atoms.sizing.fill: Sizing = .fill
+primitive atoms.sizing.fixed: Sizing = .fixed(48)
+primitive atoms.sizing.flex: Sizing = .flex(min: 8, max: 120)

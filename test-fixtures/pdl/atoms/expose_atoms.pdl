@@ -1,0 +1,35 @@
+// expose: public parameter surface (subset of params)
+
+import "tokens_color.pdl"
+import "tokens_distance_radius.pdl"
+
+component AtomExposedCard(
+  title: String = "Card",
+  subtitle: String = "Subtitle",
+  showBorder: Boolean = false
+) layout {
+  direction = .column
+  gap = atoms.space.xs
+  padding = EdgeInsets(x: atoms.space.md, y: atoms.space.sm)
+  background = atoms.color.sem.fromRgb
+
+  let T: text = {
+    content = title
+    fontSize = 18
+    fontWeight = 600
+    color = atoms.color.sem.fromRgba
+  }
+
+  let S: text = {
+    content = subtitle
+    fontSize = 12
+    color = atoms.color.rgba
+  }
+
+  children = [T, S]
+}
+
+expose AtomExposedCard {
+  title
+  subtitle
+}

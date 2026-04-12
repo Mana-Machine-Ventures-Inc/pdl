@@ -1,0 +1,256 @@
+{
+  "components": [],
+  "entryPath": "<resolved>",
+  "expose": {},
+  "kind": "designGraph",
+  "modulePaths": [
+    "tokens_blur_vibrancy_ramp.pdl",
+    "tokens_color.pdl",
+    "tokens_composite_bg_fg.pdl",
+    "tokens_opacity.pdl"
+  ],
+  "previewBackground": null,
+  "primitives": [
+    {
+      "name": "atoms.blur.light",
+      "tokenType": "Blur",
+      "value": {
+        "kind": "number",
+        "value": 6
+      }
+    },
+    {
+      "name": "atoms.blur.heavy",
+      "tokenType": "Blur",
+      "value": {
+        "kind": "number",
+        "value": 24
+      }
+    },
+    {
+      "name": "atoms.vibrancy.subtle",
+      "tokenType": "Vibrancy",
+      "value": {
+        "brightness": 1.02,
+        "kind": "vibrancyTuple",
+        "saturation": 1.05
+      }
+    },
+    {
+      "name": "atoms.vibrancy.strong",
+      "tokenType": "Vibrancy",
+      "value": {
+        "brightness": 0.95,
+        "kind": "vibrancyTuple",
+        "saturation": 1.2
+      }
+    },
+    {
+      "name": "atoms.ramp.fade",
+      "tokenType": "Ramp",
+      "value": {
+        "direction": ".bottomToTop",
+        "kind": "rampInline",
+        "stops": [
+          {
+            "fields": {
+              "color": {
+                "kind": "hex",
+                "value": "#FFFFFF"
+              },
+              "opacity": {
+                "kind": "number",
+                "value": 1
+              },
+              "position": {
+                "kind": "number",
+                "value": 0
+              }
+            },
+            "kind": "gradientStop"
+          },
+          {
+            "fields": {
+              "color": {
+                "kind": "hex",
+                "value": "#000000"
+              },
+              "opacity": {
+                "kind": "number",
+                "value": 0
+              },
+              "position": {
+                "kind": "number",
+                "value": 1
+              }
+            },
+            "kind": "gradientStop"
+          }
+        ]
+      }
+    },
+    {
+      "name": "atoms.opacity.full",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "number",
+        "value": 1
+      }
+    },
+    {
+      "name": "atoms.opacity.mid",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "number",
+        "value": 0.62
+      }
+    },
+    {
+      "name": "atoms.color.rgb",
+      "tokenType": "Color",
+      "value": {
+        "kind": "hex",
+        "value": "#ABC"
+      }
+    },
+    {
+      "name": "atoms.color.rgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "hex",
+        "value": "#11223344"
+      }
+    }
+  ],
+  "schemaVersion": "1.0.0-beta",
+  "semantics": [
+    {
+      "name": "atoms.opacity.sem.mid",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.opacity.mid"
+      }
+    },
+    {
+      "name": "atoms.opacity.sem.full",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.opacity.full"
+      }
+    },
+    {
+      "name": "atoms.color.sem.fromRgb",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgb"
+      }
+    },
+    {
+      "name": "atoms.color.sem.fromRgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgba"
+      }
+    },
+    {
+      "name": "atoms.color.scrimLiteral",
+      "tokenType": "Color",
+      "value": {
+        "base": {
+          "kind": "ident",
+          "name": "atoms.color.rgb"
+        },
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.25
+        }
+      }
+    },
+    {
+      "name": "atoms.color.scrimRgba",
+      "tokenType": "Color",
+      "value": {
+        "base": {
+          "kind": "ident",
+          "name": "atoms.color.rgba"
+        },
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.5
+        }
+      }
+    },
+    {
+      "name": "atoms.bg.flat",
+      "tokenType": "Background",
+      "value": {
+        "items": [
+          {
+            "kind": "hex",
+            "value": "#E5E7EB"
+          }
+        ],
+        "kind": "array"
+      }
+    },
+    {
+      "name": "atoms.bg.blurCard",
+      "tokenType": "Background",
+      "value": {
+        "items": [
+          {
+            "args": {
+              "blur": {
+                "kind": "ident",
+                "name": "atoms.blur.light"
+              }
+            },
+            "callee": "Blur",
+            "kind": "call"
+          },
+          {
+            "base": {
+              "kind": "ident",
+              "name": "atoms.color.sem.fromRgb"
+            },
+            "kind": "opacityOf",
+            "opacity": {
+              "kind": "ident",
+              "name": "atoms.opacity.mid"
+            }
+          }
+        ],
+        "kind": "array"
+      }
+    },
+    {
+      "name": "atoms.fg.hoverTint",
+      "tokenType": "Foreground",
+      "value": {
+        "items": [
+          {
+            "base": {
+              "kind": "ident",
+              "name": "atoms.color.rgb"
+            },
+            "kind": "opacityOf",
+            "opacity": {
+              "kind": "ident",
+              "name": "atoms.opacity.mid"
+            }
+          }
+        ],
+        "kind": "array"
+      }
+    }
+  ],
+  "themes": [],
+  "typeStyles": [],
+  "variants": []
+}

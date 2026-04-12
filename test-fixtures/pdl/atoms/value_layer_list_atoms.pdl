@@ -1,0 +1,19 @@
+// Inline layer-array backgrounds on frames (scalar + multi-layer)
+
+import "tokens_color.pdl"
+import "tokens_opacity.pdl"
+
+component AtomLayerListBackground() layout {
+  direction = .column
+  padding = EdgeInsets(x: 12, y: 12)
+  background = [atoms.color.sem.fromRgb, atoms.color.rgba @ atoms.opacity.mid]
+  children = []
+}
+
+component AtomLayerForegroundTint() layout {
+  direction = .row
+  gap = 8
+  background = atoms.color.sem.fromRgb
+  foreground = [atoms.color.rgb @ 0.12]
+  children = []
+}

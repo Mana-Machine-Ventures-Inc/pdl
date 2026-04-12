@@ -1,0 +1,10 @@
+component Greeting(title: String = "Hello") layout {
+  direction = .column
+  padding = EdgeInsets(x: 16, y: 16)
+
+  let Title: text = {
+    content = title
+  }
+
+  children = [Title]
+}

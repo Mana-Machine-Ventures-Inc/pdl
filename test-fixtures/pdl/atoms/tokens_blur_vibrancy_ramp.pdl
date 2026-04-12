@@ -1,0 +1,13 @@
+// Blur, Vibrancy, Ramp
+
+primitive atoms.blur.light: Blur = 6
+primitive atoms.blur.heavy: Blur = 24
+primitive atoms.vibrancy.subtle: Vibrancy = (saturation: 1.05, brightness: 1.02)
+primitive atoms.vibrancy.strong: Vibrancy = (saturation: 1.2, brightness: 0.95)
+primitive atoms.ramp.fade: Ramp = (
+  direction: .bottomToTop,
+  stops: [
+    GradientStop(position: 0, opacity: 1, color: #FFFFFF),
+    GradientStop(position: 1, opacity: 0, color: #000000)
+  ]
+)

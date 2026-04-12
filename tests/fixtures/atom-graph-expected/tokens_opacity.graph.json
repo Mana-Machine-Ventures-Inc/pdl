@@ -1,0 +1,50 @@
+{
+  "components": [],
+  "entryPath": "<resolved>",
+  "expose": {},
+  "kind": "designGraph",
+  "modulePaths": [
+    "tokens_opacity.pdl"
+  ],
+  "previewBackground": null,
+  "primitives": [
+    {
+      "name": "atoms.opacity.full",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "number",
+        "value": 1
+      }
+    },
+    {
+      "name": "atoms.opacity.mid",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "number",
+        "value": 0.62
+      }
+    }
+  ],
+  "schemaVersion": "1.0.0-beta",
+  "semantics": [
+    {
+      "name": "atoms.opacity.sem.mid",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.opacity.mid"
+      }
+    },
+    {
+      "name": "atoms.opacity.sem.full",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.opacity.full"
+      }
+    }
+  ],
+  "themes": [],
+  "typeStyles": [],
+  "variants": []
+}

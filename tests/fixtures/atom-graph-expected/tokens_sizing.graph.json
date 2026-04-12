@@ -1,0 +1,60 @@
+{
+  "components": [],
+  "entryPath": "<resolved>",
+  "expose": {},
+  "kind": "designGraph",
+  "modulePaths": [
+    "tokens_sizing.pdl"
+  ],
+  "previewBackground": null,
+  "primitives": [
+    {
+      "name": "atoms.sizing.hug",
+      "tokenType": "Sizing",
+      "value": {
+        "kind": "sizing",
+        "mode": "hug"
+      }
+    },
+    {
+      "name": "atoms.sizing.fill",
+      "tokenType": "Sizing",
+      "value": {
+        "kind": "sizing",
+        "mode": "fill"
+      }
+    },
+    {
+      "name": "atoms.sizing.fixed",
+      "tokenType": "Sizing",
+      "value": {
+        "fixed": 48,
+        "kind": "sizing",
+        "mode": "fixed"
+      }
+    },
+    {
+      "name": "atoms.sizing.flex",
+      "tokenType": "Sizing",
+      "value": {
+        "flexArgs": {
+          "max": {
+            "kind": "number",
+            "value": 120
+          },
+          "min": {
+            "kind": "number",
+            "value": 8
+          }
+        },
+        "kind": "sizing",
+        "mode": "flex"
+      }
+    }
+  ],
+  "schemaVersion": "1.0.0-beta",
+  "semantics": [],
+  "themes": [],
+  "typeStyles": [],
+  "variants": []
+}

@@ -1,0 +1,37 @@
+// Master entry: all atom fixtures (merge order = dependency-safe, then feature modules).
+
+previewBackground atoms.color.sem.fromRgb
+
+// --- Token types (§3 / §21 token-type-name) ---
+import "tokens_opacity.pdl"
+import "tokens_color.pdl"
+import "tokens_distance_radius.pdl"
+import "tokens_shadow.pdl"
+import "tokens_icon_media_ratio.pdl"
+import "tokens_typography.pdl"
+import "tokens_sizing.pdl"
+import "tokens_motion.pdl"
+import "tokens_blur_vibrancy_ramp.pdl"
+import "tokens_composite_bg_fg.pdl"
+
+// --- Themes & typography presets ---
+import "theme_atoms.pdl"
+import "typestyle_atoms.pdl"
+import "variant_atoms.pdl"
+
+// --- Value forms on frames ---
+import "value_layer_list_atoms.pdl"
+
+// --- layout / text / icon / media ---
+import "layout_enums_atoms.pdl"
+import "layout_flex_child_atoms.pdl"
+import "text_atoms.pdl"
+import "icon_atoms.pdl"
+import "media_atoms.pdl"
+
+// --- Composition & API ---
+import "deferred_children_atoms.pdl"
+import "conditional_variant_atoms.pdl"
+import "component_param_types_atoms.pdl"
+import "expose_atoms.pdl"
+import "nested_instance_atoms.pdl"

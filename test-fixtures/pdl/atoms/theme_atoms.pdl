@@ -1,0 +1,15 @@
+// Theme override bundles
+
+import "tokens_color.pdl"
+
+theme AtomsWarm {
+  atoms.color.sem.fromRgb = atoms.color.rgba
+}
+
+theme AtomsCool {
+  atoms.color.sem.fromRgb = atoms.color.rgb
+}
+
+theme AtomsDim {
+  atoms.color.scrimLiteral = atoms.color.sem.fromRgba
+}

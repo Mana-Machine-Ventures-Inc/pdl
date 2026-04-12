@@ -1,0 +1,10 @@
+primitive color.bg: Color = #FFFFFF
+
+theme Dark {
+  color.bg = #000000
+}
+
+component Box() layout {
+  background = color.bg
+  children = []
+}

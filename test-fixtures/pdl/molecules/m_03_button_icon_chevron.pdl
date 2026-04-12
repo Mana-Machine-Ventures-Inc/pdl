@@ -1,0 +1,65 @@
+// Leading / trailing icon + label + optional chevron (structural children via variant)
+
+import "foundation.pdl"
+
+variant MoleculeIconMode {
+  case textOnly
+  case leadingIcon
+  case trailingChevron
+  case both
+}
+
+component MoleculeIconTextRow(
+  label: String = "Continue",
+  mode: MoleculeIconMode = .textOnly
+) layout {
+  direction = .row
+  justify = .start
+  align = .center
+  gap = atoms.space.sm
+  padding = EdgeInsets(x: 14, y: 10)
+  cornerRadius = atoms.radius.sm
+  background = atoms.color.sem.fromRgb
+
+  let T: text = {
+    content = label
+    fontSize = 15
+    fontWeight = 600
+    color = atoms.color.sem.fromRgba
+  }
+
+  let Lead: icon = {
+    icon = atoms.icon.star
+    size = 20
+    color = atoms.color.rgba
+  }
+
+  let Chev: icon = {
+    icon = atoms.icon.chevron
+    size = 18
+    color = atoms.color.rgba
+  }
+
+  if mode == .textOnly {
+    children = [T]
+  } else if mode == .leadingIcon {
+    children = [Lead, T]
+  } else if mode == .trailingChevron {
+    children = [T, Chev]
+  } else {
+    children = [Lead, T, Chev]
+  }
+}
+
+component MoleculeIconModeGallery() layout {
+  direction = .column
+  gap = atoms.space.md
+  padding = EdgeInsets(x: 16, y: 16)
+  background = atoms.color.sem.fromRgba
+
+  let R0 = MoleculeIconTextRow(label: "Text only", mode: .textOnly)
+  let R1 = MoleculeIconTextRow(label: "Leading", mode: .leadingIcon)
+  let R2 = MoleculeIconTextRow(label: "Chevron", mode: .trailingChevron)
+  let R3 = MoleculeIconTextRow(label: "Both", mode: .both)
+  children = [R0, R1, R2, R3]
+}

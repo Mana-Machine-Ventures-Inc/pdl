@@ -1,0 +1,32 @@
+// typeStyle presets (referenced by name from text atoms)
+
+import "tokens_typography.pdl"
+import "tokens_color.pdl"
+
+typeStyle AtomCaption {
+  fontFamily = atoms.font.ui
+  fontSize = atoms.type.size.caption
+  fontWeight = atoms.type.weight.medium
+  color = atoms.color.sem.fromRgb
+}
+
+typeStyle AtomBody {
+  fontFamily = atoms.font.ui
+  fontSize = atoms.type.size.body
+  fontWeight = atoms.type.weight.regular
+  color = atoms.color.sem.fromRgba
+}
+
+typeStyle AtomTitle {
+  fontFamily = atoms.font.ui
+  fontSize = atoms.type.size.title
+  fontWeight = atoms.type.weight.bold
+  color = atoms.color.rgb
+}
+
+typeStyle AtomMono {
+  fontFamily = atoms.font.mono
+  fontSize = atoms.type.size.caption
+  fontWeight = atoms.type.weight.regular
+  color = atoms.color.rgba
+}

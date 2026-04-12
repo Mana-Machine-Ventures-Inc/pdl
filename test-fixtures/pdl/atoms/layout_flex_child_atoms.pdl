@@ -1,0 +1,53 @@
+// layout child-only: alignSelf, grow, shrink, position, inset
+
+import "tokens_color.pdl"
+import "tokens_distance_radius.pdl"
+
+component AtomFlexChildGrow() layout {
+  direction = .row
+  justify = .start
+  align = .stretch
+  wrap = .nowrap
+  gap = atoms.space.sm
+  background = atoms.color.sem.fromRgb
+
+  let A: layout = {
+    direction = .column
+    grow = 1
+    shrink = 1
+    alignSelf = .stretch
+    background = atoms.color.rgba
+    children = []
+  }
+
+  let B: layout = {
+    direction = .column
+    grow = 0
+    shrink = 0
+    alignSelf = .end
+    background = atoms.color.sem.fromRgba
+    children = []
+  }
+
+  children = [A, B]
+}
+
+component AtomFlexChildAbsolute() layout {
+  direction = .row
+  justify = .start
+  align = .start
+  wrap = .nowrap
+  padding = EdgeInsets(x: 16, y: 16)
+  background = atoms.color.sem.fromRgb
+
+  let Floated: layout = {
+    direction = .column
+    position = .absolute
+    inset = EdgeInsets(top: 4, right: 4, bottom: 4, left: 4)
+    alignSelf = .auto
+    background = atoms.color.rgb
+    children = []
+  }
+
+  children = [Floated]
+}

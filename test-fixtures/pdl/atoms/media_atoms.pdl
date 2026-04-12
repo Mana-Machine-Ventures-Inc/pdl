@@ -1,0 +1,50 @@
+// media: source, contentMode, objectPosition, aspectRatio
+
+import "tokens_color.pdl"
+import "tokens_distance_radius.pdl"
+import "tokens_icon_media_ratio.pdl"
+
+component AtomMediaCover() layout {
+  direction = .column
+  background = atoms.color.sem.fromRgb
+
+  let M: media = {
+    source = atoms.media.hero
+    contentMode = .cover
+    objectPosition = .center
+    aspectRatio = atoms.ratio.video
+    cornerRadius = atoms.radius.sm
+  }
+
+  children = [M]
+}
+
+component AtomMediaContainCorners() layout {
+  direction = .column
+  background = atoms.color.sem.fromRgba
+
+  let M: media = {
+    source = "https://example.com/poster.jpg"
+    contentMode = .contain
+    objectPosition = .topLeft
+    width = .fill
+    height = .fixed(180)
+    background = atoms.color.rgb
+  }
+
+  children = [M]
+}
+
+component AtomMediaScaleDown() layout {
+  direction = .column
+  background = atoms.color.rgba
+
+  let M: media = {
+    source = "asset://local.png"
+    contentMode = .scaleDown
+    objectPosition = .bottomRight
+    opacity = 0.92
+  }
+
+  children = [M]
+}

@@ -1,0 +1,80 @@
+{
+  "components": [],
+  "entryPath": "<resolved>",
+  "expose": {},
+  "kind": "designGraph",
+  "modulePaths": [
+    "tokens_color.pdl"
+  ],
+  "previewBackground": null,
+  "primitives": [
+    {
+      "name": "atoms.color.rgb",
+      "tokenType": "Color",
+      "value": {
+        "kind": "hex",
+        "value": "#ABC"
+      }
+    },
+    {
+      "name": "atoms.color.rgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "hex",
+        "value": "#11223344"
+      }
+    }
+  ],
+  "schemaVersion": "1.0.0-beta",
+  "semantics": [
+    {
+      "name": "atoms.color.sem.fromRgb",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgb"
+      }
+    },
+    {
+      "name": "atoms.color.sem.fromRgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgba"
+      }
+    },
+    {
+      "name": "atoms.color.scrimLiteral",
+      "tokenType": "Color",
+      "value": {
+        "base": {
+          "kind": "ident",
+          "name": "atoms.color.rgb"
+        },
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.25
+        }
+      }
+    },
+    {
+      "name": "atoms.color.scrimRgba",
+      "tokenType": "Color",
+      "value": {
+        "base": {
+          "kind": "ident",
+          "name": "atoms.color.rgba"
+        },
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.5
+        }
+      }
+    }
+  ],
+  "themes": [],
+  "typeStyles": [],
+  "variants": []
+}

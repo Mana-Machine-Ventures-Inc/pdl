@@ -1,0 +1,84 @@
+{
+  "components": [],
+  "entryPath": "<resolved>",
+  "expose": {},
+  "kind": "designGraph",
+  "modulePaths": [
+    "tokens_motion.pdl"
+  ],
+  "previewBackground": null,
+  "primitives": [
+    {
+      "name": "atoms.motion.fast",
+      "tokenType": "Duration",
+      "value": {
+        "kind": "number",
+        "value": 120
+      }
+    },
+    {
+      "name": "atoms.motion.slow",
+      "tokenType": "Duration",
+      "value": {
+        "kind": "number",
+        "value": 320
+      }
+    },
+    {
+      "name": "atoms.motion.ease.linear",
+      "tokenType": "Easing",
+      "value": {
+        "kind": "string",
+        "value": "linear"
+      }
+    },
+    {
+      "name": "atoms.motion.ease.standard",
+      "tokenType": "Easing",
+      "value": {
+        "kind": "string",
+        "value": "cubic-bezier(0.2, 0, 0, 1)"
+      }
+    }
+  ],
+  "schemaVersion": "1.0.0-beta",
+  "semantics": [
+    {
+      "name": "atoms.motion.transition.quick",
+      "tokenType": "Transition",
+      "value": {
+        "duration": {
+          "kind": "ident",
+          "name": "atoms.motion.fast"
+        },
+        "easing": {
+          "kind": "ident",
+          "name": "atoms.motion.ease.linear"
+        },
+        "kind": "transition"
+      }
+    },
+    {
+      "name": "atoms.motion.transition.smooth",
+      "tokenType": "Transition",
+      "value": {
+        "delay": {
+          "kind": "ident",
+          "name": "atoms.motion.fast"
+        },
+        "duration": {
+          "kind": "ident",
+          "name": "atoms.motion.slow"
+        },
+        "easing": {
+          "kind": "ident",
+          "name": "atoms.motion.ease.standard"
+        },
+        "kind": "transition"
+      }
+    }
+  ],
+  "themes": [],
+  "typeStyles": [],
+  "variants": []
+}

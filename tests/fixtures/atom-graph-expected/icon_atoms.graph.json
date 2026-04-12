@@ -1,0 +1,392 @@
+{
+  "components": [
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.md"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".center"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "icon",
+              "value": {
+                "kind": "string",
+                "value": "check"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "size",
+              "value": {
+                "kind": "number",
+                "value": 20
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "color",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.rgba"
+              }
+            }
+          ],
+          "frameKind": "icon",
+          "id": "A",
+          "kind": "let"
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "icon",
+              "value": {
+                "kind": "string",
+                "value": "close"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "size",
+              "value": {
+                "kind": "number",
+                "value": 24
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "color",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.rgb"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "opacity",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.opacity.mid"
+              }
+            }
+          ],
+          "frameKind": "icon",
+          "id": "B",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "A",
+              "kind": "frameRef"
+            },
+            {
+              "id": "B",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomIconDefault",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.sm"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgba"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "icon",
+              "value": {
+                "kind": "string",
+                "value": "menu"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "width",
+              "value": {
+                "fixed": 32,
+                "kind": "sizing",
+                "mode": "fixed"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "height",
+              "value": {
+                "fixed": 32,
+                "kind": "sizing",
+                "mode": "fixed"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "color",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.sem.fromRgb"
+              }
+            }
+          ],
+          "frameKind": "icon",
+          "id": "W",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "W",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomIconSizing",
+      "params": [],
+      "rootKind": "layout"
+    }
+  ],
+  "entryPath": "<resolved>",
+  "expose": {},
+  "kind": "designGraph",
+  "modulePaths": [
+    "icon_atoms.pdl",
+    "tokens_color.pdl",
+    "tokens_distance_radius.pdl",
+    "tokens_opacity.pdl"
+  ],
+  "previewBackground": null,
+  "primitives": [
+    {
+      "name": "atoms.color.rgb",
+      "tokenType": "Color",
+      "value": {
+        "kind": "hex",
+        "value": "#ABC"
+      }
+    },
+    {
+      "name": "atoms.color.rgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "hex",
+        "value": "#11223344"
+      }
+    },
+    {
+      "name": "atoms.space.xs",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 4
+      }
+    },
+    {
+      "name": "atoms.space.sm",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 8
+      }
+    },
+    {
+      "name": "atoms.space.md",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 16
+      }
+    },
+    {
+      "name": "atoms.radius.sm",
+      "tokenType": "Radius",
+      "value": {
+        "kind": "number",
+        "value": 4
+      }
+    },
+    {
+      "name": "atoms.radius.mixed",
+      "tokenType": "Radius",
+      "value": {
+        "bl": {
+          "kind": "number",
+          "value": 2
+        },
+        "br": {
+          "kind": "number",
+          "value": 2
+        },
+        "kind": "corner",
+        "tl": {
+          "kind": "number",
+          "value": 8
+        },
+        "tr": {
+          "kind": "number",
+          "value": 8
+        }
+      }
+    },
+    {
+      "name": "atoms.opacity.full",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "number",
+        "value": 1
+      }
+    },
+    {
+      "name": "atoms.opacity.mid",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "number",
+        "value": 0.62
+      }
+    }
+  ],
+  "schemaVersion": "1.0.0-beta",
+  "semantics": [
+    {
+      "name": "atoms.color.sem.fromRgb",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgb"
+      }
+    },
+    {
+      "name": "atoms.color.sem.fromRgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgba"
+      }
+    },
+    {
+      "name": "atoms.color.scrimLiteral",
+      "tokenType": "Color",
+      "value": {
+        "base": {
+          "kind": "ident",
+          "name": "atoms.color.rgb"
+        },
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.25
+        }
+      }
+    },
+    {
+      "name": "atoms.color.scrimRgba",
+      "tokenType": "Color",
+      "value": {
+        "base": {
+          "kind": "ident",
+          "name": "atoms.color.rgba"
+        },
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.5
+        }
+      }
+    },
+    {
+      "name": "atoms.space.card.pad",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.space.md"
+      }
+    },
+    {
+      "name": "atoms.radius.card",
+      "tokenType": "Radius",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.radius.mixed"
+      }
+    },
+    {
+      "name": "atoms.opacity.sem.mid",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.opacity.mid"
+      }
+    },
+    {
+      "name": "atoms.opacity.sem.full",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.opacity.full"
+      }
+    }
+  ],
+  "themes": [],
+  "typeStyles": [],
+  "variants": []
+}

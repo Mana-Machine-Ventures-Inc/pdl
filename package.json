@@ -1,0 +1,28 @@
+{
+  "name": "pdl",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PDL (Programmatic Design Language) compiler toolchain",
+  "type": "module",
+  "bin": {
+    "pdl": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "graph": "node dist/cli.js graph",
+    "resolve": "node dist/cli.js resolve",
+    "catalogue": "node dist/cli.js catalogue",
+    "test": "npm run build && vitest run",
+    "test:update-atom-graphs": "npm run build && node scripts/regenerate-atom-graph-goldens.mjs",
+    "test:update-molecule-graphs": "npm run build && node scripts/regenerate-molecule-graph-goldens.mjs",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "typescript": "^5.8.2",
+    "vitest": "^3.1.1"
+  }
+}

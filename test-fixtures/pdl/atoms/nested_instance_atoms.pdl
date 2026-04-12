@@ -1,0 +1,15 @@
+// Component instances as children + let = Instance()
+
+import "tokens_color.pdl"
+import "tokens_distance_radius.pdl"
+import "text_atoms.pdl"
+
+component AtomNestedWrapper() layout {
+  direction = .column
+  gap = atoms.space.md
+  padding = EdgeInsets(x: atoms.space.sm, y: atoms.space.sm)
+  background = atoms.color.sem.fromRgb
+
+  let Inner = AtomTextPlain()
+  children = [Inner]
+}

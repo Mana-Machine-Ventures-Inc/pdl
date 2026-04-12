@@ -25,6 +25,7 @@
 
 **Implementer Reference**
 16. [Component Catalogue and Pipeline](#16-component-catalogue-and-pipeline)
+16b. [Design graph JSON (merged AST snapshot)](#16b-design-graph-json-merged-ast-snapshot)
 17. [Emitters, Compiler Targets, and the Design Manifest](#17-emitters-compiler-targets-and-the-design-manifest)
 18. [Regeneration Checklist](#18-regeneration-checklist)
 19. [Open Spec Items](#19-open-spec-items)
@@ -1387,7 +1388,7 @@ From project root (`package.json` scripts):
 
 | Command | Purpose |
 |---------|---------|
-| `npm run graph -- <entry.pdl>` | Print **design graph** JSON (§16) |
+| `npm run graph -- <entry.pdl>` | Print **design graph** JSON (§16b) |
 | `npm run resolve -- <file> <Component> key=value …` | Print **resolved instance** JSON |
 | `npm run html -- <file> <Component> …` | Emit `output.html` |
 | `npm run preview -- [entry.pdl]` | Local preview server with reload |
@@ -2768,6 +2769,8 @@ When the language changes:
 
 This chapter describes how PDL source files become the **Component Catalogue** — the primary handoff format for emitters like Kotlin, SwiftUI, React, and HTML generators. The goal is simple: emitter authors should be able to pick up the catalogue JSON and start writing code without needing to understand PDL syntax, implement a parser, or chase unresolved references.
 
+For the separate **design graph** JSON (merged parse tree / AST snapshot from tooling such as `npm run graph`), see **§16b**.
+
 ---
 
 ## 1. The compilation pipeline
@@ -3038,6 +3041,237 @@ When `--theme` is specified multiple times, one catalogue file is generated per 
 ## 5. Versioning
 
 The `schemaVersion` field follows the same semantic versioning as the rest of PDL (§26). Emitters should check `schemaVersion` on load and refuse or warn if they encounter a version they were not built against. Adding new optional fields to the catalogue is a minor version bump; changing existing field names or removing fields is a major bump.
+
+---
+
+## 16b — Design graph JSON (merged AST snapshot)
+
+This section documents the **design graph** JSON object: a serialisation of the **merged, parsed design definition** (tokens, themes, variants, type styles, components with frame bodies, and `expose` metadata) **before** catalogue-time resolution into per-variant resolved trees.
+
+**Relationship to §16:** The **Component Catalogue** (§16) is the emitter-facing artefact with flat resolved tokens, base trees, and variant deltas. The **design graph** is a separate, more syntax-adjacent snapshot intended for **tooling, tests, diffing, and documentation** — it preserves `ValueExpr` trees, `if` chains, and raw component bodies.
+
+**Normative status:** **TODO:** Decide whether this shape becomes **normative** (required of all conforming toolchains), remains **reference documentation** aligned to the open-source reference implementation only, or is superseded by the **design manifest** (§17) with a reduced field set.
+
+**Reference implementation:** `buildDesignGraph` and `serialiseValueExpr` in `src/graph.ts` (schema version string is shared with the broader PDL `1.0.0-beta` contract).
+
+---
+
+### 1. Top-level object
+
+The root value is a JSON **object** with **exactly** the following keys (reference tests treat the key **set** as stable; **TODO:** specify whether key **ordering** is significant for conforming emitters).
+
+| Key | Type | Meaning |
+|-----|------|---------|
+| `kind` | string | Always **`"designGraph"`** — discriminant for multi-schema bundles. |
+| `schemaVersion` | string | PDL schema / tooling version (reference: **`"1.0.0-beta"`**). **TODO:** Align explicitly with §26 versioning when the graph becomes normative. |
+| `entryPath` | string | Absolute or normalised path to the **entry** `.pdl` file used to build the graph. **TODO:** Specify normalisation (POSIX vs host paths, symlinks, workspace roots) for reproducible CI output. |
+| `modulePaths` | string[] | Merge **post-order** list of `.pdl` modules that contributed to the merged definition (dependencies before dependents). **TODO:** Confirm merge order vs §2 prose for “last wins” is identical to this ordering’s semantics. |
+| `previewBackground` | string \| null | Token **name** from `previewBackground <name>` when present; otherwise **`null`**. **TODO:** Confirm whether this should be a serialised `ValueExpr` or resolved colour when preview pipelines evolve. |
+| `primitives` | array | One object per merged **`primitive`** (see §3.1). |
+| `semantics` | array | One object per merged **`semantic`** (see §3.1). |
+| `themes` | array | One object per merged **`theme`**. |
+| `variants` | array | One object per merged **`variant`**. |
+| `typeStyles` | array | One object per merged **`typeStyle`**. |
+| `components` | array | One object per merged **`component`**. |
+| `expose` | object | Map **component name** → **string[]** of exposed parameter names (last `expose` block per component wins at merge). Keys are sorted lexicographically in the reference implementation’s pretty-printer; **TODO:** normative sort order for deterministic bytes on stdout. |
+
+**Not included in the design graph (reference implementation):** `import` lines (only reflected indirectly via `modulePaths`), **`interaction`**, **`fixtures`**, **`usage`**, **`rules`**, **`extend`** — these are not represented in `buildDesignGraph` output today. **TODO:** Extend the graph (or define a companion slice) when those declarations are merged into `DesignDefinition`.
+
+---
+
+### 2. Token declarations (`primitives` / `semantics`)
+
+Each element:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `name` | string | Fully qualified token name (e.g. `atoms.color.rgb`). |
+| `tokenType` | string | RHS type name from the declaration (`Color`, `Distance`, `Icon`, `Background`, …). |
+| `value` | `SerialisedValueExpr` | Parsed RHS (§4). |
+
+---
+
+### 3. Themes (`themes`)
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `name` | string | Theme identifier. |
+| `baseTheme` | string \| null | Optional **`theme Name : Base`** base name when parsed; **`null`** if omitted. **TODO:** Document / wire resolution when base-theme inheritance is implemented (see implementation notes). |
+| `overrides` | object | Map **semantic token name** → **`SerialisedValueExpr`** for entries inside the theme block. |
+
+---
+
+### 4. Variants (`variants`)
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `name` | string | Variant type name. |
+| `cases` | string[] | Case identifiers **without** a leading dot (e.g. `"primary"`, `"secondary"`). **TODO:** Confirm this matches dot-enum stripping everywhere else (catalogue uses bare strings). |
+
+---
+
+### 5. Type styles (`typeStyles`)
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `name` | string | `typeStyle` name. |
+| `props` | object | Map **property name** → **`SerialisedValueExpr`** (text-related frame properties as in source). |
+
+---
+
+### 6. Components (`components`)
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `name` | string | Component name. |
+| `params` | array | Parameter descriptors (below). |
+| `rootKind` | string | One of **`layout`**, **`text`**, **`icon`**, **`media`**. |
+| `body` | `FrameBodyItem[]` | Ordered list of frame-body statements (§6.1). |
+
+**Parameter object:**
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `name` | string | Parameter name. |
+| `typeName` | string | Declared type (`String`, `Number`, `Boolean`, `Icon`, user `variant` name, …). |
+| `defaultValue` | `SerialisedValueExpr` | Parsed default expression. |
+
+---
+
+### 6.1 Frame body (`FrameBodyItem[]`)
+
+Each item is a tagged object with **`kind`**:
+
+| `kind` | Additional fields | Meaning |
+|--------|-------------------|---------|
+| **`prop`** | `name`, `value` | Assignment on the **current** frame (`root` or inner `let` being filled). |
+| **`frameProp`** | `frame`, `name`, `value` | Deferred assignment **`FrameId.prop = value`** (e.g. `Row.children = […]`). |
+| **`children`** | `target`, `entries` | Child list assignment. **`target`**: **`"root"`** or **`{ "letId": "<id>" }`**. **`entries`**: `ChildEntry[]` (§6.2). |
+| **`let`** | `id`, `frameKind`, `body` | Nested frame: **`let Id: kind = { … }`**. `frameKind` is one of `layout` / `text` / `icon` / `media`. `body` is a nested `FrameBodyItem[]`. |
+| **`letInstance`** | `id`, `component`, `kwargs` | Component instance: **`let Id = Other(…)`** style (exact surface syntax **TODO:** cross-link §7 / §21 once instance grammar is fully specified in prose). |
+| **`if`** | `chain` | Conditional override chain (§6.3). |
+
+**TODO:** Confirm whether `self.` / normalised forms appear in `frame` / `name` or are always canonicalised away.
+
+---
+
+### 6.2 Child entries (`ChildEntry`)
+
+| `kind` | Fields | Meaning |
+|--------|--------|---------|
+| **`frameRef`** | `id` | Reference to a **`let`** id in `children = [A, B]`. |
+| **`spacer`** | _(none)_ | **`.spacer`** pseudo-child. |
+| **`instance`** | `component`, `kwargs` | Embedded component: **`component`**: name; **`kwargs`**: map param name → **`SerialisedValueExpr`**. |
+
+---
+
+### 6.3 Conditional chains (`if`)
+
+`chain` object:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `branches` | array | Ordered list of `{ "condition": ConditionExpr, "body": FrameBodyItem[] }`. |
+| `elseBody` | `FrameBodyItem[]` \| omitted | Optional final **`else { … }`** branch. |
+
+**`ConditionExpr`:**
+
+| `kind` | Fields | Meaning |
+|--------|--------|---------|
+| **`cmp`** | `param`, `op`, `rhs` | **`param`** is the LHS identifier. **`op`**: **`==`** or **`!=`**. **`rhs`**: the **lexeme** of the dot-enum (reference: includes the **`.`** prefix, e.g. **`".warning"`**). **TODO:** Harmonise with catalogue convention (bare `"warning"` strings) if the graph becomes normative. |
+| **`and`** | `items` | Conjunction of nested `ConditionExpr`. |
+| **`or`** | `items` | Disjunction of nested `ConditionExpr`. |
+
+**TODO:** Document mixed `&&` / `||` parenthesis rules (parser rejects certain mixes; mirror §7 / §21).
+
+---
+
+### 7. Serialised value expressions (`SerialisedValueExpr`)
+
+Literal and composite RHS values from PDL appear as nested JSON objects. Every node has **`kind`**.
+
+| `kind` | Shape | Notes |
+|--------|-------|-------|
+| **`hex`** | `{ "kind": "hex", "value": "<#RRGGBB…>" }` | Unquoted hex from source. |
+| **`string`** | `{ "kind": "string", "value": "…" }` | |
+| **`number`** | `{ "kind": "number", "value": <number> }` | |
+| **`boolean`** | `{ "kind": "boolean", "value": true \| false }` | |
+| **`ident`** | `{ "kind": "ident", "name": "token.or.Qualified" }` | Token or qualified name as authored. |
+| **`dotEnum`** | `{ "kind": "dotEnum", "value": ".caseName" }` | Includes leading `.` in reference output. |
+| **`opacityOf`** | `{ "kind": "opacityOf", "base": …, "opacity": … }` | Colour `@` opacity / multiplier. |
+| **`edgeInsets`** | `{ "kind": "edgeInsets", "variant": "xy" \| "trbl", "fields": { … } }` | Each field maps to nested `SerialisedValueExpr`. |
+| **`corner`** | `{ "kind": "corner", "tl", "tr", "br", "bl" }` | Each corner is a `SerialisedValueExpr`. |
+| **`array`** | `{ "kind": "array", "items": [ … ] }` | Layer lists, child literal arrays in values, etc. |
+| **`transition`** | `{ "kind": "transition", "duration", "easing", "delay"? }` | **TODO:** Confirm where transitions appear in merged defs vs catalogue-only. |
+| **`vibrancyTuple`** | `{ "kind": "vibrancyTuple", "saturation": number, "brightness": number }` | Inline vibrancy tuple. |
+| **`rampInline`** | `{ "kind": "rampInline", "direction": string, "stops": [ … ] }` | **`direction`** stores the parsed enum lexeme. **TODO:** Normalise to bare string vs dot form. |
+| **`sizing`** | `{ "kind": "sizing", "mode": "hug" \| "fill" \| "fixed" \| "flex", "fixed"?, "flexArgs"? }` | For `.fixed(n)`, `fixed` is numeric. For `.flex(…)`, `flexArgs` maps argument labels → `SerialisedValueExpr`. **TODO:** Document full flex argument set (`min`, `max`, `preferred`). |
+| **`call`** | `{ "kind": "call", "callee": "Color" \| "Ramp" \| "Blur" \| "Media" \| "Vibrancy", "args": { … } }` | Layer constructors and similar keyword calls; **`args`** values are `SerialisedValueExpr`. |
+| **`gradientStop`** | `{ "kind": "gradientStop", "fields": { … } }` | **TODO:** List allowed field keys (`position`, `opacity`, `color`, …) normatively. |
+| **`unknown`** | `{ "kind": "unknown" }` | Fallback when the reference `serialiseValueExpr` encounters an AST node it does not serialise. **TODO:** Specify whether conforming implementations **must** error instead of emitting `unknown`. |
+
+**TODO:** Provide a single JSON Schema (`design-graph.schema.json`) mirroring this section for validators.
+
+---
+
+### 8. Minimal example (illustrative, truncated)
+
+```json
+{
+  "kind": "designGraph",
+  "schemaVersion": "1.0.0-beta",
+  "entryPath": "/abs/path/design.pdl",
+  "modulePaths": ["tokens.pdl", "design.pdl"],
+  "previewBackground": null,
+  "primitives": [
+    { "name": "color.bg", "tokenType": "Color", "value": { "kind": "hex", "value": "#FFFFFF" } }
+  ],
+  "semantics": [],
+  "themes": [],
+  "variants": [{ "name": "Tone", "cases": ["neutral", "danger"] }],
+  "typeStyles": [],
+  "components": [
+    {
+      "name": "Banner",
+      "params": [
+        { "name": "tone", "typeName": "Tone", "defaultValue": { "kind": "dotEnum", "value": ".neutral" } },
+        { "name": "label", "typeName": "String", "defaultValue": { "kind": "string", "value": "Hello" } }
+      ],
+      "rootKind": "layout",
+      "body": [
+        { "kind": "prop", "name": "direction", "value": { "kind": "dotEnum", "value": ".column" } },
+        {
+          "kind": "let",
+          "id": "Message",
+          "frameKind": "text",
+          "body": [
+            { "kind": "prop", "name": "content", "value": { "kind": "ident", "name": "label" } },
+            {
+              "kind": "if",
+              "chain": {
+                "branches": [
+                  {
+                    "condition": { "kind": "cmp", "param": "tone", "op": "==", "rhs": ".danger" },
+                    "body": [{ "kind": "prop", "name": "color", "value": { "kind": "ident", "name": "color.status.danger" } }]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        { "kind": "children", "target": "root", "entries": [{ "kind": "frameRef", "id": "Message" }] }
+      ]
+    }
+  ],
+  "expose": { "Banner": ["tone", "label"] }
+}
+```
+
+---
+
+### 9. Stability and testing
+
+Golden-file tests may normalise **`entryPath`** to a sentinel and sort **`modulePaths`** by basename only — **TODO:** If the graph becomes normative, specify the **canonical serialisation** (sorted keys, sorted maps, number formatting) or explicitly declare such transforms **non-normative test normalisation only**.
 
 ---
 

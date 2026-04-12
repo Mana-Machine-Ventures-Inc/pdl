@@ -1,0 +1,118 @@
+// Hug / fill / flex / fixed in awkward combinations (column-in-row, nested stretch)
+
+import "foundation.pdl"
+
+component MoleculeHugFillLabyrinth() layout {
+  direction = .row
+  justify = .start
+  align = .stretch
+  wrap = .nowrap
+  gap = atoms.space.sm
+  padding = EdgeInsets(x: 12, y: 12)
+  width = .fill
+  height = .fixed(220)
+  background = atoms.color.sem.fromRgb
+
+  let NarrowHug: layout = {
+    direction = .column
+    width = .hug
+    height = .fill
+    justify = .spaceBetween
+    align = .stretch
+    padding = EdgeInsets(x: 6, y: 6)
+    gap = atoms.space.xs
+    background = atoms.color.rgba
+
+    let Top: text = {
+      content = "Hug×Fill"
+      fontSize = 11
+      color = atoms.color.sem.fromRgb
+    }
+
+    let Bottom: layout = {
+      direction = .row
+      width = .fill
+      height = .hug
+      justify = .end
+      background = atoms.color.sem.fromRgba
+      children = []
+    }
+
+    children = [Top, Bottom]
+  }
+
+  let FlexMiddle: layout = {
+    direction = .column
+    width = .flex(min: 40, max: 200)
+    height = .hug
+    grow = 1
+    shrink = 1
+    alignSelf = .center
+    padding = EdgeInsets(x: 8, y: 8)
+    gap = atoms.space.xs
+    background = atoms.color.rgb
+
+    let Banner: text = {
+      content = "Flex middle"
+      fontSize = 12
+      color = atoms.color.sem.fromRgba
+    }
+
+    let StretchChild: layout = {
+      direction = .column
+      width = .fill
+      height = .fixed(48)
+      align = .stretch
+      background = atoms.color.rgba
+      children = []
+    }
+
+    children = [Banner, StretchChild]
+  }
+
+  let FixedIsland: layout = {
+    direction = .column
+    width = .fixed(72)
+    height = .flex(min: 60, max: 180)
+    alignSelf = .end
+    justify = .center
+    align = .center
+    background = atoms.color.sem.fromRgba
+    children = []
+  }
+
+  children = [NarrowHug, FlexMiddle, FixedIsland]
+}
+
+component MoleculeFillWidthHugHeightColumn() layout {
+  direction = .column
+  width = .fill
+  height = .hug
+  align = .stretch
+  padding = EdgeInsets(x: 16, y: 10)
+  gap = atoms.space.sm
+  background = atoms.color.sem.fromRgba
+
+  let RowFill: layout = {
+    direction = .row
+    width = .fill
+    height = .hug
+    justify = .spaceAround
+    align = .center
+    background = atoms.color.rgb
+    children = []
+  }
+
+  let RowMixed: layout = {
+    direction = .row
+    width = .hug
+    height = .fill
+    alignSelf = .end
+    gap = 4
+    padding = EdgeInsets(x: 4, y: 4)
+    background = atoms.color.rgba
+    children = []
+  }
+
+  children = [RowFill, RowMixed]
+}

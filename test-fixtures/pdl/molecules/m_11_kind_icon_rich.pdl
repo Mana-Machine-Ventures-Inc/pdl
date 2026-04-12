@@ -1,0 +1,57 @@
+// Variant-driven icon glyph + label copy + typeStyle swaps (matrix kind reused)
+
+import "foundation.pdl"
+import "m_04_button_variant_matrix.pdl"
+
+component MoleculeKindRichRow(kind: MoleculeMatrixKind = .primary) layout {
+  direction = .row
+  justify = .start
+  align = .center
+  gap = atoms.space.sm
+  padding = EdgeInsets(x: 14, y: 10)
+  cornerRadius = atoms.radius.sm
+  background = atoms.color.sem.fromRgb
+
+  let G: icon = {
+    icon = atoms.icon.star
+    size = 22
+    color = atoms.color.rgba
+
+    if kind == .primary {
+      icon = atoms.icon.star
+    } else if kind == .secondary {
+      icon = atoms.icon.chevron
+    } else {
+      icon = "close"
+    }
+  }
+
+  let L: text = {
+    content = "Action"
+    style = AtomBody
+
+    if kind == .primary {
+      content = "Save changes"
+      style = AtomCaption
+    } else if kind == .secondary {
+      content = "Learn more about billing"
+    } else {
+      content = "Permanently delete"
+      style = AtomTitle
+    }
+  }
+
+  children = [G, L]
+}
+
+component MoleculeKindRichGallery() layout {
+  direction = .column
+  gap = atoms.space.sm
+  padding = EdgeInsets(x: 16, y: 16)
+  background = atoms.color.rgb
+
+  let A = MoleculeKindRichRow(kind: .primary)
+  let B = MoleculeKindRichRow(kind: .secondary)
+  let C = MoleculeKindRichRow(kind: .danger)
+  children = [A, B, C]
+}

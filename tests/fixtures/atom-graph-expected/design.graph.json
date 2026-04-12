@@ -1,0 +1,3874 @@
+{
+  "components": [
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "padding",
+          "value": {
+            "fields": {
+              "x": {
+                "kind": "number",
+                "value": 12
+              },
+              "y": {
+                "kind": "number",
+                "value": 12
+              }
+            },
+            "kind": "edgeInsets",
+            "variant": "xy"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "items": [
+              {
+                "kind": "ident",
+                "name": "atoms.color.sem.fromRgb"
+              },
+              {
+                "base": {
+                  "kind": "ident",
+                  "name": "atoms.color.rgba"
+                },
+                "kind": "opacityOf",
+                "opacity": {
+                  "kind": "ident",
+                  "name": "atoms.opacity.mid"
+                }
+              }
+            ],
+            "kind": "array"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayerListBackground",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "number",
+            "value": 8
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "foreground",
+          "value": {
+            "items": [
+              {
+                "base": {
+                  "kind": "ident",
+                  "name": "atoms.color.rgb"
+                },
+                "kind": "opacityOf",
+                "opacity": {
+                  "kind": "number",
+                  "value": 0.12
+                }
+              }
+            ],
+            "kind": "array"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayerForegroundTint",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".nowrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.sm"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "padding",
+          "value": {
+            "fields": {
+              "x": {
+                "kind": "ident",
+                "name": "atoms.space.sm"
+              },
+              "y": {
+                "kind": "ident",
+                "name": "atoms.space.xs"
+              }
+            },
+            "kind": "edgeInsets",
+            "variant": "xy"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutRowStart",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".spaceBetween"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".center"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".nowrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.md"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgba"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutRowBetween",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".spaceAround"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".stretch"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".nowrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.rgb"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutRowAround",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".end"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".end"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".nowrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.xs"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.rgba"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutColumnEnd",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".stretch"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".stretch"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".nowrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "padding",
+          "value": {
+            "fields": {
+              "bottom": {
+                "kind": "number",
+                "value": 4
+              },
+              "left": {
+                "kind": "number",
+                "value": 8
+              },
+              "right": {
+                "kind": "number",
+                "value": 8
+              },
+              "top": {
+                "kind": "number",
+                "value": 4
+              }
+            },
+            "kind": "edgeInsets",
+            "variant": "trbl"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.scrimLiteral"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutColumnStretch",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".wrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "number",
+            "value": 6
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "columnGap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.xs"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "rowGap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.sm"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutWrap",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".stack"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "number",
+            "value": 0
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "padding",
+          "value": {
+            "fields": {
+              "x": {
+                "kind": "number",
+                "value": 8
+              },
+              "y": {
+                "kind": "number",
+                "value": 8
+              }
+            },
+            "kind": "edgeInsets",
+            "variant": "xy"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgba"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutStack",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".rowReverse"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".center"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".center"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".nowrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.rgb"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutRowReverse",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".columnReverse"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".stretch"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".nowrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.rgba"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutColumnReverse",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".center"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.sm"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "entries": [
+            {
+              "kind": "spacer"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutSpacerRow",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".stretch"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".nowrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "padding",
+          "value": {
+            "fields": {
+              "x": {
+                "kind": "number",
+                "value": 12
+              },
+              "y": {
+                "kind": "number",
+                "value": 12
+              }
+            },
+            "kind": "edgeInsets",
+            "variant": "xy"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "cornerRadius",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.radius.card"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "shadow",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.shadow.soft"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "borderWidth",
+          "value": {
+            "kind": "number",
+            "value": 1
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "borderColor",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.rgba"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "borderPosition",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".inside"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "opacity",
+          "value": {
+            "kind": "number",
+            "value": 1
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "overflow",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".hidden"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutChrome",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "width",
+          "value": {
+            "kind": "sizing",
+            "mode": "fill"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "height",
+          "value": {
+            "kind": "sizing",
+            "mode": "hug"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".nowrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgba"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutSizingVH",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "width",
+          "value": {
+            "fixed": 200,
+            "kind": "sizing",
+            "mode": "fixed"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "height",
+          "value": {
+            "flexArgs": {
+              "max": {
+                "kind": "number",
+                "value": 200
+              },
+              "min": {
+                "kind": "number",
+                "value": 40
+              }
+            },
+            "kind": "sizing",
+            "mode": "flex"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".nowrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.rgb"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutSizingFixedFlex",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".stretch"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".nowrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.sm"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "direction",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".column"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "grow",
+              "value": {
+                "kind": "number",
+                "value": 1
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "shrink",
+              "value": {
+                "kind": "number",
+                "value": 1
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "alignSelf",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".stretch"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "background",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.rgba"
+              }
+            },
+            {
+              "entries": [],
+              "kind": "children",
+              "target": "root"
+            }
+          ],
+          "frameKind": "layout",
+          "id": "A",
+          "kind": "let"
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "direction",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".column"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "grow",
+              "value": {
+                "kind": "number",
+                "value": 0
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "shrink",
+              "value": {
+                "kind": "number",
+                "value": 0
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "alignSelf",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".end"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "background",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.sem.fromRgba"
+              }
+            },
+            {
+              "entries": [],
+              "kind": "children",
+              "target": "root"
+            }
+          ],
+          "frameKind": "layout",
+          "id": "B",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "A",
+              "kind": "frameRef"
+            },
+            {
+              "id": "B",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomFlexChildGrow",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".nowrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "padding",
+          "value": {
+            "fields": {
+              "x": {
+                "kind": "number",
+                "value": 16
+              },
+              "y": {
+                "kind": "number",
+                "value": 16
+              }
+            },
+            "kind": "edgeInsets",
+            "variant": "xy"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "direction",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".column"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "position",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".absolute"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "inset",
+              "value": {
+                "fields": {
+                  "bottom": {
+                    "kind": "number",
+                    "value": 4
+                  },
+                  "left": {
+                    "kind": "number",
+                    "value": 4
+                  },
+                  "right": {
+                    "kind": "number",
+                    "value": 4
+                  },
+                  "top": {
+                    "kind": "number",
+                    "value": 4
+                  }
+                },
+                "kind": "edgeInsets",
+                "variant": "trbl"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "alignSelf",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".auto"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "background",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.rgb"
+              }
+            },
+            {
+              "entries": [],
+              "kind": "children",
+              "target": "root"
+            }
+          ],
+          "frameKind": "layout",
+          "id": "Floated",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "Floated",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomFlexChildAbsolute",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.sm"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "string",
+                "value": "Plain text"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "color",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.rgba"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "fontSize",
+              "value": {
+                "kind": "number",
+                "value": 14
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "fontWeight",
+              "value": {
+                "kind": "number",
+                "value": 500
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "lineHeight",
+              "value": {
+                "kind": "number",
+                "value": 1.35
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "letterSpacing",
+              "value": {
+                "kind": "number",
+                "value": 0.01
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "T",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "T",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomTextPlain",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgba"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "string",
+                "value": "Caption line"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "style",
+              "value": {
+                "kind": "ident",
+                "name": "AtomCaption"
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "A",
+          "kind": "let"
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "string",
+                "value": "Body line"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "style",
+              "value": {
+                "kind": "ident",
+                "name": "AtomBody"
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "B",
+          "kind": "let"
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "string",
+                "value": "Title line"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "style",
+              "value": {
+                "kind": "ident",
+                "name": "AtomTitle"
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "C",
+          "kind": "let"
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "string",
+                "value": "Mono line"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "style",
+              "value": {
+                "kind": "ident",
+                "name": "AtomMono"
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "D",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "A",
+              "kind": "frameRef"
+            },
+            {
+              "id": "B",
+              "kind": "frameRef"
+            },
+            {
+              "id": "C",
+              "kind": "frameRef"
+            },
+            {
+              "id": "D",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomTextTypeStyle",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.md"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.rgb"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "string",
+                "value": "Left"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "justify",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".start"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "align",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".start"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "color",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.sem.fromRgb"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "fontSize",
+              "value": {
+                "kind": "number",
+                "value": 12
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "L",
+          "kind": "let"
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "string",
+                "value": "Center"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "justify",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".center"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "align",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".center"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "color",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.sem.fromRgba"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "fontSize",
+              "value": {
+                "kind": "number",
+                "value": 12
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "C",
+          "kind": "let"
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "string",
+                "value": "Right end"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "justify",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".end"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "align",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".end"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "color",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.rgba"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "fontSize",
+              "value": {
+                "kind": "number",
+                "value": 12
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "R",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "L",
+              "kind": "frameRef"
+            },
+            {
+              "id": "C",
+              "kind": "frameRef"
+            },
+            {
+              "id": "R",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomTextJustifyAlign",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.xs"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "string",
+                "value": "Clipped overflow"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "overflow",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".clip"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "textOverflow",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".clip"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "color",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.rgba"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "fontSize",
+              "value": {
+                "kind": "number",
+                "value": 13
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "Clipped",
+          "kind": "let"
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "string",
+                "value": "Very long label that should ellipsize when constrained"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "overflow",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".hidden"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "textOverflow",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".ellipsis"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "lineClamp",
+              "value": {
+                "kind": "number",
+                "value": 2
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "color",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.sem.fromRgba"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "fontSize",
+              "value": {
+                "kind": "number",
+                "value": 13
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "Ellipsis",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "Clipped",
+              "kind": "frameRef"
+            },
+            {
+              "id": "Ellipsis",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomTextOverflow",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.md"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".center"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "icon",
+              "value": {
+                "kind": "string",
+                "value": "check"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "size",
+              "value": {
+                "kind": "number",
+                "value": 20
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "color",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.rgba"
+              }
+            }
+          ],
+          "frameKind": "icon",
+          "id": "A",
+          "kind": "let"
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "icon",
+              "value": {
+                "kind": "string",
+                "value": "close"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "size",
+              "value": {
+                "kind": "number",
+                "value": 24
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "color",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.rgb"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "opacity",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.opacity.mid"
+              }
+            }
+          ],
+          "frameKind": "icon",
+          "id": "B",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "A",
+              "kind": "frameRef"
+            },
+            {
+              "id": "B",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomIconDefault",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.sm"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgba"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "icon",
+              "value": {
+                "kind": "string",
+                "value": "menu"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "width",
+              "value": {
+                "fixed": 32,
+                "kind": "sizing",
+                "mode": "fixed"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "height",
+              "value": {
+                "fixed": 32,
+                "kind": "sizing",
+                "mode": "fixed"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "color",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.sem.fromRgb"
+              }
+            }
+          ],
+          "frameKind": "icon",
+          "id": "W",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "W",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomIconSizing",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "source",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.media.hero"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "contentMode",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".cover"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "objectPosition",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".center"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "aspectRatio",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.ratio.video"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "cornerRadius",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.radius.sm"
+              }
+            }
+          ],
+          "frameKind": "media",
+          "id": "M",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "M",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomMediaCover",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgba"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "source",
+              "value": {
+                "kind": "string",
+                "value": "https://example.com/poster.jpg"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "contentMode",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".contain"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "objectPosition",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".topLeft"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "width",
+              "value": {
+                "kind": "sizing",
+                "mode": "fill"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "height",
+              "value": {
+                "fixed": 180,
+                "kind": "sizing",
+                "mode": "fixed"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "background",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.rgb"
+              }
+            }
+          ],
+          "frameKind": "media",
+          "id": "M",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "M",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomMediaContainCorners",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.rgba"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "source",
+              "value": {
+                "kind": "string",
+                "value": "asset://local.png"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "contentMode",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".scaleDown"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "objectPosition",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".bottomRight"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "opacity",
+              "value": {
+                "kind": "number",
+                "value": 0.92
+              }
+            }
+          ],
+          "frameKind": "media",
+          "id": "M",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "M",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomMediaScaleDown",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "direction",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".column"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "padding",
+              "value": {
+                "fields": {
+                  "x": {
+                    "kind": "number",
+                    "value": 8
+                  },
+                  "y": {
+                    "kind": "number",
+                    "value": 8
+                  }
+                },
+                "kind": "edgeInsets",
+                "variant": "xy"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "background",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.rgb"
+              }
+            },
+            {
+              "entries": [],
+              "kind": "children",
+              "target": "root"
+            }
+          ],
+          "frameKind": "layout",
+          "id": "A",
+          "kind": "let"
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "direction",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".column"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "padding",
+              "value": {
+                "fields": {
+                  "x": {
+                    "kind": "number",
+                    "value": 8
+                  },
+                  "y": {
+                    "kind": "number",
+                    "value": 8
+                  }
+                },
+                "kind": "edgeInsets",
+                "variant": "xy"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "background",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.rgba"
+              }
+            },
+            {
+              "entries": [],
+              "kind": "children",
+              "target": "root"
+            }
+          ],
+          "frameKind": "layout",
+          "id": "B",
+          "kind": "let"
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "direction",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".row"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "gap",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.space.sm"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "background",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.sem.fromRgb"
+              }
+            }
+          ],
+          "frameKind": "layout",
+          "id": "Row",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "A",
+              "kind": "frameRef"
+            },
+            {
+              "id": "B",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": {
+            "letId": "Row"
+          }
+        },
+        {
+          "entries": [
+            {
+              "id": "Row",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomDeferredChildren",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "direction",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".column"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "padding",
+              "value": {
+                "fields": {
+                  "x": {
+                    "kind": "ident",
+                    "name": "atoms.space.md"
+                  },
+                  "y": {
+                    "kind": "ident",
+                    "name": "atoms.space.sm"
+                  }
+                },
+                "kind": "edgeInsets",
+                "variant": "xy"
+              }
+            },
+            {
+              "chain": {
+                "branches": [
+                  {
+                    "body": [
+                      {
+                        "kind": "prop",
+                        "name": "background",
+                        "value": {
+                          "kind": "ident",
+                          "name": "atoms.color.rgb"
+                        }
+                      }
+                    ],
+                    "condition": {
+                      "kind": "cmp",
+                      "op": "==",
+                      "param": "tone",
+                      "rhs": ".accent"
+                    }
+                  },
+                  {
+                    "body": [
+                      {
+                        "kind": "prop",
+                        "name": "background",
+                        "value": {
+                          "kind": "ident",
+                          "name": "atoms.color.rgba"
+                        }
+                      }
+                    ],
+                    "condition": {
+                      "kind": "cmp",
+                      "op": "==",
+                      "param": "tone",
+                      "rhs": ".danger"
+                    }
+                  }
+                ],
+                "elseBody": [
+                  {
+                    "kind": "prop",
+                    "name": "background",
+                    "value": {
+                      "kind": "ident",
+                      "name": "atoms.color.sem.fromRgb"
+                    }
+                  }
+                ]
+              },
+              "kind": "if"
+            },
+            {
+              "entries": [],
+              "kind": "children",
+              "target": "root"
+            }
+          ],
+          "frameKind": "layout",
+          "id": "Swatch",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "Swatch",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomVariantSwatch",
+      "params": [
+        {
+          "defaultValue": {
+            "kind": "dotEnum",
+            "value": ".neutral"
+          },
+          "name": "tone",
+          "typeName": "AtomsTone"
+        }
+      ],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "gap",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.space.xs"
+              }
+            },
+            {
+              "chain": {
+                "branches": [
+                  {
+                    "body": [
+                      {
+                        "kind": "prop",
+                        "name": "direction",
+                        "value": {
+                          "kind": "dotEnum",
+                          "value": ".column"
+                        }
+                      },
+                      {
+                        "kind": "prop",
+                        "name": "background",
+                        "value": {
+                          "kind": "ident",
+                          "name": "atoms.color.sem.fromRgba"
+                        }
+                      }
+                    ],
+                    "condition": {
+                      "kind": "cmp",
+                      "op": "==",
+                      "param": "axis",
+                      "rhs": ".vertical"
+                    }
+                  }
+                ],
+                "elseBody": [
+                  {
+                    "kind": "prop",
+                    "name": "direction",
+                    "value": {
+                      "kind": "dotEnum",
+                      "value": ".row"
+                    }
+                  },
+                  {
+                    "kind": "prop",
+                    "name": "background",
+                    "value": {
+                      "kind": "ident",
+                      "name": "atoms.color.sem.fromRgb"
+                    }
+                  }
+                ]
+              },
+              "kind": "if"
+            },
+            {
+              "entries": [],
+              "kind": "children",
+              "target": "root"
+            }
+          ],
+          "frameKind": "layout",
+          "id": "Box",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "Box",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomVariantAxis",
+      "params": [
+        {
+          "defaultValue": {
+            "kind": "dotEnum",
+            "value": ".horizontal"
+          },
+          "name": "axis",
+          "typeName": "AtomsAxis"
+        }
+      ],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.sm"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "padding",
+          "value": {
+            "fields": {
+              "x": {
+                "kind": "ident",
+                "name": "atoms.space.md"
+              },
+              "y": {
+                "kind": "ident",
+                "name": "atoms.space.sm"
+              }
+            },
+            "kind": "edgeInsets",
+            "variant": "xy"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "ident",
+                "name": "label"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "fontSize",
+              "value": {
+                "kind": "number",
+                "value": 14
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "fontWeight",
+              "value": {
+                "kind": "number",
+                "value": 500
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "color",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.sem.fromRgb"
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "Flag",
+          "kind": "let"
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "icon",
+              "value": {
+                "kind": "ident",
+                "name": "glyph"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "size",
+              "value": {
+                "kind": "number",
+                "value": 18
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "color",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.rgba"
+              }
+            }
+          ],
+          "frameKind": "icon",
+          "id": "Glyph",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "Flag",
+              "kind": "frameRef"
+            },
+            {
+              "id": "Glyph",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomParamsKitchenSink",
+      "params": [
+        {
+          "defaultValue": {
+            "kind": "string",
+            "value": "Label"
+          },
+          "name": "label",
+          "typeName": "String"
+        },
+        {
+          "defaultValue": {
+            "kind": "number",
+            "value": 2
+          },
+          "name": "count",
+          "typeName": "Number"
+        },
+        {
+          "defaultValue": {
+            "kind": "boolean",
+            "value": true
+          },
+          "name": "enabled",
+          "typeName": "Boolean"
+        },
+        {
+          "defaultValue": {
+            "kind": "string",
+            "value": "dot"
+          },
+          "name": "glyph",
+          "typeName": "Icon"
+        },
+        {
+          "defaultValue": {
+            "kind": "dotEnum",
+            "value": ".comfortable"
+          },
+          "name": "density",
+          "typeName": "AtomsDensity"
+        }
+      ],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.xs"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "padding",
+          "value": {
+            "fields": {
+              "x": {
+                "kind": "ident",
+                "name": "atoms.space.md"
+              },
+              "y": {
+                "kind": "ident",
+                "name": "atoms.space.sm"
+              }
+            },
+            "kind": "edgeInsets",
+            "variant": "xy"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "ident",
+                "name": "title"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "fontSize",
+              "value": {
+                "kind": "number",
+                "value": 18
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "fontWeight",
+              "value": {
+                "kind": "number",
+                "value": 600
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "color",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.sem.fromRgba"
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "T",
+          "kind": "let"
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "ident",
+                "name": "subtitle"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "fontSize",
+              "value": {
+                "kind": "number",
+                "value": 12
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "color",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.rgba"
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "S",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "T",
+              "kind": "frameRef"
+            },
+            {
+              "id": "S",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomExposedCard",
+      "params": [
+        {
+          "defaultValue": {
+            "kind": "string",
+            "value": "Card"
+          },
+          "name": "title",
+          "typeName": "String"
+        },
+        {
+          "defaultValue": {
+            "kind": "string",
+            "value": "Subtitle"
+          },
+          "name": "subtitle",
+          "typeName": "String"
+        },
+        {
+          "defaultValue": {
+            "kind": "boolean",
+            "value": false
+          },
+          "name": "showBorder",
+          "typeName": "Boolean"
+        }
+      ],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.md"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "padding",
+          "value": {
+            "fields": {
+              "x": {
+                "kind": "ident",
+                "name": "atoms.space.sm"
+              },
+              "y": {
+                "kind": "ident",
+                "name": "atoms.space.sm"
+              }
+            },
+            "kind": "edgeInsets",
+            "variant": "xy"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "component": "AtomTextPlain",
+          "id": "Inner",
+          "kind": "letInstance",
+          "kwargs": {}
+        },
+        {
+          "entries": [
+            {
+              "id": "Inner",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomNestedWrapper",
+      "params": [],
+      "rootKind": "layout"
+    }
+  ],
+  "entryPath": "<resolved>",
+  "expose": {
+    "AtomExposedCard": [
+      "title",
+      "subtitle"
+    ]
+  },
+  "kind": "designGraph",
+  "modulePaths": [
+    "component_param_types_atoms.pdl",
+    "conditional_variant_atoms.pdl",
+    "deferred_children_atoms.pdl",
+    "design.pdl",
+    "expose_atoms.pdl",
+    "icon_atoms.pdl",
+    "layout_enums_atoms.pdl",
+    "layout_flex_child_atoms.pdl",
+    "media_atoms.pdl",
+    "nested_instance_atoms.pdl",
+    "text_atoms.pdl",
+    "text_atoms.pdl",
+    "theme_atoms.pdl",
+    "tokens_blur_vibrancy_ramp.pdl",
+    "tokens_blur_vibrancy_ramp.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_composite_bg_fg.pdl",
+    "tokens_distance_radius.pdl",
+    "tokens_distance_radius.pdl",
+    "tokens_distance_radius.pdl",
+    "tokens_distance_radius.pdl",
+    "tokens_distance_radius.pdl",
+    "tokens_distance_radius.pdl",
+    "tokens_distance_radius.pdl",
+    "tokens_distance_radius.pdl",
+    "tokens_distance_radius.pdl",
+    "tokens_distance_radius.pdl",
+    "tokens_distance_radius.pdl",
+    "tokens_distance_radius.pdl",
+    "tokens_icon_media_ratio.pdl",
+    "tokens_icon_media_ratio.pdl",
+    "tokens_motion.pdl",
+    "tokens_opacity.pdl",
+    "tokens_opacity.pdl",
+    "tokens_opacity.pdl",
+    "tokens_opacity.pdl",
+    "tokens_shadow.pdl",
+    "tokens_shadow.pdl",
+    "tokens_sizing.pdl",
+    "tokens_typography.pdl",
+    "tokens_typography.pdl",
+    "tokens_typography.pdl",
+    "tokens_typography.pdl",
+    "typestyle_atoms.pdl",
+    "typestyle_atoms.pdl",
+    "typestyle_atoms.pdl",
+    "value_layer_list_atoms.pdl",
+    "variant_atoms.pdl",
+    "variant_atoms.pdl",
+    "variant_atoms.pdl"
+  ],
+  "previewBackground": "atoms.color.sem.fromRgb",
+  "primitives": [
+    {
+      "name": "atoms.opacity.full",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "number",
+        "value": 1
+      }
+    },
+    {
+      "name": "atoms.opacity.mid",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "number",
+        "value": 0.62
+      }
+    },
+    {
+      "name": "atoms.color.rgb",
+      "tokenType": "Color",
+      "value": {
+        "kind": "hex",
+        "value": "#ABC"
+      }
+    },
+    {
+      "name": "atoms.color.rgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "hex",
+        "value": "#11223344"
+      }
+    },
+    {
+      "name": "atoms.space.xs",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 4
+      }
+    },
+    {
+      "name": "atoms.space.sm",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 8
+      }
+    },
+    {
+      "name": "atoms.space.md",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 16
+      }
+    },
+    {
+      "name": "atoms.radius.sm",
+      "tokenType": "Radius",
+      "value": {
+        "kind": "number",
+        "value": 4
+      }
+    },
+    {
+      "name": "atoms.radius.mixed",
+      "tokenType": "Radius",
+      "value": {
+        "bl": {
+          "kind": "number",
+          "value": 2
+        },
+        "br": {
+          "kind": "number",
+          "value": 2
+        },
+        "kind": "corner",
+        "tl": {
+          "kind": "number",
+          "value": 8
+        },
+        "tr": {
+          "kind": "number",
+          "value": 8
+        }
+      }
+    },
+    {
+      "name": "atoms.shadow.soft",
+      "tokenType": "Shadow",
+      "value": {
+        "kind": "string",
+        "value": "0 2px 8px rgba(0,0,0,0.12)"
+      }
+    },
+    {
+      "name": "atoms.shadow.hard",
+      "tokenType": "Shadow",
+      "value": {
+        "kind": "string",
+        "value": "0 1px 3px 0 rgba(0,0,0,0.35)"
+      }
+    },
+    {
+      "name": "atoms.icon.star",
+      "tokenType": "Icon",
+      "value": {
+        "kind": "string",
+        "value": "star"
+      }
+    },
+    {
+      "name": "atoms.icon.chevron",
+      "tokenType": "Icon",
+      "value": {
+        "kind": "string",
+        "value": "chevron-right"
+      }
+    },
+    {
+      "name": "atoms.media.hero",
+      "tokenType": "MediaSource",
+      "value": {
+        "kind": "string",
+        "value": "https://example.com/hero.png"
+      }
+    },
+    {
+      "name": "atoms.ratio.video",
+      "tokenType": "Ratio",
+      "value": {
+        "kind": "number",
+        "value": 1.777
+      }
+    },
+    {
+      "name": "atoms.ratio.square",
+      "tokenType": "Ratio",
+      "value": {
+        "kind": "number",
+        "value": 1
+      }
+    },
+    {
+      "name": "atoms.font.ui",
+      "tokenType": "FontFamily",
+      "value": {
+        "kind": "string",
+        "value": "system-ui, sans-serif"
+      }
+    },
+    {
+      "name": "atoms.font.mono",
+      "tokenType": "FontFamily",
+      "value": {
+        "kind": "string",
+        "value": "ui-monospace, monospace"
+      }
+    },
+    {
+      "name": "atoms.type.size.caption",
+      "tokenType": "Size",
+      "value": {
+        "kind": "number",
+        "value": 12
+      }
+    },
+    {
+      "name": "atoms.type.size.body",
+      "tokenType": "Size",
+      "value": {
+        "kind": "number",
+        "value": 16
+      }
+    },
+    {
+      "name": "atoms.type.size.title",
+      "tokenType": "Size",
+      "value": {
+        "kind": "number",
+        "value": 22
+      }
+    },
+    {
+      "name": "atoms.type.weight.regular",
+      "tokenType": "Weight",
+      "value": {
+        "kind": "number",
+        "value": 400
+      }
+    },
+    {
+      "name": "atoms.type.weight.medium",
+      "tokenType": "Weight",
+      "value": {
+        "kind": "number",
+        "value": 600
+      }
+    },
+    {
+      "name": "atoms.type.weight.bold",
+      "tokenType": "Weight",
+      "value": {
+        "kind": "number",
+        "value": 700
+      }
+    },
+    {
+      "name": "atoms.sizing.hug",
+      "tokenType": "Sizing",
+      "value": {
+        "kind": "sizing",
+        "mode": "hug"
+      }
+    },
+    {
+      "name": "atoms.sizing.fill",
+      "tokenType": "Sizing",
+      "value": {
+        "kind": "sizing",
+        "mode": "fill"
+      }
+    },
+    {
+      "name": "atoms.sizing.fixed",
+      "tokenType": "Sizing",
+      "value": {
+        "fixed": 48,
+        "kind": "sizing",
+        "mode": "fixed"
+      }
+    },
+    {
+      "name": "atoms.sizing.flex",
+      "tokenType": "Sizing",
+      "value": {
+        "flexArgs": {
+          "max": {
+            "kind": "number",
+            "value": 120
+          },
+          "min": {
+            "kind": "number",
+            "value": 8
+          }
+        },
+        "kind": "sizing",
+        "mode": "flex"
+      }
+    },
+    {
+      "name": "atoms.motion.fast",
+      "tokenType": "Duration",
+      "value": {
+        "kind": "number",
+        "value": 120
+      }
+    },
+    {
+      "name": "atoms.motion.slow",
+      "tokenType": "Duration",
+      "value": {
+        "kind": "number",
+        "value": 320
+      }
+    },
+    {
+      "name": "atoms.motion.ease.linear",
+      "tokenType": "Easing",
+      "value": {
+        "kind": "string",
+        "value": "linear"
+      }
+    },
+    {
+      "name": "atoms.motion.ease.standard",
+      "tokenType": "Easing",
+      "value": {
+        "kind": "string",
+        "value": "cubic-bezier(0.2, 0, 0, 1)"
+      }
+    },
+    {
+      "name": "atoms.blur.light",
+      "tokenType": "Blur",
+      "value": {
+        "kind": "number",
+        "value": 6
+      }
+    },
+    {
+      "name": "atoms.blur.heavy",
+      "tokenType": "Blur",
+      "value": {
+        "kind": "number",
+        "value": 24
+      }
+    },
+    {
+      "name": "atoms.vibrancy.subtle",
+      "tokenType": "Vibrancy",
+      "value": {
+        "brightness": 1.02,
+        "kind": "vibrancyTuple",
+        "saturation": 1.05
+      }
+    },
+    {
+      "name": "atoms.vibrancy.strong",
+      "tokenType": "Vibrancy",
+      "value": {
+        "brightness": 0.95,
+        "kind": "vibrancyTuple",
+        "saturation": 1.2
+      }
+    },
+    {
+      "name": "atoms.ramp.fade",
+      "tokenType": "Ramp",
+      "value": {
+        "direction": ".bottomToTop",
+        "kind": "rampInline",
+        "stops": [
+          {
+            "fields": {
+              "color": {
+                "kind": "hex",
+                "value": "#FFFFFF"
+              },
+              "opacity": {
+                "kind": "number",
+                "value": 1
+              },
+              "position": {
+                "kind": "number",
+                "value": 0
+              }
+            },
+            "kind": "gradientStop"
+          },
+          {
+            "fields": {
+              "color": {
+                "kind": "hex",
+                "value": "#000000"
+              },
+              "opacity": {
+                "kind": "number",
+                "value": 0
+              },
+              "position": {
+                "kind": "number",
+                "value": 1
+              }
+            },
+            "kind": "gradientStop"
+          }
+        ]
+      }
+    }
+  ],
+  "schemaVersion": "1.0.0-beta",
+  "semantics": [
+    {
+      "name": "atoms.opacity.sem.mid",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.opacity.mid"
+      }
+    },
+    {
+      "name": "atoms.opacity.sem.full",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.opacity.full"
+      }
+    },
+    {
+      "name": "atoms.color.sem.fromRgb",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgb"
+      }
+    },
+    {
+      "name": "atoms.color.sem.fromRgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgba"
+      }
+    },
+    {
+      "name": "atoms.color.scrimLiteral",
+      "tokenType": "Color",
+      "value": {
+        "base": {
+          "kind": "ident",
+          "name": "atoms.color.rgb"
+        },
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.25
+        }
+      }
+    },
+    {
+      "name": "atoms.color.scrimRgba",
+      "tokenType": "Color",
+      "value": {
+        "base": {
+          "kind": "ident",
+          "name": "atoms.color.rgba"
+        },
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.5
+        }
+      }
+    },
+    {
+      "name": "atoms.space.card.pad",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.space.md"
+      }
+    },
+    {
+      "name": "atoms.radius.card",
+      "tokenType": "Radius",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.radius.mixed"
+      }
+    },
+    {
+      "name": "atoms.motion.transition.quick",
+      "tokenType": "Transition",
+      "value": {
+        "duration": {
+          "kind": "ident",
+          "name": "atoms.motion.fast"
+        },
+        "easing": {
+          "kind": "ident",
+          "name": "atoms.motion.ease.linear"
+        },
+        "kind": "transition"
+      }
+    },
+    {
+      "name": "atoms.motion.transition.smooth",
+      "tokenType": "Transition",
+      "value": {
+        "delay": {
+          "kind": "ident",
+          "name": "atoms.motion.fast"
+        },
+        "duration": {
+          "kind": "ident",
+          "name": "atoms.motion.slow"
+        },
+        "easing": {
+          "kind": "ident",
+          "name": "atoms.motion.ease.standard"
+        },
+        "kind": "transition"
+      }
+    },
+    {
+      "name": "atoms.bg.flat",
+      "tokenType": "Background",
+      "value": {
+        "items": [
+          {
+            "kind": "hex",
+            "value": "#E5E7EB"
+          }
+        ],
+        "kind": "array"
+      }
+    },
+    {
+      "name": "atoms.bg.blurCard",
+      "tokenType": "Background",
+      "value": {
+        "items": [
+          {
+            "args": {
+              "blur": {
+                "kind": "ident",
+                "name": "atoms.blur.light"
+              }
+            },
+            "callee": "Blur",
+            "kind": "call"
+          },
+          {
+            "base": {
+              "kind": "ident",
+              "name": "atoms.color.sem.fromRgb"
+            },
+            "kind": "opacityOf",
+            "opacity": {
+              "kind": "ident",
+              "name": "atoms.opacity.mid"
+            }
+          }
+        ],
+        "kind": "array"
+      }
+    },
+    {
+      "name": "atoms.fg.hoverTint",
+      "tokenType": "Foreground",
+      "value": {
+        "items": [
+          {
+            "base": {
+              "kind": "ident",
+              "name": "atoms.color.rgb"
+            },
+            "kind": "opacityOf",
+            "opacity": {
+              "kind": "ident",
+              "name": "atoms.opacity.mid"
+            }
+          }
+        ],
+        "kind": "array"
+      }
+    }
+  ],
+  "themes": [
+    {
+      "baseTheme": null,
+      "name": "AtomsWarm",
+      "overrides": {
+        "atoms.color.sem.fromRgb": {
+          "kind": "ident",
+          "name": "atoms.color.rgba"
+        }
+      }
+    },
+    {
+      "baseTheme": null,
+      "name": "AtomsCool",
+      "overrides": {
+        "atoms.color.sem.fromRgb": {
+          "kind": "ident",
+          "name": "atoms.color.rgb"
+        }
+      }
+    },
+    {
+      "baseTheme": null,
+      "name": "AtomsDim",
+      "overrides": {
+        "atoms.color.scrimLiteral": {
+          "kind": "ident",
+          "name": "atoms.color.sem.fromRgba"
+        }
+      }
+    }
+  ],
+  "typeStyles": [
+    {
+      "name": "AtomCaption",
+      "props": {
+        "color": {
+          "kind": "ident",
+          "name": "atoms.color.sem.fromRgb"
+        },
+        "fontFamily": {
+          "kind": "ident",
+          "name": "atoms.font.ui"
+        },
+        "fontSize": {
+          "kind": "ident",
+          "name": "atoms.type.size.caption"
+        },
+        "fontWeight": {
+          "kind": "ident",
+          "name": "atoms.type.weight.medium"
+        }
+      }
+    },
+    {
+      "name": "AtomBody",
+      "props": {
+        "color": {
+          "kind": "ident",
+          "name": "atoms.color.sem.fromRgba"
+        },
+        "fontFamily": {
+          "kind": "ident",
+          "name": "atoms.font.ui"
+        },
+        "fontSize": {
+          "kind": "ident",
+          "name": "atoms.type.size.body"
+        },
+        "fontWeight": {
+          "kind": "ident",
+          "name": "atoms.type.weight.regular"
+        }
+      }
+    },
+    {
+      "name": "AtomTitle",
+      "props": {
+        "color": {
+          "kind": "ident",
+          "name": "atoms.color.rgb"
+        },
+        "fontFamily": {
+          "kind": "ident",
+          "name": "atoms.font.ui"
+        },
+        "fontSize": {
+          "kind": "ident",
+          "name": "atoms.type.size.title"
+        },
+        "fontWeight": {
+          "kind": "ident",
+          "name": "atoms.type.weight.bold"
+        }
+      }
+    },
+    {
+      "name": "AtomMono",
+      "props": {
+        "color": {
+          "kind": "ident",
+          "name": "atoms.color.rgba"
+        },
+        "fontFamily": {
+          "kind": "ident",
+          "name": "atoms.font.mono"
+        },
+        "fontSize": {
+          "kind": "ident",
+          "name": "atoms.type.size.caption"
+        },
+        "fontWeight": {
+          "kind": "ident",
+          "name": "atoms.type.weight.regular"
+        }
+      }
+    }
+  ],
+  "variants": [
+    {
+      "cases": [
+        "horizontal",
+        "vertical"
+      ],
+      "name": "AtomsAxis"
+    },
+    {
+      "cases": [
+        "sm",
+        "md",
+        "lg"
+      ],
+      "name": "AtomsSize"
+    },
+    {
+      "cases": [
+        "comfortable",
+        "compact"
+      ],
+      "name": "AtomsDensity"
+    },
+    {
+      "cases": [
+        "neutral",
+        "accent",
+        "danger"
+      ],
+      "name": "AtomsTone"
+    }
+  ]
+}

@@ -1,0 +1,141 @@
+// layout: direction, justify, align, wrap, stack, gap/padding, border, shadow, cornerRadius, overflow, sizing
+
+import "tokens_color.pdl"
+import "tokens_distance_radius.pdl"
+import "tokens_shadow.pdl"
+
+component AtomLayoutRowStart() layout {
+  direction = .row
+  justify = .start
+  align = .start
+  wrap = .nowrap
+  gap = atoms.space.sm
+  padding = EdgeInsets(x: atoms.space.sm, y: atoms.space.xs)
+  background = atoms.color.sem.fromRgb
+  children = []
+}
+
+component AtomLayoutRowBetween() layout {
+  direction = .row
+  justify = .spaceBetween
+  align = .center
+  wrap = .nowrap
+  gap = atoms.space.md
+  background = atoms.color.sem.fromRgba
+  children = []
+}
+
+component AtomLayoutRowAround() layout {
+  direction = .row
+  justify = .spaceAround
+  align = .stretch
+  wrap = .nowrap
+  background = atoms.color.rgb
+  children = []
+}
+
+component AtomLayoutColumnEnd() layout {
+  direction = .column
+  justify = .end
+  align = .end
+  wrap = .nowrap
+  gap = atoms.space.xs
+  background = atoms.color.rgba
+  children = []
+}
+
+component AtomLayoutColumnStretch() layout {
+  direction = .column
+  justify = .stretch
+  align = .stretch
+  wrap = .nowrap
+  padding = EdgeInsets(top: 4, right: 8, bottom: 4, left: 8)
+  background = atoms.color.scrimLiteral
+  children = []
+}
+
+component AtomLayoutWrap() layout {
+  direction = .row
+  justify = .start
+  align = .start
+  wrap = .wrap
+  gap = 6
+  columnGap = atoms.space.xs
+  rowGap = atoms.space.sm
+  background = atoms.color.sem.fromRgb
+  children = []
+}
+
+component AtomLayoutStack() layout {
+  direction = .stack
+  gap = 0
+  padding = EdgeInsets(x: 8, y: 8)
+  background = atoms.color.sem.fromRgba
+  children = []
+}
+
+component AtomLayoutRowReverse() layout {
+  direction = .rowReverse
+  justify = .center
+  align = .center
+  wrap = .nowrap
+  background = atoms.color.rgb
+  children = []
+}
+
+component AtomLayoutColumnReverse() layout {
+  direction = .columnReverse
+  justify = .start
+  align = .stretch
+  wrap = .nowrap
+  background = atoms.color.rgba
+  children = []
+}
+
+component AtomLayoutSpacerRow() layout {
+  direction = .row
+  justify = .start
+  align = .center
+  gap = atoms.space.sm
+  background = atoms.color.sem.fromRgb
+  children = [.spacer]
+}
+
+component AtomLayoutChrome() layout {
+  direction = .column
+  justify = .start
+  align = .stretch
+  wrap = .nowrap
+  padding = EdgeInsets(x: 12, y: 12)
+  background = atoms.color.sem.fromRgb
+  cornerRadius = atoms.radius.card
+  shadow = atoms.shadow.soft
+  borderWidth = 1
+  borderColor = atoms.color.rgba
+  borderPosition = .inside
+  opacity = 1
+  overflow = .hidden
+  children = []
+}
+
+component AtomLayoutSizingVH() layout {
+  direction = .row
+  width = .fill
+  height = .hug
+  justify = .start
+  align = .start
+  wrap = .nowrap
+  background = atoms.color.sem.fromRgba
+  children = []
+}
+
+component AtomLayoutSizingFixedFlex() layout {
+  direction = .column
+  width = .fixed(200)
+  height = .flex(min: 40, max: 200)
+  justify = .start
+  align = .start
+  wrap = .nowrap
+  background = atoms.color.rgb
+  children = []
+}

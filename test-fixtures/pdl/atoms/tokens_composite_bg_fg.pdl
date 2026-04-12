@@ -1,0 +1,9 @@
+// Background + Foreground composite tokens (layer stacks)
+
+import "tokens_blur_vibrancy_ramp.pdl"
+import "tokens_opacity.pdl"
+import "tokens_color.pdl"
+
+semantic atoms.bg.flat: Background = [#E5E7EB]
+semantic atoms.bg.blurCard: Background = [Blur(blur: atoms.blur.light), atoms.color.sem.fromRgb @ atoms.opacity.mid]
+semantic atoms.fg.hoverTint: Foreground = [atoms.color.rgb @ atoms.opacity.mid]

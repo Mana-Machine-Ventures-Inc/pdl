@@ -1,0 +1,81 @@
+{
+  "components": [],
+  "entryPath": "<resolved>",
+  "expose": {},
+  "kind": "designGraph",
+  "modulePaths": [
+    "tokens_typography.pdl"
+  ],
+  "previewBackground": null,
+  "primitives": [
+    {
+      "name": "atoms.font.ui",
+      "tokenType": "FontFamily",
+      "value": {
+        "kind": "string",
+        "value": "system-ui, sans-serif"
+      }
+    },
+    {
+      "name": "atoms.font.mono",
+      "tokenType": "FontFamily",
+      "value": {
+        "kind": "string",
+        "value": "ui-monospace, monospace"
+      }
+    },
+    {
+      "name": "atoms.type.size.caption",
+      "tokenType": "Size",
+      "value": {
+        "kind": "number",
+        "value": 12
+      }
+    },
+    {
+      "name": "atoms.type.size.body",
+      "tokenType": "Size",
+      "value": {
+        "kind": "number",
+        "value": 16
+      }
+    },
+    {
+      "name": "atoms.type.size.title",
+      "tokenType": "Size",
+      "value": {
+        "kind": "number",
+        "value": 22
+      }
+    },
+    {
+      "name": "atoms.type.weight.regular",
+      "tokenType": "Weight",
+      "value": {
+        "kind": "number",
+        "value": 400
+      }
+    },
+    {
+      "name": "atoms.type.weight.medium",
+      "tokenType": "Weight",
+      "value": {
+        "kind": "number",
+        "value": 600
+      }
+    },
+    {
+      "name": "atoms.type.weight.bold",
+      "tokenType": "Weight",
+      "value": {
+        "kind": "number",
+        "value": 700
+      }
+    }
+  ],
+  "schemaVersion": "1.0.0-beta",
+  "semantics": [],
+  "themes": [],
+  "typeStyles": [],
+  "variants": []
+}

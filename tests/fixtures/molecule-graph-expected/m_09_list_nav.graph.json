@@ -1,0 +1,971 @@
+{
+  "components": [
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".spaceBetween"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".center"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "width",
+          "value": {
+            "kind": "sizing",
+            "mode": "fill"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "height",
+          "value": {
+            "kind": "sizing",
+            "mode": "hug"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "cornerRadius",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.radius.sm"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "chain": {
+            "branches": [
+              {
+                "body": [
+                  {
+                    "kind": "prop",
+                    "name": "padding",
+                    "value": {
+                      "fields": {
+                        "x": {
+                          "kind": "number",
+                          "value": 10
+                        },
+                        "y": {
+                          "kind": "number",
+                          "value": 6
+                        }
+                      },
+                      "kind": "edgeInsets",
+                      "variant": "xy"
+                    }
+                  },
+                  {
+                    "kind": "prop",
+                    "name": "gap",
+                    "value": {
+                      "kind": "ident",
+                      "name": "atoms.space.xs"
+                    }
+                  }
+                ],
+                "condition": {
+                  "kind": "cmp",
+                  "op": "==",
+                  "param": "density",
+                  "rhs": ".compact"
+                }
+              }
+            ],
+            "elseBody": [
+              {
+                "kind": "prop",
+                "name": "padding",
+                "value": {
+                  "fields": {
+                    "x": {
+                      "kind": "number",
+                      "value": 14
+                    },
+                    "y": {
+                      "kind": "number",
+                      "value": 12
+                    }
+                  },
+                  "kind": "edgeInsets",
+                  "variant": "xy"
+                }
+              },
+              {
+                "kind": "prop",
+                "name": "gap",
+                "value": {
+                  "kind": "ident",
+                  "name": "atoms.space.sm"
+                }
+              }
+            ]
+          },
+          "kind": "if"
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "ident",
+                "name": "title"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "style",
+              "value": {
+                "kind": "ident",
+                "name": "AtomBody"
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "Title",
+          "kind": "let"
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "direction",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".row"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "align",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".center"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "gap",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.space.xs"
+              }
+            },
+            {
+              "body": [
+                {
+                  "kind": "prop",
+                  "name": "content",
+                  "value": {
+                    "kind": "ident",
+                    "name": "meta"
+                  }
+                },
+                {
+                  "kind": "prop",
+                  "name": "style",
+                  "value": {
+                    "kind": "ident",
+                    "name": "AtomCaption"
+                  }
+                }
+              ],
+              "frameKind": "text",
+              "id": "Meta",
+              "kind": "let"
+            },
+            {
+              "body": [
+                {
+                  "kind": "prop",
+                  "name": "icon",
+                  "value": {
+                    "kind": "ident",
+                    "name": "atoms.icon.chevron"
+                  }
+                },
+                {
+                  "kind": "prop",
+                  "name": "size",
+                  "value": {
+                    "kind": "number",
+                    "value": 16
+                  }
+                },
+                {
+                  "kind": "prop",
+                  "name": "color",
+                  "value": {
+                    "kind": "ident",
+                    "name": "atoms.color.rgba"
+                  }
+                }
+              ],
+              "frameKind": "icon",
+              "id": "Chev",
+              "kind": "let"
+            },
+            {
+              "entries": [
+                {
+                  "id": "Meta",
+                  "kind": "frameRef"
+                },
+                {
+                  "id": "Chev",
+                  "kind": "frameRef"
+                }
+              ],
+              "kind": "children",
+              "target": "root"
+            }
+          ],
+          "frameKind": "layout",
+          "id": "Trail",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "Title",
+              "kind": "frameRef"
+            },
+            {
+              "id": "Trail",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "MoleculeNavRow",
+      "params": [
+        {
+          "defaultValue": {
+            "kind": "string",
+            "value": "Settings"
+          },
+          "name": "title",
+          "typeName": "String"
+        },
+        {
+          "defaultValue": {
+            "kind": "string",
+            "value": ""
+          },
+          "name": "meta",
+          "typeName": "String"
+        },
+        {
+          "defaultValue": {
+            "kind": "dotEnum",
+            "value": ".roomy"
+          },
+          "name": "density",
+          "typeName": "MoleculeListDensity"
+        }
+      ],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.xs"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "padding",
+          "value": {
+            "fields": {
+              "x": {
+                "kind": "number",
+                "value": 12
+              },
+              "y": {
+                "kind": "number",
+                "value": 12
+              }
+            },
+            "kind": "edgeInsets",
+            "variant": "xy"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgba"
+          }
+        },
+        {
+          "component": "MoleculeNavRow",
+          "id": "R0",
+          "kind": "letInstance",
+          "kwargs": {
+            "density": {
+              "kind": "dotEnum",
+              "value": ".roomy"
+            },
+            "meta": {
+              "kind": "string",
+              "value": "Pro"
+            },
+            "title": {
+              "kind": "string",
+              "value": "Account"
+            }
+          }
+        },
+        {
+          "component": "MoleculeNavRow",
+          "id": "R1",
+          "kind": "letInstance",
+          "kwargs": {
+            "density": {
+              "kind": "dotEnum",
+              "value": ".compact"
+            },
+            "meta": {
+              "kind": "string",
+              "value": ""
+            },
+            "title": {
+              "kind": "string",
+              "value": "Privacy"
+            }
+          }
+        },
+        {
+          "component": "MoleculeNavRow",
+          "id": "R2",
+          "kind": "letInstance",
+          "kwargs": {
+            "density": {
+              "kind": "dotEnum",
+              "value": ".compact"
+            },
+            "meta": {
+              "kind": "string",
+              "value": "v1"
+            },
+            "title": {
+              "kind": "string",
+              "value": "About"
+            }
+          }
+        },
+        {
+          "entries": [
+            {
+              "id": "R0",
+              "kind": "frameRef"
+            },
+            {
+              "id": "R1",
+              "kind": "frameRef"
+            },
+            {
+              "id": "R2",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "MoleculeNavListDemo",
+      "params": [],
+      "rootKind": "layout"
+    }
+  ],
+  "entryPath": "<resolved>",
+  "expose": {},
+  "kind": "designGraph",
+  "modulePaths": [
+    "foundation.pdl",
+    "m_09_list_nav.pdl",
+    "tokens_blur_vibrancy_ramp.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_composite_bg_fg.pdl",
+    "tokens_distance_radius.pdl",
+    "tokens_icon_media_ratio.pdl",
+    "tokens_opacity.pdl",
+    "tokens_opacity.pdl",
+    "tokens_shadow.pdl",
+    "tokens_typography.pdl",
+    "tokens_typography.pdl",
+    "typestyle_atoms.pdl"
+  ],
+  "previewBackground": null,
+  "primitives": [
+    {
+      "name": "atoms.color.rgb",
+      "tokenType": "Color",
+      "value": {
+        "kind": "hex",
+        "value": "#ABC"
+      }
+    },
+    {
+      "name": "atoms.color.rgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "hex",
+        "value": "#11223344"
+      }
+    },
+    {
+      "name": "atoms.space.xs",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 4
+      }
+    },
+    {
+      "name": "atoms.space.sm",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 8
+      }
+    },
+    {
+      "name": "atoms.space.md",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 16
+      }
+    },
+    {
+      "name": "atoms.radius.sm",
+      "tokenType": "Radius",
+      "value": {
+        "kind": "number",
+        "value": 4
+      }
+    },
+    {
+      "name": "atoms.radius.mixed",
+      "tokenType": "Radius",
+      "value": {
+        "bl": {
+          "kind": "number",
+          "value": 2
+        },
+        "br": {
+          "kind": "number",
+          "value": 2
+        },
+        "kind": "corner",
+        "tl": {
+          "kind": "number",
+          "value": 8
+        },
+        "tr": {
+          "kind": "number",
+          "value": 8
+        }
+      }
+    },
+    {
+      "name": "atoms.opacity.full",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "number",
+        "value": 1
+      }
+    },
+    {
+      "name": "atoms.opacity.mid",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "number",
+        "value": 0.62
+      }
+    },
+    {
+      "name": "atoms.font.ui",
+      "tokenType": "FontFamily",
+      "value": {
+        "kind": "string",
+        "value": "system-ui, sans-serif"
+      }
+    },
+    {
+      "name": "atoms.font.mono",
+      "tokenType": "FontFamily",
+      "value": {
+        "kind": "string",
+        "value": "ui-monospace, monospace"
+      }
+    },
+    {
+      "name": "atoms.type.size.caption",
+      "tokenType": "Size",
+      "value": {
+        "kind": "number",
+        "value": 12
+      }
+    },
+    {
+      "name": "atoms.type.size.body",
+      "tokenType": "Size",
+      "value": {
+        "kind": "number",
+        "value": 16
+      }
+    },
+    {
+      "name": "atoms.type.size.title",
+      "tokenType": "Size",
+      "value": {
+        "kind": "number",
+        "value": 22
+      }
+    },
+    {
+      "name": "atoms.type.weight.regular",
+      "tokenType": "Weight",
+      "value": {
+        "kind": "number",
+        "value": 400
+      }
+    },
+    {
+      "name": "atoms.type.weight.medium",
+      "tokenType": "Weight",
+      "value": {
+        "kind": "number",
+        "value": 600
+      }
+    },
+    {
+      "name": "atoms.type.weight.bold",
+      "tokenType": "Weight",
+      "value": {
+        "kind": "number",
+        "value": 700
+      }
+    },
+    {
+      "name": "atoms.shadow.soft",
+      "tokenType": "Shadow",
+      "value": {
+        "kind": "string",
+        "value": "0 2px 8px rgba(0,0,0,0.12)"
+      }
+    },
+    {
+      "name": "atoms.shadow.hard",
+      "tokenType": "Shadow",
+      "value": {
+        "kind": "string",
+        "value": "0 1px 3px 0 rgba(0,0,0,0.35)"
+      }
+    },
+    {
+      "name": "atoms.icon.star",
+      "tokenType": "Icon",
+      "value": {
+        "kind": "string",
+        "value": "star"
+      }
+    },
+    {
+      "name": "atoms.icon.chevron",
+      "tokenType": "Icon",
+      "value": {
+        "kind": "string",
+        "value": "chevron-right"
+      }
+    },
+    {
+      "name": "atoms.media.hero",
+      "tokenType": "MediaSource",
+      "value": {
+        "kind": "string",
+        "value": "https://example.com/hero.png"
+      }
+    },
+    {
+      "name": "atoms.ratio.video",
+      "tokenType": "Ratio",
+      "value": {
+        "kind": "number",
+        "value": 1.777
+      }
+    },
+    {
+      "name": "atoms.ratio.square",
+      "tokenType": "Ratio",
+      "value": {
+        "kind": "number",
+        "value": 1
+      }
+    },
+    {
+      "name": "atoms.blur.light",
+      "tokenType": "Blur",
+      "value": {
+        "kind": "number",
+        "value": 6
+      }
+    },
+    {
+      "name": "atoms.blur.heavy",
+      "tokenType": "Blur",
+      "value": {
+        "kind": "number",
+        "value": 24
+      }
+    },
+    {
+      "name": "atoms.vibrancy.subtle",
+      "tokenType": "Vibrancy",
+      "value": {
+        "brightness": 1.02,
+        "kind": "vibrancyTuple",
+        "saturation": 1.05
+      }
+    },
+    {
+      "name": "atoms.vibrancy.strong",
+      "tokenType": "Vibrancy",
+      "value": {
+        "brightness": 0.95,
+        "kind": "vibrancyTuple",
+        "saturation": 1.2
+      }
+    },
+    {
+      "name": "atoms.ramp.fade",
+      "tokenType": "Ramp",
+      "value": {
+        "direction": ".bottomToTop",
+        "kind": "rampInline",
+        "stops": [
+          {
+            "fields": {
+              "color": {
+                "kind": "hex",
+                "value": "#FFFFFF"
+              },
+              "opacity": {
+                "kind": "number",
+                "value": 1
+              },
+              "position": {
+                "kind": "number",
+                "value": 0
+              }
+            },
+            "kind": "gradientStop"
+          },
+          {
+            "fields": {
+              "color": {
+                "kind": "hex",
+                "value": "#000000"
+              },
+              "opacity": {
+                "kind": "number",
+                "value": 0
+              },
+              "position": {
+                "kind": "number",
+                "value": 1
+              }
+            },
+            "kind": "gradientStop"
+          }
+        ]
+      }
+    }
+  ],
+  "schemaVersion": "1.0.0-beta",
+  "semantics": [
+    {
+      "name": "atoms.color.sem.fromRgb",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgb"
+      }
+    },
+    {
+      "name": "atoms.color.sem.fromRgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgba"
+      }
+    },
+    {
+      "name": "atoms.color.scrimLiteral",
+      "tokenType": "Color",
+      "value": {
+        "base": {
+          "kind": "ident",
+          "name": "atoms.color.rgb"
+        },
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.25
+        }
+      }
+    },
+    {
+      "name": "atoms.color.scrimRgba",
+      "tokenType": "Color",
+      "value": {
+        "base": {
+          "kind": "ident",
+          "name": "atoms.color.rgba"
+        },
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.5
+        }
+      }
+    },
+    {
+      "name": "atoms.space.card.pad",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.space.md"
+      }
+    },
+    {
+      "name": "atoms.radius.card",
+      "tokenType": "Radius",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.radius.mixed"
+      }
+    },
+    {
+      "name": "atoms.opacity.sem.mid",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.opacity.mid"
+      }
+    },
+    {
+      "name": "atoms.opacity.sem.full",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.opacity.full"
+      }
+    },
+    {
+      "name": "atoms.bg.flat",
+      "tokenType": "Background",
+      "value": {
+        "items": [
+          {
+            "kind": "hex",
+            "value": "#E5E7EB"
+          }
+        ],
+        "kind": "array"
+      }
+    },
+    {
+      "name": "atoms.bg.blurCard",
+      "tokenType": "Background",
+      "value": {
+        "items": [
+          {
+            "args": {
+              "blur": {
+                "kind": "ident",
+                "name": "atoms.blur.light"
+              }
+            },
+            "callee": "Blur",
+            "kind": "call"
+          },
+          {
+            "base": {
+              "kind": "ident",
+              "name": "atoms.color.sem.fromRgb"
+            },
+            "kind": "opacityOf",
+            "opacity": {
+              "kind": "ident",
+              "name": "atoms.opacity.mid"
+            }
+          }
+        ],
+        "kind": "array"
+      }
+    },
+    {
+      "name": "atoms.fg.hoverTint",
+      "tokenType": "Foreground",
+      "value": {
+        "items": [
+          {
+            "base": {
+              "kind": "ident",
+              "name": "atoms.color.rgb"
+            },
+            "kind": "opacityOf",
+            "opacity": {
+              "kind": "ident",
+              "name": "atoms.opacity.mid"
+            }
+          }
+        ],
+        "kind": "array"
+      }
+    }
+  ],
+  "themes": [],
+  "typeStyles": [
+    {
+      "name": "AtomCaption",
+      "props": {
+        "color": {
+          "kind": "ident",
+          "name": "atoms.color.sem.fromRgb"
+        },
+        "fontFamily": {
+          "kind": "ident",
+          "name": "atoms.font.ui"
+        },
+        "fontSize": {
+          "kind": "ident",
+          "name": "atoms.type.size.caption"
+        },
+        "fontWeight": {
+          "kind": "ident",
+          "name": "atoms.type.weight.medium"
+        }
+      }
+    },
+    {
+      "name": "AtomBody",
+      "props": {
+        "color": {
+          "kind": "ident",
+          "name": "atoms.color.sem.fromRgba"
+        },
+        "fontFamily": {
+          "kind": "ident",
+          "name": "atoms.font.ui"
+        },
+        "fontSize": {
+          "kind": "ident",
+          "name": "atoms.type.size.body"
+        },
+        "fontWeight": {
+          "kind": "ident",
+          "name": "atoms.type.weight.regular"
+        }
+      }
+    },
+    {
+      "name": "AtomTitle",
+      "props": {
+        "color": {
+          "kind": "ident",
+          "name": "atoms.color.rgb"
+        },
+        "fontFamily": {
+          "kind": "ident",
+          "name": "atoms.font.ui"
+        },
+        "fontSize": {
+          "kind": "ident",
+          "name": "atoms.type.size.title"
+        },
+        "fontWeight": {
+          "kind": "ident",
+          "name": "atoms.type.weight.bold"
+        }
+      }
+    },
+    {
+      "name": "AtomMono",
+      "props": {
+        "color": {
+          "kind": "ident",
+          "name": "atoms.color.rgba"
+        },
+        "fontFamily": {
+          "kind": "ident",
+          "name": "atoms.font.mono"
+        },
+        "fontSize": {
+          "kind": "ident",
+          "name": "atoms.type.size.caption"
+        },
+        "fontWeight": {
+          "kind": "ident",
+          "name": "atoms.type.weight.regular"
+        }
+      }
+    }
+  ],
+  "variants": [
+    {
+      "cases": [
+        "compact",
+        "roomy"
+      ],
+      "name": "MoleculeListDensity"
+    }
+  ]
+}

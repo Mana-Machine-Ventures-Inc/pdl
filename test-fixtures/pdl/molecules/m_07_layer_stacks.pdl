@@ -1,0 +1,53 @@
+// Background / foreground: token stacks, inline arrays, nested frames with layers
+
+import "foundation.pdl"
+
+component MoleculeLayeredPanel() layout {
+  direction = .column
+  gap = atoms.space.sm
+  padding = EdgeInsets(x: 16, y: 16)
+  width = .fill
+  height = .hug
+  cornerRadius = atoms.radius.sm
+  background = atoms.bg.blurCard
+  foreground = atoms.fg.hoverTint
+  children = []
+}
+
+component MoleculeLayerInlineSandwich() layout {
+  direction = .row
+  justify = .center
+  align = .stretch
+  gap = atoms.space.md
+  padding = EdgeInsets(x: 12, y: 12)
+  background = atoms.color.sem.fromRgb
+
+  let Left: layout = {
+    direction = .column
+    width = .fill
+    height = .hug
+    padding = EdgeInsets(x: 8, y: 8)
+    background = [atoms.color.sem.fromRgba, atoms.color.rgb @ atoms.opacity.mid]
+    foreground = [atoms.color.rgba @ 0.08]
+    children = []
+  }
+
+  let Right: layout = {
+    direction = .column
+    width = .hug
+    height = .fill
+    padding = EdgeInsets(x: 10, y: 10)
+    background = [Blur(blur: atoms.blur.light), atoms.color.sem.fromRgb @ atoms.opacity.mid]
+    children = []
+  }
+
+  children = [Left, Right]
+}
+
+component MoleculeLayerTokenFlat() layout {
+  direction = .column
+  padding = EdgeInsets(x: 14, y: 14)
+  background = atoms.bg.flat
+  foreground = [atoms.color.sem.fromRgba @ 0.2]
+  children = []
+}

@@ -1,0 +1,68 @@
+// List / nav row: title + trailing meta + chevron
+
+import "foundation.pdl"
+
+variant MoleculeListDensity {
+  case compact
+  case roomy
+}
+
+component MoleculeNavRow(
+  title: String = "Settings",
+  meta: String = "",
+  density: MoleculeListDensity = .roomy
+) layout {
+  direction = .row
+  justify = .spaceBetween
+  align = .center
+  width = .fill
+  height = .hug
+  cornerRadius = atoms.radius.sm
+  background = atoms.color.sem.fromRgb
+
+  if density == .compact {
+    padding = EdgeInsets(x: 10, y: 6)
+    gap = atoms.space.xs
+  } else {
+    padding = EdgeInsets(x: 14, y: 12)
+    gap = atoms.space.sm
+  }
+
+  let Title: text = {
+    content = title
+    style = AtomBody
+  }
+
+  let Trail: layout = {
+    direction = .row
+    align = .center
+    gap = atoms.space.xs
+
+    let Meta: text = {
+      content = meta
+      style = AtomCaption
+    }
+
+    let Chev: icon = {
+      icon = atoms.icon.chevron
+      size = 16
+      color = atoms.color.rgba
+    }
+
+    children = [Meta, Chev]
+  }
+
+  children = [Title, Trail]
+}
+
+component MoleculeNavListDemo() layout {
+  direction = .column
+  gap = atoms.space.xs
+  padding = EdgeInsets(x: 12, y: 12)
+  background = atoms.color.sem.fromRgba
+
+  let R0 = MoleculeNavRow(title: "Account", meta: "Pro", density: .roomy)
+  let R1 = MoleculeNavRow(title: "Privacy", meta: "", density: .compact)
+  let R2 = MoleculeNavRow(title: "About", meta: "v1", density: .compact)
+  children = [R0, R1, R2]
+}

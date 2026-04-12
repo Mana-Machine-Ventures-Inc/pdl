@@ -1,0 +1,106 @@
+// text: content, style, typography props, justify/align, overflow, textOverflow, lineClamp
+
+import "tokens_color.pdl"
+import "tokens_distance_radius.pdl"
+import "typestyle_atoms.pdl"
+
+component AtomTextPlain() layout {
+  direction = .column
+  gap = atoms.space.sm
+  background = atoms.color.sem.fromRgb
+
+  let T: text = {
+    content = "Plain text"
+    color = atoms.color.rgba
+    fontSize = 14
+    fontWeight = 500
+    lineHeight = 1.35
+    letterSpacing = 0.01
+  }
+
+  children = [T]
+}
+
+component AtomTextTypeStyle() layout {
+  direction = .column
+  background = atoms.color.sem.fromRgba
+
+  let A: text = {
+    content = "Caption line"
+    style = AtomCaption
+  }
+
+  let B: text = {
+    content = "Body line"
+    style = AtomBody
+  }
+
+  let C: text = {
+    content = "Title line"
+    style = AtomTitle
+  }
+
+  let D: text = {
+    content = "Mono line"
+    style = AtomMono
+  }
+
+  children = [A, B, C, D]
+}
+
+component AtomTextJustifyAlign() layout {
+  direction = .row
+  gap = atoms.space.md
+  background = atoms.color.rgb
+
+  let L: text = {
+    content = "Left"
+    justify = .start
+    align = .start
+    color = atoms.color.sem.fromRgb
+    fontSize = 12
+  }
+
+  let C: text = {
+    content = "Center"
+    justify = .center
+    align = .center
+    color = atoms.color.sem.fromRgba
+    fontSize = 12
+  }
+
+  let R: text = {
+    content = "Right end"
+    justify = .end
+    align = .end
+    color = atoms.color.rgba
+    fontSize = 12
+  }
+
+  children = [L, C, R]
+}
+
+component AtomTextOverflow() layout {
+  direction = .column
+  gap = atoms.space.xs
+  background = atoms.color.sem.fromRgb
+
+  let Clipped: text = {
+    content = "Clipped overflow"
+    overflow = .clip
+    textOverflow = .clip
+    color = atoms.color.rgba
+    fontSize = 13
+  }
+
+  let Ellipsis: text = {
+    content = "Very long label that should ellipsize when constrained"
+    overflow = .hidden
+    textOverflow = .ellipsis
+    lineClamp = 2
+    color = atoms.color.sem.fromRgba
+    fontSize = 13
+  }
+
+  children = [Clipped, Ellipsis]
+}

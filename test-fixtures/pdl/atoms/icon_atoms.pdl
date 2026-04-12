@@ -1,0 +1,42 @@
+// icon frame + sizing/color/opacity
+
+import "tokens_color.pdl"
+import "tokens_distance_radius.pdl"
+import "tokens_opacity.pdl"
+
+component AtomIconDefault() layout {
+  direction = .row
+  gap = atoms.space.md
+  align = .center
+  background = atoms.color.sem.fromRgb
+
+  let A: icon = {
+    icon = "check"
+    size = 20
+    color = atoms.color.rgba
+  }
+
+  let B: icon = {
+    icon = "close"
+    size = 24
+    color = atoms.color.rgb
+    opacity = atoms.opacity.mid
+  }
+
+  children = [A, B]
+}
+
+component AtomIconSizing() layout {
+  direction = .row
+  gap = atoms.space.sm
+  background = atoms.color.sem.fromRgba
+
+  let W: icon = {
+    icon = "menu"
+    width = .fixed(32)
+    height = .fixed(32)
+    color = atoms.color.sem.fromRgb
+  }
+
+  children = [W]
+}

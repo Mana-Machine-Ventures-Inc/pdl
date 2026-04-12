@@ -1,0 +1,78 @@
+// Card: media header, stacked type styles, footer actions
+
+import "foundation.pdl"
+import "m_02_buttons_basic.pdl"
+import "m_03_button_icon_chevron.pdl"
+
+variant MoleculeCardMedia {
+  case withHero
+  case textOnly
+}
+
+component MoleculeCardArticle(
+  title: String = "Article",
+  subtitle: String = "Supporting line",
+  layoutMode: MoleculeCardMedia = .withHero
+) layout {
+  direction = .column
+  align = .stretch
+  gap = atoms.space.sm
+  padding = EdgeInsets(x: atoms.space.md, y: atoms.space.md)
+  cornerRadius = atoms.radius.card
+  shadow = atoms.shadow.soft
+  borderWidth = 1
+  borderColor = atoms.color.rgba
+  borderPosition = .inside
+  overflow = .hidden
+  background = atoms.color.sem.fromRgb
+
+  let Hero: media = {
+    source = atoms.media.hero
+    contentMode = .cover
+    objectPosition = .center
+    aspectRatio = atoms.ratio.video
+    cornerRadius = atoms.radius.sm
+    width = .fill
+    height = .fixed(120)
+  }
+
+  let Title: text = {
+    content = title
+    style = AtomTitle
+  }
+
+  let Sub: text = {
+    content = subtitle
+    style = AtomBody
+  }
+
+  let Actions: layout = {
+    direction = .row
+    justify = .spaceBetween
+    align = .center
+    gap = atoms.space.sm
+    padding = EdgeInsets(top: atoms.space.sm, right: 0, bottom: 0, left: 0)
+
+    let Primary = MoleculeTextButton(label: "Open", tone: .primary, size: .sm)
+    let Secondary = MoleculeIconTextRow(label: "Share", mode: .trailingChevron)
+    children = [Primary, Secondary]
+  }
+
+  if layoutMode == .withHero {
+    children = [Hero, Title, Sub, Actions]
+  } else {
+    children = [Title, Sub, Actions]
+  }
+}
+
+component MoleculeCardGridDemo() layout {
+  direction = .row
+  wrap = .wrap
+  gap = atoms.space.md
+  padding = EdgeInsets(x: 16, y: 16)
+  background = atoms.color.sem.fromRgba
+
+  let C1 = MoleculeCardArticle(title: "With media", subtitle: "Default", layoutMode: .withHero)
+  let C2 = MoleculeCardArticle(title: "No media", subtitle: "Text only shell", layoutMode: .textOnly)
+  children = [C1, C2]
+}

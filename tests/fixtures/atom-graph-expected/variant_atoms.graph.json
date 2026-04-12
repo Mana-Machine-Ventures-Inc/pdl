@@ -1,0 +1,47 @@
+{
+  "components": [],
+  "entryPath": "<resolved>",
+  "expose": {},
+  "kind": "designGraph",
+  "modulePaths": [
+    "variant_atoms.pdl"
+  ],
+  "previewBackground": null,
+  "primitives": [],
+  "schemaVersion": "1.0.0-beta",
+  "semantics": [],
+  "themes": [],
+  "typeStyles": [],
+  "variants": [
+    {
+      "cases": [
+        "horizontal",
+        "vertical"
+      ],
+      "name": "AtomsAxis"
+    },
+    {
+      "cases": [
+        "sm",
+        "md",
+        "lg"
+      ],
+      "name": "AtomsSize"
+    },
+    {
+      "cases": [
+        "comfortable",
+        "compact"
+      ],
+      "name": "AtomsDensity"
+    },
+    {
+      "cases": [
+        "neutral",
+        "accent",
+        "danger"
+      ],
+      "name": "AtomsTone"
+    }
+  ]
+}

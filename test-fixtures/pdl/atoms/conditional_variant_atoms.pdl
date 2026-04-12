@@ -1,0 +1,42 @@
+// if / else if / else on frames driven by variant params
+
+import "variant_atoms.pdl"
+import "tokens_color.pdl"
+import "tokens_distance_radius.pdl"
+
+component AtomVariantSwatch(tone: AtomsTone = .neutral) layout {
+  let Swatch: layout = {
+    direction = .column
+    padding = EdgeInsets(x: atoms.space.md, y: atoms.space.sm)
+
+    if tone == .accent {
+      background = atoms.color.rgb
+    } else if tone == .danger {
+      background = atoms.color.rgba
+    } else {
+      background = atoms.color.sem.fromRgb
+    }
+
+    children = []
+  }
+
+  children = [Swatch]
+}
+
+component AtomVariantAxis(axis: AtomsAxis = .horizontal) layout {
+  let Box: layout = {
+    gap = atoms.space.xs
+
+    if axis == .vertical {
+      direction = .column
+      background = atoms.color.sem.fromRgba
+    } else {
+      direction = .row
+      background = atoms.color.sem.fromRgb
+    }
+
+    children = []
+  }
+
+  children = [Box]
+}

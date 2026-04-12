@@ -1,0 +1,9 @@
+// Color primitives (3-, 6-, 8-digit hex) + semantic aliases + color @ opacity
+
+primitive atoms.color.rgb: Color = #ABC
+primitive atoms.color.rgba: Color = #11223344
+semantic atoms.color.sem.fromRgb: Color = atoms.color.rgb
+semantic atoms.color.sem.fromRgba: Color = atoms.color.rgba
+
+semantic atoms.color.scrimLiteral: Color = atoms.color.rgb @ 0.25
+semantic atoms.color.scrimRgba: Color = atoms.color.rgba @ 0.5

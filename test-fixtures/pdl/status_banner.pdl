@@ -1,0 +1,29 @@
+variant BannerTone {
+  case success
+  case warning
+  case danger
+}
+
+semantic color.status.success: Color = #22C55E
+semantic color.status.warning: Color = #F59E0B
+semantic color.status.danger: Color = #F43F5E
+
+component StatusBanner(
+  label: String = "Everything is fine",
+  tone: BannerTone = .success
+) layout {
+  let Message: text = {
+    content = label
+    color = color.status.success
+
+    if tone == .warning {
+      color = color.status.warning
+      content = "Check this warning"
+    } else if tone == .danger {
+      color = color.status.danger
+      content = "Immediate action required"
+    }
+  }
+
+  children = [Message]
+}

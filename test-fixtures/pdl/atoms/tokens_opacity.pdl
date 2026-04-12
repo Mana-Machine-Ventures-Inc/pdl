@@ -1,0 +1,6 @@
+// Opacity primitives + semantic chain
+
+primitive atoms.opacity.full: Opacity = 1
+primitive atoms.opacity.mid: Opacity = 0.62
+semantic atoms.opacity.sem.mid: Opacity = atoms.opacity.mid
+semantic atoms.opacity.sem.full: Opacity = atoms.opacity.full
