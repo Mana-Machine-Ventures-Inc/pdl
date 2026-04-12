@@ -1,4 +1,11 @@
-import type { ComponentDecl, ConditionExpr, FrameBodyItem, ValueExpr } from "./ast.js";
+import type {
+  ComponentDecl,
+  ConditionExpr,
+  FrameBodyItem,
+  InteractionHandlerItem,
+  RulesStatement,
+  ValueExpr,
+} from "./ast.js";
 import type { DesignDefinition } from "./designModel.js";
 import { PdlError } from "./errors.js";
 
@@ -14,6 +21,9 @@ function validateConditionExpr(
       for (const sub of expr.items) {
         validateConditionExpr(design, sub, paramByName, componentName);
       }
+      return;
+    case "not":
+      validateConditionExpr(design, expr.expr, paramByName, componentName);
       return;
     case "cmp": {
       const paramName = expr.param;
@@ -43,8 +53,11 @@ function validateConditionExpr(
       }
       return;
     }
-    default:
+    default: {
+      const _x: never = expr;
+      void _x;
       return;
+    }
   }
 }
 
@@ -166,12 +179,124 @@ function validateIfConditionsInBody(
   }
 }
 
+function validateCompanionSymbols(design: DesignDefinition): void {
+  for (const name of design.usage.keys()) {
+    if (!design.components.has(name)) {
+      throw new PdlError("PDL-E006", `usage references unknown component \`${name}\``, { path: design.entryPath });
+    }
+  }
+  for (const name of design.fixtures.keys()) {
+    if (!design.components.has(name)) {
+      throw new PdlError("PDL-E006", `fixtures references unknown component \`${name}\``, { path: design.entryPath });
+    }
+  }
+  for (const name of design.rules.keys()) {
+    if (!design.components.has(name)) {
+      throw new PdlError("PDL-E006", `rules references unknown component \`${name}\``, { path: design.entryPath });
+    }
+  }
+  for (const name of design.interactions.keys()) {
+    if (!design.components.has(name)) {
+      throw new PdlError("PDL-E006", `interaction targets unknown component \`${name}\``, { path: design.entryPath });
+    }
+  }
+}
+
+function validateFixturesForComponent(design: DesignDefinition, componentName: string): void {
+  const c = design.components.get(componentName);
+  if (!c) return;
+  const pmap = new Map(c.params.map((p) => [p.name, p]));
+  const fm = design.fixtures.get(componentName);
+  if (!fm) return;
+  for (const ex of fm.values()) {
+    for (const b of ex.bindings) {
+      if (!pmap.has(b.name)) {
+        throw new PdlError(
+          "PDL-E007",
+          `Unknown parameter \`${b.name}\` in fixture "${ex.label}" (component ${componentName})`,
+          { path: design.entryPath },
+        );
+      }
+    }
+  }
+}
+
+function validateInteractionBody(
+  design: DesignDefinition,
+  items: InteractionHandlerItem[],
+  paramByName: Map<string, { typeName: string }>,
+  componentName: string,
+): void {
+  for (const it of items) {
+    if (it.kind === "assign") {
+      if (!paramByName.has(it.param)) {
+        throw new PdlError(
+          "PDL-E007",
+          `Unknown parameter \`${it.param}\` in interaction (component ${componentName})`,
+          { path: design.entryPath },
+        );
+      }
+    } else if (it.kind === "if") {
+      for (const br of it.chain.branches) {
+        validateConditionExpr(design, br.condition, paramByName, componentName);
+        validateInteractionBody(design, br.body, paramByName, componentName);
+      }
+      if (it.chain.elseBody) {
+        validateInteractionBody(design, it.chain.elseBody, paramByName, componentName);
+      }
+    }
+  }
+}
+
+function validateInteractionsForComponent(design: DesignDefinition, componentName: string): void {
+  const m = design.interactions.get(componentName);
+  if (!m) return;
+  const c = design.components.get(componentName)!;
+  const paramByName = new Map(c.params.map((p) => [p.name, { typeName: p.typeName }]));
+  for (const decl of m.values()) {
+    for (const h of decl.handlers) {
+      validateInteractionBody(design, h.body, paramByName, componentName);
+    }
+  }
+}
+
+function validateRulesStatements(
+  design: DesignDefinition,
+  statements: RulesStatement[],
+  paramByName: Map<string, { typeName: string }>,
+  componentName: string,
+): void {
+  for (const st of statements) {
+    if (st.kind === "if") {
+      for (const br of st.chain.branches) {
+        validateConditionExpr(design, br.condition, paramByName, componentName);
+        validateRulesStatements(design, br.body, paramByName, componentName);
+      }
+      if (st.chain.elseBody) {
+        validateRulesStatements(design, st.chain.elseBody, paramByName, componentName);
+      }
+    }
+  }
+}
+
+function validateRulesForComponent(design: DesignDefinition, componentName: string): void {
+  const stmts = design.rules.get(componentName);
+  if (!stmts?.length) return;
+  const c = design.components.get(componentName)!;
+  const paramByName = new Map(c.params.map((p) => [p.name, { typeName: p.typeName }]));
+  validateRulesStatements(design, stmts, paramByName, componentName);
+}
+
 /** Semantic checks on merged design (after parse + import merge). */
 export function validateMergedDesign(design: DesignDefinition): void {
+  validateCompanionSymbols(design);
   for (const c of design.components.values()) {
     const paramByName = new Map(c.params.map((p) => [p.name, { typeName: p.typeName }]));
     validateIfConditionsInBody(design, c.body, paramByName, c.name);
     const letKinds = collectLetFrameKinds(c.body);
     validateHiddenInBody(design, c.body, paramByName, c.name, c.rootKind, letKinds);
+    validateFixturesForComponent(design, c.name);
+    validateInteractionsForComponent(design, c.name);
+    validateRulesForComponent(design, c.name);
   }
 }

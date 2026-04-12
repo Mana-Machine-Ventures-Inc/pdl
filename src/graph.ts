@@ -17,11 +17,15 @@ export const DESIGN_GRAPH_ROOT_KEYS = [
   "typeStyles",
   "components",
   "expose",
+  "usage",
+  "fixtures",
+  "rules",
+  "interactions",
 ] as const;
 
 export type DesignGraphRootKey = (typeof DESIGN_GRAPH_ROOT_KEYS)[number];
 
-function serialiseConditionExpr(c: ConditionExpr): unknown {
+export function serialiseConditionExpr(c: ConditionExpr): unknown {
   switch (c.kind) {
     case "cmp":
       return { kind: "cmp", param: c.param, op: c.op, rhs: c.rhs };
@@ -29,6 +33,8 @@ function serialiseConditionExpr(c: ConditionExpr): unknown {
       return { kind: "and", items: c.items.map(serialiseConditionExpr) };
     case "or":
       return { kind: "or", items: c.items.map(serialiseConditionExpr) };
+    case "not":
+      return { kind: "not", expr: serialiseConditionExpr(c.expr) };
     default:
       return { kind: "unknown" };
   }
@@ -104,38 +110,122 @@ export function buildDesignGraph(design: DesignDefinition): unknown {
     entryPath: design.entryPath,
     modulePaths: design.modulePaths,
     previewBackground: design.previewBackground ?? null,
-    primitives: [...design.primitives.values()].map((d) => ({
-      name: d.name,
-      tokenType: d.tokenType,
-      value: serialiseValueExpr(d.value),
-    })),
-    semantics: [...design.semantics.values()].map((d) => ({
-      name: d.name,
-      tokenType: d.tokenType,
-      value: serialiseValueExpr(d.value),
-    })),
-    themes: [...design.themes.values()].map((t) => ({
-      name: t.name,
-      baseTheme: t.baseTheme ?? null,
-      overrides: Object.fromEntries(
-        Object.entries(t.overrides).map(([k, v]) => [k, serialiseValueExpr(v)]),
-      ),
-    })),
-    variants: [...design.variants.values()].map((v) => ({ name: v.name, cases: v.cases })),
-    typeStyles: [...design.typeStyles.values()].map((t) => ({
-      name: t.name,
-      props: Object.fromEntries(Object.entries(t.props).map(([k, v]) => [k, serialiseValueExpr(v)])),
-    })),
-    components: [...design.components.values()].map((c) => ({
-      name: c.name,
-      params: c.params.map((p) => ({
-        name: p.name,
-        typeName: p.typeName,
-        defaultValue: serialiseValueExpr(p.defaultValue),
-      })),
-      rootKind: c.rootKind,
-      body: c.body,
-    })),
+    primitives: Object.fromEntries(
+      [...design.primitives.values()]
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((d) => [
+          d.name,
+          {
+            name: d.name,
+            tokenType: d.tokenType,
+            value: serialiseValueExpr(d.value),
+          },
+        ]),
+    ),
+    semantics: Object.fromEntries(
+      [...design.semantics.values()]
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((d) => [
+          d.name,
+          {
+            name: d.name,
+            tokenType: d.tokenType,
+            value: serialiseValueExpr(d.value),
+          },
+        ]),
+    ),
+    themes: Object.fromEntries(
+      [...design.themes.values()]
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((t) => [
+          t.name,
+          {
+            name: t.name,
+            baseTheme: t.baseTheme ?? null,
+            overrides: Object.fromEntries(
+              Object.entries(t.overrides).map(([k, v]) => [k, serialiseValueExpr(v)]),
+            ),
+          },
+        ]),
+    ),
+    variants: Object.fromEntries(
+      [...design.variants.values()]
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((v) => [
+          v.name,
+          {
+            name: v.name,
+            cases: v.cases,
+          },
+        ]),
+    ),
+    typeStyles: Object.fromEntries(
+      [...design.typeStyles.values()]
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((t) => [
+          t.name,
+          {
+            name: t.name,
+            props: Object.fromEntries(Object.entries(t.props).map(([k, v]) => [k, serialiseValueExpr(v)])),
+          },
+        ]),
+    ),
+    components: Object.fromEntries(
+      [...design.components.values()]
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((c) => [
+          c.name,
+          {
+            name: c.name,
+            params: c.params.map((p) => ({
+              name: p.name,
+              typeName: p.typeName,
+              defaultValue: serialiseValueExpr(p.defaultValue),
+            })),
+            rootKind: c.rootKind,
+            body: c.body,
+          },
+        ]),
+    ),
     expose: Object.fromEntries([...design.expose.entries()].sort(([a], [b]) => a.localeCompare(b))),
+    usage: Object.fromEntries(
+      [...design.usage.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([comp, m]) => [
+          comp,
+          Object.fromEntries([...m.entries()].sort(([x], [y]) => x.localeCompare(y))),
+        ]),
+    ),
+    fixtures: Object.fromEntries(
+      [...design.fixtures.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([comp, m]) => [
+          comp,
+          Object.fromEntries(
+            [...m.entries()]
+              .sort(([x], [y]) => x.localeCompare(y))
+              .map(([label, ex]) => [
+                label,
+                {
+                  label: ex.label,
+                  bindings: ex.bindings.map((b) => ({
+                    name: b.name,
+                    value: serialiseValueExpr(b.value),
+                  })),
+                },
+              ]),
+          ),
+        ]),
+    ),
+    rules: Object.fromEntries(
+      [...design.rules.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([comp, stmts]) => [comp, stmts]),
+    ),
+    interactions: Object.fromEntries(
+      [...design.interactions.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([comp, m]) => [comp, [...m.values()].sort((a, b) => a.name.localeCompare(b.name))]),
+    ),
   };
 }

@@ -1,22 +1,16 @@
 {
-  "components": [],
+  "components": {},
   "entryPath": "<resolved>",
   "expose": {},
+  "fixtures": {},
+  "interactions": {},
   "kind": "designGraph",
   "modulePaths": [
     "tokens_typography.pdl"
   ],
   "previewBackground": null,
-  "primitives": [
-    {
-      "name": "atoms.font.ui",
-      "tokenType": "FontFamily",
-      "value": {
-        "kind": "string",
-        "value": "system-ui, sans-serif"
-      }
-    },
-    {
+  "primitives": {
+    "atoms.font.mono": {
       "name": "atoms.font.mono",
       "tokenType": "FontFamily",
       "value": {
@@ -24,15 +18,15 @@
         "value": "ui-monospace, monospace"
       }
     },
-    {
-      "name": "atoms.type.size.caption",
-      "tokenType": "Size",
+    "atoms.font.ui": {
+      "name": "atoms.font.ui",
+      "tokenType": "FontFamily",
       "value": {
-        "kind": "number",
-        "value": 12
+        "kind": "string",
+        "value": "system-ui, sans-serif"
       }
     },
-    {
+    "atoms.type.size.body": {
       "name": "atoms.type.size.body",
       "tokenType": "Size",
       "value": {
@@ -40,7 +34,15 @@
         "value": 16
       }
     },
-    {
+    "atoms.type.size.caption": {
+      "name": "atoms.type.size.caption",
+      "tokenType": "Size",
+      "value": {
+        "kind": "number",
+        "value": 12
+      }
+    },
+    "atoms.type.size.title": {
       "name": "atoms.type.size.title",
       "tokenType": "Size",
       "value": {
@@ -48,15 +50,15 @@
         "value": 22
       }
     },
-    {
-      "name": "atoms.type.weight.regular",
+    "atoms.type.weight.bold": {
+      "name": "atoms.type.weight.bold",
       "tokenType": "Weight",
       "value": {
         "kind": "number",
-        "value": 400
+        "value": 700
       }
     },
-    {
+    "atoms.type.weight.medium": {
       "name": "atoms.type.weight.medium",
       "tokenType": "Weight",
       "value": {
@@ -64,18 +66,20 @@
         "value": 600
       }
     },
-    {
-      "name": "atoms.type.weight.bold",
+    "atoms.type.weight.regular": {
+      "name": "atoms.type.weight.regular",
       "tokenType": "Weight",
       "value": {
         "kind": "number",
-        "value": 700
+        "value": 400
       }
     }
-  ],
+  },
+  "rules": {},
   "schemaVersion": "1.0.0-beta",
-  "semantics": [],
-  "themes": [],
-  "typeStyles": [],
-  "variants": []
+  "semantics": {},
+  "themes": {},
+  "typeStyles": {},
+  "usage": {},
+  "variants": {}
 }

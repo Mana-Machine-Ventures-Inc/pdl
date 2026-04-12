@@ -1,86 +1,6 @@
 {
-  "components": [
-    {
-      "body": [
-        {
-          "kind": "prop",
-          "name": "direction",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".column"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "background",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.color.sem.fromRgb"
-          }
-        },
-        {
-          "body": [
-            {
-              "kind": "prop",
-              "name": "source",
-              "value": {
-                "kind": "ident",
-                "name": "atoms.media.hero"
-              }
-            },
-            {
-              "kind": "prop",
-              "name": "contentMode",
-              "value": {
-                "kind": "dotEnum",
-                "value": ".cover"
-              }
-            },
-            {
-              "kind": "prop",
-              "name": "objectPosition",
-              "value": {
-                "kind": "dotEnum",
-                "value": ".center"
-              }
-            },
-            {
-              "kind": "prop",
-              "name": "aspectRatio",
-              "value": {
-                "kind": "ident",
-                "name": "atoms.ratio.video"
-              }
-            },
-            {
-              "kind": "prop",
-              "name": "cornerRadius",
-              "value": {
-                "kind": "ident",
-                "name": "atoms.radius.sm"
-              }
-            }
-          ],
-          "frameKind": "media",
-          "id": "M",
-          "kind": "let"
-        },
-        {
-          "entries": [
-            {
-              "id": "M",
-              "kind": "frameRef"
-            }
-          ],
-          "kind": "children",
-          "target": "root"
-        }
-      ],
-      "name": "AtomMediaCover",
-      "params": [],
-      "rootKind": "layout"
-    },
-    {
+  "components": {
+    "AtomMediaContainCorners": {
       "body": [
         {
           "kind": "prop",
@@ -169,7 +89,87 @@
       "params": [],
       "rootKind": "layout"
     },
-    {
+    "AtomMediaCover": {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "source",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.media.hero"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "contentMode",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".cover"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "objectPosition",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".center"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "aspectRatio",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.ratio.video"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "cornerRadius",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.radius.sm"
+              }
+            }
+          ],
+          "frameKind": "media",
+          "id": "M",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "M",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomMediaCover",
+      "params": [],
+      "rootKind": "layout"
+    },
+    "AtomMediaScaleDown": {
       "body": [
         {
           "kind": "prop",
@@ -241,9 +241,11 @@
       "params": [],
       "rootKind": "layout"
     }
-  ],
+  },
   "entryPath": "<resolved>",
   "expose": {},
+  "fixtures": {},
+  "interactions": {},
   "kind": "designGraph",
   "modulePaths": [
     "media_atoms.pdl",
@@ -252,8 +254,8 @@
     "tokens_icon_media_ratio.pdl"
   ],
   "previewBackground": null,
-  "primitives": [
-    {
+  "primitives": {
+    "atoms.color.rgb": {
       "name": "atoms.color.rgb",
       "tokenType": "Color",
       "value": {
@@ -261,7 +263,7 @@
         "value": "#ABC"
       }
     },
-    {
+    "atoms.color.rgba": {
       "name": "atoms.color.rgba",
       "tokenType": "Color",
       "value": {
@@ -269,39 +271,31 @@
         "value": "#11223344"
       }
     },
-    {
-      "name": "atoms.space.xs",
-      "tokenType": "Distance",
+    "atoms.icon.chevron": {
+      "name": "atoms.icon.chevron",
+      "tokenType": "Icon",
       "value": {
-        "kind": "number",
-        "value": 4
+        "kind": "string",
+        "value": "chevron-right"
       }
     },
-    {
-      "name": "atoms.space.sm",
-      "tokenType": "Distance",
+    "atoms.icon.star": {
+      "name": "atoms.icon.star",
+      "tokenType": "Icon",
       "value": {
-        "kind": "number",
-        "value": 8
+        "kind": "string",
+        "value": "star"
       }
     },
-    {
-      "name": "atoms.space.md",
-      "tokenType": "Distance",
+    "atoms.media.hero": {
+      "name": "atoms.media.hero",
+      "tokenType": "MediaSource",
       "value": {
-        "kind": "number",
-        "value": 16
+        "kind": "string",
+        "value": "https://example.com/hero.png"
       }
     },
-    {
-      "name": "atoms.radius.sm",
-      "tokenType": "Radius",
-      "value": {
-        "kind": "number",
-        "value": 4
-      }
-    },
-    {
+    "atoms.radius.mixed": {
       "name": "atoms.radius.mixed",
       "tokenType": "Radius",
       "value": {
@@ -324,31 +318,23 @@
         }
       }
     },
-    {
-      "name": "atoms.icon.star",
-      "tokenType": "Icon",
+    "atoms.radius.sm": {
+      "name": "atoms.radius.sm",
+      "tokenType": "Radius",
       "value": {
-        "kind": "string",
-        "value": "star"
+        "kind": "number",
+        "value": 4
       }
     },
-    {
-      "name": "atoms.icon.chevron",
-      "tokenType": "Icon",
+    "atoms.ratio.square": {
+      "name": "atoms.ratio.square",
+      "tokenType": "Ratio",
       "value": {
-        "kind": "string",
-        "value": "chevron-right"
+        "kind": "number",
+        "value": 1
       }
     },
-    {
-      "name": "atoms.media.hero",
-      "tokenType": "MediaSource",
-      "value": {
-        "kind": "string",
-        "value": "https://example.com/hero.png"
-      }
-    },
-    {
+    "atoms.ratio.video": {
       "name": "atoms.ratio.video",
       "tokenType": "Ratio",
       "value": {
@@ -356,34 +342,35 @@
         "value": 1.777
       }
     },
-    {
-      "name": "atoms.ratio.square",
-      "tokenType": "Ratio",
+    "atoms.space.md": {
+      "name": "atoms.space.md",
+      "tokenType": "Distance",
       "value": {
         "kind": "number",
-        "value": 1
+        "value": 16
+      }
+    },
+    "atoms.space.sm": {
+      "name": "atoms.space.sm",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 8
+      }
+    },
+    "atoms.space.xs": {
+      "name": "atoms.space.xs",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 4
       }
     }
-  ],
+  },
+  "rules": {},
   "schemaVersion": "1.0.0-beta",
-  "semantics": [
-    {
-      "name": "atoms.color.sem.fromRgb",
-      "tokenType": "Color",
-      "value": {
-        "kind": "ident",
-        "name": "atoms.color.rgb"
-      }
-    },
-    {
-      "name": "atoms.color.sem.fromRgba",
-      "tokenType": "Color",
-      "value": {
-        "kind": "ident",
-        "name": "atoms.color.rgba"
-      }
-    },
-    {
+  "semantics": {
+    "atoms.color.scrimLiteral": {
       "name": "atoms.color.scrimLiteral",
       "tokenType": "Color",
       "value": {
@@ -398,7 +385,7 @@
         }
       }
     },
-    {
+    "atoms.color.scrimRgba": {
       "name": "atoms.color.scrimRgba",
       "tokenType": "Color",
       "value": {
@@ -413,24 +400,41 @@
         }
       }
     },
-    {
-      "name": "atoms.space.card.pad",
-      "tokenType": "Distance",
+    "atoms.color.sem.fromRgb": {
+      "name": "atoms.color.sem.fromRgb",
+      "tokenType": "Color",
       "value": {
         "kind": "ident",
-        "name": "atoms.space.md"
+        "name": "atoms.color.rgb"
       }
     },
-    {
+    "atoms.color.sem.fromRgba": {
+      "name": "atoms.color.sem.fromRgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgba"
+      }
+    },
+    "atoms.radius.card": {
       "name": "atoms.radius.card",
       "tokenType": "Radius",
       "value": {
         "kind": "ident",
         "name": "atoms.radius.mixed"
       }
+    },
+    "atoms.space.card.pad": {
+      "name": "atoms.space.card.pad",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.space.md"
+      }
     }
-  ],
-  "themes": [],
-  "typeStyles": [],
-  "variants": []
+  },
+  "themes": {},
+  "typeStyles": {},
+  "usage": {},
+  "variants": {}
 }

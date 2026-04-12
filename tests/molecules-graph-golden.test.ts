@@ -21,7 +21,7 @@ describe("molecule design graph goldens", () => {
   const goldenFiles = readdirSync(goldenDir).filter((f) => f.endsWith(".graph.json"));
 
   it("exposes a stable top-level graph key set", () => {
-    expect(DESIGN_GRAPH_ROOT_KEYS.length).toBe(12);
+    expect(DESIGN_GRAPH_ROOT_KEYS.length).toBe(16);
   });
 
   for (const gf of goldenFiles) {

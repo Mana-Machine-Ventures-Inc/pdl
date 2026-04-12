@@ -1,7 +1,9 @@
 {
-  "components": [],
+  "components": {},
   "entryPath": "<resolved>",
   "expose": {},
+  "fixtures": {},
+  "interactions": {},
   "kind": "designGraph",
   "modulePaths": [
     "tokens_blur_vibrancy_ramp.pdl",
@@ -10,16 +12,8 @@
     "tokens_opacity.pdl"
   ],
   "previewBackground": null,
-  "primitives": [
-    {
-      "name": "atoms.blur.light",
-      "tokenType": "Blur",
-      "value": {
-        "kind": "number",
-        "value": 6
-      }
-    },
-    {
+  "primitives": {
+    "atoms.blur.heavy": {
       "name": "atoms.blur.heavy",
       "tokenType": "Blur",
       "value": {
@@ -27,25 +21,47 @@
         "value": 24
       }
     },
-    {
-      "name": "atoms.vibrancy.subtle",
-      "tokenType": "Vibrancy",
+    "atoms.blur.light": {
+      "name": "atoms.blur.light",
+      "tokenType": "Blur",
       "value": {
-        "brightness": 1.02,
-        "kind": "vibrancyTuple",
-        "saturation": 1.05
+        "kind": "number",
+        "value": 6
       }
     },
-    {
-      "name": "atoms.vibrancy.strong",
-      "tokenType": "Vibrancy",
+    "atoms.color.rgb": {
+      "name": "atoms.color.rgb",
+      "tokenType": "Color",
       "value": {
-        "brightness": 0.95,
-        "kind": "vibrancyTuple",
-        "saturation": 1.2
+        "kind": "hex",
+        "value": "#ABC"
       }
     },
-    {
+    "atoms.color.rgba": {
+      "name": "atoms.color.rgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "hex",
+        "value": "#11223344"
+      }
+    },
+    "atoms.opacity.full": {
+      "name": "atoms.opacity.full",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "number",
+        "value": 1
+      }
+    },
+    "atoms.opacity.mid": {
+      "name": "atoms.opacity.mid",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "number",
+        "value": 0.62
+      }
+    },
+    "atoms.ramp.fade": {
       "name": "atoms.ramp.fade",
       "tokenType": "Ramp",
       "value": {
@@ -89,117 +105,29 @@
         ]
       }
     },
-    {
-      "name": "atoms.opacity.full",
-      "tokenType": "Opacity",
+    "atoms.vibrancy.strong": {
+      "name": "atoms.vibrancy.strong",
+      "tokenType": "Vibrancy",
       "value": {
-        "kind": "number",
-        "value": 1
+        "brightness": 0.95,
+        "kind": "vibrancyTuple",
+        "saturation": 1.2
       }
     },
-    {
-      "name": "atoms.opacity.mid",
-      "tokenType": "Opacity",
+    "atoms.vibrancy.subtle": {
+      "name": "atoms.vibrancy.subtle",
+      "tokenType": "Vibrancy",
       "value": {
-        "kind": "number",
-        "value": 0.62
-      }
-    },
-    {
-      "name": "atoms.color.rgb",
-      "tokenType": "Color",
-      "value": {
-        "kind": "hex",
-        "value": "#ABC"
-      }
-    },
-    {
-      "name": "atoms.color.rgba",
-      "tokenType": "Color",
-      "value": {
-        "kind": "hex",
-        "value": "#11223344"
+        "brightness": 1.02,
+        "kind": "vibrancyTuple",
+        "saturation": 1.05
       }
     }
-  ],
+  },
+  "rules": {},
   "schemaVersion": "1.0.0-beta",
-  "semantics": [
-    {
-      "name": "atoms.opacity.sem.mid",
-      "tokenType": "Opacity",
-      "value": {
-        "kind": "ident",
-        "name": "atoms.opacity.mid"
-      }
-    },
-    {
-      "name": "atoms.opacity.sem.full",
-      "tokenType": "Opacity",
-      "value": {
-        "kind": "ident",
-        "name": "atoms.opacity.full"
-      }
-    },
-    {
-      "name": "atoms.color.sem.fromRgb",
-      "tokenType": "Color",
-      "value": {
-        "kind": "ident",
-        "name": "atoms.color.rgb"
-      }
-    },
-    {
-      "name": "atoms.color.sem.fromRgba",
-      "tokenType": "Color",
-      "value": {
-        "kind": "ident",
-        "name": "atoms.color.rgba"
-      }
-    },
-    {
-      "name": "atoms.color.scrimLiteral",
-      "tokenType": "Color",
-      "value": {
-        "base": {
-          "kind": "ident",
-          "name": "atoms.color.rgb"
-        },
-        "kind": "opacityOf",
-        "opacity": {
-          "kind": "number",
-          "value": 0.25
-        }
-      }
-    },
-    {
-      "name": "atoms.color.scrimRgba",
-      "tokenType": "Color",
-      "value": {
-        "base": {
-          "kind": "ident",
-          "name": "atoms.color.rgba"
-        },
-        "kind": "opacityOf",
-        "opacity": {
-          "kind": "number",
-          "value": 0.5
-        }
-      }
-    },
-    {
-      "name": "atoms.bg.flat",
-      "tokenType": "Background",
-      "value": {
-        "items": [
-          {
-            "kind": "hex",
-            "value": "#E5E7EB"
-          }
-        ],
-        "kind": "array"
-      }
-    },
-    {
+  "semantics": {
+    "atoms.bg.blurCard": {
       "name": "atoms.bg.blurCard",
       "tokenType": "Background",
       "value": {
@@ -229,7 +157,66 @@
         "kind": "array"
       }
     },
-    {
+    "atoms.bg.flat": {
+      "name": "atoms.bg.flat",
+      "tokenType": "Background",
+      "value": {
+        "items": [
+          {
+            "kind": "hex",
+            "value": "#E5E7EB"
+          }
+        ],
+        "kind": "array"
+      }
+    },
+    "atoms.color.scrimLiteral": {
+      "name": "atoms.color.scrimLiteral",
+      "tokenType": "Color",
+      "value": {
+        "base": {
+          "kind": "ident",
+          "name": "atoms.color.rgb"
+        },
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.25
+        }
+      }
+    },
+    "atoms.color.scrimRgba": {
+      "name": "atoms.color.scrimRgba",
+      "tokenType": "Color",
+      "value": {
+        "base": {
+          "kind": "ident",
+          "name": "atoms.color.rgba"
+        },
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.5
+        }
+      }
+    },
+    "atoms.color.sem.fromRgb": {
+      "name": "atoms.color.sem.fromRgb",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgb"
+      }
+    },
+    "atoms.color.sem.fromRgba": {
+      "name": "atoms.color.sem.fromRgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgba"
+      }
+    },
+    "atoms.fg.hoverTint": {
       "name": "atoms.fg.hoverTint",
       "tokenType": "Foreground",
       "value": {
@@ -248,9 +235,26 @@
         ],
         "kind": "array"
       }
+    },
+    "atoms.opacity.sem.full": {
+      "name": "atoms.opacity.sem.full",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.opacity.full"
+      }
+    },
+    "atoms.opacity.sem.mid": {
+      "name": "atoms.opacity.sem.mid",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.opacity.mid"
+      }
     }
-  ],
-  "themes": [],
-  "typeStyles": [],
-  "variants": []
+  },
+  "themes": {},
+  "typeStyles": {},
+  "usage": {},
+  "variants": {}
 }

@@ -1,22 +1,16 @@
 {
-  "components": [],
+  "components": {},
   "entryPath": "<resolved>",
   "expose": {},
+  "fixtures": {},
+  "interactions": {},
   "kind": "designGraph",
   "modulePaths": [
     "tokens_blur_vibrancy_ramp.pdl"
   ],
   "previewBackground": null,
-  "primitives": [
-    {
-      "name": "atoms.blur.light",
-      "tokenType": "Blur",
-      "value": {
-        "kind": "number",
-        "value": 6
-      }
-    },
-    {
+  "primitives": {
+    "atoms.blur.heavy": {
       "name": "atoms.blur.heavy",
       "tokenType": "Blur",
       "value": {
@@ -24,25 +18,15 @@
         "value": 24
       }
     },
-    {
-      "name": "atoms.vibrancy.subtle",
-      "tokenType": "Vibrancy",
+    "atoms.blur.light": {
+      "name": "atoms.blur.light",
+      "tokenType": "Blur",
       "value": {
-        "brightness": 1.02,
-        "kind": "vibrancyTuple",
-        "saturation": 1.05
+        "kind": "number",
+        "value": 6
       }
     },
-    {
-      "name": "atoms.vibrancy.strong",
-      "tokenType": "Vibrancy",
-      "value": {
-        "brightness": 0.95,
-        "kind": "vibrancyTuple",
-        "saturation": 1.2
-      }
-    },
-    {
+    "atoms.ramp.fade": {
       "name": "atoms.ramp.fade",
       "tokenType": "Ramp",
       "value": {
@@ -85,11 +69,31 @@
           }
         ]
       }
+    },
+    "atoms.vibrancy.strong": {
+      "name": "atoms.vibrancy.strong",
+      "tokenType": "Vibrancy",
+      "value": {
+        "brightness": 0.95,
+        "kind": "vibrancyTuple",
+        "saturation": 1.2
+      }
+    },
+    "atoms.vibrancy.subtle": {
+      "name": "atoms.vibrancy.subtle",
+      "tokenType": "Vibrancy",
+      "value": {
+        "brightness": 1.02,
+        "kind": "vibrancyTuple",
+        "saturation": 1.05
+      }
     }
-  ],
+  },
+  "rules": {},
   "schemaVersion": "1.0.0-beta",
-  "semantics": [],
-  "themes": [],
-  "typeStyles": [],
-  "variants": []
+  "semantics": {},
+  "themes": {},
+  "typeStyles": {},
+  "usage": {},
+  "variants": {}
 }

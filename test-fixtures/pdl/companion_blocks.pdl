@@ -1,0 +1,43 @@
+// usage, fixtures, rules, interaction (full-spec §8, §11)
+
+import "atoms/typestyle_atoms.pdl"
+
+variant CompanionTone {
+  case neutral
+  case accent
+}
+
+component CompanionBlock(tone: CompanionTone = .neutral) layout {
+  direction = .row
+
+  let L: text = {
+    content = "Hi"
+    style = AtomCaption
+  }
+
+  children = [L]
+}
+
+interaction CompanionHover for CompanionBlock {
+  on hoverStart {
+    tone = .accent
+  }
+  on hoverEnd {
+    tone = .neutral
+  }
+}
+
+usage CompanionBlock {
+  description = "Test companion metadata."
+}
+
+fixtures CompanionBlock {
+  example "Accent" {
+    tone = .accent
+  }
+}
+
+rules CompanionBlock {
+  tags = ["demo"]
+  Rule(.should, ancestors.exists)
+}

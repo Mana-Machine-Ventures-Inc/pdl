@@ -1,14 +1,16 @@
 {
-  "components": [],
+  "components": {},
   "entryPath": "<resolved>",
   "expose": {},
+  "fixtures": {},
+  "interactions": {},
   "kind": "designGraph",
   "modulePaths": [
     "tokens_color.pdl"
   ],
   "previewBackground": null,
-  "primitives": [
-    {
+  "primitives": {
+    "atoms.color.rgb": {
       "name": "atoms.color.rgb",
       "tokenType": "Color",
       "value": {
@@ -16,7 +18,7 @@
         "value": "#ABC"
       }
     },
-    {
+    "atoms.color.rgba": {
       "name": "atoms.color.rgba",
       "tokenType": "Color",
       "value": {
@@ -24,26 +26,11 @@
         "value": "#11223344"
       }
     }
-  ],
+  },
+  "rules": {},
   "schemaVersion": "1.0.0-beta",
-  "semantics": [
-    {
-      "name": "atoms.color.sem.fromRgb",
-      "tokenType": "Color",
-      "value": {
-        "kind": "ident",
-        "name": "atoms.color.rgb"
-      }
-    },
-    {
-      "name": "atoms.color.sem.fromRgba",
-      "tokenType": "Color",
-      "value": {
-        "kind": "ident",
-        "name": "atoms.color.rgba"
-      }
-    },
-    {
+  "semantics": {
+    "atoms.color.scrimLiteral": {
       "name": "atoms.color.scrimLiteral",
       "tokenType": "Color",
       "value": {
@@ -58,7 +45,7 @@
         }
       }
     },
-    {
+    "atoms.color.scrimRgba": {
       "name": "atoms.color.scrimRgba",
       "tokenType": "Color",
       "value": {
@@ -72,9 +59,26 @@
           "value": 0.5
         }
       }
+    },
+    "atoms.color.sem.fromRgb": {
+      "name": "atoms.color.sem.fromRgb",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgb"
+      }
+    },
+    "atoms.color.sem.fromRgba": {
+      "name": "atoms.color.sem.fromRgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgba"
+      }
     }
-  ],
-  "themes": [],
-  "typeStyles": [],
-  "variants": []
+  },
+  "themes": {},
+  "typeStyles": {},
+  "usage": {},
+  "variants": {}
 }

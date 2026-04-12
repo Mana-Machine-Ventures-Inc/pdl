@@ -1,6 +1,6 @@
 {
-  "components": [
-    {
+  "components": {
+    "AtomParamsKitchenSink": {
       "body": [
         {
           "kind": "prop",
@@ -166,9 +166,11 @@
       ],
       "rootKind": "layout"
     }
-  ],
+  },
   "entryPath": "<resolved>",
   "expose": {},
+  "fixtures": {},
+  "interactions": {},
   "kind": "designGraph",
   "modulePaths": [
     "component_param_types_atoms.pdl",
@@ -177,8 +179,8 @@
     "variant_atoms.pdl"
   ],
   "previewBackground": null,
-  "primitives": [
-    {
+  "primitives": {
+    "atoms.color.rgb": {
       "name": "atoms.color.rgb",
       "tokenType": "Color",
       "value": {
@@ -186,7 +188,7 @@
         "value": "#ABC"
       }
     },
-    {
+    "atoms.color.rgba": {
       "name": "atoms.color.rgba",
       "tokenType": "Color",
       "value": {
@@ -194,39 +196,7 @@
         "value": "#11223344"
       }
     },
-    {
-      "name": "atoms.space.xs",
-      "tokenType": "Distance",
-      "value": {
-        "kind": "number",
-        "value": 4
-      }
-    },
-    {
-      "name": "atoms.space.sm",
-      "tokenType": "Distance",
-      "value": {
-        "kind": "number",
-        "value": 8
-      }
-    },
-    {
-      "name": "atoms.space.md",
-      "tokenType": "Distance",
-      "value": {
-        "kind": "number",
-        "value": 16
-      }
-    },
-    {
-      "name": "atoms.radius.sm",
-      "tokenType": "Radius",
-      "value": {
-        "kind": "number",
-        "value": 4
-      }
-    },
-    {
+    "atoms.radius.mixed": {
       "name": "atoms.radius.mixed",
       "tokenType": "Radius",
       "value": {
@@ -248,27 +218,44 @@
           "value": 8
         }
       }
+    },
+    "atoms.radius.sm": {
+      "name": "atoms.radius.sm",
+      "tokenType": "Radius",
+      "value": {
+        "kind": "number",
+        "value": 4
+      }
+    },
+    "atoms.space.md": {
+      "name": "atoms.space.md",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 16
+      }
+    },
+    "atoms.space.sm": {
+      "name": "atoms.space.sm",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 8
+      }
+    },
+    "atoms.space.xs": {
+      "name": "atoms.space.xs",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 4
+      }
     }
-  ],
+  },
+  "rules": {},
   "schemaVersion": "1.0.0-beta",
-  "semantics": [
-    {
-      "name": "atoms.color.sem.fromRgb",
-      "tokenType": "Color",
-      "value": {
-        "kind": "ident",
-        "name": "atoms.color.rgb"
-      }
-    },
-    {
-      "name": "atoms.color.sem.fromRgba",
-      "tokenType": "Color",
-      "value": {
-        "kind": "ident",
-        "name": "atoms.color.rgba"
-      }
-    },
-    {
+  "semantics": {
+    "atoms.color.scrimLiteral": {
       "name": "atoms.color.scrimLiteral",
       "tokenType": "Color",
       "value": {
@@ -283,7 +270,7 @@
         }
       }
     },
-    {
+    "atoms.color.scrimRgba": {
       "name": "atoms.color.scrimRgba",
       "tokenType": "Color",
       "value": {
@@ -298,34 +285,58 @@
         }
       }
     },
-    {
-      "name": "atoms.space.card.pad",
-      "tokenType": "Distance",
+    "atoms.color.sem.fromRgb": {
+      "name": "atoms.color.sem.fromRgb",
+      "tokenType": "Color",
       "value": {
         "kind": "ident",
-        "name": "atoms.space.md"
+        "name": "atoms.color.rgb"
       }
     },
-    {
+    "atoms.color.sem.fromRgba": {
+      "name": "atoms.color.sem.fromRgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgba"
+      }
+    },
+    "atoms.radius.card": {
       "name": "atoms.radius.card",
       "tokenType": "Radius",
       "value": {
         "kind": "ident",
         "name": "atoms.radius.mixed"
       }
+    },
+    "atoms.space.card.pad": {
+      "name": "atoms.space.card.pad",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.space.md"
+      }
     }
-  ],
-  "themes": [],
-  "typeStyles": [],
-  "variants": [
-    {
+  },
+  "themes": {},
+  "typeStyles": {},
+  "usage": {},
+  "variants": {
+    "AtomsAxis": {
       "cases": [
         "horizontal",
         "vertical"
       ],
       "name": "AtomsAxis"
     },
-    {
+    "AtomsDensity": {
+      "cases": [
+        "comfortable",
+        "compact"
+      ],
+      "name": "AtomsDensity"
+    },
+    "AtomsSize": {
       "cases": [
         "sm",
         "md",
@@ -333,14 +344,7 @@
       ],
       "name": "AtomsSize"
     },
-    {
-      "cases": [
-        "comfortable",
-        "compact"
-      ],
-      "name": "AtomsDensity"
-    },
-    {
+    "AtomsTone": {
       "cases": [
         "neutral",
         "accent",
@@ -348,5 +352,5 @@
       ],
       "name": "AtomsTone"
     }
-  ]
+  }
 }

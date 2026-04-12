@@ -1,26 +1,37 @@
 {
-  "components": [],
+  "components": {},
   "entryPath": "<resolved>",
   "expose": {},
+  "fixtures": {},
+  "interactions": {},
   "kind": "designGraph",
   "modulePaths": [
     "variant_atoms.pdl"
   ],
   "previewBackground": null,
-  "primitives": [],
+  "primitives": {},
+  "rules": {},
   "schemaVersion": "1.0.0-beta",
-  "semantics": [],
-  "themes": [],
-  "typeStyles": [],
-  "variants": [
-    {
+  "semantics": {},
+  "themes": {},
+  "typeStyles": {},
+  "usage": {},
+  "variants": {
+    "AtomsAxis": {
       "cases": [
         "horizontal",
         "vertical"
       ],
       "name": "AtomsAxis"
     },
-    {
+    "AtomsDensity": {
+      "cases": [
+        "comfortable",
+        "compact"
+      ],
+      "name": "AtomsDensity"
+    },
+    "AtomsSize": {
       "cases": [
         "sm",
         "md",
@@ -28,14 +39,7 @@
       ],
       "name": "AtomsSize"
     },
-    {
-      "cases": [
-        "comfortable",
-        "compact"
-      ],
-      "name": "AtomsDensity"
-    },
-    {
+    "AtomsTone": {
       "cases": [
         "neutral",
         "accent",
@@ -43,5 +47,5 @@
       ],
       "name": "AtomsTone"
     }
-  ]
+  }
 }

@@ -1,303 +1,6 @@
 {
-  "components": [
-    {
-      "body": [
-        {
-          "kind": "prop",
-          "name": "direction",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".column"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "gap",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.space.sm"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "background",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.color.sem.fromRgb"
-          }
-        },
-        {
-          "body": [
-            {
-              "kind": "prop",
-              "name": "content",
-              "value": {
-                "kind": "string",
-                "value": "Plain text"
-              }
-            },
-            {
-              "kind": "prop",
-              "name": "color",
-              "value": {
-                "kind": "ident",
-                "name": "atoms.color.rgba"
-              }
-            },
-            {
-              "kind": "prop",
-              "name": "fontSize",
-              "value": {
-                "kind": "number",
-                "value": 14
-              }
-            },
-            {
-              "kind": "prop",
-              "name": "fontWeight",
-              "value": {
-                "kind": "number",
-                "value": 500
-              }
-            },
-            {
-              "kind": "prop",
-              "name": "lineHeight",
-              "value": {
-                "kind": "number",
-                "value": 1.35
-              }
-            },
-            {
-              "kind": "prop",
-              "name": "letterSpacing",
-              "value": {
-                "kind": "number",
-                "value": 0.01
-              }
-            }
-          ],
-          "frameKind": "text",
-          "id": "T",
-          "kind": "let"
-        },
-        {
-          "entries": [
-            {
-              "id": "T",
-              "kind": "frameRef"
-            }
-          ],
-          "kind": "children",
-          "target": "root"
-        }
-      ],
-      "name": "AtomTextPlain",
-      "params": [],
-      "rootKind": "layout"
-    },
-    {
-      "body": [
-        {
-          "kind": "prop",
-          "name": "direction",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".column"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "background",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.color.sem.fromRgba"
-          }
-        },
-        {
-          "body": [
-            {
-              "kind": "prop",
-              "name": "content",
-              "value": {
-                "kind": "string",
-                "value": "Caption line"
-              }
-            },
-            {
-              "kind": "prop",
-              "name": "style",
-              "value": {
-                "kind": "ident",
-                "name": "AtomCaption"
-              }
-            }
-          ],
-          "frameKind": "text",
-          "id": "A",
-          "kind": "let"
-        },
-        {
-          "body": [
-            {
-              "kind": "prop",
-              "name": "content",
-              "value": {
-                "kind": "string",
-                "value": "Body line"
-              }
-            },
-            {
-              "kind": "prop",
-              "name": "style",
-              "value": {
-                "kind": "ident",
-                "name": "AtomBody"
-              }
-            }
-          ],
-          "frameKind": "text",
-          "id": "B",
-          "kind": "let"
-        },
-        {
-          "body": [
-            {
-              "kind": "prop",
-              "name": "content",
-              "value": {
-                "kind": "string",
-                "value": "Title line"
-              }
-            },
-            {
-              "kind": "prop",
-              "name": "style",
-              "value": {
-                "kind": "ident",
-                "name": "AtomTitle"
-              }
-            }
-          ],
-          "frameKind": "text",
-          "id": "C",
-          "kind": "let"
-        },
-        {
-          "body": [
-            {
-              "kind": "prop",
-              "name": "content",
-              "value": {
-                "kind": "string",
-                "value": "Mono line"
-              }
-            },
-            {
-              "kind": "prop",
-              "name": "style",
-              "value": {
-                "kind": "ident",
-                "name": "AtomMono"
-              }
-            }
-          ],
-          "frameKind": "text",
-          "id": "D",
-          "kind": "let"
-        },
-        {
-          "entries": [
-            {
-              "id": "A",
-              "kind": "frameRef"
-            },
-            {
-              "id": "B",
-              "kind": "frameRef"
-            },
-            {
-              "id": "C",
-              "kind": "frameRef"
-            },
-            {
-              "id": "D",
-              "kind": "frameRef"
-            }
-          ],
-          "kind": "children",
-          "target": "root"
-        }
-      ],
-      "name": "AtomTextTypeStyle",
-      "params": [],
-      "rootKind": "layout"
-    },
-    {
-      "body": [
-        {
-          "kind": "prop",
-          "name": "direction",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".column"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "background",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.color.sem.fromRgb"
-          }
-        },
-        {
-          "body": [
-            {
-              "kind": "prop",
-              "name": "content",
-              "value": {
-                "kind": "string",
-                "value": "Mixed"
-              }
-            },
-            {
-              "kind": "prop",
-              "name": "style",
-              "value": {
-                "kind": "ident",
-                "name": "AtomCaption"
-              }
-            },
-            {
-              "kind": "prop",
-              "name": "fontSize",
-              "value": {
-                "kind": "number",
-                "value": 22
-              }
-            }
-          ],
-          "frameKind": "text",
-          "id": "T",
-          "kind": "let"
-        },
-        {
-          "entries": [
-            {
-              "id": "T",
-              "kind": "frameRef"
-            }
-          ],
-          "kind": "children",
-          "target": "root"
-        }
-      ],
-      "name": "AtomTextStylePlusOverride",
-      "params": [],
-      "rootKind": "layout"
-    },
-    {
+  "components": {
+    "AtomTextJustifyAlign": {
       "body": [
         {
           "kind": "prop",
@@ -487,7 +190,7 @@
       "params": [],
       "rootKind": "layout"
     },
-    {
+    "AtomTextOverflow": {
       "body": [
         {
           "kind": "prop",
@@ -633,10 +336,309 @@
       "name": "AtomTextOverflow",
       "params": [],
       "rootKind": "layout"
+    },
+    "AtomTextPlain": {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.sm"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "string",
+                "value": "Plain text"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "color",
+              "value": {
+                "kind": "ident",
+                "name": "atoms.color.rgba"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "fontSize",
+              "value": {
+                "kind": "number",
+                "value": 14
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "fontWeight",
+              "value": {
+                "kind": "number",
+                "value": 500
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "lineHeight",
+              "value": {
+                "kind": "number",
+                "value": 1.35
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "letterSpacing",
+              "value": {
+                "kind": "number",
+                "value": 0.01
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "T",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "T",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomTextPlain",
+      "params": [],
+      "rootKind": "layout"
+    },
+    "AtomTextStylePlusOverride": {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "string",
+                "value": "Mixed"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "style",
+              "value": {
+                "kind": "ident",
+                "name": "AtomCaption"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "fontSize",
+              "value": {
+                "kind": "number",
+                "value": 22
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "T",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "T",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomTextStylePlusOverride",
+      "params": [],
+      "rootKind": "layout"
+    },
+    "AtomTextTypeStyle": {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgba"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "string",
+                "value": "Caption line"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "style",
+              "value": {
+                "kind": "ident",
+                "name": "AtomCaption"
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "A",
+          "kind": "let"
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "string",
+                "value": "Body line"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "style",
+              "value": {
+                "kind": "ident",
+                "name": "AtomBody"
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "B",
+          "kind": "let"
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "string",
+                "value": "Title line"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "style",
+              "value": {
+                "kind": "ident",
+                "name": "AtomTitle"
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "C",
+          "kind": "let"
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "string",
+                "value": "Mono line"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "style",
+              "value": {
+                "kind": "ident",
+                "name": "AtomMono"
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "D",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "A",
+              "kind": "frameRef"
+            },
+            {
+              "id": "B",
+              "kind": "frameRef"
+            },
+            {
+              "id": "C",
+              "kind": "frameRef"
+            },
+            {
+              "id": "D",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomTextTypeStyle",
+      "params": [],
+      "rootKind": "layout"
     }
-  ],
+  },
   "entryPath": "<resolved>",
   "expose": {},
+  "fixtures": {},
+  "interactions": {},
   "kind": "designGraph",
   "modulePaths": [
     "text_atoms.pdl",
@@ -647,8 +649,8 @@
     "typestyle_atoms.pdl"
   ],
   "previewBackground": null,
-  "primitives": [
-    {
+  "primitives": {
+    "atoms.color.rgb": {
       "name": "atoms.color.rgb",
       "tokenType": "Color",
       "value": {
@@ -656,7 +658,7 @@
         "value": "#ABC"
       }
     },
-    {
+    "atoms.color.rgba": {
       "name": "atoms.color.rgba",
       "tokenType": "Color",
       "value": {
@@ -664,39 +666,23 @@
         "value": "#11223344"
       }
     },
-    {
-      "name": "atoms.space.xs",
-      "tokenType": "Distance",
+    "atoms.font.mono": {
+      "name": "atoms.font.mono",
+      "tokenType": "FontFamily",
       "value": {
-        "kind": "number",
-        "value": 4
+        "kind": "string",
+        "value": "ui-monospace, monospace"
       }
     },
-    {
-      "name": "atoms.space.sm",
-      "tokenType": "Distance",
+    "atoms.font.ui": {
+      "name": "atoms.font.ui",
+      "tokenType": "FontFamily",
       "value": {
-        "kind": "number",
-        "value": 8
+        "kind": "string",
+        "value": "system-ui, sans-serif"
       }
     },
-    {
-      "name": "atoms.space.md",
-      "tokenType": "Distance",
-      "value": {
-        "kind": "number",
-        "value": 16
-      }
-    },
-    {
-      "name": "atoms.radius.sm",
-      "tokenType": "Radius",
-      "value": {
-        "kind": "number",
-        "value": 4
-      }
-    },
-    {
+    "atoms.radius.mixed": {
       "name": "atoms.radius.mixed",
       "tokenType": "Radius",
       "value": {
@@ -719,31 +705,39 @@
         }
       }
     },
-    {
-      "name": "atoms.font.ui",
-      "tokenType": "FontFamily",
-      "value": {
-        "kind": "string",
-        "value": "system-ui, sans-serif"
-      }
-    },
-    {
-      "name": "atoms.font.mono",
-      "tokenType": "FontFamily",
-      "value": {
-        "kind": "string",
-        "value": "ui-monospace, monospace"
-      }
-    },
-    {
-      "name": "atoms.type.size.caption",
-      "tokenType": "Size",
+    "atoms.radius.sm": {
+      "name": "atoms.radius.sm",
+      "tokenType": "Radius",
       "value": {
         "kind": "number",
-        "value": 12
+        "value": 4
       }
     },
-    {
+    "atoms.space.md": {
+      "name": "atoms.space.md",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 16
+      }
+    },
+    "atoms.space.sm": {
+      "name": "atoms.space.sm",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 8
+      }
+    },
+    "atoms.space.xs": {
+      "name": "atoms.space.xs",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 4
+      }
+    },
+    "atoms.type.size.body": {
       "name": "atoms.type.size.body",
       "tokenType": "Size",
       "value": {
@@ -751,7 +745,15 @@
         "value": 16
       }
     },
-    {
+    "atoms.type.size.caption": {
+      "name": "atoms.type.size.caption",
+      "tokenType": "Size",
+      "value": {
+        "kind": "number",
+        "value": 12
+      }
+    },
+    "atoms.type.size.title": {
       "name": "atoms.type.size.title",
       "tokenType": "Size",
       "value": {
@@ -759,15 +761,15 @@
         "value": 22
       }
     },
-    {
-      "name": "atoms.type.weight.regular",
+    "atoms.type.weight.bold": {
+      "name": "atoms.type.weight.bold",
       "tokenType": "Weight",
       "value": {
         "kind": "number",
-        "value": 400
+        "value": 700
       }
     },
-    {
+    "atoms.type.weight.medium": {
       "name": "atoms.type.weight.medium",
       "tokenType": "Weight",
       "value": {
@@ -775,34 +777,19 @@
         "value": 600
       }
     },
-    {
-      "name": "atoms.type.weight.bold",
+    "atoms.type.weight.regular": {
+      "name": "atoms.type.weight.regular",
       "tokenType": "Weight",
       "value": {
         "kind": "number",
-        "value": 700
+        "value": 400
       }
     }
-  ],
+  },
+  "rules": {},
   "schemaVersion": "1.0.0-beta",
-  "semantics": [
-    {
-      "name": "atoms.color.sem.fromRgb",
-      "tokenType": "Color",
-      "value": {
-        "kind": "ident",
-        "name": "atoms.color.rgb"
-      }
-    },
-    {
-      "name": "atoms.color.sem.fromRgba",
-      "tokenType": "Color",
-      "value": {
-        "kind": "ident",
-        "name": "atoms.color.rgba"
-      }
-    },
-    {
+  "semantics": {
+    "atoms.color.scrimLiteral": {
       "name": "atoms.color.scrimLiteral",
       "tokenType": "Color",
       "value": {
@@ -817,7 +804,7 @@
         }
       }
     },
-    {
+    "atoms.color.scrimRgba": {
       "name": "atoms.color.scrimRgba",
       "tokenType": "Color",
       "value": {
@@ -832,47 +819,42 @@
         }
       }
     },
-    {
-      "name": "atoms.space.card.pad",
-      "tokenType": "Distance",
+    "atoms.color.sem.fromRgb": {
+      "name": "atoms.color.sem.fromRgb",
+      "tokenType": "Color",
       "value": {
         "kind": "ident",
-        "name": "atoms.space.md"
+        "name": "atoms.color.rgb"
       }
     },
-    {
+    "atoms.color.sem.fromRgba": {
+      "name": "atoms.color.sem.fromRgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgba"
+      }
+    },
+    "atoms.radius.card": {
       "name": "atoms.radius.card",
       "tokenType": "Radius",
       "value": {
         "kind": "ident",
         "name": "atoms.radius.mixed"
       }
-    }
-  ],
-  "themes": [],
-  "typeStyles": [
-    {
-      "name": "AtomCaption",
-      "props": {
-        "color": {
-          "kind": "ident",
-          "name": "atoms.color.sem.fromRgb"
-        },
-        "fontFamily": {
-          "kind": "ident",
-          "name": "atoms.font.ui"
-        },
-        "fontSize": {
-          "kind": "ident",
-          "name": "atoms.type.size.caption"
-        },
-        "fontWeight": {
-          "kind": "ident",
-          "name": "atoms.type.weight.medium"
-        }
-      }
     },
-    {
+    "atoms.space.card.pad": {
+      "name": "atoms.space.card.pad",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.space.md"
+      }
+    }
+  },
+  "themes": {},
+  "typeStyles": {
+    "AtomBody": {
       "name": "AtomBody",
       "props": {
         "color": {
@@ -893,12 +875,12 @@
         }
       }
     },
-    {
-      "name": "AtomTitle",
+    "AtomCaption": {
+      "name": "AtomCaption",
       "props": {
         "color": {
           "kind": "ident",
-          "name": "atoms.color.rgb"
+          "name": "atoms.color.sem.fromRgb"
         },
         "fontFamily": {
           "kind": "ident",
@@ -906,15 +888,15 @@
         },
         "fontSize": {
           "kind": "ident",
-          "name": "atoms.type.size.title"
+          "name": "atoms.type.size.caption"
         },
         "fontWeight": {
           "kind": "ident",
-          "name": "atoms.type.weight.bold"
+          "name": "atoms.type.weight.medium"
         }
       }
     },
-    {
+    "AtomMono": {
       "name": "AtomMono",
       "props": {
         "color": {
@@ -934,7 +916,29 @@
           "name": "atoms.type.weight.regular"
         }
       }
+    },
+    "AtomTitle": {
+      "name": "AtomTitle",
+      "props": {
+        "color": {
+          "kind": "ident",
+          "name": "atoms.color.rgb"
+        },
+        "fontFamily": {
+          "kind": "ident",
+          "name": "atoms.font.ui"
+        },
+        "fontSize": {
+          "kind": "ident",
+          "name": "atoms.type.size.title"
+        },
+        "fontWeight": {
+          "kind": "ident",
+          "name": "atoms.type.weight.bold"
+        }
+      }
     }
-  ],
-  "variants": []
+  },
+  "usage": {},
+  "variants": {}
 }

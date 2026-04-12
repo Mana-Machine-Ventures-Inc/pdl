@@ -1,14 +1,16 @@
 {
-  "components": [],
+  "components": {},
   "entryPath": "<resolved>",
   "expose": {},
+  "fixtures": {},
+  "interactions": {},
   "kind": "designGraph",
   "modulePaths": [
     "tokens_opacity.pdl"
   ],
   "previewBackground": null,
-  "primitives": [
-    {
+  "primitives": {
+    "atoms.opacity.full": {
       "name": "atoms.opacity.full",
       "tokenType": "Opacity",
       "value": {
@@ -16,7 +18,7 @@
         "value": 1
       }
     },
-    {
+    "atoms.opacity.mid": {
       "name": "atoms.opacity.mid",
       "tokenType": "Opacity",
       "value": {
@@ -24,27 +26,29 @@
         "value": 0.62
       }
     }
-  ],
+  },
+  "rules": {},
   "schemaVersion": "1.0.0-beta",
-  "semantics": [
-    {
-      "name": "atoms.opacity.sem.mid",
-      "tokenType": "Opacity",
-      "value": {
-        "kind": "ident",
-        "name": "atoms.opacity.mid"
-      }
-    },
-    {
+  "semantics": {
+    "atoms.opacity.sem.full": {
       "name": "atoms.opacity.sem.full",
       "tokenType": "Opacity",
       "value": {
         "kind": "ident",
         "name": "atoms.opacity.full"
       }
+    },
+    "atoms.opacity.sem.mid": {
+      "name": "atoms.opacity.sem.mid",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.opacity.mid"
+      }
     }
-  ],
-  "themes": [],
-  "typeStyles": [],
-  "variants": []
+  },
+  "themes": {},
+  "typeStyles": {},
+  "usage": {},
+  "variants": {}
 }

@@ -4,16 +4,33 @@ import type {
   ComponentParam,
   ConditionExpr,
   ExposeDecl,
+  ExtendDecl,
+  ExtendSection,
+  FixtureBinding,
+  FixtureExampleDecl,
+  FixturesDecl,
   FrameBodyItem,
   IfChain,
   ImportDecl,
+  InteractionDecl,
+  InteractionHandlerItem,
+  InteractionIfChain,
   ModuleAst,
   PreviewBackgroundDecl,
   PrimitiveDecl,
+  RuleChainTerminalParsed,
+  RulePathExpr,
+  RulePathStep,
+  RuleQueryParsed,
+  RulesDecl,
+  RulesIfChain,
+  RulesStatement,
   SemanticDecl,
   ThemeDecl,
   TopLevelDecl,
   TypeStyleDecl,
+  UsageDecl,
+  UsageProp,
   ValueExpr,
   VariantDecl,
 } from "./ast.js";
@@ -59,6 +76,16 @@ export class Parser {
         return this.parseComponent();
       case "expose":
         return this.parseExpose();
+      case "interaction":
+        return this.parseInteraction();
+      case "fixtures":
+        return this.parseFixtures();
+      case "usage":
+        return this.parseUsage();
+      case "rules":
+        return this.parseRules();
+      case "extend":
+        return this.parseExtend();
       default:
         throw this.err(`Unexpected token ${t.kind} at top level`);
     }
@@ -242,6 +269,436 @@ export class Parser {
     }
     this.consume("}");
     return { kind: "expose", component, names };
+  }
+
+  private parseInteraction(): InteractionDecl {
+    this.consume("interaction");
+    const name = this.consume("IDENT").value;
+    this.consume("for");
+    const component = this.consume("IDENT").value;
+    this.consume("{");
+    const handlers: { event: string; body: InteractionHandlerItem[] }[] = [];
+    while (!this.is("}")) {
+      this.consume("on");
+      const event = this.consume("IDENT").value;
+      this.consume("{");
+      const body = this.parseInteractionHandlerBody();
+      this.consume("}");
+      handlers.push({ event, body });
+    }
+    this.consume("}");
+    return { kind: "interaction", name, component, handlers };
+  }
+
+  private parseInteractionHandlerBody(): InteractionHandlerItem[] {
+    const items: InteractionHandlerItem[] = [];
+    while (!this.is("}")) {
+      if (this.is("if")) {
+        items.push({ kind: "if", chain: this.parseInteractionIfChain() });
+        continue;
+      }
+      if (this.is("animate")) {
+        this.advance();
+        this.consume("=");
+        items.push({ kind: "animate", value: this.parseValueExpr() });
+        continue;
+      }
+      if (this.is("from") || this.is("to") || this.is("stagger") || this.is("staggerFrom")) {
+        throw this.err("from/to/stagger in interaction handlers are not implemented yet");
+      }
+      const param = this.consume("IDENT").value;
+      this.consume("=");
+      items.push({ kind: "assign", param, value: this.parseValueExpr() });
+    }
+    return items;
+  }
+
+  private parseInteractionIfChain(): InteractionIfChain {
+    const branches: InteractionIfChain["branches"] = [];
+    this.consume("if");
+    const c0 = this.parseConditionExpr();
+    this.consume("{");
+    const b0 = this.parseInteractionHandlerBody();
+    this.consume("}");
+    branches.push({ condition: c0, body: b0 });
+    while (this.is("else")) {
+      this.advance();
+      if (this.is("if")) {
+        this.advance();
+        const c = this.parseConditionExpr();
+        this.consume("{");
+        const b = this.parseInteractionHandlerBody();
+        this.consume("}");
+        branches.push({ condition: c, body: b });
+      } else {
+        this.consume("{");
+        const elseBody = this.parseInteractionHandlerBody();
+        this.consume("}");
+        return { branches, elseBody };
+      }
+    }
+    return { branches };
+  }
+
+  private parseFixtures(): FixturesDecl {
+    this.consume("fixtures");
+    const component = this.consume("IDENT").value;
+    this.consume("{");
+    const examples: FixtureExampleDecl[] = [];
+    while (!this.is("}")) {
+      this.consume("example");
+      const label = this.consume("STRING").value;
+      this.consume("{");
+      const bindings: FixtureBinding[] = [];
+      while (!this.is("}")) {
+        const pname = this.consume("IDENT").value;
+        this.consume("=");
+        bindings.push({ name: pname, value: this.parseValueExpr() });
+      }
+      this.consume("}");
+      examples.push({ label, bindings });
+    }
+    this.consume("}");
+    return { kind: "fixtures", component, examples };
+  }
+
+  private parseUsage(): UsageDecl {
+    this.consume("usage");
+    const component = this.consume("IDENT").value;
+    this.consume("{");
+    const props: UsageProp[] = [];
+    while (!this.is("}")) {
+      const key = this.consumeUsagePropKey();
+      let op: UsageProp["op"] = "=";
+      if (this.is("+=")) {
+        this.advance();
+        op = "+=";
+      } else {
+        this.consume("=");
+      }
+      const value = this.consume("STRING").value;
+      props.push({ key, op, value });
+    }
+    this.consume("}");
+    return { kind: "usage", component, props };
+  }
+
+  private parseRules(): RulesDecl {
+    this.consume("rules");
+    const component = this.consume("IDENT").value;
+    this.consume("{");
+    const statements: RulesStatement[] = [];
+    while (!this.is("}")) {
+      statements.push(this.parseRulesStatement());
+    }
+    this.consume("}");
+    return { kind: "rules", component, statements };
+  }
+
+  private parseRulesStatement(): RulesStatement {
+    if (this.is("if")) {
+      return { kind: "if", chain: this.parseRulesIfChain() };
+    }
+    if (this.is("tags")) {
+      this.advance();
+      if (this.is("=")) {
+        this.advance();
+        this.consume("[");
+        const tags: string[] = [];
+        if (!this.is("]")) {
+          while (true) {
+            tags.push(this.consume("STRING").value);
+            if (this.is("]")) break;
+            this.consume(",");
+          }
+        }
+        this.consume("]");
+        return { kind: "tagsSet", tags };
+      }
+      if (this.is(".")) {
+        this.advance();
+        const field = this.consume("IDENT").value;
+        if (field !== "add") throw this.err("Expected tags.add after tags.");
+        this.consume("(");
+        const tag = this.consume("STRING").value;
+        this.consume(")");
+        return { kind: "tagsAdd", tag };
+      }
+      throw this.err("Expected tags = or tags.add");
+    }
+    if (this.is("Rule")) {
+      this.advance();
+      this.consume("(");
+      const strengthTok = this.consume("DOT_ENUM").value;
+      this.consume(",");
+      const query = this.parseRuleQueryArgument();
+      let description: string | undefined;
+      if (this.is(",")) {
+        this.advance();
+        this.consume("description");
+        this.consume(":");
+        description = this.consume("STRING").value;
+      }
+      this.consume(")");
+      return { kind: "ruleLine", strength: strengthTok, query, description };
+    }
+    throw this.err(`Unexpected token in rules block: ${this.peek().kind}`);
+  }
+
+  private parseRulesIfChain(): RulesIfChain {
+    const branches: RulesIfChain["branches"] = [];
+    this.consume("if");
+    const c0 = this.parseConditionExpr();
+    this.consume("{");
+    const b0 = this.parseRulesBody();
+    this.consume("}");
+    branches.push({ condition: c0, body: b0 });
+    while (this.is("else")) {
+      this.advance();
+      if (this.is("if")) {
+        this.advance();
+        const c = this.parseConditionExpr();
+        this.consume("{");
+        const b = this.parseRulesBody();
+        this.consume("}");
+        branches.push({ condition: c, body: b });
+      } else {
+        this.consume("{");
+        const elseBody = this.parseRulesBody();
+        this.consume("}");
+        return { branches, elseBody };
+      }
+    }
+    return { branches };
+  }
+
+  private parseRulesBody(): RulesStatement[] {
+    const out: RulesStatement[] = [];
+    while (!this.is("}")) {
+      out.push(this.parseRulesStatement());
+    }
+    return out;
+  }
+
+  private parseRuleNavAxis(): Extract<RulePathStep, { kind: "nav" }> {
+    const t = this.peek();
+    if (t.kind === "self") {
+      this.advance();
+      return { kind: "nav", axis: "self" };
+    }
+    if (t.kind === "IDENT") {
+      const axes = new Set(["parent", "ancestors", "descendants", "siblings", "children"]);
+      if (axes.has(t.value)) {
+        const axis = t.value as "parent" | "ancestors" | "descendants" | "siblings" | "children";
+        this.advance();
+        return { kind: "nav", axis };
+      }
+    }
+    throw this.err(`Expected rule navigator (self|parent|…), got ${t.kind}`);
+  }
+
+  private parseRulePathExpr(): RulePathExpr {
+    const steps: RulePathStep[] = [];
+    steps.push(this.parseRuleNavAxis());
+    while (this.is(".")) {
+      this.advance();
+      if (this.peek().kind === "IDENT" && this.peek().value === "children") {
+        this.advance();
+        this.consume(".");
+        const pick = this.peek();
+        if (pick.kind === "IDENT" && (pick.value === "first" || pick.value === "last")) {
+          this.advance();
+          steps.push({ kind: "childrenPick", index: pick.value as "first" | "last" });
+        } else if (pick.kind === "NUMBER") {
+          steps.push({ kind: "childrenPick", index: Number(this.advance().value) });
+        } else {
+          throw this.err("Expected first, last, or number after children.");
+        }
+      } else {
+        throw this.err("Invalid rule path segment");
+      }
+    }
+    return { kind: "path", steps };
+  }
+
+  private parseRuleQueryArgument(): RuleQueryParsed {
+    const save = this.index;
+    let nodeEq: RuleQueryParsed | null = null;
+    try {
+      const left = this.parseRulePathExpr();
+      if (this.is("==")) {
+        this.advance();
+        const right = this.parseRulePathExpr();
+        nodeEq = { kind: "nodeEq", left, right };
+      }
+    } catch (e) {
+      if (!(e instanceof PdlError)) throw e;
+    }
+    if (nodeEq) return nodeEq;
+    this.index = save;
+    const nav = this.parseRuleNavAxis();
+    return this.parseRuleChainFromAxis(nav.axis, []);
+  }
+
+  private parseRuleChainFromAxis(
+    axis: "self" | "parent" | "ancestors" | "descendants" | "siblings" | "children",
+    whereTags: string[],
+  ): RuleQueryParsed {
+    let terminal: RuleChainTerminalParsed = { kind: "exists" };
+    while (this.is(".")) {
+      this.advance();
+      if (this.is("where")) {
+        this.advance();
+        this.consume("(");
+        const tagKw = this.consume("IDENT").value;
+        if (tagKw !== "tag") throw this.err('Expected tag in where(tag: "...")');
+        this.consume(":");
+        whereTags.push(this.consume("STRING").value);
+        this.consume(")");
+        continue;
+      }
+      if (this.is("IDENT") && this.peek().value === "exists") {
+        this.advance();
+        terminal = { kind: "exists" };
+        break;
+      }
+      if (this.is("IDENT") && this.peek().value === "count") {
+        this.advance();
+        if (this.is(".")) {
+          this.advance();
+          if (this.peek().kind === "IDENT" && this.peek().value === "between") {
+            this.advance();
+            this.consume("(");
+            const low = Number(this.consume("NUMBER").value);
+            this.consume(",");
+            const high = Number(this.consume("NUMBER").value);
+            this.consume(")");
+            terminal = { kind: "aggregateCompare", op: "between", low, high };
+            break;
+          }
+          throw this.err("Expected count.between after count.");
+        }
+        const opTok = this.peek();
+        if (opTok.kind === ">") {
+          this.advance();
+          terminal = { kind: "aggregateCompare", op: "gt", right: Number(this.consume("NUMBER").value) };
+          break;
+        }
+        if (opTok.kind === ">=") {
+          this.advance();
+          terminal = { kind: "aggregateCompare", op: "gte", right: Number(this.consume("NUMBER").value) };
+          break;
+        }
+        if (opTok.kind === "<") {
+          this.advance();
+          terminal = { kind: "aggregateCompare", op: "lt", right: Number(this.consume("NUMBER").value) };
+          break;
+        }
+        if (opTok.kind === "<=") {
+          this.advance();
+          terminal = { kind: "aggregateCompare", op: "lte", right: Number(this.consume("NUMBER").value) };
+          break;
+        }
+        if (opTok.kind === "==") {
+          this.advance();
+          terminal = { kind: "aggregateCompare", op: "eq", right: Number(this.consume("NUMBER").value) };
+          break;
+        }
+        if (opTok.kind === "!=") {
+          this.advance();
+          terminal = { kind: "aggregateCompare", op: "ne", right: Number(this.consume("NUMBER").value) };
+          break;
+        }
+        throw this.err("Expected comparison after count");
+      }
+      if (this.is("IDENT")) {
+        const rel = this.peek().value;
+        if (rel === "precedes" || rel === "follows" || rel === "adjacentTo") {
+          this.advance();
+          this.consume("(");
+          this.consume("self");
+          this.consume(")");
+          terminal = { kind: "ordering", relation: rel, ref: "self" };
+          break;
+        }
+      }
+      throw this.err(`Unexpected rule query token ${this.peek().kind}`);
+    }
+    return { kind: "chain", axis, whereTags, terminal };
+  }
+
+  private parseExtend(): ExtendDecl {
+    this.consume("extend");
+    const component = this.consume("IDENT").value;
+    this.consume("{");
+    const sections: ExtendSection[] = [];
+    while (!this.is("}")) {
+      if (this.is("fixtures")) {
+        this.advance();
+        this.consume("{");
+        const examples: FixtureExampleDecl[] = [];
+        while (!this.is("}")) {
+          this.consume("example");
+          const label = this.consume("STRING").value;
+          this.consume("{");
+          const bindings: FixtureBinding[] = [];
+          while (!this.is("}")) {
+            const pname = this.consume("IDENT").value;
+            this.consume("=");
+            bindings.push({ name: pname, value: this.parseValueExpr() });
+          }
+          this.consume("}");
+          examples.push({ label, bindings });
+        }
+        this.consume("}");
+        sections.push({ kind: "fixtures", examples });
+        continue;
+      }
+      if (this.is("usage")) {
+        this.advance();
+        this.consume("{");
+        const props: UsageProp[] = [];
+        while (!this.is("}")) {
+          const key = this.consumeUsagePropKey();
+          let op: UsageProp["op"] = "=";
+          if (this.is("+=")) {
+            this.advance();
+            op = "+=";
+          } else {
+            this.consume("=");
+          }
+          props.push({ key, op, value: this.consume("STRING").value });
+        }
+        this.consume("}");
+        sections.push({ kind: "usage", props });
+        continue;
+      }
+      if (this.is("rules")) {
+        this.advance();
+        this.consume("{");
+        const statements: RulesStatement[] = [];
+        while (!this.is("}")) {
+          statements.push(this.parseRulesStatement());
+        }
+        this.consume("}");
+        sections.push({ kind: "rules", statements });
+        continue;
+      }
+      if (this.is("expose")) {
+        this.advance();
+        this.consume("{");
+        const names: string[] = [];
+        while (!this.is("}")) {
+          names.push(this.consume("IDENT").value);
+        }
+        this.consume("}");
+        sections.push({ kind: "expose", names });
+        continue;
+      }
+      throw this.err(`Unexpected extend section ${this.peek().kind}`);
+    }
+    this.consume("}");
+    return { kind: "extend", component, sections };
   }
 
   private parseComponent(): ComponentDecl {
@@ -741,6 +1198,20 @@ export class Parser {
     const t = this.peek();
     if (t.kind !== "EOF") this.index++;
     return t;
+  }
+
+  /** Usage keys are normally IDENT; `description` is also a keyword for `Rule(..., description: …)`. */
+  private consumeUsagePropKey(): string {
+    const t = this.peek();
+    if (t.kind === "IDENT") {
+      this.advance();
+      return t.value;
+    }
+    if (t.kind === "description") {
+      this.advance();
+      return "description";
+    }
+    throw this.err(`Expected usage property key, got ${t.kind}`);
   }
 
   private consume(kind: TokenKind): Token {

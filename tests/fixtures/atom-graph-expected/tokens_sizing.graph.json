@@ -1,22 +1,16 @@
 {
-  "components": [],
+  "components": {},
   "entryPath": "<resolved>",
   "expose": {},
+  "fixtures": {},
+  "interactions": {},
   "kind": "designGraph",
   "modulePaths": [
     "tokens_sizing.pdl"
   ],
   "previewBackground": null,
-  "primitives": [
-    {
-      "name": "atoms.sizing.hug",
-      "tokenType": "Sizing",
-      "value": {
-        "kind": "sizing",
-        "mode": "hug"
-      }
-    },
-    {
+  "primitives": {
+    "atoms.sizing.fill": {
       "name": "atoms.sizing.fill",
       "tokenType": "Sizing",
       "value": {
@@ -24,7 +18,7 @@
         "mode": "fill"
       }
     },
-    {
+    "atoms.sizing.fixed": {
       "name": "atoms.sizing.fixed",
       "tokenType": "Sizing",
       "value": {
@@ -33,7 +27,7 @@
         "mode": "fixed"
       }
     },
-    {
+    "atoms.sizing.flex": {
       "name": "atoms.sizing.flex",
       "tokenType": "Sizing",
       "value": {
@@ -50,11 +44,21 @@
         "kind": "sizing",
         "mode": "flex"
       }
+    },
+    "atoms.sizing.hug": {
+      "name": "atoms.sizing.hug",
+      "tokenType": "Sizing",
+      "value": {
+        "kind": "sizing",
+        "mode": "hug"
+      }
     }
-  ],
+  },
+  "rules": {},
   "schemaVersion": "1.0.0-beta",
-  "semantics": [],
-  "themes": [],
-  "typeStyles": [],
-  "variants": []
+  "semantics": {},
+  "themes": {},
+  "typeStyles": {},
+  "usage": {},
+  "variants": {}
 }

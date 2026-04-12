@@ -70,8 +70,13 @@ export function evaluateCondition(c: ConditionExpr, paramValues: Record<string, 
       return c.items.every((x) => evaluateCondition(x, paramValues));
     case "or":
       return c.items.some((x) => evaluateCondition(x, paramValues));
-    default:
+    case "not":
+      return !evaluateCondition(c.expr, paramValues);
+    default: {
+      const _x: never = c;
+      void _x;
       return false;
+    }
   }
 }
 

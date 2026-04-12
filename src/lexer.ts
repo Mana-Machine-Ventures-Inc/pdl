@@ -30,6 +30,13 @@ export type TokenKind =
   | "example"
   | "Rule"
   | "description"
+  | "animate"
+  | "from"
+  | "to"
+  | "stagger"
+  | "staggerFrom"
+  | "where"
+  | "tags"
   | "EdgeInsets"
   | "Corner"
   | "GradientStop"
@@ -115,6 +122,13 @@ const KEYWORDS = new Map<string, TokenKind>([
   ["example", "example"],
   ["Rule", "Rule"],
   ["description", "description"],
+  ["animate", "animate"],
+  ["from", "from"],
+  ["to", "to"],
+  ["stagger", "stagger"],
+  ["staggerFrom", "staggerFrom"],
+  ["where", "where"],
+  ["tags", "tags"],
   ["EdgeInsets", "EdgeInsets"],
   ["Corner", "Corner"],
   ["GradientStop", "GradientStop"],

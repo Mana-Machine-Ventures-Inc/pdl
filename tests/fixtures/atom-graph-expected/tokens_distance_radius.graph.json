@@ -1,46 +1,16 @@
 {
-  "components": [],
+  "components": {},
   "entryPath": "<resolved>",
   "expose": {},
+  "fixtures": {},
+  "interactions": {},
   "kind": "designGraph",
   "modulePaths": [
     "tokens_distance_radius.pdl"
   ],
   "previewBackground": null,
-  "primitives": [
-    {
-      "name": "atoms.space.xs",
-      "tokenType": "Distance",
-      "value": {
-        "kind": "number",
-        "value": 4
-      }
-    },
-    {
-      "name": "atoms.space.sm",
-      "tokenType": "Distance",
-      "value": {
-        "kind": "number",
-        "value": 8
-      }
-    },
-    {
-      "name": "atoms.space.md",
-      "tokenType": "Distance",
-      "value": {
-        "kind": "number",
-        "value": 16
-      }
-    },
-    {
-      "name": "atoms.radius.sm",
-      "tokenType": "Radius",
-      "value": {
-        "kind": "number",
-        "value": 4
-      }
-    },
-    {
+  "primitives": {
+    "atoms.radius.mixed": {
       "name": "atoms.radius.mixed",
       "tokenType": "Radius",
       "value": {
@@ -62,28 +32,62 @@
           "value": 8
         }
       }
-    }
-  ],
-  "schemaVersion": "1.0.0-beta",
-  "semantics": [
-    {
-      "name": "atoms.space.card.pad",
-      "tokenType": "Distance",
+    },
+    "atoms.radius.sm": {
+      "name": "atoms.radius.sm",
+      "tokenType": "Radius",
       "value": {
-        "kind": "ident",
-        "name": "atoms.space.md"
+        "kind": "number",
+        "value": 4
       }
     },
-    {
+    "atoms.space.md": {
+      "name": "atoms.space.md",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 16
+      }
+    },
+    "atoms.space.sm": {
+      "name": "atoms.space.sm",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 8
+      }
+    },
+    "atoms.space.xs": {
+      "name": "atoms.space.xs",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 4
+      }
+    }
+  },
+  "rules": {},
+  "schemaVersion": "1.0.0-beta",
+  "semantics": {
+    "atoms.radius.card": {
       "name": "atoms.radius.card",
       "tokenType": "Radius",
       "value": {
         "kind": "ident",
         "name": "atoms.radius.mixed"
       }
+    },
+    "atoms.space.card.pad": {
+      "name": "atoms.space.card.pad",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.space.md"
+      }
     }
-  ],
-  "themes": [],
-  "typeStyles": [],
-  "variants": []
+  },
+  "themes": {},
+  "typeStyles": {},
+  "usage": {},
+  "variants": {}
 }

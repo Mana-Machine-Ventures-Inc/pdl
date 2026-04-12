@@ -1,624 +1,6 @@
 {
-  "components": [
-    {
-      "body": [
-        {
-          "kind": "prop",
-          "name": "direction",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".row"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "justify",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".start"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "align",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".start"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "wrap",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".nowrap"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "gap",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.space.sm"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "padding",
-          "value": {
-            "fields": {
-              "x": {
-                "kind": "ident",
-                "name": "atoms.space.sm"
-              },
-              "y": {
-                "kind": "ident",
-                "name": "atoms.space.xs"
-              }
-            },
-            "kind": "edgeInsets",
-            "variant": "xy"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "background",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.color.sem.fromRgb"
-          }
-        },
-        {
-          "entries": [],
-          "kind": "children",
-          "target": "root"
-        }
-      ],
-      "name": "AtomLayoutRowStart",
-      "params": [],
-      "rootKind": "layout"
-    },
-    {
-      "body": [
-        {
-          "kind": "prop",
-          "name": "direction",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".row"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "justify",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".spaceBetween"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "align",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".center"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "wrap",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".nowrap"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "gap",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.space.md"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "background",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.color.sem.fromRgba"
-          }
-        },
-        {
-          "entries": [],
-          "kind": "children",
-          "target": "root"
-        }
-      ],
-      "name": "AtomLayoutRowBetween",
-      "params": [],
-      "rootKind": "layout"
-    },
-    {
-      "body": [
-        {
-          "kind": "prop",
-          "name": "direction",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".row"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "justify",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".spaceAround"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "align",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".stretch"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "wrap",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".nowrap"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "background",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.color.rgb"
-          }
-        },
-        {
-          "entries": [],
-          "kind": "children",
-          "target": "root"
-        }
-      ],
-      "name": "AtomLayoutRowAround",
-      "params": [],
-      "rootKind": "layout"
-    },
-    {
-      "body": [
-        {
-          "kind": "prop",
-          "name": "direction",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".column"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "justify",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".end"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "align",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".end"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "wrap",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".nowrap"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "gap",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.space.xs"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "background",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.color.rgba"
-          }
-        },
-        {
-          "entries": [],
-          "kind": "children",
-          "target": "root"
-        }
-      ],
-      "name": "AtomLayoutColumnEnd",
-      "params": [],
-      "rootKind": "layout"
-    },
-    {
-      "body": [
-        {
-          "kind": "prop",
-          "name": "direction",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".column"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "justify",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".stretch"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "align",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".stretch"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "wrap",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".nowrap"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "padding",
-          "value": {
-            "fields": {
-              "bottom": {
-                "kind": "number",
-                "value": 4
-              },
-              "left": {
-                "kind": "number",
-                "value": 8
-              },
-              "right": {
-                "kind": "number",
-                "value": 8
-              },
-              "top": {
-                "kind": "number",
-                "value": 4
-              }
-            },
-            "kind": "edgeInsets",
-            "variant": "trbl"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "background",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.color.scrimLiteral"
-          }
-        },
-        {
-          "entries": [],
-          "kind": "children",
-          "target": "root"
-        }
-      ],
-      "name": "AtomLayoutColumnStretch",
-      "params": [],
-      "rootKind": "layout"
-    },
-    {
-      "body": [
-        {
-          "kind": "prop",
-          "name": "direction",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".row"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "justify",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".start"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "align",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".start"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "wrap",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".wrap"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "gap",
-          "value": {
-            "kind": "number",
-            "value": 6
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "columnGap",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.space.xs"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "rowGap",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.space.sm"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "background",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.color.sem.fromRgb"
-          }
-        },
-        {
-          "entries": [],
-          "kind": "children",
-          "target": "root"
-        }
-      ],
-      "name": "AtomLayoutWrap",
-      "params": [],
-      "rootKind": "layout"
-    },
-    {
-      "body": [
-        {
-          "kind": "prop",
-          "name": "direction",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".stack"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "gap",
-          "value": {
-            "kind": "number",
-            "value": 0
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "padding",
-          "value": {
-            "fields": {
-              "x": {
-                "kind": "number",
-                "value": 8
-              },
-              "y": {
-                "kind": "number",
-                "value": 8
-              }
-            },
-            "kind": "edgeInsets",
-            "variant": "xy"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "background",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.color.sem.fromRgba"
-          }
-        },
-        {
-          "entries": [],
-          "kind": "children",
-          "target": "root"
-        }
-      ],
-      "name": "AtomLayoutStack",
-      "params": [],
-      "rootKind": "layout"
-    },
-    {
-      "body": [
-        {
-          "kind": "prop",
-          "name": "direction",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".rowReverse"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "justify",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".center"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "align",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".center"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "wrap",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".nowrap"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "background",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.color.rgb"
-          }
-        },
-        {
-          "entries": [],
-          "kind": "children",
-          "target": "root"
-        }
-      ],
-      "name": "AtomLayoutRowReverse",
-      "params": [],
-      "rootKind": "layout"
-    },
-    {
-      "body": [
-        {
-          "kind": "prop",
-          "name": "direction",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".columnReverse"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "justify",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".start"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "align",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".stretch"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "wrap",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".nowrap"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "background",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.color.rgba"
-          }
-        },
-        {
-          "entries": [],
-          "kind": "children",
-          "target": "root"
-        }
-      ],
-      "name": "AtomLayoutColumnReverse",
-      "params": [],
-      "rootKind": "layout"
-    },
-    {
-      "body": [
-        {
-          "kind": "prop",
-          "name": "direction",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".row"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "justify",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".start"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "align",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".center"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "gap",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.space.sm"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "background",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.color.sem.fromRgb"
-          }
-        },
-        {
-          "entries": [
-            {
-              "kind": "spacer"
-            }
-          ],
-          "kind": "children",
-          "target": "root"
-        }
-      ],
-      "name": "AtomLayoutSpacerRow",
-      "params": [],
-      "rootKind": "layout"
-    },
-    {
+  "components": {
+    "AtomLayoutChrome": {
       "body": [
         {
           "kind": "prop",
@@ -744,7 +126,197 @@
       "params": [],
       "rootKind": "layout"
     },
-    {
+    "AtomLayoutColumnEnd": {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".end"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".end"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".nowrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.xs"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.rgba"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutColumnEnd",
+      "params": [],
+      "rootKind": "layout"
+    },
+    "AtomLayoutColumnReverse": {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".columnReverse"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".stretch"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".nowrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.rgba"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutColumnReverse",
+      "params": [],
+      "rootKind": "layout"
+    },
+    "AtomLayoutColumnStretch": {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".stretch"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".stretch"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".nowrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "padding",
+          "value": {
+            "fields": {
+              "bottom": {
+                "kind": "number",
+                "value": 4
+              },
+              "left": {
+                "kind": "number",
+                "value": 8
+              },
+              "right": {
+                "kind": "number",
+                "value": 8
+              },
+              "top": {
+                "kind": "number",
+                "value": 4
+              }
+            },
+            "kind": "edgeInsets",
+            "variant": "trbl"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.scrimLiteral"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutColumnStretch",
+      "params": [],
+      "rootKind": "layout"
+    },
+    "AtomLayoutRowAround": {
       "body": [
         {
           "kind": "prop",
@@ -756,18 +328,166 @@
         },
         {
           "kind": "prop",
-          "name": "width",
+          "name": "justify",
           "value": {
-            "kind": "sizing",
-            "mode": "fill"
+            "kind": "dotEnum",
+            "value": ".spaceAround"
           }
         },
         {
           "kind": "prop",
-          "name": "height",
+          "name": "align",
           "value": {
-            "kind": "sizing",
-            "mode": "hug"
+            "kind": "dotEnum",
+            "value": ".stretch"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".nowrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.rgb"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutRowAround",
+      "params": [],
+      "rootKind": "layout"
+    },
+    "AtomLayoutRowBetween": {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".spaceBetween"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".center"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".nowrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.md"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgba"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutRowBetween",
+      "params": [],
+      "rootKind": "layout"
+    },
+    "AtomLayoutRowReverse": {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".rowReverse"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".center"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".center"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".nowrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.rgb"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutRowReverse",
+      "params": [],
+      "rootKind": "layout"
+    },
+    "AtomLayoutRowStart": {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
           }
         },
         {
@@ -796,10 +516,36 @@
         },
         {
           "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.sm"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "padding",
+          "value": {
+            "fields": {
+              "x": {
+                "kind": "ident",
+                "name": "atoms.space.sm"
+              },
+              "y": {
+                "kind": "ident",
+                "name": "atoms.space.xs"
+              }
+            },
+            "kind": "edgeInsets",
+            "variant": "xy"
+          }
+        },
+        {
+          "kind": "prop",
           "name": "background",
           "value": {
             "kind": "ident",
-            "name": "atoms.color.sem.fromRgba"
+            "name": "atoms.color.sem.fromRgb"
           }
         },
         {
@@ -808,11 +554,11 @@
           "target": "root"
         }
       ],
-      "name": "AtomLayoutSizingVH",
+      "name": "AtomLayoutRowStart",
       "params": [],
       "rootKind": "layout"
     },
-    {
+    "AtomLayoutSizingFixedFlex": {
       "body": [
         {
           "kind": "prop",
@@ -890,10 +636,266 @@
       "name": "AtomLayoutSizingFixedFlex",
       "params": [],
       "rootKind": "layout"
+    },
+    "AtomLayoutSizingVH": {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "width",
+          "value": {
+            "kind": "sizing",
+            "mode": "fill"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "height",
+          "value": {
+            "kind": "sizing",
+            "mode": "hug"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".nowrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgba"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutSizingVH",
+      "params": [],
+      "rootKind": "layout"
+    },
+    "AtomLayoutSpacerRow": {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".center"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.sm"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "entries": [
+            {
+              "kind": "spacer"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutSpacerRow",
+      "params": [],
+      "rootKind": "layout"
+    },
+    "AtomLayoutStack": {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".stack"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "number",
+            "value": 0
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "padding",
+          "value": {
+            "fields": {
+              "x": {
+                "kind": "number",
+                "value": 8
+              },
+              "y": {
+                "kind": "number",
+                "value": 8
+              }
+            },
+            "kind": "edgeInsets",
+            "variant": "xy"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgba"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutStack",
+      "params": [],
+      "rootKind": "layout"
+    },
+    "AtomLayoutWrap": {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "justify",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "align",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".start"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "wrap",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".wrap"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "number",
+            "value": 6
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "columnGap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.xs"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "rowGap",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.space.sm"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayoutWrap",
+      "params": [],
+      "rootKind": "layout"
     }
-  ],
+  },
   "entryPath": "<resolved>",
   "expose": {},
+  "fixtures": {},
+  "interactions": {},
   "kind": "designGraph",
   "modulePaths": [
     "layout_enums_atoms.pdl",
@@ -902,8 +904,8 @@
     "tokens_shadow.pdl"
   ],
   "previewBackground": null,
-  "primitives": [
-    {
+  "primitives": {
+    "atoms.color.rgb": {
       "name": "atoms.color.rgb",
       "tokenType": "Color",
       "value": {
@@ -911,7 +913,7 @@
         "value": "#ABC"
       }
     },
-    {
+    "atoms.color.rgba": {
       "name": "atoms.color.rgba",
       "tokenType": "Color",
       "value": {
@@ -919,39 +921,7 @@
         "value": "#11223344"
       }
     },
-    {
-      "name": "atoms.space.xs",
-      "tokenType": "Distance",
-      "value": {
-        "kind": "number",
-        "value": 4
-      }
-    },
-    {
-      "name": "atoms.space.sm",
-      "tokenType": "Distance",
-      "value": {
-        "kind": "number",
-        "value": 8
-      }
-    },
-    {
-      "name": "atoms.space.md",
-      "tokenType": "Distance",
-      "value": {
-        "kind": "number",
-        "value": 16
-      }
-    },
-    {
-      "name": "atoms.radius.sm",
-      "tokenType": "Radius",
-      "value": {
-        "kind": "number",
-        "value": 4
-      }
-    },
-    {
+    "atoms.radius.mixed": {
       "name": "atoms.radius.mixed",
       "tokenType": "Radius",
       "value": {
@@ -974,7 +944,23 @@
         }
       }
     },
-    {
+    "atoms.radius.sm": {
+      "name": "atoms.radius.sm",
+      "tokenType": "Radius",
+      "value": {
+        "kind": "number",
+        "value": 4
+      }
+    },
+    "atoms.shadow.hard": {
+      "name": "atoms.shadow.hard",
+      "tokenType": "Shadow",
+      "value": {
+        "kind": "string",
+        "value": "0 1px 3px 0 rgba(0,0,0,0.35)"
+      }
+    },
+    "atoms.shadow.soft": {
       "name": "atoms.shadow.soft",
       "tokenType": "Shadow",
       "value": {
@@ -982,34 +968,35 @@
         "value": "0 2px 8px rgba(0,0,0,0.12)"
       }
     },
-    {
-      "name": "atoms.shadow.hard",
-      "tokenType": "Shadow",
+    "atoms.space.md": {
+      "name": "atoms.space.md",
+      "tokenType": "Distance",
       "value": {
-        "kind": "string",
-        "value": "0 1px 3px 0 rgba(0,0,0,0.35)"
+        "kind": "number",
+        "value": 16
+      }
+    },
+    "atoms.space.sm": {
+      "name": "atoms.space.sm",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 8
+      }
+    },
+    "atoms.space.xs": {
+      "name": "atoms.space.xs",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 4
       }
     }
-  ],
+  },
+  "rules": {},
   "schemaVersion": "1.0.0-beta",
-  "semantics": [
-    {
-      "name": "atoms.color.sem.fromRgb",
-      "tokenType": "Color",
-      "value": {
-        "kind": "ident",
-        "name": "atoms.color.rgb"
-      }
-    },
-    {
-      "name": "atoms.color.sem.fromRgba",
-      "tokenType": "Color",
-      "value": {
-        "kind": "ident",
-        "name": "atoms.color.rgba"
-      }
-    },
-    {
+  "semantics": {
+    "atoms.color.scrimLiteral": {
       "name": "atoms.color.scrimLiteral",
       "tokenType": "Color",
       "value": {
@@ -1024,7 +1011,7 @@
         }
       }
     },
-    {
+    "atoms.color.scrimRgba": {
       "name": "atoms.color.scrimRgba",
       "tokenType": "Color",
       "value": {
@@ -1039,24 +1026,41 @@
         }
       }
     },
-    {
-      "name": "atoms.space.card.pad",
-      "tokenType": "Distance",
+    "atoms.color.sem.fromRgb": {
+      "name": "atoms.color.sem.fromRgb",
+      "tokenType": "Color",
       "value": {
         "kind": "ident",
-        "name": "atoms.space.md"
+        "name": "atoms.color.rgb"
       }
     },
-    {
+    "atoms.color.sem.fromRgba": {
+      "name": "atoms.color.sem.fromRgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgba"
+      }
+    },
+    "atoms.radius.card": {
       "name": "atoms.radius.card",
       "tokenType": "Radius",
       "value": {
         "kind": "ident",
         "name": "atoms.radius.mixed"
       }
+    },
+    "atoms.space.card.pad": {
+      "name": "atoms.space.card.pad",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.space.md"
+      }
     }
-  ],
-  "themes": [],
-  "typeStyles": [],
-  "variants": []
+  },
+  "themes": {},
+  "typeStyles": {},
+  "usage": {},
+  "variants": {}
 }

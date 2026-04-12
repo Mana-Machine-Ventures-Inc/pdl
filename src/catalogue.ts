@@ -1,10 +1,120 @@
-import type { ComponentDecl, FrameBodyItem } from "./ast.js";
+import type {
+  ComponentDecl,
+  ConditionExpr,
+  FrameBodyItem,
+  InteractionDecl,
+  InteractionHandlerItem,
+  InteractionIfChain,
+  RulesStatement,
+} from "./ast.js";
 import type { DesignDefinition } from "./designModel.js";
 import { PdlError } from "./errors.js";
-import { buildResolvedTokenMap } from "./evaluate.js";
+import { buildResolvedTokenMap, evaluateValue } from "./evaluate.js";
+import { serialiseConditionExpr, serialiseValueExpr } from "./graph.js";
+import { ruleLineToDef, type RuleDefJson } from "./rulesJson.js";
 import { resolveComponentTree, resolveDefaultParamValues, type CatalFrame } from "./resolveTree.js";
 
 const SCHEMA = "1.0.0-beta";
+
+function negateCondition(c: ConditionExpr): ConditionExpr {
+  return { kind: "not", expr: c };
+}
+
+/** Logical AND of an outer `when` (from enclosing `rules if`) and a branch-local conjunct. */
+function conjoinWhen(outer: ConditionExpr | undefined, inner: ConditionExpr | undefined): ConditionExpr | undefined {
+  if (!outer) return inner;
+  if (!inner) return outer;
+  return { kind: "and", items: [outer, inner] };
+}
+
+/** AND of one or more conjuncts (undefined if empty). */
+function conjoinMany(conjuncts: ConditionExpr[]): ConditionExpr | undefined {
+  if (conjuncts.length === 0) return undefined;
+  if (conjuncts.length === 1) return conjuncts[0];
+  return { kind: "and", items: conjuncts };
+}
+
+/**
+ * TODO: Today only **top-level** `tags =` / `tags.add` in a `rules C { … }` block affect
+ * `componentCatalogue.components[C].rules.tags`. Statements inside `if { … }` bodies are ignored
+ * for that array — decide spec (e.g. union all branches, or branch-scoped tags on each flattened
+ * rule) and implement.
+ */
+function effectiveRuleTags(statements: RulesStatement[]): string[] {
+  let t: string[] = [];
+  for (const st of statements) {
+    if (st.kind === "tagsSet") t = [...st.tags];
+    else if (st.kind === "tagsAdd") t = [...t, st.tag];
+  }
+  return t;
+}
+
+function flattenRulesWithWhen(
+  statements: RulesStatement[],
+): Array<RuleDefJson & { when?: ConditionExpr }> {
+  const out: Array<RuleDefJson & { when?: ConditionExpr }> = [];
+  const walk = (xs: RulesStatement[], parentWhen?: ConditionExpr) => {
+    for (const st of xs) {
+      if (st.kind === "ruleLine") {
+        const def = ruleLineToDef(st.strength, st.query, st.description);
+        out.push(parentWhen ? { ...def, when: parentWhen } : def);
+      } else if (st.kind === "if") {
+        const negPrior: ConditionExpr[] = [];
+        for (const br of st.chain.branches) {
+          const innerWhen: ConditionExpr =
+            negPrior.length === 0
+              ? br.condition
+              : (conjoinMany([...negPrior.map(negateCondition), br.condition]) as ConditionExpr);
+          const when = conjoinWhen(parentWhen, innerWhen);
+          walk(br.body, when);
+          negPrior.push(br.condition);
+        }
+        if (st.chain.elseBody) {
+          const elseInner =
+            negPrior.length === 0 ? undefined : conjoinMany(negPrior.map(negateCondition));
+          const elseWhen = conjoinWhen(parentWhen, elseInner);
+          walk(st.chain.elseBody, elseWhen);
+        }
+      }
+    }
+  };
+  walk(statements);
+  return out;
+}
+
+function serialiseInteractionIfChain(chain: InteractionIfChain): unknown {
+  return {
+    branches: chain.branches.map((br) => ({
+      condition: serialiseConditionExpr(br.condition),
+      body: br.body.map(serialiseInteractionHandlerItem),
+    })),
+    ...(chain.elseBody ? { elseBody: chain.elseBody.map(serialiseInteractionHandlerItem) } : {}),
+  };
+}
+
+function serialiseInteractionHandlerItem(item: InteractionHandlerItem): unknown {
+  switch (item.kind) {
+    case "assign":
+      return { kind: "assign", param: item.param, value: serialiseValueExpr(item.value) };
+    case "animate":
+      return { kind: "animate", value: serialiseValueExpr(item.value) };
+    case "if":
+      return { kind: "if", chain: serialiseInteractionIfChain(item.chain) };
+    default:
+      return { kind: "unknown" };
+  }
+}
+
+function serialiseInteractionDecl(decl: InteractionDecl): unknown {
+  return {
+    name: decl.name,
+    component: decl.component,
+    handlers: decl.handlers.map((h) => ({
+      event: h.event,
+      body: h.body.map(serialiseInteractionHandlerItem),
+    })),
+  };
+}
 
 export type CatalogueVariantEntry = {
   /** Full snapshot of every variant-typed parameter for this permutation. */
@@ -29,7 +139,16 @@ export type CatalogueComponent = {
     variantTypeName?: string;
   }[];
   expose: string[];
+  /** Primary human-readable line from merged `usage.description` (empty if unset). */
   usage: string;
+  /** All merged `usage` keys (including unknown keys preserved per spec). */
+  usageByKey?: Record<string, string>;
+  /** Named fixture → resolved param map for preview / codegen. */
+  fixtures?: Record<string, Record<string, unknown>>;
+  /** Merged `rules`: base tags plus flattened `Rule` rows with optional `when` conditions. */
+  rules?: { tags: string[]; rules: Array<RuleDefJson & { when?: unknown }> };
+  /** Preview-time `interaction` handlers (serialised `ValueExpr` shapes). */
+  interactions?: unknown[];
   /** Root frame kind (`layout`, `text`, `icon`, or `media`). */
   kind: string;
   /** Root frame properties for the **default** (all variant params at defaults) resolution. */
@@ -387,11 +506,62 @@ export function buildComponentCatalogue(
     variants.sort((a, b) => assignmentKey(a.params).localeCompare(assignmentKey(b.params)));
 
     const baseJson = frameToJson(baseTree);
+
+    const usageKeys = design.usage.get(c.name);
+    const usageStr = usageKeys?.get("description") ?? "";
+    const usageByKey =
+      usageKeys && usageKeys.size > 0
+        ? Object.fromEntries([...usageKeys.entries()].sort(([a], [b]) => a.localeCompare(b)))
+        : undefined;
+
+    const fxMap = design.fixtures.get(c.name);
+    let fixturesOut: Record<string, Record<string, unknown>> | undefined;
+    if (fxMap && fxMap.size > 0) {
+      fixturesOut = {};
+      for (const label of [...fxMap.keys()].sort()) {
+        const ex = fxMap.get(label)!;
+        const params: Record<string, unknown> = {};
+        for (const b of ex.bindings) {
+          params[b.name] = evaluateValue(b.value, {
+            design,
+            tokens: tokenMap,
+            visiting: new Set(),
+            paramValues: {},
+            paramMeta: new Map(),
+          });
+        }
+        fixturesOut[label] = params;
+      }
+    }
+
+    const rstmts = design.rules.get(c.name);
+    let rulesOut: { tags: string[]; rules: Array<RuleDefJson & { when?: unknown }> } | undefined;
+    if (rstmts?.length) {
+      const flat = flattenRulesWithWhen(rstmts);
+      rulesOut = {
+        tags: effectiveRuleTags(rstmts),
+        rules: flat.map((r) => {
+          const { when, ...def } = r;
+          return when ? { ...def, when: serialiseConditionExpr(when) } : def;
+        }),
+      };
+    }
+
+    const imap = design.interactions.get(c.name);
+    const interactionsOut =
+      imap && imap.size > 0
+        ? [...imap.values()].sort((a, b) => a.name.localeCompare(b.name)).map(serialiseInteractionDecl)
+        : undefined;
+
     components[c.name] = {
       name: c.name,
       params: catalogueParams(design, c, tokenMap),
       expose,
-      usage: "",
+      usage: usageStr,
+      ...(usageByKey ? { usageByKey } : {}),
+      ...(fixturesOut ? { fixtures: fixturesOut } : {}),
+      ...(rulesOut ? { rules: rulesOut } : {}),
+      ...(interactionsOut ? { interactions: interactionsOut } : {}),
       kind: baseTree.kind,
       props: { ...baseJson.props },
       defaultParams: baseParamsStr,

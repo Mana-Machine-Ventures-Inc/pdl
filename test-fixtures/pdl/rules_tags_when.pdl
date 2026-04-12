@@ -1,0 +1,78 @@
+// Catalogue: tags.add + flattened rules `when` (if / else / nested if)
+
+import "atoms/typestyle_atoms.pdl"
+
+variant RTagMode {
+  case ta
+  case tb
+}
+
+component RulesTagHost(mode: RTagMode = .ta) layout {
+  direction = .column
+
+  let L: text = {
+    content = "r"
+    style = AtomCaption
+  }
+
+  children = [L]
+}
+
+rules RulesTagHost {
+  tags = ["t0"]
+  tags.add("t1")
+  Rule(.must, self.exists)
+}
+
+variant RElseMode {
+  case ea
+  case eb
+}
+
+component RulesElseHost(mode: RElseMode = .ea) layout {
+  direction = .column
+
+  let L: text = {
+    content = "e"
+    style = AtomCaption
+  }
+
+  children = [L]
+}
+
+rules RulesElseHost {
+  if (mode == .ea) {
+    Rule(.should, self.exists)
+  } else {
+    Rule(.shouldNot, self.exists)
+  }
+}
+
+variant OuterM {
+  case o1
+  case o2
+}
+
+variant InnerM {
+  case i1
+  case i2
+}
+
+component RulesNestHost(o: OuterM = .o1, i: InnerM = .i1) layout {
+  direction = .column
+
+  let L: text = {
+    content = "n"
+    style = AtomCaption
+  }
+
+  children = [L]
+}
+
+rules RulesNestHost {
+  if (o == .o1) {
+    if (i == .i1) {
+      Rule(.must, self.exists)
+    }
+  }
+}

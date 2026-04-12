@@ -1,0 +1,12 @@
+import "companion_blocks.pdl"
+
+extend CompanionBlock {
+  usage {
+    description += "Extended via extend."
+  }
+  fixtures {
+    example "Neutral" {
+      tone = .neutral
+    }
+  }
+}

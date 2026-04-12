@@ -1,7 +1,9 @@
 {
-  "components": [],
+  "components": {},
   "entryPath": "<resolved>",
   "expose": {},
+  "fixtures": {},
+  "interactions": {},
   "kind": "designGraph",
   "modulePaths": [
     "foundation.pdl",
@@ -23,8 +25,24 @@
     "typestyle_atoms.pdl"
   ],
   "previewBackground": null,
-  "primitives": [
-    {
+  "primitives": {
+    "atoms.blur.heavy": {
+      "name": "atoms.blur.heavy",
+      "tokenType": "Blur",
+      "value": {
+        "kind": "number",
+        "value": 24
+      }
+    },
+    "atoms.blur.light": {
+      "name": "atoms.blur.light",
+      "tokenType": "Blur",
+      "value": {
+        "kind": "number",
+        "value": 6
+      }
+    },
+    "atoms.color.rgb": {
       "name": "atoms.color.rgb",
       "tokenType": "Color",
       "value": {
@@ -32,7 +50,7 @@
         "value": "#ABC"
       }
     },
-    {
+    "atoms.color.rgba": {
       "name": "atoms.color.rgba",
       "tokenType": "Color",
       "value": {
@@ -40,39 +58,63 @@
         "value": "#11223344"
       }
     },
-    {
-      "name": "atoms.space.xs",
-      "tokenType": "Distance",
+    "atoms.font.mono": {
+      "name": "atoms.font.mono",
+      "tokenType": "FontFamily",
       "value": {
-        "kind": "number",
-        "value": 4
+        "kind": "string",
+        "value": "ui-monospace, monospace"
       }
     },
-    {
-      "name": "atoms.space.sm",
-      "tokenType": "Distance",
+    "atoms.font.ui": {
+      "name": "atoms.font.ui",
+      "tokenType": "FontFamily",
       "value": {
-        "kind": "number",
-        "value": 8
+        "kind": "string",
+        "value": "system-ui, sans-serif"
       }
     },
-    {
-      "name": "atoms.space.md",
-      "tokenType": "Distance",
+    "atoms.icon.chevron": {
+      "name": "atoms.icon.chevron",
+      "tokenType": "Icon",
       "value": {
-        "kind": "number",
-        "value": 16
+        "kind": "string",
+        "value": "chevron-right"
       }
     },
-    {
-      "name": "atoms.radius.sm",
-      "tokenType": "Radius",
+    "atoms.icon.star": {
+      "name": "atoms.icon.star",
+      "tokenType": "Icon",
       "value": {
-        "kind": "number",
-        "value": 4
+        "kind": "string",
+        "value": "star"
       }
     },
-    {
+    "atoms.media.hero": {
+      "name": "atoms.media.hero",
+      "tokenType": "MediaSource",
+      "value": {
+        "kind": "string",
+        "value": "https://example.com/hero.png"
+      }
+    },
+    "atoms.opacity.full": {
+      "name": "atoms.opacity.full",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "number",
+        "value": 1
+      }
+    },
+    "atoms.opacity.mid": {
+      "name": "atoms.opacity.mid",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "number",
+        "value": 0.62
+      }
+    },
+    "atoms.radius.mixed": {
       "name": "atoms.radius.mixed",
       "tokenType": "Radius",
       "value": {
@@ -95,177 +137,15 @@
         }
       }
     },
-    {
-      "name": "atoms.opacity.full",
-      "tokenType": "Opacity",
+    "atoms.radius.sm": {
+      "name": "atoms.radius.sm",
+      "tokenType": "Radius",
       "value": {
         "kind": "number",
-        "value": 1
+        "value": 4
       }
     },
-    {
-      "name": "atoms.opacity.mid",
-      "tokenType": "Opacity",
-      "value": {
-        "kind": "number",
-        "value": 0.62
-      }
-    },
-    {
-      "name": "atoms.font.ui",
-      "tokenType": "FontFamily",
-      "value": {
-        "kind": "string",
-        "value": "system-ui, sans-serif"
-      }
-    },
-    {
-      "name": "atoms.font.mono",
-      "tokenType": "FontFamily",
-      "value": {
-        "kind": "string",
-        "value": "ui-monospace, monospace"
-      }
-    },
-    {
-      "name": "atoms.type.size.caption",
-      "tokenType": "Size",
-      "value": {
-        "kind": "number",
-        "value": 12
-      }
-    },
-    {
-      "name": "atoms.type.size.body",
-      "tokenType": "Size",
-      "value": {
-        "kind": "number",
-        "value": 16
-      }
-    },
-    {
-      "name": "atoms.type.size.title",
-      "tokenType": "Size",
-      "value": {
-        "kind": "number",
-        "value": 22
-      }
-    },
-    {
-      "name": "atoms.type.weight.regular",
-      "tokenType": "Weight",
-      "value": {
-        "kind": "number",
-        "value": 400
-      }
-    },
-    {
-      "name": "atoms.type.weight.medium",
-      "tokenType": "Weight",
-      "value": {
-        "kind": "number",
-        "value": 600
-      }
-    },
-    {
-      "name": "atoms.type.weight.bold",
-      "tokenType": "Weight",
-      "value": {
-        "kind": "number",
-        "value": 700
-      }
-    },
-    {
-      "name": "atoms.shadow.soft",
-      "tokenType": "Shadow",
-      "value": {
-        "kind": "string",
-        "value": "0 2px 8px rgba(0,0,0,0.12)"
-      }
-    },
-    {
-      "name": "atoms.shadow.hard",
-      "tokenType": "Shadow",
-      "value": {
-        "kind": "string",
-        "value": "0 1px 3px 0 rgba(0,0,0,0.35)"
-      }
-    },
-    {
-      "name": "atoms.icon.star",
-      "tokenType": "Icon",
-      "value": {
-        "kind": "string",
-        "value": "star"
-      }
-    },
-    {
-      "name": "atoms.icon.chevron",
-      "tokenType": "Icon",
-      "value": {
-        "kind": "string",
-        "value": "chevron-right"
-      }
-    },
-    {
-      "name": "atoms.media.hero",
-      "tokenType": "MediaSource",
-      "value": {
-        "kind": "string",
-        "value": "https://example.com/hero.png"
-      }
-    },
-    {
-      "name": "atoms.ratio.video",
-      "tokenType": "Ratio",
-      "value": {
-        "kind": "number",
-        "value": 1.777
-      }
-    },
-    {
-      "name": "atoms.ratio.square",
-      "tokenType": "Ratio",
-      "value": {
-        "kind": "number",
-        "value": 1
-      }
-    },
-    {
-      "name": "atoms.blur.light",
-      "tokenType": "Blur",
-      "value": {
-        "kind": "number",
-        "value": 6
-      }
-    },
-    {
-      "name": "atoms.blur.heavy",
-      "tokenType": "Blur",
-      "value": {
-        "kind": "number",
-        "value": 24
-      }
-    },
-    {
-      "name": "atoms.vibrancy.subtle",
-      "tokenType": "Vibrancy",
-      "value": {
-        "brightness": 1.02,
-        "kind": "vibrancyTuple",
-        "saturation": 1.05
-      }
-    },
-    {
-      "name": "atoms.vibrancy.strong",
-      "tokenType": "Vibrancy",
-      "value": {
-        "brightness": 0.95,
-        "kind": "vibrancyTuple",
-        "saturation": 1.2
-      }
-    },
-    {
+    "atoms.ramp.fade": {
       "name": "atoms.ramp.fade",
       "tokenType": "Ramp",
       "value": {
@@ -308,102 +188,134 @@
           }
         ]
       }
-    }
-  ],
-  "schemaVersion": "1.0.0-beta",
-  "semantics": [
-    {
-      "name": "atoms.color.sem.fromRgb",
-      "tokenType": "Color",
+    },
+    "atoms.ratio.square": {
+      "name": "atoms.ratio.square",
+      "tokenType": "Ratio",
       "value": {
-        "kind": "ident",
-        "name": "atoms.color.rgb"
+        "kind": "number",
+        "value": 1
       }
     },
-    {
-      "name": "atoms.color.sem.fromRgba",
-      "tokenType": "Color",
+    "atoms.ratio.video": {
+      "name": "atoms.ratio.video",
+      "tokenType": "Ratio",
       "value": {
-        "kind": "ident",
-        "name": "atoms.color.rgba"
+        "kind": "number",
+        "value": 1.777
       }
     },
-    {
-      "name": "atoms.color.scrimLiteral",
-      "tokenType": "Color",
+    "atoms.shadow.hard": {
+      "name": "atoms.shadow.hard",
+      "tokenType": "Shadow",
       "value": {
-        "base": {
-          "kind": "ident",
-          "name": "atoms.color.rgb"
-        },
-        "kind": "opacityOf",
-        "opacity": {
-          "kind": "number",
-          "value": 0.25
-        }
+        "kind": "string",
+        "value": "0 1px 3px 0 rgba(0,0,0,0.35)"
       }
     },
-    {
-      "name": "atoms.color.scrimRgba",
-      "tokenType": "Color",
+    "atoms.shadow.soft": {
+      "name": "atoms.shadow.soft",
+      "tokenType": "Shadow",
       "value": {
-        "base": {
-          "kind": "ident",
-          "name": "atoms.color.rgba"
-        },
-        "kind": "opacityOf",
-        "opacity": {
-          "kind": "number",
-          "value": 0.5
-        }
+        "kind": "string",
+        "value": "0 2px 8px rgba(0,0,0,0.12)"
       }
     },
-    {
-      "name": "atoms.space.card.pad",
+    "atoms.space.md": {
+      "name": "atoms.space.md",
       "tokenType": "Distance",
       "value": {
-        "kind": "ident",
-        "name": "atoms.space.md"
+        "kind": "number",
+        "value": 16
       }
     },
-    {
-      "name": "atoms.radius.card",
-      "tokenType": "Radius",
+    "atoms.space.sm": {
+      "name": "atoms.space.sm",
+      "tokenType": "Distance",
       "value": {
-        "kind": "ident",
-        "name": "atoms.radius.mixed"
+        "kind": "number",
+        "value": 8
       }
     },
-    {
-      "name": "atoms.opacity.sem.mid",
-      "tokenType": "Opacity",
+    "atoms.space.xs": {
+      "name": "atoms.space.xs",
+      "tokenType": "Distance",
       "value": {
-        "kind": "ident",
-        "name": "atoms.opacity.mid"
+        "kind": "number",
+        "value": 4
       }
     },
-    {
-      "name": "atoms.opacity.sem.full",
-      "tokenType": "Opacity",
+    "atoms.type.size.body": {
+      "name": "atoms.type.size.body",
+      "tokenType": "Size",
       "value": {
-        "kind": "ident",
-        "name": "atoms.opacity.full"
+        "kind": "number",
+        "value": 16
       }
     },
-    {
-      "name": "atoms.bg.flat",
-      "tokenType": "Background",
+    "atoms.type.size.caption": {
+      "name": "atoms.type.size.caption",
+      "tokenType": "Size",
       "value": {
-        "items": [
-          {
-            "kind": "hex",
-            "value": "#E5E7EB"
-          }
-        ],
-        "kind": "array"
+        "kind": "number",
+        "value": 12
       }
     },
-    {
+    "atoms.type.size.title": {
+      "name": "atoms.type.size.title",
+      "tokenType": "Size",
+      "value": {
+        "kind": "number",
+        "value": 22
+      }
+    },
+    "atoms.type.weight.bold": {
+      "name": "atoms.type.weight.bold",
+      "tokenType": "Weight",
+      "value": {
+        "kind": "number",
+        "value": 700
+      }
+    },
+    "atoms.type.weight.medium": {
+      "name": "atoms.type.weight.medium",
+      "tokenType": "Weight",
+      "value": {
+        "kind": "number",
+        "value": 600
+      }
+    },
+    "atoms.type.weight.regular": {
+      "name": "atoms.type.weight.regular",
+      "tokenType": "Weight",
+      "value": {
+        "kind": "number",
+        "value": 400
+      }
+    },
+    "atoms.vibrancy.strong": {
+      "name": "atoms.vibrancy.strong",
+      "tokenType": "Vibrancy",
+      "value": {
+        "brightness": 0.95,
+        "kind": "vibrancyTuple",
+        "saturation": 1.2
+      }
+    },
+    "atoms.vibrancy.subtle": {
+      "name": "atoms.vibrancy.subtle",
+      "tokenType": "Vibrancy",
+      "value": {
+        "brightness": 1.02,
+        "kind": "vibrancyTuple",
+        "saturation": 1.05
+      }
+    }
+  },
+  "rules": {},
+  "schemaVersion": "1.0.0-beta",
+  "semantics": {
+    "atoms.bg.blurCard": {
       "name": "atoms.bg.blurCard",
       "tokenType": "Background",
       "value": {
@@ -433,7 +345,66 @@
         "kind": "array"
       }
     },
-    {
+    "atoms.bg.flat": {
+      "name": "atoms.bg.flat",
+      "tokenType": "Background",
+      "value": {
+        "items": [
+          {
+            "kind": "hex",
+            "value": "#E5E7EB"
+          }
+        ],
+        "kind": "array"
+      }
+    },
+    "atoms.color.scrimLiteral": {
+      "name": "atoms.color.scrimLiteral",
+      "tokenType": "Color",
+      "value": {
+        "base": {
+          "kind": "ident",
+          "name": "atoms.color.rgb"
+        },
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.25
+        }
+      }
+    },
+    "atoms.color.scrimRgba": {
+      "name": "atoms.color.scrimRgba",
+      "tokenType": "Color",
+      "value": {
+        "base": {
+          "kind": "ident",
+          "name": "atoms.color.rgba"
+        },
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.5
+        }
+      }
+    },
+    "atoms.color.sem.fromRgb": {
+      "name": "atoms.color.sem.fromRgb",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgb"
+      }
+    },
+    "atoms.color.sem.fromRgba": {
+      "name": "atoms.color.sem.fromRgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgba"
+      }
+    },
+    "atoms.fg.hoverTint": {
       "name": "atoms.fg.hoverTint",
       "tokenType": "Foreground",
       "value": {
@@ -452,20 +423,42 @@
         ],
         "kind": "array"
       }
-    }
-  ],
-  "themes": [
-    {
-      "baseTheme": null,
-      "name": "AtomsWarm",
-      "overrides": {
-        "atoms.color.sem.fromRgb": {
-          "kind": "ident",
-          "name": "atoms.color.rgba"
-        }
+    },
+    "atoms.opacity.sem.full": {
+      "name": "atoms.opacity.sem.full",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.opacity.full"
       }
     },
-    {
+    "atoms.opacity.sem.mid": {
+      "name": "atoms.opacity.sem.mid",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.opacity.mid"
+      }
+    },
+    "atoms.radius.card": {
+      "name": "atoms.radius.card",
+      "tokenType": "Radius",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.radius.mixed"
+      }
+    },
+    "atoms.space.card.pad": {
+      "name": "atoms.space.card.pad",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.space.md"
+      }
+    }
+  },
+  "themes": {
+    "AtomsCool": {
       "baseTheme": null,
       "name": "AtomsCool",
       "overrides": {
@@ -475,7 +468,7 @@
         }
       }
     },
-    {
+    "AtomsDim": {
       "baseTheme": null,
       "name": "AtomsDim",
       "overrides": {
@@ -485,7 +478,7 @@
         }
       }
     },
-    {
+    "AtomsLooseRadius": {
       "baseTheme": null,
       "name": "AtomsLooseRadius",
       "overrides": {
@@ -494,31 +487,20 @@
           "value": 12
         }
       }
-    }
-  ],
-  "typeStyles": [
-    {
-      "name": "AtomCaption",
-      "props": {
-        "color": {
+    },
+    "AtomsWarm": {
+      "baseTheme": null,
+      "name": "AtomsWarm",
+      "overrides": {
+        "atoms.color.sem.fromRgb": {
           "kind": "ident",
-          "name": "atoms.color.sem.fromRgb"
-        },
-        "fontFamily": {
-          "kind": "ident",
-          "name": "atoms.font.ui"
-        },
-        "fontSize": {
-          "kind": "ident",
-          "name": "atoms.type.size.caption"
-        },
-        "fontWeight": {
-          "kind": "ident",
-          "name": "atoms.type.weight.medium"
+          "name": "atoms.color.rgba"
         }
       }
-    },
-    {
+    }
+  },
+  "typeStyles": {
+    "AtomBody": {
       "name": "AtomBody",
       "props": {
         "color": {
@@ -539,12 +521,12 @@
         }
       }
     },
-    {
-      "name": "AtomTitle",
+    "AtomCaption": {
+      "name": "AtomCaption",
       "props": {
         "color": {
           "kind": "ident",
-          "name": "atoms.color.rgb"
+          "name": "atoms.color.sem.fromRgb"
         },
         "fontFamily": {
           "kind": "ident",
@@ -552,15 +534,15 @@
         },
         "fontSize": {
           "kind": "ident",
-          "name": "atoms.type.size.title"
+          "name": "atoms.type.size.caption"
         },
         "fontWeight": {
           "kind": "ident",
-          "name": "atoms.type.weight.bold"
+          "name": "atoms.type.weight.medium"
         }
       }
     },
-    {
+    "AtomMono": {
       "name": "AtomMono",
       "props": {
         "color": {
@@ -580,7 +562,29 @@
           "name": "atoms.type.weight.regular"
         }
       }
+    },
+    "AtomTitle": {
+      "name": "AtomTitle",
+      "props": {
+        "color": {
+          "kind": "ident",
+          "name": "atoms.color.rgb"
+        },
+        "fontFamily": {
+          "kind": "ident",
+          "name": "atoms.font.ui"
+        },
+        "fontSize": {
+          "kind": "ident",
+          "name": "atoms.type.size.title"
+        },
+        "fontWeight": {
+          "kind": "ident",
+          "name": "atoms.type.weight.bold"
+        }
+      }
     }
-  ],
-  "variants": []
+  },
+  "usage": {},
+  "variants": {}
 }

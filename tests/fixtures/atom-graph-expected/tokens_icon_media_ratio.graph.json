@@ -1,22 +1,16 @@
 {
-  "components": [],
+  "components": {},
   "entryPath": "<resolved>",
   "expose": {},
+  "fixtures": {},
+  "interactions": {},
   "kind": "designGraph",
   "modulePaths": [
     "tokens_icon_media_ratio.pdl"
   ],
   "previewBackground": null,
-  "primitives": [
-    {
-      "name": "atoms.icon.star",
-      "tokenType": "Icon",
-      "value": {
-        "kind": "string",
-        "value": "star"
-      }
-    },
-    {
+  "primitives": {
+    "atoms.icon.chevron": {
       "name": "atoms.icon.chevron",
       "tokenType": "Icon",
       "value": {
@@ -24,7 +18,15 @@
         "value": "chevron-right"
       }
     },
-    {
+    "atoms.icon.star": {
+      "name": "atoms.icon.star",
+      "tokenType": "Icon",
+      "value": {
+        "kind": "string",
+        "value": "star"
+      }
+    },
+    "atoms.media.hero": {
       "name": "atoms.media.hero",
       "tokenType": "MediaSource",
       "value": {
@@ -32,26 +34,28 @@
         "value": "https://example.com/hero.png"
       }
     },
-    {
-      "name": "atoms.ratio.video",
-      "tokenType": "Ratio",
-      "value": {
-        "kind": "number",
-        "value": 1.777
-      }
-    },
-    {
+    "atoms.ratio.square": {
       "name": "atoms.ratio.square",
       "tokenType": "Ratio",
       "value": {
         "kind": "number",
         "value": 1
       }
+    },
+    "atoms.ratio.video": {
+      "name": "atoms.ratio.video",
+      "tokenType": "Ratio",
+      "value": {
+        "kind": "number",
+        "value": 1.777
+      }
     }
-  ],
+  },
+  "rules": {},
   "schemaVersion": "1.0.0-beta",
-  "semantics": [],
-  "themes": [],
-  "typeStyles": [],
-  "variants": []
+  "semantics": {},
+  "themes": {},
+  "typeStyles": {},
+  "usage": {},
+  "variants": {}
 }

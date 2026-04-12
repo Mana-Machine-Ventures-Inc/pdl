@@ -1,6 +1,62 @@
 {
-  "components": [
-    {
+  "components": {
+    "AtomLayerForegroundTint": {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".row"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "gap",
+          "value": {
+            "kind": "number",
+            "value": 8
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "foreground",
+          "value": {
+            "items": [
+              {
+                "base": {
+                  "kind": "ident",
+                  "name": "atoms.color.rgb"
+                },
+                "kind": "opacityOf",
+                "opacity": {
+                  "kind": "number",
+                  "value": 0.12
+                }
+              }
+            ],
+            "kind": "array"
+          }
+        },
+        {
+          "entries": [],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomLayerForegroundTint",
+      "params": [],
+      "rootKind": "layout"
+    },
+    "AtomLayerListBackground": {
       "body": [
         {
           "kind": "prop",
@@ -61,66 +117,12 @@
       "name": "AtomLayerListBackground",
       "params": [],
       "rootKind": "layout"
-    },
-    {
-      "body": [
-        {
-          "kind": "prop",
-          "name": "direction",
-          "value": {
-            "kind": "dotEnum",
-            "value": ".row"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "gap",
-          "value": {
-            "kind": "number",
-            "value": 8
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "background",
-          "value": {
-            "kind": "ident",
-            "name": "atoms.color.sem.fromRgb"
-          }
-        },
-        {
-          "kind": "prop",
-          "name": "foreground",
-          "value": {
-            "items": [
-              {
-                "base": {
-                  "kind": "ident",
-                  "name": "atoms.color.rgb"
-                },
-                "kind": "opacityOf",
-                "opacity": {
-                  "kind": "number",
-                  "value": 0.12
-                }
-              }
-            ],
-            "kind": "array"
-          }
-        },
-        {
-          "entries": [],
-          "kind": "children",
-          "target": "root"
-        }
-      ],
-      "name": "AtomLayerForegroundTint",
-      "params": [],
-      "rootKind": "layout"
     }
-  ],
+  },
   "entryPath": "<resolved>",
   "expose": {},
+  "fixtures": {},
+  "interactions": {},
   "kind": "designGraph",
   "modulePaths": [
     "tokens_color.pdl",
@@ -128,8 +130,8 @@
     "value_layer_list_atoms.pdl"
   ],
   "previewBackground": null,
-  "primitives": [
-    {
+  "primitives": {
+    "atoms.color.rgb": {
       "name": "atoms.color.rgb",
       "tokenType": "Color",
       "value": {
@@ -137,7 +139,7 @@
         "value": "#ABC"
       }
     },
-    {
+    "atoms.color.rgba": {
       "name": "atoms.color.rgba",
       "tokenType": "Color",
       "value": {
@@ -145,7 +147,7 @@
         "value": "#11223344"
       }
     },
-    {
+    "atoms.opacity.full": {
       "name": "atoms.opacity.full",
       "tokenType": "Opacity",
       "value": {
@@ -153,7 +155,7 @@
         "value": 1
       }
     },
-    {
+    "atoms.opacity.mid": {
       "name": "atoms.opacity.mid",
       "tokenType": "Opacity",
       "value": {
@@ -161,26 +163,11 @@
         "value": 0.62
       }
     }
-  ],
+  },
+  "rules": {},
   "schemaVersion": "1.0.0-beta",
-  "semantics": [
-    {
-      "name": "atoms.color.sem.fromRgb",
-      "tokenType": "Color",
-      "value": {
-        "kind": "ident",
-        "name": "atoms.color.rgb"
-      }
-    },
-    {
-      "name": "atoms.color.sem.fromRgba",
-      "tokenType": "Color",
-      "value": {
-        "kind": "ident",
-        "name": "atoms.color.rgba"
-      }
-    },
-    {
+  "semantics": {
+    "atoms.color.scrimLiteral": {
       "name": "atoms.color.scrimLiteral",
       "tokenType": "Color",
       "value": {
@@ -195,7 +182,7 @@
         }
       }
     },
-    {
+    "atoms.color.scrimRgba": {
       "name": "atoms.color.scrimRgba",
       "tokenType": "Color",
       "value": {
@@ -210,24 +197,41 @@
         }
       }
     },
-    {
-      "name": "atoms.opacity.sem.mid",
-      "tokenType": "Opacity",
+    "atoms.color.sem.fromRgb": {
+      "name": "atoms.color.sem.fromRgb",
+      "tokenType": "Color",
       "value": {
         "kind": "ident",
-        "name": "atoms.opacity.mid"
+        "name": "atoms.color.rgb"
       }
     },
-    {
+    "atoms.color.sem.fromRgba": {
+      "name": "atoms.color.sem.fromRgba",
+      "tokenType": "Color",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.color.rgba"
+      }
+    },
+    "atoms.opacity.sem.full": {
       "name": "atoms.opacity.sem.full",
       "tokenType": "Opacity",
       "value": {
         "kind": "ident",
         "name": "atoms.opacity.full"
       }
+    },
+    "atoms.opacity.sem.mid": {
+      "name": "atoms.opacity.sem.mid",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.opacity.mid"
+      }
     }
-  ],
-  "themes": [],
-  "typeStyles": [],
-  "variants": []
+  },
+  "themes": {},
+  "typeStyles": {},
+  "usage": {},
+  "variants": {}
 }

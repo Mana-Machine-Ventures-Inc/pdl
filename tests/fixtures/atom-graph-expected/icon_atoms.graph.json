@@ -1,6 +1,6 @@
 {
-  "components": [
-    {
+  "components": {
+    "AtomIconDefault": {
       "body": [
         {
           "kind": "prop",
@@ -123,7 +123,7 @@
       "params": [],
       "rootKind": "layout"
     },
-    {
+    "AtomIconSizing": {
       "body": [
         {
           "kind": "prop",
@@ -205,9 +205,11 @@
       "params": [],
       "rootKind": "layout"
     }
-  ],
+  },
   "entryPath": "<resolved>",
   "expose": {},
+  "fixtures": {},
+  "interactions": {},
   "kind": "designGraph",
   "modulePaths": [
     "icon_atoms.pdl",
@@ -216,8 +218,8 @@
     "tokens_opacity.pdl"
   ],
   "previewBackground": null,
-  "primitives": [
-    {
+  "primitives": {
+    "atoms.color.rgb": {
       "name": "atoms.color.rgb",
       "tokenType": "Color",
       "value": {
@@ -225,7 +227,7 @@
         "value": "#ABC"
       }
     },
-    {
+    "atoms.color.rgba": {
       "name": "atoms.color.rgba",
       "tokenType": "Color",
       "value": {
@@ -233,39 +235,23 @@
         "value": "#11223344"
       }
     },
-    {
-      "name": "atoms.space.xs",
-      "tokenType": "Distance",
+    "atoms.opacity.full": {
+      "name": "atoms.opacity.full",
+      "tokenType": "Opacity",
       "value": {
         "kind": "number",
-        "value": 4
+        "value": 1
       }
     },
-    {
-      "name": "atoms.space.sm",
-      "tokenType": "Distance",
+    "atoms.opacity.mid": {
+      "name": "atoms.opacity.mid",
+      "tokenType": "Opacity",
       "value": {
         "kind": "number",
-        "value": 8
+        "value": 0.62
       }
     },
-    {
-      "name": "atoms.space.md",
-      "tokenType": "Distance",
-      "value": {
-        "kind": "number",
-        "value": 16
-      }
-    },
-    {
-      "name": "atoms.radius.sm",
-      "tokenType": "Radius",
-      "value": {
-        "kind": "number",
-        "value": 4
-      }
-    },
-    {
+    "atoms.radius.mixed": {
       "name": "atoms.radius.mixed",
       "tokenType": "Radius",
       "value": {
@@ -288,42 +274,43 @@
         }
       }
     },
-    {
-      "name": "atoms.opacity.full",
-      "tokenType": "Opacity",
+    "atoms.radius.sm": {
+      "name": "atoms.radius.sm",
+      "tokenType": "Radius",
       "value": {
         "kind": "number",
-        "value": 1
+        "value": 4
       }
     },
-    {
-      "name": "atoms.opacity.mid",
-      "tokenType": "Opacity",
+    "atoms.space.md": {
+      "name": "atoms.space.md",
+      "tokenType": "Distance",
       "value": {
         "kind": "number",
-        "value": 0.62
+        "value": 16
+      }
+    },
+    "atoms.space.sm": {
+      "name": "atoms.space.sm",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 8
+      }
+    },
+    "atoms.space.xs": {
+      "name": "atoms.space.xs",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 4
       }
     }
-  ],
+  },
+  "rules": {},
   "schemaVersion": "1.0.0-beta",
-  "semantics": [
-    {
-      "name": "atoms.color.sem.fromRgb",
-      "tokenType": "Color",
-      "value": {
-        "kind": "ident",
-        "name": "atoms.color.rgb"
-      }
-    },
-    {
-      "name": "atoms.color.sem.fromRgba",
-      "tokenType": "Color",
-      "value": {
-        "kind": "ident",
-        "name": "atoms.color.rgba"
-      }
-    },
-    {
+  "semantics": {
+    "atoms.color.scrimLiteral": {
       "name": "atoms.color.scrimLiteral",
       "tokenType": "Color",
       "value": {
@@ -338,7 +325,7 @@
         }
       }
     },
-    {
+    "atoms.color.scrimRgba": {
       "name": "atoms.color.scrimRgba",
       "tokenType": "Color",
       "value": {
@@ -353,23 +340,31 @@
         }
       }
     },
-    {
-      "name": "atoms.space.card.pad",
-      "tokenType": "Distance",
+    "atoms.color.sem.fromRgb": {
+      "name": "atoms.color.sem.fromRgb",
+      "tokenType": "Color",
       "value": {
         "kind": "ident",
-        "name": "atoms.space.md"
+        "name": "atoms.color.rgb"
       }
     },
-    {
-      "name": "atoms.radius.card",
-      "tokenType": "Radius",
+    "atoms.color.sem.fromRgba": {
+      "name": "atoms.color.sem.fromRgba",
+      "tokenType": "Color",
       "value": {
         "kind": "ident",
-        "name": "atoms.radius.mixed"
+        "name": "atoms.color.rgba"
       }
     },
-    {
+    "atoms.opacity.sem.full": {
+      "name": "atoms.opacity.sem.full",
+      "tokenType": "Opacity",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.opacity.full"
+      }
+    },
+    "atoms.opacity.sem.mid": {
       "name": "atoms.opacity.sem.mid",
       "tokenType": "Opacity",
       "value": {
@@ -377,16 +372,25 @@
         "name": "atoms.opacity.mid"
       }
     },
-    {
-      "name": "atoms.opacity.sem.full",
-      "tokenType": "Opacity",
+    "atoms.radius.card": {
+      "name": "atoms.radius.card",
+      "tokenType": "Radius",
       "value": {
         "kind": "ident",
-        "name": "atoms.opacity.full"
+        "name": "atoms.radius.mixed"
+      }
+    },
+    "atoms.space.card.pad": {
+      "name": "atoms.space.card.pad",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.space.md"
       }
     }
-  ],
-  "themes": [],
-  "typeStyles": [],
-  "variants": []
+  },
+  "themes": {},
+  "typeStyles": {},
+  "usage": {},
+  "variants": {}
 }

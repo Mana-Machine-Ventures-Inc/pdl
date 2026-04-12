@@ -142,4 +142,35 @@ describe("catalogue", () => {
     expect(hide?.children).toEqual(["A"]);
     expect(row.childNodes.B!.children.map((c) => c.id)).toEqual(["Inner"]);
   });
+
+  it("merges rules tags = and tags.add in order for catalogue.rules.tags", () => {
+    const d = loadDesign(fx("rules_tags_when.pdl"));
+    const row = buildComponentCatalogue(d).components.RulesTagHost!;
+    expect(row.rules?.tags).toEqual(["t0", "t1"]);
+  });
+
+  it("flattened rules attach else when using negated prior branches", () => {
+    const d = loadDesign(fx("rules_tags_when.pdl"));
+    const rules = buildComponentCatalogue(d).components.RulesElseHost!.rules!.rules;
+    expect(rules).toHaveLength(2);
+    expect(rules[0]!.when).toEqual({ kind: "cmp", param: "mode", op: "==", rhs: ".ea" });
+    expect(rules[1]!.when).toEqual({
+      kind: "not",
+      expr: { kind: "cmp", param: "mode", op: "==", rhs: ".ea" },
+    });
+    expect(rules[1]!.strength).toBe("shouldNot");
+  });
+
+  it("nested rules if conjoins outer and inner branch conditions", () => {
+    const d = loadDesign(fx("rules_tags_when.pdl"));
+    const rules = buildComponentCatalogue(d).components.RulesNestHost!.rules!.rules;
+    expect(rules).toHaveLength(1);
+    expect(rules[0]!.when).toEqual({
+      kind: "and",
+      items: [
+        { kind: "cmp", param: "o", op: "==", rhs: ".o1" },
+        { kind: "cmp", param: "i", op: "==", rhs: ".i1" },
+      ],
+    });
+  });
 });
