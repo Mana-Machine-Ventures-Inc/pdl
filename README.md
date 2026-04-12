@@ -8,7 +8,7 @@ After `npm install`, use the npm scripts below (each runs **`tsc`** first so **`
 
 | Command | Description |
 |---------|-------------|
-| `npm run graphSystem --silent -- <entry.pdl> [--out file.json]` | **Full design graph** — **Component Catalogue** with **`primitives`**, **`semantics`**, per-**`theme`** **`overrides`** (pointer-style RHS), components, etc. (`full-spec.md` §16). Entry only; **no** `--theme`. |
+| `npm run graphSystem --silent -- <entry.pdl> [--out file.json]` | **Component Catalogue** — same graph shapes as a resolve **`system`** slice (full **`primitives`**, **`semantics`**, **`themes`**, **`typeStyles`**, **`variantTypes`**, components): token **`definition`**s and **`typeStyle`** **`props`** use **`primitive:`** / **`semantic:`** pointers; bake output is the literal-tree counterpart (`full-spec.md` §16). Entry only; **no** `--theme`. |
 | `npm run graphComponent --silent -- <entry.pdl> <Component> [--theme Name] [--out file.json] [key=value …]` | **Component slice** — **`resolvedComponent`** JSON (`full-spec.md` §16c / §16 §2.5): trimmed **`system`** + one catalogue row. |
 | `npm run bakeSystem --silent -- <entry.pdl> [--theme Name] [--out file.json]` | **Baked system** — every component at default params, literal trees only (`full-spec.md` §16d **`bakedDesign`**). |
 | `npm run bakeComponent --silent -- <entry.pdl> <Component> [--theme Name] [--out file.json] [key=value …]` | **Baked instance** — one component, optional param overrides (`full-spec.md` §16d). |

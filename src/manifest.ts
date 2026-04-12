@@ -1,6 +1,5 @@
 import type { DesignDefinition } from "./designModel.js";
-
-const SCHEMA = "1.0.0-beta";
+import { PDL_JSON_SCHEMA_VERSION } from "./graphJson.js";
 
 /** Top-level keys on `buildDesignManifest()` output (stable for tests / validators). */
 export const DESIGN_MANIFEST_ROOT_KEYS = [
@@ -52,7 +51,7 @@ export function buildDesignManifest(design: DesignDefinition): DesignManifest {
 
   return {
     kind: "designManifest",
-    schemaVersion: SCHEMA,
+    schemaVersion: PDL_JSON_SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
     entryPath: design.entryPath,
     modulePaths: [...design.modulePaths],

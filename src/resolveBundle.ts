@@ -6,47 +6,30 @@ import {
   type CatalogueVariantTypeDef,
 } from "./catalogue.js";
 import { PdlError } from "./errors.js";
-import { serialiseValueExpr, serialiseValueExprWithTokenRefs } from "./graph.js";
+import type { GraphThemeEntry, GraphTokenRow, GraphTypeStyleEntry } from "./graphJson.js";
+import { serialiseValueExprWithTokenRefs } from "./graph.js";
 
 const PRIMITIVE_REF = /^primitive:(.+)$/;
 const SEMANTIC_REF = /^semantic:(.+)$/;
 
-export type ResolvedPrimitiveEntry = {
-  name: string;
-  tokenType: string;
-  /** PDL RHS of the primitive (design-time), for tooling that reads the token graph. */
-  definition: unknown;
-};
+/** @see {@link GraphTokenRow} */
+export type ResolvedPrimitiveEntry = GraphTokenRow;
 
-export type ResolvedSemanticEntry = {
-  name: string;
-  tokenType: string;
-  definition: unknown;
-};
+/** @see {@link GraphTokenRow} */
+export type ResolvedSemanticEntry = GraphTokenRow;
 
-export type ResolvedThemeEntry = {
-  name: string;
-  baseTheme: string | null;
-  /**
-   * Semantic token name → override RHS. Bare **`primitive` / `semantic`** idents are emitted as
-   * **`primitive:`** / **`semantic:`** strings so emitters can join to **`primitives` / `semantics`**;
-   * literals and composites stay as serialised **`ValueExpr`**-shaped JSON.
-   */
-  overrides: Record<string, unknown>;
-};
+/** @see {@link GraphThemeEntry} — theme **name** is the map key on **`system.themes`**. */
+export type ResolvedThemeEntry = GraphThemeEntry;
 
-export type ResolvedTypeStyleEntry = {
-  name: string;
-  props: Record<string, unknown>;
-};
+/** @see {@link GraphTypeStyleEntry} */
+export type ResolvedTypeStyleEntry = GraphTypeStyleEntry;
 
 /** One catalogue row as embedded in **`resolvedComponent`**, without **`defaultParams`**. */
 export type ResolvedCatalogueComponentRow = Omit<CatalogueComponent, "defaultParams">;
 
 /**
- * Design-system payload bundled with **`resolvedComponent`**: active theme context, trimmed
- * **`variantTypes`**, token graph (**`primitives` / `semantics` / `typeStyles`**), and per-declared-**`theme`**
- * **overrides** (token refs cross-link to rows in **`primitives` / `semantics`**).
+ * Design-system payload bundled with **`resolvedComponent`**: same row shapes as the full catalogue
+ * (**`graphJson`**), trimmed to tokens / themes / type styles relevant to the resolved component.
  */
 export type ResolvedComponentSystemBundle = {
   /** Present only when **`buildResolvedComponentDocument`** was given **`theme`**. */
@@ -310,7 +293,6 @@ export function buildResolvedComponentDocument(
         return [
           t.name,
           {
-            name: t.name,
             baseTheme: t.baseTheme ?? null,
             overrides: Object.fromEntries(
               keys.map((k) => [k, serialiseValueExprWithTokenRefs(t.overrides[k]!, design)]),
@@ -331,7 +313,7 @@ export function buildResolvedComponentDocument(
         {
           name: ts.name,
           props: Object.fromEntries(
-            Object.entries(ts.props).map(([k, v]) => [k, serialiseValueExpr(v)]),
+            Object.entries(ts.props).map(([k, v]) => [k, serialiseValueExprWithTokenRefs(v, design)]),
           ),
         },
       ]),

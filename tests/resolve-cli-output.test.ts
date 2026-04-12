@@ -58,6 +58,7 @@ describe("resolvedComponent document (pdl resolve default)", () => {
     const doc = buildResolvedComponentDocument(design, { componentName: "MoleculeFieldBlock" });
     const names = Object.keys(doc.system.typeStyles).sort();
     expect(names).toEqual(["AtomBody", "AtomCaption", "AtomMono"]);
+    expect(doc.system.typeStyles.AtomCaption!.props.color).toBe("semantic:atoms.color.sem.fromRgb");
   });
 
   it("omits primitives/semantics when the component uses no tokens or typeStyles", () => {

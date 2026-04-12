@@ -69,19 +69,29 @@ describe("catalogue", () => {
     const d = loadDesign(fx("integration/themed.pdl"));
     const c = buildComponentCatalogue(d, {});
     expect(c.primitives["color.bg"]!.definition).toEqual({ kind: "hex", value: "#FFFFFF" });
+    expect(c.themes.Dark!.baseTheme).toBeNull();
     expect(c.themes.Dark!.overrides["color.bg"]).toEqual({ kind: "hex", value: "#000000" });
     expect(buildResolvedTokenMap(d).get("color.bg")).toBe("#FFFFFF");
     expect(buildResolvedTokenMap(d, "Dark").get("color.bg")).toBe("#000000");
   });
 
-  it("includes primitives, semantics, and per-theme override maps (no duplicated flat maps)", () => {
+  it("includes primitives, semantics, typeStyles, and per-theme override maps (no duplicated flat maps)", () => {
     const d = loadDesign(fx("integration/themed.pdl"));
     const c = buildComponentCatalogue(d, {});
     expect(c.primitives["color.bg"]).toBeDefined();
     expect(Object.keys(c.semantics).length).toBe(0);
     expect(Object.keys(c.themes).sort()).toEqual(["Dark"]);
+    expect(Object.keys(c.typeStyles).length).toBe(0);
     expect(c).not.toHaveProperty("theme");
     expect(c.variantTypes).toEqual({});
+  });
+
+  it("emits full typeStyles with primitive:/semantic: pointers like token definitions", () => {
+    const d = loadDesign(fx("atoms/design.pdl"));
+    const c = buildComponentCatalogue(d);
+    expect(c.typeStyles.AtomCaption!.props.color).toBe("semantic:atoms.color.sem.fromRgb");
+    expect(c.typeStyles.AtomBody!.props.color).toBe("semantic:atoms.color.sem.fromRgba");
+    expect(c.typeStyles.AtomTitle!.props.color).toBe("primitive:atoms.color.rgb");
   });
 
   it("sets catalogue theme metadata while token layers stay authoritative", () => {

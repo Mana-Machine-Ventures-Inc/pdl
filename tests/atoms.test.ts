@@ -6,6 +6,7 @@ import { parseModule } from "../src/parser.js";
 import { loadDesign } from "../src/loadDesign.js";
 import { buildComponentCatalogue } from "../src/catalogue.js";
 import { buildResolvedTokenMap } from "../src/evaluate.js";
+import { PDL_JSON_SCHEMA_VERSION } from "../src/graphJson.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const atomsDir = resolve(__dirname, "../test-fixtures/pdl/atoms");
@@ -27,10 +28,11 @@ describe("atoms fixtures", () => {
     expect(d.components.size).toBeGreaterThan(10);
     const cat = buildComponentCatalogue(d);
     expect(Object.keys(cat.components).length).toBe(d.components.size);
-    expect(cat.schemaVersion).toBe("1.0.0-beta");
+    expect(cat.schemaVersion).toBe(PDL_JSON_SCHEMA_VERSION);
     expect(Object.keys(cat.primitives).length).toBeGreaterThan(0);
     expect(cat.semantics).toBeDefined();
     expect(cat.themes).toBeDefined();
+    expect(Object.keys(cat.typeStyles).length).toBeGreaterThan(0);
     expect(Object.keys(cat.variantTypes).length).toBeGreaterThan(0);
     expect(cat.variantTypes.AtomsTone).toBeDefined();
   });

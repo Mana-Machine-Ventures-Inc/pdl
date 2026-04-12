@@ -1,5 +1,6 @@
 import type { DesignDefinition } from "./designModel.js";
 import { PdlError } from "./errors.js";
+import { PDL_JSON_SCHEMA_VERSION } from "./graphJson.js";
 import { buildResolvedTokenMap } from "./evaluate.js";
 import {
   pruneHiddenChildrenTree,
@@ -7,8 +8,6 @@ import {
   resolveDefaultParamValues,
   type CatalFrame,
 } from "./resolveTree.js";
-
-const SCHEMA = "1.0.0-beta";
 
 export type BakedFrame = CatalFrame;
 
@@ -73,7 +72,7 @@ export function buildBakedDesignSystem(
 
   return {
     schemaKind: "bakedDesign",
-    schemaVersion: SCHEMA,
+    schemaVersion: PDL_JSON_SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
     provenance: {
       entryPath: design.entryPath,
@@ -104,7 +103,7 @@ export function buildBakedDesignComponent(
 
   return {
     schemaKind: "bakedDesign",
-    schemaVersion: SCHEMA,
+    schemaVersion: PDL_JSON_SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
     provenance: {
       entryPath: design.entryPath,

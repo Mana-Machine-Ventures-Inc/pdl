@@ -10,6 +10,14 @@ import type {
 import type { DesignDefinition } from "./designModel.js";
 import { PdlError } from "./errors.js";
 import { buildResolvedTokenMap, evaluateValue } from "./evaluate.js";
+import {
+  PDL_JSON_SCHEMA_VERSION,
+  type GraphThemeEntry,
+  type GraphTokenRow,
+  type GraphTypeStyleEntry,
+} from "./graphJson.js";
+
+export { PDL_JSON_SCHEMA_VERSION, type GraphThemeEntry, type GraphTokenRow, type GraphTypeStyleEntry } from "./graphJson.js";
 import { serialiseConditionExpr, serialiseValueExpr, serialiseValueExprWithTokenRefs } from "./graph.js";
 import { ruleLineToDef, type RuleDefJson } from "./rulesJson.js";
 import {
@@ -19,8 +27,6 @@ import {
   resolveDefaultParamValues,
   type CatalFrame,
 } from "./resolveTree.js";
-
-const SCHEMA = "1.0.0-beta";
 
 function negateCondition(c: ConditionExpr): ConditionExpr {
   return { kind: "not", expr: c };
@@ -178,24 +184,17 @@ export type CatalogueVariantTypeDef = {
   cases: string[];
 };
 
-/** One merged **`primitive`** — definition is a serialised **`ValueExpr`** (authored RHS, once). */
-export type CataloguePrimitiveEntry = {
-  name: string;
-  tokenType: string;
-  definition: unknown;
-};
+/** @see {@link GraphTokenRow} */
+export type CataloguePrimitiveEntry = GraphTokenRow;
 
-/** One merged **`semantic`** — definition is a serialised **`ValueExpr`** (authored RHS, once). */
-export type CatalogueSemanticEntry = {
-  name: string;
-  tokenType: string;
-  definition: unknown;
-};
+/** @see {@link GraphTokenRow} */
+export type CatalogueSemanticEntry = GraphTokenRow;
 
-/** Per-**`theme`** override map: LHS token name → serialised RHS with **`primitive:`** / **`semantic:`** refs. */
-export type CatalogueThemeEntry = {
-  overrides: Record<string, unknown>;
-};
+/** @see {@link GraphThemeEntry} */
+export type CatalogueThemeEntry = GraphThemeEntry;
+
+/** @see {@link GraphTypeStyleEntry} */
+export type CatalogueTypeStyleEntry = GraphTypeStyleEntry;
 
 export type ComponentCatalogue = {
   /** Discriminant when multiple JSON artefacts are bundled or stored together. */
@@ -216,10 +215,14 @@ export type ComponentCatalogue = {
    */
   semantics: Record<string, CatalogueSemanticEntry>;
   /**
-   * Declared **`theme { … }`** blocks: each value holds **`overrides`** only — RHS uses pointers
-   * (**`primitive:name`** / **`semantic:name`**) for bare token idents instead of copying resolved literals.
+   * Declared **`theme { … }`** blocks: **`baseTheme`** for inheritance (**`null`** if none); **`overrides`**
+   * use **`primitive:`** / **`semantic:`** for bare token idents (same serialisation as **`definitions`**).
    */
   themes: Record<string, CatalogueThemeEntry>;
+  /**
+   * Every merged **`typeStyle`** (sorted keys): **`props`** use the same pointer serialisation as token definitions.
+   */
+  typeStyles: Record<string, CatalogueTypeStyleEntry>;
   /**
    * All merged **`variant { … }`** definitions keyed by type **`name`** (sorted keys in JSON).
    * **`cases`** are case ids without a leading dot.
@@ -441,6 +444,7 @@ function buildCatalogueTokenLayers(design: DesignDefinition): {
   primitives: Record<string, CataloguePrimitiveEntry>;
   semantics: Record<string, CatalogueSemanticEntry>;
   themes: Record<string, CatalogueThemeEntry>;
+  typeStyles: Record<string, CatalogueTypeStyleEntry>;
 } {
   const primitives: Record<string, CataloguePrimitiveEntry> = Object.fromEntries(
     [...design.primitives.values()]
@@ -472,6 +476,7 @@ function buildCatalogueTokenLayers(design: DesignDefinition): {
       .map((t) => [
         t.name,
         {
+          baseTheme: t.baseTheme ?? null,
           overrides: Object.fromEntries(
             Object.entries(t.overrides)
               .sort(([a], [b]) => a.localeCompare(b))
@@ -480,7 +485,22 @@ function buildCatalogueTokenLayers(design: DesignDefinition): {
         },
       ]),
   );
-  return { primitives, semantics, themes };
+  const typeStyles: Record<string, CatalogueTypeStyleEntry> = Object.fromEntries(
+    [...design.typeStyles.values()]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((ts) => [
+        ts.name,
+        {
+          name: ts.name,
+          props: Object.fromEntries(
+            Object.entries(ts.props)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([k, v]) => [k, serialiseValueExprWithTokenRefs(v, design)]),
+          ),
+        },
+      ]),
+  );
+  return { primitives, semantics, themes, typeStyles };
 }
 
 export function buildComponentCatalogue(
@@ -488,7 +508,7 @@ export function buildComponentCatalogue(
   opts: { theme?: string; modifiers?: string[] } = {},
 ): ComponentCatalogue {
   const tokenMap = buildResolvedTokenMap(design, opts.theme || undefined, opts.modifiers ?? []);
-  const { primitives, semantics, themes } = buildCatalogueTokenLayers(design);
+  const { primitives, semantics, themes, typeStyles } = buildCatalogueTokenLayers(design);
   const components: Record<string, CatalogueComponent> = {};
 
   const resolveOpts = { useStringPlaceholders: true, catalogueTokenRefs: true } as const;
@@ -615,12 +635,13 @@ export function buildComponentCatalogue(
 
   return {
     kind: "componentCatalogue",
-    schemaVersion: SCHEMA,
+    schemaVersion: PDL_JSON_SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
     ...(opts.theme ? { theme: opts.theme } : {}),
     primitives,
     semantics,
     themes,
+    typeStyles,
     variantTypes,
     components,
   };
