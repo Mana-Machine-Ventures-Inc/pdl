@@ -27,12 +27,12 @@ describe("atoms fixtures", () => {
     const d = loadDesign(entry);
     expect(d.components.size).toBeGreaterThan(10);
     const cat = buildComponentCatalogue(d);
-    expect(cat.components.length).toBe(d.components.size);
+    expect(Object.keys(cat.components).length).toBe(d.components.size);
     expect(cat.schemaVersion).toBe("1.0.0-beta");
     expect(cat.tokensByTheme.base).toBeDefined();
     expect(cat.tokens).toEqual(cat.tokensByTheme.base);
-    expect(cat.variantTypes.length).toBeGreaterThan(0);
-    expect(cat.variantTypes.some((v) => v.name === "AtomsTone")).toBe(true);
+    expect(Object.keys(cat.variantTypes).length).toBeGreaterThan(0);
+    expect(cat.variantTypes.AtomsTone).toBeDefined();
   });
 
   it("loads root design.pdl including atoms + merge chain", () => {

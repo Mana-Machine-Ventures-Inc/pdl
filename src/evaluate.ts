@@ -1,4 +1,4 @@
-import type { ValueExpr } from "./ast.js";
+import type { ConditionExpr, ValueExpr } from "./ast.js";
 import type { DesignDefinition } from "./designModel.js";
 import { PdlError } from "./errors.js";
 
@@ -56,6 +56,25 @@ function stripLeadingDot(s: string): string {
   return s.startsWith(".") ? s.slice(1) : s;
 }
 
+/** Evaluate a variant `if` condition against bound component parameters (values without leading dot). */
+export function evaluateCondition(c: ConditionExpr, paramValues: Record<string, unknown>): boolean {
+  switch (c.kind) {
+    case "cmp": {
+      const v = paramValues[c.param];
+      const rhs = c.rhs.startsWith(".") ? c.rhs.slice(1) : c.rhs;
+      const vs = v === undefined ? "" : String(v);
+      if (c.op === "==") return vs === rhs;
+      return vs !== rhs;
+    }
+    case "and":
+      return c.items.every((x) => evaluateCondition(x, paramValues));
+    case "or":
+      return c.items.some((x) => evaluateCondition(x, paramValues));
+    default:
+      return false;
+  }
+}
+
 export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
   const visiting = opts.visiting ?? new Set<string>();
 
@@ -68,6 +87,17 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
       return expr.value;
     case "boolean":
       return expr.value;
+    case "condition": {
+      const pv = opts.paramValues;
+      if (!pv) {
+        throw new PdlError(
+          "PDL-E001",
+          "Condition expressions require component parameter context",
+          { path: opts.design.entryPath },
+        );
+      }
+      return evaluateCondition(expr.expr, pv);
+    }
     case "dotEnum":
       return stripLeadingDot(expr.value);
     case "ident": {

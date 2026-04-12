@@ -22,6 +22,8 @@ This document records ambiguities between `full-spec.md` and this repository’s
 
 ## Component Catalogue
 
+- **`variantTypes` / `components`:** emitted as **name-keyed objects** (not arrays) so emitters can use `catalogue.variantTypes["MyVariant"]` and `catalogue.components["Button"]`. The same pattern applies to **`resolvedComponent.system`** (`primitives`, `semantics`, `themes`, `typeStyles`, `variantTypes`).
+- **`hidden` on `layout` frames:** `hidden = true | false | .true | .false | <variant condition>` hides the frame from catalogue **`children`** / variant **`children`** overrides and prunes it from nested **`childNodes`** trees, while every declared Root-level **`children = […]`** id remains a **`childNodes`** entry (subtree chosen from a scan where that node is visible when possible). **`pdl resolve --tree-only`** still returns the **full** materialised tree (including hidden nodes in **`children`** arrays) for debugging.
 - **Variant metadata:** top-level **`variantTypes`** plus per-param **`variantTypeName`** carry PDL **`variant`** type names for emitters (e.g. Figma); **`type`** stays **`"variant"`** as the JSON discriminator.
 - **External refs in trees:** catalogue trees use **`primitive:`** / **`semantic:`** string markers for frame properties whose RHS is a bare `primitive` / `semantic` identifier (see §16 §2.3); composite RHS values are still fully resolved in v1.
 - **`tokensByTheme` vs `tokens`:** `tokensByTheme` rows are built **without** CLI **`modifiers`**. If **`buildComponentCatalogue`** is called with non-empty **`modifiers`**, the flat **`tokens`** map (and tree resolution) may differ from every pure-theme slice; receivers that use modifiers should treat **`tokens`** as authoritative for that build.

@@ -79,12 +79,12 @@ export type ComponentCatalogue = {
    */
   tokensByTheme: Record<string, Record<string, unknown>>;
   /**
-   * All merged **`variant { … }`** definitions: **`name`** is the PDL type identifier;
-   * **`cases`** are case ids without a leading dot. Emitters (e.g. Figma) can map param
-   * **`variantTypeName`** (per component) to these rows for stable property naming.
+   * All merged **`variant { … }`** definitions keyed by type **`name`** (sorted keys in JSON).
+   * **`cases`** are case ids without a leading dot.
    */
-  variantTypes: CatalogueVariantTypeDef[];
-  components: CatalogueComponent[];
+  variantTypes: Record<string, CatalogueVariantTypeDef>;
+  /** One catalogue row per component, keyed by component **`name`**. */
+  components: Record<string, CatalogueComponent>;
 };
 
 function frameToJson(f: CatalFrame): CatalFrame {
@@ -94,6 +94,38 @@ function frameToJson(f: CatalFrame): CatalFrame {
     props: { ...f.props },
     children: f.children.map(frameToJson),
   };
+}
+
+function isFrameHidden(f: CatalFrame): boolean {
+  return f.props.hidden === true;
+}
+
+function visibleRootChildIds(tree: CatalFrame): string[] {
+  return tree.children.filter((ch) => !isFrameHidden(ch)).map((ch) => ch.id);
+}
+
+/** Emitter-facing trees: drop nodes marked **`hidden: true`** from each **`children`** list (nodes may remain in **`childNodes`**). */
+function pruneHiddenFromCatalogueFrame(f: CatalFrame): CatalFrame {
+  return {
+    id: f.id,
+    kind: f.kind,
+    props: { ...f.props },
+    children: f.children
+      .filter((ch) => !isFrameHidden(ch))
+      .map((ch) => pruneHiddenFromCatalogueFrame(ch)),
+  };
+}
+
+/** Prefer a scan where the child is visible so **`childNodes`** default materialisation matches a real layout. */
+function pickBestRootChildSubtree(scanTrees: CatalFrame[], id: string): CatalFrame | null {
+  let hiddenOnly: CatalFrame | null = null;
+  for (const t of scanTrees) {
+    const ch = directRootChildSubtree(t, id);
+    if (!ch) continue;
+    if (!isFrameHidden(ch)) return ch;
+    hiddenOnly ??= ch;
+  }
+  return hiddenOnly;
 }
 
 function diffTrees(a: CatalFrame, b: CatalFrame): {
@@ -220,11 +252,7 @@ function buildChildNodesMap(
 ): Record<string, CatalFrame> {
   const out: Record<string, CatalFrame> = {};
   for (const id of candidateIds) {
-    let node: CatalFrame | null = null;
-    for (const t of scanTrees) {
-      node = directRootChildSubtree(t, id);
-      if (node) break;
-    }
+    const node = pickBestRootChildSubtree(scanTrees, id);
     if (!node) {
       throw new PdlError(
         "PDL-E001",
@@ -232,7 +260,7 @@ function buildChildNodesMap(
         { path: design.entryPath },
       );
     }
-    out[id] = node;
+    out[id] = pruneHiddenFromCatalogueFrame(node);
   }
   return out;
 }
@@ -306,16 +334,16 @@ export function buildComponentCatalogue(
   const theme = opts.theme ?? "";
   const tokenMap = buildResolvedTokenMap(design, opts.theme || undefined, opts.modifiers ?? []);
   const tokensByTheme = buildTokensByTheme(design);
-  const components: CatalogueComponent[] = [];
+  const components: Record<string, CatalogueComponent> = {};
 
   const resolveOpts = { useStringPlaceholders: true, catalogueTokenRefs: true } as const;
 
-  for (const c of design.components.values()) {
+  for (const c of [...design.components.values()].sort((a, b) => a.name.localeCompare(b.name))) {
     const baseTree = resolveComponentTree(design, c.name, tokenMap, {}, resolveOpts);
     const baseParamsStr = baseParamStrings(design, c, tokenMap);
     const expose = design.expose.get(c.name) ?? c.params.map((p) => p.name);
 
-    const defaultChildOrder = baseTree.children.map((ch) => ch.id);
+    const defaultChildOrder = visibleRootChildIds(baseTree);
     const candidateIdList = [...collectRootLevelFrameRefTargets(c.body)].sort((a, b) => a.localeCompare(b));
 
     const axes = variantParamAxes(design, c);
@@ -342,7 +370,7 @@ export function buildComponentCatalogue(
       if (assignmentsEqual(assign, defaultAssign, variantKeys)) continue;
       const tree2 = treesByAssignKey.get(assignmentKey(assign))!;
       const { changes, affected, structural } = diffTrees(baseTree, tree2);
-      const childOrder2 = tree2.children.map((ch) => ch.id);
+      const childOrder2 = visibleRootChildIds(tree2);
       const childrenOverride =
         JSON.stringify(childOrder2) !== JSON.stringify(defaultChildOrder) ? childOrder2 : undefined;
       const changesOut = childrenOverride ? stripRootChildrenFromChanges(changes) : changes;
@@ -359,7 +387,7 @@ export function buildComponentCatalogue(
     variants.sort((a, b) => assignmentKey(a.params).localeCompare(assignmentKey(b.params)));
 
     const baseJson = frameToJson(baseTree);
-    components.push({
+    components[c.name] = {
       name: c.name,
       params: catalogueParams(design, c, tokenMap),
       expose,
@@ -370,13 +398,15 @@ export function buildComponentCatalogue(
       childNodes,
       children: defaultChildOrder,
       variants,
-    });
+    };
   }
 
   const themesDeclared = [...design.themes.keys()].sort();
-  const variantTypes: CatalogueVariantTypeDef[] = [...design.variants.values()]
-    .map((v) => ({ name: v.name, cases: [...v.cases] }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const variantTypes: Record<string, CatalogueVariantTypeDef> = Object.fromEntries(
+    [...design.variants.values()]
+      .map((v): [string, CatalogueVariantTypeDef] => [v.name, { name: v.name, cases: [...v.cases] }])
+      .sort(([a], [b]) => a.localeCompare(b)),
+  );
 
   return {
     kind: "componentCatalogue",

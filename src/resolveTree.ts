@@ -1,9 +1,9 @@
-import type { ChildEntry, ConditionExpr, FrameBodyItem, IfChain, ValueExpr } from "./ast.js";
+import type { ChildEntry, FrameBodyItem, IfChain, ValueExpr } from "./ast.js";
 import type { ComponentDecl } from "./ast.js";
 import type { DesignDefinition } from "./designModel.js";
 import { PdlError } from "./errors.js";
 import type { ParamEvalMeta } from "./evaluate.js";
-import { evaluateValue, type EvalOptions } from "./evaluate.js";
+import { evaluateCondition, evaluateValue, type EvalOptions } from "./evaluate.js";
 
 export type CatalFrame = {
   id: string;
@@ -18,27 +18,9 @@ type MutableFrame = {
   childEntries: ChildEntry[];
 };
 
-function matchesCondition(c: ConditionExpr, paramValues: Record<string, unknown>): boolean {
-  switch (c.kind) {
-    case "cmp": {
-      const v = paramValues[c.param];
-      const rhs = c.rhs.startsWith(".") ? c.rhs.slice(1) : c.rhs;
-      const vs = v === undefined ? "" : String(v);
-      if (c.op === "==") return vs === rhs;
-      return vs !== rhs;
-    }
-    case "and":
-      return c.items.every((x) => matchesCondition(x, paramValues));
-    case "or":
-      return c.items.some((x) => matchesCondition(x, paramValues));
-    default:
-      return false;
-  }
-}
-
 function pickIfBody(chain: IfChain, paramValues: Record<string, unknown>): FrameBodyItem[] {
   for (const br of chain.branches) {
-    if (matchesCondition(br.condition, paramValues)) return br.body;
+    if (evaluateCondition(br.condition, paramValues)) return br.body;
   }
   return chain.elseBody ?? [];
 }
@@ -75,6 +57,26 @@ function evalProp(expr: ValueExpr, ctx: BuildCtx): unknown {
     if (ctx.design.semantics.has(expr.name)) return `semantic:${expr.name}`;
   }
   return evaluateValue(expr, baseEvalOpts(ctx));
+}
+
+function evalHiddenExpr(value: ValueExpr, ctx: BuildCtx): boolean {
+  if (value.kind === "condition") return evaluateCondition(value.expr, ctx.paramValues);
+  if (value.kind === "boolean") return value.value;
+  if (value.kind === "dotEnum") {
+    const raw = value.value.startsWith(".") ? value.value.slice(1) : value.value;
+    if (raw === "true" || raw === "false") return raw === "true";
+  }
+  const v = evaluateValue(value, baseEvalOpts(ctx));
+  if (typeof v === "boolean") return v;
+  throw new PdlError("PDL-E003", "`hidden` must be true, false, .true/.false, or a variant condition", {
+    path: ctx.design.entryPath,
+  });
+}
+
+function applyHiddenProp(target: MutableFrame, value: ValueExpr, ctx: BuildCtx): void {
+  const hidden = evalHiddenExpr(value, ctx);
+  if (hidden) target.props.hidden = true;
+  else delete target.props.hidden;
 }
 
 function mergeStyleProps(
@@ -154,6 +156,10 @@ function processFrameItems(
     switch (item.kind) {
       case "prop": {
         const f = frames.get(defaultTarget)!;
+        if (item.name === "hidden") {
+          applyHiddenProp(f, item.value, ctx);
+          break;
+        }
         const v = evalProp(item.value, ctx);
         if (item.name === "style") mergeStyleProps(f.props, v, ctx.catalogueTokenRefs);
         else f.props[item.name] = v;
@@ -161,6 +167,10 @@ function processFrameItems(
       }
       case "frameProp": {
         const fr = ensureFrame(frames, item.frame, frames.get(item.frame)?.kind ?? "layout");
+        if (item.name === "hidden") {
+          applyHiddenProp(fr, item.value, ctx);
+          break;
+        }
         fr.props[item.name] = evalProp(item.value, ctx);
         break;
       }

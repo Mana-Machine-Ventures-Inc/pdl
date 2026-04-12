@@ -31,4 +31,8 @@ describe("validateMergedDesign (if conditions)", () => {
   it("PDL-E010 when variant case is not declared on the parameter's variant type", () => {
     expectLoadFails("PDL-E010", "e10-if-unknown-variant-case.pdl", /bogus/);
   });
+
+  it("PDL-E012 when `hidden` is used on a non-layout frame", () => {
+    expectLoadFails("PDL-E012", "e12-hidden-on-text.pdl", /layout/);
+  });
 });

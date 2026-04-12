@@ -2788,6 +2788,128 @@
           }
         },
         {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "string",
+                "value": "Always"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "style",
+              "value": {
+                "kind": "ident",
+                "name": "AtomCaption"
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "A",
+          "kind": "let"
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "hidden",
+              "value": {
+                "expr": {
+                  "kind": "cmp",
+                  "op": "==",
+                  "param": "mode",
+                  "rhs": ".hideExtra"
+                },
+                "kind": "condition"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "direction",
+              "value": {
+                "kind": "dotEnum",
+                "value": ".row"
+              }
+            },
+            {
+              "body": [
+                {
+                  "kind": "prop",
+                  "name": "content",
+                  "value": {
+                    "kind": "string",
+                    "value": "Sometimes"
+                  }
+                },
+                {
+                  "kind": "prop",
+                  "name": "style",
+                  "value": {
+                    "kind": "ident",
+                    "name": "AtomBody"
+                  }
+                }
+              ],
+              "frameKind": "text",
+              "id": "Inner",
+              "kind": "let"
+            },
+            {
+              "entries": [
+                {
+                  "id": "Inner",
+                  "kind": "frameRef"
+                }
+              ],
+              "kind": "children",
+              "target": "root"
+            }
+          ],
+          "frameKind": "layout",
+          "id": "B",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "A",
+              "kind": "frameRef"
+            },
+            {
+              "id": "B",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomHiddenFrame",
+      "params": [
+        {
+          "defaultValue": {
+            "kind": "dotEnum",
+            "value": ".showExtra"
+          },
+          "name": "mode",
+          "typeName": "AtomHiddenFrameMode"
+        }
+      ],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
           "kind": "prop",
           "name": "gap",
           "value": {
@@ -3181,6 +3303,7 @@
     "deferred_children_atoms.pdl",
     "design.pdl",
     "expose_atoms.pdl",
+    "hidden_frame_atoms.pdl",
     "icon_atoms.pdl",
     "layout_enums_atoms.pdl",
     "layout_flex_child_atoms.pdl",
@@ -3191,6 +3314,7 @@
     "theme_atoms.pdl",
     "tokens_blur_vibrancy_ramp.pdl",
     "tokens_blur_vibrancy_ramp.pdl",
+    "tokens_color.pdl",
     "tokens_color.pdl",
     "tokens_color.pdl",
     "tokens_color.pdl",
@@ -3237,6 +3361,8 @@
     "tokens_typography.pdl",
     "tokens_typography.pdl",
     "tokens_typography.pdl",
+    "tokens_typography.pdl",
+    "typestyle_atoms.pdl",
     "typestyle_atoms.pdl",
     "typestyle_atoms.pdl",
     "typestyle_atoms.pdl",
@@ -3944,6 +4070,13 @@
         "danger"
       ],
       "name": "AtomsTone"
+    },
+    {
+      "cases": [
+        "showExtra",
+        "hideExtra"
+      ],
+      "name": "AtomHiddenFrameMode"
     }
   ]
 }

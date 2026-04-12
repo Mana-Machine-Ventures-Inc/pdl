@@ -1,0 +1,4 @@
+component Bad() text {
+  hidden = true
+  content = "Hi"
+}

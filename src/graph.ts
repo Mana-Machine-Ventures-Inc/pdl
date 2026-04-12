@@ -1,5 +1,5 @@
 import type { DesignDefinition } from "./designModel.js";
-import type { ValueExpr } from "./ast.js";
+import type { ConditionExpr, ValueExpr } from "./ast.js";
 
 const SCHEMA = "1.0.0-beta";
 
@@ -21,6 +21,19 @@ export const DESIGN_GRAPH_ROOT_KEYS = [
 
 export type DesignGraphRootKey = (typeof DESIGN_GRAPH_ROOT_KEYS)[number];
 
+function serialiseConditionExpr(c: ConditionExpr): unknown {
+  switch (c.kind) {
+    case "cmp":
+      return { kind: "cmp", param: c.param, op: c.op, rhs: c.rhs };
+    case "and":
+      return { kind: "and", items: c.items.map(serialiseConditionExpr) };
+    case "or":
+      return { kind: "or", items: c.items.map(serialiseConditionExpr) };
+    default:
+      return { kind: "unknown" };
+  }
+}
+
 /** Serialise a value expression for graph / tooling (not normative in spec). */
 export function serialiseValueExpr(e: ValueExpr): unknown {
   switch (e.kind) {
@@ -29,6 +42,8 @@ export function serialiseValueExpr(e: ValueExpr): unknown {
     case "number":
     case "boolean":
       return { kind: e.kind, value: (e as { value: unknown }).value };
+    case "condition":
+      return { kind: "condition", expr: serialiseConditionExpr(e.expr) };
     case "ident":
       return { kind: "ident", name: e.name };
     case "dotEnum":

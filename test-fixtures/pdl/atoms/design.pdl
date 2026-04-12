@@ -32,6 +32,7 @@ import "media_atoms.pdl"
 // --- Composition & API ---
 import "deferred_children_atoms.pdl"
 import "conditional_variant_atoms.pdl"
+import "hidden_frame_atoms.pdl"
 import "component_param_types_atoms.pdl"
 import "expose_atoms.pdl"
 import "nested_instance_atoms.pdl"

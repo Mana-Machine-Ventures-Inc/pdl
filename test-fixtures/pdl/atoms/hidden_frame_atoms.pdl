@@ -1,0 +1,31 @@
+// layout `hidden` — variant-driven visibility without `if` on `children =`
+
+import "typestyle_atoms.pdl"
+
+variant AtomHiddenFrameMode {
+  case showExtra
+  case hideExtra
+}
+
+component AtomHiddenFrame(mode: AtomHiddenFrameMode = .showExtra) layout {
+  direction = .column
+
+  let A: text = {
+    content = "Always"
+    style = AtomCaption
+  }
+
+  let B: layout = {
+    hidden = mode == .hideExtra
+    direction = .row
+
+    let Inner: text = {
+      content = "Sometimes"
+      style = AtomBody
+    }
+
+    children = [Inner]
+  }
+
+  children = [A, B]
+}

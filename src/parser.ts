@@ -298,7 +298,7 @@ export class Parser {
           return { kind: "children", target: { letId: name }, entries };
         }
         this.consume("=");
-        const value = this.parseValueExpr();
+        const value = field === "hidden" ? this.parseHiddenRhs() : this.parseValueExpr();
         return { kind: "frameProp", frame: name, name: field, value };
       }
       if (this.is("=")) {
@@ -306,7 +306,8 @@ export class Parser {
         if (name === "children") {
           return { kind: "children", target: "root", entries: this.parseChildrenList() };
         }
-        return { kind: "prop", name, value: this.parseValueExpr() };
+        const value = name === "hidden" ? this.parseHiddenRhs() : this.parseValueExpr();
+        return { kind: "prop", name, value };
       }
       throw this.err(`Unexpected after identifier ${name}`);
     }
@@ -358,6 +359,23 @@ export class Parser {
       }
     }
     return { branches };
+  }
+
+  /** RHS for `hidden =` — boolean literal, `.true` / `.false`, or a variant `if`-style condition. */
+  private parseHiddenRhs(): ValueExpr {
+    const t = this.peek();
+    if (t.kind === "true" || t.kind === "false") {
+      this.advance();
+      return { kind: "boolean", value: t.kind === "true" };
+    }
+    if (t.kind === "DOT_ENUM" && (t.value === ".true" || t.value === ".false")) {
+      this.advance();
+      return { kind: "boolean", value: t.value === ".true" };
+    }
+    const start = this.index;
+    const expr = this.parseCondOr();
+    this.assertNoMixedAndOr(start, this.index);
+    return { kind: "condition", expr };
   }
 
   private parseConditionExpr(): ConditionExpr {

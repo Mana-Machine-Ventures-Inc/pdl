@@ -51,11 +51,11 @@ export type ResolvedCatalogueComponentRow = Omit<CatalogueComponent, "defaultPar
 export type ResolvedComponentSystemBundle = {
   theme: string;
   themesDeclared: string[];
-  variantTypes: CatalogueVariantTypeDef[];
-  primitives: ResolvedPrimitiveEntry[];
-  semantics: ResolvedSemanticEntry[];
-  themes: ResolvedThemeEntry[];
-  typeStyles: ResolvedTypeStyleEntry[];
+  variantTypes: Record<string, CatalogueVariantTypeDef>;
+  primitives: Record<string, ResolvedPrimitiveEntry>;
+  semantics: Record<string, ResolvedSemanticEntry>;
+  themes: Record<string, ResolvedThemeEntry>;
+  typeStyles: Record<string, ResolvedTypeStyleEntry>;
 };
 
 /**
@@ -193,6 +193,7 @@ function collectTokenNamesFromValueExpr(expr: ValueExpr, design: DesignDefinitio
     case "number":
     case "boolean":
     case "dotEnum":
+    case "condition":
     case "vibrancyTuple":
       return;
     default: {
@@ -262,6 +263,8 @@ function serialiseValueExprWithTokenMarkers(expr: ValueExpr, design: DesignDefin
     case "number":
     case "boolean":
       return { kind: expr.kind, value: (expr as { value: unknown }).value };
+    case "condition":
+      return serialiseValueExpr(expr);
     case "dotEnum":
       return { kind: "dotEnum", value: expr.value };
     case "opacityOf":
@@ -350,7 +353,7 @@ export function buildResolvedComponentDocument(
 ): ResolvedComponentDocument {
   const { componentName, paramOverrides = {}, theme, modifiers = [] } = opts;
   const cat = buildComponentCatalogue(design, { theme, modifiers });
-  const meta = cat.components.find((c) => c.name === componentName);
+  const meta = cat.components[componentName];
   if (!meta) {
     throw new PdlError("PDL-E006", `Unknown component ${componentName}`, { path: design.entryPath });
   }
@@ -360,55 +363,77 @@ export function buildResolvedComponentDocument(
   augmentTokenNamesFromUsedTypeStyles(design, typeStyleNames, tokenNames);
   augmentTokenNamesFromRelevantThemesAndDefinitions(design, tokenNames);
 
-  const primitives: ResolvedPrimitiveEntry[] = [...design.primitives.values()]
-    .filter((p) => tokenNames.has(p.name))
-    .map((p) => ({
-      name: p.name,
-      tokenType: p.tokenType,
-      definition: serialiseValueExpr(p.value),
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const primitives: Record<string, ResolvedPrimitiveEntry> = Object.fromEntries(
+    [...design.primitives.values()]
+      .filter((p) => tokenNames.has(p.name))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((p) => [
+        p.name,
+        {
+          name: p.name,
+          tokenType: p.tokenType,
+          definition: serialiseValueExpr(p.value),
+        },
+      ]),
+  );
 
-  const semantics: ResolvedSemanticEntry[] = [...design.semantics.values()]
-    .filter((s) => tokenNames.has(s.name))
-    .map((s) => ({
-      name: s.name,
-      tokenType: s.tokenType,
-      definition: serialiseValueExpr(s.value),
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const semantics: Record<string, ResolvedSemanticEntry> = Object.fromEntries(
+    [...design.semantics.values()]
+      .filter((s) => tokenNames.has(s.name))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((s) => [
+        s.name,
+        {
+          name: s.name,
+          tokenType: s.tokenType,
+          definition: serialiseValueExpr(s.value),
+        },
+      ]),
+  );
 
-  const themes: ResolvedThemeEntry[] = [...design.themes.values()]
-    .map((t) => {
-      const keys = Object.keys(t.overrides)
-        .filter((k) => tokenNames.has(k))
-        .sort();
-      if (keys.length === 0) return null;
-      return {
-        name: t.name,
-        baseTheme: t.baseTheme ?? null,
-        overrides: Object.fromEntries(
-          keys.map((k) => [k, serialiseValueExprWithTokenMarkers(t.overrides[k]!, design)]),
-        ),
-      };
-    })
-    .filter((x): x is ResolvedThemeEntry => x !== null)
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const themes: Record<string, ResolvedThemeEntry> = Object.fromEntries(
+    [...design.themes.values()]
+      .map((t) => {
+        const keys = Object.keys(t.overrides)
+          .filter((k) => tokenNames.has(k))
+          .sort();
+        if (keys.length === 0) return null;
+        return [
+          t.name,
+          {
+            name: t.name,
+            baseTheme: t.baseTheme ?? null,
+            overrides: Object.fromEntries(
+              keys.map((k) => [k, serialiseValueExprWithTokenMarkers(t.overrides[k]!, design)]),
+            ),
+          },
+        ] as const;
+      })
+      .filter((x): x is readonly [string, ResolvedThemeEntry] => x !== null)
+      .sort(([a], [b]) => a.localeCompare(b)),
+  );
 
-  const typeStyles: ResolvedTypeStyleEntry[] = [...design.typeStyles.values()]
-    .filter((ts) => typeStyleNames.has(ts.name))
-    .map((ts) => ({
-      name: ts.name,
-      props: Object.fromEntries(
-        Object.entries(ts.props).map(([k, v]) => [k, serialiseValueExpr(v)]),
-      ),
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const typeStyles: Record<string, ResolvedTypeStyleEntry> = Object.fromEntries(
+    [...design.typeStyles.values()]
+      .filter((ts) => typeStyleNames.has(ts.name))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((ts) => [
+        ts.name,
+        {
+          name: ts.name,
+          props: Object.fromEntries(
+            Object.entries(ts.props).map(([k, v]) => [k, serialiseValueExpr(v)]),
+          ),
+        },
+      ]),
+  );
 
   const usedVariantTypeNames = new Set(
     meta.params.map((p) => p.variantTypeName).filter((x): x is string => Boolean(x)),
   );
-  const variantTypesFiltered = cat.variantTypes.filter((v) => usedVariantTypeNames.has(v.name));
+  const variantTypesFiltered: Record<string, CatalogueVariantTypeDef> = Object.fromEntries(
+    [...usedVariantTypeNames].sort().map((n) => [n, cat.variantTypes[n]!]),
+  );
 
   const { defaultParams: _defaultParams, ...catalogueRow } = meta;
 

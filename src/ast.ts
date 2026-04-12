@@ -2,11 +2,18 @@
  * AST shapes for PDL (informal; aligned with full-spec.md §21).
  */
 
+export type ConditionExpr =
+  | { kind: "cmp"; param: string; op: "==" | "!="; rhs: string }
+  | { kind: "and"; items: ConditionExpr[] }
+  | { kind: "or"; items: ConditionExpr[] };
+
 export type ValueExpr =
   | { kind: "hex"; value: string }
   | { kind: "string"; value: string }
   | { kind: "number"; value: number }
   | { kind: "boolean"; value: boolean }
+  /** Only on `hidden = …` — same grammar as `if` conditions (variant comparisons). */
+  | { kind: "condition"; expr: ConditionExpr }
   | { kind: "ident"; name: string }
   | { kind: "dotEnum"; value: string }
   | { kind: "opacityOf"; base: ValueExpr; opacity: ValueExpr }
@@ -19,11 +26,6 @@ export type ValueExpr =
   | { kind: "sizing"; mode: "hug" | "fill" | "fixed" | "flex"; fixed?: number; flexArgs?: Record<string, ValueExpr> }
   | { kind: "call"; callee: "Color" | "Ramp" | "Blur" | "Media" | "Vibrancy"; args: Record<string, ValueExpr> }
   | { kind: "gradientStop"; fields: Record<string, ValueExpr> };
-
-export type ConditionExpr =
-  | { kind: "cmp"; param: string; op: "==" | "!="; rhs: string }
-  | { kind: "and"; items: ConditionExpr[] }
-  | { kind: "or"; items: ConditionExpr[] };
 
 export type ComponentParam = {
   name: string;

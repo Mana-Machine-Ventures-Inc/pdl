@@ -18,14 +18,14 @@ describe("catalogue", () => {
   it("uses param: refs for String props on default child subtrees in childNodes", () => {
     const d = loadDesign(fx("greeting.pdl"));
     const c = buildComponentCatalogue(d);
-    const g = c.components.find((x) => x.name === "Greeting")!;
+    const g = c.components.Greeting!;
     const title = g.childNodes[g.children[0]!]!;
     expect(title.props.content).toBe("param:title");
   });
 
   it("lists childNodes and default-order children for the root frame", () => {
     const d = loadDesign(fx("greeting.pdl"));
-    const g = buildComponentCatalogue(d).components.find((x) => x.name === "Greeting")!;
+    const g = buildComponentCatalogue(d).components.Greeting!;
     expect(g.children).toEqual(["Title"]);
     expect(Object.keys(g.childNodes).sort()).toEqual(["Title"]);
     expect(g.childNodes.Title!.kind).toBe("text");
@@ -35,7 +35,7 @@ describe("catalogue", () => {
 
   it("emits full variant param tuples and children overrides when Root children differ", () => {
     const d = loadDesign(fx("molecules/m_10_form_group.pdl"));
-    const field = buildComponentCatalogue(d).components.find((x) => x.name === "MoleculeFieldBlock")!;
+    const field = buildComponentCatalogue(d).components.MoleculeFieldBlock!;
     expect(field.children).toEqual(["Lab", "Box", "Help"]);
     expect(Object.keys(field.childNodes).sort()).toEqual(["Box", "Help", "Lab"]);
     const noHelp = field.variants.find((v) => v.params.layoutMode === "noHelp");
@@ -45,7 +45,7 @@ describe("catalogue", () => {
 
   it("uses Cartesian variant exploration (one catalogue row per non-default tuple)", () => {
     const d = loadDesign(fx("molecules/m_02_buttons_basic.pdl"));
-    const btn = buildComponentCatalogue(d).components.find((x) => x.name === "MoleculeTextButton")!;
+    const btn = buildComponentCatalogue(d).components.MoleculeTextButton!;
     expect(btn.variants).toHaveLength(5);
     const keys = btn.variants.map((v) => `${v.params.tone}/${v.params.size}`).sort();
     expect(keys).toEqual([
@@ -60,7 +60,7 @@ describe("catalogue", () => {
   it("uses primitive:/semantic: refs for bare token idents on root props", () => {
     const d = loadDesign(fx("themed.pdl"));
     const c = buildComponentCatalogue(d);
-    const box = c.components.find((x) => x.name === "Box")!;
+    const box = c.components.Box!;
     expect(box.props.background).toBe("primitive:color.bg");
   });
 
@@ -79,7 +79,7 @@ describe("catalogue", () => {
     expect(c.tokensByTheme.base["color.bg"]).toBe("#FFFFFF");
     expect(c.tokensByTheme.Dark["color.bg"]).toBe("#000000");
     expect(c.tokens).toEqual(c.tokensByTheme.base);
-    expect(c.variantTypes).toEqual([]);
+    expect(c.variantTypes).toEqual({});
   });
 
   it("keeps tokensByTheme in sync when catalogue theme is Dark", () => {
@@ -92,9 +92,9 @@ describe("catalogue", () => {
   it("exposes variantTypes and variantTypeName on variant params (cases only on variantTypes)", () => {
     const d = loadDesign(fx("atoms/conditional_variant_atoms.pdl"));
     const c = buildComponentCatalogue(d);
-    const tone = c.variantTypes.find((v) => v.name === "AtomsTone");
+    const tone = c.variantTypes.AtomsTone;
     expect(tone?.cases).toEqual(["neutral", "accent", "danger"]);
-    const comp = c.components.find((x) => x.name === "AtomVariantSwatch")!;
+    const comp = c.components.AtomVariantSwatch!;
     const p = comp.params.find((x) => x.name === "tone")!;
     expect(p.type).toBe("variant");
     expect(p.variantTypeName).toBe("AtomsTone");
@@ -104,7 +104,7 @@ describe("catalogue", () => {
   it("emits typeStyle on text frames without expanding the preset typography", () => {
     const d = loadDesign(fx("atoms/text_atoms.pdl"));
     const c = buildComponentCatalogue(d);
-    const comp = c.components.find((x) => x.name === "AtomTextTypeStyle")!;
+    const comp = c.components.AtomTextTypeStyle!;
     const a = comp.childNodes.A!;
     expect(a.props).toEqual(
       expect.objectContaining({ typeStyle: "typeStyle:AtomCaption", content: "Caption line" }),
@@ -116,7 +116,7 @@ describe("catalogue", () => {
   it("keeps explicit typography props next to typeStyle when PDL overrides them", () => {
     const d = loadDesign(fx("atoms/text_atoms.pdl"));
     const c = buildComponentCatalogue(d);
-    const o = c.components.find((x) => x.name === "AtomTextStylePlusOverride")!;
+    const o = c.components.AtomTextStylePlusOverride!;
     const t = o.childNodes.T!;
     expect(t.props).toEqual(
       expect.objectContaining({ typeStyle: "typeStyle:AtomCaption", fontSize: 22, content: "Mixed" }),
@@ -126,10 +126,20 @@ describe("catalogue", () => {
 
   it("emits only typeStyle on catalogue text children that use a preset (e.g. field label)", () => {
     const d = loadDesign(fx("molecules/m_10_form_group.pdl"));
-    const field = buildComponentCatalogue(d).components.find((x) => x.name === "MoleculeFieldBlock")!;
+    const field = buildComponentCatalogue(d).components.MoleculeFieldBlock!;
     const lab = field.childNodes.Lab!;
     expect(lab.props).toEqual(expect.objectContaining({ typeStyle: "typeStyle:AtomCaption" }));
     expect(lab.props).not.toHaveProperty("fontFamily");
     expect(lab.props).not.toHaveProperty("fontSize");
+  });
+
+  it("uses layout `hidden` for visible children order while keeping ids in childNodes", () => {
+    const d = loadDesign(fx("atoms/hidden_frame_atoms.pdl"));
+    const row = buildComponentCatalogue(d).components.AtomHiddenFrame!;
+    expect(row.children).toEqual(["A", "B"]);
+    expect(Object.keys(row.childNodes).sort()).toEqual(["A", "B"]);
+    const hide = row.variants.find((v) => v.params.mode === "hideExtra");
+    expect(hide?.children).toEqual(["A"]);
+    expect(row.childNodes.B!.children.map((c) => c.id)).toEqual(["Inner"]);
   });
 });
