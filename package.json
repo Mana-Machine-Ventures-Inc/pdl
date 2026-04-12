@@ -12,6 +12,7 @@
     "graph": "node dist/cli.js graph",
     "resolve": "node dist/cli.js resolve",
     "catalogue": "node dist/cli.js catalogue",
+    "manifest": "node dist/cli.js manifest",
     "test": "npm run build && vitest run",
     "test:update-atom-graphs": "npm run build && node scripts/regenerate-atom-graph-goldens.mjs",
     "test:update-molecule-graphs": "npm run build && node scripts/regenerate-molecule-graph-goldens.mjs",

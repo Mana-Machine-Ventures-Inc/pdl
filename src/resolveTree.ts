@@ -51,6 +51,11 @@ type BuildCtx = {
   component: ComponentDecl;
   /** Catalogue base trees keep String/Icon/MediaSource as `__param:*__` while still binding variants for `if`. */
   useStringPlaceholders?: boolean;
+  /**
+   * When true, a frame property whose RHS is a bare `ident` naming a declared primitive or semantic token
+   * is emitted as `__token:full.name__` instead of the resolved concrete value (Component Catalogue only).
+   */
+  catalogueTokenRefs?: boolean;
 };
 
 function baseEvalOpts(ctx: BuildCtx): EvalOptions {
@@ -64,7 +69,19 @@ function baseEvalOpts(ctx: BuildCtx): EvalOptions {
   };
 }
 
+function isDeclaredPrimitiveOrSemantic(design: DesignDefinition, name: string): boolean {
+  return design.primitives.has(name) || design.semantics.has(name);
+}
+
 function evalProp(expr: ValueExpr, ctx: BuildCtx): unknown {
+  if (
+    ctx.catalogueTokenRefs &&
+    expr.kind === "ident" &&
+    isDeclaredPrimitiveOrSemantic(ctx.design, expr.name) &&
+    !ctx.paramMeta.has(expr.name)
+  ) {
+    return `__token:${expr.name}__`;
+  }
   return evaluateValue(expr, baseEvalOpts(ctx));
 }
 
@@ -204,7 +221,7 @@ export function resolveComponentTree(
   componentName: string,
   tokens: Map<string, unknown>,
   paramOverrides: Record<string, unknown> = {},
-  options: { useStringPlaceholders?: boolean } = {},
+  options: { useStringPlaceholders?: boolean; catalogueTokenRefs?: boolean } = {},
 ): CatalFrame {
   const c = design.components.get(componentName);
   if (!c) {
@@ -224,6 +241,7 @@ export function resolveComponentTree(
     paramMeta,
     component: c,
     useStringPlaceholders: options.useStringPlaceholders,
+    catalogueTokenRefs: options.catalogueTokenRefs,
   };
   processFrameItems(c.body, "Root", frames, ctx);
   return materialize("Root", frames, design, tokens, new Set(), options);

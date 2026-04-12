@@ -29,6 +29,10 @@ describe("atoms fixtures", () => {
     const cat = buildComponentCatalogue(d);
     expect(cat.components.length).toBe(d.components.size);
     expect(cat.schemaVersion).toBe("1.0.0-beta");
+    expect(cat.tokensByTheme.base).toBeDefined();
+    expect(cat.tokens).toEqual(cat.tokensByTheme.base);
+    expect(cat.variantTypes.length).toBeGreaterThan(0);
+    expect(cat.variantTypes.some((v) => v.name === "AtomsTone")).toBe(true);
   });
 
   it("loads root design.pdl including atoms + merge chain", () => {
@@ -37,5 +41,6 @@ describe("atoms fixtures", () => {
     expect(d.primitives.get("color.merge.token")).toBeDefined();
     const cat = buildComponentCatalogue(d);
     expect(cat.tokens["color.merge.token"]).toBe("#333333");
+    expect(cat.tokensByTheme.base["color.merge.token"]).toBe("#333333");
   });
 });

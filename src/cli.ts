@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { buildComponentCatalogue } from "./catalogue.js";
 import { stableStringify } from "./stableJson.js";
 import { buildDesignGraph } from "./graph.js";
+import { buildDesignManifest } from "./manifest.js";
 import { loadDesign } from "./loadDesign.js";
 import { buildResolvedTokenMap } from "./evaluate.js";
 import { resolveComponentTree } from "./resolveTree.js";
@@ -13,12 +14,13 @@ function usage(): never {
 
 Usage:
   pdl graph <entry.pdl>
+  pdl manifest <entry.pdl> [--out <file.json>]
   pdl resolve <entry.pdl> <ComponentName> [key=value ...]
   pdl catalogue <entry.pdl> [--theme <ThemeName>] [--out <file.json>]
 
 Options:
   --theme <name>   Primary theme for token resolution (optional)
-  --out <path>     Write JSON to file instead of stdout (catalogue only)
+  --out <path>     Write JSON to file instead of stdout (catalogue / manifest)
 `);
   process.exit(1);
 }
@@ -47,6 +49,22 @@ function main() {
   if (cmd === "graph") {
     const design = loadDesign(entry);
     process.stdout.write(stableStringify(buildDesignGraph(design)));
+    return;
+  }
+
+  if (cmd === "manifest") {
+    let outPath: string | undefined;
+    const rest = argv.slice(2);
+    for (let i = 0; i < rest.length; i++) {
+      if (rest[i] === "--out") {
+        outPath = rest[++i];
+      }
+    }
+    const design = loadDesign(entry);
+    const man = buildDesignManifest(design);
+    const s = stableStringify(man);
+    if (outPath) writeFileSync(outPath, s, "utf-8");
+    else process.stdout.write(s);
     return;
   }
 

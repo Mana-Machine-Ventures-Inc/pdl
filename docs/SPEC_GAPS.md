@@ -17,11 +17,14 @@ This document records ambiguities between `full-spec.md` and this repository’s
 
 ## `npm run graph` JSON shape
 
-- Prose for the merged **design graph** JSON lives in **`full-spec.md` §16b** (reference snapshot of parsed/merged declarations). **§16** remains the **Component Catalogue** pipeline.
+- Prose for the merged **design graph** JSON lives in **`full-spec.md` §16b** (internal compiler / test snapshot). **§16** documents the **Component Catalogue**; **§17 §3** documents the thin **design manifest** (`npm run manifest`).
 - This toolchain emits a stable object with `kind: "designGraph"` and serialised declarations (see `src/graph.ts`). **TODO:** §16b marks open questions if this shape becomes fully normative.
 
 ## Component Catalogue
 
+- **Variant metadata:** top-level **`variantTypes`** plus per-param **`variantTypeName`** carry PDL **`variant`** type names for emitters (e.g. Figma); **`type`** stays **`"variant"`** as the JSON discriminator.
+- **Semantic placeholders:** catalogue trees use **`__token:full.name__`** for frame properties whose RHS is a bare `primitive` / `semantic` identifier (see §16 §2.3); composite RHS values are still fully resolved in v1.
+- **`tokensByTheme` vs `tokens`:** `tokensByTheme` rows are built **without** CLI **`modifiers`**. If **`buildComponentCatalogue`** is called with non-empty **`modifiers`**, the flat **`tokens`** map (and tree resolution) may differ from every pure-theme slice; receivers that use modifiers should treat **`tokens`** as authoritative for that build.
 - **Variant deltas:** only **single-parameter** axes are expanded automatically against the default instance. Combined variant rows (e.g. `emphasis` + `size` interaction) must be authored explicitly per **§16**; not generated yet.
 - **`$ref` in `children`:** structural variant entries in the spec use `{ "$ref": "Label" }` for reuse. The current diff emits full child trees; emitters can still consume them, but JSON may be larger than the spec’s examples.
 - **`expose`:** if no `expose` block exists for a component, the catalogue lists **all** parameter names as `expose` for ergonomics. The spec emphasises explicit `expose`; confirm product expectations.
@@ -29,7 +32,7 @@ This document records ambiguities between `full-spec.md` and this repository’s
 ## Language surface not implemented (parse or execute)
 
 - `interaction`, `fixtures`, `usage`, `rules`, `extend` (and full **§12–§15** companion / motion / layer depth).
-- **§17** design manifest CLI (`npm run manifest`) and `emitManifest` parity noted in the spec’s implementation table.
+- **Fat manifest** fields (resolved `tokens` on manifest, `interactions`, `fixtures`, `rules` on manifest) described historically in §17 — **not** emitted; v1 manifest is thin only (`src/manifest.ts`).
 
 ## Other minor notes
 

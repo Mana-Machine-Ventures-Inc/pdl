@@ -1388,14 +1388,15 @@ From project root (`package.json` scripts):
 
 | Command | Purpose |
 |---------|---------|
-| `npm run graph -- <entry.pdl>` | Print **design graph** JSON (§16b) |
+| `npm run graph -- <entry.pdl>` | Print **design graph** JSON (§16b) — compiler / test snapshot |
+| `npm run manifest -- <entry.pdl>` | Print **design manifest** JSON (§17 §3) — thin registry |
+| `npm run catalogue -- <entry.pdl>` | Print **Component Catalogue** JSON (§16) |
 | `npm run resolve -- <file> <Component> key=value …` | Print **resolved instance** JSON |
 | `npm run html -- <file> <Component> …` | Emit `output.html` |
 | `npm run preview -- [entry.pdl]` | Local preview server with reload |
 | `npm run web:dev` | Vite **studio** (editor + iframe preview + inspector) |
 | `npm run test:regression` | Regression suite (`src/regressionTests.ts`) |
 | `npm run build` | `tsc` + `vite build` |
-| **`npm run manifest -- <entry.pdl>`** | **Planned:** emit **design manifest** JSON per §17 |
 
 Default preview entry is often **`design.pdl`** (or `design-m3.pdl`).
 
@@ -2769,7 +2770,21 @@ When the language changes:
 
 This chapter describes how PDL source files become the **Component Catalogue** — the primary handoff format for emitters like Kotlin, SwiftUI, React, and HTML generators. The goal is simple: emitter authors should be able to pick up the catalogue JSON and start writing code without needing to understand PDL syntax, implement a parser, or chase unresolved references.
 
-For the separate **design graph** JSON (merged parse tree / AST snapshot from tooling such as `npm run graph`), see **§16b**.
+For the separate **design graph** JSON (merged parse tree / AST snapshot from tooling such as `npm run graph`), see **§16b**. For the thin **design manifest** (registry of names and APIs without frame trees), see **§17**.
+
+---
+
+## 0. Three JSON serialisation roles
+
+PDL toolchains may emit more than one JSON artefact. They are **layered by purpose**, not three interchangeable “sources of truth”:
+
+| Artefact | Role | Typical consumer |
+|----------|------|------------------|
+| **Component Catalogue** (this chapter, §2 onward) | **Full design-system handoff** before view codegen: **`tokensByTheme`**, **`tokens`**, **`themesDeclared`**, **`variantTypes`** (all PDL **`variant`** definitions), per-component **`params`** with **`variantTypeName`** for Figma-style naming, **`expose`**, **base** / **variant** trees, **`__token__:…__`** for bare semantic/primitive idents. | Code generators, bundlers, optional runtime loaders |
+| **Design graph** (§16b) | **Internal compiler / test snapshot** of the merged parse model (`ValueExpr`, `if` chains, raw component bodies). Verbose and AST-adjacent; **not** the primary handoff to app runtimes. | Parser tests, golden diffs, IDE / linter tooling |
+| **Design manifest** (§17) | **Small registry**: entry path, module list, theme / variant / typeStyle **names**, per-component **`expose`** and param types — **no** resolved frame trees, **no** token value map. | CI, docs, package indexes, sanity checks |
+
+**Guidance:** product and app teams should depend on the **catalogue** (and optionally the **manifest**). They should **not** depend on the **graph** unless they are building compiler-adjacent tooling.
 
 ---
 
@@ -2815,31 +2830,61 @@ PDL compilation has three stages. The first two happen in the PDL toolchain; the
 
 ## 2. The Component Catalogue format
 
-The catalogue is a single JSON file containing everything an emitter needs, fully resolved. No token lookups. No `if` chain evaluation. No parameter binding. The PDL toolchain has already done all of that.
+The catalogue is a single JSON file: the **canonical emitter input**. The toolchain always emits **`tokensByTheme`**: a full resolved map under **`base`** (primitives + semantics, **no** `theme { }` overrides) **plus** an identical key set under **each declared theme** after that theme’s overrides. The flat **`tokens`** field duplicates the **active** map used for **trees** and param defaults (CLI **`--theme`** / **`modifiers`**). **`__token:…__`** placeholders in trees (§2.3) keep **semantic names** stable; receivers resolve them against **`tokensByTheme[runtime]`** (or flatten/bake as they prefer).
 
 ### 2.1 Top-level shape
 
 ```json
 {
+  "kind": "componentCatalogue",
   "schemaVersion": "1.0.0-beta",
   "generatedAt": "2024-01-15T10:30:00Z",
-  "theme": "Light",
+  "theme": "(none)",
+  "themesDeclared": ["Dark", "Light"],
   "tokens": {
     "color.text.primary": "#111111",
     "color.surface.card": "#FFFFFF",
     "spacing.md": 12,
     "radius.card": 8
   },
+  "tokensByTheme": {
+    "base": {
+      "color.text.primary": "#111111",
+      "color.surface.card": "#FFFFFF",
+      "spacing.md": 12,
+      "radius.card": 8
+    },
+    "Dark": {
+      "color.text.primary": "#111111",
+      "color.surface.card": "#0A0A0A",
+      "spacing.md": 12,
+      "radius.card": 8
+    },
+    "Light": {
+      "color.text.primary": "#111111",
+      "color.surface.card": "#FFFFFF",
+      "spacing.md": 12,
+      "radius.card": 8
+    }
+  },
+  "variantTypes": [
+    { "name": "Emphasis", "cases": ["primary", "secondary", "destructive"] },
+    { "name": "IconVariant", "cases": ["none", "leading", "trailing"] }
+  ],
   "components": [ ]
 }
 ```
 
 | Field | Description |
 |-------|-------------|
+| `kind` | Always **`"componentCatalogue"`** when this object is the catalogue root (discriminant when multiple JSON artefacts are stored together). |
 | `schemaVersion` | Catalogue schema version. Emitters should check this before parsing. |
 | `generatedAt` | ISO 8601 timestamp. Useful for cache invalidation. |
-| `theme` | The theme context used to resolve all tokens and trees in this catalogue. |
-| `tokens` | Flat map of every resolved token value in the design, post-theme. Useful for generating a standalone token file (e.g. a Kotlin `object Colors`). All values are plain JSON — strings, numbers, or simple objects. No unresolved references. |
+| `theme` | The **active** theme label for **tree** + **`tokens`** resolution (CLI **`--theme`**). **`(none)`** ⇒ **`tokens`** equals **`tokensByTheme.base`**. |
+| `themesDeclared` | Sorted list of every **`theme`** name in the merged design. |
+| `tokens` | Flat map for the **active** context only (duplicate of the map used to resolve non-placeholder props in **`components`**). |
+| `tokensByTheme` | **`base`** plus one key per **`themesDeclared`** entry: each value is a full **token name → resolved value** map for that context. Same keys across rows; values differ where themes override semantics. |
+| `variantTypes` | Sorted array of every merged **`variant`** type: **`name`** is the PDL identifier (e.g. `Emphasis`); **`cases`** are case ids **without** a leading dot, in declaration order. Used by emitters (e.g. **Figma** component variant properties) to recover stable **property set names**; each variant-typed component param also carries **`variantTypeName`** (§2.2) pointing at the matching row. Empty when the design defines no **`variant`** blocks. |
 | `components` | Array of component entries (§2.2). |
 
 ### 2.2 Component entry
@@ -2851,8 +2896,20 @@ Each component is one object in the `components` array:
   "name": "Button",
   "params": [
     { "name": "label", "type": "String", "default": "Submit" },
-    { "name": "emphasis", "type": "variant", "cases": ["primary", "secondary", "destructive"], "default": "primary" },
-    { "name": "iconVariant", "type": "variant", "cases": ["none", "leading", "trailing"], "default": "none" },
+    {
+      "name": "emphasis",
+      "type": "variant",
+      "variantTypeName": "Emphasis",
+      "cases": ["primary", "secondary", "destructive"],
+      "default": "primary"
+    },
+    {
+      "name": "iconVariant",
+      "type": "variant",
+      "variantTypeName": "IconVariant",
+      "cases": ["none", "leading", "trailing"],
+      "default": "none"
+    },
     { "name": "iconName", "type": "Icon", "default": "star" }
   ],
   "expose": ["label", "emphasis", "iconVariant", "iconName"],
@@ -2865,15 +2922,18 @@ Each component is one object in the `components` array:
 | Field | Description |
 |-------|-------------|
 | `name` | Component name, unique within the catalogue. |
-| `params` | All declared parameters with types, cases (for variants), and defaults. |
+| `params` | All declared parameters. **`type`** is the catalogue discriminator (`"variant"`, `String`, …). For **`type": "variant"`**, **`variantTypeName`** repeats the PDL **`variant`** type name (matches an entry in top-level **`variantTypes`**); **`cases`** lists allowed case ids (no leading dot). |
 | `expose` | The subset of params that form the public API (from `expose` blocks). |
 | `usage` | Human-readable description from `usage` blocks. Empty string if not declared. |
-| `base` | The fully resolved default tree (§2.3). |
+| `base` | The default-parameter **tree** (§2.3): resolved props, plus **`__param__:…__`** / **`__token__:…__`** placeholders where defined in §2.3. |
 | `variants` | Delta entries for each non-default param combination (§2.4). |
 
 ### 2.3 Base tree
 
-The base tree is the component resolved with all parameters at their default values. Every property is a plain JSON value — no unresolved references.
+The base tree is the component resolved with all parameters at their default values. Most properties are plain JSON values. Two **placeholder** string forms are used so emitters can wire parameters and semantic tokens without re-parsing PDL:
+
+- **`__param:paramName__`** — `String`, `Icon`, or `MediaSource` parameters that remain open at catalogue time (unchanged from prior spec intent).  
+- **`__token:full.token.name__`** — the frame property’s RHS was exactly **one identifier** naming a **declared `primitive` or `semantic` token** (e.g. `background = color.surface.card`). Resolved values for **every** theme appear under **`tokensByTheme`** (and the active slice is duplicated in **`tokens`**). Emitters may inline from **`tokensByTheme[skin]`**, emit runtime lookups, or generate theme-aware accessors. **Note:** v1 reference tooling does **not** emit `__token__:…__` for composite expressions (e.g. `color @ opacity`, layer arrays, `typeStyle` expansion); those remain fully resolved in the tree.
 
 ```json
 "base": {
@@ -2885,7 +2945,7 @@ The base tree is the component resolved with all parameters at their default val
       "direction": "row",
       "gap": 8,
       "padding": { "top": 12, "right": 16, "bottom": 12, "left": 16 },
-      "background": "#FFFFFF",
+      "background": "__token:color.surface.card__",
       "cornerRadius": 8
     },
     "children": [
@@ -3012,15 +3072,16 @@ The `variants` array contains one entry per non-default param combination that c
 
 A typical emitter pass for a Kotlin / Compose target:
 
-1. **Read the tokens map** → generate a `Colors` and `Spacing` object with all resolved values.
+1. **Read `tokensByTheme`** → generate per-theme token modules (e.g. Swift enums, CSS custom property blocks) or a single runtime map keyed by theme. Optionally use the flat **`tokens`** field only as a convenience alias for the **active** catalogue context. Use **`themesDeclared`** to know which theme keys exist.
 2. **For each component:**
-   - Walk the base tree → generate a `@Composable` function with default property values hardcoded.
+   - Walk the base tree → generate a `@Composable` function with default property values hardcoded (or reading from design tokens at runtime).
    - Walk the variants array → generate a `when` block per variant param applying only the changed properties. For `structuralChange: true` entries, generate a separate layout branch.
-   - Wire `__param:name__` placeholders to function parameters.
+   - Wire **`__param:name__`** placeholders to function parameters.
+   - Replace **`__token:full.name__`** tree strings with lookups into **`tokensByTheme[skin]`** (or **`tokens`** when emitting only the active skin), inlining literals or design-token accessors as your target prefers.
 3. **Use `expose`** to determine the public function signature (params not in `expose` may be internal or omitted).
-4. **Use `usage`** for KDoc / documentation comments.
+4. **Use `usage`** for KDoc / documentation comments when the catalogue carries usage metadata.
 
-The emitter never needs to parse PDL, evaluate conditions, resolve tokens, or understand the override chain system. The catalogue has already done all of that.
+The emitter does **not** need to parse PDL, evaluate **`if`** override chains, or re-walk the import graph. It **does** still interpret **`__token__:…__`** using **`tokensByTheme`** (or the **`tokens`** alias for the active context).
 
 ---
 
@@ -3034,7 +3095,9 @@ npm run catalogue -- design.pdl --theme Dark
 npm run catalogue -- design.pdl --theme Light --theme Dark
 ```
 
-When `--theme` is specified multiple times, one catalogue file is generated per theme (e.g. `design.Light.catalogue.json`, `design.Dark.catalogue.json`). Emitters that target platforms with runtime theming may want both and can diff them to understand what changes per theme.
+A **single** catalogue JSON always includes the full **`tokensByTheme`** object (**`base`** + every declared theme). The **`--theme`** flag (when passed once) only selects which slice is duplicated into **`tokens`** and which theme context is used to resolve **trees** and non-`__token__` literals.
+
+When **`--theme`** is passed **multiple** times (reference CLI), one file is still emitted **per** invocation in typical wrappers — each file carries the **same** **`tokensByTheme`**, but different **`theme`**, **`tokens`**, and possibly different resolved **trees** for props that are not `__token__` placeholders. Emitters that only need one JSON for runtime theming can rely on **`tokensByTheme`** alone and ignore duplicate files.
 
 ---
 
@@ -3048,9 +3111,9 @@ The `schemaVersion` field follows the same semantic versioning as the rest of PD
 
 This section documents the **design graph** JSON object: a serialisation of the **merged, parsed design definition** (tokens, themes, variants, type styles, components with frame bodies, and `expose` metadata) **before** catalogue-time resolution into per-variant resolved trees.
 
-**Relationship to §16:** The **Component Catalogue** (§16) is the emitter-facing artefact with flat resolved tokens, base trees, and variant deltas. The **design graph** is a separate, more syntax-adjacent snapshot intended for **tooling, tests, diffing, and documentation** — it preserves `ValueExpr` trees, `if` chains, and raw component bodies.
+**Relationship to §16 and §17:** The **Component Catalogue** (§16) is the **canonical** emitter handoff (resolved **`tokens`**, trees, variant deltas, and `__token__` / `__param__` placeholders as defined there). The **design manifest** (§17) is a **thin registry** without trees. The **design graph** is neither of those: it is an **internal merged-AST snapshot** for **compiler correctness**, golden tests, and tooling that needs pre-resolution structure.
 
-**Normative status:** **TODO:** Decide whether this shape becomes **normative** (required of all conforming toolchains), remains **reference documentation** aligned to the open-source reference implementation only, or is superseded by the **design manifest** (§17) with a reduced field set.
+**Normative status:** The graph is a **reference implementation contract** (`kind: "designGraph"`). **TODO:** Decide whether a future PDL conformance tier requires bit-for-bit graph compatibility, or only catalogue + manifest stability.
 
 **Reference implementation:** `buildDesignGraph` and `serialiseValueExpr` in `src/graph.ts` (schema version string is shared with the broader PDL `1.0.0-beta` contract).
 
@@ -3277,7 +3340,9 @@ Golden-file tests may normalise **`entryPath`** to a sentinel and sort **`module
 
 ## 17 — Emitters, Compiler Targets, and the Design Manifest
 
-Emitters consume the **Component Catalogue** (§16) as their primary input. The catalogue contains fully resolved trees, pre-baked variant deltas, and a flat token map — everything an emitter needs without requiring knowledge of PDL syntax or the resolver. Emitters should treat the catalogue as a straightforward design representation and focus on generating clean target code.
+Emitters consume the **Component Catalogue** (§16) as their **primary** input for generating view code: **`tokensByTheme`** (all theme slices + **`base`**), the **`tokens`** alias for the active build, **`themesDeclared`**, pre-baked **base** and **variant** trees, and semantic **`__token__:…__`** placeholders where applicable (§16 §0, §2.3).
+
+The **design manifest** (§3 below) is a **separate, lightweight JSON** file: a registry of names and public APIs **without** frame trees or token values. Use it for CI, documentation, and discovery; use the **design graph** (§16b) only for **compiler-adjacent** tooling — it is **not** a shipping handoff to app runtimes (§16 §0).
 
 ---
 
@@ -3286,7 +3351,7 @@ Emitters consume the **Component Catalogue** (§16) as their primary input. The 
 | Target | Output | Typical consumer |
 |--------|--------|------------------|
 | **HTML** | Single-file or fragment markup + CSS | Studio preview, static preview, design QA |
-| **Design manifest** | JSON document (schema below) | Tooling, CI, runtime wrappers, registries |
+| **Design manifest** | JSON document (§3 — thin registry) | Tooling, CI, registries, docs |
 | **AI system prompt** | Derived text from manifest | LLM context (lossy compression; not round-trip) |
 | **CSS** | Custom properties, optional utility classes | Web apps |
 | **React** | Component stubs, token imports | App codebases |
@@ -3306,69 +3371,72 @@ Each emitter **must** document:
 | Input | Use |
 |-------|-----|
 | **Component Catalogue** (§16) | Primary input for all code-generating emitters. Contains resolved trees, variant deltas, flat token map. |
-| **Design manifest** | For tooling, CI, and metadata consumers that need component API summaries without full trees. |
+| **Design manifest** | For tooling, CI, and metadata consumers that need component API summaries **without** full trees or resolved tokens (§3). |
 
 ---
 
-## 3. Design manifest JSON (normative shape)
+## 3. Design manifest JSON (reference implementation, v1)
 
-Top-level object. **`schemaVersion`** is required for every published manifest.
+The **design manifest** is intentionally **small**: it lists **what exists** in the merged design (paths, theme names, variant and typeStyle names, component headers and `expose`) so tools can introspect a library **without** loading the **Component Catalogue** or the **design graph**.
+
+**CLI (reference):** `pdl manifest <entry.pdl> [--out file.json]` (see §9).
+
+### 3.1 Top-level shape
 
 ```json
 {
+  "kind": "designManifest",
   "schemaVersion": "1.0.0-beta",
-  "entryPath": "design.pdl",
-  "tokens": { },
-  "tokenTypes": { },
-  "themes": [ ],
-  "variants": { },
-  "typeStyles": { },
+  "generatedAt": "2024-01-15T10:30:00Z",
+  "entryPath": "/abs/path/design.pdl",
+  "modulePaths": ["tokens.pdl", "design.pdl"],
+  "previewBackground": null,
+  "themes": ["Dark", "Light"],
+  "variants": ["Emphasis", "Size"],
+  "typeStyles": ["Body", "Title"],
   "components": [
-    { "name": "Button", "rootKind": "layout", "params": [], "expose": ["label"] }
-  ],
-  "interactions": { },
-  "fixtures": { },
-  "expose": { },
-  "rules": { },
-  "capabilities": {
-    "layout": ["wrap", "justify.spaceBetween", "stack", "spacer"],
-    "layers": ["color", "ramp", "blur", "media", "vibrancy"],
-    "motion": ["transition", "stagger"]
-  }
+    {
+      "name": "Button",
+      "rootKind": "layout",
+      "params": [{ "name": "label", "type": "String" }],
+      "expose": ["label"]
+    }
+  ]
 }
 ```
 
-### 3.1 Field definitions
+### 3.2 Field definitions (v1)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `schemaVersion` | string | Semver of manifest schema. |
-| `entryPath` | string | Project-relative entry `.pdl`. |
-| `manifest.options` | object | **Optional.** Keys such as **`defaultTheme`** (string), **`includePrimitives`** (boolean). When present, they **MUST** affect how **`tokens`** is populated (§3). |
-| `tokens` | object | Flat map **token name → resolved literal** (post-theme for **`manifest.options.defaultTheme`** when set, else the manifest’s default theme). **Normative:** values are **resolved** plain JSON, so consumers need not implement resolution. |
-| `tokenTypes` | object | Token name → PDL type string (`Color`, `Transition`, …). |
-| `themes` | array | `{ "name", "overrides": { } }`. Themes compose at resolve time via primary `theme` + `modifiers` list (§3); the manifest records each theme's overrides independently. |
-| `variants` | object | Variant name → `{ "cases": string[] }` |
-| `typeStyles` | object | Name → resolved style props map. |
-| `components` | array | **Ordered** array of objects; each **must** include **`name`** (unique across array). Fields: `rootKind`, `params` (declared metadata), `expose` (string[] \| null), optional `frames` summary or sidecar pointer. **Rationale:** arrays are easy to diff in CI; reconstruct `Record<name,…>` by keying on `name`. **Alternative object-map shape** is **forbidden** for **`schemaVersion` 1.x**. A **future major** `schemaVersion` **may** introduce an alternate shape if specified in this chapter. |
-| `interactions` | object | Map component name → serialized handler list (events, assignments, **animate** payloads). |
-| `fixtures` | object | Map component name → array of `{ "label", "params": { } }`. |
-| `expose` | object | Map component name → string[] (normalized order). |
-| `rules` | object | Map component name → serialized **`Rule`** objects. Each **`query`** **MUST** be a **`RuleQueryExpr`** per §13 (same shape as in the Component Catalogue rules field; see §16). |
-| `capabilities` | object | What this **emitter** or **build** claims to support (for downgrades). |
+| `kind` | string | Always **`"designManifest"`**. |
+| `schemaVersion` | string | Semver of this manifest object (reference: **`1.0.0-beta`**). |
+| `generatedAt` | string | ISO 8601 timestamp. |
+| `entryPath` | string | Absolute path to the entry `.pdl` in the reference implementation. **TODO:** normalise for reproducible CI (§16b). |
+| `modulePaths` | string[] | Merge order list of module paths (same closure as the design graph). |
+| `previewBackground` | string \| null | `previewBackground` token name when set; else **`null`**. |
+| `themes` | string[] | Sorted **`theme`** names. |
+| `variants` | string[] | Sorted **`variant`** type names. |
+| `typeStyles` | string[] | Sorted **`typeStyle`** names. |
+| `components` | array | Sorted by **`name`**. Each entry: **`name`**, **`rootKind`**, **`params`** (`{ name, type }[]`), **`expose`** (from `expose { … }` or, when absent, all param names per catalogue ergonomics). **No** `base` / `variants` / **`tokens`** — use the **Component Catalogue** (§16) for those. |
 
-**Evolution:** add fields only in **minor** semver; breaking renames in **major**.
+**Evolution:** add optional fields in **minor** semver; breaking renames in **major**.
+
+### 3.3 Richer manifest (non-normative sketch)
+
+Earlier drafts of this chapter described a **heavier** manifest (resolved **`tokens`**, **`interactions`**, **`fixtures`**, **`rules`**, **`capabilities`**, …). That shape is **not** emitted by the reference v1 `pdl manifest` command. **TODO:** If a “fat manifest” is still desired, specify it as **`schemaVersion` 2.x** or a separate **`kind`** so it does not collide with the thin registry.
 
 ---
 
 ## 4. AI-oriented projection
 
-The **AI system prompt** slice is **not** a second source of truth. Generate it by:
+The **AI system prompt** slice is **not** a second source of truth. A practical pipeline:
 
-1. Emitting **manifest** JSON.  
-2. Running a **template** (or summarization) that includes: `expose` lists, `usage.description`, fixture labels, semantic token names (not primitives), and **component param types**.
+1. Emit the **thin design manifest** (§3) for **names**, **`expose`**, and param types.  
+2. Optionally pull **`usage`**, **`fixtures`**, and **`rules`** from the **Component Catalogue** or source when those companion blocks are implemented in the catalogue pipeline.  
+3. Run a **template** (or summarization) over that material.
 
-Goal: **minimize tokens** while preserving **API surface** and **constraints** (`rules` descriptions).
+Goal: **minimize tokens** while preserving **API surface**; heavier constraints remain in the **catalogue** or PDL until a future **fat manifest** (§3.3) is specified.
 
 ---
 
@@ -3385,7 +3453,7 @@ Goal: **minimize tokens** while preserving **API surface** and **constraints** (
 
 ## 6. Protected core boundary
 
-**Inside core:** grammar, AST, import merge, type validation, token resolution, override resolution, variant delta computation, catalogue serialisation, `applyInteractionEvent` parameter simulation.
+**Inside core:** grammar, AST, import merge, type validation, token resolution, override resolution, variant delta computation, **Component Catalogue** serialisation, **design graph** serialisation, **design manifest** serialisation, `applyInteractionEvent` parameter simulation.
 
 **Outside core (emitters):** reading the catalogue and generating target code (HTML/CSS/React/SwiftUI/Compose/etc.), asset path rewriting, capability degradation.
 

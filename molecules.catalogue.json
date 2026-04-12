@@ -1,0 +1,2448 @@
+{
+  "components": [
+    {
+      "base": {
+        "params": {},
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "A",
+              "kind": "text",
+              "props": {
+                "color": "#AABBCC",
+                "content": "Caption",
+                "fontFamily": "system-ui, sans-serif",
+                "fontSize": 12,
+                "fontWeight": 600,
+                "typeStyle": "AtomCaption"
+              }
+            },
+            {
+              "children": [],
+              "id": "B",
+              "kind": "text",
+              "props": {
+                "color": "#AABBCC",
+                "content": "Title line",
+                "fontFamily": "system-ui, sans-serif",
+                "fontSize": 22,
+                "fontWeight": 700,
+                "typeStyle": "AtomTitle"
+              }
+            },
+            {
+              "children": [],
+              "id": "C",
+              "kind": "text",
+              "props": {
+                "color": "#11223344",
+                "content": "Muted supporting copy",
+                "fontFamily": "system-ui, sans-serif",
+                "fontSize": 16,
+                "fontWeight": 400,
+                "typeStyle": "AtomBody"
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "background": "__token:atoms.color.sem.fromRgb__",
+            "direction": "column",
+            "gap": "__token:atoms.space.sm__",
+            "padding": {
+              "bottom": 16,
+              "left": 16,
+              "right": 16,
+              "top": 16
+            }
+          }
+        }
+      },
+      "expose": [],
+      "name": "MoleculeLabelStack",
+      "params": [],
+      "usage": "",
+      "variants": []
+    },
+    {
+      "base": {
+        "params": {},
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "RowStart",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "direction": "row",
+                "gap": "__token:atoms.space.sm__",
+                "justify": "start"
+              }
+            },
+            {
+              "children": [],
+              "id": "RowBetween",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "direction": "row",
+                "gap": "__token:atoms.space.sm__",
+                "justify": "spaceBetween"
+              }
+            },
+            {
+              "children": [],
+              "id": "RowEnd",
+              "kind": "layout",
+              "props": {
+                "align": "stretch",
+                "direction": "row",
+                "gap": "__token:atoms.space.xs__",
+                "justify": "end"
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "background": "__token:atoms.color.sem.fromRgba__",
+            "direction": "column",
+            "gap": "__token:atoms.space.md__"
+          }
+        }
+      },
+      "expose": [],
+      "name": "MoleculeLabelRowJustifySweep",
+      "params": [],
+      "usage": "",
+      "variants": []
+    },
+    {
+      "base": {
+        "params": {},
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "Col1",
+              "kind": "layout",
+              "props": {
+                "align": "start",
+                "direction": "column",
+                "gap": 4
+              }
+            },
+            {
+              "children": [],
+              "id": "Col2",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "direction": "column",
+                "gap": 4
+              }
+            },
+            {
+              "children": [],
+              "id": "Col3",
+              "kind": "layout",
+              "props": {
+                "align": "end",
+                "direction": "column",
+                "gap": 4
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "background": "__token:atoms.color.rgb__",
+            "direction": "row",
+            "gap": "__token:atoms.space.md__",
+            "justify": "stretch",
+            "padding": {
+              "bottom": 12,
+              "left": 12,
+              "right": 12,
+              "top": 12
+            },
+            "wrap": "nowrap"
+          }
+        }
+      },
+      "expose": [],
+      "name": "MoleculeThreeColumnLabels",
+      "params": [],
+      "usage": "",
+      "variants": []
+    },
+    {
+      "base": {
+        "params": {
+          "label": "Button",
+          "size": "sm",
+          "tone": "primary"
+        },
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "L",
+              "kind": "text",
+              "props": {
+                "color": "__token:atoms.color.rgba__",
+                "content": "__param:label__",
+                "fontSize": 14,
+                "fontWeight": 600
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "__token:atoms.color.sem.fromRgb__",
+            "cornerRadius": "__token:atoms.radius.sm__",
+            "direction": "row",
+            "gap": "__token:atoms.space.xs__",
+            "justify": "center",
+            "padding": {
+              "bottom": 6,
+              "left": 10,
+              "right": 10,
+              "top": 6
+            },
+            "wrap": "nowrap"
+          }
+        }
+      },
+      "expose": [
+        "label",
+        "tone",
+        "size"
+      ],
+      "name": "MoleculeTextButton",
+      "params": [
+        {
+          "default": "Button",
+          "name": "label",
+          "type": "String"
+        },
+        {
+          "cases": [
+            "primary",
+            "secondary",
+            "ghost"
+          ],
+          "default": "primary",
+          "name": "tone",
+          "type": "variant",
+          "variantTypeName": "MoleculeBtnTone"
+        },
+        {
+          "cases": [
+            "sm",
+            "lg"
+          ],
+          "default": "sm",
+          "name": "size",
+          "type": "variant",
+          "variantTypeName": "MoleculeBtnSize"
+        }
+      ],
+      "usage": "",
+      "variants": [
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "__token:atoms.color.sem.fromRgba__"
+            }
+          ],
+          "params": {
+            "tone": "secondary"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "__token:atoms.color.rgb__"
+            },
+            {
+              "frameId": "Root",
+              "prop": "opacity",
+              "value": 0.15
+            }
+          ],
+          "params": {
+            "tone": "ghost"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "padding",
+              "value": {
+                "bottom": 12,
+                "left": 18,
+                "right": 18,
+                "top": 12
+              }
+            }
+          ],
+          "params": {
+            "size": "lg"
+          }
+        }
+      ]
+    },
+    {
+      "base": {
+        "params": {},
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "A",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "background": "__token:atoms.color.sem.fromRgb__",
+                "cornerRadius": "__token:atoms.radius.sm__",
+                "direction": "row",
+                "gap": "__token:atoms.space.xs__",
+                "justify": "center",
+                "padding": {
+                  "bottom": 6,
+                  "left": 10,
+                  "right": 10,
+                  "top": 6
+                },
+                "wrap": "nowrap"
+              }
+            },
+            {
+              "children": [],
+              "id": "B",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "background": "__token:atoms.color.sem.fromRgba__",
+                "cornerRadius": "__token:atoms.radius.sm__",
+                "direction": "row",
+                "gap": "__token:atoms.space.xs__",
+                "justify": "center",
+                "padding": {
+                  "bottom": 12,
+                  "left": 18,
+                  "right": 18,
+                  "top": 12
+                },
+                "wrap": "nowrap"
+              }
+            },
+            {
+              "children": [],
+              "id": "C",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "background": "__token:atoms.color.rgb__",
+                "cornerRadius": "__token:atoms.radius.sm__",
+                "direction": "row",
+                "gap": "__token:atoms.space.xs__",
+                "justify": "center",
+                "opacity": 0.15,
+                "padding": {
+                  "bottom": 6,
+                  "left": 10,
+                  "right": 10,
+                  "top": 6
+                },
+                "wrap": "nowrap"
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "__token:atoms.color.sem.fromRgb__",
+            "direction": "row",
+            "gap": "__token:atoms.space.sm__",
+            "justify": "start",
+            "padding": {
+              "bottom": 16,
+              "left": 16,
+              "right": 16,
+              "top": 16
+            },
+            "wrap": "wrap"
+          }
+        }
+      },
+      "expose": [],
+      "name": "MoleculeButtonRowDemo",
+      "params": [],
+      "usage": "",
+      "variants": []
+    },
+    {
+      "base": {
+        "params": {
+          "label": "Continue",
+          "mode": "textOnly"
+        },
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "T",
+              "kind": "text",
+              "props": {
+                "color": "__token:atoms.color.sem.fromRgba__",
+                "content": "__param:label__",
+                "fontSize": 15,
+                "fontWeight": 600
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "__token:atoms.color.sem.fromRgb__",
+            "cornerRadius": "__token:atoms.radius.sm__",
+            "direction": "row",
+            "gap": "__token:atoms.space.sm__",
+            "justify": "start",
+            "padding": {
+              "bottom": 10,
+              "left": 14,
+              "right": 14,
+              "top": 10
+            }
+          }
+        }
+      },
+      "expose": [
+        "label",
+        "mode"
+      ],
+      "name": "MoleculeIconTextRow",
+      "params": [
+        {
+          "default": "Continue",
+          "name": "label",
+          "type": "String"
+        },
+        {
+          "cases": [
+            "textOnly",
+            "leadingIcon",
+            "trailingChevron",
+            "both"
+          ],
+          "default": "textOnly",
+          "name": "mode",
+          "type": "variant",
+          "variantTypeName": "MoleculeIconMode"
+        }
+      ],
+      "usage": "",
+      "variants": [
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "children",
+              "value": [
+                {
+                  "children": [],
+                  "id": "Lead",
+                  "kind": "icon",
+                  "props": {
+                    "color": "__token:atoms.color.rgba__",
+                    "icon": "__token:atoms.icon.star__",
+                    "size": 20
+                  }
+                },
+                {
+                  "children": [],
+                  "id": "T",
+                  "kind": "text",
+                  "props": {
+                    "color": "__token:atoms.color.sem.fromRgba__",
+                    "content": "__param:label__",
+                    "fontSize": 15,
+                    "fontWeight": 600
+                  }
+                }
+              ]
+            }
+          ],
+          "params": {
+            "mode": "leadingIcon"
+          },
+          "structuralChange": true
+        },
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "children",
+              "value": [
+                {
+                  "children": [],
+                  "id": "T",
+                  "kind": "text",
+                  "props": {
+                    "color": "__token:atoms.color.sem.fromRgba__",
+                    "content": "__param:label__",
+                    "fontSize": 15,
+                    "fontWeight": 600
+                  }
+                },
+                {
+                  "children": [],
+                  "id": "Chev",
+                  "kind": "icon",
+                  "props": {
+                    "color": "__token:atoms.color.rgba__",
+                    "icon": "__token:atoms.icon.chevron__",
+                    "size": 18
+                  }
+                }
+              ]
+            }
+          ],
+          "params": {
+            "mode": "trailingChevron"
+          },
+          "structuralChange": true
+        },
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "children",
+              "value": [
+                {
+                  "children": [],
+                  "id": "Lead",
+                  "kind": "icon",
+                  "props": {
+                    "color": "__token:atoms.color.rgba__",
+                    "icon": "__token:atoms.icon.star__",
+                    "size": 20
+                  }
+                },
+                {
+                  "children": [],
+                  "id": "T",
+                  "kind": "text",
+                  "props": {
+                    "color": "__token:atoms.color.sem.fromRgba__",
+                    "content": "__param:label__",
+                    "fontSize": 15,
+                    "fontWeight": 600
+                  }
+                },
+                {
+                  "children": [],
+                  "id": "Chev",
+                  "kind": "icon",
+                  "props": {
+                    "color": "__token:atoms.color.rgba__",
+                    "icon": "__token:atoms.icon.chevron__",
+                    "size": 18
+                  }
+                }
+              ]
+            }
+          ],
+          "params": {
+            "mode": "both"
+          },
+          "structuralChange": true
+        }
+      ]
+    },
+    {
+      "base": {
+        "params": {},
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "R0",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "background": "__token:atoms.color.sem.fromRgb__",
+                "cornerRadius": "__token:atoms.radius.sm__",
+                "direction": "row",
+                "gap": "__token:atoms.space.sm__",
+                "justify": "start",
+                "padding": {
+                  "bottom": 10,
+                  "left": 14,
+                  "right": 14,
+                  "top": 10
+                }
+              }
+            },
+            {
+              "children": [],
+              "id": "R1",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "background": "__token:atoms.color.sem.fromRgb__",
+                "cornerRadius": "__token:atoms.radius.sm__",
+                "direction": "row",
+                "gap": "__token:atoms.space.sm__",
+                "justify": "start",
+                "padding": {
+                  "bottom": 10,
+                  "left": 14,
+                  "right": 14,
+                  "top": 10
+                }
+              }
+            },
+            {
+              "children": [],
+              "id": "R2",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "background": "__token:atoms.color.sem.fromRgb__",
+                "cornerRadius": "__token:atoms.radius.sm__",
+                "direction": "row",
+                "gap": "__token:atoms.space.sm__",
+                "justify": "start",
+                "padding": {
+                  "bottom": 10,
+                  "left": 14,
+                  "right": 14,
+                  "top": 10
+                }
+              }
+            },
+            {
+              "children": [],
+              "id": "R3",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "background": "__token:atoms.color.sem.fromRgb__",
+                "cornerRadius": "__token:atoms.radius.sm__",
+                "direction": "row",
+                "gap": "__token:atoms.space.sm__",
+                "justify": "start",
+                "padding": {
+                  "bottom": 10,
+                  "left": 14,
+                  "right": 14,
+                  "top": 10
+                }
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "background": "__token:atoms.color.sem.fromRgba__",
+            "direction": "column",
+            "gap": "__token:atoms.space.md__",
+            "padding": {
+              "bottom": 16,
+              "left": 16,
+              "right": 16,
+              "top": 16
+            }
+          }
+        }
+      },
+      "expose": [],
+      "name": "MoleculeIconModeGallery",
+      "params": [],
+      "usage": "",
+      "variants": []
+    },
+    {
+      "base": {
+        "params": {
+          "kind": "primary",
+          "label": "Submit",
+          "size": "regular"
+        },
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "L",
+              "kind": "text",
+              "props": {
+                "color": "__token:atoms.color.sem.fromRgba__",
+                "content": "__param:label__",
+                "fontSize": 16,
+                "fontWeight": 600
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "__token:atoms.color.rgb__",
+            "cornerRadius": "__token:atoms.radius.mixed__",
+            "direction": "row",
+            "justify": "center",
+            "padding": {
+              "bottom": 12,
+              "left": 20,
+              "right": 20,
+              "top": 12
+            },
+            "wrap": "nowrap"
+          }
+        }
+      },
+      "expose": [
+        "label",
+        "kind",
+        "size"
+      ],
+      "name": "MoleculeMatrixButton",
+      "params": [
+        {
+          "default": "Submit",
+          "name": "label",
+          "type": "String"
+        },
+        {
+          "cases": [
+            "primary",
+            "secondary",
+            "danger"
+          ],
+          "default": "primary",
+          "name": "kind",
+          "type": "variant",
+          "variantTypeName": "MoleculeMatrixKind"
+        },
+        {
+          "cases": [
+            "compact",
+            "regular"
+          ],
+          "default": "regular",
+          "name": "size",
+          "type": "variant",
+          "variantTypeName": "MoleculeMatrixSize"
+        }
+      ],
+      "usage": "",
+      "variants": [
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "padding",
+              "value": {
+                "bottom": 10,
+                "left": 16,
+                "right": 16,
+                "top": 10
+              }
+            },
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "__token:atoms.color.rgba__"
+            }
+          ],
+          "params": {
+            "kind": "secondary"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "padding",
+              "value": {
+                "bottom": 10,
+                "left": 16,
+                "right": 16,
+                "top": 10
+              }
+            },
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "__token:atoms.color.sem.fromRgb__"
+            }
+          ],
+          "params": {
+            "kind": "danger"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Root",
+            "L"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "padding",
+              "value": {
+                "bottom": 5,
+                "left": 10,
+                "right": 10,
+                "top": 5
+              }
+            },
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "__token:atoms.color.sem.fromRgb__"
+            },
+            {
+              "frameId": "L",
+              "prop": "fontSize",
+              "value": 12
+            }
+          ],
+          "params": {
+            "size": "compact"
+          }
+        }
+      ]
+    },
+    {
+      "base": {
+        "params": {},
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "R0",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "background": "__token:atoms.color.sem.fromRgb__",
+                "cornerRadius": "__token:atoms.radius.mixed__",
+                "direction": "row",
+                "justify": "center",
+                "padding": {
+                  "bottom": 5,
+                  "left": 10,
+                  "right": 10,
+                  "top": 5
+                },
+                "wrap": "nowrap"
+              }
+            },
+            {
+              "children": [],
+              "id": "R1",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "background": "__token:atoms.color.rgb__",
+                "cornerRadius": "__token:atoms.radius.mixed__",
+                "direction": "row",
+                "justify": "center",
+                "padding": {
+                  "bottom": 12,
+                  "left": 20,
+                  "right": 20,
+                  "top": 12
+                },
+                "wrap": "nowrap"
+              }
+            },
+            {
+              "children": [],
+              "id": "R2",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "background": "__token:atoms.color.sem.fromRgba__",
+                "cornerRadius": "__token:atoms.radius.mixed__",
+                "direction": "row",
+                "justify": "center",
+                "padding": {
+                  "bottom": 4,
+                  "left": 8,
+                  "right": 8,
+                  "top": 4
+                },
+                "wrap": "nowrap"
+              }
+            },
+            {
+              "children": [],
+              "id": "R3",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "background": "__token:atoms.color.sem.fromRgb__",
+                "cornerRadius": "__token:atoms.radius.mixed__",
+                "direction": "row",
+                "justify": "center",
+                "padding": {
+                  "bottom": 10,
+                  "left": 16,
+                  "right": 16,
+                  "top": 10
+                },
+                "wrap": "nowrap"
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "background": "__token:atoms.color.rgb__",
+            "direction": "column",
+            "gap": "__token:atoms.space.md__",
+            "padding": {
+              "bottom": 16,
+              "left": 16,
+              "right": 16,
+              "top": 16
+            }
+          }
+        }
+      },
+      "expose": [],
+      "name": "MoleculeMatrixButtonGallery",
+      "params": [],
+      "usage": "",
+      "variants": []
+    },
+    {
+      "base": {
+        "params": {
+          "layoutMode": "withHero",
+          "subtitle": "Supporting line",
+          "title": "Article"
+        },
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "Hero",
+              "kind": "media",
+              "props": {
+                "aspectRatio": "__token:atoms.ratio.video__",
+                "contentMode": "cover",
+                "cornerRadius": "__token:atoms.radius.sm__",
+                "height": {
+                  "fixed": 120
+                },
+                "objectPosition": "center",
+                "source": "__token:atoms.media.hero__",
+                "width": "fill"
+              }
+            },
+            {
+              "children": [],
+              "id": "Title",
+              "kind": "text",
+              "props": {
+                "color": "#AABBCC",
+                "content": "__param:title__",
+                "fontFamily": "system-ui, sans-serif",
+                "fontSize": 22,
+                "fontWeight": 700,
+                "typeStyle": "AtomTitle"
+              }
+            },
+            {
+              "children": [],
+              "id": "Sub",
+              "kind": "text",
+              "props": {
+                "color": "#11223344",
+                "content": "__param:subtitle__",
+                "fontFamily": "system-ui, sans-serif",
+                "fontSize": 16,
+                "fontWeight": 400,
+                "typeStyle": "AtomBody"
+              }
+            },
+            {
+              "children": [],
+              "id": "Actions",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "direction": "row",
+                "gap": "__token:atoms.space.sm__",
+                "justify": "spaceBetween",
+                "padding": {
+                  "bottom": 0,
+                  "left": 0,
+                  "right": 0,
+                  "top": 8
+                }
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "background": "__token:atoms.color.sem.fromRgb__",
+            "borderColor": "__token:atoms.color.rgba__",
+            "borderPosition": "inside",
+            "borderWidth": 1,
+            "cornerRadius": "__token:atoms.radius.card__",
+            "direction": "column",
+            "gap": "__token:atoms.space.sm__",
+            "overflow": "hidden",
+            "padding": {
+              "bottom": 16,
+              "left": 16,
+              "right": 16,
+              "top": 16
+            },
+            "shadow": "__token:atoms.shadow.soft__"
+          }
+        }
+      },
+      "expose": [
+        "title",
+        "subtitle",
+        "layoutMode"
+      ],
+      "name": "MoleculeCardArticle",
+      "params": [
+        {
+          "default": "Article",
+          "name": "title",
+          "type": "String"
+        },
+        {
+          "default": "Supporting line",
+          "name": "subtitle",
+          "type": "String"
+        },
+        {
+          "cases": [
+            "withHero",
+            "textOnly"
+          ],
+          "default": "withHero",
+          "name": "layoutMode",
+          "type": "variant",
+          "variantTypeName": "MoleculeCardMedia"
+        }
+      ],
+      "usage": "",
+      "variants": [
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "children",
+              "value": [
+                {
+                  "children": [],
+                  "id": "Title",
+                  "kind": "text",
+                  "props": {
+                    "color": "#AABBCC",
+                    "content": "__param:title__",
+                    "fontFamily": "system-ui, sans-serif",
+                    "fontSize": 22,
+                    "fontWeight": 700,
+                    "typeStyle": "AtomTitle"
+                  }
+                },
+                {
+                  "children": [],
+                  "id": "Sub",
+                  "kind": "text",
+                  "props": {
+                    "color": "#11223344",
+                    "content": "__param:subtitle__",
+                    "fontFamily": "system-ui, sans-serif",
+                    "fontSize": 16,
+                    "fontWeight": 400,
+                    "typeStyle": "AtomBody"
+                  }
+                },
+                {
+                  "children": [],
+                  "id": "Actions",
+                  "kind": "layout",
+                  "props": {
+                    "align": "center",
+                    "direction": "row",
+                    "gap": "__token:atoms.space.sm__",
+                    "justify": "spaceBetween",
+                    "padding": {
+                      "bottom": 0,
+                      "left": 0,
+                      "right": 0,
+                      "top": 8
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "params": {
+            "layoutMode": "textOnly"
+          },
+          "structuralChange": true
+        }
+      ]
+    },
+    {
+      "base": {
+        "params": {},
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "C1",
+              "kind": "layout",
+              "props": {
+                "align": "stretch",
+                "background": "__token:atoms.color.sem.fromRgb__",
+                "borderColor": "__token:atoms.color.rgba__",
+                "borderPosition": "inside",
+                "borderWidth": 1,
+                "cornerRadius": "__token:atoms.radius.card__",
+                "direction": "column",
+                "gap": "__token:atoms.space.sm__",
+                "overflow": "hidden",
+                "padding": {
+                  "bottom": 16,
+                  "left": 16,
+                  "right": 16,
+                  "top": 16
+                },
+                "shadow": "__token:atoms.shadow.soft__"
+              }
+            },
+            {
+              "children": [],
+              "id": "C2",
+              "kind": "layout",
+              "props": {
+                "align": "stretch",
+                "background": "__token:atoms.color.sem.fromRgb__",
+                "borderColor": "__token:atoms.color.rgba__",
+                "borderPosition": "inside",
+                "borderWidth": 1,
+                "cornerRadius": "__token:atoms.radius.card__",
+                "direction": "column",
+                "gap": "__token:atoms.space.sm__",
+                "overflow": "hidden",
+                "padding": {
+                  "bottom": 16,
+                  "left": 16,
+                  "right": 16,
+                  "top": 16
+                },
+                "shadow": "__token:atoms.shadow.soft__"
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "background": "__token:atoms.color.sem.fromRgba__",
+            "direction": "row",
+            "gap": "__token:atoms.space.md__",
+            "padding": {
+              "bottom": 16,
+              "left": 16,
+              "right": 16,
+              "top": 16
+            },
+            "wrap": "wrap"
+          }
+        }
+      },
+      "expose": [],
+      "name": "MoleculeCardGridDemo",
+      "params": [],
+      "usage": "",
+      "variants": []
+    },
+    {
+      "base": {
+        "params": {
+          "body": "This cannot be undone.",
+          "cancelLabel": "Cancel",
+          "confirmLabel": "Delete",
+          "heading": "Confirm"
+        },
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "Panel",
+              "kind": "layout",
+              "props": {
+                "align": "stretch",
+                "background": "__token:atoms.color.sem.fromRgb__",
+                "cornerRadius": "__token:atoms.radius.mixed__",
+                "direction": "column",
+                "foreground": [
+                  "#aabbcc0f"
+                ],
+                "gap": "__token:atoms.space.md__",
+                "padding": {
+                  "bottom": 16,
+                  "left": 16,
+                  "right": 16,
+                  "top": 16
+                },
+                "shadow": "__token:atoms.shadow.hard__",
+                "width": "hug"
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "__token:atoms.color.scrimLiteral__",
+            "direction": "column",
+            "height": "fill",
+            "justify": "center",
+            "padding": {
+              "bottom": 48,
+              "left": 24,
+              "right": 24,
+              "top": 48
+            },
+            "width": "fill"
+          }
+        }
+      },
+      "expose": [
+        "heading",
+        "body",
+        "confirmLabel",
+        "cancelLabel"
+      ],
+      "name": "MoleculeModalShell",
+      "params": [
+        {
+          "default": "Confirm",
+          "name": "heading",
+          "type": "String"
+        },
+        {
+          "default": "This cannot be undone.",
+          "name": "body",
+          "type": "String"
+        },
+        {
+          "default": "Delete",
+          "name": "confirmLabel",
+          "type": "String"
+        },
+        {
+          "default": "Cancel",
+          "name": "cancelLabel",
+          "type": "String"
+        }
+      ],
+      "usage": "",
+      "variants": []
+    },
+    {
+      "base": {
+        "params": {},
+        "tree": {
+          "children": [],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "background": "__token:atoms.bg.blurCard__",
+            "cornerRadius": "__token:atoms.radius.sm__",
+            "direction": "column",
+            "foreground": "__token:atoms.fg.hoverTint__",
+            "gap": "__token:atoms.space.sm__",
+            "height": "hug",
+            "padding": {
+              "bottom": 16,
+              "left": 16,
+              "right": 16,
+              "top": 16
+            },
+            "width": "fill"
+          }
+        }
+      },
+      "expose": [],
+      "name": "MoleculeLayeredPanel",
+      "params": [],
+      "usage": "",
+      "variants": []
+    },
+    {
+      "base": {
+        "params": {},
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "Left",
+              "kind": "layout",
+              "props": {
+                "background": [
+                  "#11223344",
+                  "#aabbcc9e"
+                ],
+                "direction": "column",
+                "foreground": [
+                  "#11223305"
+                ],
+                "height": "hug",
+                "padding": {
+                  "bottom": 8,
+                  "left": 8,
+                  "right": 8,
+                  "top": 8
+                },
+                "width": "fill"
+              }
+            },
+            {
+              "children": [],
+              "id": "Right",
+              "kind": "layout",
+              "props": {
+                "background": [
+                  {
+                    "blur": 6,
+                    "kind": "blur"
+                  },
+                  "#aabbcc9e"
+                ],
+                "direction": "column",
+                "height": "fill",
+                "padding": {
+                  "bottom": 10,
+                  "left": 10,
+                  "right": 10,
+                  "top": 10
+                },
+                "width": "hug"
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "background": "__token:atoms.color.sem.fromRgb__",
+            "direction": "row",
+            "gap": "__token:atoms.space.md__",
+            "justify": "center",
+            "padding": {
+              "bottom": 12,
+              "left": 12,
+              "right": 12,
+              "top": 12
+            }
+          }
+        }
+      },
+      "expose": [],
+      "name": "MoleculeLayerInlineSandwich",
+      "params": [],
+      "usage": "",
+      "variants": []
+    },
+    {
+      "base": {
+        "params": {},
+        "tree": {
+          "children": [],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "background": "__token:atoms.bg.flat__",
+            "direction": "column",
+            "foreground": [
+              "#1122330e"
+            ],
+            "padding": {
+              "bottom": 14,
+              "left": 14,
+              "right": 14,
+              "top": 14
+            }
+          }
+        }
+      },
+      "expose": [],
+      "name": "MoleculeLayerTokenFlat",
+      "params": [],
+      "usage": "",
+      "variants": []
+    },
+    {
+      "base": {
+        "params": {},
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "NarrowHug",
+              "kind": "layout",
+              "props": {
+                "align": "stretch",
+                "background": "__token:atoms.color.rgba__",
+                "direction": "column",
+                "gap": "__token:atoms.space.xs__",
+                "height": "fill",
+                "justify": "spaceBetween",
+                "padding": {
+                  "bottom": 6,
+                  "left": 6,
+                  "right": 6,
+                  "top": 6
+                },
+                "width": "hug"
+              }
+            },
+            {
+              "children": [],
+              "id": "FlexMiddle",
+              "kind": "layout",
+              "props": {
+                "alignSelf": "center",
+                "background": "__token:atoms.color.rgb__",
+                "direction": "column",
+                "gap": "__token:atoms.space.xs__",
+                "grow": 1,
+                "height": "hug",
+                "padding": {
+                  "bottom": 8,
+                  "left": 8,
+                  "right": 8,
+                  "top": 8
+                },
+                "shrink": 1,
+                "width": {
+                  "flex": {
+                    "max": {
+                      "kind": "number",
+                      "value": 200
+                    },
+                    "min": {
+                      "kind": "number",
+                      "value": 40
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "children": [],
+              "id": "FixedIsland",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "alignSelf": "end",
+                "background": "__token:atoms.color.sem.fromRgba__",
+                "direction": "column",
+                "height": {
+                  "flex": {
+                    "max": {
+                      "kind": "number",
+                      "value": 180
+                    },
+                    "min": {
+                      "kind": "number",
+                      "value": 60
+                    }
+                  }
+                },
+                "justify": "center",
+                "width": {
+                  "fixed": 72
+                }
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "background": "__token:atoms.color.sem.fromRgb__",
+            "direction": "row",
+            "gap": "__token:atoms.space.sm__",
+            "height": {
+              "fixed": 220
+            },
+            "justify": "start",
+            "padding": {
+              "bottom": 12,
+              "left": 12,
+              "right": 12,
+              "top": 12
+            },
+            "width": "fill",
+            "wrap": "nowrap"
+          }
+        }
+      },
+      "expose": [],
+      "name": "MoleculeHugFillLabyrinth",
+      "params": [],
+      "usage": "",
+      "variants": []
+    },
+    {
+      "base": {
+        "params": {},
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "RowFill",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "background": "__token:atoms.color.rgb__",
+                "direction": "row",
+                "height": "hug",
+                "justify": "spaceAround",
+                "width": "fill"
+              }
+            },
+            {
+              "children": [],
+              "id": "RowMixed",
+              "kind": "layout",
+              "props": {
+                "alignSelf": "end",
+                "background": "__token:atoms.color.rgba__",
+                "direction": "row",
+                "gap": 4,
+                "height": "fill",
+                "padding": {
+                  "bottom": 4,
+                  "left": 4,
+                  "right": 4,
+                  "top": 4
+                },
+                "width": "hug"
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "background": "__token:atoms.color.sem.fromRgba__",
+            "direction": "column",
+            "gap": "__token:atoms.space.sm__",
+            "height": "hug",
+            "padding": {
+              "bottom": 10,
+              "left": 16,
+              "right": 16,
+              "top": 10
+            },
+            "width": "fill"
+          }
+        }
+      },
+      "expose": [],
+      "name": "MoleculeFillWidthHugHeightColumn",
+      "params": [],
+      "usage": "",
+      "variants": []
+    },
+    {
+      "base": {
+        "params": {
+          "density": "roomy",
+          "meta": "",
+          "title": "Settings"
+        },
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "Title",
+              "kind": "text",
+              "props": {
+                "color": "#11223344",
+                "content": "__param:title__",
+                "fontFamily": "system-ui, sans-serif",
+                "fontSize": 16,
+                "fontWeight": 400,
+                "typeStyle": "AtomBody"
+              }
+            },
+            {
+              "children": [],
+              "id": "Trail",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "direction": "row",
+                "gap": "__token:atoms.space.xs__"
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "__token:atoms.color.sem.fromRgb__",
+            "cornerRadius": "__token:atoms.radius.sm__",
+            "direction": "row",
+            "gap": "__token:atoms.space.sm__",
+            "height": "hug",
+            "justify": "spaceBetween",
+            "padding": {
+              "bottom": 12,
+              "left": 14,
+              "right": 14,
+              "top": 12
+            },
+            "width": "fill"
+          }
+        }
+      },
+      "expose": [
+        "title",
+        "meta",
+        "density"
+      ],
+      "name": "MoleculeNavRow",
+      "params": [
+        {
+          "default": "Settings",
+          "name": "title",
+          "type": "String"
+        },
+        {
+          "default": "",
+          "name": "meta",
+          "type": "String"
+        },
+        {
+          "cases": [
+            "compact",
+            "roomy"
+          ],
+          "default": "roomy",
+          "name": "density",
+          "type": "variant",
+          "variantTypeName": "MoleculeListDensity"
+        }
+      ],
+      "usage": "",
+      "variants": [
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "padding",
+              "value": {
+                "bottom": 6,
+                "left": 10,
+                "right": 10,
+                "top": 6
+              }
+            },
+            {
+              "frameId": "Root",
+              "prop": "gap",
+              "value": "__token:atoms.space.xs__"
+            }
+          ],
+          "params": {
+            "density": "compact"
+          }
+        }
+      ]
+    },
+    {
+      "base": {
+        "params": {},
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "R0",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "background": "__token:atoms.color.sem.fromRgb__",
+                "cornerRadius": "__token:atoms.radius.sm__",
+                "direction": "row",
+                "gap": "__token:atoms.space.sm__",
+                "height": "hug",
+                "justify": "spaceBetween",
+                "padding": {
+                  "bottom": 12,
+                  "left": 14,
+                  "right": 14,
+                  "top": 12
+                },
+                "width": "fill"
+              }
+            },
+            {
+              "children": [],
+              "id": "R1",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "background": "__token:atoms.color.sem.fromRgb__",
+                "cornerRadius": "__token:atoms.radius.sm__",
+                "direction": "row",
+                "gap": "__token:atoms.space.xs__",
+                "height": "hug",
+                "justify": "spaceBetween",
+                "padding": {
+                  "bottom": 6,
+                  "left": 10,
+                  "right": 10,
+                  "top": 6
+                },
+                "width": "fill"
+              }
+            },
+            {
+              "children": [],
+              "id": "R2",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "background": "__token:atoms.color.sem.fromRgb__",
+                "cornerRadius": "__token:atoms.radius.sm__",
+                "direction": "row",
+                "gap": "__token:atoms.space.xs__",
+                "height": "hug",
+                "justify": "spaceBetween",
+                "padding": {
+                  "bottom": 6,
+                  "left": 10,
+                  "right": 10,
+                  "top": 6
+                },
+                "width": "fill"
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "background": "__token:atoms.color.sem.fromRgba__",
+            "direction": "column",
+            "gap": "__token:atoms.space.xs__",
+            "padding": {
+              "bottom": 12,
+              "left": 12,
+              "right": 12,
+              "top": 12
+            }
+          }
+        }
+      },
+      "expose": [],
+      "name": "MoleculeNavListDemo",
+      "params": [],
+      "usage": "",
+      "variants": []
+    },
+    {
+      "base": {
+        "params": {
+          "helper": "We never share your address.",
+          "label": "Email",
+          "value": "you@example.com"
+        },
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "Lab",
+              "kind": "text",
+              "props": {
+                "color": "#AABBCC",
+                "content": "__param:label__",
+                "fontFamily": "system-ui, sans-serif",
+                "fontSize": 12,
+                "fontWeight": 600,
+                "typeStyle": "AtomCaption"
+              }
+            },
+            {
+              "children": [],
+              "id": "Box",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "background": "__token:atoms.color.sem.fromRgb__",
+                "borderColor": "__token:atoms.color.rgba__",
+                "borderWidth": 1,
+                "cornerRadius": "__token:atoms.radius.sm__",
+                "direction": "row",
+                "padding": {
+                  "bottom": 10,
+                  "left": 12,
+                  "right": 12,
+                  "top": 10
+                }
+              }
+            },
+            {
+              "children": [],
+              "id": "Help",
+              "kind": "text",
+              "props": {
+                "color": "#11223344",
+                "content": "__param:helper__",
+                "fontFamily": "ui-monospace, monospace",
+                "fontSize": 12,
+                "fontWeight": 400,
+                "typeStyle": "AtomMono"
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "direction": "column",
+            "gap": "__token:atoms.space.xs__",
+            "padding": {
+              "bottom": 8,
+              "left": 0,
+              "right": 0,
+              "top": 8
+            }
+          }
+        }
+      },
+      "expose": [
+        "label",
+        "value",
+        "helper"
+      ],
+      "name": "MoleculeFieldBlock",
+      "params": [
+        {
+          "default": "Email",
+          "name": "label",
+          "type": "String"
+        },
+        {
+          "default": "you@example.com",
+          "name": "value",
+          "type": "String"
+        },
+        {
+          "default": "We never share your address.",
+          "name": "helper",
+          "type": "String"
+        }
+      ],
+      "usage": "",
+      "variants": []
+    },
+    {
+      "base": {
+        "params": {},
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "F0",
+              "kind": "layout",
+              "props": {
+                "align": "stretch",
+                "direction": "column",
+                "gap": "__token:atoms.space.xs__",
+                "padding": {
+                  "bottom": 8,
+                  "left": 0,
+                  "right": 0,
+                  "top": 8
+                }
+              }
+            },
+            {
+              "children": [],
+              "id": "F1",
+              "kind": "layout",
+              "props": {
+                "align": "stretch",
+                "direction": "column",
+                "gap": "__token:atoms.space.xs__",
+                "padding": {
+                  "bottom": 8,
+                  "left": 0,
+                  "right": 0,
+                  "top": 8
+                }
+              }
+            },
+            {
+              "children": [],
+              "id": "Actions",
+              "kind": "layout",
+              "props": {
+                "direction": "row",
+                "gap": "__token:atoms.space.sm__",
+                "justify": "end",
+                "padding": {
+                  "bottom": 0,
+                  "left": 0,
+                  "right": 0,
+                  "top": 8
+                }
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "background": "__token:atoms.color.sem.fromRgba__",
+            "direction": "column",
+            "gap": "__token:atoms.space.md__",
+            "height": "hug",
+            "padding": {
+              "bottom": 16,
+              "left": 16,
+              "right": 16,
+              "top": 16
+            },
+            "width": "fill"
+          }
+        }
+      },
+      "expose": [],
+      "name": "MoleculeFormColumnDemo",
+      "params": [],
+      "usage": "",
+      "variants": []
+    },
+    {
+      "base": {
+        "params": {
+          "kind": "primary"
+        },
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "G",
+              "kind": "icon",
+              "props": {
+                "color": "__token:atoms.color.rgba__",
+                "icon": "__token:atoms.icon.star__",
+                "size": 22
+              }
+            },
+            {
+              "children": [],
+              "id": "L",
+              "kind": "text",
+              "props": {
+                "color": "#AABBCC",
+                "content": "Save changes",
+                "fontFamily": "system-ui, sans-serif",
+                "fontSize": 12,
+                "fontWeight": 600,
+                "typeStyle": "AtomCaption"
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "__token:atoms.color.sem.fromRgb__",
+            "cornerRadius": "__token:atoms.radius.sm__",
+            "direction": "row",
+            "gap": "__token:atoms.space.sm__",
+            "justify": "start",
+            "padding": {
+              "bottom": 10,
+              "left": 14,
+              "right": 14,
+              "top": 10
+            }
+          }
+        }
+      },
+      "expose": [
+        "kind"
+      ],
+      "name": "MoleculeKindRichRow",
+      "params": [
+        {
+          "cases": [
+            "primary",
+            "secondary",
+            "danger"
+          ],
+          "default": "primary",
+          "name": "kind",
+          "type": "variant",
+          "variantTypeName": "MoleculeMatrixKind"
+        }
+      ],
+      "usage": "",
+      "variants": [
+        {
+          "affectedFrames": [
+            "G",
+            "L"
+          ],
+          "changes": [
+            {
+              "frameId": "G",
+              "prop": "icon",
+              "value": "__token:atoms.icon.chevron__"
+            },
+            {
+              "frameId": "L",
+              "prop": "content",
+              "value": "Learn more about billing"
+            },
+            {
+              "frameId": "L",
+              "prop": "fontSize",
+              "value": 16
+            },
+            {
+              "frameId": "L",
+              "prop": "fontWeight",
+              "value": 400
+            },
+            {
+              "frameId": "L",
+              "prop": "color",
+              "value": "#11223344"
+            },
+            {
+              "frameId": "L",
+              "prop": "typeStyle",
+              "value": "AtomBody"
+            }
+          ],
+          "params": {
+            "kind": "secondary"
+          }
+        },
+        {
+          "affectedFrames": [
+            "G",
+            "L"
+          ],
+          "changes": [
+            {
+              "frameId": "G",
+              "prop": "icon",
+              "value": "close"
+            },
+            {
+              "frameId": "L",
+              "prop": "content",
+              "value": "Permanently delete"
+            },
+            {
+              "frameId": "L",
+              "prop": "fontSize",
+              "value": 22
+            },
+            {
+              "frameId": "L",
+              "prop": "fontWeight",
+              "value": 700
+            },
+            {
+              "frameId": "L",
+              "prop": "typeStyle",
+              "value": "AtomTitle"
+            }
+          ],
+          "params": {
+            "kind": "danger"
+          }
+        }
+      ]
+    },
+    {
+      "base": {
+        "params": {},
+        "tree": {
+          "children": [
+            {
+              "children": [],
+              "id": "A",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "background": "__token:atoms.color.sem.fromRgb__",
+                "cornerRadius": "__token:atoms.radius.sm__",
+                "direction": "row",
+                "gap": "__token:atoms.space.sm__",
+                "justify": "start",
+                "padding": {
+                  "bottom": 10,
+                  "left": 14,
+                  "right": 14,
+                  "top": 10
+                }
+              }
+            },
+            {
+              "children": [],
+              "id": "B",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "background": "__token:atoms.color.sem.fromRgb__",
+                "cornerRadius": "__token:atoms.radius.sm__",
+                "direction": "row",
+                "gap": "__token:atoms.space.sm__",
+                "justify": "start",
+                "padding": {
+                  "bottom": 10,
+                  "left": 14,
+                  "right": 14,
+                  "top": 10
+                }
+              }
+            },
+            {
+              "children": [],
+              "id": "C",
+              "kind": "layout",
+              "props": {
+                "align": "center",
+                "background": "__token:atoms.color.sem.fromRgb__",
+                "cornerRadius": "__token:atoms.radius.sm__",
+                "direction": "row",
+                "gap": "__token:atoms.space.sm__",
+                "justify": "start",
+                "padding": {
+                  "bottom": 10,
+                  "left": 14,
+                  "right": 14,
+                  "top": 10
+                }
+              }
+            }
+          ],
+          "id": "Root",
+          "kind": "layout",
+          "props": {
+            "background": "__token:atoms.color.rgb__",
+            "direction": "column",
+            "gap": "__token:atoms.space.sm__",
+            "padding": {
+              "bottom": 16,
+              "left": 16,
+              "right": 16,
+              "top": 16
+            }
+          }
+        }
+      },
+      "expose": [],
+      "name": "MoleculeKindRichGallery",
+      "params": [],
+      "usage": "",
+      "variants": []
+    }
+  ],
+  "generatedAt": "2026-04-12T07:58:41.121Z",
+  "kind": "componentCatalogue",
+  "schemaVersion": "1.0.0-beta",
+  "theme": "(none)",
+  "themesDeclared": [],
+  "tokens": {
+    "atoms.bg.blurCard": [
+      {
+        "blur": 6,
+        "kind": "blur"
+      },
+      "#aabbcc9e"
+    ],
+    "atoms.bg.flat": [
+      "#E5E7EB"
+    ],
+    "atoms.blur.heavy": 24,
+    "atoms.blur.light": 6,
+    "atoms.color.rgb": "#AABBCC",
+    "atoms.color.rgba": "#11223344",
+    "atoms.color.scrimLiteral": "#aabbcc40",
+    "atoms.color.scrimRgba": "#11223322",
+    "atoms.color.sem.fromRgb": "#AABBCC",
+    "atoms.color.sem.fromRgba": "#11223344",
+    "atoms.fg.hoverTint": [
+      "#aabbcc9e"
+    ],
+    "atoms.font.mono": "ui-monospace, monospace",
+    "atoms.font.ui": "system-ui, sans-serif",
+    "atoms.icon.chevron": "chevron-right",
+    "atoms.icon.star": "star",
+    "atoms.media.hero": "https://example.com/hero.png",
+    "atoms.opacity.full": 1,
+    "atoms.opacity.mid": 0.62,
+    "atoms.opacity.sem.full": 1,
+    "atoms.opacity.sem.mid": 0.62,
+    "atoms.radius.card": {
+      "bl": 2,
+      "br": 2,
+      "tl": 8,
+      "tr": 8
+    },
+    "atoms.radius.mixed": {
+      "bl": 2,
+      "br": 2,
+      "tl": 8,
+      "tr": 8
+    },
+    "atoms.radius.sm": 4,
+    "atoms.ramp.fade": {
+      "direction": ".bottomToTop",
+      "kind": "ramp",
+      "stops": [
+        {
+          "color": "#FFFFFF",
+          "kind": "gradientStop",
+          "opacity": 1,
+          "position": 0
+        },
+        {
+          "color": "#000000",
+          "kind": "gradientStop",
+          "opacity": 0,
+          "position": 1
+        }
+      ]
+    },
+    "atoms.ratio.square": 1,
+    "atoms.ratio.video": 1.777,
+    "atoms.shadow.hard": "0 1px 3px 0 rgba(0,0,0,0.35)",
+    "atoms.shadow.soft": "0 2px 8px rgba(0,0,0,0.12)",
+    "atoms.space.card.pad": 16,
+    "atoms.space.md": 16,
+    "atoms.space.sm": 8,
+    "atoms.space.xs": 4,
+    "atoms.type.size.body": 16,
+    "atoms.type.size.caption": 12,
+    "atoms.type.size.title": 22,
+    "atoms.type.weight.bold": 700,
+    "atoms.type.weight.medium": 600,
+    "atoms.type.weight.regular": 400,
+    "atoms.vibrancy.strong": {
+      "brightness": 0.95,
+      "saturation": 1.2
+    },
+    "atoms.vibrancy.subtle": {
+      "brightness": 1.02,
+      "saturation": 1.05
+    }
+  },
+  "tokensByTheme": {
+    "base": {
+      "atoms.bg.blurCard": [
+        {
+          "blur": 6,
+          "kind": "blur"
+        },
+        "#aabbcc9e"
+      ],
+      "atoms.bg.flat": [
+        "#E5E7EB"
+      ],
+      "atoms.blur.heavy": 24,
+      "atoms.blur.light": 6,
+      "atoms.color.rgb": "#AABBCC",
+      "atoms.color.rgba": "#11223344",
+      "atoms.color.scrimLiteral": "#aabbcc40",
+      "atoms.color.scrimRgba": "#11223322",
+      "atoms.color.sem.fromRgb": "#AABBCC",
+      "atoms.color.sem.fromRgba": "#11223344",
+      "atoms.fg.hoverTint": [
+        "#aabbcc9e"
+      ],
+      "atoms.font.mono": "ui-monospace, monospace",
+      "atoms.font.ui": "system-ui, sans-serif",
+      "atoms.icon.chevron": "chevron-right",
+      "atoms.icon.star": "star",
+      "atoms.media.hero": "https://example.com/hero.png",
+      "atoms.opacity.full": 1,
+      "atoms.opacity.mid": 0.62,
+      "atoms.opacity.sem.full": 1,
+      "atoms.opacity.sem.mid": 0.62,
+      "atoms.radius.card": {
+        "bl": 2,
+        "br": 2,
+        "tl": 8,
+        "tr": 8
+      },
+      "atoms.radius.mixed": {
+        "bl": 2,
+        "br": 2,
+        "tl": 8,
+        "tr": 8
+      },
+      "atoms.radius.sm": 4,
+      "atoms.ramp.fade": {
+        "direction": ".bottomToTop",
+        "kind": "ramp",
+        "stops": [
+          {
+            "color": "#FFFFFF",
+            "kind": "gradientStop",
+            "opacity": 1,
+            "position": 0
+          },
+          {
+            "color": "#000000",
+            "kind": "gradientStop",
+            "opacity": 0,
+            "position": 1
+          }
+        ]
+      },
+      "atoms.ratio.square": 1,
+      "atoms.ratio.video": 1.777,
+      "atoms.shadow.hard": "0 1px 3px 0 rgba(0,0,0,0.35)",
+      "atoms.shadow.soft": "0 2px 8px rgba(0,0,0,0.12)",
+      "atoms.space.card.pad": 16,
+      "atoms.space.md": 16,
+      "atoms.space.sm": 8,
+      "atoms.space.xs": 4,
+      "atoms.type.size.body": 16,
+      "atoms.type.size.caption": 12,
+      "atoms.type.size.title": 22,
+      "atoms.type.weight.bold": 700,
+      "atoms.type.weight.medium": 600,
+      "atoms.type.weight.regular": 400,
+      "atoms.vibrancy.strong": {
+        "brightness": 0.95,
+        "saturation": 1.2
+      },
+      "atoms.vibrancy.subtle": {
+        "brightness": 1.02,
+        "saturation": 1.05
+      }
+    }
+  },
+  "variantTypes": [
+    {
+      "cases": [
+        "sm",
+        "lg"
+      ],
+      "name": "MoleculeBtnSize"
+    },
+    {
+      "cases": [
+        "primary",
+        "secondary",
+        "ghost"
+      ],
+      "name": "MoleculeBtnTone"
+    },
+    {
+      "cases": [
+        "withHero",
+        "textOnly"
+      ],
+      "name": "MoleculeCardMedia"
+    },
+    {
+      "cases": [
+        "textOnly",
+        "leadingIcon",
+        "trailingChevron",
+        "both"
+      ],
+      "name": "MoleculeIconMode"
+    },
+    {
+      "cases": [
+        "compact",
+        "roomy"
+      ],
+      "name": "MoleculeListDensity"
+    },
+    {
+      "cases": [
+        "primary",
+        "secondary",
+        "danger"
+      ],
+      "name": "MoleculeMatrixKind"
+    },
+    {
+      "cases": [
+        "compact",
+        "regular"
+      ],
+      "name": "MoleculeMatrixSize"
+    }
+  ]
+}

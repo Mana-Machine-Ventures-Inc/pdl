@@ -8,9 +8,10 @@ After `npm install` and `npm run build`:
 
 | Command | Description |
 |---------|-------------|
-| `node dist/cli.js graph <entry.pdl>` | Emit merged **design graph** JSON (see `docs/SPEC_GAPS.md`). |
+| `node dist/cli.js graph <entry.pdl>` | Emit merged **design graph** JSON (internal AST snapshot; `full-spec.md` §16b). |
+| `node dist/cli.js manifest <entry.pdl> [--out file.json]` | Emit thin **design manifest** JSON (`full-spec.md` §17 §3). |
 | `node dist/cli.js resolve <entry.pdl> <Component> [key=value …]` | Emit one **resolved instance** tree as JSON. |
-| `node dist/cli.js catalogue <entry.pdl> [--theme Name] [--out file.json]` | Emit **Component Catalogue** JSON (§16). |
+| `node dist/cli.js catalogue <entry.pdl> [--theme Name] [--out file.json]` | Emit **Component Catalogue** JSON (`full-spec.md` §16): **`tokensByTheme`**, **`variantTypes`**, **`variantTypeName`** on variant params, trees, deltas. |
 
 `npm test` runs the Vitest suite.
 
