@@ -14,7 +14,7 @@ export type EvalOptions = {
   paramValues?: Record<string, unknown>;
   paramMeta?: ParamEvalMeta;
   /**
-   * When true, String/Icon/MediaSource params always serialize as `__param:name__` in trees
+   * When true, String/Icon/MediaSource params always serialize as `param:name` in trees
    * (Component Catalogue base), while variant params still use `paramValues` for `if` chains.
    */
   useStringPlaceholders?: boolean;
@@ -78,7 +78,7 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
           opts.useStringPlaceholders &&
           (t === "String" || t === "Icon" || t === "MediaSource")
         ) {
-          return `__param:${name}__`;
+          return `param:${name}`;
         }
       }
       if (opts.paramValues && name in opts.paramValues) {
@@ -87,7 +87,7 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
       if (opts.paramMeta?.has(name)) {
         const t = opts.paramMeta.get(name)!.typeName;
         if (t === "String" || t === "Icon" || t === "MediaSource") {
-          return `__param:${name}__`;
+          return `param:${name}`;
         }
       }
       if (opts.tokens.has(name)) {
@@ -113,11 +113,9 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
       }
       const ty = opts.design.typeStyles.get(name);
       if (ty) {
-        const out: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(ty.props)) {
-          out[k] = evaluateValue(v, opts);
-        }
-        return { __typeStyle: name, ...out };
+        // Keep only a reference on resolved frames; expanded defaults live on the `typeStyle`
+        // declaration. PDL may still set additional text props on the same frame to override.
+        return { __typeStyle: name };
       }
       throw new PdlError("PDL-E007", `Unresolved identifier ${name}`);
     }

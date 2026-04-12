@@ -1,6 +1,7 @@
 // Theme override bundles
 
 import "tokens_color.pdl"
+import "tokens_distance_radius.pdl"
 
 theme AtomsWarm {
   atoms.color.sem.fromRgb = atoms.color.rgba
@@ -12,4 +13,9 @@ theme AtomsCool {
 
 theme AtomsDim {
   atoms.color.scrimLiteral = atoms.color.sem.fromRgba
+}
+
+// Larger corner radius than base (atoms.radius.sm defaults to 4). Try: pdl resolve … --theme AtomsLooseRadius
+theme AtomsLooseRadius {
+  atoms.radius.sm = 12
 }

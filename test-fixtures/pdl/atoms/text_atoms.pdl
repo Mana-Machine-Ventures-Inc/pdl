@@ -48,6 +48,19 @@ component AtomTextTypeStyle() layout {
   children = [A, B, C, D]
 }
 
+component AtomTextStylePlusOverride() layout {
+  direction = .column
+  background = atoms.color.sem.fromRgb
+
+  let T: text = {
+    content = "Mixed"
+    style = AtomCaption
+    fontSize = 22
+  }
+
+  children = [T]
+}
+
 component AtomTextJustifyAlign() layout {
   direction = .row
   gap = atoms.space.md

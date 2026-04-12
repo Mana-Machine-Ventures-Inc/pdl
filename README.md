@@ -10,7 +10,7 @@ After `npm install` and `npm run build`:
 |---------|-------------|
 | `node dist/cli.js graph <entry.pdl>` | Emit merged **design graph** JSON (internal AST snapshot; `full-spec.md` §16b). |
 | `node dist/cli.js manifest <entry.pdl> [--out file.json]` | Emit thin **design manifest** JSON (`full-spec.md` §17 §3). |
-| `node dist/cli.js resolve <entry.pdl> <Component> [key=value …]` | Emit one **resolved instance** tree as JSON. |
+| `node dist/cli.js resolve <entry.pdl> <Component> [--tree-only] [--theme Name] [key=value …]` | Emit **`resolvedComponent`** JSON (`full-spec.md` §16 §2.5): **`components`** map (catalogue rows without **`defaultParams`**) plus **`system`** (**`theme`**, **`themesDeclared`**, trimmed **`primitives` / `semantics`** (definitions only; includes tokens referenced from **`themes[].overrides`**), per-theme **`overrides`** with **`primitive:`** / **`semantic:`** markers, referenced **`typeStyles`**, **`variantTypes`**). No flat **`tokens`**, no materialised tree. **`--tree-only`** = legacy bare **`CatalFrame`**. |
 | `node dist/cli.js catalogue <entry.pdl> [--theme Name] [--out file.json]` | Emit **Component Catalogue** JSON (`full-spec.md` §16): **`tokensByTheme`**, **`variantTypes`**, **`variantTypeName`** on variant params, trees, deltas. |
 
 `npm test` runs the Vitest suite.

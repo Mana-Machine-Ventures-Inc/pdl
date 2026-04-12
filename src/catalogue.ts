@@ -1,15 +1,22 @@
-import type { ComponentDecl } from "./ast.js";
+import type { ComponentDecl, FrameBodyItem } from "./ast.js";
 import type { DesignDefinition } from "./designModel.js";
+import { PdlError } from "./errors.js";
 import { buildResolvedTokenMap } from "./evaluate.js";
 import { resolveComponentTree, resolveDefaultParamValues, type CatalFrame } from "./resolveTree.js";
 
 const SCHEMA = "1.0.0-beta";
 
 export type CatalogueVariantEntry = {
+  /** Full snapshot of every variant-typed parameter for this permutation. */
   params: Record<string, string>;
   affectedFrames: string[];
   changes: { frameId: string; prop: string; value: unknown }[];
   structuralChange?: boolean;
+  /**
+   * When present, ordered Root direct-child frame ids for this permutation (differs from component-level **`children`**).
+   * Omitted when the same as default. Full subtrees live in **`childNodes`** keyed by id.
+   */
+  children?: string[];
 };
 
 export type CatalogueComponent = {
@@ -18,13 +25,25 @@ export type CatalogueComponent = {
     name: string;
     type: string;
     default: unknown;
-    cases?: string[];
-    /** PDL `variant` type name when `type` is `"variant"` (e.g. for Figma variant property sets). */
+    /** PDL `variant` type name when `type` is `"variant"` (e.g. for Figma variant property sets); allowed cases live on **`variantTypes`** only. */
     variantTypeName?: string;
   }[];
   expose: string[];
   usage: string;
-  base: { params: Record<string, string>; tree: CatalFrame };
+  /** Root frame kind (`layout`, `text`, `icon`, or `media`). */
+  kind: string;
+  /** Root frame properties for the **default** (all variant params at defaults) resolution. */
+  props: Record<string, unknown>;
+  /**
+   * Stringified default bindings for every component param (for tooling / parity with former `base.params`).
+   */
+  defaultParams: Record<string, string>;
+  /**
+   * Every candidate direct child of Root across `if` branches: id → catalogue **subtree** (same node shape as a tree child: `id`, `kind`, `props`, `children`).
+   */
+  childNodes: Record<string, CatalFrame>;
+  /** Ordered Root child frame ids when all variant parameters are at their defaults. */
+  children: string[];
   variants: CatalogueVariantEntry[];
 };
 
@@ -111,17 +130,123 @@ function diffTrees(a: CatalFrame, b: CatalFrame): {
   return { changes, affected, structural };
 }
 
+/** Frame refs appearing in `children = […]` targeting Root, unioned across `if` branches (not inside `let` bodies). */
+function collectRootLevelFrameRefTargets(body: FrameBodyItem[]): Set<string> {
+  const s = new Set<string>();
+  const walk = (items: FrameBodyItem[]) => {
+    for (const it of items) {
+      if (it.kind === "children" && it.target === "root") {
+        for (const e of it.entries) {
+          if (e.kind === "frameRef") s.add(e.id);
+        }
+      } else if (it.kind === "if") {
+        for (const br of it.chain.branches) walk(br.body);
+        if (it.chain.elseBody) walk(it.chain.elseBody);
+      }
+    }
+  };
+  walk(body);
+  return s;
+}
+
+function directRootChildSubtree(tree: CatalFrame, id: string): CatalFrame | null {
+  const ch = tree.children.find((x) => x.id === id);
+  return ch ? frameToJson(ch) : null;
+}
+
+function variantParamAxes(
+  design: DesignDefinition,
+  c: ComponentDecl,
+): { name: string; cases: string[] }[] {
+  return c.params
+    .filter((p) => design.variants.has(p.typeName))
+    .map((p) => ({ name: p.name, cases: [...design.variants.get(p.typeName)!.cases] }));
+}
+
+function defaultVariantAssignment(design: DesignDefinition, c: ComponentDecl): Record<string, string> {
+  const o: Record<string, string> = {};
+  for (const p of c.params) {
+    if (!design.variants.has(p.typeName)) continue;
+    const dv = p.defaultValue;
+    if (dv.kind !== "dotEnum") {
+      throw new PdlError(
+        "PDL-E010",
+        `Variant parameter \`${p.name}\` on component ${c.name} must use a dot-enum default`,
+        { path: design.entryPath },
+      );
+    }
+    o[p.name] = stripDot(dv.value);
+  }
+  return o;
+}
+
+function*eachVariantAssignment(axes: { name: string; cases: string[] }[]): Generator<Record<string, string>> {
+  if (axes.length === 0) return;
+  const [head, ...tail] = axes;
+  if (tail.length === 0) {
+    for (const c of head.cases) yield { [head.name]: c };
+    return;
+  }
+  for (const c of head.cases) {
+    for (const rest of eachVariantAssignment(tail)) {
+      yield { [head.name]: c, ...rest };
+    }
+  }
+}
+
+function assignmentKey(assign: Record<string, string>): string {
+  return JSON.stringify(Object.fromEntries(Object.entries(assign).sort(([a], [b]) => a.localeCompare(b))));
+}
+
+function assignmentsEqual(
+  a: Record<string, string>,
+  b: Record<string, string>,
+  keys: string[],
+): boolean {
+  return keys.every((k) => a[k] === b[k]);
+}
+
+function stripRootChildrenFromChanges(
+  changes: CatalogueVariantEntry["changes"],
+): CatalogueVariantEntry["changes"] {
+  return changes.filter((ch) => !(ch.frameId === "Root" && ch.prop === "children"));
+}
+
+function buildChildNodesMap(
+  design: DesignDefinition,
+  candidateIds: string[],
+  scanTrees: CatalFrame[],
+  componentName: string,
+): Record<string, CatalFrame> {
+  const out: Record<string, CatalFrame> = {};
+  for (const id of candidateIds) {
+    let node: CatalFrame | null = null;
+    for (const t of scanTrees) {
+      node = directRootChildSubtree(t, id);
+      if (node) break;
+    }
+    if (!node) {
+      throw new PdlError(
+        "PDL-E001",
+        `Catalogue: could not resolve childNode \`${id}\` under Root for component ${componentName}`,
+        { path: design.entryPath },
+      );
+    }
+    out[id] = node;
+  }
+  return out;
+}
+
 function paramCatalogueType(
   design: DesignDefinition,
   p: import("./ast.js").ComponentParam,
   resolvedDefault: unknown,
-): { type: string; cases?: string[]; default: unknown; variantTypeName?: string } {
+): { type: string; default: unknown; variantTypeName?: string } {
   const v = design.variants.get(p.typeName);
   if (v) {
     return {
       type: "variant",
       variantTypeName: p.typeName,
-      cases: v.cases.map((c) => c),
       default: resolvedDefault,
     };
   }
@@ -153,7 +278,6 @@ function catalogueParams(
       name: p.name,
       type: t.type,
       default: t.default,
-      ...(t.cases ? { cases: t.cases } : {}),
       ...(t.variantTypeName ? { variantTypeName: t.variantTypeName } : {}),
     };
   });
@@ -184,49 +308,67 @@ export function buildComponentCatalogue(
   const tokensByTheme = buildTokensByTheme(design);
   const components: CatalogueComponent[] = [];
 
+  const resolveOpts = { useStringPlaceholders: true, catalogueTokenRefs: true } as const;
+
   for (const c of design.components.values()) {
-    const baseTree = resolveComponentTree(design, c.name, tokenMap, {}, {
-      useStringPlaceholders: true,
-      catalogueTokenRefs: true,
-    });
+    const baseTree = resolveComponentTree(design, c.name, tokenMap, {}, resolveOpts);
     const baseParamsStr = baseParamStrings(design, c, tokenMap);
     const expose = design.expose.get(c.name) ?? c.params.map((p) => p.name);
 
-    const variants: CatalogueVariantEntry[] = [];
+    const defaultChildOrder = baseTree.children.map((ch) => ch.id);
+    const candidateIdList = [...collectRootLevelFrameRefTargets(c.body)].sort((a, b) => a.localeCompare(b));
 
-    for (const p of c.params) {
-      const vdecl = design.variants.get(p.typeName);
-      if (!vdecl) continue;
-      const defCase =
-        p.defaultValue.kind === "dotEnum"
-          ? stripDot(p.defaultValue.value)
-          : String(p.defaultValue);
-      for (const caseName of vdecl.cases) {
-        if (caseName === defCase) continue;
-        const tree2 = resolveComponentTree(
-          design,
-          c.name,
-          tokenMap,
-          { [p.name]: caseName },
-          { useStringPlaceholders: true, catalogueTokenRefs: true },
-        );
-        const { changes, affected, structural } = diffTrees(baseTree, tree2);
-        if (changes.length === 0) continue;
-        variants.push({
-          params: { [p.name]: caseName },
-          affectedFrames: [...affected],
-          changes,
-          ...(structural ? { structuralChange: true } : {}),
-        });
-      }
+    const axes = variantParamAxes(design, c);
+    const defaultAssign = defaultVariantAssignment(design, c);
+    const variantKeys = axes.map((a) => a.name);
+
+    const treesByAssignKey = new Map<string, CatalFrame>();
+    treesByAssignKey.set(assignmentKey(defaultAssign), baseTree);
+
+    const scanTrees: CatalFrame[] = [baseTree];
+    for (const assign of eachVariantAssignment(axes)) {
+      if (assignmentsEqual(assign, defaultAssign, variantKeys)) continue;
+      const k = assignmentKey(assign);
+      if (treesByAssignKey.has(k)) continue;
+      const t = resolveComponentTree(design, c.name, tokenMap, assign, resolveOpts);
+      treesByAssignKey.set(k, t);
+      scanTrees.push(t);
     }
 
+    const childNodes = buildChildNodesMap(design, candidateIdList, scanTrees, c.name);
+
+    const variants: CatalogueVariantEntry[] = [];
+    for (const assign of eachVariantAssignment(axes)) {
+      if (assignmentsEqual(assign, defaultAssign, variantKeys)) continue;
+      const tree2 = treesByAssignKey.get(assignmentKey(assign))!;
+      const { changes, affected, structural } = diffTrees(baseTree, tree2);
+      const childOrder2 = tree2.children.map((ch) => ch.id);
+      const childrenOverride =
+        JSON.stringify(childOrder2) !== JSON.stringify(defaultChildOrder) ? childOrder2 : undefined;
+      const changesOut = childrenOverride ? stripRootChildrenFromChanges(changes) : changes;
+      const structuralOut = structural || Boolean(childrenOverride);
+      if (changesOut.length === 0 && childrenOverride === undefined) continue;
+      variants.push({
+        params: assign,
+        affectedFrames: [...affected],
+        changes: changesOut,
+        ...(structuralOut ? { structuralChange: true } : {}),
+        ...(childrenOverride ? { children: childrenOverride } : {}),
+      });
+    }
+    variants.sort((a, b) => assignmentKey(a.params).localeCompare(assignmentKey(b.params)));
+
+    const baseJson = frameToJson(baseTree);
     components.push({
       name: c.name,
       params: catalogueParams(design, c, tokenMap),
       expose,
       usage: "",
-      base: { params: baseParamsStr, tree: frameToJson(baseTree) },
+      kind: baseTree.kind,
+      props: { ...baseJson.props },
+      defaultParams: baseParamsStr,
+      childNodes,
+      children: defaultChildOrder,
       variants,
     });
   }

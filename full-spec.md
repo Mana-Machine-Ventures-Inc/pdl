@@ -815,7 +815,7 @@ See `test-fixtures/pdl/04_composition_and_nesting.pdl` for larger examples.
 
 ## 6 — Values and Expressions
 
-PDL properties accept **literals**, **token references**, or (where grammar allows) **parameters**. Internally the compiler represents these as one of three expression kinds: a literal value, a token reference (resolved at catalogue-generation time), or a parameter reference (passed through as a `__param:name__` placeholder in the catalogue).
+PDL properties accept **literals**, **token references**, or (where grammar allows) **parameters**. Internally the compiler represents these as one of three expression kinds: a literal value, a token reference (resolved at catalogue-generation time), or a parameter reference (passed through as a **`param:name`** string in the catalogue).
 
 ---
 
@@ -1391,7 +1391,7 @@ From project root (`package.json` scripts):
 | `npm run graph -- <entry.pdl>` | Print **design graph** JSON (§16b) — compiler / test snapshot |
 | `npm run manifest -- <entry.pdl>` | Print **design manifest** JSON (§17 §3) — thin registry |
 | `npm run catalogue -- <entry.pdl>` | Print **Component Catalogue** JSON (§16) |
-| `npm run resolve -- <file> <Component> key=value …` | Print **resolved instance** JSON |
+| `npm run resolve -- <file> <Component> key=value …` | Print **`resolvedComponent`** JSON (§16 §2.5): **`components`** (catalogue rows, no **`defaultParams`**) + **`system`** ( **`theme`**, **`themesDeclared`**, trimmed **`primitives` / `semantics` / `themes` / `typeStyles` / `variantTypes`** ); **`--tree-only`** for a bare **`CatalFrame`**. |
 | `npm run html -- <file> <Component> …` | Emit `output.html` |
 | `npm run preview -- [entry.pdl]` | Local preview server with reload |
 | `npm run web:dev` | Vite **studio** (editor + iframe preview + inspector) |
@@ -2780,7 +2780,7 @@ PDL toolchains may emit more than one JSON artefact. They are **layered by purpo
 
 | Artefact | Role | Typical consumer |
 |----------|------|------------------|
-| **Component Catalogue** (this chapter, §2 onward) | **Full design-system handoff** before view codegen: **`tokensByTheme`**, **`tokens`**, **`themesDeclared`**, **`variantTypes`** (all PDL **`variant`** definitions), per-component **`params`** with **`variantTypeName`** for Figma-style naming, **`expose`**, **base** / **variant** trees, **`__token__:…__`** for bare semantic/primitive idents. | Code generators, bundlers, optional runtime loaders |
+| **Component Catalogue** (this chapter, §2 onward) | **Full design-system handoff** before view codegen: **`tokensByTheme`**, **`tokens`**, **`themesDeclared`**, **`variantTypes`** (all PDL **`variant`** definitions), per-component **`params`** with **`variantTypeName`** for Figma-style naming, **`expose`**, **base** / **variant** trees, **`primitive:`** / **`semantic:`** markers for bare token idents (§2.3). | Code generators, bundlers, optional runtime loaders |
 | **Design graph** (§16b) | **Internal compiler / test snapshot** of the merged parse model (`ValueExpr`, `if` chains, raw component bodies). Verbose and AST-adjacent; **not** the primary handoff to app runtimes. | Parser tests, golden diffs, IDE / linter tooling |
 | **Design manifest** (§17) | **Small registry**: entry path, module list, theme / variant / typeStyle **names**, per-component **`expose`** and param types — **no** resolved frame trees, **no** token value map. | CI, docs, package indexes, sanity checks |
 
@@ -2830,7 +2830,7 @@ PDL compilation has three stages. The first two happen in the PDL toolchain; the
 
 ## 2. The Component Catalogue format
 
-The catalogue is a single JSON file: the **canonical emitter input**. The toolchain always emits **`tokensByTheme`**: a full resolved map under **`base`** (primitives + semantics, **no** `theme { }` overrides) **plus** an identical key set under **each declared theme** after that theme’s overrides. The flat **`tokens`** field duplicates the **active** map used for **trees** and param defaults (CLI **`--theme`** / **`modifiers`**). **`__token:…__`** placeholders in trees (§2.3) keep **semantic names** stable; receivers resolve them against **`tokensByTheme[runtime]`** (or flatten/bake as they prefer).
+The catalogue is a single JSON file: the **canonical emitter input**. The toolchain always emits **`tokensByTheme`**: a full resolved map under **`base`** (primitives + semantics, **no** `theme { }` overrides) **plus** an identical key set under **each declared theme** after that theme’s overrides. The flat **`tokens`** field duplicates the **active** map used for **trees** and param defaults (CLI **`--theme`** / **`modifiers`**). **`primitive:`** / **`semantic:`** strings in trees (§2.3) keep **token names** stable; receivers resolve them against **`tokensByTheme[runtime]`** (or flatten/bake as they prefer).
 
 ### 2.1 Top-level shape
 
@@ -2884,12 +2884,12 @@ The catalogue is a single JSON file: the **canonical emitter input**. The toolch
 | `themesDeclared` | Sorted list of every **`theme`** name in the merged design. |
 | `tokens` | Flat map for the **active** context only (duplicate of the map used to resolve non-placeholder props in **`components`**). |
 | `tokensByTheme` | **`base`** plus one key per **`themesDeclared`** entry: each value is a full **token name → resolved value** map for that context. Same keys across rows; values differ where themes override semantics. |
-| `variantTypes` | Sorted array of every merged **`variant`** type: **`name`** is the PDL identifier (e.g. `Emphasis`); **`cases`** are case ids **without** a leading dot, in declaration order. Used by emitters (e.g. **Figma** component variant properties) to recover stable **property set names**; each variant-typed component param also carries **`variantTypeName`** (§2.2) pointing at the matching row. Empty when the design defines no **`variant`** blocks. |
+| `variantTypes` | Sorted array of every merged **`variant`** type: **`name`** is the PDL identifier (e.g. `Emphasis`); **`cases`** are case ids **without** a leading dot, in declaration order. Used by emitters (e.g. **Figma** component variant properties) to recover stable **property set names**. Variant-typed **`components[].params`** entries carry **`variantTypeName`** only (§2.2) — look up **`cases`** on the matching **`variantTypes`** row. Empty when the design defines no **`variant`** blocks. |
 | `components` | Array of component entries (§2.2). |
 
 ### 2.2 Component entry
 
-Each component is one object in the `components` array:
+Each component is one object in the `components` array. The **default** presentation is split so emitters see a small root surface plus every **candidate** direct child of Root, then **variant** overlays:
 
 ```json
 {
@@ -2900,91 +2900,85 @@ Each component is one object in the `components` array:
       "name": "emphasis",
       "type": "variant",
       "variantTypeName": "Emphasis",
-      "cases": ["primary", "secondary", "destructive"],
       "default": "primary"
     },
     {
       "name": "iconVariant",
       "type": "variant",
       "variantTypeName": "IconVariant",
-      "cases": ["none", "leading", "trailing"],
       "default": "none"
     },
     { "name": "iconName", "type": "Icon", "default": "star" }
   ],
   "expose": ["label", "emphasis", "iconVariant", "iconName"],
   "usage": "Primary action button. Use one per surface.",
-  "base": { ... },
-  "variants": [ ... ]
+  "kind": "layout",
+  "props": {
+    "direction": "row",
+    "gap": 8,
+    "padding": { "top": 12, "right": 16, "bottom": 12, "left": 16 },
+    "background": "semantic:color.surface.card",
+    "cornerRadius": 8
+  },
+  "defaultParams": { "label": "Submit", "emphasis": "primary", "iconVariant": "none", "iconName": "star" },
+  "childNodes": {
+    "Label": {
+      "id": "Label",
+      "kind": "text",
+      "props": {
+        "content": "param:label",
+        "fontSize": 16,
+        "fontWeight": 600,
+        "lineHeight": 1.5,
+        "color": "#111111"
+      },
+      "children": []
+    }
+  },
+  "children": ["Label"],
+  "variants": []
 }
 ```
 
 | Field | Description |
 |-------|-------------|
 | `name` | Component name, unique within the catalogue. |
-| `params` | All declared parameters. **`type`** is the catalogue discriminator (`"variant"`, `String`, …). For **`type": "variant"`**, **`variantTypeName`** repeats the PDL **`variant`** type name (matches an entry in top-level **`variantTypes`**); **`cases`** lists allowed case ids (no leading dot). |
+| `params` | All declared parameters. **`type`** is the catalogue discriminator (`"variant"`, `String`, …). For **`type": "variant"`**, **`variantTypeName`** repeats the PDL **`variant`** type name (matches an entry in top-level **`variantTypes`**); allowed case ids appear **only** on that **`variantTypes`** row’s **`cases`** array (no leading dot). |
 | `expose` | The subset of params that form the public API (from `expose` blocks). |
 | `usage` | Human-readable description from `usage` blocks. Empty string if not declared. |
-| `base` | The default-parameter **tree** (§2.3): resolved props, plus **`__param__:…__`** / **`__token__:…__`** placeholders where defined in §2.3. |
-| `variants` | Delta entries for each non-default param combination (§2.4). |
+| `kind` | Root frame kind: **`layout`**, **`text`**, **`icon`**, or **`media`**. |
+| `props` | Root frame properties for the **default** resolution (all variant params at defaults). Same key/value rules as frame nodes (§2.3). |
+| `defaultParams` | String catalogue of **every** component parameter’s default binding (stable for emitters that previously read `base.params`). |
+| `childNodes` | Map **frame id → subtree** for **every** candidate direct child of Root (union across `if` / `else` branches). Each value uses the same **frame node** shape as §2.3 (`id`, `kind`, `props`, `children`). |
+| `children` | Ordered array of **frame ids** — Root’s direct children when all **variant** parameters are at their **defaults**. |
+| `variants` | Entries for non-default **variant tuples** (§2.4): property deltas, optional Root **`children`** id-list override, optional structural flag. |
 
-### 2.3 Base tree
+### 2.3 Frame nodes and placeholders
 
-The base tree is the component resolved with all parameters at their default values. Most properties are plain JSON values. Two **placeholder** string forms are used so emitters can wire parameters and semantic tokens without re-parsing PDL:
+Values inside **`props`** (root) and inside each **`childNodes`** entry use the same rules. Most properties are plain JSON values. Two **placeholder** string forms are used so emitters can wire parameters and semantic tokens without re-parsing PDL:
 
-- **`__param:paramName__`** — `String`, `Icon`, or `MediaSource` parameters that remain open at catalogue time (unchanged from prior spec intent).  
-- **`__token:full.token.name__`** — the frame property’s RHS was exactly **one identifier** naming a **declared `primitive` or `semantic` token** (e.g. `background = color.surface.card`). Resolved values for **every** theme appear under **`tokensByTheme`** (and the active slice is duplicated in **`tokens`**). Emitters may inline from **`tokensByTheme[skin]`**, emit runtime lookups, or generate theme-aware accessors. **Note:** v1 reference tooling does **not** emit `__token__:…__` for composite expressions (e.g. `color @ opacity`, layer arrays, `typeStyle` expansion); those remain fully resolved in the tree.
+- **`param:paramName`** — `String`, `Icon`, or `MediaSource` parameters that remain open at catalogue time (protected prefix; not a URL scheme).  
+- **`primitive:full.token.name`** / **`semantic:full.token.name`** — the property’s RHS was exactly **one identifier** naming a **declared `primitive` or `semantic` token**; the catalogue discriminator is which map the name lives in. Resolved values for **every** theme appear under **`tokensByTheme`** (and the active slice is duplicated in **`tokens`**). Emitters may inline from **`tokensByTheme[skin]`**, emit runtime lookups, or generate theme-aware accessors. **Note:** v1 reference tooling does **not** emit these markers for composite expressions (e.g. `color @ opacity`, layer arrays). **`typeStyle:PresetName`** on **`text`** frames (string value of the **`typeStyle`** property) references a catalogue / **`resolvedComponent.system.typeStyles`** entry — expanded font fields are **not** duplicated on the frame unless the PDL sets them explicitly (overrides).
 
-```json
-"base": {
-  "params": { "emphasis": "primary", "iconVariant": "none" },
-  "tree": {
-    "id": "Root",
-    "kind": "layout",
-    "props": {
-      "direction": "row",
-      "gap": 8,
-      "padding": { "top": 12, "right": 16, "bottom": 12, "left": 16 },
-      "background": "__token:color.surface.card__",
-      "cornerRadius": 8
-    },
-    "children": [
-      {
-        "id": "Label",
-        "kind": "text",
-        "props": {
-          "content": "__param:label__",
-          "fontSize": 16,
-          "fontWeight": 600,
-          "lineHeight": 1.5,
-          "color": "#111111"
-        },
-        "children": []
-      }
-    ]
-  }
-}
-```
-
-**Frame node fields:**
+**Frame node fields** (each value in **`childNodes`**, and each node in a resolved `CatalFrame` tree such as CLI **`--tree-only`** output):
 
 | Field | Description |
 |-------|-------------|
 | `id` | Frame identifier, unique within the component. |
 | `kind` | One of `layout`, `text`, `icon`, `media`. |
 | `props` | All resolved properties as plain JSON values. See §5 for property names per kind. Enum values are plain strings without a leading dot (e.g. `"row"` not `".row"`). |
-| `children` | Ordered array of child frame nodes. Empty array for leaf frames. |
+| `children` | Ordered array of **child frame nodes** (full objects). Empty array for leaf frames. |
 
-**`__param:name__` markers:** When a property value is a free parameter (a `String` or `Icon` param that can't be pre-baked), the base tree uses a `__param:name__` string as a placeholder. Emitters wire these through to their generated function parameters. Variant params are fully resolved — only open-ended string/icon/media params use this form.
+**`param:name` markers:** When a property value is a free parameter (a `String` or `Icon` param that can't be pre-baked), the catalogue uses a **`param:name`** string. Emitters wire these through to their generated function parameters. Variant params are fully resolved — only open-ended string/icon/media params use this form.
 
 ### 2.4 Variant deltas
 
-The `variants` array contains one entry per non-default param combination that changes anything about the base tree. Each entry lists only the properties that differ.
+The **`variants`** array contains one entry per **non-default Cartesian tuple** of **variant-typed** parameters that changes anything relative to the default resolution (property deltas and/or a different Root **child id** order). Each entry carries a **full** **`params`** snapshot for every variant-typed parameter on the component (stable emitter matching).
 
 ```json
 "variants": [
   {
-    "params": { "emphasis": "secondary" },
+    "params": { "emphasis": "secondary", "iconVariant": "none" },
     "affectedFrames": ["Root"],
     "changes": [
       { "frameId": "Root", "prop": "background", "value": "transparent" },
@@ -2993,7 +2987,7 @@ The `variants` array contains one entry per non-default param combination that c
     ]
   },
   {
-    "params": { "emphasis": "destructive" },
+    "params": { "emphasis": "destructive", "iconVariant": "none" },
     "affectedFrames": ["Root", "Label"],
     "changes": [
       { "frameId": "Root", "prop": "background", "value": "#FDE8E8" },
@@ -3001,70 +2995,61 @@ The `variants` array contains one entry per non-default param combination that c
     ]
   },
   {
-    "params": { "iconVariant": "leading" },
+    "params": { "emphasis": "primary", "iconVariant": "leading" },
     "structuralChange": true,
     "affectedFrames": ["Root"],
-    "changes": [
-      {
-        "frameId": "Root",
-        "prop": "children",
-        "value": [
-          {
-            "id": "LeadingIcon",
-            "kind": "icon",
-            "props": { "icon": "__param:iconName__", "size": 16, "color": "#111111" },
-            "children": []
-          },
-          { "$ref": "Label" }
-        ]
-      }
-    ]
-  },
-  {
-    "params": { "iconVariant": "trailing" },
-    "structuralChange": true,
-    "affectedFrames": ["Root"],
-    "changes": [
-      {
-        "frameId": "Root",
-        "prop": "children",
-        "value": [
-          { "$ref": "Label" },
-          {
-            "id": "TrailingIcon",
-            "kind": "icon",
-            "props": { "icon": "__param:iconName__", "size": 16, "color": "#111111" },
-            "children": []
-          }
-        ]
-      }
-    ]
+    "children": ["LeadingIcon", "Label"],
+    "changes": []
   }
 ]
 ```
+
+When Root’s ordered child **ids** differ from component-level **`children`**, the entry includes **`children`** (string array of ids). The reference implementation omits a **`changes`** row for **`{ frameId: "Root", prop: "children" }`** when **`children`** is present, to avoid duplicating the same structural intent.
 
 **Variant entry fields:**
 
 | Field | Description |
 |-------|-------------|
-| `params` | The param values this entry applies to. Only the params that differ from the base are listed. |
-| `affectedFrames` | Frame ids that have at least one changed property. Lets emitters quickly identify which parts of the tree need conditional logic. |
-| `changes` | Array of `{ frameId, prop, value }` triples. `value` is always a plain JSON value, same type as in the base tree. |
-| `structuralChange` | `true` when `children` changes — i.e. the tree shape itself is different, not just property values. When `true`, the change entry contains a `children` replacement. |
+| `params` | **Full** map of **variant-typed** parameter names → case id (no leading dot) for this permutation. |
+| `affectedFrames` | Frame ids that have at least one changed property or a Root child-order change. |
+| `changes` | Array of `{ frameId, prop, value }` triples for property overrides on **any** frame (including **`childNodes`** ids). Omitted or empty when only Root child-order changes. |
+| `children` | When present, the Root **direct-child id order** for this permutation (differs from component-level **`children`**). Subtrees remain in **`childNodes`**. |
+| `structuralChange` | `true` when Root child-order changes or any structural tree difference is recorded. |
 
-**`$ref` in children replacements:** When a structural change rearranges existing children rather than adding all-new ones, existing frames are referenced as `{ "$ref": "frameId" }` rather than repeated in full. The emitter resolves this by looking up `frameId` in the base tree.
+**Multi-param variants:** Every combination of variant cases is explored; one catalogue row is emitted per tuple that produces a non-empty diff or a **`children`** override relative to defaults.
 
-**Multi-param variants:** Each entry in `variants` represents a single param axis changing from its default. When two params interact to produce a result that isn't simply additive (e.g. `emphasis: destructive` combined with `size: large` has different padding than either alone), include an explicit combined entry with both params set:
+### 2.5 Resolved component JSON (`pdl resolve`, default)
 
-```json
-{
-  "params": { "emphasis": "destructive", "size": "large" },
-  "affectedFrames": ["Root"],
-  "changes": [
-    { "frameId": "Root", "prop": "padding", "value": { "top": 20, "right": 24, "bottom": 20, "left": 24 } }
-  ]
-}
-```
+The reference CLI’s **`pdl resolve <entry> <Component> [key=value …]`** (without **`--tree-only`**) emits a single object with **`schemaKind`: `"resolvedComponent"`**. It splits **layout** from **design-system** data:
+
+- **`components`** — object keyed by component **`name`**. Each value matches a catalogue **§2.2** row (**`kind`**, **`props`**, **`childNodes`**, **`children`**, **`variants`**, **`params`**, **`expose`**, **`usage`**) but **omits** catalogue-only **`defaultParams`**. The reference CLI emits **one** key: the component named on the command line (extensible if the bundle grows to multiple rows).
+- **`system`** — active **`theme`**, **`themesDeclared`**, trimmed **`variantTypes`**, **`primitives`**, **`semantics`**, **`themes`**, and **`typeStyles`** (same trimming rules as before: no duplicate flat **`tokens`** / **`tokensByTheme`** on the document).
+
+Optional **`paramOverrides`** mirrors CLI **`key=value`** arguments; it does **not** rewrite **`components[name].children`** — emitters still apply **§2.4** variant logic to the catalogue row. Emitters resolve **`primitive:`** / **`semantic:`** strings on **`components[…]`** using **`system.primitives` / `system.semantics`** (**`definition`** only) and strip the **`typeStyle:`** prefix when reading **`system.typeStyles`**. Per-skin values come from composing **`definition`** with **`system.themes[].overrides`** (see below).
+
+| Field | Description |
+|-------|-------------|
+| `schemaKind` | Always **`"resolvedComponent"`**. |
+| `schemaVersion` | Same string as the Component Catalogue (**§2.1**). |
+| `generatedAt` | ISO 8601 timestamp when the document was built. |
+| `entryPath` | Absolute path to the **entry** `.pdl` used for merge / resolution. |
+| `paramOverrides` | Present when the CLI passes **`key=value`** overrides; maps param names to values. Does not mutate **`components`** rows. |
+| **`components`** | Map **component name → catalogue row** (minus **`defaultParams`**). |
+| **`system`** | Design-system bundle for this resolve (see below). |
+
+**`system` object:**
+
+| Field | Description |
+|-------|-------------|
+| `theme` | Active theme label for this resolve (mirrors catalogue **`theme`**). |
+| `themesDeclared` | Sorted theme names (mirrors catalogue). |
+| `variantTypes` | Only **`variant`** type definitions referenced by this component’s **`params`** (**`variantTypeName`**). |
+| **`primitives`** | Subset of catalogue **§2.1** primitives whose **`name`** is in the **collected** set: (a) **`primitive:`** / **`semantic:`** markers anywhere under **`components[*]`** (**`props`**, **`childNodes`**, **`variants[].changes`**), (b) **`primitive` / `semantic`** idents in referenced **`typeStyle`** **`ValueExpr`** bodies, (c) **transitive** references inside included token **`definition`** graphs, and (d) any token referenced from **`system.themes[].overrides`**. Each entry is **`{ name, tokenType, definition }`** with **`definition`** = serialised base **`ValueExpr`** (same shape as the design graph). |
+| **`semantics`** | Same rules as **`primitives`**, for **semantic** tokens. |
+| **`themes`** | **Trimmed** to themes that **affect this component**: at least one override **LHS** (token name) intersects the same collected name set as **`primitives` / `semantics`**. Each row is **`name`**, optional **`baseTheme`**, and **`overrides`** containing **only** those keys (subset of the PDL theme block). Bare **`primitive` / `semantic`** idents in an override RHS are emitted as **`primitive:`** / **`semantic:`** strings; literals and composites use serialised **`ValueExpr`** objects. RHS token names are also included in **`primitives` / `semantics`**. |
+| **`typeStyles`** | Only **`typeStyle`** declarations referenced from **`components[*]`** trees. Each **`props`** value is a serialised **`ValueExpr`**. |
+
+**`--tree-only`** emits only the bare **`CatalFrame`** root object (legacy).
 
 ---
 
@@ -3074,14 +3059,14 @@ A typical emitter pass for a Kotlin / Compose target:
 
 1. **Read `tokensByTheme`** → generate per-theme token modules (e.g. Swift enums, CSS custom property blocks) or a single runtime map keyed by theme. Optionally use the flat **`tokens`** field only as a convenience alias for the **active** catalogue context. Use **`themesDeclared`** to know which theme keys exist.
 2. **For each component:**
-   - Walk the base tree → generate a `@Composable` function with default property values hardcoded (or reading from design tokens at runtime).
-   - Walk the variants array → generate a `when` block per variant param applying only the changed properties. For `structuralChange: true` entries, generate a separate layout branch.
-   - Wire **`__param:name__`** placeholders to function parameters.
-   - Replace **`__token:full.name__`** tree strings with lookups into **`tokensByTheme[skin]`** (or **`tokens`** when emitting only the active skin), inlining literals or design-token accessors as your target prefers.
+   - Use **`kind`**, **`props`**, and **`children`** for the default Root shell; use **`childNodes[id]`** for each default child subtree.
+   - Walk the **`variants`** array → generate branches keyed by the full **`params`** tuple; apply **`changes`** to **`props`** on the indicated **`frameId`** (root or a **`childNodes`** id). When a variant supplies **`children`**, switch the ordered child list while still resolving subtrees from **`childNodes`**.
+   - Wire **`param:name`** strings to function parameters.
+   - Replace **`primitive:`** / **`semantic:`** tree strings with lookups into **`tokensByTheme[skin]`** (or **`tokens`** when emitting only the active skin), inlining literals or design-token accessors as your target prefers.
 3. **Use `expose`** to determine the public function signature (params not in `expose` may be internal or omitted).
 4. **Use `usage`** for KDoc / documentation comments when the catalogue carries usage metadata.
 
-The emitter does **not** need to parse PDL, evaluate **`if`** override chains, or re-walk the import graph. It **does** still interpret **`__token__:…__`** using **`tokensByTheme`** (or the **`tokens`** alias for the active context).
+The emitter does **not** need to parse PDL, evaluate **`if`** override chains, or re-walk the import graph. It **does** still interpret **`primitive:`** / **`semantic:`** markers using **`tokensByTheme`** (or the **`tokens`** alias for the active context).
 
 ---
 
@@ -3095,9 +3080,9 @@ npm run catalogue -- design.pdl --theme Dark
 npm run catalogue -- design.pdl --theme Light --theme Dark
 ```
 
-A **single** catalogue JSON always includes the full **`tokensByTheme`** object (**`base`** + every declared theme). The **`--theme`** flag (when passed once) only selects which slice is duplicated into **`tokens`** and which theme context is used to resolve **trees** and non-`__token__` literals.
+A **single** catalogue JSON always includes the full **`tokensByTheme`** object (**`base`** + every declared theme). The **`--theme`** flag (when passed once) only selects which slice is duplicated into **`tokens`** and which theme context is used to resolve **trees** and literals that are not **`primitive:`** / **`semantic:`** markers.
 
-When **`--theme`** is passed **multiple** times (reference CLI), one file is still emitted **per** invocation in typical wrappers — each file carries the **same** **`tokensByTheme`**, but different **`theme`**, **`tokens`**, and possibly different resolved **trees** for props that are not `__token__` placeholders. Emitters that only need one JSON for runtime theming can rely on **`tokensByTheme`** alone and ignore duplicate files.
+When **`--theme`** is passed **multiple** times (reference CLI), one file is still emitted **per** invocation in typical wrappers — each file carries the **same** **`tokensByTheme`**, but different **`theme`**, **`tokens`**, and possibly different resolved **trees** for props that are not **`primitive:`** / **`semantic:`** markers. Emitters that only need one JSON for runtime theming can rely on **`tokensByTheme`** alone and ignore duplicate files.
 
 ---
 
@@ -3111,7 +3096,7 @@ The `schemaVersion` field follows the same semantic versioning as the rest of PD
 
 This section documents the **design graph** JSON object: a serialisation of the **merged, parsed design definition** (tokens, themes, variants, type styles, components with frame bodies, and `expose` metadata) **before** catalogue-time resolution into per-variant resolved trees.
 
-**Relationship to §16 and §17:** The **Component Catalogue** (§16) is the **canonical** emitter handoff (resolved **`tokens`**, trees, variant deltas, and `__token__` / `__param__` placeholders as defined there). The **design manifest** (§17) is a **thin registry** without trees. The **design graph** is neither of those: it is an **internal merged-AST snapshot** for **compiler correctness**, golden tests, and tooling that needs pre-resolution structure.
+**Relationship to §16 and §17:** The **Component Catalogue** (§16) is the **canonical** emitter handoff (resolved **`tokens`**, trees, variant deltas, and **`param:`** / **`primitive:`** / **`semantic:`** / **`typeStyle:`** string markers as defined there). The **design manifest** (§17) is a **thin registry** without trees. The **design graph** is neither of those: it is an **internal merged-AST snapshot** for **compiler correctness**, golden tests, and tooling that needs pre-resolution structure.
 
 **Normative status:** The graph is a **reference implementation contract** (`kind: "designGraph"`). **TODO:** Decide whether a future PDL conformance tier requires bit-for-bit graph compatibility, or only catalogue + manifest stability.
 
@@ -3340,7 +3325,7 @@ Golden-file tests may normalise **`entryPath`** to a sentinel and sort **`module
 
 ## 17 — Emitters, Compiler Targets, and the Design Manifest
 
-Emitters consume the **Component Catalogue** (§16) as their **primary** input for generating view code: **`tokensByTheme`** (all theme slices + **`base`**), the **`tokens`** alias for the active build, **`themesDeclared`**, pre-baked **base** and **variant** trees, and semantic **`__token__:…__`** placeholders where applicable (§16 §0, §2.3).
+Emitters consume the **Component Catalogue** (§16) as their **primary** input for generating view code: **`tokensByTheme`** (all theme slices + **`base`**), the **`tokens`** alias for the active build, **`themesDeclared`**, per-component **`kind` / `props` / `childNodes` / `children` / `variants`**, and **`primitive:`** / **`semantic:`** / **`param:`** / **`typeStyle:`** markers where applicable (§16 §0, §2.2–§2.4).
 
 The **design manifest** (§3 below) is a **separate, lightweight JSON** file: a registry of names and public APIs **without** frame trees or token values. Use it for CI, documentation, and discovery; use the **design graph** (§16b) only for **compiler-adjacent** tooling — it is **not** a shipping handoff to app runtimes (§16 §0).
 
@@ -3418,7 +3403,7 @@ The **design manifest** is intentionally **small**: it lists **what exists** in 
 | `themes` | string[] | Sorted **`theme`** names. |
 | `variants` | string[] | Sorted **`variant`** type names. |
 | `typeStyles` | string[] | Sorted **`typeStyle`** names. |
-| `components` | array | Sorted by **`name`**. Each entry: **`name`**, **`rootKind`**, **`params`** (`{ name, type }[]`), **`expose`** (from `expose { … }` or, when absent, all param names per catalogue ergonomics). **No** `base` / `variants` / **`tokens`** — use the **Component Catalogue** (§16) for those. |
+| `components` | array | Sorted by **`name`**. Each entry: **`name`**, **`rootKind`**, **`params`** (`{ name, type }[]`), **`expose`** (from `expose { … }` or, when absent, all param names per catalogue ergonomics). **No** `kind` / `props` / `childNodes` / `children` / `variants` / **`tokens`** — use the **Component Catalogue** (§16) for those. |
 
 **Evolution:** add optional fields in **minor** semver; breaking renames in **major**.
 
@@ -3553,7 +3538,7 @@ This checklist orders work so a **greenfield implementation** (or a full port to
 
 ## Phase I — Catalogue generation
 
-24. **Catalogue generation** — component entries with base trees, variant deltas, `$ref` resolution, `__param:name__` markers per §16.
+24. **Catalogue generation** — component entries with **`kind`**, **`props`**, **`childNodes`**, default **`children`**, **`variants`**, and **`param:`** / **`primitive:`** / **`semantic:`** / **`typeStyle:`** markers per §16.
 
 ---
 

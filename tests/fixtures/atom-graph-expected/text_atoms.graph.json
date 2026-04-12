@@ -240,6 +240,70 @@
           "name": "direction",
           "value": {
             "kind": "dotEnum",
+            "value": ".column"
+          }
+        },
+        {
+          "kind": "prop",
+          "name": "background",
+          "value": {
+            "kind": "ident",
+            "name": "atoms.color.sem.fromRgb"
+          }
+        },
+        {
+          "body": [
+            {
+              "kind": "prop",
+              "name": "content",
+              "value": {
+                "kind": "string",
+                "value": "Mixed"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "style",
+              "value": {
+                "kind": "ident",
+                "name": "AtomCaption"
+              }
+            },
+            {
+              "kind": "prop",
+              "name": "fontSize",
+              "value": {
+                "kind": "number",
+                "value": 22
+              }
+            }
+          ],
+          "frameKind": "text",
+          "id": "T",
+          "kind": "let"
+        },
+        {
+          "entries": [
+            {
+              "id": "T",
+              "kind": "frameRef"
+            }
+          ],
+          "kind": "children",
+          "target": "root"
+        }
+      ],
+      "name": "AtomTextStylePlusOverride",
+      "params": [],
+      "rootKind": "layout"
+    },
+    {
+      "body": [
+        {
+          "kind": "prop",
+          "name": "direction",
+          "value": {
+            "kind": "dotEnum",
             "value": ".row"
           }
         },

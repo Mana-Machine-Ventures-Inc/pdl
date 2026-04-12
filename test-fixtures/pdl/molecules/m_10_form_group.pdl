@@ -3,10 +3,16 @@
 import "foundation.pdl"
 import "m_02_buttons_basic.pdl"
 
+variant MoleculeFieldBlockLayout {
+  case includeHelp
+  case noHelp
+}
+
 component MoleculeFieldBlock(
   label: String = "Email",
   value: String = "you@example.com",
-  helper: String = "We never share your address."
+  helper: String = "We never share your address.",
+  layoutMode: MoleculeFieldBlockLayout = .includeHelp
 ) layout {
   direction = .column
   align = .stretch
@@ -40,7 +46,11 @@ component MoleculeFieldBlock(
     style = AtomMono
   }
 
-  children = [Lab, Box, Help]
+  if layoutMode == .includeHelp {
+    children = [Lab, Box, Help]
+  } else {
+    children = [Lab, Box]
+  }
 }
 
 component MoleculeFormColumnDemo() layout {

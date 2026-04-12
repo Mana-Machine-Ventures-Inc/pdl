@@ -1,0 +1,14 @@
+variant V {
+  case a
+  case b
+}
+
+component Bad(x: String = "hi") layout {
+  direction = .column
+
+  if x == .a {
+    align = .stretch
+  } else {
+    align = .start
+  }
+}

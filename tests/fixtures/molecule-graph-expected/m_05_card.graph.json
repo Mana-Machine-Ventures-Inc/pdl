@@ -1342,6 +1342,9 @@
     "m_02_buttons_basic.pdl",
     "m_03_button_icon_chevron.pdl",
     "m_05_card.pdl",
+    "theme_atoms.pdl",
+    "theme_atoms.pdl",
+    "theme_atoms.pdl",
     "tokens_blur_vibrancy_ramp.pdl",
     "tokens_blur_vibrancy_ramp.pdl",
     "tokens_blur_vibrancy_ramp.pdl",
@@ -1354,9 +1357,15 @@
     "tokens_color.pdl",
     "tokens_color.pdl",
     "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
     "tokens_composite_bg_fg.pdl",
     "tokens_composite_bg_fg.pdl",
     "tokens_composite_bg_fg.pdl",
+    "tokens_distance_radius.pdl",
+    "tokens_distance_radius.pdl",
+    "tokens_distance_radius.pdl",
     "tokens_distance_radius.pdl",
     "tokens_distance_radius.pdl",
     "tokens_distance_radius.pdl",
@@ -1814,7 +1823,48 @@
       }
     }
   ],
-  "themes": [],
+  "themes": [
+    {
+      "baseTheme": null,
+      "name": "AtomsWarm",
+      "overrides": {
+        "atoms.color.sem.fromRgb": {
+          "kind": "ident",
+          "name": "atoms.color.rgba"
+        }
+      }
+    },
+    {
+      "baseTheme": null,
+      "name": "AtomsCool",
+      "overrides": {
+        "atoms.color.sem.fromRgb": {
+          "kind": "ident",
+          "name": "atoms.color.rgb"
+        }
+      }
+    },
+    {
+      "baseTheme": null,
+      "name": "AtomsDim",
+      "overrides": {
+        "atoms.color.scrimLiteral": {
+          "kind": "ident",
+          "name": "atoms.color.sem.fromRgba"
+        }
+      }
+    },
+    {
+      "baseTheme": null,
+      "name": "AtomsLooseRadius",
+      "overrides": {
+        "atoms.radius.sm": {
+          "kind": "number",
+          "value": 12
+        }
+      }
+    }
+  ],
   "typeStyles": [
     {
       "name": "AtomCaption",

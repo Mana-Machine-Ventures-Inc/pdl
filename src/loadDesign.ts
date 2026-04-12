@@ -14,6 +14,7 @@ import type {
 import type { DesignDefinition } from "./designModel.js";
 import { PdlError } from "./errors.js";
 import { parseModule } from "./parser.js";
+import { validateMergedDesign } from "./validateDesign.js";
 
 function isImport(d: TopLevelDecl): d is ImportDecl {
   return d.kind === "import";
@@ -103,5 +104,7 @@ function mergeDesign(entryPath: string, ordered: ModuleAst[]): DesignDefinition 
 export function loadDesign(entryPath: string): DesignDefinition {
   const ordered: ModuleAst[] = [];
   collectModules(entryPath, new Set(), ordered);
-  return mergeDesign(entryPath, ordered);
+  const design = mergeDesign(entryPath, ordered);
+  validateMergedDesign(design);
+  return design;
 }

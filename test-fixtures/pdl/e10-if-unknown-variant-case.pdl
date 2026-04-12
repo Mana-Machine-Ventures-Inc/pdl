@@ -1,0 +1,14 @@
+variant V {
+  case a
+  case b
+}
+
+component Bad(p: V = .a) layout {
+  direction = .column
+
+  if p == .bogus {
+    align = .stretch
+  } else {
+    align = .start
+  }
+}

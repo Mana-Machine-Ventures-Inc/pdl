@@ -23,7 +23,7 @@ This document records ambiguities between `full-spec.md` and this repository’s
 ## Component Catalogue
 
 - **Variant metadata:** top-level **`variantTypes`** plus per-param **`variantTypeName`** carry PDL **`variant`** type names for emitters (e.g. Figma); **`type`** stays **`"variant"`** as the JSON discriminator.
-- **Semantic placeholders:** catalogue trees use **`__token:full.name__`** for frame properties whose RHS is a bare `primitive` / `semantic` identifier (see §16 §2.3); composite RHS values are still fully resolved in v1.
+- **External refs in trees:** catalogue trees use **`primitive:`** / **`semantic:`** string markers for frame properties whose RHS is a bare `primitive` / `semantic` identifier (see §16 §2.3); composite RHS values are still fully resolved in v1.
 - **`tokensByTheme` vs `tokens`:** `tokensByTheme` rows are built **without** CLI **`modifiers`**. If **`buildComponentCatalogue`** is called with non-empty **`modifiers`**, the flat **`tokens`** map (and tree resolution) may differ from every pure-theme slice; receivers that use modifiers should treat **`tokens`** as authoritative for that build.
 - **Variant deltas:** only **single-parameter** axes are expanded automatically against the default instance. Combined variant rows (e.g. `emphasis` + `size` interaction) must be authored explicitly per **§16**; not generated yet.
 - **`$ref` in `children`:** structural variant entries in the spec use `{ "$ref": "Label" }` for reuse. The current diff emits full child trees; emitters can still consume them, but JSON may be larger than the spec’s examples.

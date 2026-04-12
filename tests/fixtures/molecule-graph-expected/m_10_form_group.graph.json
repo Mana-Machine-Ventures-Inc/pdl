@@ -590,22 +590,55 @@
           "kind": "let"
         },
         {
-          "entries": [
-            {
-              "id": "Lab",
-              "kind": "frameRef"
-            },
-            {
-              "id": "Box",
-              "kind": "frameRef"
-            },
-            {
-              "id": "Help",
-              "kind": "frameRef"
-            }
-          ],
-          "kind": "children",
-          "target": "root"
+          "chain": {
+            "branches": [
+              {
+                "body": [
+                  {
+                    "entries": [
+                      {
+                        "id": "Lab",
+                        "kind": "frameRef"
+                      },
+                      {
+                        "id": "Box",
+                        "kind": "frameRef"
+                      },
+                      {
+                        "id": "Help",
+                        "kind": "frameRef"
+                      }
+                    ],
+                    "kind": "children",
+                    "target": "root"
+                  }
+                ],
+                "condition": {
+                  "kind": "cmp",
+                  "op": "==",
+                  "param": "layoutMode",
+                  "rhs": ".includeHelp"
+                }
+              }
+            ],
+            "elseBody": [
+              {
+                "entries": [
+                  {
+                    "id": "Lab",
+                    "kind": "frameRef"
+                  },
+                  {
+                    "id": "Box",
+                    "kind": "frameRef"
+                  }
+                ],
+                "kind": "children",
+                "target": "root"
+              }
+            ]
+          },
+          "kind": "if"
         }
       ],
       "name": "MoleculeFieldBlock",
@@ -633,6 +666,14 @@
           },
           "name": "helper",
           "typeName": "String"
+        },
+        {
+          "defaultValue": {
+            "kind": "dotEnum",
+            "value": ".includeHelp"
+          },
+          "name": "layoutMode",
+          "typeName": "MoleculeFieldBlockLayout"
         }
       ],
       "rootKind": "layout"
@@ -884,6 +925,8 @@
     "foundation.pdl",
     "m_02_buttons_basic.pdl",
     "m_10_form_group.pdl",
+    "theme_atoms.pdl",
+    "theme_atoms.pdl",
     "tokens_blur_vibrancy_ramp.pdl",
     "tokens_blur_vibrancy_ramp.pdl",
     "tokens_color.pdl",
@@ -892,8 +935,12 @@
     "tokens_color.pdl",
     "tokens_color.pdl",
     "tokens_color.pdl",
+    "tokens_color.pdl",
+    "tokens_color.pdl",
     "tokens_composite_bg_fg.pdl",
     "tokens_composite_bg_fg.pdl",
+    "tokens_distance_radius.pdl",
+    "tokens_distance_radius.pdl",
     "tokens_distance_radius.pdl",
     "tokens_distance_radius.pdl",
     "tokens_icon_media_ratio.pdl",
@@ -1343,7 +1390,48 @@
       }
     }
   ],
-  "themes": [],
+  "themes": [
+    {
+      "baseTheme": null,
+      "name": "AtomsWarm",
+      "overrides": {
+        "atoms.color.sem.fromRgb": {
+          "kind": "ident",
+          "name": "atoms.color.rgba"
+        }
+      }
+    },
+    {
+      "baseTheme": null,
+      "name": "AtomsCool",
+      "overrides": {
+        "atoms.color.sem.fromRgb": {
+          "kind": "ident",
+          "name": "atoms.color.rgb"
+        }
+      }
+    },
+    {
+      "baseTheme": null,
+      "name": "AtomsDim",
+      "overrides": {
+        "atoms.color.scrimLiteral": {
+          "kind": "ident",
+          "name": "atoms.color.sem.fromRgba"
+        }
+      }
+    },
+    {
+      "baseTheme": null,
+      "name": "AtomsLooseRadius",
+      "overrides": {
+        "atoms.radius.sm": {
+          "kind": "number",
+          "value": 12
+        }
+      }
+    }
+  ],
   "typeStyles": [
     {
       "name": "AtomCaption",
@@ -1445,6 +1533,13 @@
         "lg"
       ],
       "name": "MoleculeBtnSize"
+    },
+    {
+      "cases": [
+        "includeHelp",
+        "noHelp"
+      ],
+      "name": "MoleculeFieldBlockLayout"
     }
   ]
 }

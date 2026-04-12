@@ -5,7 +5,8 @@
   "kind": "designGraph",
   "modulePaths": [
     "theme_atoms.pdl",
-    "tokens_color.pdl"
+    "tokens_color.pdl",
+    "tokens_distance_radius.pdl"
   ],
   "previewBackground": null,
   "primitives": [
@@ -23,6 +24,61 @@
       "value": {
         "kind": "hex",
         "value": "#11223344"
+      }
+    },
+    {
+      "name": "atoms.space.xs",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 4
+      }
+    },
+    {
+      "name": "atoms.space.sm",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 8
+      }
+    },
+    {
+      "name": "atoms.space.md",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "number",
+        "value": 16
+      }
+    },
+    {
+      "name": "atoms.radius.sm",
+      "tokenType": "Radius",
+      "value": {
+        "kind": "number",
+        "value": 4
+      }
+    },
+    {
+      "name": "atoms.radius.mixed",
+      "tokenType": "Radius",
+      "value": {
+        "bl": {
+          "kind": "number",
+          "value": 2
+        },
+        "br": {
+          "kind": "number",
+          "value": 2
+        },
+        "kind": "corner",
+        "tl": {
+          "kind": "number",
+          "value": 8
+        },
+        "tr": {
+          "kind": "number",
+          "value": 8
+        }
       }
     }
   ],
@@ -73,6 +129,22 @@
           "value": 0.5
         }
       }
+    },
+    {
+      "name": "atoms.space.card.pad",
+      "tokenType": "Distance",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.space.md"
+      }
+    },
+    {
+      "name": "atoms.radius.card",
+      "tokenType": "Radius",
+      "value": {
+        "kind": "ident",
+        "name": "atoms.radius.mixed"
+      }
     }
   ],
   "themes": [
@@ -103,6 +175,16 @@
         "atoms.color.scrimLiteral": {
           "kind": "ident",
           "name": "atoms.color.sem.fromRgba"
+        }
+      }
+    },
+    {
+      "baseTheme": null,
+      "name": "AtomsLooseRadius",
+      "overrides": {
+        "atoms.radius.sm": {
+          "kind": "number",
+          "value": 12
         }
       }
     }

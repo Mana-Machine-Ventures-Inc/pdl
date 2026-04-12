@@ -49,11 +49,11 @@ type BuildCtx = {
   paramValues: Record<string, unknown>;
   paramMeta: ParamEvalMeta;
   component: ComponentDecl;
-  /** Catalogue base trees keep String/Icon/MediaSource as `__param:*__` while still binding variants for `if`. */
+  /** Catalogue base trees keep String/Icon/MediaSource as `param:name` while still binding variants for `if`. */
   useStringPlaceholders?: boolean;
   /**
    * When true, a frame property whose RHS is a bare `ident` naming a declared primitive or semantic token
-   * is emitted as `__token:full.name__` instead of the resolved concrete value (Component Catalogue only).
+   * is emitted as `primitive:full.name` or `semantic:full.name` instead of the resolved concrete value (catalogue only).
    */
   catalogueTokenRefs?: boolean;
 };
@@ -69,23 +69,19 @@ function baseEvalOpts(ctx: BuildCtx): EvalOptions {
   };
 }
 
-function isDeclaredPrimitiveOrSemantic(design: DesignDefinition, name: string): boolean {
-  return design.primitives.has(name) || design.semantics.has(name);
-}
-
 function evalProp(expr: ValueExpr, ctx: BuildCtx): unknown {
-  if (
-    ctx.catalogueTokenRefs &&
-    expr.kind === "ident" &&
-    isDeclaredPrimitiveOrSemantic(ctx.design, expr.name) &&
-    !ctx.paramMeta.has(expr.name)
-  ) {
-    return `__token:${expr.name}__`;
+  if (ctx.catalogueTokenRefs && expr.kind === "ident" && !ctx.paramMeta.has(expr.name)) {
+    if (ctx.design.primitives.has(expr.name)) return `primitive:${expr.name}`;
+    if (ctx.design.semantics.has(expr.name)) return `semantic:${expr.name}`;
   }
   return evaluateValue(expr, baseEvalOpts(ctx));
 }
 
-function mergeStyleProps(props: Record<string, unknown>, styleVal: unknown): void {
+function mergeStyleProps(
+  props: Record<string, unknown>,
+  styleVal: unknown,
+  catalogueTokenRefs?: boolean,
+): void {
   if (
     styleVal !== null &&
     typeof styleVal === "object" &&
@@ -98,7 +94,9 @@ function mergeStyleProps(props: Record<string, unknown>, styleVal: unknown): voi
       if (k === "__typeStyle") continue;
       props[k] = v;
     }
-    if (typeof name === "string") props.typeStyle = name;
+    if (typeof name === "string") {
+      props.typeStyle = catalogueTokenRefs ? `typeStyle:${name}` : name;
+    }
   } else {
     props.style = styleVal;
   }
@@ -157,7 +155,7 @@ function processFrameItems(
       case "prop": {
         const f = frames.get(defaultTarget)!;
         const v = evalProp(item.value, ctx);
-        if (item.name === "style") mergeStyleProps(f.props, v);
+        if (item.name === "style") mergeStyleProps(f.props, v, ctx.catalogueTokenRefs);
         else f.props[item.name] = v;
         break;
       }
@@ -167,7 +165,9 @@ function processFrameItems(
         break;
       }
       case "children": {
-        const tid = item.target === "root" ? "Root" : item.target.letId;
+        // Bare `children = […]` parses as target `"root"`; that means the frame whose body we
+        // are processing (`defaultTarget`), not always the component root id `"Root"`.
+        const tid = item.target === "root" ? defaultTarget : item.target.letId;
         const fr = ensureFrame(frames, tid, frames.get(tid)?.kind ?? "layout");
         fr.childEntries = item.entries;
         break;

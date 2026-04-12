@@ -7,6 +7,7 @@ import { buildDesignGraph } from "./graph.js";
 import { buildDesignManifest } from "./manifest.js";
 import { loadDesign } from "./loadDesign.js";
 import { buildResolvedTokenMap } from "./evaluate.js";
+import { buildResolvedComponentDocument } from "./resolveBundle.js";
 import { resolveComponentTree } from "./resolveTree.js";
 
 function usage(): never {
@@ -15,7 +16,7 @@ function usage(): never {
 Usage:
   pdl graph <entry.pdl>
   pdl manifest <entry.pdl> [--out <file.json>]
-  pdl resolve <entry.pdl> <ComponentName> [key=value ...]
+  pdl resolve <entry.pdl> <ComponentName> [--tree-only] [--theme <ThemeName>] [key=value ...]
   pdl catalogue <entry.pdl> [--theme <ThemeName>] [--out <file.json>]
 
 Options:
@@ -71,11 +72,33 @@ function main() {
   if (cmd === "resolve") {
     const comp = argv[2];
     if (!comp) usage();
-    const kv = parseKeyValues(argv.slice(3));
+    const rawArgs = argv.slice(3);
+    let treeOnly = false;
+    let theme: string | undefined;
+    const kvParts: string[] = [];
+    for (let i = 0; i < rawArgs.length; i++) {
+      const a = rawArgs[i]!;
+      if (a === "--tree-only") treeOnly = true;
+      else if (a === "--theme") {
+        const t = rawArgs[++i];
+        if (!t || t.startsWith("-")) usage();
+        theme = t;
+      } else kvParts.push(a);
+    }
+    const kv = parseKeyValues(kvParts);
     const design = loadDesign(entry);
-    const tokenMap = buildResolvedTokenMap(design);
-    const tree = resolveComponentTree(design, comp, tokenMap, kv);
-    process.stdout.write(stableStringify(tree));
+    if (treeOnly) {
+      const tokenMap = buildResolvedTokenMap(design, theme);
+      const tree = resolveComponentTree(design, comp, tokenMap, kv);
+      process.stdout.write(stableStringify(tree, { omitEmpty: true }));
+      return;
+    }
+    const bundle = buildResolvedComponentDocument(design, {
+      componentName: comp,
+      paramOverrides: kv,
+      theme,
+    });
+    process.stdout.write(stableStringify(bundle, { omitEmpty: true }));
     return;
   }
 
@@ -92,7 +115,7 @@ function main() {
     }
     const design = loadDesign(entry);
     const cat = buildComponentCatalogue(design, { theme });
-    const s = stableStringify(cat);
+    const s = stableStringify(cat, { omitEmpty: true });
     if (outPath) writeFileSync(outPath, s, "utf-8");
     else process.stdout.write(s);
     return;
