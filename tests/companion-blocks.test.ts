@@ -10,7 +10,7 @@ const fx = (...p: string[]) => resolve(__dirname, "../test-fixtures/pdl", ...p);
 
 describe("companion blocks (usage, fixtures, rules, interaction, extend)", () => {
   it("parses and merges standalone companions on a component", () => {
-    const d = loadDesign(fx("companion_blocks.pdl"));
+    const d = loadDesign(fx("integration/companion_blocks.pdl"));
     expect(d.usage.get("CompanionBlock")?.get("description")).toBe("Test companion metadata.");
     expect(d.fixtures.get("CompanionBlock")?.size).toBe(1);
     expect(d.rules.get("CompanionBlock")?.length).toBeGreaterThan(0);
@@ -18,7 +18,7 @@ describe("companion blocks (usage, fixtures, rules, interaction, extend)", () =>
   });
 
   it("merges extend usage += and fixtures by label", () => {
-    const d = loadDesign(fx("companion_extend_entry.pdl"));
+    const d = loadDesign(fx("integration/companion_extend_entry.pdl"));
     expect(d.usage.get("CompanionBlock")?.get("description")).toBe(
       "Test companion metadata. Extended via extend.",
     );
@@ -29,7 +29,7 @@ describe("companion blocks (usage, fixtures, rules, interaction, extend)", () =>
   });
 
   it("emits companions on the Component Catalogue row", () => {
-    const d = loadDesign(fx("companion_extend_entry.pdl"));
+    const d = loadDesign(fx("integration/companion_extend_entry.pdl"));
     const cat = buildComponentCatalogue(d);
     const row = cat.components.CompanionBlock!;
     expect(row.usage).toContain("Extended via extend.");
@@ -46,7 +46,7 @@ describe("companion blocks (usage, fixtures, rules, interaction, extend)", () =>
   });
 
   it("includes companions in resolvedComponent.components[name]", () => {
-    const d = loadDesign(fx("companion_extend_entry.pdl"));
+    const d = loadDesign(fx("integration/companion_extend_entry.pdl"));
     const doc = buildResolvedComponentDocument(d, { componentName: "CompanionBlock" });
     const row = doc.components.CompanionBlock!;
     expect(row.usage).toContain("Extended via extend.");

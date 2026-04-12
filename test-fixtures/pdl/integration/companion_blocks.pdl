@@ -1,6 +1,6 @@
 // usage, fixtures, rules, interaction (full-spec §8, §11)
 
-import "atoms/typestyle_atoms.pdl"
+import "../atoms/typestyle_atoms.pdl"
 
 variant CompanionTone {
   case neutral

@@ -25,7 +25,9 @@
 
 **Implementer Reference**
 16. [Component Catalogue and Pipeline](#16-component-catalogue-and-pipeline)
-16b. [Design graph JSON (merged AST snapshot)](#16b-design-graph-json-merged-ast-snapshot)
+16b. [Serialised ValueExpr JSON (`SerialisedValueExpr`)](#16b-serialised-valueexpr-json-serialisedvalueexpr)
+16c. [Graph exports (`graphSystem`, `graphComponent`)](#16c-graph-exports-graphsystem-graphcomponent)
+16d. [Baked design JSON (`bakeSystem`, `bakeComponent`)](#16d-baked-design-json-bakesystem-bakecomponent)
 17. [Emitters, Compiler Targets, and the Design Manifest](#17-emitters-compiler-targets-and-the-design-manifest)
 18. [Regeneration Checklist](#18-regeneration-checklist)
 19. [Open Spec Items](#19-open-spec-items)
@@ -1388,10 +1390,13 @@ From project root (`package.json` scripts):
 
 | Command | Purpose |
 |---------|---------|
-| `npm run graph -- <entry.pdl>` | Print **design graph** JSON (§16b) — compiler / test snapshot |
+| `npm run graphSystem -- <entry.pdl>` | Print **full Component Catalogue** JSON (§16c) — entry file only; optional **`--out`**. No **`--theme`**. |
+| `npm run graphComponent -- <entry.pdl> <Component>` | Print **`resolvedComponent`** slice JSON (§16c); optional **`--theme`**, **`--out`**, **`param=value`**. |
+| `npm run bakeSystem -- <entry.pdl>` | Print **`bakedDesign`** JSON (§16d) — every component, default params; optional **`--theme`**, **`--out`**. |
+| `npm run bakeComponent -- <entry.pdl> <Component>` | Print **`bakedDesign`** for one component (§16d); optional **`--theme`**, **`--out`**, **`param=value`**. |
 | `npm run manifest -- <entry.pdl>` | Print **design manifest** JSON (§17 §3) — thin registry |
-| `npm run catalogue -- <entry.pdl>` | Print **Component Catalogue** JSON (§16) |
-| `npm run resolve -- <file> <Component> key=value …` | Print **`resolvedComponent`** JSON (§16 §2.5): **`components`** (catalogue rows, no **`defaultParams`**) + **`system`** ( **`theme`**, **`themesDeclared`**, trimmed **`primitives` / `semantics` / `themes` / `typeStyles` / `variantTypes`** ); **`--tree-only`** for a bare **`CatalFrame`**. |
+| `npm run catalogue -- <entry.pdl>` | Print **Component Catalogue** JSON (§16); optional **`--theme`** (unlike **`graphSystem`**, which fixes default resolution). |
+| `npm run resolve -- <file> <Component> key=value …` | Print **`resolvedComponent`** JSON (§16 §2.5): **`components`** (catalogue rows, no **`defaultParams`**) + **`system`** (optional **`theme`** when **`--theme`** is set, trimmed **`primitives` / `semantics` / `themes` / `typeStyles` / `variantTypes`** ); **`--tree-only`** for a bare **`CatalFrame`**. |
 | `npm run html -- <file> <Component> …` | Emit `output.html` |
 | `npm run preview -- [entry.pdl]` | Local preview server with reload |
 | `npm run web:dev` | Vite **studio** (editor + iframe preview + inspector) |
@@ -2770,7 +2775,7 @@ When the language changes:
 
 This chapter describes how PDL source files become the **Component Catalogue** — the primary handoff format for emitters like Kotlin, SwiftUI, React, and HTML generators. The goal is simple: emitter authors should be able to pick up the catalogue JSON and start writing code without needing to understand PDL syntax, implement a parser, or chase unresolved references.
 
-For the separate **design graph** JSON (merged parse tree / AST snapshot from tooling such as `npm run graph`), see **§16b**. For the thin **design manifest** (registry of names and APIs without frame trees), see **§17**.
+For the serialised **`ValueExpr`** JSON shapes embedded in catalogue and resolve output, see **§16b**. For the thin **design manifest** (registry of names and APIs without frame trees), see **§17**.
 
 ---
 
@@ -2780,11 +2785,12 @@ PDL toolchains may emit more than one JSON artefact. They are **layered by purpo
 
 | Artefact | Role | Typical consumer |
 |----------|------|------------------|
-| **Component Catalogue** (this chapter, §2 onward) | **Full design-system handoff** before view codegen: **`tokensByTheme`**, **`tokens`**, **`themesDeclared`**, **`variantTypes`** (all PDL **`variant`** definitions), per-component **`params`** with **`variantTypeName`** for Figma-style naming, **`expose`**, **base** / **variant** trees, **`primitive:`** / **`semantic:`** markers for bare token idents (§2.3). | Code generators, bundlers, optional runtime loaders |
-| **Design graph** (§16b) | **Internal compiler / test snapshot** of the merged parse model (`ValueExpr`, `if` chains, raw component bodies). Verbose and AST-adjacent; **not** the primary handoff to app runtimes. | Parser tests, golden diffs, IDE / linter tooling |
+| **Component Catalogue** (this chapter, §2 onward) | **Full design-system handoff** before view codegen: **`primitives`** and **`semantics`** (each token’s authored **`definition`** appears **once**; bare **`primitive` / `semantic`** idents in definitions become **`primitive:`** / **`semantic:`** strings like theme overrides), per-**`theme`** **`overrides`** maps (**`themes`** — RHS uses the same pointer form), **`variantTypes`**, per-component **`params`**, **`expose`**, **base** / **variant** trees, **`primitive:`** / **`semantic:`** markers on frames (§2.3). Emitted by **`pdl graphSystem`** / **`pdl catalogue`** (§16c). | Code generators, bundlers, optional runtime loaders |
+| **`resolvedComponent`** (§16 §2.5, §16c) | **Single-component graph slice**: trimmed **`system`** plus one catalogue row. **`pdl graphComponent`** / legacy **`pdl resolve`** (without **`--tree-only`**). | Scoped emitters, previews, documentation |
+| **`bakedDesign`** (§16d) | **Fully denormalised** trees only: **`components`** map of materialised **`root`** frames, literal **`props`**, no token or variant registries. **`pdl bakeSystem`** / **`pdl bakeComponent`**. | Quick draw-only consumers, static snapshots |
 | **Design manifest** (§17) | **Small registry**: entry path, module list, theme / variant / typeStyle **names**, per-component **`expose`** and param types — **no** resolved frame trees, **no** token value map. | CI, docs, package indexes, sanity checks |
 
-**Guidance:** product and app teams should depend on the **catalogue** (and optionally the **manifest**). They should **not** depend on the **graph** unless they are building compiler-adjacent tooling.
+**Guidance:** use **graph** outputs (catalogue / **`resolvedComponent`**) for expressive tooling and **bake** outputs when receivers must not resolve tokens or variants. **`SerialisedValueExpr`** fragments (§16b) appear inside graph payloads, not inside **`bakedDesign`**.
 
 ---
 
@@ -2830,7 +2836,7 @@ PDL compilation has three stages. The first two happen in the PDL toolchain; the
 
 ## 2. The Component Catalogue format
 
-The catalogue is a single JSON file: the **canonical emitter input**. The toolchain always emits **`tokensByTheme`**: a full resolved map under **`base`** (primitives + semantics, **no** `theme { }` overrides) **plus** an identical key set under **each declared theme** after that theme’s overrides. The flat **`tokens`** field duplicates the **active** map used for **trees** and param defaults (CLI **`--theme`** / **`modifiers`**). **`primitive:`** / **`semantic:`** strings in trees (§2.3) keep **token names** stable; receivers resolve them against **`tokensByTheme[runtime]`** (or flatten/bake as they prefer).
+The catalogue is a single JSON file: the **canonical emitter input**. The toolchain emits **`primitives`** and **`semantics`** objects: every merged **`primitive`** / **`semantic`** appears **exactly once** with its **authored** RHS serialised the same way as theme overrides: bare **`primitive` / `semantic`** idents become **`primitive:full.name`** / **`semantic:full.name`** strings; literals and composites remain inline **`ValueExpr`** JSON (**§16b**). **`themes`** holds one object per declared **`theme { … }`**: each contains only an **`overrides`** map (LHS token name → serialised RHS) using the same rules. **`primitive:`** / **`semantic:`** strings on **component trees** (§2.3) still name tokens; receivers resolve them by walking **`primitives`**, **`semantics`**, and **`themes[active]`**. When the CLI passes **`--theme`**, the catalogue and **`resolvedComponent.system`** include a **`theme`** field recording that active context for **tree** resolution (matches **`buildResolvedTokenMap`**); when no theme is selected, **`theme`** is omitted. Theme names are always the keys of **`themes`**. **`modifiers`** (when used) can still make the resolved **tree** differ from what a pure walk of **`themes`** alone would imply — treat the compiler’s resolved map as authoritative for those builds.
 
 ### 2.1 Top-level shape
 
@@ -2839,39 +2845,45 @@ The catalogue is a single JSON file: the **canonical emitter input**. The toolch
   "kind": "componentCatalogue",
   "schemaVersion": "1.0.0-beta",
   "generatedAt": "2024-01-15T10:30:00Z",
-  "theme": "(none)",
-  "themesDeclared": ["Dark", "Light"],
-  "tokens": {
-    "color.text.primary": "#111111",
-    "color.surface.card": "#FFFFFF",
-    "spacing.md": 12,
-    "radius.card": 8
-  },
-  "tokensByTheme": {
-    "base": {
-      "color.text.primary": "#111111",
-      "color.surface.card": "#FFFFFF",
-      "spacing.md": 12,
-      "radius.card": 8
+  "primitives": {
+    "color.text.primary": {
+      "name": "color.text.primary",
+      "tokenType": "Color",
+      "definition": { "kind": "hex", "value": "#111111" }
     },
-    "Dark": {
-      "color.text.primary": "#111111",
-      "color.surface.card": "#0A0A0A",
-      "spacing.md": 12,
-      "radius.card": 8
+    "spacing.md": {
+      "name": "spacing.md",
+      "tokenType": "Distance",
+      "definition": { "kind": "number", "value": 12 }
     },
-    "Light": {
-      "color.text.primary": "#111111",
-      "color.surface.card": "#FFFFFF",
-      "spacing.md": 12,
-      "radius.card": 8
+    "radius.card": {
+      "name": "radius.card",
+      "tokenType": "Distance",
+      "definition": { "kind": "number", "value": 8 }
     }
   },
-  "variantTypes": [
-    { "name": "Emphasis", "cases": ["primary", "secondary", "destructive"] },
-    { "name": "IconVariant", "cases": ["none", "leading", "trailing"] }
-  ],
-  "components": [ ]
+  "semantics": {
+    "color.surface.card": {
+      "name": "color.surface.card",
+      "tokenType": "Color",
+      "definition": "primitive:color.text.primary"
+    }
+  },
+  "themes": {
+    "Dark": {
+      "overrides": {
+        "color.surface.card": { "kind": "hex", "value": "#0A0A0A" }
+      }
+    },
+    "Light": {
+      "overrides": {}
+    }
+  },
+  "variantTypes": {
+    "Emphasis": { "name": "Emphasis", "cases": ["primary", "secondary", "destructive"] },
+    "IconVariant": { "name": "IconVariant", "cases": ["none", "leading", "trailing"] }
+  },
+  "components": {}
 }
 ```
 
@@ -2880,12 +2892,12 @@ The catalogue is a single JSON file: the **canonical emitter input**. The toolch
 | `kind` | Always **`"componentCatalogue"`** when this object is the catalogue root (discriminant when multiple JSON artefacts are stored together). |
 | `schemaVersion` | Catalogue schema version. Emitters should check this before parsing. |
 | `generatedAt` | ISO 8601 timestamp. Useful for cache invalidation. |
-| `theme` | The **active** theme label for **tree** + **`tokens`** resolution (CLI **`--theme`**). **`(none)`** ⇒ **`tokens`** equals **`tokensByTheme.base`**. |
-| `themesDeclared` | Sorted list of every **`theme`** name in the merged design. |
-| `tokens` | Flat map for the **active** context only (duplicate of the map used to resolve non-placeholder props in **`components`**). |
-| `tokensByTheme` | **`base`** plus one key per **`themesDeclared`** entry: each value is a full **token name → resolved value** map for that context. Same keys across rows; values differ where themes override semantics. |
-| `variantTypes` | Sorted array of every merged **`variant`** type: **`name`** is the PDL identifier (e.g. `Emphasis`); **`cases`** are case ids **without** a leading dot, in declaration order. Used by emitters (e.g. **Figma** component variant properties) to recover stable **property set names**. Variant-typed **`components[].params`** entries carry **`variantTypeName`** only (§2.2) — look up **`cases`** on the matching **`variantTypes`** row. Empty when the design defines no **`variant`** blocks. |
-| `components` | Array of component entries (§2.2). |
+| `theme` | **Optional.** Present only when the catalogue was built with CLI **`--theme`**: the **active** theme label for **tree** resolution (same rule as **`buildResolvedTokenMap`** with that theme). Omitted when no theme is selected — theme keys are always **`Object.keys(themes)`**. |
+| `primitives` | Map **primitive token name** → **`{ name, tokenType, definition }`**. **`definition`** is the **authored** RHS once: bare token idents → **`primitive:`** / **`semantic:`** strings; otherwise **`SerialisedValueExpr`** (§16b). |
+| `semantics` | Map **semantic token name** → **`{ name, tokenType, definition }`**. Same shape as **`primitives`**. |
+| `themes` | Map **theme name** → **`{ overrides }`**. Each **`overrides`** entry is **LHS token name** (semantic or primitive) → serialised RHS; bare **`primitive` / `semantic`** idents on the RHS become **`primitive:`** / **`semantic:`** strings. |
+| `variantTypes` | Every merged **`variant`** type (**name-keyed** object in the reference implementation): **`cases`** are case ids **without** a leading dot. Variant-typed **`components[].params`** carry **`variantTypeName`** only (§2.2). Empty object when the design defines no **`variant`** blocks. |
+| `components` | Map **component name** → component entry (§2.2). |
 
 ### 2.2 Component entry
 
@@ -2958,7 +2970,7 @@ Each component is one object in the `components` array. The **default** presenta
 Values inside **`props`** (root) and inside each **`childNodes`** entry use the same rules. Most properties are plain JSON values. Two **placeholder** string forms are used so emitters can wire parameters and semantic tokens without re-parsing PDL:
 
 - **`param:paramName`** — `String`, `Icon`, or `MediaSource` parameters that remain open at catalogue time (protected prefix; not a URL scheme).  
-- **`primitive:full.token.name`** / **`semantic:full.token.name`** — the property’s RHS was exactly **one identifier** naming a **declared `primitive` or `semantic` token**; the catalogue discriminator is which map the name lives in. Resolved values for **every** theme appear under **`tokensByTheme`** (and the active slice is duplicated in **`tokens`**). Emitters may inline from **`tokensByTheme[skin]`**, emit runtime lookups, or generate theme-aware accessors. **Note:** v1 reference tooling does **not** emit these markers for composite expressions (e.g. `color @ opacity`, layer arrays). **`typeStyle:PresetName`** on **`text`** frames (string value of the **`typeStyle`** property) references a catalogue / **`resolvedComponent.system.typeStyles`** entry — expanded font fields are **not** duplicated on the frame unless the PDL sets them explicitly (overrides).
+- **`primitive:full.token.name`** / **`semantic:full.token.name`** — the property’s RHS was exactly **one identifier** naming a **declared `primitive` or `semantic` token**; the catalogue discriminator is which map the name lives in. Emitters resolve markers by reading **`primitives` / `semantics`** and applying **`themes[skin].overrides`** (and following **`primitive:`** / **`semantic:`** pointers in override RHSs) instead of using duplicated flat maps. **Note:** v1 reference tooling does **not** emit these markers for composite expressions (e.g. `color @ opacity`, layer arrays). **`typeStyle:PresetName`** on **`text`** frames (string value of the **`typeStyle`** property) references a catalogue / **`resolvedComponent.system.typeStyles`** entry — expanded font fields are **not** duplicated on the frame unless the PDL sets them explicitly (overrides).
 
 **Frame node fields** (each value in **`childNodes`**, and each node in a resolved `CatalFrame` tree such as CLI **`--tree-only`** output):
 
@@ -3023,7 +3035,7 @@ When Root’s ordered child **ids** differ from component-level **`children`**, 
 The reference CLI’s **`pdl resolve <entry> <Component> [key=value …]`** (without **`--tree-only`**) emits a single object with **`schemaKind`: `"resolvedComponent"`**. It splits **layout** from **design-system** data:
 
 - **`components`** — object keyed by component **`name`**. Each value matches a catalogue **§2.2** row (**`kind`**, **`props`**, **`childNodes`**, **`children`**, **`variants`**, **`params`**, **`expose`**, **`usage`**) but **omits** catalogue-only **`defaultParams`**. The reference CLI emits **one** key: the component named on the command line (extensible if the bundle grows to multiple rows).
-- **`system`** — active **`theme`**, **`themesDeclared`**, trimmed **`variantTypes`**, **`primitives`**, **`semantics`**, **`themes`**, and **`typeStyles`** (same trimming rules as before: no duplicate flat **`tokens`** / **`tokensByTheme`** on the document).
+- **`system`** — optional **`theme`** (when **`--theme`** is set), trimmed **`variantTypes`**, **`primitives`**, **`semantics`**, **`themes`**, and **`typeStyles`** (trimmed to the component’s transitive token usage; no duplicate flat resolved **`tokens`** map on the document).
 
 Optional **`paramOverrides`** mirrors CLI **`key=value`** arguments; it does **not** rewrite **`components[name].children`** — emitters still apply **§2.4** variant logic to the catalogue row. Emitters resolve **`primitive:`** / **`semantic:`** strings on **`components[…]`** using **`system.primitives` / `system.semantics`** (**`definition`** only) and strip the **`typeStyle:`** prefix when reading **`system.typeStyles`**. Per-skin values come from composing **`definition`** with **`system.themes[].overrides`** (see below).
 
@@ -3041,10 +3053,9 @@ Optional **`paramOverrides`** mirrors CLI **`key=value`** arguments; it does **n
 
 | Field | Description |
 |-------|-------------|
-| `theme` | Active theme label for this resolve (mirrors catalogue **`theme`**). |
-| `themesDeclared` | Sorted theme names (mirrors catalogue). |
+| `theme` | **Optional.** Active theme label for this resolve when the CLI passed **`--theme`** (mirrors catalogue **`theme`**). |
 | `variantTypes` | Only **`variant`** type definitions referenced by this component’s **`params`** (**`variantTypeName`**). |
-| **`primitives`** | Subset of catalogue **§2.1** primitives whose **`name`** is in the **collected** set: (a) **`primitive:`** / **`semantic:`** markers anywhere under **`components[*]`** (**`props`**, **`childNodes`**, **`variants[].changes`**), (b) **`primitive` / `semantic`** idents in referenced **`typeStyle`** **`ValueExpr`** bodies, (c) **transitive** references inside included token **`definition`** graphs, and (d) any token referenced from **`system.themes[].overrides`**. Each entry is **`{ name, tokenType, definition }`** with **`definition`** = serialised base **`ValueExpr`** (same shape as the design graph). |
+| **`primitives`** | Subset of catalogue **§2.1** primitives whose **`name`** is in the **collected** set: (a) **`primitive:`** / **`semantic:`** markers anywhere under **`components[*]`** (**`props`**, **`childNodes`**, **`variants[].changes`**), (b) **`primitive` / `semantic`** idents in referenced **`typeStyle`** **`ValueExpr`** bodies, (c) **transitive** references inside included token **`definition`** graphs, and (d) any token referenced from **`system.themes[].overrides`**. Each entry is **`{ name, tokenType, definition }`** with the same serialisation as the full catalogue (**`primitive:`** / **`semantic:`** strings for bare token refs; otherwise **`SerialisedValueExpr`**, §16b). |
 | **`semantics`** | Same rules as **`primitives`**, for **semantic** tokens. |
 | **`themes`** | **Trimmed** to themes that **affect this component**: at least one override **LHS** (token name) intersects the same collected name set as **`primitives` / `semantics`**. Each row is **`name`**, optional **`baseTheme`**, and **`overrides`** containing **only** those keys (subset of the PDL theme block). Bare **`primitive` / `semantic`** idents in an override RHS are emitted as **`primitive:`** / **`semantic:`** strings; literals and composites use serialised **`ValueExpr`** objects. RHS token names are also included in **`primitives` / `semantics`**. |
 | **`typeStyles`** | Only **`typeStyle`** declarations referenced from **`components[*]`** trees. Each **`props`** value is a serialised **`ValueExpr`**. |
@@ -3057,16 +3068,16 @@ Optional **`paramOverrides`** mirrors CLI **`key=value`** arguments; it does **n
 
 A typical emitter pass for a Kotlin / Compose target:
 
-1. **Read `tokensByTheme`** → generate per-theme token modules (e.g. Swift enums, CSS custom property blocks) or a single runtime map keyed by theme. Optionally use the flat **`tokens`** field only as a convenience alias for the **active** catalogue context. Use **`themesDeclared`** to know which theme keys exist.
+1. **Read `primitives` / `semantics` / `themes`** → build a per-theme resolver (walk definitions, then apply **`themes[skin].overrides`**, following **`primitive:`** / **`semantic:`** strings on override RHSs and inside **definitions**). Theme keys are **`Object.keys(themes)`**.
 2. **For each component:**
    - Use **`kind`**, **`props`**, and **`children`** for the default Root shell; use **`childNodes[id]`** for each default child subtree.
    - Walk the **`variants`** array → generate branches keyed by the full **`params`** tuple; apply **`changes`** to **`props`** on the indicated **`frameId`** (root or a **`childNodes`** id). When a variant supplies **`children`**, switch the ordered child list while still resolving subtrees from **`childNodes`**.
    - Wire **`param:name`** strings to function parameters.
-   - Replace **`primitive:`** / **`semantic:`** tree strings with lookups into **`tokensByTheme[skin]`** (or **`tokens`** when emitting only the active skin), inlining literals or design-token accessors as your target prefers.
+   - Replace **`primitive:`** / **`semantic:`** tree strings with values from your resolver for the target skin.
 3. **Use `expose`** to determine the public function signature (params not in `expose` may be internal or omitted).
 4. **Use `usage`** for KDoc / documentation comments when the catalogue carries usage metadata.
 
-The emitter does **not** need to parse PDL, evaluate **`if`** override chains, or re-walk the import graph. It **does** still interpret **`primitive:`** / **`semantic:`** markers using **`tokensByTheme`** (or the **`tokens`** alias for the active context).
+The emitter does **not** need to parse PDL, evaluate **`if`** override chains, or re-walk the import graph. It **does** still interpret **`primitive:`** / **`semantic:`** markers using **`primitives` / `semantics` / `themes`** (or the trimmed **`system.*`** mirror on **`resolvedComponent`**).
 
 ---
 
@@ -3080,9 +3091,9 @@ npm run catalogue -- design.pdl --theme Dark
 npm run catalogue -- design.pdl --theme Light --theme Dark
 ```
 
-A **single** catalogue JSON always includes the full **`tokensByTheme`** object (**`base`** + every declared theme). The **`--theme`** flag (when passed once) only selects which slice is duplicated into **`tokens`** and which theme context is used to resolve **trees** and literals that are not **`primitive:`** / **`semantic:`** markers.
+A **single** catalogue JSON always includes the full **`primitives`**, **`semantics`**, and **`themes`** objects (canonical definitions + per-theme override maps). The **`--theme`** flag (when passed once) selects which theme context is used to resolve **trees** and literals that are not **`primitive:`** / **`semantic:`** markers (mirrors **`buildResolvedTokenMap`**).
 
-When **`--theme`** is passed **multiple** times (reference CLI), one file is still emitted **per** invocation in typical wrappers — each file carries the **same** **`tokensByTheme`**, but different **`theme`**, **`tokens`**, and possibly different resolved **trees** for props that are not **`primitive:`** / **`semantic:`** markers. Emitters that only need one JSON for runtime theming can rely on **`tokensByTheme`** alone and ignore duplicate files.
+When **`--theme`** is passed **multiple** times in external wrappers, each emitted file carries the **same** token graph, but different **`theme`** metadata and possibly different resolved **trees** for props that are not **`primitive:`** / **`semantic:`** markers.
 
 ---
 
@@ -3092,149 +3103,28 @@ The `schemaVersion` field follows the same semantic versioning as the rest of PD
 
 ---
 
-## 16b — Design graph JSON (merged AST snapshot)
+## 16b — Serialised ValueExpr JSON (`SerialisedValueExpr`)
 
-This section documents the **design graph** JSON object: a serialisation of the **merged, parsed design definition** (tokens, themes, variants, type styles, components with frame bodies, and `expose` metadata) **before** catalogue-time resolution into per-variant resolved trees.
+The reference **PDL** toolchain does **not** emit a standalone merged-design JSON document for end users (historical `kind: "designGraph"` / `pdl graph` was removed). **Component Catalogue** (§16 §2 onward) and **`resolvedComponent.system`** (§16 §2.5) embed fragments of the parsed expression tree using **`serialiseValueExprWithTokenRefs`** for **`primitives` / `semantics` / `themes`** token graphs, **`serialiseValueExpr`** where a plain AST is still required (e.g. some **`typeStyle`** props), and **`serialiseConditionExpr`** in `src/graph.ts`.
 
-**Relationship to §16 and §17:** The **Component Catalogue** (§16) is the **canonical** emitter handoff (resolved **`tokens`**, trees, variant deltas, and **`param:`** / **`primitive:`** / **`semantic:`** / **`typeStyle:`** string markers as defined there). The **design manifest** (§17) is a **thin registry** without trees. The **design graph** is neither of those: it is an **internal merged-AST snapshot** for **compiler correctness**, golden tests, and tooling that needs pre-resolution structure.
-
-**Normative status:** The graph is a **reference implementation contract** (`kind: "designGraph"`). **TODO:** Decide whether a future PDL conformance tier requires bit-for-bit graph compatibility, or only catalogue + manifest stability.
-
-**Reference implementation:** `buildDesignGraph` and `serialiseValueExpr` in `src/graph.ts` (schema version string is shared with the broader PDL `1.0.0-beta` contract).
+Emitters should treat these objects as **embedded AST slices** inside catalogue / resolve payloads, not as a separate full-design snapshot format.
 
 ---
 
-### 1. Top-level object
-
-The root value is a JSON **object** with **exactly** the following keys (reference tests treat the key **set** as stable; **TODO:** specify whether key **ordering** is significant for conforming emitters).
-
-| Key | Type | Meaning |
-|-----|------|---------|
-| `kind` | string | Always **`"designGraph"`** — discriminant for multi-schema bundles. |
-| `schemaVersion` | string | PDL schema / tooling version (reference: **`"1.0.0-beta"`**). **TODO:** Align explicitly with §26 versioning when the graph becomes normative. |
-| `entryPath` | string | Absolute or normalised path to the **entry** `.pdl` file used to build the graph. **TODO:** Specify normalisation (POSIX vs host paths, symlinks, workspace roots) for reproducible CI output. |
-| `modulePaths` | string[] | Merge **post-order** list of `.pdl` modules that contributed to the merged definition (dependencies before dependents). **TODO:** Confirm merge order vs §2 prose for “last wins” is identical to this ordering’s semantics. |
-| `previewBackground` | string \| null | Token **name** from `previewBackground <name>` when present; otherwise **`null`**. **TODO:** Confirm whether this should be a serialised `ValueExpr` or resolved colour when preview pipelines evolve. |
-| `primitives` | array | One object per merged **`primitive`** (see §3.1). |
-| `semantics` | array | One object per merged **`semantic`** (see §3.1). |
-| `themes` | array | One object per merged **`theme`**. |
-| `variants` | array | One object per merged **`variant`**. |
-| `typeStyles` | array | One object per merged **`typeStyle`**. |
-| `components` | array | One object per merged **`component`**. |
-| `expose` | object | Map **component name** → **string[]** of exposed parameter names (last `expose` block per component wins at merge). Keys are sorted lexicographically in the reference implementation’s pretty-printer; **TODO:** normative sort order for deterministic bytes on stdout. |
-
-**Not included in the design graph (reference implementation):** `import` lines (only reflected indirectly via `modulePaths`), **`interaction`**, **`fixtures`**, **`usage`**, **`rules`**, **`extend`** — these are not represented in `buildDesignGraph` output today. **TODO:** Extend the graph (or define a companion slice) when those declarations are merged into `DesignDefinition`.
-
----
-
-### 2. Token declarations (`primitives` / `semantics`)
-
-Each element:
-
-| Field | Type | Meaning |
-|-------|------|---------|
-| `name` | string | Fully qualified token name (e.g. `atoms.color.rgb`). |
-| `tokenType` | string | RHS type name from the declaration (`Color`, `Distance`, `Icon`, `Background`, …). |
-| `value` | `SerialisedValueExpr` | Parsed RHS (§4). |
-
----
-
-### 3. Themes (`themes`)
-
-| Field | Type | Meaning |
-|-------|------|---------|
-| `name` | string | Theme identifier. |
-| `baseTheme` | string \| null | Optional **`theme Name : Base`** base name when parsed; **`null`** if omitted. **TODO:** Document / wire resolution when base-theme inheritance is implemented (see implementation notes). |
-| `overrides` | object | Map **semantic token name** → **`SerialisedValueExpr`** for entries inside the theme block. |
-
----
-
-### 4. Variants (`variants`)
-
-| Field | Type | Meaning |
-|-------|------|---------|
-| `name` | string | Variant type name. |
-| `cases` | string[] | Case identifiers **without** a leading dot (e.g. `"primary"`, `"secondary"`). **TODO:** Confirm this matches dot-enum stripping everywhere else (catalogue uses bare strings). |
-
----
-
-### 5. Type styles (`typeStyles`)
-
-| Field | Type | Meaning |
-|-------|------|---------|
-| `name` | string | `typeStyle` name. |
-| `props` | object | Map **property name** → **`SerialisedValueExpr`** (text-related frame properties as in source). |
-
----
-
-### 6. Components (`components`)
-
-| Field | Type | Meaning |
-|-------|------|---------|
-| `name` | string | Component name. |
-| `params` | array | Parameter descriptors (below). |
-| `rootKind` | string | One of **`layout`**, **`text`**, **`icon`**, **`media`**. |
-| `body` | `FrameBodyItem[]` | Ordered list of frame-body statements (§6.1). |
-
-**Parameter object:**
-
-| Field | Type | Meaning |
-|-------|------|---------|
-| `name` | string | Parameter name. |
-| `typeName` | string | Declared type (`String`, `Number`, `Boolean`, `Icon`, user `variant` name, …). |
-| `defaultValue` | `SerialisedValueExpr` | Parsed default expression. |
-
----
-
-### 6.1 Frame body (`FrameBodyItem[]`)
-
-Each item is a tagged object with **`kind`**:
-
-| `kind` | Additional fields | Meaning |
-|--------|-------------------|---------|
-| **`prop`** | `name`, `value` | Assignment on the **current** frame (`root` or inner `let` being filled). |
-| **`frameProp`** | `frame`, `name`, `value` | Deferred assignment **`FrameId.prop = value`** (e.g. `Row.children = […]`). |
-| **`children`** | `target`, `entries` | Child list assignment. **`target`**: **`"root"`** or **`{ "letId": "<id>" }`**. **`entries`**: `ChildEntry[]` (§6.2). |
-| **`let`** | `id`, `frameKind`, `body` | Nested frame: **`let Id: kind = { … }`**. `frameKind` is one of `layout` / `text` / `icon` / `media`. `body` is a nested `FrameBodyItem[]`. |
-| **`letInstance`** | `id`, `component`, `kwargs` | Component instance: **`let Id = Other(…)`** style (exact surface syntax **TODO:** cross-link §7 / §21 once instance grammar is fully specified in prose). |
-| **`if`** | `chain` | Conditional override chain (§6.3). |
-
-**TODO:** Confirm whether `self.` / normalised forms appear in `frame` / `name` or are always canonicalised away.
-
----
-
-### 6.2 Child entries (`ChildEntry`)
+### 1. ConditionExpr
 
 | `kind` | Fields | Meaning |
 |--------|--------|---------|
-| **`frameRef`** | `id` | Reference to a **`let`** id in `children = [A, B]`. |
-| **`spacer`** | _(none)_ | **`.spacer`** pseudo-child. |
-| **`instance`** | `component`, `kwargs` | Embedded component: **`component`**: name; **`kwargs`**: map param name → **`SerialisedValueExpr`**. |
-
----
-
-### 6.3 Conditional chains (`if`)
-
-`chain` object:
-
-| Field | Type | Meaning |
-|-------|------|---------|
-| `branches` | array | Ordered list of `{ "condition": ConditionExpr, "body": FrameBodyItem[] }`. |
-| `elseBody` | `FrameBodyItem[]` \| omitted | Optional final **`else { … }`** branch. |
-
-**`ConditionExpr`:**
-
-| `kind` | Fields | Meaning |
-|--------|--------|---------|
-| **`cmp`** | `param`, `op`, `rhs` | **`param`** is the LHS identifier. **`op`**: **`==`** or **`!=`**. **`rhs`**: the **lexeme** of the dot-enum (reference: includes the **`.`** prefix, e.g. **`".warning"`**). **TODO:** Harmonise with catalogue convention (bare `"warning"` strings) if the graph becomes normative. |
+| **`cmp`** | `param`, `op`, `rhs` | **`param`** is the LHS identifier. **`op`**: **`==`** or **`!=`**. **`rhs`**: the **lexeme** of the dot-enum (reference: includes the **`.`** prefix, e.g. **`".warning"`**). **TODO:** Harmonise with catalogue convention (bare `"warning"` strings) where both appear. |
 | **`and`** | `items` | Conjunction of nested `ConditionExpr`. |
 | **`or`** | `items` | Disjunction of nested `ConditionExpr`. |
+| **`not`** | `expr` | Negation of a nested `ConditionExpr`. |
 
 **TODO:** Document mixed `&&` / `||` parenthesis rules (parser rejects certain mixes; mirror §7 / §21).
 
 ---
 
-### 7. Serialised value expressions (`SerialisedValueExpr`)
+### 2. Serialised value expressions (`SerialisedValueExpr`)
 
 Literal and composite RHS values from PDL appear as nested JSON objects. Every node has **`kind`**.
 
@@ -3244,13 +3134,14 @@ Literal and composite RHS values from PDL appear as nested JSON objects. Every n
 | **`string`** | `{ "kind": "string", "value": "…" }` | |
 | **`number`** | `{ "kind": "number", "value": <number> }` | |
 | **`boolean`** | `{ "kind": "boolean", "value": true \| false }` | |
+| **`condition`** | `{ "kind": "condition", "expr": ConditionExpr }` | Variant / boolean conditions in values. |
 | **`ident`** | `{ "kind": "ident", "name": "token.or.Qualified" }` | Token or qualified name as authored. |
 | **`dotEnum`** | `{ "kind": "dotEnum", "value": ".caseName" }` | Includes leading `.` in reference output. |
 | **`opacityOf`** | `{ "kind": "opacityOf", "base": …, "opacity": … }` | Colour `@` opacity / multiplier. |
 | **`edgeInsets`** | `{ "kind": "edgeInsets", "variant": "xy" \| "trbl", "fields": { … } }` | Each field maps to nested `SerialisedValueExpr`. |
 | **`corner`** | `{ "kind": "corner", "tl", "tr", "br", "bl" }` | Each corner is a `SerialisedValueExpr`. |
 | **`array`** | `{ "kind": "array", "items": [ … ] }` | Layer lists, child literal arrays in values, etc. |
-| **`transition`** | `{ "kind": "transition", "duration", "easing", "delay"? }` | **TODO:** Confirm where transitions appear in merged defs vs catalogue-only. |
+| **`transition`** | `{ "kind": "transition", "duration", "easing", "delay"? }` | **TODO:** Confirm where transitions appear in catalogue-only paths. |
 | **`vibrancyTuple`** | `{ "kind": "vibrancyTuple", "saturation": number, "brightness": number }` | Inline vibrancy tuple. |
 | **`rampInline`** | `{ "kind": "rampInline", "direction": string, "stops": [ … ] }` | **`direction`** stores the parsed enum lexeme. **TODO:** Normalise to bare string vs dot form. |
 | **`sizing`** | `{ "kind": "sizing", "mode": "hug" \| "fill" \| "fixed" \| "flex", "fixed"?, "flexArgs"? }` | For `.fixed(n)`, `fixed` is numeric. For `.flex(…)`, `flexArgs` maps argument labels → `SerialisedValueExpr`. **TODO:** Document full flex argument set (`min`, `max`, `preferred`). |
@@ -3258,76 +3149,86 @@ Literal and composite RHS values from PDL appear as nested JSON objects. Every n
 | **`gradientStop`** | `{ "kind": "gradientStop", "fields": { … } }` | **TODO:** List allowed field keys (`position`, `opacity`, `color`, …) normatively. |
 | **`unknown`** | `{ "kind": "unknown" }` | Fallback when the reference `serialiseValueExpr` encounters an AST node it does not serialise. **TODO:** Specify whether conforming implementations **must** error instead of emitting `unknown`. |
 
-**TODO:** Provide a single JSON Schema (`design-graph.schema.json`) mirroring this section for validators.
+**TODO:** Provide a JSON Schema for `SerialisedValueExpr` / `ConditionExpr` fragments used in catalogue and resolve output.
 
 ---
 
-### 8. Minimal example (illustrative, truncated)
+### 3. Minimal fragment (illustrative)
+
+Token definition value inside **`resolvedComponent.system.primitives["color.bg"].definition`** (shape only; paths are illustrative):
 
 ```json
-{
-  "kind": "designGraph",
-  "schemaVersion": "1.0.0-beta",
-  "entryPath": "/abs/path/design.pdl",
-  "modulePaths": ["tokens.pdl", "design.pdl"],
-  "previewBackground": null,
-  "primitives": [
-    { "name": "color.bg", "tokenType": "Color", "value": { "kind": "hex", "value": "#FFFFFF" } }
-  ],
-  "semantics": [],
-  "themes": [],
-  "variants": [{ "name": "Tone", "cases": ["neutral", "danger"] }],
-  "typeStyles": [],
-  "components": [
-    {
-      "name": "Banner",
-      "params": [
-        { "name": "tone", "typeName": "Tone", "defaultValue": { "kind": "dotEnum", "value": ".neutral" } },
-        { "name": "label", "typeName": "String", "defaultValue": { "kind": "string", "value": "Hello" } }
-      ],
-      "rootKind": "layout",
-      "body": [
-        { "kind": "prop", "name": "direction", "value": { "kind": "dotEnum", "value": ".column" } },
-        {
-          "kind": "let",
-          "id": "Message",
-          "frameKind": "text",
-          "body": [
-            { "kind": "prop", "name": "content", "value": { "kind": "ident", "name": "label" } },
-            {
-              "kind": "if",
-              "chain": {
-                "branches": [
-                  {
-                    "condition": { "kind": "cmp", "param": "tone", "op": "==", "rhs": ".danger" },
-                    "body": [{ "kind": "prop", "name": "color", "value": { "kind": "ident", "name": "color.status.danger" } }]
-                  }
-                ]
-              }
-            }
-          ]
-        },
-        { "kind": "children", "target": "root", "entries": [{ "kind": "frameRef", "id": "Message" }] }
-      ]
-    }
-  ],
-  "expose": { "Banner": ["tone", "label"] }
-}
+{ "kind": "hex", "value": "#FFFFFF" }
 ```
+
+
+## 16c — Graph exports (`graphSystem`, `graphComponent`)
+
+The reference CLI emits **two graph-shaped JSON artefacts** (rich, reference-heavy handoffs — not fully denormalised):
+
+| Command | Arguments | JSON output |
+|---------|-----------|-------------|
+| **`pdl graphSystem`** | `<entry.pdl>` and optional **`--out`** only | **Full Component Catalogue** (§16 §2 onward): **`kind: "componentCatalogue"`** with **`primitives`**, **`semantics`**, **`themes`**, **`variantTypes`**, components, companions as implemented. **No `--theme`** flag: tree resolution uses the catalogue default (same as **`catalogue`** without **`--theme`**). |
+| **`pdl graphComponent`** | `<entry.pdl>`, `<ComponentName>`, optional **`--theme`**, optional **`--out`**, optional **`param=value`** overrides | **`resolvedComponent`** document (§16 §2.5): one trimmed **`components`** row plus **`system`** ( **`variantTypes`**, **`primitives` / `semantics`**, **`themes`**, **`typeStyles`** ) scoped to that component. **`param=value`** pairs are recorded as **`paramOverrides`** on the document (same semantics as legacy **`pdl resolve`** without **`--tree-only`**). |
+
+**Normative JSON kinds:** **`componentCatalogue`** (system) and **`resolvedComponent`** (component slice). The **`graph*`** names refer to the **CLI verbs** only.
 
 ---
 
-### 9. Stability and testing
+## 16d — Baked design JSON (`bakeSystem`, `bakeComponent`)
 
-Golden-file tests may normalise **`entryPath`** to a sentinel and sort **`modulePaths`** by basename only — **TODO:** If the graph becomes normative, specify the **canonical serialisation** (sorted keys, sorted maps, number formatting) or explicitly declare such transforms **non-normative test normalisation only**.
+**Bake** is a **one-way** denormalisation: emitters receive **only** materialised component trees and **literal** frame properties. There is **no** **`variantTypes`**, no catalogue **`primitives` / `semantics` / `themes`** graph, no **`primitive:`** / **`semantic:`** markers, and no catalogue **`variants[]`** deltas.
+
+| Command | Arguments | JSON output |
+|---------|-----------|-------------|
+| **`pdl bakeSystem`** | `<entry.pdl>`, optional **`--theme`**, optional **`--out`** | One **`bakedDesign`** document (below) whose **`components`** map contains **every** merged component, each at **default parameter values**, resolved under the chosen theme (or default token map when **`--theme`** is omitted). |
+| **`pdl bakeComponent`** | `<entry.pdl>`, `<ComponentName>`, optional **`--theme`**, optional **`--out`**, optional **`param=value`** | Same **`bakedDesign`** shape with **exactly one** entry in **`components`**. **`param=value`** overrides variant and non-variant params (same parsing rules as **`pdl resolve`**). |
+
+### `bakedDesign` — root document
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| **`schemaKind`** | string | Always **`"bakedDesign"`**. |
+| **`schemaVersion`** | string | Semver for this JSON shape (reference: **`"1.0.0-beta"`** alongside catalogue). |
+| **`generatedAt`** | string | ISO-8601 UTC timestamp. |
+| **`provenance`** | object | **Audit only** — not a theme system for receivers. |
+| **`provenance.entryPath`** | string | Entry **`.pdl`** path used for the bake. |
+| **`provenance.bakedTheme`** | string \| **`null`** | Theme **name** passed to **`--theme`**, or **`null`** when omitted. |
+| **`provenance.bakeProfile`** | string | **`"system-defaults"`** (**`bakeSystem`**) or **`"component-explicit"`** (**`bakeComponent`**). |
+| **`components`** | object | Map **component name** → **`BakedComponent`**. |
+
+**Normative:** Sibling keys such as **`primitives`**, **`semantics`**, **`themes`**, **`variantTypes`**, **`rules`**, **`fixtures`**, and **`interactions`** **must not** appear on **`bakedDesign`** (unless a future minor version explicitly extends this contract).
+
+### `BakedComponent`
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| **`name`** | string | Component name (matches the **`components`** map key). |
+| **`rootKind`** | string | Root frame kind (**`layout`**, **`text`**, **`icon`**, **`media`**, …). |
+| **`bakedParams`** | object | Final param values used for this bake (strings / numbers / booleans). |
+| **`root`** | **`BakedFrame`** | Materialised tree. |
+
+### `BakedFrame` (recursive)
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| **`id`** | string | Frame id (**`Root`**, **`let`** ids, synthetic ids for spacers / instances). |
+| **`kind`** | string | **`layout`**, **`text`**, **`icon`**, **`media`**, **`spacer`**, … |
+| **`props`** | object | JSON-serialisable literals after evaluation. **`hidden`** frames are **omitted** from parent **`children`** lists (they do not appear as nodes in **`bake*`** output). |
+| **`children`** | **`BakedFrame[]`** | Ordered visible children. |
+
+**Reference implementation:** `buildBakedDesignSystem` / `buildBakedDesignComponent` in **`src/bakeDesign.ts`**, CLI in **`src/cli.ts`**.
+
+---
+
 
 ---
 
 ## 17 — Emitters, Compiler Targets, and the Design Manifest
 
-Emitters consume the **Component Catalogue** (§16) as their **primary** input for generating view code: **`tokensByTheme`** (all theme slices + **`base`**), the **`tokens`** alias for the active build, **`themesDeclared`**, per-component **`kind` / `props` / `childNodes` / `children` / `variants`**, and **`primitive:`** / **`semantic:`** / **`param:`** / **`typeStyle:`** markers where applicable (§16 §0, §2.2–§2.4).
+Emitters consume the **Component Catalogue** (§16) or **`resolvedComponent`** slices (§16 §2.5) as their **primary** input for expressive view code: **`primitives`**, **`semantics`**, **`themes`**, per-component trees and variant deltas, and **`primitive:`** / **`semantic:`** / **`param:`** / **`typeStyle:`** markers where applicable (§16 §0, §2.2–§2.4). **Fully literal** pipelines may consume **`bakedDesign`** only (§16d).
 
-The **design manifest** (§3 below) is a **separate, lightweight JSON** file: a registry of names and public APIs **without** frame trees or token values. Use it for CI, documentation, and discovery; use the **design graph** (§16b) only for **compiler-adjacent** tooling — it is **not** a shipping handoff to app runtimes (§16 §0).
+The **design manifest** (§3 below) is a **separate, lightweight JSON** file: a registry of names and public APIs **without** frame trees or token values. Use it for CI, documentation, and discovery alongside the **Component Catalogue** (§16 §0) for resolved trees and tokens.
 
 ---
 
@@ -3362,7 +3263,7 @@ Each emitter **must** document:
 
 ## 3. Design manifest JSON (reference implementation, v1)
 
-The **design manifest** is intentionally **small**: it lists **what exists** in the merged design (paths, theme names, variant and typeStyle names, component headers and `expose`) so tools can introspect a library **without** loading the **Component Catalogue** or the **design graph**.
+The **design manifest** is intentionally **small**: it lists **what exists** in the merged design (paths, theme names, variant and typeStyle names, component headers and `expose`) so tools can introspect a library **without** loading the **Component Catalogue**.
 
 **CLI (reference):** `pdl manifest <entry.pdl> [--out file.json]` (see §9).
 
@@ -3397,8 +3298,8 @@ The **design manifest** is intentionally **small**: it lists **what exists** in 
 | `kind` | string | Always **`"designManifest"`**. |
 | `schemaVersion` | string | Semver of this manifest object (reference: **`1.0.0-beta`**). |
 | `generatedAt` | string | ISO 8601 timestamp. |
-| `entryPath` | string | Absolute path to the entry `.pdl` in the reference implementation. **TODO:** normalise for reproducible CI (§16b). |
-| `modulePaths` | string[] | Merge order list of module paths (same closure as the design graph). |
+| `entryPath` | string | Absolute path to the entry `.pdl` in the reference implementation. **TODO:** normalise for reproducible CI. |
+| `modulePaths` | string[] | Merge order list of module paths (same module closure as the merged design). |
 | `previewBackground` | string \| null | `previewBackground` token name when set; else **`null`**. |
 | `themes` | string[] | Sorted **`theme`** names. |
 | `variants` | string[] | Sorted **`variant`** type names. |
@@ -3438,7 +3339,7 @@ Goal: **minimize tokens** while preserving **API surface**; heavier constraints 
 
 ## 6. Protected core boundary
 
-**Inside core:** grammar, AST, import merge, type validation, token resolution, override resolution, variant delta computation, **Component Catalogue** serialisation, **design graph** serialisation, **design manifest** serialisation, `applyInteractionEvent` parameter simulation.
+**Inside core:** grammar, AST, import merge, type validation, token resolution, override resolution, variant delta computation, **Component Catalogue** serialisation, **design manifest** serialisation, `applyInteractionEvent` parameter simulation.
 
 **Outside core (emitters):** reading the catalogue and generating target code (HTML/CSS/React/SwiftUI/Compose/etc.), asset path rewriting, capability degradation.
 

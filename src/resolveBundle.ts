@@ -6,7 +6,7 @@ import {
   type CatalogueVariantTypeDef,
 } from "./catalogue.js";
 import { PdlError } from "./errors.js";
-import { serialiseValueExpr } from "./graph.js";
+import { serialiseValueExpr, serialiseValueExprWithTokenRefs } from "./graph.js";
 
 const PRIMITIVE_REF = /^primitive:(.+)$/;
 const SEMANTIC_REF = /^semantic:(.+)$/;
@@ -49,8 +49,8 @@ export type ResolvedCatalogueComponentRow = Omit<CatalogueComponent, "defaultPar
  * **overrides** (token refs cross-link to rows in **`primitives` / `semantics`**).
  */
 export type ResolvedComponentSystemBundle = {
-  theme: string;
-  themesDeclared: string[];
+  /** Present only when **`buildResolvedComponentDocument`** was given **`theme`**. */
+  theme?: string;
   variantTypes: Record<string, CatalogueVariantTypeDef>;
   primitives: Record<string, ResolvedPrimitiveEntry>;
   semantics: Record<string, ResolvedSemanticEntry>;
@@ -251,97 +251,6 @@ function augmentTokenNamesFromRelevantThemesAndDefinitions(design: DesignDefinit
   }
 }
 
-/** Serialise a `ValueExpr` for theme overrides; bare token idents become `primitive:` / `semantic:` strings. */
-function serialiseValueExprWithTokenMarkers(expr: ValueExpr, design: DesignDefinition): unknown {
-  switch (expr.kind) {
-    case "ident":
-      if (design.primitives.has(expr.name)) return `primitive:${expr.name}`;
-      if (design.semantics.has(expr.name)) return `semantic:${expr.name}`;
-      return { kind: "ident", name: expr.name };
-    case "hex":
-    case "string":
-    case "number":
-    case "boolean":
-      return { kind: expr.kind, value: (expr as { value: unknown }).value };
-    case "condition":
-      return serialiseValueExpr(expr);
-    case "dotEnum":
-      return { kind: "dotEnum", value: expr.value };
-    case "opacityOf":
-      return {
-        kind: "opacityOf",
-        base: serialiseValueExprWithTokenMarkers(expr.base, design),
-        opacity: serialiseValueExprWithTokenMarkers(expr.opacity, design),
-      };
-    case "edgeInsets":
-      return {
-        kind: "edgeInsets",
-        variant: expr.variant,
-        fields: Object.fromEntries(
-          Object.entries(expr.fields).map(([k, v]) => [k, serialiseValueExprWithTokenMarkers(v, design)]),
-        ),
-      };
-    case "corner":
-      return {
-        kind: "corner",
-        tl: serialiseValueExprWithTokenMarkers(expr.tl, design),
-        tr: serialiseValueExprWithTokenMarkers(expr.tr, design),
-        br: serialiseValueExprWithTokenMarkers(expr.br, design),
-        bl: serialiseValueExprWithTokenMarkers(expr.bl, design),
-      };
-    case "array":
-      return { kind: "array", items: expr.items.map((it) => serialiseValueExprWithTokenMarkers(it, design)) };
-    case "transition":
-      return {
-        kind: "transition",
-        duration: serialiseValueExprWithTokenMarkers(expr.duration, design),
-        easing: serialiseValueExprWithTokenMarkers(expr.easing, design),
-        ...(expr.delay ? { delay: serialiseValueExprWithTokenMarkers(expr.delay, design) } : {}),
-      };
-    case "vibrancyTuple":
-      return { kind: "vibrancyTuple", saturation: expr.saturation, brightness: expr.brightness };
-    case "rampInline":
-      return {
-        kind: "rampInline",
-        direction: expr.direction,
-        stops: expr.stops.map((s) => serialiseValueExprWithTokenMarkers(s, design)),
-      };
-    case "sizing":
-      return {
-        kind: "sizing",
-        mode: expr.mode,
-        ...(expr.fixed !== undefined ? { fixed: expr.fixed } : {}),
-        ...(expr.flexArgs
-          ? {
-              flexArgs: Object.fromEntries(
-                Object.entries(expr.flexArgs).map(([k, v]) => [k, serialiseValueExprWithTokenMarkers(v, design)]),
-              ),
-            }
-          : {}),
-      };
-    case "call":
-      return {
-        kind: "call",
-        callee: expr.callee,
-        args: Object.fromEntries(
-          Object.entries(expr.args).map(([k, v]) => [k, serialiseValueExprWithTokenMarkers(v, design)]),
-        ),
-      };
-    case "gradientStop":
-      return {
-        kind: "gradientStop",
-        fields: Object.fromEntries(
-          Object.entries(expr.fields).map(([k, v]) => [k, serialiseValueExprWithTokenMarkers(v, design)]),
-        ),
-      };
-    default: {
-      const _x: never = expr;
-      void _x;
-      return { kind: "unknown" };
-    }
-  }
-}
-
 export function buildResolvedComponentDocument(
   design: DesignDefinition,
   opts: {
@@ -372,7 +281,7 @@ export function buildResolvedComponentDocument(
         {
           name: p.name,
           tokenType: p.tokenType,
-          definition: serialiseValueExpr(p.value),
+          definition: serialiseValueExprWithTokenRefs(p.value, design),
         },
       ]),
   );
@@ -386,7 +295,7 @@ export function buildResolvedComponentDocument(
         {
           name: s.name,
           tokenType: s.tokenType,
-          definition: serialiseValueExpr(s.value),
+          definition: serialiseValueExprWithTokenRefs(s.value, design),
         },
       ]),
   );
@@ -404,7 +313,7 @@ export function buildResolvedComponentDocument(
             name: t.name,
             baseTheme: t.baseTheme ?? null,
             overrides: Object.fromEntries(
-              keys.map((k) => [k, serialiseValueExprWithTokenMarkers(t.overrides[k]!, design)]),
+              keys.map((k) => [k, serialiseValueExprWithTokenRefs(t.overrides[k]!, design)]),
             ),
           },
         ] as const;
@@ -445,8 +354,7 @@ export function buildResolvedComponentDocument(
     components: { [componentName]: catalogueRow },
     ...(Object.keys(paramOverrides).length ? { paramOverrides } : {}),
     system: {
-      theme: cat.theme,
-      themesDeclared: cat.themesDeclared,
+      ...(theme ? { theme } : {}),
       variantTypes: variantTypesFiltered,
       primitives,
       semantics,

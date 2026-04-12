@@ -9,13 +9,14 @@
   },
   "scripts": {
     "build": "tsc",
-    "graph": "tsc && node dist/cli.js graph",
+    "graphSystem": "tsc && node dist/cli.js graphSystem",
+    "graphComponent": "tsc && node dist/cli.js graphComponent",
+    "bakeSystem": "tsc && node dist/cli.js bakeSystem",
+    "bakeComponent": "tsc && node dist/cli.js bakeComponent",
     "resolve": "tsc && node dist/cli.js resolve",
     "catalogue": "tsc && node dist/cli.js catalogue",
     "manifest": "tsc && node dist/cli.js manifest",
     "test": "npm run build && vitest run",
-    "test:update-atom-graphs": "npm run build && node scripts/regenerate-atom-graph-goldens.mjs",
-    "test:update-molecule-graphs": "npm run build && node scripts/regenerate-molecule-graph-goldens.mjs",
     "test:watch": "vitest"
   },
   "engines": {

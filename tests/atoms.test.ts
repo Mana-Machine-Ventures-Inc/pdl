@@ -5,13 +5,12 @@ import { fileURLToPath } from "node:url";
 import { parseModule } from "../src/parser.js";
 import { loadDesign } from "../src/loadDesign.js";
 import { buildComponentCatalogue } from "../src/catalogue.js";
+import { buildResolvedTokenMap } from "../src/evaluate.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const atomsDir = resolve(__dirname, "../test-fixtures/pdl/atoms");
 
 describe("atoms fixtures", () => {
-  // Full design-graph equality (including every component body) is in atoms-graph-golden.test.ts.
-
   it("parses every standalone .pdl file in atoms/", () => {
     const files = readdirSync(atomsDir).filter((f) => f.endsWith(".pdl"));
     expect(files.length).toBeGreaterThan(5);
@@ -29,18 +28,20 @@ describe("atoms fixtures", () => {
     const cat = buildComponentCatalogue(d);
     expect(Object.keys(cat.components).length).toBe(d.components.size);
     expect(cat.schemaVersion).toBe("1.0.0-beta");
-    expect(cat.tokensByTheme.base).toBeDefined();
-    expect(cat.tokens).toEqual(cat.tokensByTheme.base);
+    expect(Object.keys(cat.primitives).length).toBeGreaterThan(0);
+    expect(cat.semantics).toBeDefined();
+    expect(cat.themes).toBeDefined();
     expect(Object.keys(cat.variantTypes).length).toBeGreaterThan(0);
     expect(cat.variantTypes.AtomsTone).toBeDefined();
   });
 
   it("loads root design.pdl including atoms + merge chain", () => {
-    const entry = resolve(__dirname, "../test-fixtures/pdl/design.pdl");
+    const entry = resolve(__dirname, "../test-fixtures/pdl/integration/design.pdl");
     const d = loadDesign(entry);
     expect(d.primitives.get("color.merge.token")).toBeDefined();
     const cat = buildComponentCatalogue(d);
-    expect(cat.tokens["color.merge.token"]).toBe("#333333");
-    expect(cat.tokensByTheme.base["color.merge.token"]).toBe("#333333");
+    const merged = cat.primitives["color.merge.token"]!.definition as { kind: string; value: string };
+    expect(merged).toEqual({ kind: "hex", value: "#333333" });
+    expect(buildResolvedTokenMap(d).get("color.merge.token")).toBe("#333333");
   });
 });

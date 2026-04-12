@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { buildBakedDesignComponent, buildBakedDesignSystem } from "./bakeDesign.js";
 import { buildComponentCatalogue } from "./catalogue.js";
 import { stableStringify } from "./stableJson.js";
-import { buildDesignGraph } from "./graph.js";
 import { buildDesignManifest } from "./manifest.js";
 import { loadDesign } from "./loadDesign.js";
 import { buildResolvedTokenMap } from "./evaluate.js";
@@ -14,18 +14,21 @@ function usage(): never {
   console.error(`PDL toolchain
 
 Usage:
-  pdl graph <entry.pdl>
+  pdl graphSystem <entry.pdl> [--out <file.json>]
+  pdl graphComponent <entry.pdl> <ComponentName> [--theme <ThemeName>] [--out <file.json>] [key=value ...]
+  pdl bakeSystem <entry.pdl> [--theme <ThemeName>] [--out <file.json>]
+  pdl bakeComponent <entry.pdl> <ComponentName> [--theme <ThemeName>] [--out <file.json>] [key=value ...]
   pdl manifest <entry.pdl> [--out <file.json>]
   pdl resolve <entry.pdl> <ComponentName> [--tree-only] [--theme <ThemeName>] [key=value ...]
   pdl catalogue <entry.pdl> [--theme <ThemeName>] [--out <file.json>]
 
-Options:
-  --theme <name>   Primary theme for token resolution (optional)
-  --out <path>     Write JSON to file instead of stdout (catalogue / manifest)
+Legacy: catalogue matches graphSystem JSON but allows --theme. resolve without --tree-only matches graphComponent.
 
-Note: \`node dist/cli.js …\` uses compiled output in dist/. After changing src/, run \`npm run build\`
-(or \`tsc\`) before graph, or use \`npm run graph -- <entry.pdl>\` (and resolve / catalogue / manifest),
-which run \`tsc\` first.
+Options:
+  --theme <name>   Primary theme for token resolution (graphComponent, bake*, catalogue, resolve)
+  --out <path>     Write JSON to file instead of stdout
+
+Note: \`node dist/cli.js …\` uses compiled output in dist/. After changing src/, run \`npm run build\` (or \`tsc\`), or use npm scripts that run \`tsc\` first.
 `);
   process.exit(1);
 }
@@ -45,15 +48,100 @@ function parseKeyValues(args: string[]): Record<string, unknown> {
   return out;
 }
 
+function parseThemeOutAndKv(rest: string[]): { theme?: string; outPath?: string; kvParts: string[] } {
+  const kvParts: string[] = [];
+  let theme: string | undefined;
+  let outPath: string | undefined;
+  for (let i = 0; i < rest.length; i++) {
+    const a = rest[i]!;
+    if (a === "--theme") {
+      const t = rest[++i];
+      if (!t || t.startsWith("-")) usage();
+      theme = t;
+    } else if (a === "--out") {
+      const p = rest[++i];
+      if (!p || p.startsWith("-")) usage();
+      outPath = p;
+    } else {
+      kvParts.push(a);
+    }
+  }
+  return { theme, outPath, kvParts };
+}
+
+function writeJson(outPath: string | undefined, s: string): void {
+  if (outPath) writeFileSync(outPath, s, "utf-8");
+  else process.stdout.write(s);
+}
+
 function main() {
   const argv = process.argv.slice(2);
   if (argv.length < 2) usage();
   const cmd = argv[0];
   const entry = resolve(argv[1]!);
 
-  if (cmd === "graph") {
+  if (cmd === "graphSystem") {
+    const rest = argv.slice(2);
+    for (let i = 0; i < rest.length; i++) {
+      if (rest[i] === "--theme") {
+        console.error("graphSystem accepts only the entry file and optional --out (no --theme).");
+        process.exit(1);
+      }
+    }
+    let outPath: string | undefined;
+    const tail: string[] = [];
+    for (let i = 0; i < rest.length; i++) {
+      if (rest[i] === "--out") {
+        const p = rest[++i];
+        if (!p || p.startsWith("-")) usage();
+        outPath = p;
+      } else {
+        tail.push(rest[i]!);
+      }
+    }
+    if (tail.length) usage();
     const design = loadDesign(entry);
-    process.stdout.write(stableStringify(buildDesignGraph(design)));
+    const cat = buildComponentCatalogue(design, {});
+    writeJson(outPath, stableStringify(cat, { omitEmpty: true }));
+    return;
+  }
+
+  if (cmd === "graphComponent") {
+    const comp = argv[2];
+    if (!comp) usage();
+    const { theme, outPath, kvParts } = parseThemeOutAndKv(argv.slice(3));
+    const kv = parseKeyValues(kvParts);
+    const design = loadDesign(entry);
+    const bundle = buildResolvedComponentDocument(design, {
+      componentName: comp,
+      paramOverrides: kv,
+      theme,
+    });
+    writeJson(outPath, stableStringify(bundle, { omitEmpty: true }));
+    return;
+  }
+
+  if (cmd === "bakeSystem") {
+    const { theme, outPath, kvParts } = parseThemeOutAndKv(argv.slice(2));
+    if (kvParts.length) usage();
+    const design = loadDesign(entry);
+    const baked = buildBakedDesignSystem(design, { theme });
+    writeJson(outPath, stableStringify(baked, { omitEmpty: true }));
+    return;
+  }
+
+  if (cmd === "bakeComponent") {
+    const comp = argv[2];
+    if (!comp) usage();
+    const { theme, outPath, kvParts } = parseThemeOutAndKv(argv.slice(3));
+    const kv = parseKeyValues(kvParts);
+    const design = loadDesign(entry);
+    const baked = buildBakedDesignComponent(design, {
+      componentName: comp,
+      theme,
+      paramOverrides: kv,
+    });
+    writeJson(outPath, stableStringify(baked, { omitEmpty: true }));
     return;
   }
 
@@ -68,8 +156,7 @@ function main() {
     const design = loadDesign(entry);
     const man = buildDesignManifest(design);
     const s = stableStringify(man);
-    if (outPath) writeFileSync(outPath, s, "utf-8");
-    else process.stdout.write(s);
+    writeJson(outPath, s);
     return;
   }
 
@@ -107,21 +194,11 @@ function main() {
   }
 
   if (cmd === "catalogue") {
-    let theme: string | undefined;
-    let outPath: string | undefined;
-    const rest = argv.slice(2);
-    for (let i = 0; i < rest.length; i++) {
-      if (rest[i] === "--theme") {
-        theme = rest[++i];
-      } else if (rest[i] === "--out") {
-        outPath = rest[++i];
-      }
-    }
+    const { theme, outPath, kvParts } = parseThemeOutAndKv(argv.slice(2));
+    if (kvParts.length) usage();
     const design = loadDesign(entry);
     const cat = buildComponentCatalogue(design, { theme });
-    const s = stableStringify(cat, { omitEmpty: true });
-    if (outPath) writeFileSync(outPath, s, "utf-8");
-    else process.stdout.write(s);
+    writeJson(outPath, stableStringify(cat, { omitEmpty: true }));
     return;
   }
 

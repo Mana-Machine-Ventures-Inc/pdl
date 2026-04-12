@@ -12,6 +12,20 @@ export type CatalFrame = {
   children: CatalFrame[];
 };
 
+export function isHiddenFrame(f: CatalFrame): boolean {
+  return f.props.hidden === true;
+}
+
+/** Drop frames with **`props.hidden === true`** from emitted **`children`** lists (recursive). */
+export function pruneHiddenChildrenTree(f: CatalFrame): CatalFrame {
+  return {
+    id: f.id,
+    kind: f.kind,
+    props: { ...f.props },
+    children: f.children.filter((ch) => !isHiddenFrame(ch)).map((ch) => pruneHiddenChildrenTree(ch)),
+  };
+}
+
 type MutableFrame = {
   kind: string;
   props: Record<string, unknown>;

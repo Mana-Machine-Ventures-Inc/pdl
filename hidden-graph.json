@@ -1,0 +1,125 @@
+{
+  "components": {
+    "AtomHiddenFrame": {
+      "childNodes": {
+        "A": {
+          "id": "A",
+          "kind": "text",
+          "props": {
+            "content": "Always",
+            "typeStyle": "typeStyle:AtomCaption"
+          }
+        },
+        "B": {
+          "children": [
+            {
+              "id": "Inner",
+              "kind": "text",
+              "props": {
+                "content": "Sometimes",
+                "typeStyle": "typeStyle:AtomBody"
+              }
+            }
+          ],
+          "id": "B",
+          "kind": "layout",
+          "props": {
+            "direction": "row"
+          }
+        }
+      },
+      "children": [
+        "A",
+        "B"
+      ],
+      "defaultParams": {
+        "mode": "showExtra"
+      },
+      "expose": [
+        "mode"
+      ],
+      "kind": "layout",
+      "name": "AtomHiddenFrame",
+      "params": [
+        {
+          "default": "showExtra",
+          "name": "mode",
+          "type": "variant",
+          "variantTypeName": "AtomHiddenFrameMode"
+        }
+      ],
+      "props": {
+        "direction": "column"
+      },
+      "usage": "",
+      "variants": [
+        {
+          "affectedFrames": [
+            "B"
+          ],
+          "changes": [
+            {
+              "frameId": "B",
+              "prop": "hidden",
+              "value": true
+            }
+          ],
+          "children": [
+            "A"
+          ],
+          "params": {
+            "mode": "hideExtra"
+          },
+          "structuralChange": true
+        }
+      ]
+    }
+  },
+  "generatedAt": "2026-04-12T18:39:56.190Z",
+  "kind": "componentCatalogue",
+  "schemaVersion": "1.0.0-beta",
+  "theme": "(none)",
+  "tokens": {
+    "atoms.color.rgb": "#AABBCC",
+    "atoms.color.rgba": "#11223344",
+    "atoms.color.scrimLiteral": "#aabbcc40",
+    "atoms.color.scrimRgba": "#11223322",
+    "atoms.color.sem.fromRgb": "#AABBCC",
+    "atoms.color.sem.fromRgba": "#11223344",
+    "atoms.font.mono": "ui-monospace, monospace",
+    "atoms.font.ui": "system-ui, sans-serif",
+    "atoms.type.size.body": 16,
+    "atoms.type.size.caption": 12,
+    "atoms.type.size.title": 22,
+    "atoms.type.weight.bold": 700,
+    "atoms.type.weight.medium": 600,
+    "atoms.type.weight.regular": 400
+  },
+  "tokensByTheme": {
+    "base": {
+      "atoms.color.rgb": "#AABBCC",
+      "atoms.color.rgba": "#11223344",
+      "atoms.color.scrimLiteral": "#aabbcc40",
+      "atoms.color.scrimRgba": "#11223322",
+      "atoms.color.sem.fromRgb": "#AABBCC",
+      "atoms.color.sem.fromRgba": "#11223344",
+      "atoms.font.mono": "ui-monospace, monospace",
+      "atoms.font.ui": "system-ui, sans-serif",
+      "atoms.type.size.body": 16,
+      "atoms.type.size.caption": 12,
+      "atoms.type.size.title": 22,
+      "atoms.type.weight.bold": 700,
+      "atoms.type.weight.medium": 600,
+      "atoms.type.weight.regular": 400
+    }
+  },
+  "variantTypes": {
+    "AtomHiddenFrameMode": {
+      "cases": [
+        "showExtra",
+        "hideExtra"
+      ],
+      "name": "AtomHiddenFrameMode"
+    }
+  }
+}

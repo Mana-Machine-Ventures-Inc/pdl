@@ -13,7 +13,7 @@ describe("design manifest", () => {
   });
 
   it("lists components, themes, and expose without frame trees", () => {
-    const d = loadDesign(fx("themed.pdl"));
+    const d = loadDesign(fx("integration/themed.pdl"));
     const m = buildDesignManifest(d);
     expect(m.kind).toBe("designManifest");
     expect(Object.keys(m).sort()).toEqual([...DESIGN_MANIFEST_ROOT_KEYS].sort());
@@ -25,7 +25,7 @@ describe("design manifest", () => {
   });
 
   it("includes sorted variant and typeStyle names from larger fixtures", () => {
-    const d = loadDesign(fx("design.pdl"));
+    const d = loadDesign(fx("integration/design.pdl"));
     const m = buildDesignManifest(d);
     expect(m.components.length).toBeGreaterThan(5);
     expect(m.variants.length).toBeGreaterThan(0);

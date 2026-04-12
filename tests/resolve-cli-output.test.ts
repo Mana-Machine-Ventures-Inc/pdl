@@ -20,8 +20,8 @@ describe("resolvedComponent document (pdl resolve default)", () => {
     expect(doc).not.toHaveProperty("root");
     expect(doc).not.toHaveProperty("children");
     expect(doc).not.toHaveProperty("childNodes");
-    expect(doc.system.theme).toBeDefined();
-    expect(doc.system.themesDeclared).toBeDefined();
+    expect(doc.system).not.toHaveProperty("theme");
+    expect(doc.system).not.toHaveProperty("themesDeclared");
   });
 
   it("includes primitives/semantics for primitive:/semantic: refs, typeStyle bodies, transitive defs, and theme overrides", () => {
@@ -34,6 +34,7 @@ describe("resolvedComponent document (pdl resolve default)", () => {
     expect(semNames).toContain("atoms.color.sem.fromRgb");
     const rgbDef = doc.system.primitives["atoms.color.rgb"]?.definition;
     expect(rgbDef).toEqual(expect.objectContaining({ kind: "hex" }));
+    expect(doc.system.semantics["atoms.color.sem.fromRgb"]?.definition).toBe("primitive:atoms.color.rgb");
     expect(Object.values(doc.system.primitives).every((p) => !("valuesByTheme" in p))).toBe(true);
     expect(Object.values(doc.system.semantics).every((s) => !("valuesByTheme" in s))).toBe(true);
   });
@@ -60,7 +61,7 @@ describe("resolvedComponent document (pdl resolve default)", () => {
   });
 
   it("omits primitives/semantics when the component uses no tokens or typeStyles", () => {
-    const design = loadDesign(fx("greeting.pdl"));
+    const design = loadDesign(fx("integration/greeting.pdl"));
     const doc = buildResolvedComponentDocument(design, { componentName: "Greeting" });
     expect(doc.system.primitives).toEqual({});
     expect(doc.system.semantics).toEqual({});

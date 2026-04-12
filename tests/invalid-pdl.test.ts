@@ -128,19 +128,19 @@ describe("invalid PDL — legacy fixtures (same validators)", () => {
   const root = (...p: string[]) => resolve(__dirname, "../test-fixtures/pdl", ...p);
 
   it("PDL-E007 unknown parameter in layout if (e07)", () => {
-    expectPdl(() => loadDesign(root("e07-if-unknown-param.pdl")), "PDL-E007", /layoutMode/);
+    expectPdl(() => loadDesign(root("errors", "legacy", "e07-if-unknown-param.pdl")), "PDL-E007", /layoutMode/);
   });
 
   it("PDL-E010 non-variant parameter in if (e10)", () => {
-    expectPdl(() => loadDesign(root("e10-if-non-variant-param.pdl")), "PDL-E010", /non-variant/);
+    expectPdl(() => loadDesign(root("errors", "legacy", "e10-if-non-variant-param.pdl")), "PDL-E010", /non-variant/);
   });
 
   it("PDL-E010 unknown variant case (e10)", () => {
-    expectPdl(() => loadDesign(root("e10-if-unknown-variant-case.pdl")), "PDL-E010", /bogus/);
+    expectPdl(() => loadDesign(root("errors", "legacy", "e10-if-unknown-variant-case.pdl")), "PDL-E010", /bogus/);
   });
 
   it("PDL-E012 hidden on text root (e12)", () => {
-    expectPdl(() => loadDesign(root("e12-hidden-on-text.pdl")), "PDL-E012", /layout/);
+    expectPdl(() => loadDesign(root("errors", "legacy", "e12-hidden-on-text.pdl")), "PDL-E012", /layout/);
   });
 });
 

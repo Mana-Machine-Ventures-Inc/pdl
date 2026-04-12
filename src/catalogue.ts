@@ -10,9 +10,15 @@ import type {
 import type { DesignDefinition } from "./designModel.js";
 import { PdlError } from "./errors.js";
 import { buildResolvedTokenMap, evaluateValue } from "./evaluate.js";
-import { serialiseConditionExpr, serialiseValueExpr } from "./graph.js";
+import { serialiseConditionExpr, serialiseValueExpr, serialiseValueExprWithTokenRefs } from "./graph.js";
 import { ruleLineToDef, type RuleDefJson } from "./rulesJson.js";
-import { resolveComponentTree, resolveDefaultParamValues, type CatalFrame } from "./resolveTree.js";
+import {
+  isHiddenFrame,
+  pruneHiddenChildrenTree,
+  resolveComponentTree,
+  resolveDefaultParamValues,
+  type CatalFrame,
+} from "./resolveTree.js";
 
 const SCHEMA = "1.0.0-beta";
 
@@ -172,31 +178,48 @@ export type CatalogueVariantTypeDef = {
   cases: string[];
 };
 
+/** One merged **`primitive`** — definition is a serialised **`ValueExpr`** (authored RHS, once). */
+export type CataloguePrimitiveEntry = {
+  name: string;
+  tokenType: string;
+  definition: unknown;
+};
+
+/** One merged **`semantic`** — definition is a serialised **`ValueExpr`** (authored RHS, once). */
+export type CatalogueSemanticEntry = {
+  name: string;
+  tokenType: string;
+  definition: unknown;
+};
+
+/** Per-**`theme`** override map: LHS token name → serialised RHS with **`primitive:`** / **`semantic:`** refs. */
+export type CatalogueThemeEntry = {
+  overrides: Record<string, unknown>;
+};
+
 export type ComponentCatalogue = {
   /** Discriminant when multiple JSON artefacts are bundled or stored together. */
   kind: "componentCatalogue";
   schemaVersion: string;
   generatedAt: string;
   /**
-   * Active theme context used when resolving **trees** and the flat **`tokens`** map
-   * (`(none)` if no named theme was selected on the CLI).
+   * Present only when the catalogue was built with a CLI **`--theme`**: active theme name for **tree**
+   * resolution. Theme keys are otherwise listed under **`themes`** only.
    */
-  theme: string;
-  /** All `theme` names declared in the merged design (sorted). */
-  themesDeclared: string[];
+  theme?: string;
   /**
-   * Full resolved token map for the **active** context (same entries as the `Map` passed to
-   * `resolveComponentTree`). When CLI **`--theme`** / **`modifiers`** are used, this slice can
-   * differ from every pure-theme row in **`tokensByTheme`**.
+   * Every merged **`primitive`** (sorted keys): each **`definition`** appears **once** in the catalogue.
    */
-  tokens: Record<string, unknown>;
+  primitives: Record<string, CataloguePrimitiveEntry>;
   /**
-   * Every named resolution context: **`base`** = primitives + semantics with **no** `theme { }`
-   * overrides applied, then one key per declared **`theme`** (sorted) = full map after applying
-   * that theme’s overrides only. Receivers can flatten, diff, or drive runtime switching without
-   * re-running the PDL resolver. Keys are stable strings (`"base"`, theme names).
+   * Every merged **`semantic`** (sorted keys): each **`definition`** appears **once** in the catalogue.
    */
-  tokensByTheme: Record<string, Record<string, unknown>>;
+  semantics: Record<string, CatalogueSemanticEntry>;
+  /**
+   * Declared **`theme { … }`** blocks: each value holds **`overrides`** only — RHS uses pointers
+   * (**`primitive:name`** / **`semantic:name`**) for bare token idents instead of copying resolved literals.
+   */
+  themes: Record<string, CatalogueThemeEntry>;
   /**
    * All merged **`variant { … }`** definitions keyed by type **`name`** (sorted keys in JSON).
    * **`cases`** are case ids without a leading dot.
@@ -215,24 +238,8 @@ function frameToJson(f: CatalFrame): CatalFrame {
   };
 }
 
-function isFrameHidden(f: CatalFrame): boolean {
-  return f.props.hidden === true;
-}
-
 function visibleRootChildIds(tree: CatalFrame): string[] {
-  return tree.children.filter((ch) => !isFrameHidden(ch)).map((ch) => ch.id);
-}
-
-/** Emitter-facing trees: drop nodes marked **`hidden: true`** from each **`children`** list (nodes may remain in **`childNodes`**). */
-function pruneHiddenFromCatalogueFrame(f: CatalFrame): CatalFrame {
-  return {
-    id: f.id,
-    kind: f.kind,
-    props: { ...f.props },
-    children: f.children
-      .filter((ch) => !isFrameHidden(ch))
-      .map((ch) => pruneHiddenFromCatalogueFrame(ch)),
-  };
+  return tree.children.filter((ch) => !isHiddenFrame(ch)).map((ch) => ch.id);
 }
 
 /** Prefer a scan where the child is visible so **`childNodes`** default materialisation matches a real layout. */
@@ -241,7 +248,7 @@ function pickBestRootChildSubtree(scanTrees: CatalFrame[], id: string): CatalFra
   for (const t of scanTrees) {
     const ch = directRootChildSubtree(t, id);
     if (!ch) continue;
-    if (!isFrameHidden(ch)) return ch;
+    if (!isHiddenFrame(ch)) return ch;
     hiddenOnly ??= ch;
   }
   return hiddenOnly;
@@ -379,7 +386,7 @@ function buildChildNodesMap(
         { path: design.entryPath },
       );
     }
-    out[id] = pruneHiddenFromCatalogueFrame(node);
+    out[id] = pruneHiddenChildrenTree(node);
   }
   return out;
 }
@@ -430,29 +437,58 @@ function catalogueParams(
   });
 }
 
-function sortedTokenRecord(m: Map<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries([...m.entries()].sort(([a], [b]) => a.localeCompare(b)));
-}
-
-/** Full token maps: `base` (no theme overrides) + one entry per declared theme (no CLI modifiers). */
-export function buildTokensByTheme(design: DesignDefinition): Record<string, Record<string, unknown>> {
-  const themesDeclared = [...design.themes.keys()].sort();
-  const out: Record<string, Record<string, unknown>> = {
-    base: sortedTokenRecord(buildResolvedTokenMap(design, undefined, [])),
-  };
-  for (const name of themesDeclared) {
-    out[name] = sortedTokenRecord(buildResolvedTokenMap(design, name, []));
-  }
-  return out;
+function buildCatalogueTokenLayers(design: DesignDefinition): {
+  primitives: Record<string, CataloguePrimitiveEntry>;
+  semantics: Record<string, CatalogueSemanticEntry>;
+  themes: Record<string, CatalogueThemeEntry>;
+} {
+  const primitives: Record<string, CataloguePrimitiveEntry> = Object.fromEntries(
+    [...design.primitives.values()]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((p) => [
+        p.name,
+        {
+          name: p.name,
+          tokenType: p.tokenType,
+          definition: serialiseValueExprWithTokenRefs(p.value, design),
+        },
+      ]),
+  );
+  const semantics: Record<string, CatalogueSemanticEntry> = Object.fromEntries(
+    [...design.semantics.values()]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((s) => [
+        s.name,
+        {
+          name: s.name,
+          tokenType: s.tokenType,
+          definition: serialiseValueExprWithTokenRefs(s.value, design),
+        },
+      ]),
+  );
+  const themes: Record<string, CatalogueThemeEntry> = Object.fromEntries(
+    [...design.themes.values()]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((t) => [
+        t.name,
+        {
+          overrides: Object.fromEntries(
+            Object.entries(t.overrides)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([k, expr]) => [k, serialiseValueExprWithTokenRefs(expr, design)]),
+          ),
+        },
+      ]),
+  );
+  return { primitives, semantics, themes };
 }
 
 export function buildComponentCatalogue(
   design: DesignDefinition,
   opts: { theme?: string; modifiers?: string[] } = {},
 ): ComponentCatalogue {
-  const theme = opts.theme ?? "";
   const tokenMap = buildResolvedTokenMap(design, opts.theme || undefined, opts.modifiers ?? []);
-  const tokensByTheme = buildTokensByTheme(design);
+  const { primitives, semantics, themes } = buildCatalogueTokenLayers(design);
   const components: Record<string, CatalogueComponent> = {};
 
   const resolveOpts = { useStringPlaceholders: true, catalogueTokenRefs: true } as const;
@@ -571,7 +607,6 @@ export function buildComponentCatalogue(
     };
   }
 
-  const themesDeclared = [...design.themes.keys()].sort();
   const variantTypes: Record<string, CatalogueVariantTypeDef> = Object.fromEntries(
     [...design.variants.values()]
       .map((v): [string, CatalogueVariantTypeDef] => [v.name, { name: v.name, cases: [...v.cases] }])
@@ -582,10 +617,10 @@ export function buildComponentCatalogue(
     kind: "componentCatalogue",
     schemaVersion: SCHEMA,
     generatedAt: new Date().toISOString(),
-    theme: theme || "(none)",
-    themesDeclared,
-    tokens: sortedTokenRecord(tokenMap),
-    tokensByTheme,
+    ...(opts.theme ? { theme: opts.theme } : {}),
+    primitives,
+    semantics,
+    themes,
     variantTypes,
     components,
   };

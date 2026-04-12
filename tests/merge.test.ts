@@ -9,7 +9,7 @@ const fx = (...p: string[]) => resolve(__dirname, "../test-fixtures/pdl", ...p);
 
 describe("import merge", () => {
   it("later modules override earlier token declarations", () => {
-    const d = loadDesign(fx("merge_entry.pdl"));
+    const d = loadDesign(fx("integration/merge_entry.pdl"));
     const m = buildResolvedTokenMap(d);
     expect(m.get("color.merge.token")).toBe("#333333");
   });

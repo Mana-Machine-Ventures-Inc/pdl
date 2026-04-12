@@ -1,29 +1,5 @@
-import type { DesignDefinition } from "./designModel.js";
 import type { ConditionExpr, ValueExpr } from "./ast.js";
-
-const SCHEMA = "1.0.0-beta";
-
-/** Top-level keys on `buildDesignGraph()` output (for strict tests). */
-export const DESIGN_GRAPH_ROOT_KEYS = [
-  "kind",
-  "schemaVersion",
-  "entryPath",
-  "modulePaths",
-  "previewBackground",
-  "primitives",
-  "semantics",
-  "themes",
-  "variants",
-  "typeStyles",
-  "components",
-  "expose",
-  "usage",
-  "fixtures",
-  "rules",
-  "interactions",
-] as const;
-
-export type DesignGraphRootKey = (typeof DESIGN_GRAPH_ROOT_KEYS)[number];
+import type { DesignDefinition } from "./designModel.js";
 
 export function serialiseConditionExpr(c: ConditionExpr): unknown {
   switch (c.kind) {
@@ -40,7 +16,7 @@ export function serialiseConditionExpr(c: ConditionExpr): unknown {
   }
 }
 
-/** Serialise a value expression for graph / tooling (not normative in spec). */
+/** Serialise a value expression for catalogue / resolve JSON (embedded `SerialisedValueExpr` slices). */
 export function serialiseValueExpr(e: ValueExpr): unknown {
   switch (e.kind) {
     case "hex":
@@ -102,130 +78,96 @@ export function serialiseValueExpr(e: ValueExpr): unknown {
   }
 }
 
-/** Design graph JSON — spec §9 names this output; shape is implementation-defined until schema is added. */
-export function buildDesignGraph(design: DesignDefinition): unknown {
-  return {
-    kind: "designGraph",
-    schemaVersion: SCHEMA,
-    entryPath: design.entryPath,
-    modulePaths: design.modulePaths,
-    previewBackground: design.previewBackground ?? null,
-    primitives: Object.fromEntries(
-      [...design.primitives.values()]
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((d) => [
-          d.name,
-          {
-            name: d.name,
-            tokenType: d.tokenType,
-            value: serialiseValueExpr(d.value),
-          },
-        ]),
-    ),
-    semantics: Object.fromEntries(
-      [...design.semantics.values()]
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((d) => [
-          d.name,
-          {
-            name: d.name,
-            tokenType: d.tokenType,
-            value: serialiseValueExpr(d.value),
-          },
-        ]),
-    ),
-    themes: Object.fromEntries(
-      [...design.themes.values()]
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((t) => [
-          t.name,
-          {
-            name: t.name,
-            baseTheme: t.baseTheme ?? null,
-            overrides: Object.fromEntries(
-              Object.entries(t.overrides).map(([k, v]) => [k, serialiseValueExpr(v)]),
-            ),
-          },
-        ]),
-    ),
-    variants: Object.fromEntries(
-      [...design.variants.values()]
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((v) => [
-          v.name,
-          {
-            name: v.name,
-            cases: v.cases,
-          },
-        ]),
-    ),
-    typeStyles: Object.fromEntries(
-      [...design.typeStyles.values()]
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((t) => [
-          t.name,
-          {
-            name: t.name,
-            props: Object.fromEntries(Object.entries(t.props).map(([k, v]) => [k, serialiseValueExpr(v)])),
-          },
-        ]),
-    ),
-    components: Object.fromEntries(
-      [...design.components.values()]
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((c) => [
-          c.name,
-          {
-            name: c.name,
-            params: c.params.map((p) => ({
-              name: p.name,
-              typeName: p.typeName,
-              defaultValue: serialiseValueExpr(p.defaultValue),
-            })),
-            rootKind: c.rootKind,
-            body: c.body,
-          },
-        ]),
-    ),
-    expose: Object.fromEntries([...design.expose.entries()].sort(([a], [b]) => a.localeCompare(b))),
-    usage: Object.fromEntries(
-      [...design.usage.entries()]
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([comp, m]) => [
-          comp,
-          Object.fromEntries([...m.entries()].sort(([x], [y]) => x.localeCompare(y))),
-        ]),
-    ),
-    fixtures: Object.fromEntries(
-      [...design.fixtures.entries()]
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([comp, m]) => [
-          comp,
-          Object.fromEntries(
-            [...m.entries()]
-              .sort(([x], [y]) => x.localeCompare(y))
-              .map(([label, ex]) => [
-                label,
-                {
-                  label: ex.label,
-                  bindings: ex.bindings.map((b) => ({
-                    name: b.name,
-                    value: serialiseValueExpr(b.value),
-                  })),
-                },
-              ]),
-          ),
-        ]),
-    ),
-    rules: Object.fromEntries(
-      [...design.rules.entries()]
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([comp, stmts]) => [comp, stmts]),
-    ),
-    interactions: Object.fromEntries(
-      [...design.interactions.entries()]
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([comp, m]) => [comp, [...m.values()].sort((a, b) => a.name.localeCompare(b.name))]),
-    ),
-  };
+/**
+ * Serialise a **`ValueExpr`** for theme override JSON: bare **`primitive`** / **`semantic`** idents
+ * become **`primitive:name`** / **`semantic:name`** strings so values are not duplicated from definitions.
+ */
+export function serialiseValueExprWithTokenRefs(expr: ValueExpr, design: DesignDefinition): unknown {
+  switch (expr.kind) {
+    case "ident":
+      if (design.primitives.has(expr.name)) return `primitive:${expr.name}`;
+      if (design.semantics.has(expr.name)) return `semantic:${expr.name}`;
+      return { kind: "ident", name: expr.name };
+    case "hex":
+    case "string":
+    case "number":
+    case "boolean":
+      return { kind: expr.kind, value: (expr as { value: unknown }).value };
+    case "condition":
+      return serialiseValueExpr(expr);
+    case "dotEnum":
+      return { kind: "dotEnum", value: expr.value };
+    case "opacityOf":
+      return {
+        kind: "opacityOf",
+        base: serialiseValueExprWithTokenRefs(expr.base, design),
+        opacity: serialiseValueExprWithTokenRefs(expr.opacity, design),
+      };
+    case "edgeInsets":
+      return {
+        kind: "edgeInsets",
+        variant: expr.variant,
+        fields: Object.fromEntries(
+          Object.entries(expr.fields).map(([k, v]) => [k, serialiseValueExprWithTokenRefs(v, design)]),
+        ),
+      };
+    case "corner":
+      return {
+        kind: "corner",
+        tl: serialiseValueExprWithTokenRefs(expr.tl, design),
+        tr: serialiseValueExprWithTokenRefs(expr.tr, design),
+        br: serialiseValueExprWithTokenRefs(expr.br, design),
+        bl: serialiseValueExprWithTokenRefs(expr.bl, design),
+      };
+    case "array":
+      return { kind: "array", items: expr.items.map((it) => serialiseValueExprWithTokenRefs(it, design)) };
+    case "transition":
+      return {
+        kind: "transition",
+        duration: serialiseValueExprWithTokenRefs(expr.duration, design),
+        easing: serialiseValueExprWithTokenRefs(expr.easing, design),
+        ...(expr.delay ? { delay: serialiseValueExprWithTokenRefs(expr.delay, design) } : {}),
+      };
+    case "vibrancyTuple":
+      return { kind: "vibrancyTuple", saturation: expr.saturation, brightness: expr.brightness };
+    case "rampInline":
+      return {
+        kind: "rampInline",
+        direction: expr.direction,
+        stops: expr.stops.map((s) => serialiseValueExprWithTokenRefs(s, design)),
+      };
+    case "sizing":
+      return {
+        kind: "sizing",
+        mode: expr.mode,
+        ...(expr.fixed !== undefined ? { fixed: expr.fixed } : {}),
+        ...(expr.flexArgs
+          ? {
+              flexArgs: Object.fromEntries(
+                Object.entries(expr.flexArgs).map(([k, v]) => [k, serialiseValueExprWithTokenRefs(v, design)]),
+              ),
+            }
+          : {}),
+      };
+    case "call":
+      return {
+        kind: "call",
+        callee: expr.callee,
+        args: Object.fromEntries(
+          Object.entries(expr.args).map(([k, v]) => [k, serialiseValueExprWithTokenRefs(v, design)]),
+        ),
+      };
+    case "gradientStop":
+      return {
+        kind: "gradientStop",
+        fields: Object.fromEntries(
+          Object.entries(expr.fields).map(([k, v]) => [k, serialiseValueExprWithTokenRefs(v, design)]),
+        ),
+      };
+    default: {
+      const _x: never = expr;
+      void _x;
+      return { kind: "unknown" };
+    }
+  }
 }

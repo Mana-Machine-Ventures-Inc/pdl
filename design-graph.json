@@ -8810,7 +8810,7 @@
       "rootKind": "layout"
     }
   },
-  "entryPath": "/Users/andrewjclark/Developer/pdl/test-fixtures/pdl/design.pdl",
+  "entryPath": "/Users/andrewjclark/Developer/pdl/test-fixtures/pdl/integration/design.pdl",
   "expose": {
     "AtomExposedCard": [
       "title",
@@ -9144,10 +9144,10 @@
     "/Users/andrewjclark/Developer/pdl/test-fixtures/pdl/molecules/m_11_kind_icon_rich.pdl",
     "/Users/andrewjclark/Developer/pdl/test-fixtures/pdl/molecules/m_companions.pdl",
     "/Users/andrewjclark/Developer/pdl/test-fixtures/pdl/molecules/design.pdl",
-    "/Users/andrewjclark/Developer/pdl/test-fixtures/pdl/merge_b.pdl",
-    "/Users/andrewjclark/Developer/pdl/test-fixtures/pdl/merge_a.pdl",
-    "/Users/andrewjclark/Developer/pdl/test-fixtures/pdl/merge_entry.pdl",
-    "/Users/andrewjclark/Developer/pdl/test-fixtures/pdl/design.pdl"
+    "/Users/andrewjclark/Developer/pdl/test-fixtures/pdl/integration/merge_b.pdl",
+    "/Users/andrewjclark/Developer/pdl/test-fixtures/pdl/integration/merge_a.pdl",
+    "/Users/andrewjclark/Developer/pdl/test-fixtures/pdl/integration/merge_entry.pdl",
+    "/Users/andrewjclark/Developer/pdl/test-fixtures/pdl/integration/design.pdl"
   ],
   "previewBackground": "atoms.color.sem.fromRgb",
   "primitives": {

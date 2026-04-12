@@ -15,10 +15,13 @@ This document records ambiguities between `full-spec.md` and this repository’s
 
 **Resolution implemented:** identifier segments are letters/digits/underscore only; `.` is its own token when it follows an identifier or number character. **Leading-dot enums** (`.row`, `.warning`) are recognised only when the `.` is **not** immediately preceded by `[A-Za-z0-9_]`, matching common “member access vs enum” disambiguation.
 
-## `npm run graph` JSON shape
+## Serialised `ValueExpr` slices (`SerialisedValueExpr`)
 
-- Prose for the merged **design graph** JSON lives in **`full-spec.md` §16b** (internal compiler / test snapshot). **§16** documents the **Component Catalogue**; **§17 §3** documents the thin **design manifest** (`npm run manifest`).
-- This toolchain emits a stable object with `kind: "designGraph"` and serialised declarations (see `src/graph.ts`). **TODO:** §16b marks open questions if this shape becomes fully normative.
+- **§16b** in **`full-spec.md`** documents the JSON shape of embedded **`ValueExpr`** / **`ConditionExpr`** fragments used inside **Component Catalogue** and **`resolvedComponent.system`** (`serialiseValueExpr` / `serialiseConditionExpr` in **`src/graph.ts`**). There is no standalone merged-AST JSON CLI output.
+
+## Graph and bake CLI (`graphSystem`, `graphComponent`, `bakeSystem`, `bakeComponent`)
+
+- **§16c–§16d** document **`pdl graph*`** (catalogue / **`resolvedComponent`**) and **`pdl bake*`** (**`bakedDesign`** — literal trees only). Implementation: **`src/cli.ts`**, **`src/bakeDesign.ts`**.
 
 ## Component Catalogue
 
@@ -26,7 +29,7 @@ This document records ambiguities between `full-spec.md` and this repository’s
 - **`hidden` on `layout` frames:** `hidden = true | false | .true | .false | <variant condition>` hides the frame from catalogue **`children`** / variant **`children`** overrides and prunes it from nested **`childNodes`** trees, while every declared Root-level **`children = […]`** id remains a **`childNodes`** entry (subtree chosen from a scan where that node is visible when possible). **`pdl resolve --tree-only`** still returns the **full** materialised tree (including hidden nodes in **`children`** arrays) for debugging.
 - **Variant metadata:** top-level **`variantTypes`** plus per-param **`variantTypeName`** carry PDL **`variant`** type names for emitters (e.g. Figma); **`type`** stays **`"variant"`** as the JSON discriminator.
 - **External refs in trees:** catalogue trees use **`primitive:`** / **`semantic:`** string markers for frame properties whose RHS is a bare `primitive` / `semantic` identifier (see §16 §2.3); composite RHS values are still fully resolved in v1.
-- **`tokensByTheme` vs `tokens`:** `tokensByTheme` rows are built **without** CLI **`modifiers`**. If **`buildComponentCatalogue`** is called with non-empty **`modifiers`**, the flat **`tokens`** map (and tree resolution) may differ from every pure-theme slice; receivers that use modifiers should treat **`tokens`** as authoritative for that build.
+- **CLI `modifiers`:** the catalogue’s **`primitives` / `semantics` / `themes`** graph is **not** modifier-aware; if **`buildComponentCatalogue`** is called with non-empty **`modifiers`**, **tree** resolution still uses **`buildResolvedTokenMap`** with those modifiers. Emitters that replay themes from JSON alone cannot reproduce modifier-specific trees unless they mirror that resolution path.
 - **Variant deltas:** only **single-parameter** axes are expanded automatically against the default instance. Combined variant rows (e.g. `emphasis` + `size` interaction) must be authored explicitly per **§16**; not generated yet.
 - **`$ref` in `children`:** structural variant entries in the spec use `{ "$ref": "Label" }` for reuse. The current diff emits full child trees; emitters can still consume them, but JSON may be larger than the spec’s examples.
 - **`expose`:** if no `expose` block exists for a component, the catalogue lists **all** parameter names as `expose` for ergonomics. The spec emphasises explicit `expose`; confirm product expectations.

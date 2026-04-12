@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildComponentCatalogue } from "../src/catalogue.js";
+import { buildResolvedTokenMap } from "../src/evaluate.js";
 import { loadDesign } from "../src/loadDesign.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
@@ -9,14 +10,14 @@ const fx = (...p: string[]) => resolve(__dirname, "../test-fixtures/pdl", ...p);
 
 describe("catalogue", () => {
   it("is tagged and lists declared themes", () => {
-    const d = loadDesign(fx("themed.pdl"));
+    const d = loadDesign(fx("integration/themed.pdl"));
     const c = buildComponentCatalogue(d);
     expect(c.kind).toBe("componentCatalogue");
-    expect(c.themesDeclared).toEqual(["Dark"]);
+    expect(Object.keys(c.themes).sort()).toEqual(["Dark"]);
   });
 
   it("uses param: refs for String props on default child subtrees in childNodes", () => {
-    const d = loadDesign(fx("greeting.pdl"));
+    const d = loadDesign(fx("integration/greeting.pdl"));
     const c = buildComponentCatalogue(d);
     const g = c.components.Greeting!;
     const title = g.childNodes[g.children[0]!]!;
@@ -24,7 +25,7 @@ describe("catalogue", () => {
   });
 
   it("lists childNodes and default-order children for the root frame", () => {
-    const d = loadDesign(fx("greeting.pdl"));
+    const d = loadDesign(fx("integration/greeting.pdl"));
     const g = buildComponentCatalogue(d).components.Greeting!;
     expect(g.children).toEqual(["Title"]);
     expect(Object.keys(g.childNodes).sort()).toEqual(["Title"]);
@@ -58,35 +59,44 @@ describe("catalogue", () => {
   });
 
   it("uses primitive:/semantic: refs for bare token idents on root props", () => {
-    const d = loadDesign(fx("themed.pdl"));
+    const d = loadDesign(fx("integration/themed.pdl"));
     const c = buildComponentCatalogue(d);
     const box = c.components.Box!;
     expect(box.props.background).toBe("primitive:color.bg");
   });
 
-  it("applies theme overrides to the token map", () => {
-    const d = loadDesign(fx("themed.pdl"));
-    const light = buildComponentCatalogue(d, {});
-    expect(light.tokens["color.bg"]).toBe("#FFFFFF");
-    const dark = buildComponentCatalogue(d, { theme: "Dark" });
-    expect(dark.tokens["color.bg"]).toBe("#000000");
+  it("lists primitives once and theme overrides as serialised RHS (literals or pointers)", () => {
+    const d = loadDesign(fx("integration/themed.pdl"));
+    const c = buildComponentCatalogue(d, {});
+    expect(c.primitives["color.bg"]!.definition).toEqual({ kind: "hex", value: "#FFFFFF" });
+    expect(c.themes.Dark!.overrides["color.bg"]).toEqual({ kind: "hex", value: "#000000" });
+    expect(buildResolvedTokenMap(d).get("color.bg")).toBe("#FFFFFF");
+    expect(buildResolvedTokenMap(d, "Dark").get("color.bg")).toBe("#000000");
   });
 
-  it("includes tokensByTheme with base and every declared theme", () => {
-    const d = loadDesign(fx("themed.pdl"));
+  it("includes primitives, semantics, and per-theme override maps (no duplicated flat maps)", () => {
+    const d = loadDesign(fx("integration/themed.pdl"));
     const c = buildComponentCatalogue(d, {});
-    expect(Object.keys(c.tokensByTheme).sort()).toEqual(["Dark", "base"]);
-    expect(c.tokensByTheme.base["color.bg"]).toBe("#FFFFFF");
-    expect(c.tokensByTheme.Dark["color.bg"]).toBe("#000000");
-    expect(c.tokens).toEqual(c.tokensByTheme.base);
+    expect(c.primitives["color.bg"]).toBeDefined();
+    expect(Object.keys(c.semantics).length).toBe(0);
+    expect(Object.keys(c.themes).sort()).toEqual(["Dark"]);
+    expect(c).not.toHaveProperty("theme");
     expect(c.variantTypes).toEqual({});
   });
 
-  it("keeps tokensByTheme in sync when catalogue theme is Dark", () => {
-    const d = loadDesign(fx("themed.pdl"));
+  it("sets catalogue theme metadata while token layers stay authoritative", () => {
+    const d = loadDesign(fx("integration/themed.pdl"));
     const c = buildComponentCatalogue(d, { theme: "Dark" });
-    expect(c.tokens).toEqual(c.tokensByTheme.Dark);
-    expect(c.tokensByTheme.base["color.bg"]).toBe("#FFFFFF");
+    expect(c.theme).toBe("Dark");
+    expect(c.primitives["color.bg"]!.definition).toEqual({ kind: "hex", value: "#FFFFFF" });
+    expect(buildResolvedTokenMap(d, "Dark").get("color.bg")).toBe("#000000");
+  });
+
+  it("emits theme override RHS as primitive: pointer when override references a primitive", () => {
+    const d = loadDesign(fx("atoms/design.pdl"));
+    const c = buildComponentCatalogue(d);
+    expect(c.themes.AtomsWarm?.overrides["atoms.color.sem.fromRgb"]).toBe("primitive:atoms.color.rgba");
+    expect(c.semantics["atoms.color.sem.fromRgb"]).toBeDefined();
   });
 
   it("exposes variantTypes and variantTypeName on variant params (cases only on variantTypes)", () => {
@@ -144,13 +154,13 @@ describe("catalogue", () => {
   });
 
   it("merges rules tags = and tags.add in order for catalogue.rules.tags", () => {
-    const d = loadDesign(fx("rules_tags_when.pdl"));
+    const d = loadDesign(fx("integration/rules_tags_when.pdl"));
     const row = buildComponentCatalogue(d).components.RulesTagHost!;
     expect(row.rules?.tags).toEqual(["t0", "t1"]);
   });
 
   it("flattened rules attach else when using negated prior branches", () => {
-    const d = loadDesign(fx("rules_tags_when.pdl"));
+    const d = loadDesign(fx("integration/rules_tags_when.pdl"));
     const rules = buildComponentCatalogue(d).components.RulesElseHost!.rules!.rules;
     expect(rules).toHaveLength(2);
     expect(rules[0]!.when).toEqual({ kind: "cmp", param: "mode", op: "==", rhs: ".ea" });
@@ -162,7 +172,7 @@ describe("catalogue", () => {
   });
 
   it("nested rules if conjoins outer and inner branch conditions", () => {
-    const d = loadDesign(fx("rules_tags_when.pdl"));
+    const d = loadDesign(fx("integration/rules_tags_when.pdl"));
     const rules = buildComponentCatalogue(d).components.RulesNestHost!.rules!.rules;
     expect(rules).toHaveLength(1);
     expect(rules[0]!.when).toEqual({

@@ -1,6 +1,6 @@
 // Catalogue: tags.add + flattened rules `when` (if / else / nested if)
 
-import "atoms/typestyle_atoms.pdl"
+import "../atoms/typestyle_atoms.pdl"
 
 variant RTagMode {
   case ta
