@@ -1,0 +1,8 @@
+import "this-file-does-not-exist-zzzz.pdl"
+
+variant V { case a }
+
+component X(v: V = .a) layout {
+  direction = .column
+  children = []
+}

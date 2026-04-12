@@ -1,0 +1,8 @@
+import "../atoms/tokens_color.pdl"
+
+component Root() layout {
+  direction = .column
+
+  let X = DefinitelyNotAComponent()
+  children = [X]
+}

@@ -1,0 +1,11 @@
+// `hidden` must be boolean / .true/.false / condition — not an arbitrary string.
+
+import "../atoms/tokens_color.pdl"
+
+variant V { case a }
+
+component HiddenStr(v: V = .a) layout {
+  direction = .column
+  hidden = "yes"
+  children = []
+}

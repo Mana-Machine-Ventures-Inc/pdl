@@ -1,0 +1,14 @@
+import "../atoms/tokens_color.pdl"
+
+variant V { case a }
+
+component Z(v: V = .a) layout {
+  direction = .column
+  children = []
+}
+
+interaction Bad for Z {
+  on hoverStart {
+    bogus = .a
+  }
+}

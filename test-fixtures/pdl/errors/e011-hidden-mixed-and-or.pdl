@@ -1,0 +1,19 @@
+// `hidden =` condition cannot mix && and || without parens (same rule as layout `if`).
+
+import "../atoms/tokens_color.pdl"
+
+variant Tg {
+  case x
+  case y
+}
+
+variant Sz {
+  case sm
+  case lg
+}
+
+component HiddenMix(t: Tg = .x, s: Sz = .sm) layout {
+  direction = .column
+  hidden = t == .x && s == .sm || t == .y
+  children = []
+}

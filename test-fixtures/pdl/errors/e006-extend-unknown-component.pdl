@@ -1,0 +1,14 @@
+import "../atoms/tokens_color.pdl"
+
+variant V { case a }
+
+component Real(v: V = .a) layout {
+  direction = .column
+  children = []
+}
+
+extend Ghost {
+  usage {
+    description = "extend targets unknown component"
+  }
+}

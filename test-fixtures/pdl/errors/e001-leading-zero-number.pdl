@@ -1,0 +1,5 @@
+// Leading zero in number literal — lexer error.
+
+import "../atoms/tokens_opacity.pdl"
+
+primitive atoms.opacity.bad: Opacity = 01

@@ -1,0 +1,14 @@
+// Unterminated string in text `content` — lexer error.
+
+import "../atoms/typestyle_atoms.pdl"
+
+component BadString() layout {
+  direction = .column
+
+  let T: text = {
+    content = "never closes
+    style = AtomCaption
+  }
+
+  children = [T]
+}

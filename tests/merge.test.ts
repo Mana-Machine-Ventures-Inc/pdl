@@ -13,4 +13,10 @@ describe("import merge", () => {
     const m = buildResolvedTokenMap(d);
     expect(m.get("color.merge.token")).toBe("#333333");
   });
+
+  it("merges each physical module once so rules/usage are not duplicated when imports converge", () => {
+    const d = loadDesign(fx("molecules/design.pdl"));
+    const btn = d.rules.get("MoleculeTextButton");
+    expect(btn?.map((s) => s.kind)).toEqual(["tagsSet", "tagsAdd", "ruleLine"]);
+  });
 });

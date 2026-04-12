@@ -1,0 +1,6 @@
+// Unknown top-level keyword — parse error.
+
+compnonent NotAKeyword() layout {
+  direction = .column
+  children = []
+}

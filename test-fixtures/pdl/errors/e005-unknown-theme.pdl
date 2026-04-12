@@ -1,0 +1,8 @@
+import "../atoms/tokens_color.pdl"
+
+variant V { case a }
+
+component Trivial(v: V = .a) layout {
+  direction = .column
+  children = []
+}

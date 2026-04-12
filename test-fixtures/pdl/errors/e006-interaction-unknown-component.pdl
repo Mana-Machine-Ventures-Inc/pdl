@@ -1,0 +1,14 @@
+import "../atoms/tokens_color.pdl"
+
+variant V { case a }
+
+component Real(v: V = .a) layout {
+  direction = .column
+  children = []
+}
+
+interaction X for Ghost {
+  on hoverStart {
+    v = .a
+  }
+}

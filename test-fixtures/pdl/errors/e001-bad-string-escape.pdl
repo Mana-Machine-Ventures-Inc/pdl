@@ -1,0 +1,12 @@
+import "../atoms/typestyle_atoms.pdl"
+
+component BadEscape() layout {
+  direction = .column
+
+  let T: text = {
+    content = "bad \z escape"
+    style = AtomCaption
+  }
+
+  children = [T]
+}

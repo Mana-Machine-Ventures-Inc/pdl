@@ -25,6 +25,19 @@ function isImport(d: TopLevelDecl): d is ImportDecl {
   return d.kind === "import";
 }
 
+/** `collectModules` can enqueue the same file multiple times when it is reachable via different import paths; merge each module once. */
+function dedupeModulesInMergeOrder(ordered: ModuleAst[]): ModuleAst[] {
+  const seen = new Set<string>();
+  const out: ModuleAst[] = [];
+  for (const mod of ordered) {
+    const key = resolve(mod.path);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(mod);
+  }
+  return out;
+}
+
 function mergeUsageProps(target: UsageKeyMap, props: UsageProp[]): void {
   for (const p of props) {
     const cur = target.get(p.key);
@@ -222,7 +235,7 @@ function mergeDesign(entryPath: string, ordered: ModuleAst[]): DesignDefinition 
 export function loadDesign(entryPath: string): DesignDefinition {
   const ordered: ModuleAst[] = [];
   collectModules(entryPath, new Set(), ordered);
-  const design = mergeDesign(entryPath, ordered);
+  const design = mergeDesign(entryPath, dedupeModulesInMergeOrder(ordered));
   validateMergedDesign(design);
   return design;
 }

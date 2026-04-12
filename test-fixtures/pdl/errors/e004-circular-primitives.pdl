@@ -1,0 +1,2 @@
+primitive x: Color = y
+primitive y: Color = x

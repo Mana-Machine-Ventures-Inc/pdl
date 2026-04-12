@@ -643,7 +643,6 @@
   "modulePaths": [
     "text_atoms.pdl",
     "tokens_color.pdl",
-    "tokens_color.pdl",
     "tokens_distance_radius.pdl",
     "tokens_typography.pdl",
     "typestyle_atoms.pdl"

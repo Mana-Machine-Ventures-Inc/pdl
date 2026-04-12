@@ -5524,36 +5524,298 @@
   },
   "entryPath": "<resolved>",
   "expose": {},
-  "fixtures": {},
-  "interactions": {},
+  "fixtures": {
+    "MoleculeCardArticle": {
+      "Text-only shell": {
+        "bindings": [
+          {
+            "name": "title",
+            "value": {
+              "kind": "string",
+              "value": "Integrations"
+            }
+          },
+          {
+            "name": "subtitle",
+            "value": {
+              "kind": "string",
+              "value": "Connect Slack, GitHub, or webhooks."
+            }
+          },
+          {
+            "name": "layoutMode",
+            "value": {
+              "kind": "dotEnum",
+              "value": ".textOnly"
+            }
+          }
+        ],
+        "label": "Text-only shell"
+      },
+      "With hero media": {
+        "bindings": [
+          {
+            "name": "title",
+            "value": {
+              "kind": "string",
+              "value": "Ship notes"
+            }
+          },
+          {
+            "name": "subtitle",
+            "value": {
+              "kind": "string",
+              "value": "What changed in this release."
+            }
+          },
+          {
+            "name": "layoutMode",
+            "value": {
+              "kind": "dotEnum",
+              "value": ".withHero"
+            }
+          }
+        ],
+        "label": "With hero media"
+      }
+    },
+    "MoleculeFieldBlock": {
+      "Compact (no helper)": {
+        "bindings": [
+          {
+            "name": "label",
+            "value": {
+              "kind": "string",
+              "value": "SKU"
+            }
+          },
+          {
+            "name": "value",
+            "value": {
+              "kind": "string",
+              "value": "PDL-001"
+            }
+          },
+          {
+            "name": "helper",
+            "value": {
+              "kind": "string",
+              "value": ""
+            }
+          },
+          {
+            "name": "layoutMode",
+            "value": {
+              "kind": "dotEnum",
+              "value": ".noHelp"
+            }
+          }
+        ],
+        "label": "Compact (no helper)"
+      },
+      "With helper": {
+        "bindings": [
+          {
+            "name": "label",
+            "value": {
+              "kind": "string",
+              "value": "Display name"
+            }
+          },
+          {
+            "name": "value",
+            "value": {
+              "kind": "string",
+              "value": "Acme Corp"
+            }
+          },
+          {
+            "name": "helper",
+            "value": {
+              "kind": "string",
+              "value": "Shown on invoices and shared links."
+            }
+          },
+          {
+            "name": "layoutMode",
+            "value": {
+              "kind": "dotEnum",
+              "value": ".includeHelp"
+            }
+          }
+        ],
+        "label": "With helper"
+      }
+    },
+    "MoleculeTextButton": {
+      "Low-emphasis dismiss": {
+        "bindings": [
+          {
+            "name": "label",
+            "value": {
+              "kind": "string",
+              "value": "Dismiss"
+            }
+          },
+          {
+            "name": "tone",
+            "value": {
+              "kind": "dotEnum",
+              "value": ".ghost"
+            }
+          },
+          {
+            "name": "size",
+            "value": {
+              "kind": "dotEnum",
+              "value": ".sm"
+            }
+          }
+        ],
+        "label": "Low-emphasis dismiss"
+      },
+      "Primary call to action": {
+        "bindings": [
+          {
+            "name": "label",
+            "value": {
+              "kind": "string",
+              "value": "Continue"
+            }
+          },
+          {
+            "name": "tone",
+            "value": {
+              "kind": "dotEnum",
+              "value": ".primary"
+            }
+          },
+          {
+            "name": "size",
+            "value": {
+              "kind": "dotEnum",
+              "value": ".lg"
+            }
+          }
+        ],
+        "label": "Primary call to action"
+      }
+    }
+  },
+  "interactions": {
+    "MoleculeCardArticle": [
+      {
+        "component": "MoleculeCardArticle",
+        "handlers": [
+          {
+            "body": [
+              {
+                "kind": "assign",
+                "param": "layoutMode",
+                "value": {
+                  "kind": "dotEnum",
+                  "value": ".textOnly"
+                }
+              }
+            ],
+            "event": "hoverStart"
+          },
+          {
+            "body": [
+              {
+                "kind": "assign",
+                "param": "layoutMode",
+                "value": {
+                  "kind": "dotEnum",
+                  "value": ".withHero"
+                }
+              }
+            ],
+            "event": "hoverEnd"
+          }
+        ],
+        "kind": "interaction",
+        "name": "MoleculeCardArticleLayoutPeek"
+      }
+    ],
+    "MoleculeFieldBlock": [
+      {
+        "component": "MoleculeFieldBlock",
+        "handlers": [
+          {
+            "body": [
+              {
+                "kind": "assign",
+                "param": "layoutMode",
+                "value": {
+                  "kind": "dotEnum",
+                  "value": ".noHelp"
+                }
+              }
+            ],
+            "event": "hoverStart"
+          },
+          {
+            "body": [
+              {
+                "kind": "assign",
+                "param": "layoutMode",
+                "value": {
+                  "kind": "dotEnum",
+                  "value": ".includeHelp"
+                }
+              }
+            ],
+            "event": "hoverEnd"
+          }
+        ],
+        "kind": "interaction",
+        "name": "MoleculeFieldBlockLayoutPeek"
+      }
+    ],
+    "MoleculeTextButton": [
+      {
+        "component": "MoleculeTextButton",
+        "handlers": [
+          {
+            "body": [
+              {
+                "kind": "assign",
+                "param": "tone",
+                "value": {
+                  "kind": "dotEnum",
+                  "value": ".secondary"
+                }
+              }
+            ],
+            "event": "hoverStart"
+          },
+          {
+            "body": [
+              {
+                "kind": "assign",
+                "param": "tone",
+                "value": {
+                  "kind": "dotEnum",
+                  "value": ".primary"
+                }
+              }
+            ],
+            "event": "hoverEnd"
+          }
+        ],
+        "kind": "interaction",
+        "name": "MoleculeTextButtonHoverPreview"
+      }
+    ]
+  },
   "kind": "designGraph",
   "modulePaths": [
     "design.pdl",
     "foundation.pdl",
-    "foundation.pdl",
-    "foundation.pdl",
-    "foundation.pdl",
-    "foundation.pdl",
-    "foundation.pdl",
-    "foundation.pdl",
-    "foundation.pdl",
-    "foundation.pdl",
-    "foundation.pdl",
-    "foundation.pdl",
-    "foundation.pdl",
-    "foundation.pdl",
-    "foundation.pdl",
-    "foundation.pdl",
-    "foundation.pdl",
-    "foundation.pdl",
     "m_01_labels_layouts.pdl",
     "m_02_buttons_basic.pdl",
-    "m_02_buttons_basic.pdl",
-    "m_02_buttons_basic.pdl",
-    "m_02_buttons_basic.pdl",
     "m_03_button_icon_chevron.pdl",
-    "m_03_button_icon_chevron.pdl",
-    "m_04_button_variant_matrix.pdl",
     "m_04_button_variant_matrix.pdl",
     "m_05_card.pdl",
     "m_06_modal.pdl",
@@ -5562,277 +5824,16 @@
     "m_09_list_nav.pdl",
     "m_10_form_group.pdl",
     "m_11_kind_icon_rich.pdl",
-    "theme_atoms.pdl",
-    "theme_atoms.pdl",
-    "theme_atoms.pdl",
-    "theme_atoms.pdl",
-    "theme_atoms.pdl",
-    "theme_atoms.pdl",
-    "theme_atoms.pdl",
-    "theme_atoms.pdl",
-    "theme_atoms.pdl",
-    "theme_atoms.pdl",
-    "theme_atoms.pdl",
-    "theme_atoms.pdl",
-    "theme_atoms.pdl",
-    "theme_atoms.pdl",
-    "theme_atoms.pdl",
-    "theme_atoms.pdl",
+    "m_companions.pdl",
     "theme_atoms.pdl",
     "tokens_blur_vibrancy_ramp.pdl",
-    "tokens_blur_vibrancy_ramp.pdl",
-    "tokens_blur_vibrancy_ramp.pdl",
-    "tokens_blur_vibrancy_ramp.pdl",
-    "tokens_blur_vibrancy_ramp.pdl",
-    "tokens_blur_vibrancy_ramp.pdl",
-    "tokens_blur_vibrancy_ramp.pdl",
-    "tokens_blur_vibrancy_ramp.pdl",
-    "tokens_blur_vibrancy_ramp.pdl",
-    "tokens_blur_vibrancy_ramp.pdl",
-    "tokens_blur_vibrancy_ramp.pdl",
-    "tokens_blur_vibrancy_ramp.pdl",
-    "tokens_blur_vibrancy_ramp.pdl",
-    "tokens_blur_vibrancy_ramp.pdl",
-    "tokens_blur_vibrancy_ramp.pdl",
-    "tokens_blur_vibrancy_ramp.pdl",
-    "tokens_blur_vibrancy_ramp.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
-    "tokens_color.pdl",
     "tokens_color.pdl",
     "tokens_composite_bg_fg.pdl",
-    "tokens_composite_bg_fg.pdl",
-    "tokens_composite_bg_fg.pdl",
-    "tokens_composite_bg_fg.pdl",
-    "tokens_composite_bg_fg.pdl",
-    "tokens_composite_bg_fg.pdl",
-    "tokens_composite_bg_fg.pdl",
-    "tokens_composite_bg_fg.pdl",
-    "tokens_composite_bg_fg.pdl",
-    "tokens_composite_bg_fg.pdl",
-    "tokens_composite_bg_fg.pdl",
-    "tokens_composite_bg_fg.pdl",
-    "tokens_composite_bg_fg.pdl",
-    "tokens_composite_bg_fg.pdl",
-    "tokens_composite_bg_fg.pdl",
-    "tokens_composite_bg_fg.pdl",
-    "tokens_composite_bg_fg.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
-    "tokens_distance_radius.pdl",
     "tokens_distance_radius.pdl",
     "tokens_icon_media_ratio.pdl",
-    "tokens_icon_media_ratio.pdl",
-    "tokens_icon_media_ratio.pdl",
-    "tokens_icon_media_ratio.pdl",
-    "tokens_icon_media_ratio.pdl",
-    "tokens_icon_media_ratio.pdl",
-    "tokens_icon_media_ratio.pdl",
-    "tokens_icon_media_ratio.pdl",
-    "tokens_icon_media_ratio.pdl",
-    "tokens_icon_media_ratio.pdl",
-    "tokens_icon_media_ratio.pdl",
-    "tokens_icon_media_ratio.pdl",
-    "tokens_icon_media_ratio.pdl",
-    "tokens_icon_media_ratio.pdl",
-    "tokens_icon_media_ratio.pdl",
-    "tokens_icon_media_ratio.pdl",
-    "tokens_icon_media_ratio.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
-    "tokens_opacity.pdl",
     "tokens_opacity.pdl",
     "tokens_shadow.pdl",
-    "tokens_shadow.pdl",
-    "tokens_shadow.pdl",
-    "tokens_shadow.pdl",
-    "tokens_shadow.pdl",
-    "tokens_shadow.pdl",
-    "tokens_shadow.pdl",
-    "tokens_shadow.pdl",
-    "tokens_shadow.pdl",
-    "tokens_shadow.pdl",
-    "tokens_shadow.pdl",
-    "tokens_shadow.pdl",
-    "tokens_shadow.pdl",
-    "tokens_shadow.pdl",
-    "tokens_shadow.pdl",
-    "tokens_shadow.pdl",
-    "tokens_shadow.pdl",
     "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "tokens_typography.pdl",
-    "typestyle_atoms.pdl",
-    "typestyle_atoms.pdl",
-    "typestyle_atoms.pdl",
-    "typestyle_atoms.pdl",
-    "typestyle_atoms.pdl",
-    "typestyle_atoms.pdl",
-    "typestyle_atoms.pdl",
-    "typestyle_atoms.pdl",
-    "typestyle_atoms.pdl",
-    "typestyle_atoms.pdl",
-    "typestyle_atoms.pdl",
-    "typestyle_atoms.pdl",
-    "typestyle_atoms.pdl",
-    "typestyle_atoms.pdl",
-    "typestyle_atoms.pdl",
-    "typestyle_atoms.pdl",
     "typestyle_atoms.pdl"
   ],
   "previewBackground": null,
@@ -6123,7 +6124,141 @@
       }
     }
   },
-  "rules": {},
+  "rules": {
+    "MoleculeCardArticle": [
+      {
+        "kind": "tagsSet",
+        "tags": [
+          "molecule",
+          "card"
+        ]
+      },
+      {
+        "kind": "tagsAdd",
+        "tag": "layout"
+      },
+      {
+        "chain": {
+          "branches": [
+            {
+              "body": [
+                {
+                  "kind": "ruleLine",
+                  "query": {
+                    "axis": "descendants",
+                    "kind": "chain",
+                    "terminal": {
+                      "kind": "exists"
+                    },
+                    "whereTags": []
+                  },
+                  "strength": ".should"
+                }
+              ],
+              "condition": {
+                "kind": "cmp",
+                "op": "==",
+                "param": "layoutMode",
+                "rhs": ".withHero"
+              }
+            }
+          ],
+          "elseBody": [
+            {
+              "kind": "ruleLine",
+              "query": {
+                "axis": "self",
+                "kind": "chain",
+                "terminal": {
+                  "kind": "exists"
+                },
+                "whereTags": []
+              },
+              "strength": ".may"
+            }
+          ]
+        },
+        "kind": "if"
+      }
+    ],
+    "MoleculeFieldBlock": [
+      {
+        "kind": "tagsSet",
+        "tags": [
+          "molecule",
+          "form"
+        ]
+      },
+      {
+        "chain": {
+          "branches": [
+            {
+              "body": [
+                {
+                  "kind": "ruleLine",
+                  "query": {
+                    "axis": "descendants",
+                    "kind": "chain",
+                    "terminal": {
+                      "kind": "exists"
+                    },
+                    "whereTags": []
+                  },
+                  "strength": ".should"
+                }
+              ],
+              "condition": {
+                "kind": "cmp",
+                "op": "==",
+                "param": "layoutMode",
+                "rhs": ".includeHelp"
+              }
+            }
+          ],
+          "elseBody": [
+            {
+              "kind": "ruleLine",
+              "query": {
+                "axis": "self",
+                "kind": "chain",
+                "terminal": {
+                  "kind": "exists"
+                },
+                "whereTags": []
+              },
+              "strength": ".may"
+            }
+          ]
+        },
+        "kind": "if"
+      }
+    ],
+    "MoleculeTextButton": [
+      {
+        "kind": "tagsSet",
+        "tags": [
+          "molecule",
+          "button"
+        ]
+      },
+      {
+        "kind": "tagsAdd",
+        "tag": "cta"
+      },
+      {
+        "kind": "ruleLine",
+        "query": {
+          "axis": "self",
+          "kind": "chain",
+          "terminal": {
+            "kind": "exists"
+          },
+          "whereTags": []
+        },
+        "strength": ".should"
+      }
+    ]
+  },
   "schemaVersion": "1.0.0-beta",
   "semantics": {
     "atoms.bg.blurCard": {
@@ -6396,7 +6531,17 @@
       }
     }
   },
-  "usage": {},
+  "usage": {
+    "MoleculeCardArticle": {
+      "description": "Editorial card with optional hero media, title stack, and a footer row mixing text and icon actions."
+    },
+    "MoleculeFieldBlock": {
+      "description": "Form field row: caption label, bordered value readout, optional helper line; use layoutMode .noHelp for dense tables."
+    },
+    "MoleculeTextButton": {
+      "description": "Text-only pill control for primary actions, secondary actions, and low-emphasis links in molecule layouts."
+    }
+  },
   "variants": {
     "MoleculeBtnSize": {
       "cases": [

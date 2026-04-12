@@ -1,0 +1,23 @@
+// Cannot mix `&&` and `||` at top level of a condition without parentheses.
+
+import "../atoms/tokens_color.pdl"
+
+variant Tg {
+  case x
+  case y
+}
+
+variant Sz {
+  case sm
+  case lg
+}
+
+component MixAndOr(t: Tg = .x, s: Sz = .sm) layout {
+  direction = .column
+
+  if t == .x && s == .sm || t == .y {
+    padding = EdgeInsets(x: 0, y: 0)
+  }
+
+  children = []
+}

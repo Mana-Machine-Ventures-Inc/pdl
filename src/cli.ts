@@ -22,6 +22,10 @@ Usage:
 Options:
   --theme <name>   Primary theme for token resolution (optional)
   --out <path>     Write JSON to file instead of stdout (catalogue / manifest)
+
+Note: \`node dist/cli.js …\` uses compiled output in dist/. After changing src/, run \`npm run build\`
+(or \`tsc\`) before graph, or use \`npm run graph -- <entry.pdl>\` (and resolve / catalogue / manifest),
+which run \`tsc\` first.
 `);
   process.exit(1);
 }

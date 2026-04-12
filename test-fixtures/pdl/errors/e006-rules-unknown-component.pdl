@@ -1,0 +1,13 @@
+import "../atoms/tokens_color.pdl"
+
+variant V { case a }
+
+component Real(v: V = .a) layout {
+  direction = .column
+  children = []
+}
+
+rules Ghost {
+  tags = ["x"]
+  Rule(.should, self.exists)
+}

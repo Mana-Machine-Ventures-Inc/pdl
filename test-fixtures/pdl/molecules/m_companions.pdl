@@ -1,0 +1,116 @@
+// Usage, fixtures, rules, and interactions for shared molecule components.
+// Import only after the underlying components exist (via m_05 / m_10, which pull in buttons).
+
+import "m_05_card.pdl"
+import "m_10_form_group.pdl"
+
+// --- MoleculeTextButton ---
+
+usage MoleculeTextButton {
+  description = "Text-only pill control for primary actions, secondary actions, and low-emphasis links in molecule layouts."
+}
+
+fixtures MoleculeTextButton {
+  example "Primary call to action" {
+    label = "Continue"
+    tone = .primary
+    size = .lg
+  }
+  example "Low-emphasis dismiss" {
+    label = "Dismiss"
+    tone = .ghost
+    size = .sm
+  }
+}
+
+rules MoleculeTextButton {
+  tags = ["molecule", "button"]
+  tags.add("cta")
+  Rule(.should, self.exists)
+}
+
+interaction MoleculeTextButtonHoverPreview for MoleculeTextButton {
+  on hoverStart {
+    tone = .secondary
+  }
+  on hoverEnd {
+    tone = .primary
+  }
+}
+
+// --- MoleculeCardArticle ---
+
+usage MoleculeCardArticle {
+  description = "Editorial card with optional hero media, title stack, and a footer row mixing text and icon actions."
+}
+
+fixtures MoleculeCardArticle {
+  example "With hero media" {
+    title = "Ship notes"
+    subtitle = "What changed in this release."
+    layoutMode = .withHero
+  }
+  example "Text-only shell" {
+    title = "Integrations"
+    subtitle = "Connect Slack, GitHub, or webhooks."
+    layoutMode = .textOnly
+  }
+}
+
+rules MoleculeCardArticle {
+  tags = ["molecule", "card"]
+  tags.add("layout")
+  if (layoutMode == .withHero) {
+    Rule(.should, descendants.exists)
+  } else {
+    Rule(.may, self.exists)
+  }
+}
+
+interaction MoleculeCardArticleLayoutPeek for MoleculeCardArticle {
+  on hoverStart {
+    layoutMode = .textOnly
+  }
+  on hoverEnd {
+    layoutMode = .withHero
+  }
+}
+
+// --- MoleculeFieldBlock ---
+
+usage MoleculeFieldBlock {
+  description = "Form field row: caption label, bordered value readout, optional helper line; use layoutMode .noHelp for dense tables."
+}
+
+fixtures MoleculeFieldBlock {
+  example "With helper" {
+    label = "Display name"
+    value = "Acme Corp"
+    helper = "Shown on invoices and shared links."
+    layoutMode = .includeHelp
+  }
+  example "Compact (no helper)" {
+    label = "SKU"
+    value = "PDL-001"
+    helper = ""
+    layoutMode = .noHelp
+  }
+}
+
+rules MoleculeFieldBlock {
+  tags = ["molecule", "form"]
+  if (layoutMode == .includeHelp) {
+    Rule(.should, descendants.exists)
+  } else {
+    Rule(.may, self.exists)
+  }
+}
+
+interaction MoleculeFieldBlockLayoutPeek for MoleculeFieldBlock {
+  on hoverStart {
+    layoutMode = .noHelp
+  }
+  on hoverEnd {
+    layoutMode = .includeHelp
+  }
+}

@@ -1,0 +1,13 @@
+import "../atoms/tokens_color.pdl"
+
+variant Mode {
+  case a
+  case b
+}
+
+// Variant-typed parameter must use a dot-enum default, not a string literal.
+
+component BadDefault(mode: Mode = "a") layout {
+  direction = .column
+  children = []
+}

@@ -1,0 +1,15 @@
+import "../atoms/tokens_color.pdl"
+
+variant V { case a }
+
+component X(v: V = .a) layout {
+  direction = .column
+
+  let Box: layout = {
+    direction = .row
+    children = []
+  }
+
+  GhostFrame.hidden = true
+  children = [Box]
+}

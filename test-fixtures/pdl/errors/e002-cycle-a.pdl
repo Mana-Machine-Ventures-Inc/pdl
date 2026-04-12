@@ -1,0 +1,7 @@
+import "e002-cycle-b.pdl"
+
+variant VA { case a }
+component A(x: VA = .a) layout {
+  direction = .column
+  children = []
+}

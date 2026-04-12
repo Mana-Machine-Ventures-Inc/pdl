@@ -1,0 +1,4 @@
+// Missing closing `}` on layout body — parse error.
+
+component Unclosed() layout {
+  direction = .column

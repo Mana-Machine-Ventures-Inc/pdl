@@ -1,0 +1,9 @@
+import "../atoms/tokens_color.pdl"
+
+variant V { case a }
+
+component BadToken(v: V = .a) layout {
+  direction = .column
+  background = atoms.color.thisNameDoesNotExistAnywhere
+  children = []
+}

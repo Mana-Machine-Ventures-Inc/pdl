@@ -1,0 +1,15 @@
+// Same component name twice in one module — merge keeps the last declaration (no error).
+
+import "../atoms/tokens_color.pdl"
+
+variant V { case a }
+
+component Dup(first: String = "one") layout {
+  direction = .column
+  children = []
+}
+
+component Dup(second: String = "two") layout {
+  direction = .row
+  children = []
+}

@@ -1,0 +1,14 @@
+import "../atoms/tokens_color.pdl"
+
+variant V { case a }
+
+component Z(v: V = .a) layout {
+  direction = .column
+  children = []
+}
+
+rules Z {
+  if (nope == .a) {
+    Rule(.should, self.exists)
+  }
+}
