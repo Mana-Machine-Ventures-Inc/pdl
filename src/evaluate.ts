@@ -211,7 +211,12 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
       if (expr.mode === "hug") return "hug";
       if (expr.mode === "fill") return "fill";
       if (expr.mode === "fixed") return { fixed: expr.fixed };
-      return { flex: expr.flexArgs ?? {} };
+      const raw = expr.flexArgs ?? {};
+      const flex: Record<string, unknown> = {};
+      for (const [k, ve] of Object.entries(raw)) {
+        flex[k] = evaluateValue(ve as ValueExpr, opts);
+      }
+      return { flex };
     }
     case "call": {
       const args = expr.args;

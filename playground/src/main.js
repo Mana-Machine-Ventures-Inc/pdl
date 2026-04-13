@@ -79,6 +79,9 @@ const componentWrap = $("componentWrap");
 const designMeta = $("designMeta");
 const outputPanelHtml = $("outputPanelHtml");
 const outputPanelDesign = $("outputPanelDesign");
+const renderConsole = $("renderConsole");
+const renderConsoleTitle = $("renderConsoleTitle");
+const renderConsoleBody = $("renderConsoleBody");
 
 const editorTheme = EditorView.theme({
   "&": { height: "100%" },
@@ -170,6 +173,53 @@ function showError(msg) {
   }
   errorEl.hidden = false;
   errorEl.textContent = msg;
+}
+
+/**
+ * @param {Array<{ component?: string; phase?: string; message: string; stack?: string }>} entries
+ */
+function updateRenderConsole(entries) {
+  renderConsoleBody.replaceChildren();
+  if (!entries || entries.length === 0) {
+    renderConsole.hidden = true;
+    renderConsole.removeAttribute("open");
+    renderConsoleTitle.textContent = "Render console";
+    return;
+  }
+  renderConsole.hidden = false;
+  renderConsole.setAttribute("open", "");
+  const n = entries.length;
+  renderConsoleTitle.textContent = `Render console (${n} ${n === 1 ? "issue" : "issues"})`;
+  for (const e of entries) {
+    const article = document.createElement("article");
+    article.className = "render-console-entry";
+    if (e.phase) {
+      const ph = document.createElement("span");
+      ph.className = "phase";
+      ph.textContent = e.phase;
+      article.append(ph);
+    }
+    const h = document.createElement("h4");
+    h.textContent = e.component ?? "Error";
+    article.append(h);
+    const pre = document.createElement("pre");
+    pre.className = "msg";
+    pre.textContent = e.message;
+    article.append(pre);
+    if (e.stack) {
+      const det = document.createElement("details");
+      det.className = "stack";
+      const sum = document.createElement("summary");
+      sum.textContent = "Stack trace";
+      det.append(sum);
+      const sp = document.createElement("pre");
+      sp.className = "stack";
+      sp.textContent = e.stack;
+      det.append(sp);
+      article.append(det);
+    }
+    renderConsoleBody.append(article);
+  }
 }
 
 function jsonCell(obj) {
@@ -587,6 +637,7 @@ function scheduleDebouncedRender(delayMs = RENDER_DEBOUNCE_MS) {
 
 async function runAnalyze() {
   showError("");
+  updateRenderConsole([]);
   setStatus("Analyzing…");
   try {
     const res = await fetch("/api/load", {
@@ -597,6 +648,9 @@ async function runAnalyze() {
     const data = await res.json();
     if (!data.ok) {
       showError(data.error || "Analyze failed");
+      updateRenderConsole([
+        { phase: "Analyze (load / parse)", message: data.error || "Analyze failed" },
+      ]);
       setStatus("");
       renderDesignSummary(null);
       completionSymbols = [];
@@ -621,7 +675,9 @@ async function runAnalyze() {
     renderDesignSummary(data.designSummary);
     return true;
   } catch (e) {
-    showError(e instanceof Error ? e.message : String(e));
+    const msg = e instanceof Error ? e.message : String(e);
+    showError(msg);
+    updateRenderConsole([{ phase: "Analyze (network / JSON)", message: msg, stack: e instanceof Error ? e.stack : undefined }]);
     setStatus("");
     renderDesignSummary(null);
     completionSymbols = [];
@@ -632,6 +688,7 @@ async function runAnalyze() {
 async function runRender({ debounced = false } = {}) {
   const id = ++latestRenderId;
   showError("");
+  updateRenderConsole([]);
   if (!debounced && renderDebounceTimer) {
     clearTimeout(renderDebounceTimer);
     renderDebounceTimer = null;
@@ -665,20 +722,49 @@ async function runRender({ debounced = false } = {}) {
     const data = await res.json();
     if (id !== latestRenderId) return;
     if (!data.ok) {
-      showError(data.error || "Render failed");
+      const errMsg = data.error || "Render failed";
+      showError(errMsg);
+      updateRenderConsole([
+        {
+          phase: "Bake or render (server)",
+          message: errMsg,
+        },
+      ]);
       frame.removeAttribute("srcdoc");
       setStatus("");
       return;
     }
     frame.srcdoc = data.html;
-    setStatus("Preview updated");
+    const failures = Array.isArray(data.renderFailures) ? data.renderFailures : [];
+    if (failures.length > 0) {
+      updateRenderConsole(
+        failures.map((f) => ({
+          phase: "HTML render",
+          component: f.component,
+          message: f.message,
+          stack: f.stack,
+        })),
+      );
+      setStatus(`Preview updated — ${failures.length} component(s) failed HTML render (see Render console)`);
+    } else {
+      updateRenderConsole([]);
+      setStatus("Preview updated");
+    }
     if (data.designSummary) {
       renderDesignSummary(data.designSummary);
       setCompletionSymbolsFromAnalyze(data);
     }
   } catch (e) {
     if (id !== latestRenderId) return;
-    showError(e instanceof Error ? e.message : String(e));
+    const msg = e instanceof Error ? e.message : String(e);
+    showError(msg);
+    updateRenderConsole([
+      {
+        phase: "Render (client)",
+        message: msg,
+        stack: e instanceof Error ? e.stack : undefined,
+      },
+    ]);
     frame.removeAttribute("srcdoc");
     setStatus("");
   }

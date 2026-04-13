@@ -236,7 +236,7 @@ async function handleRender(body) {
     loadDesign,
     buildBakedDesignComponent,
     buildBakedDesignSystem,
-    renderBakedDesignToHtmlDocument,
+    renderBakedDesignToHtmlDocumentWithReport,
     serialiseValueExpr,
   } = await toolchainPromise;
   const tmp = mkdtempSync(join(tmpdir(), "pdl-playground-"));
@@ -253,11 +253,11 @@ async function handleRender(body) {
             theme: typeof theme === "string" ? theme : undefined,
             paramOverrides: kvObj,
           });
-    const html = renderBakedDesignToHtmlDocument(baked, {
+    const { html, renderFailures } = renderBakedDesignToHtmlDocumentWithReport(baked, {
       singleComponent: mode === "system" ? undefined : component,
       title: "PDL playground preview",
     });
-    return { ok: true, html, designSummary, ...designMeta(design) };
+    return { ok: true, html, renderFailures, designSummary, ...designMeta(design) };
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

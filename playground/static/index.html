@@ -79,6 +79,12 @@
       </div>
       <div id="outputPanelHtml" class="output-panel" role="tabpanel">
         <iframe id="frame" title="PDL HTML preview" sandbox="allow-same-origin"></iframe>
+        <details class="render-console" id="renderConsole" hidden>
+          <summary class="render-console-summary">
+            <span id="renderConsoleTitle">Render console</span>
+          </summary>
+          <div id="renderConsoleBody" class="render-console-body" role="log" aria-live="polite"></div>
+        </details>
       </div>
       <div id="outputPanelDesign" class="output-panel is-hidden" role="tabpanel" aria-hidden="true">
         <div id="designMeta" class="design-meta"></div>
