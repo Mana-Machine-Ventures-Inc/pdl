@@ -257,7 +257,7 @@ async function handleRender(body) {
       singleComponent: mode === "system" ? undefined : component,
       title: "PDL playground preview",
     });
-    return { ok: true, html, designSummary };
+    return { ok: true, html, designSummary, ...designMeta(design) };
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

@@ -1,6 +1,49 @@
+import { autocompletion, completionKeymap } from "@codemirror/autocomplete";
+import { indentWithTab } from "@codemirror/commands";
+import { EditorState } from "@codemirror/state";
+import { EditorView, keymap } from "@codemirror/view";
+import { basicSetup } from "codemirror";
+import { PDL_KEYWORDS } from "./pdl-keywords.js";
+
+/** Default workspace: a few tokens + one component for quick Analyze / Render. */
+const START_DESIGN_PDL = `// Starter design — tokens + a simple labeled control for playground previews.
+
+primitive atoms.color.brandPrimary: Color = #FF5A5F
+primitive atoms.color.surface: Color = #F2F2F4
+primitive atoms.color.labelOnBrand: Color = #FFFFFF
+
+semantic atoms.color.buttonFill: Color = atoms.color.brandPrimary
+
+component Button() layout {
+  direction = .row
+  align = .center
+  justify = .center
+  gap = 8
+  background = atoms.color.buttonFill
+  cornerRadius = 8
+  width = .hug
+  height = .hug
+
+  let Label: text = {
+    content = "Button"
+    color = atoms.color.labelOnBrand
+    fontSize = 15
+    fontWeight = 600
+  }
+
+  children = [Label]
+}
+`;
+
 /** @type {Record<string, string>} */
-let files = { "design.pdl": "" };
+let files = { "design.pdl": START_DESIGN_PDL };
 let activePath = "design.pdl";
+
+/** @type {string[]} */
+let completionSymbols = [];
+
+/** @type {EditorView | null} */
+let editorView = null;
 
 const $ = (id) => {
   const el = document.getElementById(id);
@@ -12,7 +55,7 @@ const dropzone = $("dropzone");
 const filePick = $("filePick");
 const dirPick = $("dirPick");
 const entryPath = $("entryPath");
-const editor = $("editor");
+const editorMount = $("editorMount");
 const fileTabs = $("fileTabs");
 const component = $("component");
 const themeInput = $("theme");
@@ -27,6 +70,102 @@ const componentWrap = $("componentWrap");
 const designMeta = $("designMeta");
 const outputPanelHtml = $("outputPanelHtml");
 const outputPanelDesign = $("outputPanelDesign");
+
+const editorTheme = EditorView.theme({
+  "&": { height: "100%" },
+  ".cm-scroller": { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' },
+  ".cm-gutters": {
+    backgroundColor: "#f0f1f4",
+    color: "#6e7781",
+    borderRight: "1px solid #d8dee4",
+  },
+  ".cm-activeLineGutter": { backgroundColor: "#e8ebf0" },
+});
+
+/** @param {import("@codemirror/autocomplete").CompletionContext} context */
+function pdlCompletionSource(context) {
+  const before = context.matchBefore(/[\w.]+$/);
+  if (!before && !context.explicit) return null;
+  const from = before ? before.from : context.pos;
+  const q = (before?.text ?? "").toLowerCase();
+  const opts = [];
+  const seen = new Set();
+  function add(label, type) {
+    if (seen.has(label)) return;
+    seen.add(label);
+    opts.push({ label, type });
+  }
+  for (const kw of PDL_KEYWORDS) {
+    if (!q || kw.toLowerCase().startsWith(q)) add(kw, "keyword");
+  }
+  for (const sym of completionSymbols) {
+    if (!q || sym.toLowerCase().includes(q)) add(sym, "variable");
+  }
+  if (opts.length === 0) return null;
+  opts.sort((a, b) => a.label.localeCompare(b.label));
+  return { from, options: opts.slice(0, 200) };
+}
+
+function setCompletionSymbolsFromAnalyze(data) {
+  const s = new Set();
+  for (const c of data.components ?? []) {
+    if (c) s.add(String(c));
+  }
+  const ds = data.designSummary;
+  if (ds && typeof ds === "object") {
+    for (const p of ds.primitives ?? []) {
+      if (p?.name) s.add(String(p.name));
+    }
+    for (const x of ds.semantics ?? []) {
+      if (x?.name) s.add(String(x.name));
+    }
+    for (const t of ds.themeDefinitions ?? []) {
+      if (t?.name) s.add(String(t.name));
+    }
+    for (const v of ds.variants ?? []) {
+      if (v?.name) s.add(String(v.name));
+      for (const c of v.cases ?? []) {
+        if (c) s.add(String(c));
+      }
+    }
+    for (const ts of ds.typeStyles ?? []) {
+      if (ts?.name) s.add(String(ts.name));
+    }
+  }
+  completionSymbols = [...s].sort((a, b) => a.localeCompare(b));
+}
+
+function getEditorText() {
+  return editorView?.state.doc.toString() ?? "";
+}
+
+function setEditorText(text) {
+  if (!editorView) return;
+  editorView.dispatch({
+    changes: { from: 0, to: editorView.state.doc.length, insert: text },
+  });
+}
+
+function mountEditor() {
+  const start = files[activePath] ?? "";
+  editorView = new EditorView({
+    parent: editorMount,
+    state: EditorState.create({
+      doc: start,
+      extensions: [
+        basicSetup,
+        editorTheme,
+        keymap.of([indentWithTab, ...completionKeymap]),
+        autocompletion({ override: [pdlCompletionSource] }),
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) {
+            files[activePath] = getEditorText();
+          }
+        }),
+      ],
+    }),
+  });
+}
 
 function setStatus(msg) {
   status.textContent = msg;
@@ -288,11 +427,14 @@ document.querySelectorAll("[data-output-tab]").forEach((btn) => {
     outputPanelHtml.classList.toggle("is-hidden", !showHtml);
     outputPanelDesign.classList.toggle("is-hidden", showHtml);
     outputPanelDesign.setAttribute("aria-hidden", showHtml ? "true" : "false");
+    if (showHtml) {
+      requestAnimationFrame(() => editorView?.requestMeasure());
+    }
   });
 });
 
 function syncEditorToFiles() {
-  files[activePath] = editor.value;
+  files[activePath] = getEditorText();
 }
 
 function renderTabs() {
@@ -306,7 +448,7 @@ function renderTabs() {
     b.addEventListener("click", () => {
       syncEditorToFiles();
       activePath = p;
-      editor.value = files[activePath] ?? "";
+      setEditorText(files[activePath] ?? "");
       renderTabs();
     });
     fileTabs.append(b);
@@ -324,7 +466,7 @@ function renderTabs() {
     }
     files[name] = "";
     activePath = name;
-    editor.value = "";
+    setEditorText("");
     renderTabs();
   });
   fileTabs.append(add);
@@ -354,7 +496,7 @@ function mergeDroppedFiles(newMap) {
       files[activePath] = "";
     }
   }
-  editor.value = files[activePath] ?? "";
+  setEditorText(files[activePath] ?? "");
   renderTabs();
 }
 
@@ -458,6 +600,7 @@ btnAnalyze.addEventListener("click", async () => {
       showError(data.error || "Analyze failed");
       setStatus("");
       renderDesignSummary(null);
+      completionSymbols = [];
       return;
     }
     component.replaceChildren();
@@ -473,12 +616,14 @@ btnAnalyze.addEventListener("click", async () => {
       o.value = t;
       themeList.append(o);
     }
+    setCompletionSymbolsFromAnalyze(data);
     setStatus(`OK — ${data.components?.length ?? 0} components, ${data.themes?.length ?? 0} themes`);
     renderDesignSummary(data.designSummary);
   } catch (e) {
     showError(e instanceof Error ? e.message : String(e));
     setStatus("");
     renderDesignSummary(null);
+    completionSymbols = [];
   }
 });
 
@@ -521,6 +666,7 @@ btnRender.addEventListener("click", async () => {
     setStatus("Preview updated");
     if (data.designSummary) {
       renderDesignSummary(data.designSummary);
+      setCompletionSymbolsFromAnalyze(data);
     }
   } catch (e) {
     showError(e instanceof Error ? e.message : String(e));
@@ -530,7 +676,5 @@ btnRender.addEventListener("click", async () => {
 });
 
 renderDesignSummary(null);
+mountEditor();
 renderTabs();
-editor.addEventListener("input", () => {
-  syncEditorToFiles();
-});

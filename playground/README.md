@@ -12,13 +12,25 @@ npm install
 npm run build
 ```
 
+Install playground UI dependencies (CodeMirror + Vite) once:
+
+```bash
+cd playground
+npm install
+npm run build
+```
+
+The editor is bundled to **`static/playground-app.js`**. After changing `playground/src/`, run **`npm run build`** in this folder again (or use **`npm start`**, which runs **`prestart`** to build first).
+
 ## Run
 
-From the repository root (after `npm run build`):
+From the repository root (after `npm run build` for the compiler and **`npm install` + `npm run build` in `playground/`** at least once):
 
 ```bash
 npm run playground
 ```
+
+(`npm run playground` runs the playground Vite build, then starts the server.)
 
 Or from this folder:
 
@@ -33,4 +45,8 @@ The **Tokens & design** tab lists merged **primitives**, **semantics**, **themes
 
 ## Layout
 
-Everything for this tool lives under **`playground/`** (`server/`, `static/`, this README) so the core `src/` tree stays focused on the language and CLI.
+Everything for this tool lives under **`playground/`** (`server/`, `static/`, `src/` for the bundled editor UI, this README) so the core repo `src/` tree stays focused on the language and CLI.
+
+The source panel uses **CodeMirror 6** (line numbers, history, bracket matching, Tab indent, Ctrl+Space completion). Completions mix PDL keywords with symbols from the last successful **Analyze** or **Render** (components, primitives, semantics, themes, variant names and case labels, type styles).
+
+On first load, **`design.pdl`** is pre-filled with a few **color primitives**, one **semantic**, and a **`Button`** component (layout + text label) so you can **Analyze** then **Render** immediately.

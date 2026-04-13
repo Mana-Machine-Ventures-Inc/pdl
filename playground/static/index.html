@@ -37,7 +37,7 @@
       <div class="file-tabs" id="fileTabs"></div>
       <label class="field grow">
         <span>Current file contents</span>
-        <textarea id="editor" spellcheck="false" placeholder="component MyThing { ... }"></textarea>
+        <div id="editorMount" class="editor-mount" aria-label="PDL source editor"></div>
       </label>
     </section>
 
@@ -86,6 +86,6 @@
     </section>
   </main>
 
-  <script src="/app.js" type="module"></script>
+  <script type="module" src="/playground-app.js"></script>
 </body>
 </html>
