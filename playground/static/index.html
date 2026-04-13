@@ -9,7 +9,7 @@
 <body>
   <header class="top">
     <h1>PDL playground</h1>
-    <p class="sub">Local preview — runs the same load → bake → HTML path as the CLI. Nothing is sent off this machine.</p>
+    <p class="sub">Local preview — runs the same load → bake → HTML path as the CLI. Defaults to all components; preview refreshes after you pause typing (~500ms). Nothing is sent off this machine.</p>
   </header>
 
   <main class="grid">
@@ -46,8 +46,8 @@
       <div class="field">
         <span>Mode</span>
         <div class="row">
-          <label><input type="radio" name="mode" value="component" checked /> Single component</label>
-          <label><input type="radio" name="mode" value="system" /> All components</label>
+          <label><input type="radio" name="mode" value="component" /> Single component</label>
+          <label><input type="radio" name="mode" value="system" checked /> All components</label>
         </div>
       </div>
       <label class="field" id="componentWrap">

@@ -4,6 +4,7 @@ import type { DesignDefinition } from "./designModel.js";
 import { PdlError } from "./errors.js";
 import type { ParamEvalMeta } from "./evaluate.js";
 import { evaluateCondition, evaluateValue, type EvalOptions } from "./evaluate.js";
+import { coerceFramePropValue } from "./frameNumericSugar.js";
 
 export type CatalFrame = {
   id: string;
@@ -105,6 +106,7 @@ function applyHiddenProp(target: MutableFrame, value: ValueExpr, ctx: BuildCtx):
 function mergeStyleProps(
   props: Record<string, unknown>,
   styleVal: unknown,
+  entryPath: string,
   catalogueTokenRefs?: boolean,
 ): void {
   if (
@@ -117,7 +119,7 @@ function mergeStyleProps(
     const name = o.__typeStyle;
     for (const [k, v] of Object.entries(o)) {
       if (k === "__typeStyle") continue;
-      props[k] = v;
+      props[k] = coerceFramePropValue(k, v, entryPath);
     }
     if (typeof name === "string") {
       props.typeStyle = catalogueTokenRefs ? `typeStyle:${name}` : name;
@@ -184,8 +186,8 @@ function processFrameItems(
           break;
         }
         const v = evalProp(item.value, ctx);
-        if (item.name === "style") mergeStyleProps(f.props, v, ctx.catalogueTokenRefs);
-        else f.props[item.name] = v;
+        if (item.name === "style") mergeStyleProps(f.props, v, ctx.design.entryPath, ctx.catalogueTokenRefs);
+        else f.props[item.name] = coerceFramePropValue(item.name, v, ctx.design.entryPath);
         break;
       }
       case "frameProp": {
@@ -194,7 +196,8 @@ function processFrameItems(
           applyHiddenProp(fr, item.value, ctx);
           break;
         }
-        fr.props[item.name] = evalProp(item.value, ctx);
+        const pv = evalProp(item.value, ctx);
+        fr.props[item.name] = coerceFramePropValue(item.name, pv, ctx.design.entryPath);
         break;
       }
       case "children": {

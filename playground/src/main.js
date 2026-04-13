@@ -3,7 +3,7 @@ import { indentWithTab } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { basicSetup } from "codemirror";
-import { PDL_KEYWORDS } from "./pdl-keywords.js";
+import { pdlCompletionSource as buildPdlCompletionSource } from "./pdl-completions.js";
 
 /** Default workspace: a few tokens + one component for quick Analyze / Render. */
 const START_DESIGN_PDL = `// Starter design — tokens + a simple labeled control for playground previews.
@@ -45,6 +45,15 @@ let completionSymbols = [];
 /** @type {EditorView | null} */
 let editorView = null;
 
+/** Auto-refresh preview this many ms after the last editor change. */
+const RENDER_DEBOUNCE_MS = 500;
+
+/** @type {ReturnType<typeof setTimeout> | null} */
+let renderDebounceTimer = null;
+
+/** Incremented on each render attempt; stale HTTP responses are ignored. */
+let latestRenderId = 0;
+
 const $ = (id) => {
   const el = document.getElementById(id);
   if (!el) throw new Error(`Missing #${id}`);
@@ -84,26 +93,7 @@ const editorTheme = EditorView.theme({
 
 /** @param {import("@codemirror/autocomplete").CompletionContext} context */
 function pdlCompletionSource(context) {
-  const before = context.matchBefore(/[\w.]+$/);
-  if (!before && !context.explicit) return null;
-  const from = before ? before.from : context.pos;
-  const q = (before?.text ?? "").toLowerCase();
-  const opts = [];
-  const seen = new Set();
-  function add(label, type) {
-    if (seen.has(label)) return;
-    seen.add(label);
-    opts.push({ label, type });
-  }
-  for (const kw of PDL_KEYWORDS) {
-    if (!q || kw.toLowerCase().startsWith(q)) add(kw, "keyword");
-  }
-  for (const sym of completionSymbols) {
-    if (!q || sym.toLowerCase().includes(q)) add(sym, "variable");
-  }
-  if (opts.length === 0) return null;
-  opts.sort((a, b) => a.label.localeCompare(b.label));
-  return { from, options: opts.slice(0, 200) };
+  return buildPdlCompletionSource(context, () => completionSymbols);
 }
 
 function setCompletionSymbolsFromAnalyze(data) {
@@ -160,6 +150,7 @@ function mountEditor() {
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             files[activePath] = getEditorText();
+            scheduleDebouncedRender();
           }
         }),
       ],
@@ -498,6 +489,9 @@ function mergeDroppedFiles(newMap) {
   }
   setEditorText(files[activePath] ?? "");
   renderTabs();
+  void (async () => {
+    if (await runAnalyze()) scheduleDebouncedRender(0);
+  })();
 }
 
 /** @param {FileList} list */
@@ -573,20 +567,25 @@ function getBodyBase() {
   };
 }
 
-function updateModeUi() {
-  const mode = document.querySelector('input[name="mode"]:checked')?.value;
-  const system = mode === "system";
-  componentWrap.style.opacity = system ? "0.45" : "1";
-  component.disabled = system;
-  kvJson.disabled = system;
+/**
+ * @param {number} [delayMs] — `0` runs render on the next task (e.g. mode / component change); default debounces editor typing.
+ */
+function scheduleDebouncedRender(delayMs = RENDER_DEBOUNCE_MS) {
+  if (renderDebounceTimer) {
+    clearTimeout(renderDebounceTimer);
+    renderDebounceTimer = null;
+  }
+  if (delayMs <= 0) {
+    void runRender({ debounced: false });
+    return;
+  }
+  renderDebounceTimer = setTimeout(() => {
+    renderDebounceTimer = null;
+    void runRender({ debounced: true });
+  }, delayMs);
 }
 
-document.querySelectorAll('input[name="mode"]').forEach((r) => {
-  r.addEventListener("change", updateModeUi);
-});
-updateModeUi();
-
-btnAnalyze.addEventListener("click", async () => {
+async function runAnalyze() {
   showError("");
   setStatus("Analyzing…");
   try {
@@ -601,7 +600,7 @@ btnAnalyze.addEventListener("click", async () => {
       setStatus("");
       renderDesignSummary(null);
       completionSymbols = [];
-      return;
+      return false;
     }
     component.replaceChildren();
     for (const name of data.components ?? []) {
@@ -610,6 +609,7 @@ btnAnalyze.addEventListener("click", async () => {
       opt.textContent = name;
       component.append(opt);
     }
+    if (component.options.length > 0) component.selectedIndex = 0;
     themeList.replaceChildren();
     for (const t of data.themes ?? []) {
       const o = document.createElement("option");
@@ -619,17 +619,24 @@ btnAnalyze.addEventListener("click", async () => {
     setCompletionSymbolsFromAnalyze(data);
     setStatus(`OK — ${data.components?.length ?? 0} components, ${data.themes?.length ?? 0} themes`);
     renderDesignSummary(data.designSummary);
+    return true;
   } catch (e) {
     showError(e instanceof Error ? e.message : String(e));
     setStatus("");
     renderDesignSummary(null);
     completionSymbols = [];
+    return false;
   }
-});
+}
 
-btnRender.addEventListener("click", async () => {
+async function runRender({ debounced = false } = {}) {
+  const id = ++latestRenderId;
   showError("");
-  setStatus("Rendering…");
+  if (!debounced && renderDebounceTimer) {
+    clearTimeout(renderDebounceTimer);
+    renderDebounceTimer = null;
+  }
+  setStatus(debounced ? "Updating preview…" : "Rendering…");
   try {
     const mode =
       document.querySelector('input[name="mode"]:checked')?.value === "system"
@@ -656,6 +663,7 @@ btnRender.addEventListener("click", async () => {
       body: JSON.stringify(body),
     });
     const data = await res.json();
+    if (id !== latestRenderId) return;
     if (!data.ok) {
       showError(data.error || "Render failed");
       frame.removeAttribute("srcdoc");
@@ -669,12 +677,48 @@ btnRender.addEventListener("click", async () => {
       setCompletionSymbolsFromAnalyze(data);
     }
   } catch (e) {
+    if (id !== latestRenderId) return;
     showError(e instanceof Error ? e.message : String(e));
     frame.removeAttribute("srcdoc");
     setStatus("");
   }
+}
+
+function updateModeUi() {
+  const mode = document.querySelector('input[name="mode"]:checked')?.value;
+  const system = mode === "system";
+  componentWrap.style.opacity = system ? "0.45" : "1";
+  component.disabled = system;
+  kvJson.disabled = system;
+}
+
+document.querySelectorAll('input[name="mode"]').forEach((r) => {
+  r.addEventListener("change", () => {
+    updateModeUi();
+    scheduleDebouncedRender(0);
+  });
+});
+updateModeUi();
+
+component.addEventListener("change", () => scheduleDebouncedRender(0));
+themeInput.addEventListener("input", () => scheduleDebouncedRender());
+kvJson.addEventListener("input", () => scheduleDebouncedRender());
+entryPath.addEventListener("input", () => scheduleDebouncedRender());
+
+btnAnalyze.addEventListener("click", () => void runAnalyze());
+
+btnRender.addEventListener("click", () => {
+  if (renderDebounceTimer) {
+    clearTimeout(renderDebounceTimer);
+    renderDebounceTimer = null;
+  }
+  void runRender({ debounced: false });
 });
 
 renderDesignSummary(null);
 mountEditor();
 renderTabs();
+
+void (async () => {
+  if (await runAnalyze()) await runRender({ debounced: false });
+})();

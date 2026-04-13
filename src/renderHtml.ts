@@ -70,11 +70,39 @@ function flexWrap(wrap: unknown): string | undefined {
   return undefined;
 }
 
+/**
+ * Baked `cornerRadius`: uniform number, or `{ tl, tr, br, bl }` from `Corner(…)` (CSS order matches PDL).
+ */
+function cornerRadiusToCss(cornerRadius: unknown): string | undefined {
+  if (typeof cornerRadius === "number" && Number.isFinite(cornerRadius)) {
+    if (cornerRadius === 0) return undefined;
+    return `border-radius:${cornerRadius}px`;
+  }
+  if (cornerRadius !== null && typeof cornerRadius === "object" && !Array.isArray(cornerRadius)) {
+    const o = cornerRadius as Record<string, unknown>;
+    const px = (k: string): number => {
+      const v = o[k];
+      return typeof v === "number" && Number.isFinite(v) ? v : 0;
+    };
+    const tl = px("tl");
+    const tr = px("tr");
+    const br = px("br");
+    const bl = px("bl");
+    if (tl === 0 && tr === 0 && br === 0 && bl === 0) return undefined;
+    return `border-radius:${tl}px ${tr}px ${br}px ${bl}px`;
+  }
+  return undefined;
+}
+
 function sizingWidthHeight(props: Record<string, unknown>, axis: "width" | "height"): string | undefined {
   const v = props[axis];
   if (v === "fill") return axis === "width" ? "100%" : "100%";
   if (v === "hug") return "auto";
   if (typeof v === "number" && Number.isFinite(v)) return `${v}px`;
+  if (v !== null && typeof v === "object" && !Array.isArray(v)) {
+    const fixed = (v as { fixed?: unknown }).fixed;
+    if (typeof fixed === "number" && Number.isFinite(fixed)) return `${fixed}px`;
+  }
   return undefined;
 }
 
@@ -93,13 +121,14 @@ function layoutInlineStyle(props: Record<string, unknown>): string {
   }
   const pad = paddingToCss(props, "padding");
   if (pad) parts.push(`padding:${pad}`);
+  const mar = paddingToCss(props, "margin");
+  if (mar) parts.push(`margin:${mar}`);
   const w = sizingWidthHeight(props, "width");
   if (w) parts.push(`width:${w}`);
   const h = sizingWidthHeight(props, "height");
   if (h) parts.push(`height:${h}`);
-  if (typeof props.cornerRadius === "number" && Number.isFinite(props.cornerRadius)) {
-    parts.push(`border-radius:${props.cornerRadius}px`);
-  }
+  const rad = cornerRadiusToCss(props.cornerRadius);
+  if (rad) parts.push(rad);
   if (typeof props.opacity === "number" && Number.isFinite(props.opacity)) {
     parts.push(`opacity:${props.opacity}`);
   }
@@ -115,6 +144,16 @@ function textInlineStyle(props: Record<string, unknown>): string {
   if (typeof props.fontSize === "number") parts.push(`font-size:${props.fontSize}px`);
   if (typeof props.fontWeight === "number") parts.push(`font-weight:${String(props.fontWeight)}`);
   if (typeof props.fontFamily === "string") parts.push(`font-family:${props.fontFamily}`);
+  const tpad = paddingToCss(props, "padding");
+  if (tpad) parts.push(`padding:${tpad}`);
+  const tmar = paddingToCss(props, "margin");
+  if (tmar) parts.push(`margin:${tmar}`);
+  const tw = sizingWidthHeight(props, "width");
+  if (tw) parts.push(`width:${tw}`);
+  const th = sizingWidthHeight(props, "height");
+  if (th) parts.push(`height:${th}`);
+  const tcr = cornerRadiusToCss(props.cornerRadius);
+  if (tcr) parts.push(tcr);
   return parts.join(";");
 }
 

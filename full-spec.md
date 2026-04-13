@@ -656,7 +656,7 @@ Row.children = [IconA, IconB]
 
 | Property | Type | Enum / notes |
 |----------|------|----------------|
-| `width` | sizing | `.hug`, `.fill`, `.fixed(n)`, `.flex(…)` |
+| `width` | sizing | **`.hug`**, **`.fill`**, **`.fixed(n)`**, **`.flex(…)`**, or **scalar sugar** — a non-negative **number** means **`.fixed(n)`** (§6 §Sizing) |
 | `height` | sizing | same |
 | `direction` | enum | `.row`, `.column`, `.rowReverse`, `.columnReverse`, **`.stack`** (overlap; z-order = array order, last on top) |
 | **`wrap`** | enum | **`.nowrap`**, **`.wrap`** — main-axis wrapping |
@@ -665,7 +665,8 @@ Row.children = [IconA, IconB]
 | `gap` | number / `Distance` | Uniform gap applied to both axes; use **`columnGap`** and **`rowGap`** when per-axis control is needed |
 | **`columnGap`** | number / `Distance` | Gap on the **cross** axis when wrapping; emitter maps to CSS `column-gap` / `gap` split as appropriate |
 | **`rowGap`** | number / `Distance` | Gap between **wrapped lines** on the main axis when `wrap = .wrap`. If omitted, **`gap`** applies to both axes. Emitters **MUST** map this to CSS `row-gap` or the platform equivalent. Parsers **MUST** accept and validate `rowGap` as a first-class property. |
-| `padding` | edgeInsets | `EdgeInsets(…)` |
+| `padding` | edgeInsets | **`EdgeInsets(…)`** or **scalar sugar** — a non-negative **number** means uniform padding on all sides (§6 §`EdgeInsets`) |
+| **`margin`** | edgeInsets | External inset around the frame’s border box in layout flow; **`EdgeInsets(…)`** or **scalar sugar** (same rules as **`padding`**) |
 | `background` | color \| layers | Scalar **color**, **layer array**, or **`Background`** token — same grammar as **`foreground`**, composited **under** children (§15) |
 | **`foreground`** | color \| layers | Same as **`background`** (color sugar, layers, or **`Foreground`** token); composited **over** children (§15) |
 | `cornerRadius` | cornerRadius | number, `Corner(…)`, `Radius` token |
@@ -688,7 +689,7 @@ Row.children = [IconA, IconB]
 | **`grow`** | number | Flex grow factor |
 | **`shrink`** | number | Flex shrink factor |
 | **`position`** | enum | **`.flow`** (default), **`.absolute`** — out-of-flow placement |
-| **`inset`** | edgeInsets | Used when `position = .absolute`; offsets from containing layout |
+| **`inset`** | edgeInsets | Used when **`position = .absolute`**; **`EdgeInsets(…)`** or **scalar sugar** — uniform offsets from the containing layout’s padding box |
 
 **Root frame flex props:** On a **component root** (no enclosing PDL **`layout`** parent), **`grow`**, **`alignSelf`**, **`position`**, and **`inset`** apply as if the root were the sole flex child of an anonymous **`layout`** filling the **preview viewport** supplied by the host. **Static** emitters without a viewport **MAY** ignore these props or emit a **warning**; they **MUST NOT** treat them as a **parse** error.
 
@@ -704,9 +705,10 @@ Row.children = [IconA, IconB]
 | `letterSpacing` | number | **Em units** (e.g. `0.01` = 1% of font size extra tracking). Emitters **MUST** treat this as an em multiplier applied to `fontSize`. Zero means no extra tracking. A future minor revision may add explicit px/em disambiguation. | `letterSpacing = 0.01` |
 | `color` | color | Token name or unquoted `#RGB` / `#RRGGBB` / `#RRGGBBAA` (§3, §6) | `color = color.text.primary` |
 | `style` | styleRef | **`typeStyle`** name: bare identifier, **case-sensitive**, matching the declared `typeStyle` name exactly (e.g. `typeStyle Body { … }` is referenced as `style = Body`). | `style = Body` |
-| `width` | sizing | **Sizing literals** (§6 §Sizing): **`.hug`**, **`.fill`**, **`.fixed(n)`**, **`.flex(min: …, max: …)`** — `min` / `max` optional (number or token where grammar allows) | `width = .fill` |
-| `height` | sizing | Same set as **`width`** | `height = .hug` |
-| `padding` | edgeInsets | **`EdgeInsets(x:, y:)`** or **`EdgeInsets(top:, right:, bottom:, left:)`** — values are numbers or **`Distance`** token refs (§6 §`EdgeInsets`) | `padding = EdgeInsets(x: 16, y: 12)` |
+| `width` | sizing | **Sizing literals** (§6 §Sizing) including **scalar number** = **`.fixed(n)`** | `width = .fill`, `width = 200` |
+| `height` | sizing | Same set as **`width`** | `height = .hug`, `height = 48` |
+| `padding` | edgeInsets | **`EdgeInsets(…)`** or **scalar sugar** (§6 §`EdgeInsets`) | `padding = EdgeInsets(x: 16, y: 12)`, `padding = 12` |
+| **`margin`** | edgeInsets | **`EdgeInsets(…)`** or **scalar sugar** | `margin = 8` |
 | `justify` | enum | **`.start`**, **`.center`**, **`.end`** only on **`text`** (main-axis alignment inside the text box; canonical list in the **`text`** table above) | `justify = .center` |
 | `align` | enum | **`.start`**, **`.center`**, **`.end`** only on **`text`** (cross-axis) | `align = .start` |
 | `background` | color \| layers | Scalar color, layer array, or **`Background`** token (§15) | `background = color.surface.subtle` |
@@ -715,7 +717,7 @@ Row.children = [IconA, IconB]
 | `overflow` | enum | **`.visible`**, **`.hidden`**, **`.scroll`**, **`.auto`**, **`.clip`** | `overflow = .hidden` |
 | `textOverflow` | enum | **`.clip`**, **`.ellipsis`** | `textOverflow = .ellipsis` |
 | `lineClamp` | number | Non-negative; max lines when paired with **`textOverflow = .ellipsis`** (emitter maps to `-webkit-line-clamp` / platform equivalent) | `lineClamp = 2` |
-| **`alignSelf`**, **`grow`**, **`shrink`**, **`position`**, **`inset`** | mixed | When this **`text`** frame is a **child of `layout`**: **`alignSelf`** — **`.start`**, **`.center`**, **`.end`**, **`.stretch`**, **`.auto`**; **`position`** — **`.flow`** (default), **`.absolute`**; **`grow`** / **`shrink`** — numbers; **`inset`** — **`EdgeInsets(…)`** when **`position = .absolute`** (same lists as layout **child-only** table above) | `alignSelf = .end`, `grow = 1`, `position = .absolute`, `inset = EdgeInsets(top: 8, right: 8, bottom: 8, left: 8)` |
+| **`alignSelf`**, **`grow`**, **`shrink`**, **`position`**, **`inset`** | mixed | When this **`text`** frame is a **child of `layout`**: **`alignSelf`** — **`.start`**, **`.center`**, **`.end`**, **`.stretch`**, **`.auto`**; **`position`** — **`.flow`** (default), **`.absolute`**; **`grow`** / **`shrink`** — numbers; **`inset`** — **`EdgeInsets(…)`** or **scalar sugar** when **`position = .absolute`** (same lists as layout **child-only** table above) | `alignSelf = .end`, `grow = 1`, `position = .absolute`, `inset = 8` |
 
 ### `icon`
 
@@ -724,8 +726,8 @@ Row.children = [IconA, IconB]
 | `icon` | string |
 | `size` | number |
 | `color` | color |
-| `width` | sizing |
-| `height` | sizing |
+| `width` | sizing | Same **`sizing`** literals and **scalar sugar** as **`layout`** (§6 §Sizing) |
+| `height` | sizing | Same as **`width`** |
 | `opacity` | number \| `Opacity` | **0…1** or **`Opacity`** token (§6 §Opacity-valued properties) |
 | **`alignSelf`**, **`grow`**, **`shrink`**, **`position`**, **`inset`** | When parent is `layout` |
 
@@ -749,8 +751,8 @@ Normatively, **`source`** is a **`MediaSource`** value — today often a **quote
 | Property | Type | Enum / notes |
 |----------|------|----------------|
 | `source` | `MediaSource` \| string | **Primary media ref** — string treated as **raster** URL/path unless **`capabilities.media`** declares broader support; token typed **`MediaSource`** when declared in the token map (§3). |
-| `width` | sizing | |
-| `height` | sizing | |
+| `width` | sizing | Same **`sizing`** literals and **scalar sugar** as **`layout`** (§6 §Sizing) |
+| `height` | sizing | Same as **`width`** |
 | `aspectRatio` | number | |
 | `contentMode` | enum | **`.cover`**, **`.contain`**, **`.fill`**, **`.scaleDown`** — applies to **raster** and **vector** boxes; **video** mapping is **emitter-defined**. |
 | `objectPosition` | enum | **`.center`**, **`.top`**, **`.bottom`**, **`.left`**, **`.right`**, **`.topLeft`**, **`.topRight`**, **`.bottomLeft`**, **`.bottomRight`** |
@@ -843,6 +845,13 @@ width = .flex(min: 200, max: 400)
 width = .flex(min: 120, preferred: 200, max: 480)
 ```
 
+**Scalar numeric sugar (sizing):** Where a property’s type is **`sizing`**, a **single non-negative number** literal (or any expression that evaluates to a finite non-negative number) is shorthand for **`.fixed(n)`**. The resolver **MUST** rewrite it to the same resolved shape as **`.fixed(n)`** (e.g. `{ fixed: n }` in JSON interchange). **Non-finite** or **negative** numbers **MUST** be rejected with the same severity as invalid explicit sizing. This applies to every **`sizing`** property in §5 (**`layout`**, **`text`**, **`icon`**, **`media`**, **`spacer`**) on **`width`** and **`height`**. It **MUST NOT** apply to **`icon.size`** (already a plain **`number`** meaning the symbol box), **`gap`**, **`aspectRatio`**, or other numeric props whose scalar meaning is not fixed-axis size.
+
+```pdl
+width = 200
+height = 100
+```
+
 ---
 
 ## Colors
@@ -919,6 +928,14 @@ padding = EdgeInsets(top: 8, right: 12, bottom: 8, left: 12)
 ```
 
 Numeric components may be numbers or **`Distance`** token names.
+
+**Scalar numeric sugar (uniform `EdgeInsets`):** On any property whose type is **`edgeInsets`** / **`EdgeInsets(…)`** — today **`padding`**, **`margin`**, and **`inset`** where those names appear in §5 — a **single non-negative number** literal (or expression that evaluates to one) is shorthand for **equal insets on all four sides**, i.e. **`EdgeInsets(top: n, right: n, bottom: n, left: n)`**. The resolver **MUST** emit the same resolved record shape as the explicit constructor. **Non-finite** or **negative** numbers **MUST** be rejected. This **MUST NOT** apply to **`gap`**, **`columnGap`**, **`rowGap`**, **`grow`**, **`shrink`**, or other numeric properties whose meaning is not “four equal edges”.
+
+```pdl
+padding = 16
+margin = 8
+inset = 4
+```
 
 ---
 

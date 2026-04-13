@@ -146,4 +146,35 @@ describe("renderHtml", () => {
     expect(frag).toContain("&lt;img");
     expect(frag).not.toContain("<img src=x");
   });
+
+  it("emits four-value border-radius for asymmetric Corner (e.g. br = 0)", () => {
+    const doc = {
+      schemaKind: "bakedDesign" as const,
+      schemaVersion: "1.0.0-beta",
+      generatedAt: "2026-01-01T00:00:00.000Z",
+      provenance: {
+        entryPath: "/x.pdl",
+        bakedTheme: null,
+        bakeProfile: "component-explicit" as const,
+      },
+      components: {
+        Card: {
+          name: "Card",
+          rootKind: "layout",
+          bakedParams: {},
+          root: {
+            id: "Root",
+            kind: "layout",
+            props: {
+              direction: "column",
+              cornerRadius: { tl: 12, tr: 12, br: 0, bl: 12 },
+            },
+            children: [],
+          },
+        },
+      },
+    };
+    const frag = renderBakedComponentToHtmlFragment(doc.components.Card!);
+    expect(frag).toContain("border-radius:12px 12px 0px 12px");
+  });
 });

@@ -1,0 +1,3 @@
+component ScalarNumericSugarBad() layout {
+  padding = -1
+}
