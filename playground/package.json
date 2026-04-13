@@ -1,0 +1,9 @@
+{
+  "name": "pdl-playground",
+  "private": true,
+  "type": "module",
+  "description": "Local PDL preview: load .pdl (and imports) into a temp tree, bake, render HTML",
+  "scripts": {
+    "start": "node server/playground-server.mjs"
+  }
+}

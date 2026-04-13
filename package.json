@@ -18,6 +18,7 @@
     "resolve": "tsc && node dist/cli.js resolve",
     "catalogue": "tsc && node dist/cli.js catalogue",
     "manifest": "tsc && node dist/cli.js manifest",
+    "playground": "node playground/server/playground-server.mjs",
     "test": "npm run build && vitest run",
     "test:watch": "vitest"
   },

@@ -167,7 +167,18 @@ body { margin: 0; padding: 16px; background: #f6f6f6; color: #111; }
 .pdl-preview { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px; }
 .pdl-preview-title { font-size: 0.95rem; font-weight: 600; margin: 0 0 12px; }
 .pdl-preview-params { font-size: 0.8rem; color: #555; margin: -8px 0 12px; font-family: ui-monospace, monospace; }
-.pdl-canvas { border: 1px dashed #ccc; border-radius: 4px; padding: 8px; min-height: 40px; }
+.pdl-canvas {
+  border: 1px dashed #ccc;
+  border-radius: 4px;
+  padding: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  height: 400pt;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
 `.trim();
 
 /**

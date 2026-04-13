@@ -35,6 +35,82 @@ describe("renderHtml", () => {
     expect(html).toContain("#D4A574");
   });
 
+  it("empty root layout with fill + background still paints (canvas establishes height for %)", () => {
+    const doc = {
+      schemaKind: "bakedDesign" as const,
+      schemaVersion: "1.0.0-beta",
+      generatedAt: "2026-01-01T00:00:00.000Z",
+      provenance: {
+        entryPath: "/x.pdl",
+        bakedTheme: null,
+        bakeProfile: "component-explicit" as const,
+      },
+      components: {
+        Button: {
+          name: "Button",
+          rootKind: "layout",
+          bakedParams: {},
+          root: {
+            id: "Root",
+            kind: "layout",
+            props: {
+              background: "#FF5A5F",
+              width: "fill",
+              height: "fill",
+            },
+            children: [],
+          },
+        },
+      },
+    };
+    const html = renderBakedDesignToHtmlDocument(doc, { singleComponent: "Button" });
+    expect(html).toContain("#FF5A5F");
+    expect(html).toContain("width: 100%");
+    expect(html).toContain("height: 400pt");
+    expect(html).toContain("align-items: flex-start");
+  });
+
+  it("canvas uses flex-start so root hug width is not stretched by the preview chrome", () => {
+    const doc = {
+      schemaKind: "bakedDesign" as const,
+      schemaVersion: "1.0.0-beta",
+      generatedAt: "2026-01-01T00:00:00.000Z",
+      provenance: {
+        entryPath: "/x.pdl",
+        bakedTheme: null,
+        bakeProfile: "component-explicit" as const,
+      },
+      components: {
+        Huggy: {
+          name: "Huggy",
+          rootKind: "layout",
+          bakedParams: {},
+          root: {
+            id: "Root",
+            kind: "layout",
+            props: {
+              direction: "row",
+              background: "#00f",
+              width: "hug",
+              height: "hug",
+            },
+            children: [
+              {
+                id: "T",
+                kind: "text",
+                props: { content: "Hi" },
+                children: [],
+              },
+            ],
+          },
+        },
+      },
+    };
+    const html = renderBakedDesignToHtmlDocument(doc, { singleComponent: "Huggy" });
+    expect(html).toContain("align-items: flex-start");
+    expect(html).toMatch(/data-pdl-id="Root"[^>]*width:auto/);
+  });
+
   it("escapes text content for HTML safety", () => {
     const doc = {
       schemaKind: "bakedDesign" as const,

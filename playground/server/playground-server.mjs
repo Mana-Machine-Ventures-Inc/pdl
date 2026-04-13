@@ -1,0 +1,373 @@
+/**
+ * Local PDL preview server — imports compiled toolchain from repo `dist/`.
+ */
+import { createServer } from "node:http";
+import { readFileSync, mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(__dirname, "..", "..");
+const DIST = join(REPO_ROOT, "dist");
+const STATIC_DIR = resolve(__dirname, "..", "static");
+const MAX_BODY_BYTES = 12 * 1024 * 1024;
+const HOST = "127.0.0.1";
+const DEFAULT_FIRST_PORT = 3847;
+const PORT_FALLBACK_SPAN = 10; // try DEFAULT_FIRST_PORT .. +9 when PLAYGROUND_PORT is unset
+const envPort = process.env.PLAYGROUND_PORT;
+const strictPort = envPort !== undefined && envPort !== "";
+
+function loadToolchain() {
+  const loadDesignPath = join(DIST, "loadDesign.js");
+  if (!existsSync(loadDesignPath)) {
+    console.error(
+      `Missing ${loadDesignPath}. Run "npm run build" from the repository root first.`,
+    );
+    process.exit(1);
+  }
+  return import(pathToFileURL(loadDesignPath).href);
+}
+
+const toolchainPromise = loadToolchain().then(async (m) => {
+  const bake = await import(pathToFileURL(join(DIST, "bakeDesign.js")).href);
+  const render = await import(pathToFileURL(join(DIST, "renderHtml.js")).href);
+  const graph = await import(pathToFileURL(join(DIST, "graph.js")).href);
+  return { loadDesign: m.loadDesign, ...bake, ...render, serialiseValueExpr: graph.serialiseValueExpr };
+});
+
+/** Reject paths that escape the temp workspace. */
+function assertSafeRelativePath(rel) {
+  if (typeof rel !== "string" || rel.length === 0) {
+    throw new Error("Each file key must be a non-empty relative path");
+  }
+  const norm = rel.replace(/\\/g, "/");
+  if (norm.startsWith("/") || /^[A-Za-z]:/.test(norm)) {
+    throw new Error(`Absolute paths are not allowed: ${rel}`);
+  }
+  const segments = norm.split("/");
+  if (segments.some((s) => s === "..")) {
+    throw new Error(`Path traversal is not allowed: ${rel}`);
+  }
+}
+
+function writeWorkspace(tmp, files) {
+  if (!files || typeof files !== "object") {
+    throw new Error("Expected JSON body with a \"files\" object (path → UTF-8 source)");
+  }
+  const entries = Object.entries(files);
+  if (entries.length === 0) {
+    throw new Error("Expected at least one file in \"files\"");
+  }
+  for (const [rel] of entries) {
+    assertSafeRelativePath(rel);
+  }
+  for (const [rel, content] of entries) {
+    if (typeof content !== "string") {
+      throw new Error(`File "${rel}" must be a string (UTF-8 source)`);
+    }
+    const dest = resolve(tmp, rel);
+    const relToTmp = relative(tmp, dest);
+    if (relToTmp.startsWith("..") || relToTmp === "") {
+      throw new Error(`Invalid destination for "${rel}"`);
+    }
+    mkdirSync(dirname(dest), { recursive: true });
+    writeFileSync(dest, content, "utf-8");
+  }
+}
+
+function readJsonBody(req) {
+  return new Promise((resolvePromise, reject) => {
+    const chunks = [];
+    let total = 0;
+    req.on("data", (buf) => {
+      total += buf.length;
+      if (total > MAX_BODY_BYTES) {
+        reject(new Error(`Body too large (max ${MAX_BODY_BYTES} bytes)`));
+        req.destroy();
+        return;
+      }
+      chunks.push(buf);
+    });
+    req.on("end", () => {
+      try {
+        const raw = Buffer.concat(chunks).toString("utf-8");
+        if (!raw.trim()) {
+          reject(new Error("Empty body"));
+          return;
+        }
+        resolvePromise(JSON.parse(raw));
+      } catch (e) {
+        reject(e);
+      }
+    });
+    req.on("error", reject);
+  });
+}
+
+function designMeta(design) {
+  const components = [...design.components.keys()].sort();
+  const themes = [...design.themes.keys()].sort();
+  return { components, themes };
+}
+
+/**
+ * JSON-friendly view of primitives, semantics, themes, variants, type styles (for playground UI).
+ * @param {unknown} design - DesignDefinition from loadDesign
+ * @param {(e: unknown) => unknown} serialiseValueExpr
+ * @param {string} workspaceRoot
+ */
+function buildDesignSummary(design, serialiseValueExpr, workspaceRoot) {
+  const relModule = (p) => {
+    try {
+      const r = relative(workspaceRoot, p);
+      if (r && !r.startsWith("..") && r !== "") return r.replace(/\\/g, "/");
+    } catch {
+      /* ignore */
+    }
+    return String(p).replace(/\\/g, "/");
+  };
+
+  const primitives = [...design.primitives.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, p]) => ({
+      name,
+      tokenType: p.tokenType,
+      value: serialiseValueExpr(p.value),
+    }));
+
+  const semantics = [...design.semantics.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, s]) => ({
+      name,
+      tokenType: s.tokenType,
+      value: serialiseValueExpr(s.value),
+    }));
+
+  const themeDefinitions = [...design.themes.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, t]) => ({
+      name,
+      baseTheme: t.baseTheme ?? null,
+      overrides: Object.fromEntries(
+        Object.entries(t.overrides)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([k, v]) => [k, serialiseValueExpr(v)]),
+      ),
+    }));
+
+  const variants = [...design.variants.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, v]) => ({
+      name,
+      cases: [...v.cases],
+    }));
+
+  const typeStyles = [...design.typeStyles.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, ts]) => ({
+      name,
+      props: Object.fromEntries(
+        Object.entries(ts.props)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([k, v]) => [k, serialiseValueExpr(v)]),
+      ),
+    }));
+
+  return {
+    previewBackground: design.previewBackground ?? null,
+    modulePaths: design.modulePaths.map(relModule),
+    primitives,
+    semantics,
+    themeDefinitions,
+    variants,
+    typeStyles,
+  };
+}
+
+function formatErr(err) {
+  if (err && typeof err.format === "function") {
+    return err.format();
+  }
+  return err instanceof Error ? err.message : String(err);
+}
+
+async function handleLoad(body) {
+  const { files, entry } = body;
+  if (typeof entry !== "string" || !entry.trim()) {
+    throw new Error("Expected \"entry\" to be a relative path inside \"files\" (e.g. design.pdl)");
+  }
+  assertSafeRelativePath(entry);
+  const { loadDesign, serialiseValueExpr } = await toolchainPromise;
+  const tmp = mkdtempSync(join(tmpdir(), "pdl-playground-"));
+  try {
+    writeWorkspace(tmp, files);
+    const entryAbs = resolve(tmp, entry);
+    if (relative(tmp, entryAbs).startsWith("..")) {
+      throw new Error("Invalid entry path");
+    }
+    const design = loadDesign(entryAbs);
+    const designSummary = buildDesignSummary(design, serialiseValueExpr, tmp);
+    return { ok: true, ...designMeta(design), designSummary };
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+async function handleRender(body) {
+  const { files, entry, mode, component, theme, kv } = body;
+  if (mode !== "component" && mode !== "system") {
+    throw new Error('Expected "mode" to be "component" or "system"');
+  }
+  if (typeof entry !== "string" || !entry.trim()) {
+    throw new Error("Expected \"entry\" (relative path inside files)");
+  }
+  assertSafeRelativePath(entry);
+  if (mode === "component") {
+    if (typeof component !== "string" || !component.trim()) {
+      throw new Error('In "component" mode, expected non-empty "component" name');
+    }
+  }
+  const kvObj =
+    kv && typeof kv === "object" && !Array.isArray(kv)
+      ? /** @type {Record<string, unknown>} */ (kv)
+      : {};
+  const {
+    loadDesign,
+    buildBakedDesignComponent,
+    buildBakedDesignSystem,
+    renderBakedDesignToHtmlDocument,
+    serialiseValueExpr,
+  } = await toolchainPromise;
+  const tmp = mkdtempSync(join(tmpdir(), "pdl-playground-"));
+  try {
+    writeWorkspace(tmp, files);
+    const entryAbs = resolve(tmp, entry);
+    const design = loadDesign(entryAbs);
+    const designSummary = buildDesignSummary(design, serialiseValueExpr, tmp);
+    const baked =
+      mode === "system"
+        ? buildBakedDesignSystem(design, { theme: typeof theme === "string" ? theme : undefined })
+        : buildBakedDesignComponent(design, {
+            componentName: component,
+            theme: typeof theme === "string" ? theme : undefined,
+            paramOverrides: kvObj,
+          });
+    const html = renderBakedDesignToHtmlDocument(baked, {
+      singleComponent: mode === "system" ? undefined : component,
+      title: "PDL playground preview",
+    });
+    return { ok: true, html, designSummary };
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+function serveStatic(pathname, res) {
+  const safe = pathname === "/" ? "index.html" : pathname.replace(/^\//, "");
+  const filePath = resolve(STATIC_DIR, safe);
+  const rel = relative(STATIC_DIR, filePath);
+  if (rel.startsWith("..") || rel === "") {
+    res.writeHead(400);
+    res.end("Bad path");
+    return;
+  }
+  try {
+    const buf = readFileSync(filePath);
+    const ext = safe.split(".").pop();
+    const ct =
+      ext === "html"
+        ? "text/html; charset=utf-8"
+        : ext === "js"
+          ? "text/javascript; charset=utf-8"
+          : ext === "css"
+            ? "text/css; charset=utf-8"
+            : "application/octet-stream";
+    res.writeHead(200, { "Content-Type": ct, "Cache-Control": "no-store" });
+    res.end(buf);
+  } catch {
+    res.writeHead(404);
+    res.end("Not found");
+  }
+}
+
+const server = createServer(async (req, res) => {
+  const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+  const pathname = url.pathname;
+
+  if (req.method === "GET") {
+    serveStatic(pathname, res);
+    return;
+  }
+
+  if (req.method === "POST" && pathname === "/api/load") {
+    try {
+      const body = await readJsonBody(req);
+      const out = await handleLoad(body);
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify(out));
+    } catch (e) {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ ok: false, error: formatErr(e) }));
+    }
+    return;
+  }
+
+  if (req.method === "POST" && pathname === "/api/render") {
+    try {
+      const body = await readJsonBody(req);
+      const out = await handleRender(body);
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify(out));
+    } catch (e) {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ ok: false, error: formatErr(e) }));
+    }
+    return;
+  }
+
+  res.writeHead(404);
+  res.end();
+});
+
+function portHint(busyPort) {
+  return `Port ${busyPort} is already in use (another playground or app). Either stop it, e.g. \`lsof -iTCP:${busyPort} -sTCP:LISTEN\`, or pick another port: PLAYGROUND_PORT=3848 npm run playground`;
+}
+
+function listenPlayground() {
+  const first = strictPort ? Number(envPort) : DEFAULT_FIRST_PORT;
+  if (!Number.isInteger(first) || first < 1 || first > 65535) {
+    console.error(`Invalid PLAYGROUND_PORT: ${envPort}`);
+    process.exit(1);
+  }
+  const maxTries = strictPort ? 1 : PORT_FALLBACK_SPAN;
+  let attempt = 0;
+
+  server.on("error", (err) => {
+    if (err.code !== "EADDRINUSE") {
+      console.error(err);
+      process.exit(1);
+    }
+    attempt += 1;
+    if (attempt >= maxTries) {
+      console.error(portHint(first + attempt - 1));
+      process.exit(1);
+    }
+    const next = first + attempt;
+    if (!strictPort) {
+      console.error(`Port ${first + attempt - 1} busy, trying ${next}…`);
+    }
+    server.listen(next, HOST);
+  });
+
+  server.listen(first, HOST, () => {
+    const bound = /** @type {import("node:net").AddressInfo} */ (server.address());
+    const p = bound?.port ?? first;
+    console.log(`PDL playground at http://${HOST}:${p}`);
+    if (!strictPort && p !== DEFAULT_FIRST_PORT) {
+      console.error(`(Using ${p} because ${DEFAULT_FIRST_PORT} was busy.)`);
+    }
+  });
+}
+
+listenPlayground();

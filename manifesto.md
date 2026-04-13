@@ -35,7 +35,7 @@ over perfect documents nobody ships.
 **Ownership of the work**  
 over a lifetime tenancy inside one vendor’s canvas.
 
-*People should keep **their** files: sources they can version, diff, fork, move and extend. Commercial tools are powerful for creation and collaboration, but are poor long-term stewards for a design repository*
+*People should keep **their** files: sources they can version, diff, fork, move and extend. Commercial tools are powerful for creation and collaboration, but are poor long-term stewards for a design repository.*
 
 ---
 
