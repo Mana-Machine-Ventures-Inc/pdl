@@ -10,6 +10,10 @@ export type CatalFrame = {
   kind: string;
   props: Record<string, unknown>;
   children: CatalFrame[];
+  /** When this frame is the root of an inlined **`Other()`** / instance child, the source component name. */
+  instanceOf?: string;
+  /** Evaluated **`kwargs`** from the callsite (empty object when none). */
+  instanceKwargs?: Record<string, unknown>;
 };
 
 export function isHiddenFrame(f: CatalFrame): boolean {
@@ -23,6 +27,8 @@ export function pruneHiddenChildrenTree(f: CatalFrame): CatalFrame {
     kind: f.kind,
     props: { ...f.props },
     children: f.children.filter((ch) => !isHiddenFrame(ch)).map((ch) => pruneHiddenChildrenTree(ch)),
+    ...(f.instanceOf !== undefined ? { instanceOf: f.instanceOf } : {}),
+    ...(f.instanceKwargs !== undefined ? { instanceKwargs: { ...f.instanceKwargs } } : {}),
   };
 }
 
@@ -30,6 +36,9 @@ type MutableFrame = {
   kind: string;
   props: Record<string, unknown>;
   childEntries: ChildEntry[];
+  /** Set for **`letInstance`** roots and read in **`materialize`**. */
+  instanceOf?: string;
+  instanceKwargs?: Record<string, unknown>;
 };
 
 function pickIfBody(chain: IfChain, paramValues: Record<string, unknown>): FrameBodyItem[] {
@@ -209,14 +218,17 @@ function processFrameItems(
           });
         }
         const basePv = resolveDefaultParamValues(ctx.design, ctx.tokens, childComp);
+        const kwExplicit: Record<string, unknown> = {};
         for (const [k, expr] of Object.entries(item.kwargs)) {
-          basePv[k] = evaluateValue(expr, {
+          const ev = evaluateValue(expr, {
             design: ctx.design,
             tokens: ctx.tokens,
             visiting: new Set(),
             paramValues: ctx.paramValues,
             paramMeta: ctx.paramMeta,
           });
+          basePv[k] = ev;
+          kwExplicit[k] = ev;
         }
         const subCtx: BuildCtx = {
           ...ctx,
@@ -225,7 +237,9 @@ function processFrameItems(
           paramMeta: buildParamMeta(childComp),
           useStringPlaceholders: ctx.useStringPlaceholders,
         };
-        ensureFrame(frames, item.id, childComp.rootKind);
+        const inst = ensureFrame(frames, item.id, childComp.rootKind);
+        inst.instanceOf = item.component;
+        inst.instanceKwargs = kwExplicit;
         processFrameItems(childComp.body, item.id, frames, subCtx);
         break;
       }
@@ -311,11 +325,24 @@ function materialize(
       const sub = resolveComponentTree(design, ch.component, tokens, kwOverrides, resolveOptions);
       visitingInst.delete(key);
       sub.id = `${id}_${ch.component}_${si++}`;
+      sub.instanceOf = ch.component;
+      sub.instanceKwargs = { ...kwOverrides };
       children.push(sub);
       continue;
     }
   }
-  return { id, kind: mf.kind, props: { ...mf.props }, children };
+  return {
+    id,
+    kind: mf.kind,
+    props: { ...mf.props },
+    children,
+    ...(mf.instanceOf !== undefined
+      ? {
+          instanceOf: mf.instanceOf,
+          instanceKwargs: { ...(mf.instanceKwargs ?? {}) },
+        }
+      : {}),
+  };
 }
 
 /** **Graph** outputs (`componentCatalogue`, `resolvedComponent` trees): token pointer strings + `param:` placeholders. */

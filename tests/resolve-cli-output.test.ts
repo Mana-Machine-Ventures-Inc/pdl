@@ -73,10 +73,10 @@ describe("resolvedComponent document (pdl resolve default)", () => {
     const design = loadDesign(fx("molecules/m_10_form_group.pdl"));
     const doc = buildResolvedComponentDocument(design, { componentName: "MoleculeFieldBlock" });
     const c = doc.components.MoleculeFieldBlock!;
-    expect(c.children).toEqual(["Lab", "Box", "Help"]);
-    expect(Object.keys(c.childNodes).sort()).toEqual(["Box", "Help", "Lab"]);
+    expect(c.childHierarchy.Root).toEqual(["Lab", "Box", "Help"]);
+    expect(Object.keys(c.childNodes).sort()).toEqual(["Box", "Help", "Lab", "Val"]);
     const noHelp = c.variants.find((v) => v.params.layoutMode === "noHelp");
-    expect(noHelp?.children).toEqual(["Lab", "Box"]);
+    expect(noHelp?.childHierarchy?.Root).toEqual(["Lab", "Box"]);
   });
 
   it("includes system.themes that affect this component (e.g. AtomsLooseRadius → atoms.radius.sm)", () => {
@@ -93,7 +93,7 @@ describe("resolvedComponent document (pdl resolve default)", () => {
       componentName: "MoleculeFieldBlock",
       paramOverrides: { layoutMode: "noHelp" },
     });
-    expect(doc.components.MoleculeFieldBlock!.children).toEqual(["Lab", "Box", "Help"]);
+    expect(doc.components.MoleculeFieldBlock!.childHierarchy.Root).toEqual(["Lab", "Box", "Help"]);
     expect(doc.paramOverrides).toEqual({ layoutMode: "noHelp" });
   });
 });

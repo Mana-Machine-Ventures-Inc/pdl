@@ -117,8 +117,8 @@ function collectUsageFromCatalogueComponent(
   const tokenNames = new Set<string>();
   const typeStyleNames = new Set<string>();
 
-  collectTokenRefNames(meta.props, tokenNames);
-  collectTypeStyleNames(meta.props, knownTypeStyles, typeStyleNames);
+  collectTokenRefNames(meta.root.props, tokenNames);
+  collectTypeStyleNames(meta.root.props, knownTypeStyles, typeStyleNames);
 
   for (const node of Object.values(meta.childNodes)) {
     collectTokenRefNames(node, tokenNames);

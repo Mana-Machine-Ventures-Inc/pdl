@@ -41,6 +41,12 @@ function stripPresetTypeStyleName(frame: CatalFrame): CatalFrame {
     kind: frame.kind,
     props,
     children: frame.children.map(stripPresetTypeStyleName),
+    ...(frame.instanceOf !== undefined
+      ? {
+          instanceOf: frame.instanceOf,
+          instanceKwargs: { ...(frame.instanceKwargs ?? {}) },
+        }
+      : {}),
   };
 }
 

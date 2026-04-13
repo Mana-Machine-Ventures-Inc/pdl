@@ -1,0 +1,21 @@
+// PDL-E021: duplicate `let` / `letInstance` ids anywhere in the component body (including sibling nested frames).
+
+component DupFrameIds() layout {
+  direction = .column
+
+  let OuterA: layout = {
+    let Dup: text = {
+      content = "a"
+    }
+    children = [Dup]
+  }
+
+  let OuterB: layout = {
+    let Dup: text = {
+      content = "b"
+    }
+    children = [Dup]
+  }
+
+  children = [OuterA, OuterB]
+}

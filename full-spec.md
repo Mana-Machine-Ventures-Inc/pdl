@@ -2931,13 +2931,15 @@ Each component is one object in the `components` array. The **default** presenta
   ],
   "expose": ["label", "emphasis", "iconVariant", "iconName"],
   "usage": "Primary action button. Use one per surface.",
-  "kind": "layout",
-  "props": {
-    "direction": "row",
-    "gap": 8,
-    "padding": { "top": 12, "right": 16, "bottom": 12, "left": 16 },
-    "background": "semantic:color.surface.card",
-    "cornerRadius": 8
+  "root": {
+    "kind": "layout",
+    "props": {
+      "direction": "row",
+      "gap": 8,
+      "padding": { "top": 12, "right": 16, "bottom": 12, "left": 16 },
+      "background": "semantic:color.surface.card",
+      "cornerRadius": 8
+    }
   },
   "defaultParams": { "label": "Submit", "emphasis": "primary", "iconVariant": "none", "iconName": "star" },
   "childNodes": {
@@ -2954,7 +2956,9 @@ Each component is one object in the `components` array. The **default** presenta
       "children": []
     }
   },
-  "children": ["Label"],
+  "childHierarchy": {
+    "Root": ["Label"]
+  },
   "variants": []
 }
 ```
@@ -2965,34 +2969,38 @@ Each component is one object in the `components` array. The **default** presenta
 | `params` | All declared parameters. **`type`** is the catalogue discriminator (`"variant"`, `String`, …). For **`type": "variant"`**, **`variantTypeName`** repeats the PDL **`variant`** type name (matches an entry in top-level **`variantTypes`**); allowed case ids appear **only** on that **`variantTypes`** row’s **`cases`** array (no leading dot). |
 | `expose` | The subset of params that form the public API (from `expose` blocks). |
 | `usage` | Human-readable description from `usage` blocks. Empty string if not declared. |
-| `kind` | Root frame kind: **`layout`**, **`text`**, **`icon`**, or **`media`**. |
-| `props` | Root frame properties for the **default** resolution (all variant params at defaults). Same key/value rules as frame nodes (§2.3). |
+| `root` | **`{ "kind", "props" }`** for the component **root** frame at the **default** resolution (all variant params at defaults). **`kind`** is **`layout`**, **`text`**, **`icon`**, or **`media`**; **`props`** uses the same key/value rules as frame nodes (§2.3). This is **separate** from top-level catalogue fields (there is **no** row-level **`kind`** / **`props`**). |
 | `defaultParams` | String catalogue of **every** component parameter’s default binding (stable for emitters that previously read `base.params`). |
-| `childNodes` | Map **frame id → subtree** for **every** candidate direct child of Root (union across `if` / `else` branches). Each value uses the same **frame node** shape as §2.3 (`id`, `kind`, `props`, `children`). |
-| `children` | Ordered array of **frame ids** — Root’s direct children when all **variant** parameters are at their **defaults**. |
-| `variants` | Entries for non-default **variant tuples** (§2.4): property deltas, optional Root **`children`** id-list override, optional structural flag. |
+| `childNodes` | **Flat registry:** **frame id → shell** for **every** frame id that can appear in this component’s catalogue materialisation (default + variants), **unioned** across `if` / `else` branches. Each value is **`id`**, **`kind`**, **`props`**, optional **`instanceOf`** / **`instanceKwargs`**, and **`children`: `[]`** — **no** nested wiring; parent/child order is **`childHierarchy`** only. |
+| `childHierarchy` | **Child hierarchy** for the **default** resolution: map **parent frame id** → ordered array of **visible** direct **child** frame ids (includes **`"Root"`**). Root’s ordered direct children are **`childHierarchy["Root"]`** only (there is **no** separate top-level **`children`** field). Adjacency only; payloads live in **`childNodes`**. |
+| `requiredComponents` | **Optional.** Sorted list of **other** component names transitively referenced by **`letInstance`** or **`children`** instance entries in this component’s body (union across **`if`** branches), excluding **`name`**. Omitted when empty. |
+| `variants` | Entries for non-default **variant tuples** (§2.4): property deltas and/or a differing **`childHierarchy`** map; **`structuralChange`** when the hierarchy map is present on the variant. |
 
 ### 2.3 Frame nodes and placeholders
 
-Values inside **`props`** (root) and inside each **`childNodes`** entry use the same rules. Most properties are plain JSON values. Two **placeholder** string forms are used so emitters can wire parameters and semantic tokens without re-parsing PDL:
+Values inside **`root.props`** and inside each **`childNodes[*].props`** entry use the same rules. Most properties are plain JSON values. Two **placeholder** string forms are used so emitters can wire parameters and semantic tokens without re-parsing PDL:
 
 - **`param:paramName`** — `String`, `Icon`, or `MediaSource` parameters that remain open at catalogue time (protected prefix; not a URL scheme).  
 - **`primitive:full.token.name`** / **`semantic:full.token.name`** — the property’s RHS was exactly **one identifier** naming a **declared `primitive` or `semantic` token**; the catalogue discriminator is which map the name lives in. Emitters resolve markers by reading **`primitives` / `semantics`** and applying **`themes[skin].overrides`** (and following **`primitive:`** / **`semantic:`** pointers in override RHSs and in token **`definition`**s) instead of using duplicated flat maps. **Note:** v1 reference tooling does **not** emit these markers for composite expressions (e.g. `color @ opacity`, layer arrays). **`typeStyle:PresetName`** on **`text`** frames (string value of the **`typeStyle`** property) references **`typeStyles[PresetName]`** on the **same** JSON document (**full catalogue** or trimmed **`resolvedComponent.system`**) — preset **`props`** use the same pointer rules; expanded font fields are **not** duplicated on the frame unless the PDL sets them explicitly (overrides).
 
-**Frame node fields** (each value in **`childNodes`**, and each node in a resolved `CatalFrame` tree such as CLI **`--tree-only`** output):
+**Frame node fields** in a **full** resolved `CatalFrame` tree (e.g. CLI **`--tree-only`**): **`id`**, **`kind`**, **`props`**, **`children`** (nested frame objects), optional **`instanceOf`** / **`instanceKwargs`**.
+
+**Catalogue `childNodes` registry entries** use the same **`id`**, **`kind`**, **`props`**, and optional **`instanceOf`** / **`instanceKwargs`**, but **`children` is always `[]`** — use **`childHierarchy`** (and variant **`childHierarchy`** when present) for wiring.
 
 | Field | Description |
 |-------|-------------|
 | `id` | Frame identifier, unique within the component. |
 | `kind` | One of `layout`, `text`, `icon`, `media`. |
 | `props` | All resolved properties as plain JSON values. See §5 for property names per kind. Enum values are plain strings without a leading dot (e.g. `"row"` not `".row"`). |
-| `children` | Ordered array of **child frame nodes** (full objects). Empty array for leaf frames. |
+| `children` | In **`--tree-only`** trees: ordered array of **child frame nodes** (full objects). In catalogue **`childNodes`**: always **`[]`**. |
+| `instanceOf` | **Optional.** When this node is the root of an inlined **`letInstance`** or **`Other()`** instance child, the **source component** name (`DeepSlot`, …). |
+| `instanceKwargs` | **Optional.** Evaluated explicit **`kwargs`** from the callsite (empty object when none). Present with **`instanceOf`** on graph catalogue output. |
 
 **`param:name` markers:** When a property value is a free parameter (a `String` or `Icon` param that can't be pre-baked), the catalogue uses a **`param:name`** string. Emitters wire these through to their generated function parameters. Variant params are fully resolved — only open-ended string/icon/media params use this form.
 
 ### 2.4 Variant deltas
 
-The **`variants`** array contains one entry per **non-default Cartesian tuple** of **variant-typed** parameters that changes anything relative to the default resolution (property deltas and/or a different Root **child id** order). Each entry carries a **full** **`params`** snapshot for every variant-typed parameter on the component (stable emitter matching).
+The **`variants`** array contains one entry per **non-default Cartesian tuple** of **variant-typed** parameters that changes anything relative to the default resolution (property deltas and/or a different **`childHierarchy`** map). Each entry carries a **full** **`params`** snapshot for every variant-typed parameter on the component (stable emitter matching).
 
 ```json
 "variants": [
@@ -3016,26 +3024,30 @@ The **`variants`** array contains one entry per **non-default Cartesian tuple** 
   {
     "params": { "emphasis": "primary", "iconVariant": "leading" },
     "structuralChange": true,
-    "affectedFrames": ["Root"],
-    "children": ["LeadingIcon", "Label"],
+    "affectedFrames": ["Root", "Label", "LeadingIcon"],
+    "childHierarchy": {
+      "Root": ["LeadingIcon", "Label"]
+    },
     "changes": []
   }
 ]
 ```
 
-When Root’s ordered child **ids** differ from component-level **`children`**, the entry includes **`children`** (string array of ids). The reference implementation omits a **`changes`** row for **`{ frameId: "Root", prop: "children" }`** when **`children`** is present, to avoid duplicating the same structural intent.
+When the **visible** parent→child map for a permutation differs from the default, the variant entry includes the **full** **`childHierarchy`** object (same shape as the component row). Structural wiring uses **only** that map — the reference implementation does **not** emit variant **`patches`** or a parallel **`children`** array.
+
+**`changes`:** property-only deltas, **id-aligned** per **`frameId`** (never produced by positional pairing of unrelated subtrees). Lines that would only repeat values already present on the catalogue **`childNodes`** shell for that **`frameId`** are omitted. A removed property on the variant side is represented with **`value`: `null`**.
 
 **Variant entry fields:**
 
 | Field | Description |
 |-------|-------------|
 | `params` | **Full** map of **variant-typed** parameter names → case id (no leading dot) for this permutation. |
-| `affectedFrames` | Frame ids that have at least one changed property or a Root child-order change. |
-| `changes` | Array of `{ frameId, prop, value }` triples for property overrides on **any** frame (including **`childNodes`** ids). Omitted or empty when only Root child-order changes. |
-| `children` | When present, the Root **direct-child id order** for this permutation (differs from component-level **`children`**). Subtrees remain in **`childNodes`**. |
-| `structuralChange` | `true` when Root child-order changes or any structural tree difference is recorded. |
+| `affectedFrames` | Frame ids touched by **`changes`**, or appearing in any **`childHierarchy`** entry whose child list differs from the default map for that parent (including ids listed in those before/after lists). |
+| `changes` | Array of `{ frameId, prop, value }` triples for **non-structural** property overrides on **any** frame (including **`childNodes`** ids). Empty when there are no prop diffs after eliding registry-redundant lines. |
+| `childHierarchy` | **Optional.** When this permutation’s **full** parent→visible-child id map differs from the default **`childHierarchy`**, the variant entry repeats the same adjacency shape as the component row (map including **`"Root"`**). Omitted when identical to default. |
+| `structuralChange` | `true` when **`childHierarchy`** is present on the variant (structural / embedding diff from default). |
 
-**Multi-param variants:** Every combination of variant cases is explored; one catalogue row is emitted per tuple that produces a non-empty diff or a **`children`** override relative to defaults.
+**Multi-param variants:** Every combination of variant cases is explored; one catalogue row is emitted per tuple that produces a non-empty **`changes`** list and/or a differing **`childHierarchy`** relative to defaults.
 
 ### 2.5 Resolved component JSON (`pdl resolve`, default)
 
@@ -3043,10 +3055,10 @@ The reference CLI’s **`pdl resolve <entry> <Component> [key=value …]`** (wit
 
 **Build path (reference):** **`pdl graphComponent`** and default **`pdl resolve`** build **only** the requested component’s catalogue row (**`buildCatalogueComponentRow`**) plus a **trimmed** **`system`** (they do **not** run **`buildComponentCatalogue`** for every component). **`pdl graphSystem`** / **`pdl catalogue`** still emit the **full** multi-component catalogue.
 
-- **`components`** — object keyed by component **`name`**. Each value matches a catalogue **§2.2** row (**`kind`**, **`props`**, **`childNodes`**, **`children`**, **`variants`**, **`params`**, **`expose`**, **`usage`**) but **omits** catalogue-only **`defaultParams`**. The reference CLI emits **one** key: the component named on the command line (extensible if the bundle grows to multiple rows).
+- **`components`** — object keyed by component **`name`**. Each value matches a catalogue **§2.2** row (**`root`**, **`childNodes`**, **`childHierarchy`**, **`variants`**, **`params`**, **`expose`**, **`usage`**, …) but **omits** catalogue-only **`defaultParams`**. The reference CLI emits **one** key: the component named on the command line (extensible if the bundle grows to multiple rows).
 - **`system`** — optional **`theme`** (when **`--theme`** is set), trimmed **`variantTypes`**, **`primitives`**, **`semantics`**, **`themes`**, and **`typeStyles`** (same JSON shapes as the full catalogue, trimmed to the component’s transitive token usage; no duplicate flat resolved **`tokens`** map on the document).
 
-Optional **`paramOverrides`** mirrors CLI **`key=value`** arguments; it does **not** rewrite **`components[name].children`** — emitters still apply **§2.4** variant logic to the catalogue row. Emitters resolve **`primitive:`** / **`semantic:`** strings on **`components[…]`** using **`system.primitives` / `system.semantics`** (**`definition`** only) and strip the **`typeStyle:`** prefix when reading **`system.typeStyles`**. Per-skin values come from composing **`definition`** with **`system.themes[skin].overrides`** (see below).
+Optional **`paramOverrides`** mirrors CLI **`key=value`** arguments; it does **not** rewrite **`components[name].childHierarchy`** — emitters still apply **§2.4** variant logic to the catalogue row. Emitters resolve **`primitive:`** / **`semantic:`** strings on **`components[…]`** using **`system.primitives` / `system.semantics`** (**`definition`** only) and strip the **`typeStyle:`** prefix when reading **`system.typeStyles`**. Per-skin values come from composing **`definition`** with **`system.themes[skin].overrides`** (see below).
 
 | Field | Description |
 |-------|-------------|
@@ -3064,7 +3076,7 @@ Optional **`paramOverrides`** mirrors CLI **`key=value`** arguments; it does **n
 |-------|-------------|
 | `theme` | **Optional.** Active theme label for this resolve when the CLI passed **`--theme`** (mirrors catalogue **`theme`**). |
 | `variantTypes` | Only **`variant`** type definitions referenced by this component’s **`params`** (**`variantTypeName`**). |
-| **`primitives`** | Subset of catalogue **§2.1** primitives whose **`name`** is in the **collected** set: (a) **`primitive:`** / **`semantic:`** markers anywhere under **`components[*]`** (**`props`**, **`childNodes`**, **`variants[].changes`**), (b) **`primitive` / `semantic`** idents in referenced **`typeStyle`** **`ValueExpr`** bodies, (c) **transitive** references inside included token **`definition`** graphs, and (d) any token referenced from **`system.themes[].overrides`**. Each entry is **`{ name, tokenType, definition }`** with the same serialisation as the full catalogue (**`primitive:`** / **`semantic:`** strings for bare token refs; otherwise **`SerialisedValueExpr`**, §16b). |
+| **`primitives`** | Subset of catalogue **§2.1** primitives whose **`name`** is in the **collected** set: (a) **`primitive:`** / **`semantic:`** markers anywhere under **`components[*]`** (**`root.props`**, **`childNodes[*].props`**, **`variants[].changes`**; **`childHierarchy`** values are frame ids only), (b) **`primitive` / `semantic`** idents in referenced **`typeStyle`** **`ValueExpr`** bodies, (c) **transitive** references inside included token **`definition`** graphs, and (d) any token referenced from **`system.themes[].overrides`**. Each entry is **`{ name, tokenType, definition }`** with the same serialisation as the full catalogue (**`primitive:`** / **`semantic:`** strings for bare token refs; otherwise **`SerialisedValueExpr`**, §16b). |
 | **`semantics`** | Same rules as **`primitives`**, for **semantic** tokens. |
 | **`themes`** | **Trimmed** to themes that **affect this component**: at least one override **LHS** (token name) intersects the same collected name set as **`primitives` / `semantics`**. Same shape as catalogue **`themes`**: **`baseTheme`** (**`null`** or parent theme name) plus **`overrides`** containing **only** keys in that collected set. RHS serialisation matches the full catalogue. |
 | **`typeStyles`** | Only **`typeStyle`** declarations referenced from **`components[*]`** trees. Same shape as catalogue **`typeStyles`**: each **`props`** value uses the same pointer / **`ValueExpr`** rules as token **`definition`**s. |
@@ -3079,8 +3091,8 @@ A typical emitter pass for a Kotlin / Compose target:
 
 1. **Read `primitives` / `semantics` / `themes`** → build a per-theme resolver (walk definitions, then apply **`themes[skin].overrides`**, following **`primitive:`** / **`semantic:`** strings on override RHSs and inside **definitions**). Theme keys are **`Object.keys(themes)`**.
 2. **For each component:**
-   - Use **`kind`**, **`props`**, and **`children`** for the default Root shell; use **`childNodes[id]`** for each default child subtree.
-   - Walk the **`variants`** array → generate branches keyed by the full **`params`** tuple; apply **`changes`** to **`props`** on the indicated **`frameId`** (root or a **`childNodes`** id). When a variant supplies **`children`**, switch the ordered child list while still resolving subtrees from **`childNodes`**.
+   - Use **`root.kind`**, **`root.props`**, and **`childHierarchy`** (including **`childHierarchy["Root"]`**) for the default Root shell and visible child order; use **`childNodes[id]`** for each frame’s **props** shell (registry entries have empty **`children`**).
+   - Walk the **`variants`** array → generate branches keyed by the full **`params`** tuple; apply **`changes`** to **`props`** on the indicated **`frameId`** (use **`"Root"`** with **`root`** for root prop deltas, or a **`childNodes`** id). When a variant supplies **`childHierarchy`**, use that map for the permutation’s visible wiring; otherwise reuse the component default **`childHierarchy`**.
    - Wire **`param:name`** strings to function parameters.
    - Replace **`primitive:`** / **`semantic:`** tree strings with values from your resolver for the target skin.
 3. **Use `expose`** to determine the public function signature (params not in `expose` may be internal or omitted).
@@ -3456,7 +3468,7 @@ This checklist orders work so a **greenfield implementation** (or a full port to
 
 ## Phase I — Catalogue generation
 
-24. **Catalogue generation** — component entries with **`kind`**, **`props`**, **`childNodes`**, default **`children`**, **`variants`**, and **`param:`** / **`primitive:`** / **`semantic:`** / **`typeStyle:`** markers per §16.
+24. **Catalogue generation** — component entries with **`root`**, flat-registry **`childNodes`**, **`childHierarchy`** (including **`Root`**’s direct children), **`variants`**, and **`param:`** / **`primitive:`** / **`semantic:`** / **`typeStyle:`** markers per §16.
 
 ---
 
@@ -4281,6 +4293,7 @@ Future additions must use codes not in this list. Codes are never reused after r
 | **PDL-E018** | `reserved-word-as-identifier` | A reserved word (§20.4) is used as a user-defined identifier. |
 | **PDL-E019** | `invalid-override-target` | An `if` branch assignment targets a frame id (`FrameId.prop`) that has not been declared with `let` earlier in the component body. |
 | **PDL-E020** | `missing-required-arg` | A constructor call (e.g. `EdgeInsets`, `GradientStop`, `Blur`) omits a required keyword argument. |
+| **PDL-E021** | `duplicate-let-frame-id` | Two **`let`** or **`letInstance`** frames in the same component reuse the same **`id`** (names must be unique across the whole component body, including all **`if`** branches and sibling nested frames). |
 
 ---
 

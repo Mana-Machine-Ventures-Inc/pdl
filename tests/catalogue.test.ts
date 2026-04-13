@@ -20,28 +20,28 @@ describe("catalogue", () => {
     const d = loadDesign(fx("integration/greeting.pdl"));
     const c = buildComponentCatalogue(d);
     const g = c.components.Greeting!;
-    const title = g.childNodes[g.children[0]!]!;
+    const title = g.childNodes[g.childHierarchy.Root[0]!]!;
     expect(title.props.content).toBe("param:title");
   });
 
   it("lists childNodes and default-order children for the root frame", () => {
     const d = loadDesign(fx("integration/greeting.pdl"));
     const g = buildComponentCatalogue(d).components.Greeting!;
-    expect(g.children).toEqual(["Title"]);
+    expect(g.childHierarchy.Root).toEqual(["Title"]);
     expect(Object.keys(g.childNodes).sort()).toEqual(["Title"]);
     expect(g.childNodes.Title!.kind).toBe("text");
-    expect(g.kind).toBe("layout");
-    expect(g.props.direction).toBe("column");
+    expect(g.root.kind).toBe("layout");
+    expect(g.root.props.direction).toBe("column");
   });
 
   it("emits full variant param tuples and children overrides when Root children differ", () => {
     const d = loadDesign(fx("molecules/m_10_form_group.pdl"));
     const field = buildComponentCatalogue(d).components.MoleculeFieldBlock!;
-    expect(field.children).toEqual(["Lab", "Box", "Help"]);
-    expect(Object.keys(field.childNodes).sort()).toEqual(["Box", "Help", "Lab"]);
+    expect(field.childHierarchy.Root).toEqual(["Lab", "Box", "Help"]);
+    expect(Object.keys(field.childNodes).sort()).toEqual(["Box", "Help", "Lab", "Val"]);
     const noHelp = field.variants.find((v) => v.params.layoutMode === "noHelp");
     expect(noHelp?.params).toEqual({ layoutMode: "noHelp" });
-    expect(noHelp?.children).toEqual(["Lab", "Box"]);
+    expect(noHelp?.childHierarchy?.Root).toEqual(["Lab", "Box"]);
   });
 
   it("uses Cartesian variant exploration (one catalogue row per non-default tuple)", () => {
@@ -62,7 +62,7 @@ describe("catalogue", () => {
     const d = loadDesign(fx("integration/themed.pdl"));
     const c = buildComponentCatalogue(d);
     const box = c.components.Box!;
-    expect(box.props.background).toBe("primitive:color.bg");
+    expect(box.root.props.background).toBe("primitive:color.bg");
   });
 
   it("lists primitives once and theme overrides as serialised RHS (literals or pointers)", () => {
@@ -156,11 +156,13 @@ describe("catalogue", () => {
   it("uses layout `hidden` for visible children order while keeping ids in childNodes", () => {
     const d = loadDesign(fx("atoms/hidden_frame_atoms.pdl"));
     const row = buildComponentCatalogue(d).components.AtomHiddenFrame!;
-    expect(row.children).toEqual(["A", "B"]);
-    expect(Object.keys(row.childNodes).sort()).toEqual(["A", "B"]);
+    expect(row.childHierarchy.Root).toEqual(["A", "B"]);
+    expect(Object.keys(row.childNodes).sort()).toEqual(["A", "B", "Inner"]);
+    expect(row.childHierarchy.B).toEqual(["Inner"]);
     const hide = row.variants.find((v) => v.params.mode === "hideExtra");
-    expect(hide?.children).toEqual(["A"]);
-    expect(row.childNodes.B!.children.map((c) => c.id)).toEqual(["Inner"]);
+    expect(hide?.childHierarchy?.Root).toEqual(["A"]);
+    expect(row.childNodes.Inner!.kind).toBe("text");
+    expect(row.childNodes.Inner!.children).toEqual([]);
   });
 
   it("merges rules tags = and tags.add in order for catalogue.rules.tags", () => {
@@ -192,5 +194,24 @@ describe("catalogue", () => {
         { kind: "cmp", param: "i", op: "==", rhs: ".i1" },
       ],
     });
+  });
+
+  it("emits childHierarchy-only structural variants (no redundant DSlot changes or patches)", () => {
+    const d = loadDesign(fx("integration/empty_layout_shell.pdl"));
+    const row = buildComponentCatalogue(d).components.EmptyLayoutShell!;
+    expect(row.requiredComponents).toEqual(["DeepSlot"]);
+    expect(row.childHierarchy.Root).toEqual(["SlotOne"]);
+    expect(row.childHierarchy.SlotOne).toEqual(["SlotTwo"]);
+    expect(row.childHierarchy.SlotTwo).toEqual(["SlotThree"]);
+    expect(row.childHierarchy.SlotThree).toEqual([]);
+    const nested = row.variants.find((v) => v.params.embed === "nested");
+    expect(nested).toBeDefined();
+    expect(nested!.childHierarchy!.Root).toEqual(["SlotThree"]);
+    expect(nested!.structuralChange).toBe(true);
+    expect(nested!.changes).toEqual([]);
+    expect(nested!.childHierarchy!.SlotOne).toEqual(["DSlot"]);
+    expect(nested!.childHierarchy!.SlotThree).toEqual(["SlotTwo"]);
+    expect(nested!.childHierarchy!.SlotTwo).toEqual(["SlotOne"]);
+    expect(nested!.affectedFrames).toEqual(["DSlot", "Root", "SlotOne", "SlotThree", "SlotTwo"]);
   });
 });

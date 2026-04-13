@@ -179,6 +179,48 @@ function validateIfConditionsInBody(
   }
 }
 
+function collectUniqueFrameIdsFromBody(
+  items: FrameBodyItem[],
+  seen: Set<string>,
+  componentName: string,
+  design: DesignDefinition,
+): void {
+  for (const it of items) {
+    switch (it.kind) {
+      case "let": {
+        if (seen.has(it.id)) {
+          throw new PdlError(
+            "PDL-E021",
+            `Duplicate frame id \`${it.id}\` in component ${componentName} (\`let\` / \`letInstance\` names must be unique across the whole component body, including all \`if\` branches)`,
+            { path: design.entryPath },
+          );
+        }
+        seen.add(it.id);
+        collectUniqueFrameIdsFromBody(it.body, seen, componentName, design);
+        break;
+      }
+      case "letInstance": {
+        if (seen.has(it.id)) {
+          throw new PdlError(
+            "PDL-E021",
+            `Duplicate frame id \`${it.id}\` in component ${componentName} (\`let\` / \`letInstance\` names must be unique across the whole component body, including all \`if\` branches)`,
+            { path: design.entryPath },
+          );
+        }
+        seen.add(it.id);
+        break;
+      }
+      case "if": {
+        for (const br of it.chain.branches) collectUniqueFrameIdsFromBody(br.body, seen, componentName, design);
+        if (it.chain.elseBody) collectUniqueFrameIdsFromBody(it.chain.elseBody, seen, componentName, design);
+        break;
+      }
+      default:
+        break;
+    }
+  }
+}
+
 function validateCompanionSymbols(design: DesignDefinition): void {
   for (const name of design.usage.keys()) {
     if (!design.components.has(name)) {
@@ -291,6 +333,7 @@ function validateRulesForComponent(design: DesignDefinition, componentName: stri
 export function validateMergedDesign(design: DesignDefinition): void {
   validateCompanionSymbols(design);
   for (const c of design.components.values()) {
+    collectUniqueFrameIdsFromBody(c.body, new Set(), c.name, design);
     const paramByName = new Map(c.params.map((p) => [p.name, { typeName: p.typeName }]));
     validateIfConditionsInBody(design, c.body, paramByName, c.name);
     const letKinds = collectLetFrameKinds(c.body);

@@ -1,0 +1,127 @@
+{
+  "components": {
+    "EmptyLayoutShell": {
+      "childHierarchy": {
+        "Root": [
+          "SlotOne"
+        ],
+        "SlotOne": [
+          "SlotTwo"
+        ],
+        "SlotTwo": [
+          "SlotThree"
+        ]
+      },
+      "childNodes": {
+        "DSlot": {
+          "id": "DSlot",
+          "instanceOf": "DeepSlot",
+          "kind": "layout",
+          "props": {
+            "background": "#FFFFFF",
+            "direction": "column",
+            "height": "fill",
+            "width": "fill"
+          }
+        },
+        "SlotOne": {
+          "id": "SlotOne",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "direction": "column",
+            "height": "fill",
+            "width": "fill"
+          }
+        },
+        "SlotThree": {
+          "id": "SlotThree",
+          "kind": "layout",
+          "props": {
+            "direction": "column",
+            "height": "fill",
+            "width": "fill"
+          }
+        },
+        "SlotTwo": {
+          "id": "SlotTwo",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "direction": "row",
+            "height": "fill",
+            "width": "fill"
+          }
+        }
+      },
+      "expose": [
+        "embed"
+      ],
+      "name": "EmptyLayoutShell",
+      "params": [
+        {
+          "default": "flat",
+          "name": "embed",
+          "type": "variant",
+          "variantTypeName": "EmptyLayoutEmbed"
+        }
+      ],
+      "requiredComponents": [
+        "DeepSlot"
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "direction": "column"
+        }
+      },
+      "usage": "",
+      "variants": [
+        {
+          "affectedFrames": [
+            "DSlot",
+            "Root",
+            "SlotOne",
+            "SlotThree",
+            "SlotTwo"
+          ],
+          "changes": [],
+          "childHierarchy": {
+            "Root": [
+              "SlotThree"
+            ],
+            "SlotOne": [
+              "DSlot"
+            ],
+            "SlotThree": [
+              "SlotTwo"
+            ],
+            "SlotTwo": [
+              "SlotOne"
+            ]
+          },
+          "params": {
+            "embed": "nested"
+          },
+          "structuralChange": true
+        }
+      ]
+    }
+  },
+  "entryPath": "test-fixtures/pdl/integration/empty_layout_shell.pdl",
+  "generatedAt": "2026-04-12T00:00:00.000Z",
+  "schemaKind": "resolvedComponent",
+  "schemaVersion": "1.0.0-beta",
+  "system": {
+    "variantTypes": {
+      "EmptyLayoutEmbed": {
+        "cases": [
+          "flat",
+          "nested"
+        ],
+        "name": "EmptyLayoutEmbed"
+      }
+    }
+  }
+}

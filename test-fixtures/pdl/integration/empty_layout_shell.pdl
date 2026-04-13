@@ -1,0 +1,52 @@
+// Minimal layout: no imports, no tokens, no themes — slot chain + `embed: nested` rewires tree and embeds a `DeepSlot()` instance for deep JSON tests.
+
+variant EmptyLayoutEmbed {
+  case flat
+  case nested
+}
+
+component EmptyLayoutShell(embed: EmptyLayoutEmbed = .flat) layout {
+  direction = .column
+  align = .stretch
+
+  let DSlot = DeepSlot()
+
+  let SlotOne: layout = {
+    direction = .column
+    align = .stretch
+    width = .fill
+    height = .fill
+  }
+
+  let SlotTwo: layout = {
+    direction = .row
+    align = .stretch
+    width = .fill
+    height = .fill
+  }
+
+  let SlotThree: layout = {
+    direction = .column
+    width = .fill
+    height = .fill
+  }
+
+  children = [SlotOne]
+  SlotOne.children = [SlotTwo]
+  SlotTwo.children = [SlotThree]
+  SlotThree.children = []
+
+  if embed == .nested {
+    SlotOne.children = [DSlot]
+    SlotTwo.children = [SlotOne]
+    SlotThree.children = [SlotTwo]
+    children = [SlotThree]
+  }
+}
+
+component DeepSlot() layout {
+  direction = .column
+  width = .fill
+  height = .fill
+  background = #FFFFFF
+}

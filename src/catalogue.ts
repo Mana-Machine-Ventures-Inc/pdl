@@ -22,7 +22,6 @@ import { serialiseConditionExpr, serialiseValueExpr, serialiseValueExprWithToken
 import { ruleLineToDef, type RuleDefJson } from "./rulesJson.js";
 import {
   isHiddenFrame,
-  pruneHiddenChildrenTree,
   RESOLVE_OPTIONS_GRAPH_CATALOGUE,
   resolveComponentTree,
   resolveDefaultParamValues,
@@ -129,17 +128,35 @@ function serialiseInteractionDecl(decl: InteractionDecl): unknown {
   };
 }
 
+/**
+ * Ordered **child-embedding** patch: replace **`frameId`**’s visible child list with **`children`** (frame ids).
+ * Semantics: **move** — each id in **`children`** is removed from any other parent’s list before assignment.
+ * Callers may apply patches in sequence; brief invalid states between steps are tolerated if validated only at the end.
+ */
+export type CatalogueChildPatchOp = {
+  op: "setChildren";
+  frameId: string;
+  children: string[];
+};
+
 export type CatalogueVariantEntry = {
   /** Full snapshot of every variant-typed parameter for this permutation. */
   params: Record<string, string>;
   affectedFrames: string[];
+  /** Non-structural property deltas keyed by stable **`frameId`** (id-aligned; never uses positional child pairing). */
   changes: { frameId: string; prop: string; value: unknown }[];
   structuralChange?: boolean;
   /**
-   * When present, ordered Root direct-child frame ids for this permutation (differs from component-level **`children`**).
-   * Omitted when the same as default. Full subtrees live in **`childNodes`** keyed by id.
+   * When this permutation’s **child hierarchy** differs from the default, the full map (same shape as component **`childHierarchy`**).
+   * Omitted when identical to default. Structural wiring uses **only** this map (no separate **`patches`** / **`children`**).
    */
-  children?: string[];
+  childHierarchy?: Record<string, string[]>;
+};
+
+/** Component root shell: **`kind`** + resolved **`props`** (default param tuple). */
+export type CatalogueComponentRoot = {
+  kind: string;
+  props: Record<string, unknown>;
 };
 
 export type CatalogueComponent = {
@@ -162,20 +179,28 @@ export type CatalogueComponent = {
   rules?: { tags: string[]; rules: Array<RuleDefJson & { when?: unknown }> };
   /** Preview-time `interaction` handlers (serialised `ValueExpr` shapes). */
   interactions?: unknown[];
-  /** Root frame kind (`layout`, `text`, `icon`, or `media`). */
-  kind: string;
-  /** Root frame properties for the **default** (all variant params at defaults) resolution. */
-  props: Record<string, unknown>;
+  /** Root frame (**`kind`**, **`props`**) for the default resolution — separate from **`childNodes`** (no nesting here). */
+  root: CatalogueComponentRoot;
   /**
    * Stringified default bindings for every component param (for tooling / parity with former `base.params`).
    */
   defaultParams: Record<string, string>;
   /**
-   * Every candidate direct child of Root across `if` branches: id → catalogue **subtree** (same node shape as a tree child: `id`, `kind`, `props`, `children`).
+   * **Node registry**: every frame id that appears in any default/variant resolution (except **`Root`**), id → shell
+   * (**`kind`**, **`props`**, optional **`instanceOf`** / **`instanceKwargs`**, **`children`: []**). No parent/child wiring here.
    */
   childNodes: Record<string, CatalFrame>;
-  /** Ordered Root child frame ids when all variant parameters are at their defaults. */
-  children: string[];
+  /**
+   * **Child hierarchy** for the **default** resolution: each frame id → ordered **visible** direct child ids
+   * (includes **`"Root"`**). Adjacency only; node payloads live in **`childNodes`**. Root’s direct children are
+   * **`childHierarchy["Root"]`**.
+   */
+  childHierarchy: Record<string, string[]>;
+  /**
+   * Transitive closure of **other** component names referenced via **`letInstance`** or **`children`** instance entries
+   * in this component’s body (union across `if` branches), excluding **`name`** itself. Omitted when empty.
+   */
+  requiredComponents?: string[];
   variants: CatalogueVariantEntry[];
 };
 
@@ -239,81 +264,258 @@ function frameToJson(f: CatalFrame): CatalFrame {
     kind: f.kind,
     props: { ...f.props },
     children: f.children.map(frameToJson),
-  };
-}
-
-function visibleRootChildIds(tree: CatalFrame): string[] {
-  return tree.children.filter((ch) => !isHiddenFrame(ch)).map((ch) => ch.id);
-}
-
-/** Prefer a scan where the child is visible so **`childNodes`** default materialisation matches a real layout. */
-function pickBestRootChildSubtree(scanTrees: CatalFrame[], id: string): CatalFrame | null {
-  let hiddenOnly: CatalFrame | null = null;
-  for (const t of scanTrees) {
-    const ch = directRootChildSubtree(t, id);
-    if (!ch) continue;
-    if (!isHiddenFrame(ch)) return ch;
-    hiddenOnly ??= ch;
-  }
-  return hiddenOnly;
-}
-
-function diffTrees(a: CatalFrame, b: CatalFrame): {
-  changes: CatalogueVariantEntry["changes"];
-  affected: Set<string>;
-  structural: boolean;
-} {
-  const changes: CatalogueVariantEntry["changes"] = [];
-  const affected = new Set<string>();
-  let structural = false;
-
-  const walk = (fa: CatalFrame, fb: CatalFrame) => {
-    if (fa.id !== fb.id) structural = true;
-    const id = fb.id;
-    const keys = new Set([...Object.keys(fa.props), ...Object.keys(fb.props)]);
-    for (const k of keys) {
-      if (JSON.stringify(fa.props[k]) !== JSON.stringify(fb.props[k])) {
-        changes.push({ frameId: id, prop: k, value: fb.props[k] });
-        affected.add(id);
-      }
-    }
-    if (fa.children.length !== fb.children.length) {
-      structural = true;
-      changes.push({ frameId: id, prop: "children", value: fb.children });
-      affected.add(id);
-      return;
-    }
-    for (let i = 0; i < fa.children.length; i++) {
-      walk(fa.children[i]!, fb.children[i]!);
-    }
-  };
-
-  walk(a, b);
-  return { changes, affected, structural };
-}
-
-/** Frame refs appearing in `children = […]` targeting Root, unioned across `if` branches (not inside `let` bodies). */
-function collectRootLevelFrameRefTargets(body: FrameBodyItem[]): Set<string> {
-  const s = new Set<string>();
-  const walk = (items: FrameBodyItem[]) => {
-    for (const it of items) {
-      if (it.kind === "children" && it.target === "root") {
-        for (const e of it.entries) {
-          if (e.kind === "frameRef") s.add(e.id);
+    ...(f.instanceOf !== undefined
+      ? {
+          instanceOf: f.instanceOf,
+          instanceKwargs: { ...(f.instanceKwargs ?? {}) },
         }
-      } else if (it.kind === "if") {
-        for (const br of it.chain.branches) walk(br.body);
-        if (it.chain.elseBody) walk(it.chain.elseBody);
+      : {}),
+  };
+}
+
+/**
+ * Collect **`other`** component names transitively required by **`rootName`** (instances and **`letInstance`** in body,
+ * all **`if`** branches unioned). Excludes **`rootName`** itself.
+ */
+export function collectRequiredComponentNames(design: DesignDefinition, rootName: string): string[] {
+  const root = design.components.get(rootName);
+  if (!root) return [];
+
+  const accumulateFromBody = (items: FrameBodyItem[], sink: Set<string>): void => {
+    for (const it of items) {
+      switch (it.kind) {
+        case "letInstance":
+          sink.add(it.component);
+          break;
+        case "children":
+          for (const e of it.entries) {
+            if (e.kind === "instance") sink.add(e.component);
+          }
+          break;
+        case "let":
+          accumulateFromBody(it.body, sink);
+          break;
+        case "if":
+          for (const br of it.chain.branches) accumulateFromBody(br.body, sink);
+          if (it.chain.elseBody) accumulateFromBody(it.chain.elseBody, sink);
+          break;
+        default:
+          break;
       }
     }
   };
-  walk(body);
+
+  const out = new Set<string>();
+  accumulateFromBody(root.body, out);
+  out.delete(rootName);
+
+  const queue = [...out];
+  while (queue.length) {
+    const n = queue.shift()!;
+    const c = design.components.get(n);
+    if (!c) continue;
+    const more = new Set<string>();
+    accumulateFromBody(c.body, more);
+    more.delete(rootName);
+    for (const m of more) {
+      if (!out.has(m)) {
+        out.add(m);
+        queue.push(m);
+      }
+    }
+  }
+
+  return [...out].sort((a, b) => a.localeCompare(b));
+}
+
+/** Single-frame shell for the **childNodes** registry (no nested **`children`**). */
+function catalFrameShell(f: CatalFrame): CatalFrame {
+  return {
+    id: f.id,
+    kind: f.kind,
+    props: { ...f.props },
+    children: [],
+    ...(f.instanceOf !== undefined
+      ? {
+          instanceOf: f.instanceOf,
+          instanceKwargs: { ...(f.instanceKwargs ?? {}) },
+        }
+      : {}),
+  };
+}
+
+function mergeRegistryFromTree(tree: CatalFrame, sink: Map<string, CatalFrame>): void {
+  const walk = (f: CatalFrame) => {
+    if (f.id !== "Root") {
+      if (!sink.has(f.id)) sink.set(f.id, catalFrameShell(f));
+    }
+    for (const ch of f.children) walk(ch);
+  };
+  walk(tree);
+}
+
+/** Union of all frame shells (except **`Root`**) seen across default + variant resolutions. */
+function buildChildNodeRegistry(scanTrees: CatalFrame[]): Record<string, CatalFrame> {
+  const sink = new Map<string, CatalFrame>();
+  for (const t of scanTrees) mergeRegistryFromTree(t, sink);
+  return Object.fromEntries([...sink.entries()].sort(([a], [b]) => a.localeCompare(b)));
+}
+
+/** Visible child id lists per frame (hidden frames are skipped). */
+function extractVisibleChildMap(tree: CatalFrame): Map<string, string[]> {
+  const m = new Map<string, string[]>();
+  const walk = (f: CatalFrame) => {
+    const vis = f.children.filter((ch) => !isHiddenFrame(ch)).map((ch) => ch.id);
+    m.set(f.id, vis);
+    for (const ch of f.children) walk(ch);
+  };
+  walk(tree);
+  return m;
+}
+
+/** Stable JSON object: frame id → visible direct child ids (default tree wiring). */
+function visibleChildHierarchyRecord(tree: CatalFrame): Record<string, string[]> {
+  const m = extractVisibleChildMap(tree);
+  return Object.fromEntries([...m.entries()].sort(([a], [b]) => a.localeCompare(b)));
+}
+
+function collectFrameIds(tree: CatalFrame): Set<string> {
+  const s = new Set<string>();
+  const walk = (f: CatalFrame) => {
+    s.add(f.id);
+    for (const ch of f.children) walk(ch);
+  };
+  walk(tree);
   return s;
 }
 
-function directRootChildSubtree(tree: CatalFrame, id: string): CatalFrame | null {
-  const ch = tree.children.find((x) => x.id === id);
-  return ch ? frameToJson(ch) : null;
+/** Depth from **`tree`**’s root (root = 0). */
+function depthByFrameId(tree: CatalFrame): Map<string, number> {
+  const d = new Map<string, number>();
+  const walk = (f: CatalFrame, depth: number) => {
+    d.set(f.id, depth);
+    for (const ch of f.children) walk(ch, depth + 1);
+  };
+  walk(tree, 0);
+  return d;
+}
+
+function cloneChildMap(m: Map<string, string[]>): Map<string, string[]> {
+  return new Map([...m.entries()].map(([k, v]) => [k, [...v]]));
+}
+
+/**
+ * Apply **`setChildren`** with **move** semantics: each child id is removed from every other parent’s list,
+ * then **`parent`**’s list is replaced with **`next`** (in order).
+ */
+function applySetChildrenMove(cur: Map<string, string[]>, parent: string, next: string[]): void {
+  const nextArr = [...next];
+  for (const cid of nextArr) {
+    for (const [p, list] of cur) {
+      if (p === parent) continue;
+      const idx = list.indexOf(cid);
+      if (idx >= 0) {
+        const copy = [...list];
+        copy.splice(idx, 1);
+        cur.set(p, copy);
+      }
+    }
+  }
+  cur.set(parent, nextArr);
+}
+
+/**
+ * Build a short linear list of **`setChildren`** ops that reproduces **`target`**’s visible child map from **`base`**’s
+ * when applied in order with **`applySetChildrenMove`** semantics.
+ */
+export function buildChildPatchOps(base: CatalFrame, target: CatalFrame, entryPath: string): CatalogueChildPatchOp[] {
+  const baseM = extractVisibleChildMap(base);
+  const tgtM = extractVisibleChildMap(target);
+  const depth = depthByFrameId(target);
+  const cur = cloneChildMap(baseM);
+  const allIds = new Set([...collectFrameIds(base), ...collectFrameIds(target)]);
+  for (const id of allIds) {
+    if (!cur.has(id)) cur.set(id, [...(baseM.get(id) ?? tgtM.get(id) ?? [])]);
+  }
+  const ops: CatalogueChildPatchOp[] = [];
+  const maxOps = 4096;
+  for (let guard = 0; guard < maxOps; guard++) {
+    const differing: string[] = [];
+    for (const id of [...new Set([...cur.keys(), ...tgtM.keys()])].sort()) {
+      if (JSON.stringify(cur.get(id) ?? []) !== JSON.stringify(tgtM.get(id) ?? [])) differing.push(id);
+    }
+    if (differing.length === 0) {
+      return ops;
+    }
+    differing.sort((a, b) => {
+      const da = depth.get(a) ?? -1;
+      const db = depth.get(b) ?? -1;
+      if (db !== da) return db - da;
+      return a.localeCompare(b);
+    });
+    const p = differing[0]!;
+    const want = tgtM.get(p) ?? [];
+    applySetChildrenMove(cur, p, want);
+    ops.push({ op: "setChildren", frameId: p, children: [...want] });
+  }
+  throw new PdlError("PDL-E001", "Catalogue: could not converge child patch ops for variant tree", {
+    path: entryPath,
+  });
+}
+
+type FrameSurface = {
+  props: Record<string, unknown>;
+  instanceOf?: string;
+  instanceKwargs: Record<string, unknown>;
+};
+
+function collectFrameSurfaceById(f: CatalFrame, sink: Map<string, FrameSurface>): void {
+  sink.set(f.id, {
+    props: { ...f.props },
+    instanceOf: f.instanceOf,
+    instanceKwargs: f.instanceKwargs ? { ...f.instanceKwargs } : {},
+  });
+  for (const ch of f.children) collectFrameSurfaceById(ch, sink);
+}
+
+function emptySurface(): FrameSurface {
+  return { props: {}, instanceKwargs: {} };
+}
+
+function diffFramePropsById(a: CatalFrame, b: CatalFrame): {
+  changes: CatalogueVariantEntry["changes"];
+  affected: Set<string>;
+} {
+  const mapA = new Map<string, FrameSurface>();
+  const mapB = new Map<string, FrameSurface>();
+  collectFrameSurfaceById(a, mapA);
+  collectFrameSurfaceById(b, mapB);
+  const changes: CatalogueVariantEntry["changes"] = [];
+  const affected = new Set<string>();
+  const ids = new Set([...mapA.keys(), ...mapB.keys()]);
+  for (const id of [...ids].sort()) {
+    const fa = mapA.get(id) ?? emptySurface();
+    const fb = mapB.get(id) ?? emptySurface();
+    const pa = fa.props;
+    const pb = fb.props;
+    const keys = new Set([...Object.keys(pa), ...Object.keys(pb)]);
+    for (const k of [...keys].sort()) {
+      if (JSON.stringify(pa[k]) !== JSON.stringify(pb[k])) {
+        const value = Object.prototype.hasOwnProperty.call(pb, k) ? pb[k] : null;
+        changes.push({ frameId: id, prop: k, value });
+        affected.add(id);
+      }
+    }
+    if (fa.instanceOf !== fb.instanceOf) {
+      changes.push({ frameId: id, prop: "instanceOf", value: fb.instanceOf === undefined ? null : fb.instanceOf });
+      affected.add(id);
+    }
+    if (JSON.stringify(fa.instanceKwargs) !== JSON.stringify(fb.instanceKwargs)) {
+      changes.push({ frameId: id, prop: "instanceKwargs", value: fb.instanceKwargs });
+      affected.add(id);
+    }
+  }
+  return { changes, affected };
 }
 
 function variantParamAxes(
@@ -368,31 +570,47 @@ function assignmentsEqual(
   return keys.every((k) => a[k] === b[k]);
 }
 
-function stripRootChildrenFromChanges(
+/** Drop **`changes`** lines that restate values already present on the catalogue **`childNodes`** shell. */
+function stripChangesRedundantWithRegistry(
   changes: CatalogueVariantEntry["changes"],
+  childNodes: Record<string, CatalFrame>,
 ): CatalogueVariantEntry["changes"] {
-  return changes.filter((ch) => !(ch.frameId === "Root" && ch.prop === "children"));
+  return changes.filter((ch) => {
+    const shell = childNodes[ch.frameId];
+    if (!shell) return true;
+    if (ch.prop === "instanceOf") {
+      const v = shell.instanceOf === undefined ? null : shell.instanceOf;
+      return JSON.stringify(v) !== JSON.stringify(ch.value);
+    }
+    if (ch.prop === "instanceKwargs") {
+      const v = shell.instanceKwargs ?? {};
+      return JSON.stringify(v) !== JSON.stringify(ch.value ?? {});
+    }
+    const pv = shell.props[ch.prop];
+    return JSON.stringify(pv) !== JSON.stringify(ch.value);
+  });
 }
 
-function buildChildNodesMap(
-  design: DesignDefinition,
-  candidateIds: string[],
-  scanTrees: CatalFrame[],
-  componentName: string,
-): Record<string, CatalFrame> {
-  const out: Record<string, CatalFrame> = {};
-  for (const id of candidateIds) {
-    const node = pickBestRootChildSubtree(scanTrees, id);
-    if (!node) {
-      throw new PdlError(
-        "PDL-E001",
-        `Catalogue: could not resolve childNode \`${id}\` under Root for component ${componentName}`,
-        { path: design.entryPath },
-      );
+function collectAffectedFramesForVariant(
+  changes: CatalogueVariantEntry["changes"],
+  hierarchyDefault: Record<string, string[]>,
+  hierarchyVariant: Record<string, string[]> | undefined,
+): string[] {
+  const s = new Set<string>();
+  for (const ch of changes) s.add(ch.frameId);
+  if (hierarchyVariant) {
+    const keys = new Set([...Object.keys(hierarchyDefault), ...Object.keys(hierarchyVariant)]);
+    for (const k of keys) {
+      const a = hierarchyDefault[k] ?? [];
+      const b = hierarchyVariant[k] ?? [];
+      if (JSON.stringify(a) !== JSON.stringify(b)) {
+        s.add(k);
+        for (const id of a) s.add(id);
+        for (const id of b) s.add(id);
+      }
     }
-    out[id] = pruneHiddenChildrenTree(node);
   }
-  return out;
+  return [...s].sort();
 }
 
 function paramCatalogueType(
@@ -519,9 +737,6 @@ export function buildCatalogueComponentRow(
   const baseParamsStr = baseParamStrings(design, c, tokenMap);
   const expose = design.expose.get(c.name) ?? c.params.map((p) => p.name);
 
-  const defaultChildOrder = visibleRootChildIds(baseTree);
-  const candidateIdList = [...collectRootLevelFrameRefTargets(c.body)].sort((a, b) => a.localeCompare(b));
-
   const axes = variantParamAxes(design, c);
   const defaultAssign = defaultVariantAssignment(design, c);
   const variantKeys = axes.map((a) => a.name);
@@ -539,25 +754,30 @@ export function buildCatalogueComponentRow(
     scanTrees.push(t);
   }
 
-  const childNodes = buildChildNodesMap(design, candidateIdList, scanTrees, c.name);
+  const childNodes = buildChildNodeRegistry(scanTrees);
+
+  const hierarchyDefault = visibleChildHierarchyRecord(baseTree);
 
   const variants: CatalogueVariantEntry[] = [];
   for (const assign of eachVariantAssignment(axes)) {
     if (assignmentsEqual(assign, defaultAssign, variantKeys)) continue;
     const tree2 = treesByAssignKey.get(assignmentKey(assign))!;
-    const { changes, affected, structural } = diffTrees(baseTree, tree2);
-    const childOrder2 = visibleRootChildIds(tree2);
-    const childrenOverride =
-      JSON.stringify(childOrder2) !== JSON.stringify(defaultChildOrder) ? childOrder2 : undefined;
-    const changesOut = childrenOverride ? stripRootChildrenFromChanges(changes) : changes;
-    const structuralOut = structural || Boolean(childrenOverride);
-    if (changesOut.length === 0 && childrenOverride === undefined) continue;
+    const hierarchyVariant = visibleChildHierarchyRecord(tree2);
+    const variantHierarchyOut =
+      JSON.stringify(hierarchyVariant) !== JSON.stringify(hierarchyDefault) ? hierarchyVariant : undefined;
+
+    let changesOut = diffFramePropsById(baseTree, tree2).changes;
+    changesOut = stripChangesRedundantWithRegistry(changesOut, childNodes);
+
+    if (changesOut.length === 0 && variantHierarchyOut === undefined) continue;
+
+    const structuralOut = Boolean(variantHierarchyOut);
     variants.push({
       params: assign,
-      affectedFrames: [...affected],
+      affectedFrames: collectAffectedFramesForVariant(changesOut, hierarchyDefault, variantHierarchyOut),
       changes: changesOut,
       ...(structuralOut ? { structuralChange: true } : {}),
-      ...(childrenOverride ? { children: childrenOverride } : {}),
+      ...(variantHierarchyOut ? { childHierarchy: variantHierarchyOut } : {}),
     });
   }
   variants.sort((a, b) => assignmentKey(a.params).localeCompare(assignmentKey(b.params)));
@@ -610,6 +830,9 @@ export function buildCatalogueComponentRow(
       ? [...imap.values()].sort((a, b) => a.name.localeCompare(b.name)).map(serialiseInteractionDecl)
       : undefined;
 
+  const requiredComponents = collectRequiredComponentNames(design, c.name);
+  const root: CatalogueComponentRoot = { kind: baseTree.kind, props: { ...baseJson.props } };
+
   return {
     name: c.name,
     params: catalogueParams(design, c, tokenMap),
@@ -619,11 +842,11 @@ export function buildCatalogueComponentRow(
     ...(fixturesOut ? { fixtures: fixturesOut } : {}),
     ...(rulesOut ? { rules: rulesOut } : {}),
     ...(interactionsOut ? { interactions: interactionsOut } : {}),
-    kind: baseTree.kind,
-    props: { ...baseJson.props },
+    root,
     defaultParams: baseParamsStr,
     childNodes,
-    children: defaultChildOrder,
+    childHierarchy: hierarchyDefault,
+    ...(requiredComponents.length ? { requiredComponents } : {}),
     variants,
   };
 }

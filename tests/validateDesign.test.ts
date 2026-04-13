@@ -35,4 +35,8 @@ describe("validateMergedDesign (if conditions)", () => {
   it("PDL-E012 when `hidden` is used on a non-layout frame", () => {
     expectLoadFails("PDL-E012", "errors/legacy/e12-hidden-on-text.pdl", /layout/);
   });
+
+  it("PDL-E021 when two `let` frames reuse the same id anywhere in the component body", () => {
+    expectLoadFails("PDL-E021", "errors/legacy/e021-duplicate-let-frame-id.pdl", /Dup/);
+  });
 });

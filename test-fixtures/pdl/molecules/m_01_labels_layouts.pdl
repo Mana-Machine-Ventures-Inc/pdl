@@ -36,12 +36,12 @@ component MoleculeLabelRowJustifySweep() layout {
     justify = .start
     align = .center
     gap = atoms.space.sm
-    let L: text = {
+    let LStart: text = {
       content = "Start"
       fontSize = 14
       color = atoms.color.sem.fromRgb
     }
-    children = [L]
+    children = [LStart]
   }
 
   let RowBetween: layout = {
@@ -67,12 +67,12 @@ component MoleculeLabelRowJustifySweep() layout {
     justify = .end
     align = .stretch
     gap = atoms.space.xs
-    let L: text = {
+    let LEnd: text = {
       content = "End"
       fontSize = 14
       color = atoms.color.sem.fromRgba
     }
-    children = [L]
+    children = [LEnd]
   }
 
   children = [RowStart, RowBetween, RowEnd]
@@ -91,36 +91,36 @@ component MoleculeThreeColumnLabels() layout {
     direction = .column
     align = .start
     gap = 4
-    let T: text = {
+    let T1: text = {
       content = "Column 1"
       fontSize = 13
       color = atoms.color.sem.fromRgb
     }
-    children = [T]
+    children = [T1]
   }
 
   let Col2: layout = {
     direction = .column
     align = .center
     gap = 4
-    let T: text = {
+    let T2: text = {
       content = "Column 2"
       fontSize = 13
       color = atoms.color.sem.fromRgba
     }
-    children = [T]
+    children = [T2]
   }
 
   let Col3: layout = {
     direction = .column
     align = .end
     gap = 4
-    let T: text = {
+    let T3: text = {
       content = "Column 3"
       fontSize = 13
       color = atoms.color.rgba
     }
-    children = [T]
+    children = [T3]
   }
 
   children = [Col1, Col2, Col3]

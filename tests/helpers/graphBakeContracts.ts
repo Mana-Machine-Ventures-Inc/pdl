@@ -118,8 +118,30 @@ function assertCatalFrame(x: unknown, path: string, depth: number): void {
   for (let i = 0; i < x.children.length; i++) {
     assertCatalFrame(x.children[i], `${path}.children[${i}]`, depth + 1);
   }
-  const extra = Object.keys(x).filter((k) => !["id", "kind", "props", "children"].includes(k));
+  if (x.instanceOf !== undefined) assertString(x.instanceOf, `${path}.instanceOf`);
+  if (x.instanceKwargs !== undefined) {
+    assertPlainObject(x.instanceKwargs, `${path}.instanceKwargs`);
+  }
+  const extra = Object.keys(x).filter(
+    (k) => !["id", "kind", "props", "children", "instanceOf", "instanceKwargs"].includes(k),
+  );
   if (extra.length) fail(path, `unexpected frame keys: ${extra.join(", ")}`);
+}
+
+/** Catalogue **`childNodes`** registry entry: no nested materialised children. */
+function assertRegistryFrame(x: unknown, path: string): void {
+  assertPlainObject(x, path);
+  assertString(x.id, `${path}.id`);
+  assertString(x.kind, `${path}.kind`);
+  assertPlainObject(x.props, `${path}.props`);
+  if (!Array.isArray(x.children)) fail(path, "children must be an array");
+  if (x.children.length !== 0) fail(path, "childNodes registry entries must have empty children");
+  if (x.instanceOf !== undefined) assertString(x.instanceOf, `${path}.instanceOf`);
+  if (x.instanceKwargs !== undefined) assertPlainObject(x.instanceKwargs, `${path}.instanceKwargs`);
+  const extra = Object.keys(x).filter(
+    (k) => !["id", "kind", "props", "children", "instanceOf", "instanceKwargs"].includes(k),
+  );
+  if (extra.length) fail(path, `unexpected registry frame keys: ${extra.join(", ")}`);
 }
 
 function assertCatalogueParam(x: unknown, path: string): void {
@@ -145,16 +167,23 @@ function assertCatalogueVariantEntry(x: unknown, path: string): void {
     assertPlainObject(ch, `${path}.changes[${i}]`);
     assertString(ch.frameId, `${path}.changes[${i}].frameId`);
     assertString(ch.prop, `${path}.changes[${i}].prop`);
-    if (!("value" in ch)) fail(path, `changes[${i}] missing value`);
+    if (!("value" in ch)) fail(path, `changes[${i}] missing value key`);
   }
   if (x.structuralChange !== undefined && typeof x.structuralChange !== "boolean") {
     fail(path, "structuralChange must be boolean if present");
   }
-  if (x.children !== undefined) {
-    if (!Array.isArray(x.children)) fail(path, "variants[].children must be string[]");
-    x.children.forEach((id, i) => assertString(id, `${path}.children[${i}]`));
+  if (x.structuralChange === true && x.childHierarchy === undefined) {
+    fail(path, "structuralChange requires variants[].childHierarchy");
   }
-  const allowed = new Set(["params", "affectedFrames", "changes", "structuralChange", "children"]);
+  if (x.childHierarchy !== undefined) {
+    assertPlainObject(x.childHierarchy, `${path}.childHierarchy`);
+    for (const [pid, row] of Object.entries(x.childHierarchy)) {
+      assertString(pid, `${path}.childHierarchy key`);
+      if (!Array.isArray(row)) fail(path, `variants[].childHierarchy[${pid}] must be an array`);
+      row.forEach((id, i) => assertString(id, `${path}.childHierarchy[${pid}][${i}]`));
+    }
+  }
+  const allowed = new Set(["params", "affectedFrames", "changes", "structuralChange", "childHierarchy"]);
   for (const k of Object.keys(x)) {
     if (!allowed.has(k)) fail(path, `unexpected variant key "${k}"`);
   }
@@ -168,8 +197,12 @@ function assertCatalogueComponentRow(x: unknown, path: string, opts: { requireDe
   if (!Array.isArray(x.expose)) fail(path, "expose must be an array");
   x.expose.forEach((e, i) => assertString(e, `${path}.expose[${i}]`));
   assertString(x.usage, `${path}.usage`);
-  assertString(x.kind, `${path}.kind`);
-  assertPlainObject(x.props, `${path}.props`);
+  assertPlainObject(x.root, `${path}.root`);
+  assertString(x.root.kind, `${path}.root.kind`);
+  assertPlainObject(x.root.props, `${path}.root.props`);
+  for (const rk of Object.keys(x.root)) {
+    if (rk !== "kind" && rk !== "props") fail(`${path}.root`, `unexpected root key "${rk}"`);
+  }
   if (opts.requireDefaultParams) {
     assertPlainObject(x.defaultParams, `${path}.defaultParams`);
   } else if ("defaultParams" in x) {
@@ -177,12 +210,22 @@ function assertCatalogueComponentRow(x: unknown, path: string, opts: { requireDe
   }
   assertPlainObject(x.childNodes, `${path}.childNodes`);
   for (const [cid, subtree] of Object.entries(x.childNodes)) {
-    assertCatalFrame(subtree, `${path}.childNodes[${cid}]`, 0);
+    assertRegistryFrame(subtree, `${path}.childNodes[${cid}]`);
   }
-  if (!Array.isArray(x.children)) fail(path, "children must be string[]");
-  x.children.forEach((id, i) => assertString(id, `${path}.children[${i}]`));
+  assertPlainObject(x.childHierarchy, `${path}.childHierarchy`);
+  if (!("Root" in x.childHierarchy)) fail(path, "childHierarchy must include Root");
+  if (!Array.isArray(x.childHierarchy.Root)) fail(path, "childHierarchy.Root must be an array");
+  for (const [pid, row] of Object.entries(x.childHierarchy)) {
+    assertString(pid, `${path}.childHierarchy key`);
+    if (!Array.isArray(row)) fail(path, `childHierarchy[${pid}] must be an array`);
+    row.forEach((id, i) => assertString(id, `${path}.childHierarchy[${pid}][${i}]`));
+  }
   if (!Array.isArray(x.variants)) fail(path, "variants must be an array");
   x.variants.forEach((v, i) => assertCatalogueVariantEntry(v, `${path}.variants[${i}]`));
+  if (x.requiredComponents !== undefined) {
+    if (!Array.isArray(x.requiredComponents)) fail(path, "requiredComponents must be an array");
+    x.requiredComponents.forEach((id, i) => assertString(id, `${path}.requiredComponents[${i}]`));
+  }
 
   if (x.usageByKey !== undefined) assertPlainObject(x.usageByKey, `${path}.usageByKey`);
   if (x.fixtures !== undefined) assertPlainObject(x.fixtures, `${path}.fixtures`);
@@ -198,11 +241,11 @@ function assertCatalogueComponentRow(x: unknown, path: string, opts: { requireDe
     "fixtures",
     "rules",
     "interactions",
-    "kind",
-    "props",
+    "root",
     "defaultParams",
     "childNodes",
-    "children",
+    "childHierarchy",
+    "requiredComponents",
     "variants",
   ]);
   for (const k of Object.keys(x)) {
