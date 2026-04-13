@@ -130,7 +130,7 @@
       "local.atoms.color.rgb": {
         "definition": {
           "kind": "hex",
-          "value": "#ABC"
+          "value": "#D4A574"
         },
         "name": "local.atoms.color.rgb",
         "tokenType": "Color"

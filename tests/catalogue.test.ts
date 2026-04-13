@@ -89,9 +89,9 @@ describe("catalogue", () => {
   it("emits full typeStyles with primitive:/semantic: pointers like token definitions", () => {
     const d = loadDesign(fx("atoms/design.pdl"));
     const c = buildComponentCatalogue(d);
-    expect(c.typeStyles.AtomCaption!.props.color).toBe("semantic:atoms.color.sem.fromRgb");
-    expect(c.typeStyles.AtomBody!.props.color).toBe("semantic:atoms.color.sem.fromRgba");
-    expect(c.typeStyles.AtomTitle!.props.color).toBe("primitive:atoms.color.rgb");
+    expect(c.typeStyles.AtomCaption!.props.color).toBe("primitive:atoms.color.textMuted");
+    expect(c.typeStyles.AtomBody!.props.color).toBe("primitive:atoms.color.textPrimary");
+    expect(c.typeStyles.AtomTitle!.props.color).toBe("primitive:atoms.color.textPrimary");
   });
 
   it("sets catalogue theme metadata while token layers stay authoritative", () => {
@@ -105,7 +105,7 @@ describe("catalogue", () => {
   it("emits theme override RHS as primitive: pointer when override references a primitive", () => {
     const d = loadDesign(fx("atoms/design.pdl"));
     const c = buildComponentCatalogue(d);
-    expect(c.themes.AtomsWarm?.overrides["atoms.color.sem.fromRgb"]).toBe("primitive:atoms.color.rgba");
+    expect(c.themes.AtomsWarm?.overrides["atoms.color.sem.fromRgb"]).toBe("primitive:atoms.color.brandPrimary");
     expect(c.semantics["atoms.color.sem.fromRgb"]).toBeDefined();
   });
 

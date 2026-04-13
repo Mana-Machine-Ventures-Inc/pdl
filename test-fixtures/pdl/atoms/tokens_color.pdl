@@ -1,9 +1,18 @@
-// Color primitives (3-, 6-, 8-digit hex) + semantic aliases + color @ opacity
+// Color primitives — warm neutrals + coral primary + teal secondary (Airbnb-inspired reference palette)
 
-primitive atoms.color.rgb: Color = #ABC
-primitive atoms.color.rgba: Color = #11223344
-semantic atoms.color.sem.fromRgb: Color = atoms.color.rgb
-semantic atoms.color.sem.fromRgba: Color = atoms.color.rgba
+primitive atoms.color.canvas: Color = #F7F7F7
+primitive atoms.color.elevated: Color = #EBEBEB
+primitive atoms.color.brandPrimary: Color = #FF5A5F
+primitive atoms.color.brandSecondary: Color = #00A699
+primitive atoms.color.textPrimary: Color = #222222
+primitive atoms.color.textMuted: Color = #717171
+primitive atoms.color.textOnBrand: Color = #FFFFFF
+// Legacy names: neutral mid for ghost tints / borders; dark for typeStyle fallbacks that still point at `rgba`
+primitive atoms.color.rgb: Color = #D3D3D3
+primitive atoms.color.rgba: Color = #222222
+
+semantic atoms.color.sem.fromRgb: Color = atoms.color.canvas
+semantic atoms.color.sem.fromRgba: Color = atoms.color.elevated
 
 semantic atoms.color.scrimLiteral: Color = atoms.color.rgb @ 0.25
 semantic atoms.color.scrimRgba: Color = atoms.color.rgba @ 0.5

@@ -1,7 +1,7 @@
 // Minimal layout: no imports, no tokens, no themes — slot chain + `embed: nested` rewires tree and embeds a `DeepSlot()` instance for deep JSON tests.
 
 
-primitive local.atoms.color.rgb: Color = #ABC
+primitive local.atoms.color.rgb: Color = #D4A574
 semantic local.atoms.color.sem.fromRgb: Color = local.atoms.color.rgb
 
 variant EmptyLayoutEmbed {

@@ -35,7 +35,7 @@
             "kind": "layout",
             "props": {
               "align": "stretch",
-              "background": "#AABBCC",
+              "background": "#D4A574",
               "direction": "column",
               "height": "fill",
               "width": "fill"

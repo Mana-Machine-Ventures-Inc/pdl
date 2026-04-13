@@ -4,7 +4,7 @@ import "tokens_color.pdl"
 import "tokens_distance_radius.pdl"
 
 theme AtomsWarm {
-  atoms.color.sem.fromRgb = atoms.color.rgba
+  atoms.color.sem.fromRgb = atoms.color.brandPrimary
 }
 
 theme AtomsCool {

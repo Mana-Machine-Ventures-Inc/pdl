@@ -35,7 +35,7 @@ describe("resolvedComponent document (pdl resolve default)", () => {
     expect(semNames).toContain("atoms.color.sem.fromRgb");
     const rgbDef = doc.system.primitives["atoms.color.rgb"]?.definition;
     expect(rgbDef).toEqual(expect.objectContaining({ kind: "hex" }));
-    expect(doc.system.semantics["atoms.color.sem.fromRgb"]?.definition).toBe("primitive:atoms.color.rgb");
+    expect(doc.system.semantics["atoms.color.sem.fromRgb"]?.definition).toBe("primitive:atoms.color.canvas");
     expect(Object.values(doc.system.primitives).every((p) => !("valuesByTheme" in p))).toBe(true);
     expect(Object.values(doc.system.semantics).every((s) => !("valuesByTheme" in s))).toBe(true);
   });
@@ -44,7 +44,7 @@ describe("resolvedComponent document (pdl resolve default)", () => {
     const design = loadDesign(fx("atoms/design.pdl"));
     const doc = buildResolvedComponentDocument(design, { componentName: "AtomTextPlain" });
     const warm = doc.system.themes["AtomsWarm"];
-    expect(warm?.overrides["atoms.color.sem.fromRgb"]).toBe("primitive:atoms.color.rgba");
+    expect(warm?.overrides["atoms.color.sem.fromRgb"]).toBe("primitive:atoms.color.brandPrimary");
     expect(doc.system.primitives["atoms.color.rgba"]).toBeDefined();
   });
 
@@ -59,7 +59,7 @@ describe("resolvedComponent document (pdl resolve default)", () => {
     const doc = buildResolvedComponentDocument(design, { componentName: "MoleculeFieldBlock" });
     const names = Object.keys(doc.system.typeStyles).sort();
     expect(names).toEqual(["AtomBody", "AtomCaption", "AtomMono"]);
-    expect(doc.system.typeStyles.AtomCaption!.props.color).toBe("semantic:atoms.color.sem.fromRgb");
+    expect(doc.system.typeStyles.AtomCaption!.props.color).toBe("primitive:atoms.color.textMuted");
   });
 
   it("omits primitives/semantics when the component uses no tokens or typeStyles", () => {

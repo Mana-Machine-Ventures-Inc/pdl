@@ -32,7 +32,7 @@ describe("renderHtml", () => {
     expect(html).toContain("<!DOCTYPE html>");
     expect(html).toContain("EmptyLayoutShell");
     expect(html).toContain('data-pdl-id="SlotThree"');
-    expect(html).toContain("#AABBCC");
+    expect(html).toContain("#D4A574");
   });
 
   it("escapes text content for HTML safety", () => {
