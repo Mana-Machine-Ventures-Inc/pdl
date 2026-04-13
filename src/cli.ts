@@ -2,7 +2,9 @@
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { buildBakedDesignComponent, buildBakedDesignSystem } from "./bakeDesign.js";
+import { renderBakedDesignToHtmlDocument } from "./renderHtml.js";
 import { buildComponentCatalogue } from "./catalogue.js";
+import { renderCatalogueSystemHtml } from "./renderCatalogueHtml.js";
 import { stableStringify } from "./stableJson.js";
 import { buildDesignManifest } from "./manifest.js";
 import { loadDesign } from "./loadDesign.js";
@@ -18,6 +20,9 @@ Usage:
   pdl graphComponent <entry.pdl> <ComponentName> [--theme <ThemeName>] [--out <file.json>] [key=value ...]
   pdl bakeSystem <entry.pdl> [--theme <ThemeName>] [--out <file.json>]
   pdl bakeComponent <entry.pdl> <ComponentName> [--theme <ThemeName>] [--out <file.json>] [key=value ...]
+  pdl renderHtml <entry.pdl> <ComponentName> [--theme <ThemeName>] [--out <file.html>] [key=value ...]
+  pdl renderHtml <entry.pdl> --system [--theme <ThemeName>] [--out <file.html>]
+  pdl renderCatalogueHtml <entry.pdl> [--theme <ThemeName>] [--out <file.html>]
   pdl manifest <entry.pdl> [--out <file.json>]
   pdl resolve <entry.pdl> <ComponentName> [--tree-only] [--theme <ThemeName>] [key=value ...]
   pdl catalogue <entry.pdl> [--theme <ThemeName>] [--out <file.json>]
@@ -25,8 +30,8 @@ Usage:
 Legacy: catalogue matches graphSystem JSON but allows --theme. resolve without --tree-only matches graphComponent.
 
 Options:
-  --theme <name>   Primary theme for token resolution (graphComponent, bake*, catalogue, resolve)
-  --out <path>     Write JSON to file instead of stdout
+  --theme <name>   Primary theme for token resolution (graphComponent, bake*, catalogue, resolve, renderHtml)
+  --out <path>     Write output to file instead of stdout (JSON or HTML by command)
 
 Note: \`node dist/cli.js …\` uses compiled output in dist/. After changing src/, run \`npm run build\` (or \`tsc\`), or use npm scripts that run \`tsc\` first.
 `);
@@ -142,6 +147,42 @@ function main() {
       paramOverrides: kv,
     });
     writeJson(outPath, stableStringify(baked, { omitEmpty: true }));
+    return;
+  }
+
+  if (cmd === "renderCatalogueHtml") {
+    const { theme, outPath, kvParts } = parseThemeOutAndKv(argv.slice(2));
+    if (kvParts.length) usage();
+    const design = loadDesign(entry);
+    const catalogue = buildComponentCatalogue(design, { theme });
+    const baked = buildBakedDesignSystem(design, { theme });
+    const html = renderCatalogueSystemHtml(catalogue, baked);
+    if (outPath) writeFileSync(outPath, html, "utf-8");
+    else process.stdout.write(html);
+    return;
+  }
+
+  if (cmd === "renderHtml") {
+    const rest = argv.slice(2);
+    const systemMode = rest[0] === "--system";
+    const compArg = systemMode ? undefined : rest[0];
+    if (!systemMode && !compArg) usage();
+    const { theme, outPath, kvParts } = parseThemeOutAndKv(systemMode ? rest.slice(1) : rest.slice(1));
+    if (kvParts.length && systemMode) usage();
+    const kv = parseKeyValues(kvParts);
+    const design = loadDesign(entry);
+    const baked = systemMode
+      ? buildBakedDesignSystem(design, { theme })
+      : buildBakedDesignComponent(design, {
+          componentName: compArg!,
+          theme,
+          paramOverrides: kv,
+        });
+    const html = renderBakedDesignToHtmlDocument(baked, {
+      singleComponent: systemMode ? undefined : compArg,
+    });
+    if (outPath) writeFileSync(outPath, html, "utf-8");
+    else process.stdout.write(html);
     return;
   }
 

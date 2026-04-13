@@ -13,6 +13,8 @@
     "graphComponent": "tsc && node dist/cli.js graphComponent",
     "bakeSystem": "tsc && node dist/cli.js bakeSystem",
     "bakeComponent": "tsc && node dist/cli.js bakeComponent",
+    "renderHtml": "tsc && node dist/cli.js renderHtml",
+    "renderCatalogueHtml": "tsc && node dist/cli.js renderCatalogueHtml",
     "resolve": "tsc && node dist/cli.js resolve",
     "catalogue": "tsc && node dist/cli.js catalogue",
     "manifest": "tsc && node dist/cli.js manifest",

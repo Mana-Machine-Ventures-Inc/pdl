@@ -1395,13 +1395,16 @@ From project root (`package.json` scripts). Each script runs **`tsc`** then **`n
 | `npm run graphComponent -- <entry.pdl> <Component>` | Print **`resolvedComponent`** slice JSON (§16c); optional **`--theme`**, **`--out`**, **`param=value`**. |
 | `npm run bakeSystem -- <entry.pdl>` | Print **`bakedDesign`** JSON (§16d) — every component, default params; optional **`--theme`**, **`--out`**. |
 | `npm run bakeComponent -- <entry.pdl> <Component>` | Print **`bakedDesign`** for one component (§16d); optional **`--theme`**, **`--out`**, **`param=value`**. |
+| `npm run renderHtml -- <entry.pdl> <Component>` | **Bake → HTML5**: reference preview document (§16d + HTML emitter); optional **`--theme`**, **`--out`**, **`param=value`**. |
+| `npm run renderHtml -- <entry.pdl> --system` | Same pipeline for **every** merged component (gallery layout). Optional **`--theme`**, **`--out`**. |
+| `npm run renderCatalogueHtml -- <entry.pdl>` | **Catalogue + bake → HTML5**: primitives, semantics, themes, type styles, variant types, then default baked previews (`src/renderCatalogueHtml.ts`). Optional **`--theme`**, **`--out`**. |
 | `npm run manifest -- <entry.pdl>` | Print **design manifest** JSON (§17 §3) — thin registry; optional **`--out`**. |
 | `npm run catalogue -- <entry.pdl>` | Print **Component Catalogue** JSON (§16); optional **`--theme`** (same shape as **`graphSystem`**, but trees resolve under the chosen theme). |
 | `npm run resolve -- <file> <Component> [key=value …]` | Print **`resolvedComponent`** JSON (§16 §2.5) or, with **`--tree-only`**, a bare **`CatalFrame`**. Optional **`--theme`**, **`--out`** is not wired — stdout only. |
 | `npm run build` | Compile TypeScript: **`tsc`** → **`dist/`** (required before **`node dist/cli.js`** unless you use an **`npm run graph*`** script, which runs **`tsc`** first). |
 | `npm test` | **`npm run build`** then **Vitest** (`tests/`, including JSON contract tests for catalogue / resolve / bake shapes). |
 
-**JSON on disk:** **`graphSystem`**, **`catalogue`**, **`graphComponent`**, **`resolve`**, **`bakeSystem`**, and **`bakeComponent`** write **`stableStringify(..., { omitEmpty: true })`** — compact rules in **§16a**. **`manifest`** uses **`stableStringify`** **without** **`omitEmpty`**.
+**JSON on disk:** **`graphSystem`**, **`catalogue`**, **`graphComponent`**, **`resolve`**, **`bakeSystem`**, and **`bakeComponent`** write **`stableStringify(..., { omitEmpty: true })`** — compact rules in **§16a**. **`manifest`** uses **`stableStringify`** **without** **`omitEmpty`**. **`renderHtml`** writes **HTML** (not JSON): it runs **`buildBakedDesign*`** in-process then **`renderBakedDesignToHtmlDocument`** (`src/renderHtml.ts`). **`renderCatalogueHtml`** writes a **reference HTML** page from **`buildComponentCatalogue`** + **`buildBakedDesignSystem`** (`src/renderCatalogueHtml.ts`).
 
 There is **no** **`vite`**, **`npm run html`**, **`npm run preview`**, or **`npm run web:dev`** in this package’s **`package.json`** today; add them only if a studio or static emitter is merged into the same repo.
 
@@ -3246,6 +3249,8 @@ The reference CLI emits **two graph-shaped JSON artefacts** (rich, reference-hea
 | **`pdl bakeComponent`** | `<entry.pdl>`, `<ComponentName>`, optional **`--theme`**, optional **`--out`**, optional **`param=value`** | Same **`bakedDesign`** shape with **exactly one** entry in **`components`**. **`param=value`** overrides variant and non-variant params (same parsing rules as **`pdl resolve`**). |
 
 **Serialization:** **`bakeSystem`** and **`bakeComponent`** use the same **`stableStringify(..., { omitEmpty: true })`** rules as graph output — **§16a** (e.g. **`BakedFrame.children`** may be absent when there are no visible children).
+
+**HTML preview (`pdl renderHtml`):** The reference CLI can turn the same in-memory **`bakedDesign`** into a minimal **HTML5** document for Studio iframes and static reference pages (`src/renderHtml.ts`). It maps **`layout`** / **`text`** / **`spacer`** / **`icon`** / **`media`** (stub) frames to flexbox-oriented markup; the mapping is **best-effort** and versioned with the toolchain, not part of the **`bakedDesign`** schema contract.
 
 ### `bakedDesign` — root document
 

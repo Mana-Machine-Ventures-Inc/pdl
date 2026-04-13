@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDL catalogue — componentCatalogue — 2026-04-13</title>
+<style>:root { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; padding: 20px; background: #f4f4f5; color: #18181b; }
+h1 { font-size: 1.35rem; margin: 0 0 8px; }
+.pdl-doc-meta { font-size: 0.85rem; color: #52525b; margin-bottom: 28px; }
+section.pdl-doc-section { margin-bottom: 36px; }
+section.pdl-doc-section > h2 { font-size: 1.1rem; margin: 0 0 12px; border-bottom: 1px solid #d4d4d8; padding-bottom: 6px; }
+.pdl-table-wrap { overflow-x: auto; border: 1px solid #e4e4e7; border-radius: 8px; background: #fff; }
+table.pdl-data { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+table.pdl-data th, table.pdl-data td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #f4f4f5; vertical-align: top; }
+table.pdl-data th { background: #fafafa; font-weight: 600; color: #3f3f46; }
+table.pdl-data tr:last-child td { border-bottom: none; }
+.pdl-json { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; line-height: 1.45; color: #27272a; }
+.pdl-theme-card { border: 1px solid #e4e4e7; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; background: #fff; }
+.pdl-theme-card h3 { margin: 0 0 8px; font-size: 0.95rem; }
+.pdl-muted { color: #71717a; font-size: 0.8rem; }
+.pdl-preview-block { border: 1px solid #e4e4e7; border-radius: 8px; padding: 14px; margin-bottom: 20px; background: #fff; }
+.pdl-preview-block h3 { margin: 0 0 6px; font-size: 1rem; }
+.pdl-preview-block .pdl-usage { font-size: 0.8rem; color: #52525b; margin: 0 0 10px; max-width: 72ch; }
+.pdl-empty-note { font-size: 0.85rem; color: #71717a; font-style: italic; }</style>
+</head>
+<body>
+<h1>PDL catalogue — componentCatalogue — 2026-04-13</h1>
+<p class="pdl-doc-meta">Active tree theme: <em>default</em> (no <code>theme</code> field on catalogue) · generated <code>2026-04-13T16:15:57.375Z</code> · bake profile <code>system-defaults</code> · entry <code>/Users/andrewjclark/Developer/pdl/test-fixtures/pdl/molecules/design.pdl</code></p>
+
+<section class="pdl-doc-section" id="pdl-primitives"><h2>Primitives</h2><div class="pdl-table-wrap"><table class="pdl-data"><thead><tr><th>Name</th><th>Type</th><th>Definition</th></tr></thead><tbody><tr><td><code>atoms.blur.heavy</code></td><td>Blur</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;number&quot;,
+  &quot;value&quot;: 24
+}</pre></td></tr>
+<tr><td><code>atoms.blur.light</code></td><td>Blur</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;number&quot;,
+  &quot;value&quot;: 6
+}</pre></td></tr>
+<tr><td><code>atoms.color.rgb</code></td><td>Color</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;hex&quot;,
+  &quot;value&quot;: &quot;#ABC&quot;
+}</pre></td></tr>
+<tr><td><code>atoms.color.rgba</code></td><td>Color</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;hex&quot;,
+  &quot;value&quot;: &quot;#11223344&quot;
+}</pre></td></tr>
+<tr><td><code>atoms.font.mono</code></td><td>FontFamily</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;string&quot;,
+  &quot;value&quot;: &quot;ui-monospace, monospace&quot;
+}</pre></td></tr>
+<tr><td><code>atoms.font.ui</code></td><td>FontFamily</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;string&quot;,
+  &quot;value&quot;: &quot;system-ui, sans-serif&quot;
+}</pre></td></tr>
+<tr><td><code>atoms.icon.chevron</code></td><td>Icon</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;string&quot;,
+  &quot;value&quot;: &quot;chevron-right&quot;
+}</pre></td></tr>
+<tr><td><code>atoms.icon.star</code></td><td>Icon</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;string&quot;,
+  &quot;value&quot;: &quot;star&quot;
+}</pre></td></tr>
+<tr><td><code>atoms.media.hero</code></td><td>MediaSource</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;string&quot;,
+  &quot;value&quot;: &quot;https://example.com/hero.png&quot;
+}</pre></td></tr>
+<tr><td><code>atoms.opacity.full</code></td><td>Opacity</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;number&quot;,
+  &quot;value&quot;: 1
+}</pre></td></tr>
+<tr><td><code>atoms.opacity.mid</code></td><td>Opacity</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;number&quot;,
+  &quot;value&quot;: 0.62
+}</pre></td></tr>
+<tr><td><code>atoms.radius.mixed</code></td><td>Radius</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;corner&quot;,
+  &quot;tl&quot;: {
+    &quot;kind&quot;: &quot;number&quot;,
+    &quot;value&quot;: 8
+  },
+  &quot;tr&quot;: {
+    &quot;kind&quot;: &quot;number&quot;,
+    &quot;value&quot;: 8
+  },
+  &quot;br&quot;: {
+    &quot;kind&quot;: &quot;number&quot;,
+    &quot;value&quot;: 2
+  },
+  &quot;bl&quot;: {
+    &quot;kind&quot;: &quot;number&quot;,
+    &quot;value&quot;: 2
+  }
+}</pre></td></tr>
+<tr><td><code>atoms.radius.sm</code></td><td>Radius</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;number&quot;,
+  &quot;value&quot;: 4
+}</pre></td></tr>
+<tr><td><code>atoms.ramp.fade</code></td><td>Ramp</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;rampInline&quot;,
+  &quot;direction&quot;: &quot;.bottomToTop&quot;,
+  &quot;stops&quot;: [
+    {
+      &quot;kind&quot;: &quot;gradientStop&quot;,
+      &quot;fields&quot;: {
+        &quot;position&quot;: {
+          &quot;kind&quot;: &quot;number&quot;,
+          &quot;value&quot;: 0
+        },
+        &quot;opacity&quot;: {
+          &quot;kind&quot;: &quot;number&quot;,
+          &quot;value&quot;: 1
+        },
+        &quot;color&quot;: {
+          &quot;kind&quot;: &quot;hex&quot;,
+          &quot;value&quot;: &quot;#FFFFFF&quot;
+        }
+      }
+    },
+    {
+      &quot;kind&quot;: &quot;gradientStop&quot;,
+      &quot;fields&quot;: {
+        &quot;position&quot;: {
+          &quot;kind&quot;: &quot;number&quot;,
+          &quot;value&quot;: 1
+        },
+        &quot;opacity&quot;: {
+          &quot;kind&quot;: &quot;number&quot;,
+          &quot;value&quot;: 0
+        },
+        &quot;color&quot;: {
+          &quot;kind&quot;: &quot;hex&quot;,
+          &quot;value&quot;: &quot;#000000&quot;
+        }
+      }
+    }
+  ]
+}</pre></td></tr>
+<tr><td><code>atoms.ratio.square</code></td><td>Ratio</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;number&quot;,
+  &quot;value&quot;: 1
+}</pre></td></tr>
+<tr><td><code>atoms.ratio.video</code></td><td>Ratio</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;number&quot;,
+  &quot;value&quot;: 1.777
+}</pre></td></tr>
+<tr><td><code>atoms.shadow.hard</code></td><td>Shadow</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;string&quot;,
+  &quot;value&quot;: &quot;0 1px 3px 0 rgba(0,0,0,0.35)&quot;
+}</pre></td></tr>
+<tr><td><code>atoms.shadow.soft</code></td><td>Shadow</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;string&quot;,
+  &quot;value&quot;: &quot;0 2px 8px rgba(0,0,0,0.12)&quot;
+}</pre></td></tr>
+<tr><td><code>atoms.space.md</code></td><td>Distance</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;number&quot;,
+  &quot;value&quot;: 16
+}</pre></td></tr>
+<tr><td><code>atoms.space.sm</code></td><td>Distance</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;number&quot;,
+  &quot;value&quot;: 8
+}</pre></td></tr>
+<tr><td><code>atoms.space.xs</code></td><td>Distance</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;number&quot;,
+  &quot;value&quot;: 4
+}</pre></td></tr>
+<tr><td><code>atoms.type.size.body</code></td><td>Size</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;number&quot;,
+  &quot;value&quot;: 16
+}</pre></td></tr>
+<tr><td><code>atoms.type.size.caption</code></td><td>Size</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;number&quot;,
+  &quot;value&quot;: 12
+}</pre></td></tr>
+<tr><td><code>atoms.type.size.title</code></td><td>Size</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;number&quot;,
+  &quot;value&quot;: 22
+}</pre></td></tr>
+<tr><td><code>atoms.type.weight.bold</code></td><td>Weight</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;number&quot;,
+  &quot;value&quot;: 700
+}</pre></td></tr>
+<tr><td><code>atoms.type.weight.medium</code></td><td>Weight</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;number&quot;,
+  &quot;value&quot;: 600
+}</pre></td></tr>
+<tr><td><code>atoms.type.weight.regular</code></td><td>Weight</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;number&quot;,
+  &quot;value&quot;: 400
+}</pre></td></tr>
+<tr><td><code>atoms.vibrancy.strong</code></td><td>Vibrancy</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;vibrancyTuple&quot;,
+  &quot;saturation&quot;: 1.2,
+  &quot;brightness&quot;: 0.95
+}</pre></td></tr>
+<tr><td><code>atoms.vibrancy.subtle</code></td><td>Vibrancy</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;vibrancyTuple&quot;,
+  &quot;saturation&quot;: 1.05,
+  &quot;brightness&quot;: 1.02
+}</pre></td></tr></tbody></table></div></section>
+<section class="pdl-doc-section" id="pdl-semantics"><h2>Semantics</h2><div class="pdl-table-wrap"><table class="pdl-data"><thead><tr><th>Name</th><th>Type</th><th>Definition</th></tr></thead><tbody><tr><td><code>atoms.bg.blurCard</code></td><td>Background</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;array&quot;,
+  &quot;items&quot;: [
+    {
+      &quot;kind&quot;: &quot;call&quot;,
+      &quot;callee&quot;: &quot;Blur&quot;,
+      &quot;args&quot;: {
+        &quot;blur&quot;: &quot;primitive:atoms.blur.light&quot;
+      }
+    },
+    {
+      &quot;kind&quot;: &quot;opacityOf&quot;,
+      &quot;base&quot;: &quot;semantic:atoms.color.sem.fromRgb&quot;,
+      &quot;opacity&quot;: &quot;primitive:atoms.opacity.mid&quot;
+    }
+  ]
+}</pre></td></tr>
+<tr><td><code>atoms.bg.flat</code></td><td>Background</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;array&quot;,
+  &quot;items&quot;: [
+    {
+      &quot;kind&quot;: &quot;hex&quot;,
+      &quot;value&quot;: &quot;#E5E7EB&quot;
+    }
+  ]
+}</pre></td></tr>
+<tr><td><code>atoms.color.scrimLiteral</code></td><td>Color</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;opacityOf&quot;,
+  &quot;base&quot;: &quot;primitive:atoms.color.rgb&quot;,
+  &quot;opacity&quot;: {
+    &quot;kind&quot;: &quot;number&quot;,
+    &quot;value&quot;: 0.25
+  }
+}</pre></td></tr>
+<tr><td><code>atoms.color.scrimRgba</code></td><td>Color</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;opacityOf&quot;,
+  &quot;base&quot;: &quot;primitive:atoms.color.rgba&quot;,
+  &quot;opacity&quot;: {
+    &quot;kind&quot;: &quot;number&quot;,
+    &quot;value&quot;: 0.5
+  }
+}</pre></td></tr>
+<tr><td><code>atoms.color.sem.fromRgb</code></td><td>Color</td><td><pre class="pdl-json">&quot;primitive:atoms.color.rgb&quot;</pre></td></tr>
+<tr><td><code>atoms.color.sem.fromRgba</code></td><td>Color</td><td><pre class="pdl-json">&quot;primitive:atoms.color.rgba&quot;</pre></td></tr>
+<tr><td><code>atoms.fg.hoverTint</code></td><td>Foreground</td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;array&quot;,
+  &quot;items&quot;: [
+    {
+      &quot;kind&quot;: &quot;opacityOf&quot;,
+      &quot;base&quot;: &quot;primitive:atoms.color.rgb&quot;,
+      &quot;opacity&quot;: &quot;primitive:atoms.opacity.mid&quot;
+    }
+  ]
+}</pre></td></tr>
+<tr><td><code>atoms.opacity.sem.full</code></td><td>Opacity</td><td><pre class="pdl-json">&quot;primitive:atoms.opacity.full&quot;</pre></td></tr>
+<tr><td><code>atoms.opacity.sem.mid</code></td><td>Opacity</td><td><pre class="pdl-json">&quot;primitive:atoms.opacity.mid&quot;</pre></td></tr>
+<tr><td><code>atoms.radius.card</code></td><td>Radius</td><td><pre class="pdl-json">&quot;primitive:atoms.radius.mixed&quot;</pre></td></tr>
+<tr><td><code>atoms.space.card.pad</code></td><td>Distance</td><td><pre class="pdl-json">&quot;primitive:atoms.space.md&quot;</pre></td></tr></tbody></table></div></section>
+<section class="pdl-doc-section" id="pdl-themes"><h2>Themes</h2><div class="pdl-theme-card"><h3>AtomsCool</h3><p><span class="pdl-muted">base: (none)</span></p><div class="pdl-table-wrap"><table class="pdl-data"><thead><tr><th>Token</th><th>Override RHS</th></tr></thead><tbody><tr><td><code>atoms.color.sem.fromRgb</code></td><td><pre class="pdl-json">&quot;primitive:atoms.color.rgb&quot;</pre></td></tr></tbody></table></div></div>
+<div class="pdl-theme-card"><h3>AtomsDim</h3><p><span class="pdl-muted">base: (none)</span></p><div class="pdl-table-wrap"><table class="pdl-data"><thead><tr><th>Token</th><th>Override RHS</th></tr></thead><tbody><tr><td><code>atoms.color.scrimLiteral</code></td><td><pre class="pdl-json">&quot;semantic:atoms.color.sem.fromRgba&quot;</pre></td></tr></tbody></table></div></div>
+<div class="pdl-theme-card"><h3>AtomsLooseRadius</h3><p><span class="pdl-muted">base: (none)</span></p><div class="pdl-table-wrap"><table class="pdl-data"><thead><tr><th>Token</th><th>Override RHS</th></tr></thead><tbody><tr><td><code>atoms.radius.sm</code></td><td><pre class="pdl-json">{
+  &quot;kind&quot;: &quot;number&quot;,
+  &quot;value&quot;: 12
+}</pre></td></tr></tbody></table></div></div>
+<div class="pdl-theme-card"><h3>AtomsWarm</h3><p><span class="pdl-muted">base: (none)</span></p><div class="pdl-table-wrap"><table class="pdl-data"><thead><tr><th>Token</th><th>Override RHS</th></tr></thead><tbody><tr><td><code>atoms.color.sem.fromRgb</code></td><td><pre class="pdl-json">&quot;primitive:atoms.color.rgba&quot;</pre></td></tr></tbody></table></div></div></section>
+<section class="pdl-doc-section" id="pdl-typestyles"><h2>Type styles</h2><div class="pdl-theme-card"><h3><code>AtomBody</code></h3><pre class="pdl-json">{
+  &quot;color&quot;: &quot;semantic:atoms.color.sem.fromRgba&quot;,
+  &quot;fontFamily&quot;: &quot;primitive:atoms.font.ui&quot;,
+  &quot;fontSize&quot;: &quot;primitive:atoms.type.size.body&quot;,
+  &quot;fontWeight&quot;: &quot;primitive:atoms.type.weight.regular&quot;
+}</pre></div>
+<div class="pdl-theme-card"><h3><code>AtomCaption</code></h3><pre class="pdl-json">{
+  &quot;color&quot;: &quot;semantic:atoms.color.sem.fromRgb&quot;,
+  &quot;fontFamily&quot;: &quot;primitive:atoms.font.ui&quot;,
+  &quot;fontSize&quot;: &quot;primitive:atoms.type.size.caption&quot;,
+  &quot;fontWeight&quot;: &quot;primitive:atoms.type.weight.medium&quot;
+}</pre></div>
+<div class="pdl-theme-card"><h3><code>AtomMono</code></h3><pre class="pdl-json">{
+  &quot;color&quot;: &quot;primitive:atoms.color.rgba&quot;,
+  &quot;fontFamily&quot;: &quot;primitive:atoms.font.mono&quot;,
+  &quot;fontSize&quot;: &quot;primitive:atoms.type.size.caption&quot;,
+  &quot;fontWeight&quot;: &quot;primitive:atoms.type.weight.regular&quot;
+}</pre></div>
+<div class="pdl-theme-card"><h3><code>AtomTitle</code></h3><pre class="pdl-json">{
+  &quot;color&quot;: &quot;primitive:atoms.color.rgb&quot;,
+  &quot;fontFamily&quot;: &quot;primitive:atoms.font.ui&quot;,
+  &quot;fontSize&quot;: &quot;primitive:atoms.type.size.title&quot;,
+  &quot;fontWeight&quot;: &quot;primitive:atoms.type.weight.bold&quot;
+}</pre></div></section>
+<section class="pdl-doc-section" id="pdl-varianttypes"><h2>Variant types</h2><div class="pdl-table-wrap"><table class="pdl-data"><thead><tr><th>Variant type</th><th>Cases</th></tr></thead><tbody><tr><td><code>MoleculeBtnSize</code></td><td><code>sm</code>, <code>lg</code></td></tr><tr><td><code>MoleculeBtnTone</code></td><td><code>primary</code>, <code>secondary</code>, <code>ghost</code></td></tr><tr><td><code>MoleculeCardMedia</code></td><td><code>withHero</code>, <code>textOnly</code></td></tr><tr><td><code>MoleculeFieldBlockLayout</code></td><td><code>includeHelp</code>, <code>noHelp</code></td></tr><tr><td><code>MoleculeIconMode</code></td><td><code>textOnly</code>, <code>leadingIcon</code>, <code>trailingChevron</code>, <code>both</code></td></tr><tr><td><code>MoleculeListDensity</code></td><td><code>compact</code>, <code>roomy</code></td></tr><tr><td><code>MoleculeMatrixKind</code></td><td><code>primary</code>, <code>secondary</code>, <code>danger</code></td></tr><tr><td><code>MoleculeMatrixSize</code></td><td><code>compact</code>, <code>regular</code></td></tr></tbody></table></div></section>
+<section class="pdl-doc-section" id="pdl-components"><h2>Components (default bake)</h2><div class="pdl-preview-block" id="pdl-component-MoleculeButtonRowDemo"><h3>MoleculeButtonRowDemo</h3><p class="pdl-muted">Default params: <code>{}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:8px;padding:16px 16px 16px 16px;background:#AABBCC"><div class="pdl-frame pdl-layout" data-pdl-id="A" data-pdl-instance-of="MoleculeTextButton" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;gap:4px;padding:6px 10px 6px 10px;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0;color:#11223344;font-size:14px;font-weight:600">Ghost sm</span></div><div class="pdl-frame pdl-layout" data-pdl-id="B" data-pdl-instance-of="MoleculeTextButton" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;gap:4px;padding:12px 18px 12px 18px;border-radius:4px;background:#11223344"><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0;color:#11223344;font-size:14px;font-weight:600">Ghost sm</span></div><div class="pdl-frame pdl-layout" data-pdl-id="C" data-pdl-instance-of="MoleculeTextButton" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;gap:4px;padding:6px 10px 6px 10px;border-radius:4px;opacity:0.15;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0;color:#11223344;font-size:14px;font-weight:600">Ghost sm</span></div></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeCardArticle"><h3>MoleculeCardArticle</h3><p class="pdl-usage">Editorial card with optional hero media, title stack, and a footer row mixing text and icon actions.</p><p class="pdl-muted">Default params: <code>{&quot;title&quot;:&quot;Article&quot;,&quot;subtitle&quot;:&quot;Supporting line&quot;,&quot;layoutMode&quot;:&quot;withHero&quot;}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:column;align-items:stretch;gap:8px;padding:16px 16px 16px 16px;background:#AABBCC"><div class="pdl-frame pdl-media" data-pdl-id="Hero" style="display:flex;min-width:0;min-height:0;width:100%;border-radius:4px" role="img" aria-label="Hero"></div><span class="pdl-frame pdl-text" data-pdl-id="Title" style="display:block;min-width:0">Article</span><span class="pdl-frame pdl-text" data-pdl-id="Sub" style="display:block;min-width:0">Supporting line</span><div class="pdl-frame pdl-layout" data-pdl-id="Actions" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:space-between;gap:8px;padding:8px 0px 0px 0px"><div class="pdl-frame pdl-layout" data-pdl-id="Primary" data-pdl-instance-of="MoleculeTextButton" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;gap:4px;padding:6px 10px 6px 10px;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0;color:#11223344;font-size:14px;font-weight:600">Open</span></div><div class="pdl-frame pdl-layout" data-pdl-id="Secondary" data-pdl-instance-of="MoleculeIconTextRow" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;padding:10px 14px 10px 14px;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="T" style="display:block;min-width:0;color:#11223344;font-size:15px;font-weight:600">Share</span><div class="pdl-frame pdl-icon" data-pdl-id="Chev" style="display:flex;min-width:0;min-height:0" role="img" aria-label="Chev"></div></div></div></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeCardGridDemo"><h3>MoleculeCardGridDemo</h3><p class="pdl-muted">Default params: <code>{}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:row;flex-wrap:wrap;gap:16px;padding:16px 16px 16px 16px;background:#11223344"><div class="pdl-frame pdl-layout" data-pdl-id="C1" data-pdl-instance-of="MoleculeCardArticle" style="display:flex;min-width:0;min-height:0;flex-direction:column;align-items:stretch;gap:8px;padding:16px 16px 16px 16px;background:#AABBCC"><div class="pdl-frame pdl-media" data-pdl-id="Hero" style="display:flex;min-width:0;min-height:0;width:100%;border-radius:4px" role="img" aria-label="Hero"></div><span class="pdl-frame pdl-text" data-pdl-id="Title" style="display:block;min-width:0">No media</span><span class="pdl-frame pdl-text" data-pdl-id="Sub" style="display:block;min-width:0">Text only shell</span><div class="pdl-frame pdl-layout" data-pdl-id="Actions" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:space-between;gap:8px;padding:8px 0px 0px 0px"><div class="pdl-frame pdl-layout" data-pdl-id="Primary" data-pdl-instance-of="MoleculeTextButton" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;gap:4px;padding:6px 10px 6px 10px;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0;color:#11223344;font-size:14px;font-weight:600">Open</span></div><div class="pdl-frame pdl-layout" data-pdl-id="Secondary" data-pdl-instance-of="MoleculeIconTextRow" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;padding:10px 14px 10px 14px;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="T" style="display:block;min-width:0;color:#11223344;font-size:15px;font-weight:600">Share</span><div class="pdl-frame pdl-icon" data-pdl-id="Chev" style="display:flex;min-width:0;min-height:0" role="img" aria-label="Chev"></div></div></div></div><div class="pdl-frame pdl-layout" data-pdl-id="C2" data-pdl-instance-of="MoleculeCardArticle" style="display:flex;min-width:0;min-height:0;flex-direction:column;align-items:stretch;gap:8px;padding:16px 16px 16px 16px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="Title" style="display:block;min-width:0">No media</span><span class="pdl-frame pdl-text" data-pdl-id="Sub" style="display:block;min-width:0">Text only shell</span><div class="pdl-frame pdl-layout" data-pdl-id="Actions" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:space-between;gap:8px;padding:8px 0px 0px 0px"><div class="pdl-frame pdl-layout" data-pdl-id="Primary" data-pdl-instance-of="MoleculeTextButton" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;gap:4px;padding:6px 10px 6px 10px;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0;color:#11223344;font-size:14px;font-weight:600">Open</span></div><div class="pdl-frame pdl-layout" data-pdl-id="Secondary" data-pdl-instance-of="MoleculeIconTextRow" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;padding:10px 14px 10px 14px;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="T" style="display:block;min-width:0;color:#11223344;font-size:15px;font-weight:600">Share</span><div class="pdl-frame pdl-icon" data-pdl-id="Chev" style="display:flex;min-width:0;min-height:0" role="img" aria-label="Chev"></div></div></div></div></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeFieldBlock"><h3>MoleculeFieldBlock</h3><p class="pdl-usage">Form field row: caption label, bordered value readout, optional helper line; use layoutMode .noHelp for dense tables.</p><p class="pdl-muted">Default params: <code>{&quot;label&quot;:&quot;Email&quot;,&quot;value&quot;:&quot;you@example.com&quot;,&quot;helper&quot;:&quot;We never share your address.&quot;,&quot;layoutMode&quot;:&quot;includeHelp&quot;}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:column;align-items:stretch;gap:4px;padding:8px 0px 8px 0px"><span class="pdl-frame pdl-text" data-pdl-id="Lab" style="display:block;min-width:0">Email</span><div class="pdl-frame pdl-layout" data-pdl-id="Box" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;padding:10px 12px 10px 12px;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="Val" style="display:block;min-width:0">you@example.com</span></div><span class="pdl-frame pdl-text" data-pdl-id="Help" style="display:block;min-width:0">We never share your address.</span></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeFillWidthHugHeightColumn"><h3>MoleculeFillWidthHugHeightColumn</h3><p class="pdl-muted">Default params: <code>{}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:column;align-items:stretch;gap:8px;padding:10px 16px 10px 16px;width:100%;height:auto;background:#11223344"><div class="pdl-frame pdl-layout" data-pdl-id="RowFill" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:space-around;width:100%;height:auto;background:#AABBCC"></div><div class="pdl-frame pdl-layout" data-pdl-id="RowMixed" style="display:flex;min-width:0;min-height:0;flex-direction:row;gap:4px;padding:4px 4px 4px 4px;width:auto;height:100%;background:#11223344"></div></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeFormColumnDemo"><h3>MoleculeFormColumnDemo</h3><p class="pdl-muted">Default params: <code>{}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:column;align-items:stretch;gap:16px;padding:16px 16px 16px 16px;width:100%;height:auto;background:#11223344"><div class="pdl-frame pdl-layout" data-pdl-id="F0" data-pdl-instance-of="MoleculeFieldBlock" style="display:flex;min-width:0;min-height:0;flex-direction:column;align-items:stretch;gap:4px;padding:8px 0px 8px 0px"><span class="pdl-frame pdl-text" data-pdl-id="Lab" style="display:block;min-width:0">Role</span><div class="pdl-frame pdl-layout" data-pdl-id="Box" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;padding:10px 12px 10px 12px;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="Val" style="display:block;min-width:0">Editor</span></div><span class="pdl-frame pdl-text" data-pdl-id="Help" style="display:block;min-width:0"></span></div><div class="pdl-frame pdl-layout" data-pdl-id="F1" data-pdl-instance-of="MoleculeFieldBlock" style="display:flex;min-width:0;min-height:0;flex-direction:column;align-items:stretch;gap:4px;padding:8px 0px 8px 0px"><span class="pdl-frame pdl-text" data-pdl-id="Lab" style="display:block;min-width:0">Role</span><div class="pdl-frame pdl-layout" data-pdl-id="Box" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;padding:10px 12px 10px 12px;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="Val" style="display:block;min-width:0">Editor</span></div><span class="pdl-frame pdl-text" data-pdl-id="Help" style="display:block;min-width:0"></span></div><div class="pdl-frame pdl-layout" data-pdl-id="Actions" style="display:flex;min-width:0;min-height:0;flex-direction:row;justify-content:flex-end;gap:8px;padding:8px 0px 0px 0px"><div class="pdl-frame pdl-layout" data-pdl-id="Cancel" data-pdl-instance-of="MoleculeTextButton" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;gap:4px;padding:6px 10px 6px 10px;border-radius:4px;opacity:0.15;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0;color:#11223344;font-size:14px;font-weight:600">Save</span></div><div class="pdl-frame pdl-layout" data-pdl-id="Save" data-pdl-instance-of="MoleculeTextButton" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;gap:4px;padding:12px 18px 12px 18px;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0;color:#11223344;font-size:14px;font-weight:600">Save</span></div></div></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeHugFillLabyrinth"><h3>MoleculeHugFillLabyrinth</h3><p class="pdl-muted">Default params: <code>{}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:stretch;justify-content:flex-start;flex-wrap:nowrap;gap:8px;padding:12px 12px 12px 12px;width:100%;background:#AABBCC"><div class="pdl-frame pdl-layout" data-pdl-id="NarrowHug" style="display:flex;min-width:0;min-height:0;flex-direction:column;align-items:stretch;justify-content:space-between;gap:4px;padding:6px 6px 6px 6px;width:auto;height:100%;background:#11223344"><span class="pdl-frame pdl-text" data-pdl-id="Top" style="display:block;min-width:0;color:#AABBCC;font-size:11px">Hug×Fill</span><div class="pdl-frame pdl-layout" data-pdl-id="Bottom" style="display:flex;min-width:0;min-height:0;flex-direction:row;justify-content:flex-end;width:100%;height:auto;background:#11223344"></div></div><div class="pdl-frame pdl-layout" data-pdl-id="FlexMiddle" style="display:flex;min-width:0;min-height:0;flex-direction:column;gap:4px;padding:8px 8px 8px 8px;height:auto;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="Banner" style="display:block;min-width:0;color:#11223344;font-size:12px">Flex middle</span><div class="pdl-frame pdl-layout" data-pdl-id="StretchChild" style="display:flex;min-width:0;min-height:0;flex-direction:column;align-items:stretch;width:100%;background:#11223344"></div></div><div class="pdl-frame pdl-layout" data-pdl-id="FixedIsland" style="display:flex;min-width:0;min-height:0;flex-direction:column;align-items:center;justify-content:center;background:#11223344"></div></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeIconModeGallery"><h3>MoleculeIconModeGallery</h3><p class="pdl-muted">Default params: <code>{}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:column;gap:16px;padding:16px 16px 16px 16px;background:#11223344"><div class="pdl-frame pdl-layout" data-pdl-id="R0" data-pdl-instance-of="MoleculeIconTextRow" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;padding:10px 14px 10px 14px;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="T" style="display:block;min-width:0;color:#11223344;font-size:15px;font-weight:600">Both</span></div><div class="pdl-frame pdl-layout" data-pdl-id="R1" data-pdl-instance-of="MoleculeIconTextRow" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;padding:10px 14px 10px 14px;border-radius:4px;background:#AABBCC"><div class="pdl-frame pdl-icon" data-pdl-id="Lead" style="display:flex;min-width:0;min-height:0" role="img" aria-label="Lead"></div><span class="pdl-frame pdl-text" data-pdl-id="T" style="display:block;min-width:0;color:#11223344;font-size:15px;font-weight:600">Both</span></div><div class="pdl-frame pdl-layout" data-pdl-id="R2" data-pdl-instance-of="MoleculeIconTextRow" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;padding:10px 14px 10px 14px;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="T" style="display:block;min-width:0;color:#11223344;font-size:15px;font-weight:600">Both</span><div class="pdl-frame pdl-icon" data-pdl-id="Chev" style="display:flex;min-width:0;min-height:0" role="img" aria-label="Chev"></div></div><div class="pdl-frame pdl-layout" data-pdl-id="R3" data-pdl-instance-of="MoleculeIconTextRow" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;padding:10px 14px 10px 14px;border-radius:4px;background:#AABBCC"><div class="pdl-frame pdl-icon" data-pdl-id="Lead" style="display:flex;min-width:0;min-height:0" role="img" aria-label="Lead"></div><span class="pdl-frame pdl-text" data-pdl-id="T" style="display:block;min-width:0;color:#11223344;font-size:15px;font-weight:600">Both</span><div class="pdl-frame pdl-icon" data-pdl-id="Chev" style="display:flex;min-width:0;min-height:0" role="img" aria-label="Chev"></div></div></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeIconTextRow"><h3>MoleculeIconTextRow</h3><p class="pdl-muted">Default params: <code>{&quot;label&quot;:&quot;Continue&quot;,&quot;mode&quot;:&quot;textOnly&quot;}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;padding:10px 14px 10px 14px;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="T" style="display:block;min-width:0;color:#11223344;font-size:15px;font-weight:600">Continue</span></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeKindRichGallery"><h3>MoleculeKindRichGallery</h3><p class="pdl-muted">Default params: <code>{}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:column;gap:8px;padding:16px 16px 16px 16px;background:#AABBCC"><div class="pdl-frame pdl-layout" data-pdl-id="A" data-pdl-instance-of="MoleculeKindRichRow" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;padding:10px 14px 10px 14px;border-radius:4px;background:#AABBCC"><div class="pdl-frame pdl-icon" data-pdl-id="G" style="display:flex;min-width:0;min-height:0" role="img" aria-label="G"></div><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0">Permanently delete</span></div><div class="pdl-frame pdl-layout" data-pdl-id="B" data-pdl-instance-of="MoleculeKindRichRow" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;padding:10px 14px 10px 14px;border-radius:4px;background:#AABBCC"><div class="pdl-frame pdl-icon" data-pdl-id="G" style="display:flex;min-width:0;min-height:0" role="img" aria-label="G"></div><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0">Permanently delete</span></div><div class="pdl-frame pdl-layout" data-pdl-id="C" data-pdl-instance-of="MoleculeKindRichRow" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;padding:10px 14px 10px 14px;border-radius:4px;background:#AABBCC"><div class="pdl-frame pdl-icon" data-pdl-id="G" style="display:flex;min-width:0;min-height:0" role="img" aria-label="G"></div><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0">Permanently delete</span></div></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeKindRichRow"><h3>MoleculeKindRichRow</h3><p class="pdl-muted">Default params: <code>{&quot;kind&quot;:&quot;primary&quot;}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;padding:10px 14px 10px 14px;border-radius:4px;background:#AABBCC"><div class="pdl-frame pdl-icon" data-pdl-id="G" style="display:flex;min-width:0;min-height:0" role="img" aria-label="G"></div><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0">Save changes</span></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeLabelRowJustifySweep"><h3>MoleculeLabelRowJustifySweep</h3><p class="pdl-muted">Default params: <code>{}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:column;gap:16px;background:#11223344"><div class="pdl-frame pdl-layout" data-pdl-id="RowStart" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px"><span class="pdl-frame pdl-text" data-pdl-id="LStart" style="display:block;min-width:0;color:#AABBCC;font-size:14px">Start</span></div><div class="pdl-frame pdl-layout" data-pdl-id="RowBetween" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:space-between;gap:8px"><span class="pdl-frame pdl-text" data-pdl-id="A" style="display:block;min-width:0;color:#AABBCC;font-size:12px">A</span><span class="pdl-frame pdl-text" data-pdl-id="B" style="display:block;min-width:0;color:#11223344;font-size:12px">B</span></div><div class="pdl-frame pdl-layout" data-pdl-id="RowEnd" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:stretch;justify-content:flex-end;gap:4px"><span class="pdl-frame pdl-text" data-pdl-id="LEnd" style="display:block;min-width:0;color:#11223344;font-size:14px">End</span></div></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeLabelStack"><h3>MoleculeLabelStack</h3><p class="pdl-muted">Default params: <code>{}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:column;gap:8px;padding:16px 16px 16px 16px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="A" style="display:block;min-width:0">Caption</span><span class="pdl-frame pdl-text" data-pdl-id="B" style="display:block;min-width:0">Title line</span><span class="pdl-frame pdl-text" data-pdl-id="C" style="display:block;min-width:0">Muted supporting copy</span></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeLayerInlineSandwich"><h3>MoleculeLayerInlineSandwich</h3><p class="pdl-muted">Default params: <code>{}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:stretch;justify-content:center;gap:16px;padding:12px 12px 12px 12px;background:#AABBCC"><div class="pdl-frame pdl-layout" data-pdl-id="Left" style="display:flex;min-width:0;min-height:0;flex-direction:column;padding:8px 8px 8px 8px;width:100%;height:auto"></div><div class="pdl-frame pdl-layout" data-pdl-id="Right" style="display:flex;min-width:0;min-height:0;flex-direction:column;padding:10px 10px 10px 10px;width:auto;height:100%"></div></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeLayerTokenFlat"><h3>MoleculeLayerTokenFlat</h3><p class="pdl-muted">Default params: <code>{}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:column;padding:14px 14px 14px 14px"></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeLayeredPanel"><h3>MoleculeLayeredPanel</h3><p class="pdl-muted">Default params: <code>{}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:column;gap:8px;padding:16px 16px 16px 16px;width:100%;height:auto;border-radius:4px"></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeMatrixButton"><h3>MoleculeMatrixButton</h3><p class="pdl-muted">Default params: <code>{&quot;label&quot;:&quot;Submit&quot;,&quot;kind&quot;:&quot;primary&quot;,&quot;size&quot;:&quot;regular&quot;}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;padding:12px 20px 12px 20px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0;color:#11223344;font-size:16px;font-weight:600">Submit</span></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeMatrixButtonGallery"><h3>MoleculeMatrixButtonGallery</h3><p class="pdl-muted">Default params: <code>{}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:column;gap:16px;padding:16px 16px 16px 16px;background:#AABBCC"><div class="pdl-frame pdl-layout" data-pdl-id="R0" data-pdl-instance-of="MoleculeMatrixButton" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;padding:5px 10px 5px 10px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0;color:#11223344;font-size:16px;font-weight:600">D regular</span></div><div class="pdl-frame pdl-layout" data-pdl-id="R1" data-pdl-instance-of="MoleculeMatrixButton" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;padding:12px 20px 12px 20px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0;color:#11223344;font-size:16px;font-weight:600">D regular</span></div><div class="pdl-frame pdl-layout" data-pdl-id="R2" data-pdl-instance-of="MoleculeMatrixButton" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;padding:4px 8px 4px 8px;background:#11223344"><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0;color:#11223344;font-size:16px;font-weight:600">D regular</span></div><div class="pdl-frame pdl-layout" data-pdl-id="R3" data-pdl-instance-of="MoleculeMatrixButton" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;padding:10px 16px 10px 16px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0;color:#11223344;font-size:16px;font-weight:600">D regular</span></div></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeModalShell"><h3>MoleculeModalShell</h3><p class="pdl-muted">Default params: <code>{&quot;heading&quot;:&quot;Confirm&quot;,&quot;body&quot;:&quot;This cannot be undone.&quot;,&quot;confirmLabel&quot;:&quot;Delete&quot;,&quot;cancelLabel&quot;:&quot;Cancel&quot;}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px 48px 24px;width:100%;height:100%;background:#aabbcc40"><div class="pdl-frame pdl-layout" data-pdl-id="Panel" style="display:flex;min-width:0;min-height:0;flex-direction:column;align-items:stretch;gap:16px;padding:16px 16px 16px 16px;width:auto;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="Header" style="display:block;min-width:0">Confirm</span><span class="pdl-frame pdl-text" data-pdl-id="Copy" style="display:block;min-width:0">This cannot be undone.</span><div class="pdl-frame pdl-layout" data-pdl-id="Footer" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:flex-end;gap:8px"><div class="pdl-frame pdl-layout" data-pdl-id="Cancel" data-pdl-instance-of="MoleculeTextButton" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;gap:4px;padding:6px 10px 6px 10px;border-radius:4px;opacity:0.15;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0;color:#11223344;font-size:14px;font-weight:600">Delete</span></div><div class="pdl-frame pdl-layout" data-pdl-id="Go" data-pdl-instance-of="MoleculeTextButton" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;gap:4px;padding:6px 10px 6px 10px;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0;color:#11223344;font-size:14px;font-weight:600">Delete</span></div></div></div></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeNavListDemo"><h3>MoleculeNavListDemo</h3><p class="pdl-muted">Default params: <code>{}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:column;gap:4px;padding:12px 12px 12px 12px;background:#11223344"><div class="pdl-frame pdl-layout" data-pdl-id="R0" data-pdl-instance-of="MoleculeNavRow" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px 12px 14px;width:100%;height:auto;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="Title" style="display:block;min-width:0">About</span><div class="pdl-frame pdl-layout" data-pdl-id="Trail" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;gap:4px"><span class="pdl-frame pdl-text" data-pdl-id="Meta" style="display:block;min-width:0">v1</span><div class="pdl-frame pdl-icon" data-pdl-id="Chev" style="display:flex;min-width:0;min-height:0" role="img" aria-label="Chev"></div></div></div><div class="pdl-frame pdl-layout" data-pdl-id="R1" data-pdl-instance-of="MoleculeNavRow" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:space-between;gap:4px;padding:6px 10px 6px 10px;width:100%;height:auto;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="Title" style="display:block;min-width:0">About</span><div class="pdl-frame pdl-layout" data-pdl-id="Trail" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;gap:4px"><span class="pdl-frame pdl-text" data-pdl-id="Meta" style="display:block;min-width:0">v1</span><div class="pdl-frame pdl-icon" data-pdl-id="Chev" style="display:flex;min-width:0;min-height:0" role="img" aria-label="Chev"></div></div></div><div class="pdl-frame pdl-layout" data-pdl-id="R2" data-pdl-instance-of="MoleculeNavRow" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:space-between;gap:4px;padding:6px 10px 6px 10px;width:100%;height:auto;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="Title" style="display:block;min-width:0">About</span><div class="pdl-frame pdl-layout" data-pdl-id="Trail" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;gap:4px"><span class="pdl-frame pdl-text" data-pdl-id="Meta" style="display:block;min-width:0">v1</span><div class="pdl-frame pdl-icon" data-pdl-id="Chev" style="display:flex;min-width:0;min-height:0" role="img" aria-label="Chev"></div></div></div></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeNavRow"><h3>MoleculeNavRow</h3><p class="pdl-muted">Default params: <code>{&quot;title&quot;:&quot;Settings&quot;,&quot;meta&quot;:&quot;&quot;,&quot;density&quot;:&quot;roomy&quot;}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px 12px 14px;width:100%;height:auto;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="Title" style="display:block;min-width:0">Settings</span><div class="pdl-frame pdl-layout" data-pdl-id="Trail" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;gap:4px"><span class="pdl-frame pdl-text" data-pdl-id="Meta" style="display:block;min-width:0"></span><div class="pdl-frame pdl-icon" data-pdl-id="Chev" style="display:flex;min-width:0;min-height:0" role="img" aria-label="Chev"></div></div></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeTextButton"><h3>MoleculeTextButton</h3><p class="pdl-usage">Text-only pill control for primary actions, secondary actions, and low-emphasis links in molecule layouts.</p><p class="pdl-muted">Default params: <code>{&quot;label&quot;:&quot;Button&quot;,&quot;tone&quot;:&quot;primary&quot;,&quot;size&quot;:&quot;sm&quot;}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;gap:4px;padding:6px 10px 6px 10px;border-radius:4px;background:#AABBCC"><span class="pdl-frame pdl-text" data-pdl-id="L" style="display:block;min-width:0;color:#11223344;font-size:14px;font-weight:600">Button</span></div></div></div>
+<div class="pdl-preview-block" id="pdl-component-MoleculeThreeColumnLabels"><h3>MoleculeThreeColumnLabels</h3><p class="pdl-muted">Default params: <code>{}</code></p><div class="pdl-canvas"><div class="pdl-frame pdl-layout" data-pdl-id="Root" style="display:flex;min-width:0;min-height:0;flex-direction:row;align-items:stretch;justify-content:flex-start;flex-wrap:nowrap;gap:16px;padding:12px 12px 12px 12px;background:#AABBCC"><div class="pdl-frame pdl-layout" data-pdl-id="Col1" style="display:flex;min-width:0;min-height:0;flex-direction:column;align-items:flex-start;gap:4px"><span class="pdl-frame pdl-text" data-pdl-id="T1" style="display:block;min-width:0;color:#AABBCC;font-size:13px">Column 1</span></div><div class="pdl-frame pdl-layout" data-pdl-id="Col2" style="display:flex;min-width:0;min-height:0;flex-direction:column;align-items:center;gap:4px"><span class="pdl-frame pdl-text" data-pdl-id="T2" style="display:block;min-width:0;color:#11223344;font-size:13px">Column 2</span></div><div class="pdl-frame pdl-layout" data-pdl-id="Col3" style="display:flex;min-width:0;min-height:0;flex-direction:column;align-items:flex-end;gap:4px"><span class="pdl-frame pdl-text" data-pdl-id="T3" style="display:block;min-width:0;color:#11223344;font-size:13px">Column 3</span></div></div></div></div></section>
+</body>
+</html>
