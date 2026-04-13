@@ -2782,7 +2782,7 @@ PDL toolchains may emit more than one JSON artefact. They are **layered by purpo
 | Artefact | Role | Typical consumer |
 |----------|------|------------------|
 | **Component Catalogue** (this chapter, §2 onward) | **Full design-system graph** (same row shapes as **`resolvedComponent.system`**, untrimmed): **`primitives`**, **`semantics`**, **`themes`** (**`baseTheme`** + **`overrides`**, pointer RHSs), **`typeStyles`** (**`props`** use the same pointer rules as token **`definition`**s), **`variantTypes`**, per-component **`params`**, **`expose`**, **base** / **variant** trees, **`primitive:`** / **`semantic:`** markers on frames (§2.3). **`bakedDesign`** is the counterpart with **literal** trees only (§16d). Emitted by **`pdl graphSystem`** / **`pdl catalogue`** (§16c). | Code generators, bundlers, optional runtime loaders |
-| **`resolvedComponent`** (§16 §2.5, §16c) | **Single-component graph slice**: trimmed **`system`** plus one catalogue row. **`pdl graphComponent`** / legacy **`pdl resolve`** (without **`--tree-only`**). | Scoped emitters, previews, documentation |
+| **`resolvedComponent`** (§16 §2.5, §16c) | **Scoped graph slice**: trimmed **`system`**, **`primaryComponent`**, and **`components`** containing the **primary** catalogue row **plus** transitive **`requiredComponents`** rows (same shapes as §2.2, minus **`defaultParams`**). **`pdl graphComponent`** / legacy **`pdl resolve`** (without **`--tree-only`**). | Scoped emitters, previews, documentation |
 | **`bakedDesign`** (§16d) | **Fully denormalised** trees only: **`components`** map of materialised **`root`** frames, literal **`props`**, no token or variant registries. **`pdl bakeSystem`** / **`pdl bakeComponent`**. | Quick draw-only consumers, static snapshots |
 | **Design manifest** (§17) | **Small registry**: entry path, module list, theme / variant / typeStyle **names**, per-component **`expose`** and param types — **no** resolved frame trees, **no** token value map. | CI, docs, package indexes, sanity checks |
 
@@ -3053,12 +3053,13 @@ When the **visible** parent→child map for a permutation differs from the defau
 
 The reference CLI’s **`pdl resolve <entry> <Component> [key=value …]`** (without **`--tree-only`**) emits a single object with **`schemaKind`: `"resolvedComponent"`**. It splits **layout** from **design-system** data:
 
-**Build path (reference):** **`pdl graphComponent`** and default **`pdl resolve`** build **only** the requested component’s catalogue row (**`buildCatalogueComponentRow`**) plus a **trimmed** **`system`** (they do **not** run **`buildComponentCatalogue`** for every component). **`pdl graphSystem`** / **`pdl catalogue`** still emit the **full** multi-component catalogue.
+**Build path (reference):** **`pdl graphComponent`** and default **`pdl resolve`** build a **catalogue row per component** in the transitive **`letInstance`** / instance-**`children`** closure (**`buildCatalogueComponentRow`** for each), plus a **trimmed** **`system`** (they do **not** run **`buildComponentCatalogue`** for the whole design). **`pdl graphSystem`** / **`pdl catalogue`** still emit the **full** multi-component catalogue.
 
-- **`components`** — object keyed by component **`name`**. Each value matches a catalogue **§2.2** row (**`root`**, **`childNodes`**, **`childHierarchy`**, **`variants`**, **`params`**, **`expose`**, **`usage`**, …) but **omits** catalogue-only **`defaultParams`**. The reference CLI emits **one** key: the component named on the command line (extensible if the bundle grows to multiple rows).
-- **`system`** — optional **`theme`** (when **`--theme`** is set), trimmed **`variantTypes`**, **`primitives`**, **`semantics`**, **`themes`**, and **`typeStyles`** (same JSON shapes as the full catalogue, trimmed to the component’s transitive token usage; no duplicate flat resolved **`tokens`** map on the document).
+- **`primaryComponent`** — the component **`name`** passed on the CLI (must be a key of **`components`** and match that row’s **`name`** field).
+- **`components`** — object keyed by component **`name`**. Includes the **primary** component and **every** transitive dependency from **`requiredComponents`** (same closure as token collection). Each value matches a catalogue **§2.2** row (**`root`**, **`childNodes`**, **`childHierarchy`**, **`variants`**, **`params`**, **`expose`**, **`usage`**, …) but **omits** catalogue-only **`defaultParams`**.
+- **`system`** — optional **`theme`** (when **`--theme`** is set), trimmed **`variantTypes`**, **`primitives`**, **`semantics`**, **`themes`**, and **`typeStyles`** (same JSON shapes as the full catalogue, trimmed to the **union** of token / typeStyle usage across **`components`** in this document; no duplicate flat resolved **`tokens`** map on the document).
 
-Optional **`paramOverrides`** mirrors CLI **`key=value`** arguments; it does **not** rewrite **`components[name].childHierarchy`** — emitters still apply **§2.4** variant logic to the catalogue row. Emitters resolve **`primitive:`** / **`semantic:`** strings on **`components[…]`** using **`system.primitives` / `system.semantics`** (**`definition`** only) and strip the **`typeStyle:`** prefix when reading **`system.typeStyles`**. Per-skin values come from composing **`definition`** with **`system.themes[skin].overrides`** (see below).
+Optional **`paramOverrides`** mirrors CLI **`key=value`** arguments; it does **not** rewrite **`components[primaryComponent].childHierarchy`** — emitters still apply **§2.4** variant logic to the primary row. Emitters resolve **`primitive:`** / **`semantic:`** strings on **`components[…]`** using **`system.primitives` / `system.semantics`** (**`definition`** only) and strip the **`typeStyle:`** prefix when reading **`system.typeStyles`**. Per-skin values come from composing **`definition`** with **`system.themes[skin].overrides`** (see below).
 
 | Field | Description |
 |-------|-------------|
@@ -3066,8 +3067,9 @@ Optional **`paramOverrides`** mirrors CLI **`key=value`** arguments; it does **n
 | `schemaVersion` | Same string as the Component Catalogue (**§2.1**). |
 | `generatedAt` | ISO 8601 timestamp when the document was built. |
 | `entryPath` | Absolute path to the **entry** `.pdl` used for merge / resolution. |
+| `primaryComponent` | The CLI-requested component **`name`**; must equal **`components[primaryComponent].name`**. |
 | `paramOverrides` | Present when the CLI passes **`key=value`** overrides; maps param names to values. Does not mutate **`components`** rows. |
-| **`components`** | Map **component name → catalogue row** (minus **`defaultParams`**). |
+| **`components`** | Map **component name → catalogue row** (minus **`defaultParams`**): primary plus transitive **`requiredComponents`** closure. |
 | **`system`** | Design-system bundle for this resolve (see below). |
 
 **`system` object:**
@@ -3075,11 +3077,11 @@ Optional **`paramOverrides`** mirrors CLI **`key=value`** arguments; it does **n
 | Field | Description |
 |-------|-------------|
 | `theme` | **Optional.** Active theme label for this resolve when the CLI passed **`--theme`** (mirrors catalogue **`theme`**). |
-| `variantTypes` | Only **`variant`** type definitions referenced by this component’s **`params`** (**`variantTypeName`**). |
-| **`primitives`** | Subset of catalogue **§2.1** primitives whose **`name`** is in the **collected** set: (a) **`primitive:`** / **`semantic:`** markers anywhere under **`components[*]`** (**`root.props`**, **`childNodes[*].props`**, **`variants[].changes`**; **`childHierarchy`** values are frame ids only), (b) **`primitive` / `semantic`** idents in referenced **`typeStyle`** **`ValueExpr`** bodies, (c) **transitive** references inside included token **`definition`** graphs, and (d) any token referenced from **`system.themes[].overrides`**. Each entry is **`{ name, tokenType, definition }`** with the same serialisation as the full catalogue (**`primitive:`** / **`semantic:`** strings for bare token refs; otherwise **`SerialisedValueExpr`**, §16b). |
+| `variantTypes` | Only **`variant`** type definitions referenced by **`variantTypeName`** on **`params`** of **any** row in **`components`** (primary + dependencies). |
+| **`primitives`** | Subset of catalogue **§2.1** primitives whose **`name`** is in the **collected** set: (a) **`primitive:`** / **`semantic:`** markers anywhere under **each** **`components[*]`** catalogue row (**`root.props`**, **`childNodes[*].props`**, **`variants[].changes`**; **`childHierarchy`** values are frame ids only), (b) **`primitive` / `semantic`** idents in referenced **`typeStyle`** **`ValueExpr`** bodies, (c) **transitive** references inside included token **`definition`** graphs, and (d) any token referenced from **`system.themes[].overrides`**. Each entry is **`{ name, tokenType, definition }`** with the same serialisation as the full catalogue (**`primitive:`** / **`semantic:`** strings for bare token refs; otherwise **`SerialisedValueExpr`**, §16b). |
 | **`semantics`** | Same rules as **`primitives`**, for **semantic** tokens. |
 | **`themes`** | **Trimmed** to themes that **affect this component**: at least one override **LHS** (token name) intersects the same collected name set as **`primitives` / `semantics`**. Same shape as catalogue **`themes`**: **`baseTheme`** (**`null`** or parent theme name) plus **`overrides`** containing **only** keys in that collected set. RHS serialisation matches the full catalogue. |
-| **`typeStyles`** | Only **`typeStyle`** declarations referenced from **`components[*]`** trees. Same shape as catalogue **`typeStyles`**: each **`props`** value uses the same pointer / **`ValueExpr`** rules as token **`definition`**s. |
+| **`typeStyles`** | Only **`typeStyle`** declarations referenced from the resolved component row **or** any row in its transitive **`requiredComponents`** closure (same rules as **`primitives`** / **`semantics`** collection). Same shape as catalogue **`typeStyles`**: each **`props`** value uses the same pointer / **`ValueExpr`** rules as token **`definition`**s. |
 
 **`--tree-only`** emits only the bare **`CatalFrame`** root object (legacy).
 
@@ -3193,7 +3195,7 @@ The reference CLI emits **two graph-shaped JSON artefacts** (rich, reference-hea
 | Command | Arguments | JSON output |
 |---------|-----------|-------------|
 | **`graphSystem`** (`npm run graphSystem -- …` or **`pdl graphSystem`** after build) | `<entry.pdl>` and optional **`--out`** only | **Full Component Catalogue** (§16 §2 onward): **`kind: "componentCatalogue"`** with **`primitives`**, **`semantics`**, **`themes`**, **`typeStyles`**, **`variantTypes`**, components, companions as implemented. **No `--theme`** flag: tree resolution uses the catalogue default (same as **`catalogue`** without **`--theme`**). |
-| **`graphComponent`** (`npm run graphComponent -- …` or **`pdl graphComponent`**) | `<entry.pdl>`, `<ComponentName>`, optional **`--theme`**, optional **`--out`**, optional **`param=value`** overrides | **`resolvedComponent`** document (§16 §2.5): one trimmed **`components`** row plus **`system`**. **`system.primitives` / `semantics` / `themes` / `typeStyles`** use the **same JSON shapes** as the full catalogue, trimmed to that component; **`param=value`** pairs are recorded as **`paramOverrides`** (same semantics as legacy **`pdl resolve`** without **`--tree-only`**). |
+| **`graphComponent`** (`npm run graphComponent -- …` or **`pdl graphComponent`**) | `<entry.pdl>`, `<ComponentName>`, optional **`--theme`**, optional **`--out`**, optional **`param=value`** overrides | **`resolvedComponent`** document (§16 §2.5): **`primaryComponent`**, **`components`** (primary + transitive **`requiredComponents`** rows), and **`system`**. **`system.primitives` / `semantics` / `themes` / `typeStyles`** use the **same JSON shapes** as the full catalogue, trimmed to the **union** of usage across those rows; **`param=value`** pairs are recorded as **`paramOverrides`** (same semantics as legacy **`pdl resolve`** without **`--tree-only`**). |
 
 **Normative JSON kinds:** **`componentCatalogue`** (system) and **`resolvedComponent`** (component slice). The **`graph*`** names refer to the **CLI verbs** only.
 

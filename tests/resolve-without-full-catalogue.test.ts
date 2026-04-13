@@ -17,5 +17,6 @@ describe("resolvedComponent build path", () => {
     spy.mockRestore();
     expect(doc.components.Greeting).toBeDefined();
     expect(doc.schemaKind).toBe("resolvedComponent");
+    expect(doc.primaryComponent).toBe("Greeting");
   });
 });

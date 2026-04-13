@@ -330,6 +330,7 @@ const RESOLVED_DOC_ROOT = new Set([
   "schemaVersion",
   "generatedAt",
   "entryPath",
+  "primaryComponent",
   "components",
   "system",
   "paramOverrides",
@@ -351,10 +352,17 @@ export function assertResolvedComponentContract(doc: unknown, path = "resolvedCo
   }
   assertString(doc.generatedAt, `${path}.generatedAt`);
   assertString(doc.entryPath, `${path}.entryPath`);
+  assertString(doc.primaryComponent, `${path}.primaryComponent`);
 
   if (doc.paramOverrides !== undefined) assertPlainObject(doc.paramOverrides, `${path}.paramOverrides`);
 
   assertPlainObject(doc.components, `${path}.components`);
+  if (!(doc.primaryComponent in doc.components)) {
+    fail(path, `primaryComponent must be a key of components (got ${JSON.stringify(doc.primaryComponent)})`);
+  }
+  if ((doc.components[doc.primaryComponent] as { name?: string }).name !== doc.primaryComponent) {
+    fail(path, "components[primaryComponent].name must match primaryComponent");
+  }
   for (const [cname, row] of Object.entries(doc.components)) {
     if (cname !== (row as { name?: string }).name) {
       fail(`${path}.components[${cname}]`, "row.name must match map key");

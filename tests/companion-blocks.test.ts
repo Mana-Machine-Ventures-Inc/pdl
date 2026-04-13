@@ -48,6 +48,7 @@ describe("companion blocks (usage, fixtures, rules, interaction, extend)", () =>
   it("includes companions in resolvedComponent.components[name]", () => {
     const d = loadDesign(fx("integration/companion_extend_entry.pdl"));
     const doc = buildResolvedComponentDocument(d, { componentName: "CompanionBlock" });
+    expect(doc.primaryComponent).toBe("CompanionBlock");
     const row = doc.components.CompanionBlock!;
     expect(row.usage).toContain("Extended via extend.");
     expect(row.fixtures?.Neutral).toBeDefined();

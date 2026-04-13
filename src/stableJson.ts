@@ -6,26 +6,47 @@ export type StableStringifyOptions = {
   omitEmpty?: boolean;
 };
 
+type OmitEmptyCtx = {
+  /** When true, omit keys whose value is `""` except when inside a frame **`props`** object (empty strings may be intentional there). */
+  stripEmptyStringsOutsideProps: boolean;
+  /** True while walking keys/values under a property bag named **`props`**. */
+  insideProps: boolean;
+};
+
 /** Deterministic JSON.stringify for catalogue / golden tests (sorted object keys). */
 export function stableStringify(value: unknown, opts?: StableStringifyOptions): string {
-  const v = opts?.omitEmpty ? omitEmptyDeep(value) : value;
+  const v = opts?.omitEmpty
+    ? omitEmptyDeep(value, { stripEmptyStringsOutsideProps: true, insideProps: false })
+    : value;
   return JSON.stringify(sortDeep(v), null, 2) + "\n";
 }
 
-/** Remove empty arrays and empty objects recursively (for leaner emitter-facing JSON). */
-export function omitEmptyDeep(value: unknown): unknown {
+/**
+ * Remove empty arrays, empty objects, and (optionally) empty strings outside **`props`** bags —
+ * for leaner catalogue / **`resolvedComponent`** JSON.
+ */
+export function omitEmptyDeep(value: unknown, ctx?: OmitEmptyCtx): unknown {
+  const stripStrings = ctx?.stripEmptyStringsOutsideProps ?? false;
+  const insideProps = ctx?.insideProps ?? false;
+  const nextCtx = (inProps: boolean): OmitEmptyCtx | undefined =>
+    ctx ? { ...ctx, insideProps: inProps } : stripStrings ? { stripEmptyStringsOutsideProps: true, insideProps: inProps } : undefined;
+
   if (value === null || typeof value !== "object") {
     return value;
   }
   // Only omit empty containers when they appear as **object property values** — do not drop
   // `[]` / `{}` array elements; empty frames may still be meaningful in resolved trees.
   if (Array.isArray(value)) {
-    return value.map(omitEmptyDeep);
+    return value.map((el) => omitEmptyDeep(el, ctx));
   }
   const o = value as Record<string, unknown>;
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(o)) {
-    const ev = omitEmptyDeep(v);
+    const childInsideProps = insideProps || k === "props";
+    const ev = omitEmptyDeep(v, nextCtx(childInsideProps));
+    if (stripStrings && typeof ev === "string" && ev === "" && !childInsideProps) {
+      continue;
+    }
     if (isEmptyContainer(ev)) continue;
     out[k] = ev;
   }

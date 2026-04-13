@@ -1,6 +1,7 @@
 import type { DesignDefinition } from "./designModel.js";
 import {
   buildCatalogueComponentRow,
+  collectRequiredComponentNames,
   type CatalogueComponent,
   type CatalogueVariantTypeDef,
 } from "./catalogue.js";
@@ -44,16 +45,19 @@ export type ResolvedComponentSystemBundle = {
 };
 
 /**
- * Full **`pdl resolve`** JSON document: **`components`** holds one catalogue row per resolved
- * component key (today: the requested component only), and **`system`** carries trimmed tokens,
- * **`typeStyles`**, and related metadata — **no** merged top-level catalogue fields and **no**
- * materialised instance tree.
+ * Full **`pdl resolve`** JSON document: **`components`** holds a **catalogue row per component**
+ * in the transitive **`letInstance`** / instance-**`children`** closure (including the requested
+ * component), keyed by **`name`**. **`primaryComponent`** is the CLI-requested entry. **`system`**
+ * carries trimmed tokens, **`typeStyles`**, and related metadata — **no** merged top-level catalogue
+ * fields and **no** materialised instance tree.
  */
 export type ResolvedComponentDocument = {
   schemaKind: "resolvedComponent";
   schemaVersion: string;
   generatedAt: string;
   entryPath: string;
+  /** The **`componentName`** passed to **`buildResolvedComponentDocument`** (must equal **`components[k].name`** for that key). */
+  primaryComponent: string;
   paramOverrides?: Record<string, unknown>;
   components: Record<string, ResolvedCatalogueComponentRow>;
   system: ResolvedComponentSystemBundle;
@@ -133,6 +137,29 @@ function collectUsageFromCatalogueComponent(
   return { tokenNames, typeStyleNames };
 }
 
+/** Merge **`primitive:`** / **`semantic:`** / **`typeStyle:`** usage from **`meta`** into shared sets. */
+function mergeUsageFromCatalogueComponent(
+  meta: CatalogueComponent,
+  knownTypeStyles: ReadonlySet<string>,
+  tokenNames: Set<string>,
+  typeStyleNames: Set<string>,
+): void {
+  const u = collectUsageFromCatalogueComponent(meta, knownTypeStyles);
+  for (const t of u.tokenNames) tokenNames.add(t);
+  for (const ts of u.typeStyleNames) typeStyleNames.add(ts);
+}
+
+/** Union **`primitive:`** / **`semantic:`** / **`typeStyle:`** usage across multiple catalogue rows. */
+function collectUsageFromCatalogueRows(
+  rows: Iterable<CatalogueComponent>,
+  knownTypeStyles: ReadonlySet<string>,
+): { tokenNames: Set<string>; typeStyleNames: Set<string> } {
+  const tokenNames = new Set<string>();
+  const typeStyleNames = new Set<string>();
+  for (const m of rows) mergeUsageFromCatalogueComponent(m, knownTypeStyles, tokenNames, typeStyleNames);
+  return { tokenNames, typeStyleNames };
+}
+
 /** Pull primitive/semantic names from `typeStyle { … }` bodies into the collected token name set. */
 function augmentTokenNamesFromUsedTypeStyles(
   design: DesignDefinition,
@@ -195,10 +222,20 @@ export function buildResolvedComponentDocument(
     throw new PdlError("PDL-E006", `Unknown component ${componentName}`, { path: design.entryPath });
   }
   const tokenMap = buildResolvedTokenMap(design, theme || undefined, modifiers);
-  const meta = buildCatalogueComponentRow(design, tokenMap, c, RESOLVE_OPTIONS_GRAPH_CATALOGUE);
+
+  const depNames = collectRequiredComponentNames(design, componentName);
+  const allNames = [...new Set([componentName, ...depNames])].sort((a, b) => a.localeCompare(b));
+  const catalogueRows = new Map<string, CatalogueComponent>();
+  for (const name of allNames) {
+    const decl = design.components.get(name);
+    if (!decl) {
+      throw new PdlError("PDL-E006", `Unknown component ${name} in required closure`, { path: design.entryPath });
+    }
+    catalogueRows.set(name, buildCatalogueComponentRow(design, tokenMap, decl, RESOLVE_OPTIONS_GRAPH_CATALOGUE));
+  }
 
   const knownTypeStyles = new Set(design.typeStyles.keys());
-  const { tokenNames, typeStyleNames } = collectUsageFromCatalogueComponent(meta, knownTypeStyles);
+  const { tokenNames, typeStyleNames } = collectUsageFromCatalogueRows(catalogueRows.values(), knownTypeStyles);
   augmentTokenNamesFromUsedTypeStyles(design, typeStyleNames, tokenNames);
   augmentTokenNamesFromRelevantThemesAndDefinitions(design, tokenNames);
 
@@ -266,9 +303,12 @@ export function buildResolvedComponentDocument(
       ]),
   );
 
-  const usedVariantTypeNames = new Set(
-    meta.params.map((p) => p.variantTypeName).filter((x): x is string => Boolean(x)),
-  );
+  const usedVariantTypeNames = new Set<string>();
+  for (const m of catalogueRows.values()) {
+    for (const p of m.params) {
+      if (p.variantTypeName) usedVariantTypeNames.add(p.variantTypeName);
+    }
+  }
   const variantTypesFiltered: Record<string, CatalogueVariantTypeDef> = Object.fromEntries(
     [...usedVariantTypeNames].sort().map((n) => {
       const v = design.variants.get(n);
@@ -279,14 +319,20 @@ export function buildResolvedComponentDocument(
     }),
   );
 
-  const { defaultParams: _defaultParams, ...catalogueRow } = meta;
+  const components: Record<string, ResolvedCatalogueComponentRow> = Object.fromEntries(
+    [...catalogueRows.entries()].map(([name, m]) => {
+      const { defaultParams: _defaultParams, ...row } = m;
+      return [name, row] as const;
+    }),
+  );
 
   return {
     schemaKind: "resolvedComponent",
     schemaVersion: PDL_JSON_SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
     entryPath: design.entryPath,
-    components: { [componentName]: catalogueRow },
+    primaryComponent: componentName,
+    components,
     ...(Object.keys(paramOverrides).length ? { paramOverrides } : {}),
     system: {
       ...(theme ? { theme } : {}),

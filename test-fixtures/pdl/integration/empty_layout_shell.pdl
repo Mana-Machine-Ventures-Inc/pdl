@@ -1,5 +1,9 @@
 // Minimal layout: no imports, no tokens, no themes — slot chain + `embed: nested` rewires tree and embeds a `DeepSlot()` instance for deep JSON tests.
 
+
+primitive local.atoms.color.rgb: Color = #ABC
+semantic local.atoms.color.sem.fromRgb: Color = local.atoms.color.rgb
+
 variant EmptyLayoutEmbed {
   case flat
   case nested
@@ -16,6 +20,7 @@ component EmptyLayoutShell(embed: EmptyLayoutEmbed = .flat) layout {
     align = .stretch
     width = .fill
     height = .fill
+    background = local.atoms.color.sem.fromRgb
   }
 
   let SlotTwo: layout = {
@@ -48,5 +53,5 @@ component DeepSlot() layout {
   direction = .column
   width = .fill
   height = .fill
-  background = #FFFFFF
+  background = local.atoms.color.sem.fromRgb
 }

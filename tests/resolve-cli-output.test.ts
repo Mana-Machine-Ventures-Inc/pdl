@@ -12,6 +12,7 @@ describe("resolvedComponent document (pdl resolve default)", () => {
     const design = loadDesign(fx("molecules/m_10_form_group.pdl"));
     const doc = buildResolvedComponentDocument(design, { componentName: "MoleculeFieldBlock" });
     expect(doc.schemaKind).toBe("resolvedComponent");
+    expect(doc.primaryComponent).toBe("MoleculeFieldBlock");
     expect(doc.components.MoleculeFieldBlock).toBeDefined();
     expect(doc.components.MoleculeFieldBlock).not.toHaveProperty("defaultParams");
     expect(doc).not.toHaveProperty("tokens");
@@ -67,6 +68,18 @@ describe("resolvedComponent document (pdl resolve default)", () => {
     expect(doc.system.primitives).toEqual({});
     expect(doc.system.semantics).toEqual({});
     expect(doc.system.typeStyles).toEqual({});
+  });
+
+  it("includes primitives/semantics used only on required sub-components (letInstance closure)", () => {
+    const design = loadDesign(fx("integration/empty_layout_shell.pdl"));
+    const doc = buildResolvedComponentDocument(design, { componentName: "EmptyLayoutShell" });
+    expect(doc.primaryComponent).toBe("EmptyLayoutShell");
+    expect(doc.components.DeepSlot).toBeDefined();
+    expect(doc.components.DeepSlot!.name).toBe("DeepSlot");
+    expect(doc.components.EmptyLayoutShell!.requiredComponents).toEqual(["DeepSlot"]);
+    expect(doc.system.primitives["local.atoms.color.rgb"]).toBeDefined();
+    expect(doc.system.semantics["local.atoms.color.sem.fromRgb"]).toBeDefined();
+    expect(doc.system.semantics["local.atoms.color.sem.fromRgb"]?.definition).toBe("primitive:local.atoms.color.rgb");
   });
 
   it("mirrors component layout and variant children overrides under components[name]", () => {

@@ -1,5 +1,25 @@
 {
   "components": {
+    "DeepSlot": {
+      "childHierarchy": {
+        "Root": []
+      },
+      "childNodes": {},
+      "expose": [],
+      "name": "DeepSlot",
+      "params": [],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "semantic:local.atoms.color.sem.fromRgb",
+          "direction": "column",
+          "height": "fill",
+          "width": "fill"
+        }
+      },
+      "usage": "",
+      "variants": []
+    },
     "EmptyLayoutShell": {
       "childHierarchy": {
         "Root": [
@@ -8,33 +28,39 @@
         "SlotOne": [
           "SlotTwo"
         ],
+        "SlotThree": [],
         "SlotTwo": [
           "SlotThree"
         ]
       },
       "childNodes": {
         "DSlot": {
+          "children": [],
           "id": "DSlot",
+          "instanceKwargs": {},
           "instanceOf": "DeepSlot",
           "kind": "layout",
           "props": {
-            "background": "#FFFFFF",
+            "background": "semantic:local.atoms.color.sem.fromRgb",
             "direction": "column",
             "height": "fill",
             "width": "fill"
           }
         },
         "SlotOne": {
+          "children": [],
           "id": "SlotOne",
           "kind": "layout",
           "props": {
             "align": "stretch",
+            "background": "semantic:local.atoms.color.sem.fromRgb",
             "direction": "column",
             "height": "fill",
             "width": "fill"
           }
         },
         "SlotThree": {
+          "children": [],
           "id": "SlotThree",
           "kind": "layout",
           "props": {
@@ -44,6 +70,7 @@
           }
         },
         "SlotTwo": {
+          "children": [],
           "id": "SlotTwo",
           "kind": "layout",
           "props": {
@@ -88,6 +115,7 @@
           ],
           "changes": [],
           "childHierarchy": {
+            "DSlot": [],
             "Root": [
               "SlotThree"
             ],
@@ -111,9 +139,29 @@
   },
   "entryPath": "test-fixtures/pdl/integration/empty_layout_shell.pdl",
   "generatedAt": "2026-04-12T00:00:00.000Z",
+  "primaryComponent": "EmptyLayoutShell",
   "schemaKind": "resolvedComponent",
   "schemaVersion": "1.0.0-beta",
   "system": {
+    "primitives": {
+      "local.atoms.color.rgb": {
+        "definition": {
+          "kind": "hex",
+          "value": "#ABC"
+        },
+        "name": "local.atoms.color.rgb",
+        "tokenType": "Color"
+      }
+    },
+    "semantics": {
+      "local.atoms.color.sem.fromRgb": {
+        "definition": "primitive:local.atoms.color.rgb",
+        "name": "local.atoms.color.sem.fromRgb",
+        "tokenType": "Color"
+      }
+    },
+    "themes": {},
+    "typeStyles": {},
     "variantTypes": {
       "EmptyLayoutEmbed": {
         "cases": [
