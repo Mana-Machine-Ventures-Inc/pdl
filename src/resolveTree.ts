@@ -317,3 +317,15 @@ function materialize(
   }
   return { id, kind: mf.kind, props: { ...mf.props }, children };
 }
+
+/** **Graph** outputs (`componentCatalogue`, `resolvedComponent` trees): token pointer strings + `param:` placeholders. */
+export const RESOLVE_OPTIONS_GRAPH_CATALOGUE = {
+  useStringPlaceholders: true,
+  catalogueTokenRefs: true,
+} as const;
+
+/** **Bake** and any consumer that needs fully evaluated literals on frames. */
+export const RESOLVE_OPTIONS_LITERAL_BAKE = {
+  useStringPlaceholders: false,
+  catalogueTokenRefs: false,
+} as const;

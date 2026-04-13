@@ -58,7 +58,7 @@
 - **Interactions** (event → parameter updates; preview and optional static hooks) (§8)  
 - **Companion metadata** — **`expose`**, **`fixtures`**, **`usage`**, **`rules`** (**`tags` / `tags.add` only inside `rules {}`**), **`extend`** (§12)  
 
-A `.pdl` **module** is parsed into a **partial design definition**; the **entry file** and **`import` graph** merge into a single resolved design. The PDL toolchain can serialise this as a **Component Catalogue** — a plain JSON file with all tokens resolved, variant trees pre-baked, and property deltas computed — which emitters for React, SwiftUI, Kotlin, HTML, and other targets consume directly without needing to parse PDL or implement a resolver (§16).
+A `.pdl` **module** is parsed into a **partial design definition**; the **entry file** and **`import` graph** merge into a single resolved design. The PDL toolchain can serialise this as a **Component Catalogue** — a plain JSON file with a **token graph** (**`primitives` / `semantics` / `themes` / `typeStyles`**: definitions and overrides use **`primitive:`** / **`semantic:`** pointer strings where bare token idents appear in source), **pre-resolved default and variant frame trees** (with the same markers on frame props), and **property deltas** between variant tuples — which emitters consume without parsing PDL or re-implementing merge (§16). Runtime literal values for a skin still come from walking that graph (or from **`bakedDesign`**, §16d).
 
 **Schema version:** The current PDL specification version is **`1.0.0-beta`**. All published catalogue files and design manifests **MUST** carry `"schemaVersion": "1.0.0-beta"` until a stable release is declared. Breaking changes will bump the major version; additive changes bump minor.
 
@@ -1370,7 +1370,7 @@ Pair interactions with a **variant** (or other param) on the component; drive vi
 ## Preview vs static export
 
 - **Studio / iframe preview** should run **full** interaction + motion behavior when implemented.  
-- **Static HTML** (`npm run html`) may **omit** or **simplify** interactions unless the pipeline injects a runtime.  
+- **Static HTML / studio hosts** — this repository’s **`npm`** scripts ship the **compiler CLI** only; there is no bundled **`html`** / **`preview`** script. Any static HTML or live preview must supply its own runtime if interactions are to run end-to-end.  
 - **`appear` / `dismiss`** may be **no-ops** in static export.  
 
 ---
@@ -1386,7 +1386,7 @@ Pair interactions with a **variant** (or other param) on the component; drive vi
 
 ## Repository tools
 
-From project root (`package.json` scripts):
+From project root (`package.json` scripts). Each script runs **`tsc`** then **`node dist/cli.js …`** (see **`src/cli.ts`**). After **`npm run build`**, the **`pdl`** **bin** in **`package.json`** also invokes **`dist/cli.js`** with the same verbs.
 
 | Command | Purpose |
 |---------|---------|
@@ -1394,16 +1394,13 @@ From project root (`package.json` scripts):
 | `npm run graphComponent -- <entry.pdl> <Component>` | Print **`resolvedComponent`** slice JSON (§16c); optional **`--theme`**, **`--out`**, **`param=value`**. |
 | `npm run bakeSystem -- <entry.pdl>` | Print **`bakedDesign`** JSON (§16d) — every component, default params; optional **`--theme`**, **`--out`**. |
 | `npm run bakeComponent -- <entry.pdl> <Component>` | Print **`bakedDesign`** for one component (§16d); optional **`--theme`**, **`--out`**, **`param=value`**. |
-| `npm run manifest -- <entry.pdl>` | Print **design manifest** JSON (§17 §3) — thin registry |
-| `npm run catalogue -- <entry.pdl>` | Print **Component Catalogue** JSON (§16); optional **`--theme`** (unlike **`graphSystem`**, which fixes default resolution). |
-| `npm run resolve -- <file> <Component> key=value …` | Print **`resolvedComponent`** JSON (§16 §2.5): **`components`** (catalogue rows, no **`defaultParams`**) + **`system`** (optional **`theme`** when **`--theme`** is set, trimmed **`primitives` / `semantics` / `themes` / `typeStyles` / `variantTypes`** ); **`--tree-only`** for a bare **`CatalFrame`**. |
-| `npm run html -- <file> <Component> …` | Emit `output.html` |
-| `npm run preview -- [entry.pdl]` | Local preview server with reload |
-| `npm run web:dev` | Vite **studio** (editor + iframe preview + inspector) |
-| `npm run test:regression` | Regression suite (`src/regressionTests.ts`) |
-| `npm run build` | `tsc` + `vite build` |
+| `npm run manifest -- <entry.pdl>` | Print **design manifest** JSON (§17 §3) — thin registry; optional **`--out`**. |
+| `npm run catalogue -- <entry.pdl>` | Print **Component Catalogue** JSON (§16); optional **`--theme`** (same shape as **`graphSystem`**, but trees resolve under the chosen theme). |
+| `npm run resolve -- <file> <Component> [key=value …]` | Print **`resolvedComponent`** JSON (§16 §2.5) or, with **`--tree-only`**, a bare **`CatalFrame`**. Optional **`--theme`**, **`--out`** is not wired — stdout only. |
+| `npm run build` | Compile TypeScript: **`tsc`** → **`dist/`** (required before **`node dist/cli.js`** unless you use an **`npm run graph*`** script, which runs **`tsc`** first). |
+| `npm test` | **`npm run build`** then **Vitest** (`tests/`, including JSON contract tests for catalogue / resolve / bake shapes). |
 
-Default preview entry is often **`design.pdl`** (or `design-m3.pdl`).
+There is **no** **`vite`**, **`npm run html`**, **`npm run preview`**, or **`npm run web:dev`** in this package’s **`package.json`** today; add them only if a studio or static emitter is merged into the same repo.
 
 ---
 
@@ -1411,55 +1408,54 @@ Default preview entry is often **`design.pdl`** (or `design-m3.pdl`).
 
 | Path | Role |
 |------|------|
-| `src/parser.ts` | PDL parser and validation |
-| `src/model.ts` | AST types, `FRAME_PROP_SPECS`, token type registry |
-| `src/resolver.ts` | Instance resolution, frame tree, interaction application |
-| `src/emitHtml.ts` | HTML + studio scaffolding |
-| `src/core/loadDesign.ts` | Import merge and design definition assembly |
-| `src/loader.ts` | Node entry point: loads PDL from disk |
-| `src/core/compiler.ts` | Studio compile and catalogue generation |
-| `src/core/catalogue.ts` | Component Catalogue serialiser |
-| **`src/emitManifest.ts`** | **Planned:** design manifest emitter (§17) |
-| `web/src/main.ts` | Studio UI |
-| `web/src/pdlEditor.ts` | CodeMirror editor |
-| `web/src/compilerWorker.ts` | Worker compile |
-| `test-fixtures/pdl/*.pdl` | Minimal syntax examples |
+| `src/ast.ts` | AST node types (`ValueExpr`, declarations, …) |
+| `src/designModel.ts` | `DesignDefinition` — merged design in memory |
+| `src/lexer.ts` / `src/parser.ts` | Tokenise and parse `.pdl` modules |
+| `src/loadDesign.ts` | Import closure, merge into `DesignDefinition` |
+| `src/validateDesign.ts` | Post-merge validation |
+| `src/evaluate.ts` | `buildResolvedTokenMap`, `evaluateValue`, conditions |
+| `src/resolveTree.ts` | `resolveComponentTree`; graph vs bake resolve options |
+| `src/graph.ts` | `serialiseValueExpr`, `serialiseValueExprWithTokenRefs`, `serialiseConditionExpr` |
+| `src/graphJson.ts` | Shared catalogue / resolve JSON row types + `PDL_JSON_SCHEMA_VERSION` |
+| `src/valueExprRefs.ts` | `ValueExpr` walk for declared token names (trimmed `system`) |
+| `src/catalogue.ts` | `buildComponentCatalogue`, `buildCatalogueComponentRow`, `buildCatalogueTokenLayers` |
+| `src/resolveBundle.ts` | `buildResolvedComponentDocument` |
+| `src/bakeDesign.ts` | `bakedDesign` builders |
+| `src/manifest.ts` | Thin design manifest |
+| `src/cli.ts` | `pdl` CLI (`graphSystem`, `graphComponent`, `bake*`, `resolve`, `catalogue`, `manifest`) |
+| `src/stableJson.ts` | Deterministic JSON stringify for CLI output |
+| `src/errors.ts` | `PdlError` and error codes |
+| `tests/` | Vitest suites (including JSON shape contracts under `tests/helpers/`) |
+| `test-fixtures/pdl/` | Fixture `.pdl` trees |
+| `docs/SPEC_GAPS.md` | Known spec ↔ tooling gaps |
 
 ---
 
 ## Studio features (summary)
 
-- Multi-file in-browser project + persistence  
-- Symbols list (tokens + type styles; **may extend** to exposed components / fixtures)  
-- Component picker + per-component / all-scope preview  
-- **Inspector** for frames, tokens, type styles (edits write back to `.pdl`)  
-- **Themes** tab matrix and theme block editing  
-- **Interactions** drive live parameter toggling  
-- **Planned:** fixture grid, variant × fixture matrix with caps (§12)  
+This repository is the **compiler and JSON emitters** only; a **studio** (multi-file editor, iframe preview, inspector, theme matrix, …) is **not** part of the default **`package.json`** surface. If a studio exists elsewhere, it should consume **`loadDesign`**, **`buildComponentCatalogue`**, **`buildResolvedComponentDocument`**, or **`bakedDesign`** from this codebase or from emitted JSON.
 
 ---
 
 ## Documentation ↔ code alignment
 
-1. **`docs/developer/`** (chapters **01–18**) is the **normative language spec** for PDL as defined in this repository.  
-2. **`src/model.ts`** property tables **must** match §5 when features ship.  
-3. **`FRAME_PROP_SPECS`**, parser, resolver, and emitters **must** be updated in the **same change** as spec edits, or list **intentional drift** in a short **“Implementation parity”** subsection below until closed.  
+1. **`full-spec.md`** (this document) is the **normative** language and JSON-contract spec for the PDL compiler in this repository.  
+2. **`src/ast.ts`** and **`src/parser.ts`** should stay aligned with §5–§7 (frames, props, values) when the grammar changes.  
+3. **`loadDesign`**, **`evaluate`**, **`resolveTree`**, and JSON emitters (**`catalogue`**, **`resolveBundle`**, **`bakeDesign`**, **`manifest`**) should be updated in the **same change** as normative edits here, or the gap recorded in **`docs/SPEC_GAPS.md`** until closed.  
 4. Add **`test-fixtures/pdl`** examples for new surface syntax (§15).  
-5. **`pdl_spec.html`** (if present) is a **secondary** human-readable view — **prefer `docs/developer/`** for implementers; regenerate HTML from MD if tooling is added.  
+5. **`pdl_spec.html`** (if present) is a **secondary** human-readable view — prefer **`full-spec.md`** for implementers.
 
 ### Implementation parity (reference repo)
 
-Until implemented in TypeScript:
+Companion blocks (**`expose`**, **`fixtures`**, **`usage`**, **`rules`**, **`extend`**, **`interaction`**) and **`pdl manifest`** are implemented on the catalogue / resolve paths. The table below tracks **larger** areas where the prose may still describe more than the reference TypeScript guarantees in every tooling path:
 
-| Spec chapter | May lag in `src/` |
-|--------------|-------------------|
-| §12 | `expose`, `fixtures`, top-level `usage`/`rules`/`extend` blocks |
-| §13 | Full query evaluator |
-| §14 | `Duration`/`Easing`/`Transition`, `appear`/`dismiss`, stagger |
-| §15 | Layer arrays, `Blur`/`Ramp`/… token types |
-| §17 | `emitManifest`, `npm run manifest` |
+| Area | Notes |
+|------|--------|
+| **§13 Rules** | **`query`** objects are serialised on catalogue rows; full evaluator richness vs studio enforcement may differ. |
+| **§14 Motion** | Handler / motion tiers — see §16b TODOs for catalogue-only serialisation. |
+| **§15 Expressiveness** | Some composite token / layer forms — keep fixtures and tests aligned with claims. |
 
-Track progress by deleting rows as parity is reached.
+Track progress by updating rows or **`docs/SPEC_GAPS.md`** when parity improves.
 
 ---
 
@@ -1474,7 +1470,7 @@ Track progress by deleting rows as parity is reached.
 
 ## VS Code
 
-`vscode-pdl/` — TextMate grammar + formatter; install per that folder’s instructions.
+**VS Code / editor:** a **`vscode-pdl/`** extension (TextMate grammar + formatter) may ship in a separate repo or path; it is **not** required to be present at the root of this package.
 
 ---
 
@@ -2765,9 +2761,9 @@ In §5, **`background`** and **`foreground`** on `layout` / `text` / `media` eac
 
 When the language changes:
 
-1. Update **`docs/developer/`** (this tree) **first** or in lockstep with code.  
-2. Update **`src/model.ts`** / parser / resolver per §18.  
-3. Extend **`src/regressionTests.ts`** for critical paths.
+1. Update **`full-spec.md`** (this document) in lockstep with **`src/parser.ts`**, **`src/loadDesign.ts`**, and emitters.  
+2. Extend **`test-fixtures/pdl`** and **`tests/`** (Vitest) for new syntax and JSON contracts.  
+3. Record intentional gaps in **`docs/SPEC_GAPS.md`** until closed.
 ---
 ---
 
@@ -2812,11 +2808,10 @@ PDL compilation has three stages. The first two happen in the PDL toolchain; the
 │  DesignDefinition → Component        │
 │  Catalogue JSON                     │
 │                                     │
-│  Tokens resolved, themes applied,   │
-│  variant trees pre-baked,           │
-│  deltas computed.                   │
+│  Token graph + pointer trees,       │
+│  themes applied, variant deltas.   │
 │                                     │
-│  Written to design.catalogue.json   │
+│  Optional `--out` / stdout          │
 └─────────────────┬───────────────────┘
                   │
                   ▼
@@ -2830,7 +2825,7 @@ PDL compilation has three stages. The first two happen in the PDL toolchain; the
 └─────────────────────────────────────┘
 ```
 
-**Phase 2 is optional for in-process tooling.** The PDL studio, live preview, and any tool that starts from `.pdl` files in the same process may skip writing the catalogue to disk and work directly from the in-memory design definition. The catalogue file exists for the benefit of emitters that run in a separate process, separate language, or separate repo — it insulates them from PDL language changes and saves them from re-implementing the parser and resolver.
+**Phase 2 is optional for in-process tooling.** Any host that starts from `.pdl` files in-process may call **`buildComponentCatalogue`** (or **`buildResolvedComponentDocument`**) without writing JSON. Emitting JSON to disk is for separate processes, languages, or repos — it insulates consumers from PDL syntax changes and avoids re-implementing parse + merge.
 
 ---
 
@@ -3046,6 +3041,8 @@ When Root’s ordered child **ids** differ from component-level **`children`**, 
 
 The reference CLI’s **`pdl resolve <entry> <Component> [key=value …]`** (without **`--tree-only`**) emits a single object with **`schemaKind`: `"resolvedComponent"`**. It splits **layout** from **design-system** data:
 
+**Build path (reference):** **`pdl graphComponent`** and default **`pdl resolve`** build **only** the requested component’s catalogue row (**`buildCatalogueComponentRow`**) plus a **trimmed** **`system`** (they do **not** run **`buildComponentCatalogue`** for every component). **`pdl graphSystem`** / **`pdl catalogue`** still emit the **full** multi-component catalogue.
+
 - **`components`** — object keyed by component **`name`**. Each value matches a catalogue **§2.2** row (**`kind`**, **`props`**, **`childNodes`**, **`children`**, **`variants`**, **`params`**, **`expose`**, **`usage`**) but **omits** catalogue-only **`defaultParams`**. The reference CLI emits **one** key: the component named on the command line (extensible if the bundle grows to multiple rows).
 - **`system`** — optional **`theme`** (when **`--theme`** is set), trimmed **`variantTypes`**, **`primitives`**, **`semantics`**, **`themes`**, and **`typeStyles`** (same JSON shapes as the full catalogue, trimmed to the component’s transitive token usage; no duplicate flat resolved **`tokens`** map on the document).
 
@@ -3100,12 +3097,11 @@ The PDL toolchain generates the catalogue via:
 ```bash
 npm run catalogue -- design.pdl
 npm run catalogue -- design.pdl --theme Dark
-npm run catalogue -- design.pdl --theme Light --theme Dark
 ```
 
-A **single** catalogue JSON always includes the full **`primitives`**, **`semantics`**, and **`themes`** objects (canonical definitions + per-theme override maps). The **`--theme`** flag (when passed once) selects which theme context is used to resolve **trees** and literals that are not **`primitive:`** / **`semantic:`** markers (mirrors **`buildResolvedTokenMap`**).
+A **single** catalogue JSON always includes the full **`primitives`**, **`semantics`**, **`themes`**, and **`typeStyles`** objects (canonical definitions + per-theme override maps). The **`--theme`** flag selects which theme context is used to resolve **trees** and literals that are not **`primitive:`** / **`semantic:`** markers (mirrors **`buildResolvedTokenMap`**).
 
-When **`--theme`** is passed **multiple** times in external wrappers, each emitted file carries the **same** token graph, but different **`theme`** metadata and possibly different resolved **trees** for props that are not **`primitive:`** / **`semantic:`** markers.
+If **`--theme`** appears **more than once** on one invocation, the reference CLI **keeps the last** value (there is no multi-file emit in one process). To emit several themed JSON files, run the command **once per theme** (e.g. a shell loop) or use an external wrapper.
 
 ---
 
@@ -3117,7 +3113,11 @@ The `schemaVersion` field follows the same semantic versioning as the rest of PD
 
 ## 16b — Serialised ValueExpr JSON (`SerialisedValueExpr`)
 
-The reference **PDL** toolchain does **not** emit a standalone merged-design JSON document for end users (historical `kind: "designGraph"` / `pdl graph` was removed). **Component Catalogue** (§16 §2 onward) and **`resolvedComponent.system`** (§16 §2.5) embed fragments of the parsed expression tree using **`serialiseValueExprWithTokenRefs`** from `src/graph.ts` for **`primitives` / `semantics` / `themes` / `typeStyles`** (shared **`PDL_JSON_SCHEMA_VERSION`** and row shapes live in `src/graphJson.ts`), plus **`serialiseConditionExpr`** for rule **`when`** values where applicable.
+The reference **PDL** toolchain does **not** emit a standalone merged-design JSON document for end users (historical `kind: "designGraph"` / `pdl graph` was removed). **Component Catalogue** (§16 §2 onward) and **`resolvedComponent.system`** (§16 §2.5) embed fragments of the parsed expression tree as follows:
+
+- **Token graph:** **`serialiseValueExprWithTokenRefs`** (`src/graph.ts`) for **`primitives` / `semantics` / `themes` / `typeStyles`** — bare **`primitive` / `semantic`** idents become **`primitive:`** / **`semantic:`** strings; shared row shapes and **`PDL_JSON_SCHEMA_VERSION`** live in **`src/graphJson.ts`**. Unsupported kinds in this path **throw** (fail-fast).
+- **Rules:** **`serialiseConditionExpr`** for flattened rule **`when`** values on catalogue rows.
+- **Interactions:** handler **`assign`** / **`animate`** values use **`serialiseValueExpr`** (classic AST **`ident`** nodes, not pointer strings), unless that pipeline is extended.
 
 Emitters should treat these objects as **embedded AST slices** inside catalogue / resolve payloads, not as a separate full-design snapshot format.
 
@@ -3138,7 +3138,7 @@ Emitters should treat these objects as **embedded AST slices** inside catalogue 
 
 ### 2. Serialised value expressions (`SerialisedValueExpr`)
 
-Literal and composite RHS values from PDL appear as nested JSON objects. Every node has **`kind`**.
+Literal and composite RHS values from PDL appear as nested JSON objects. Every node has **`kind`**, except where the **token-graph serialiser** replaces a bare token **`ident`** with a **string** (**`primitive:…`** / **`semantic:…`**) as described in §16 §2 and §16b intro above.
 
 | `kind` | Shape | Notes |
 |--------|-------|-------|
@@ -3147,7 +3147,7 @@ Literal and composite RHS values from PDL appear as nested JSON objects. Every n
 | **`number`** | `{ "kind": "number", "value": <number> }` | |
 | **`boolean`** | `{ "kind": "boolean", "value": true \| false }` | |
 | **`condition`** | `{ "kind": "condition", "expr": ConditionExpr }` | Variant / boolean conditions in values. |
-| **`ident`** | `{ "kind": "ident", "name": "token.or.Qualified" }` | Token or qualified name as authored. |
+| **`ident`** | `{ "kind": "ident", "name": "…" }` | In **`serialiseValueExpr`** output: authored identifier. In **token graph** slots (**`serialiseValueExprWithTokenRefs`**), a bare **`primitive` / `semantic`** token name is **not** emitted as **`ident`** — it becomes a **`primitive:`** / **`semantic:`** string instead; other idents remain as **`ident`** objects. |
 | **`dotEnum`** | `{ "kind": "dotEnum", "value": ".caseName" }` | Includes leading `.` in reference output. |
 | **`opacityOf`** | `{ "kind": "opacityOf", "base": …, "opacity": … }` | Colour `@` opacity / multiplier. |
 | **`edgeInsets`** | `{ "kind": "edgeInsets", "variant": "xy" \| "trbl", "fields": { … } }` | Each field maps to nested `SerialisedValueExpr`. |
@@ -3159,7 +3159,7 @@ Literal and composite RHS values from PDL appear as nested JSON objects. Every n
 | **`sizing`** | `{ "kind": "sizing", "mode": "hug" \| "fill" \| "fixed" \| "flex", "fixed"?, "flexArgs"? }` | For `.fixed(n)`, `fixed` is numeric. For `.flex(…)`, `flexArgs` maps argument labels → `SerialisedValueExpr`. **TODO:** Document full flex argument set (`min`, `max`, `preferred`). |
 | **`call`** | `{ "kind": "call", "callee": "Color" \| "Ramp" \| "Blur" \| "Media" \| "Vibrancy", "args": { … } }` | Layer constructors and similar keyword calls; **`args`** values are `SerialisedValueExpr`. |
 | **`gradientStop`** | `{ "kind": "gradientStop", "fields": { … } }` | **TODO:** List allowed field keys (`position`, `opacity`, `color`, …) normatively. |
-| **`unknown`** | `{ "kind": "unknown" }` | Fallback when the reference `serialiseValueExpr` encounters an AST node it does not serialise. **TODO:** Specify whether conforming implementations **must** error instead of emitting `unknown`. |
+| **`unknown`** | `{ "kind": "unknown" }` | **`serialiseValueExpr`** only: fallback when a **`ValueExpr`** kind is not handled (should be rare). **`serialiseValueExprWithTokenRefs`** does **not** emit this — it **throws** on an unhandled kind so catalogue token graphs cannot silently degrade. |
 
 **TODO:** Provide a JSON Schema for `SerialisedValueExpr` / `ConditionExpr` fragments used in catalogue and resolve output.
 
@@ -3180,8 +3180,8 @@ The reference CLI emits **two graph-shaped JSON artefacts** (rich, reference-hea
 
 | Command | Arguments | JSON output |
 |---------|-----------|-------------|
-| **`pdl graphSystem`** | `<entry.pdl>` and optional **`--out`** only | **Full Component Catalogue** (§16 §2 onward): **`kind: "componentCatalogue"`** with **`primitives`**, **`semantics`**, **`themes`**, **`typeStyles`**, **`variantTypes`**, components, companions as implemented. **No `--theme`** flag: tree resolution uses the catalogue default (same as **`catalogue`** without **`--theme`**). |
-| **`pdl graphComponent`** | `<entry.pdl>`, `<ComponentName>`, optional **`--theme`**, optional **`--out`**, optional **`param=value`** overrides | **`resolvedComponent`** document (§16 §2.5): one trimmed **`components`** row plus **`system`**. **`system.primitives` / `semantics` / `themes` / `typeStyles`** use the **same JSON shapes** as the full catalogue, trimmed to that component; **`param=value`** pairs are recorded as **`paramOverrides`** (same semantics as legacy **`pdl resolve`** without **`--tree-only`**). |
+| **`graphSystem`** (`npm run graphSystem -- …` or **`pdl graphSystem`** after build) | `<entry.pdl>` and optional **`--out`** only | **Full Component Catalogue** (§16 §2 onward): **`kind: "componentCatalogue"`** with **`primitives`**, **`semantics`**, **`themes`**, **`typeStyles`**, **`variantTypes`**, components, companions as implemented. **No `--theme`** flag: tree resolution uses the catalogue default (same as **`catalogue`** without **`--theme`**). |
+| **`graphComponent`** (`npm run graphComponent -- …` or **`pdl graphComponent`**) | `<entry.pdl>`, `<ComponentName>`, optional **`--theme`**, optional **`--out`**, optional **`param=value`** overrides | **`resolvedComponent`** document (§16 §2.5): one trimmed **`components`** row plus **`system`**. **`system.primitives` / `semantics` / `themes` / `typeStyles`** use the **same JSON shapes** as the full catalogue, trimmed to that component; **`param=value`** pairs are recorded as **`paramOverrides`** (same semantics as legacy **`pdl resolve`** without **`--tree-only`**). |
 
 **Normative JSON kinds:** **`componentCatalogue`** (system) and **`resolvedComponent`** (component slice). The **`graph*`** names refer to the **CLI verbs** only.
 
@@ -3268,7 +3268,7 @@ Each emitter **must** document:
 
 | Input | Use |
 |-------|-----|
-| **Component Catalogue** (§16) | Primary input for all code-generating emitters. Contains resolved trees, variant deltas, flat token map. |
+| **Component Catalogue** (§16) | Primary input for code-generating emitters. Contains **token graph** maps (**`primitives` / `semantics` / `themes` / `typeStyles`** with pointer serialisation), **resolved default and variant frame trees**, and **variant deltas** — not a legacy flat resolved **`tokens`** map. |
 | **Design manifest** | For tooling, CI, and metadata consumers that need component API summaries **without** full trees or resolved tokens (§3). |
 
 ---
@@ -3331,7 +3331,7 @@ Earlier drafts of this chapter described a **heavier** manifest (resolved **`tok
 The **AI system prompt** slice is **not** a second source of truth. A practical pipeline:
 
 1. Emit the **thin design manifest** (§3) for **names**, **`expose`**, and param types.  
-2. Optionally pull **`usage`**, **`fixtures`**, and **`rules`** from the **Component Catalogue** or source when those companion blocks are implemented in the catalogue pipeline.  
+2. Pull **`usage`**, **`fixtures`**, **`rules`**, and **`interactions`** from the **Component Catalogue** JSON when you need prose or constraints beyond the manifest (they are emitted on **`components[name]`** rows today).  
 3. Run a **template** (or summarization) over that material.
 
 Goal: **minimize tokens** while preserving **API surface**; heavier constraints remain in the **catalogue** or PDL until a future **fat manifest** (§3.3) is specified.
@@ -3340,12 +3340,17 @@ Goal: **minimize tokens** while preserving **API surface**; heavier constraints 
 
 ## 5. CLI expectations (reference)
 
+Same verbs as **`src/cli.ts`** after **`npm run build`** (or use **`npm run graph*`** / **`catalogue`** / **`manifest`**, which compile first). Examples:
+
 | Command | Output |
 |---------|--------|
 | `catalogue -- <entry.pdl>` | **Component Catalogue JSON** to stdout (§16). |
-| `catalogue -- <entry.pdl> --theme Dark` | Catalogue resolved under the Dark theme. |
+| `catalogue -- <entry.pdl> --theme Dark` | Catalogue with trees resolved under the Dark theme. |
 | `manifest -- <entry.pdl>` | **Design manifest JSON** — compact component API summary. |
-| `html -- …` | HTML document (uses catalogue internally). |
+| `graphSystem -- <entry.pdl>` | Full catalogue; no **`--theme`**. |
+| `graphComponent -- <entry.pdl> <Component>` | **`resolvedComponent`** slice (§16c). |
+
+There is **no** `html` subcommand in this package’s CLI.
 
 ---
 

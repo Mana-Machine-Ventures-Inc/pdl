@@ -4,6 +4,7 @@ import { PDL_JSON_SCHEMA_VERSION } from "./graphJson.js";
 import { buildResolvedTokenMap } from "./evaluate.js";
 import {
   pruneHiddenChildrenTree,
+  RESOLVE_OPTIONS_LITERAL_BAKE,
   resolveComponentTree,
   resolveDefaultParamValues,
   type CatalFrame,
@@ -56,7 +57,7 @@ export function buildBakedDesignSystem(
   opts: { theme?: string } = {},
 ): BakedDesignDocument {
   const tokenMap = buildResolvedTokenMap(design, opts.theme, []);
-  const resolveOpts = { useStringPlaceholders: false, catalogueTokenRefs: false } as const;
+  const resolveOpts = RESOLVE_OPTIONS_LITERAL_BAKE;
   const components: Record<string, BakedComponentJson> = {};
 
   for (const c of [...design.components.values()].sort((a, b) => a.name.localeCompare(b.name))) {
@@ -96,7 +97,7 @@ export function buildBakedDesignComponent(
     throw new PdlError("PDL-E006", `Unknown component ${componentName}`, { path: design.entryPath });
   }
   const tokenMap = buildResolvedTokenMap(design, theme, []);
-  const resolveOpts = { useStringPlaceholders: false, catalogueTokenRefs: false } as const;
+  const resolveOpts = RESOLVE_OPTIONS_LITERAL_BAKE;
   const defaults = resolveDefaultParamValues(design, tokenMap, c);
   const bakedParams = { ...defaults, ...paramOverrides };
   const raw = resolveComponentTree(design, componentName, tokenMap, paramOverrides, resolveOpts);

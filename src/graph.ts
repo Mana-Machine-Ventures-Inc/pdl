@@ -1,5 +1,6 @@
 import type { ConditionExpr, ValueExpr } from "./ast.js";
 import type { DesignDefinition } from "./designModel.js";
+import { PdlError } from "./errors.js";
 
 export function serialiseConditionExpr(c: ConditionExpr): unknown {
   switch (c.kind) {
@@ -81,6 +82,9 @@ export function serialiseValueExpr(e: ValueExpr): unknown {
 /**
  * Serialise a **`ValueExpr`** for theme override JSON: bare **`primitive`** / **`semantic`** idents
  * become **`primitive:name`** / **`semantic:name`** strings so values are not duplicated from definitions.
+ *
+ * When adding **`ValueExpr`** kinds, update **`collectDeclaredTokenNamesFromValueExpr`** in **`valueExprRefs.ts`**
+ * so resolved **`system`** trimming stays aligned.
  */
 export function serialiseValueExprWithTokenRefs(expr: ValueExpr, design: DesignDefinition): unknown {
   switch (expr.kind) {
@@ -167,7 +171,9 @@ export function serialiseValueExprWithTokenRefs(expr: ValueExpr, design: DesignD
     default: {
       const _x: never = expr;
       void _x;
-      return { kind: "unknown" };
+      throw new PdlError("PDL-E001", `Unsupported value expression kind ${(expr as ValueExpr).kind}`, {
+        path: design.entryPath,
+      });
     }
   }
 }

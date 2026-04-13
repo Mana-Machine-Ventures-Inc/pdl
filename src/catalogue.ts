@@ -23,6 +23,7 @@ import { ruleLineToDef, type RuleDefJson } from "./rulesJson.js";
 import {
   isHiddenFrame,
   pruneHiddenChildrenTree,
+  RESOLVE_OPTIONS_GRAPH_CATALOGUE,
   resolveComponentTree,
   resolveDefaultParamValues,
   type CatalFrame,
@@ -440,7 +441,8 @@ function catalogueParams(
   });
 }
 
-function buildCatalogueTokenLayers(design: DesignDefinition): {
+/** Serialised token graph for the merged design (full **`primitives` / `semantics` / `themes` / `typeStyles`**). */
+export function buildCatalogueTokenLayers(design: DesignDefinition): {
   primitives: Record<string, CataloguePrimitiveEntry>;
   semantics: Record<string, CatalogueSemanticEntry>;
   themes: Record<string, CatalogueThemeEntry>;
@@ -503,6 +505,129 @@ function buildCatalogueTokenLayers(design: DesignDefinition): {
   return { primitives, semantics, themes, typeStyles };
 }
 
+/**
+ * Build a single **Component Catalogue** row (trees, variants, companions) without walking other components.
+ * **`resolveOpts`** should normally be **`RESOLVE_OPTIONS_GRAPH_CATALOGUE`**.
+ */
+export function buildCatalogueComponentRow(
+  design: DesignDefinition,
+  tokenMap: Map<string, unknown>,
+  c: ComponentDecl,
+  resolveOpts: { useStringPlaceholders: boolean; catalogueTokenRefs: boolean },
+): CatalogueComponent {
+  const baseTree = resolveComponentTree(design, c.name, tokenMap, {}, resolveOpts);
+  const baseParamsStr = baseParamStrings(design, c, tokenMap);
+  const expose = design.expose.get(c.name) ?? c.params.map((p) => p.name);
+
+  const defaultChildOrder = visibleRootChildIds(baseTree);
+  const candidateIdList = [...collectRootLevelFrameRefTargets(c.body)].sort((a, b) => a.localeCompare(b));
+
+  const axes = variantParamAxes(design, c);
+  const defaultAssign = defaultVariantAssignment(design, c);
+  const variantKeys = axes.map((a) => a.name);
+
+  const treesByAssignKey = new Map<string, CatalFrame>();
+  treesByAssignKey.set(assignmentKey(defaultAssign), baseTree);
+
+  const scanTrees: CatalFrame[] = [baseTree];
+  for (const assign of eachVariantAssignment(axes)) {
+    if (assignmentsEqual(assign, defaultAssign, variantKeys)) continue;
+    const k = assignmentKey(assign);
+    if (treesByAssignKey.has(k)) continue;
+    const t = resolveComponentTree(design, c.name, tokenMap, assign, resolveOpts);
+    treesByAssignKey.set(k, t);
+    scanTrees.push(t);
+  }
+
+  const childNodes = buildChildNodesMap(design, candidateIdList, scanTrees, c.name);
+
+  const variants: CatalogueVariantEntry[] = [];
+  for (const assign of eachVariantAssignment(axes)) {
+    if (assignmentsEqual(assign, defaultAssign, variantKeys)) continue;
+    const tree2 = treesByAssignKey.get(assignmentKey(assign))!;
+    const { changes, affected, structural } = diffTrees(baseTree, tree2);
+    const childOrder2 = visibleRootChildIds(tree2);
+    const childrenOverride =
+      JSON.stringify(childOrder2) !== JSON.stringify(defaultChildOrder) ? childOrder2 : undefined;
+    const changesOut = childrenOverride ? stripRootChildrenFromChanges(changes) : changes;
+    const structuralOut = structural || Boolean(childrenOverride);
+    if (changesOut.length === 0 && childrenOverride === undefined) continue;
+    variants.push({
+      params: assign,
+      affectedFrames: [...affected],
+      changes: changesOut,
+      ...(structuralOut ? { structuralChange: true } : {}),
+      ...(childrenOverride ? { children: childrenOverride } : {}),
+    });
+  }
+  variants.sort((a, b) => assignmentKey(a.params).localeCompare(assignmentKey(b.params)));
+
+  const baseJson = frameToJson(baseTree);
+
+  const usageKeys = design.usage.get(c.name);
+  const usageStr = usageKeys?.get("description") ?? "";
+  const usageByKey =
+    usageKeys && usageKeys.size > 0
+      ? Object.fromEntries([...usageKeys.entries()].sort(([a], [b]) => a.localeCompare(b)))
+      : undefined;
+
+  const fxMap = design.fixtures.get(c.name);
+  let fixturesOut: Record<string, Record<string, unknown>> | undefined;
+  if (fxMap && fxMap.size > 0) {
+    fixturesOut = {};
+    for (const label of [...fxMap.keys()].sort()) {
+      const ex = fxMap.get(label)!;
+      const params: Record<string, unknown> = {};
+      for (const b of ex.bindings) {
+        params[b.name] = evaluateValue(b.value, {
+          design,
+          tokens: tokenMap,
+          visiting: new Set(),
+          paramValues: {},
+          paramMeta: new Map(),
+        });
+      }
+      fixturesOut[label] = params;
+    }
+  }
+
+  const rstmts = design.rules.get(c.name);
+  let rulesOut: { tags: string[]; rules: Array<RuleDefJson & { when?: unknown }> } | undefined;
+  if (rstmts?.length) {
+    const flat = flattenRulesWithWhen(rstmts);
+    rulesOut = {
+      tags: effectiveRuleTags(rstmts),
+      rules: flat.map((r) => {
+        const { when, ...def } = r;
+        return when ? { ...def, when: serialiseConditionExpr(when) } : def;
+      }),
+    };
+  }
+
+  const imap = design.interactions.get(c.name);
+  const interactionsOut =
+    imap && imap.size > 0
+      ? [...imap.values()].sort((a, b) => a.name.localeCompare(b.name)).map(serialiseInteractionDecl)
+      : undefined;
+
+  return {
+    name: c.name,
+    params: catalogueParams(design, c, tokenMap),
+    expose,
+    usage: usageStr,
+    ...(usageByKey ? { usageByKey } : {}),
+    ...(fixturesOut ? { fixtures: fixturesOut } : {}),
+    ...(rulesOut ? { rules: rulesOut } : {}),
+    ...(interactionsOut ? { interactions: interactionsOut } : {}),
+    kind: baseTree.kind,
+    props: { ...baseJson.props },
+    defaultParams: baseParamsStr,
+    childNodes,
+    children: defaultChildOrder,
+    variants,
+  };
+}
+
 export function buildComponentCatalogue(
   design: DesignDefinition,
   opts: { theme?: string; modifiers?: string[] } = {},
@@ -511,120 +636,8 @@ export function buildComponentCatalogue(
   const { primitives, semantics, themes, typeStyles } = buildCatalogueTokenLayers(design);
   const components: Record<string, CatalogueComponent> = {};
 
-  const resolveOpts = { useStringPlaceholders: true, catalogueTokenRefs: true } as const;
-
   for (const c of [...design.components.values()].sort((a, b) => a.name.localeCompare(b.name))) {
-    const baseTree = resolveComponentTree(design, c.name, tokenMap, {}, resolveOpts);
-    const baseParamsStr = baseParamStrings(design, c, tokenMap);
-    const expose = design.expose.get(c.name) ?? c.params.map((p) => p.name);
-
-    const defaultChildOrder = visibleRootChildIds(baseTree);
-    const candidateIdList = [...collectRootLevelFrameRefTargets(c.body)].sort((a, b) => a.localeCompare(b));
-
-    const axes = variantParamAxes(design, c);
-    const defaultAssign = defaultVariantAssignment(design, c);
-    const variantKeys = axes.map((a) => a.name);
-
-    const treesByAssignKey = new Map<string, CatalFrame>();
-    treesByAssignKey.set(assignmentKey(defaultAssign), baseTree);
-
-    const scanTrees: CatalFrame[] = [baseTree];
-    for (const assign of eachVariantAssignment(axes)) {
-      if (assignmentsEqual(assign, defaultAssign, variantKeys)) continue;
-      const k = assignmentKey(assign);
-      if (treesByAssignKey.has(k)) continue;
-      const t = resolveComponentTree(design, c.name, tokenMap, assign, resolveOpts);
-      treesByAssignKey.set(k, t);
-      scanTrees.push(t);
-    }
-
-    const childNodes = buildChildNodesMap(design, candidateIdList, scanTrees, c.name);
-
-    const variants: CatalogueVariantEntry[] = [];
-    for (const assign of eachVariantAssignment(axes)) {
-      if (assignmentsEqual(assign, defaultAssign, variantKeys)) continue;
-      const tree2 = treesByAssignKey.get(assignmentKey(assign))!;
-      const { changes, affected, structural } = diffTrees(baseTree, tree2);
-      const childOrder2 = visibleRootChildIds(tree2);
-      const childrenOverride =
-        JSON.stringify(childOrder2) !== JSON.stringify(defaultChildOrder) ? childOrder2 : undefined;
-      const changesOut = childrenOverride ? stripRootChildrenFromChanges(changes) : changes;
-      const structuralOut = structural || Boolean(childrenOverride);
-      if (changesOut.length === 0 && childrenOverride === undefined) continue;
-      variants.push({
-        params: assign,
-        affectedFrames: [...affected],
-        changes: changesOut,
-        ...(structuralOut ? { structuralChange: true } : {}),
-        ...(childrenOverride ? { children: childrenOverride } : {}),
-      });
-    }
-    variants.sort((a, b) => assignmentKey(a.params).localeCompare(assignmentKey(b.params)));
-
-    const baseJson = frameToJson(baseTree);
-
-    const usageKeys = design.usage.get(c.name);
-    const usageStr = usageKeys?.get("description") ?? "";
-    const usageByKey =
-      usageKeys && usageKeys.size > 0
-        ? Object.fromEntries([...usageKeys.entries()].sort(([a], [b]) => a.localeCompare(b)))
-        : undefined;
-
-    const fxMap = design.fixtures.get(c.name);
-    let fixturesOut: Record<string, Record<string, unknown>> | undefined;
-    if (fxMap && fxMap.size > 0) {
-      fixturesOut = {};
-      for (const label of [...fxMap.keys()].sort()) {
-        const ex = fxMap.get(label)!;
-        const params: Record<string, unknown> = {};
-        for (const b of ex.bindings) {
-          params[b.name] = evaluateValue(b.value, {
-            design,
-            tokens: tokenMap,
-            visiting: new Set(),
-            paramValues: {},
-            paramMeta: new Map(),
-          });
-        }
-        fixturesOut[label] = params;
-      }
-    }
-
-    const rstmts = design.rules.get(c.name);
-    let rulesOut: { tags: string[]; rules: Array<RuleDefJson & { when?: unknown }> } | undefined;
-    if (rstmts?.length) {
-      const flat = flattenRulesWithWhen(rstmts);
-      rulesOut = {
-        tags: effectiveRuleTags(rstmts),
-        rules: flat.map((r) => {
-          const { when, ...def } = r;
-          return when ? { ...def, when: serialiseConditionExpr(when) } : def;
-        }),
-      };
-    }
-
-    const imap = design.interactions.get(c.name);
-    const interactionsOut =
-      imap && imap.size > 0
-        ? [...imap.values()].sort((a, b) => a.name.localeCompare(b.name)).map(serialiseInteractionDecl)
-        : undefined;
-
-    components[c.name] = {
-      name: c.name,
-      params: catalogueParams(design, c, tokenMap),
-      expose,
-      usage: usageStr,
-      ...(usageByKey ? { usageByKey } : {}),
-      ...(fixturesOut ? { fixtures: fixturesOut } : {}),
-      ...(rulesOut ? { rules: rulesOut } : {}),
-      ...(interactionsOut ? { interactions: interactionsOut } : {}),
-      kind: baseTree.kind,
-      props: { ...baseJson.props },
-      defaultParams: baseParamsStr,
-      childNodes,
-      children: defaultChildOrder,
-      variants,
-    };
+    components[c.name] = buildCatalogueComponentRow(design, tokenMap, c, RESOLVE_OPTIONS_GRAPH_CATALOGUE);
   }
 
   const variantTypes: Record<string, CatalogueVariantTypeDef> = Object.fromEntries(

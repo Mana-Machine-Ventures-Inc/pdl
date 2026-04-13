@@ -1,13 +1,15 @@
-import type { ValueExpr } from "./ast.js";
 import type { DesignDefinition } from "./designModel.js";
 import {
-  buildComponentCatalogue,
+  buildCatalogueComponentRow,
   type CatalogueComponent,
   type CatalogueVariantTypeDef,
 } from "./catalogue.js";
+import { buildResolvedTokenMap } from "./evaluate.js";
 import { PdlError } from "./errors.js";
-import type { GraphThemeEntry, GraphTokenRow, GraphTypeStyleEntry } from "./graphJson.js";
 import { serialiseValueExprWithTokenRefs } from "./graph.js";
+import { PDL_JSON_SCHEMA_VERSION, type GraphThemeEntry, type GraphTokenRow, type GraphTypeStyleEntry } from "./graphJson.js";
+import { RESOLVE_OPTIONS_GRAPH_CATALOGUE } from "./resolveTree.js";
+import { collectDeclaredTokenNamesFromValueExpr } from "./valueExprRefs.js";
 
 const PRIMITIVE_REF = /^primitive:(.+)$/;
 const SEMANTIC_REF = /^semantic:(.+)$/;
@@ -131,62 +133,6 @@ function collectUsageFromCatalogueComponent(
   return { tokenNames, typeStyleNames };
 }
 
-function collectTokenNamesFromValueExpr(expr: ValueExpr, design: DesignDefinition, sink: Set<string>): void {
-  switch (expr.kind) {
-    case "ident":
-      if (design.primitives.has(expr.name) || design.semantics.has(expr.name)) sink.add(expr.name);
-      return;
-    case "opacityOf":
-      collectTokenNamesFromValueExpr(expr.base, design, sink);
-      collectTokenNamesFromValueExpr(expr.opacity, design, sink);
-      return;
-    case "edgeInsets":
-      for (const v of Object.values(expr.fields)) collectTokenNamesFromValueExpr(v, design, sink);
-      return;
-    case "corner":
-      collectTokenNamesFromValueExpr(expr.tl, design, sink);
-      collectTokenNamesFromValueExpr(expr.tr, design, sink);
-      collectTokenNamesFromValueExpr(expr.br, design, sink);
-      collectTokenNamesFromValueExpr(expr.bl, design, sink);
-      return;
-    case "array":
-      for (const it of expr.items) collectTokenNamesFromValueExpr(it, design, sink);
-      return;
-    case "transition":
-      collectTokenNamesFromValueExpr(expr.duration, design, sink);
-      collectTokenNamesFromValueExpr(expr.easing, design, sink);
-      if (expr.delay) collectTokenNamesFromValueExpr(expr.delay, design, sink);
-      return;
-    case "rampInline":
-      for (const s of expr.stops) collectTokenNamesFromValueExpr(s, design, sink);
-      return;
-    case "sizing":
-      if (expr.flexArgs) {
-        for (const v of Object.values(expr.flexArgs)) collectTokenNamesFromValueExpr(v, design, sink);
-      }
-      return;
-    case "call":
-      for (const v of Object.values(expr.args)) collectTokenNamesFromValueExpr(v, design, sink);
-      return;
-    case "gradientStop":
-      for (const v of Object.values(expr.fields)) collectTokenNamesFromValueExpr(v, design, sink);
-      return;
-    case "hex":
-    case "string":
-    case "number":
-    case "boolean":
-    case "dotEnum":
-    case "condition":
-    case "vibrancyTuple":
-      return;
-    default: {
-      const _x: never = expr;
-      void _x;
-      return;
-    }
-  }
-}
-
 /** Pull primitive/semantic names from `typeStyle { … }` bodies into the collected token name set. */
 function augmentTokenNamesFromUsedTypeStyles(
   design: DesignDefinition,
@@ -197,7 +143,7 @@ function augmentTokenNamesFromUsedTypeStyles(
     const decl = design.typeStyles.get(tsName);
     if (!decl) continue;
     for (const expr of Object.values(decl.props)) {
-      collectTokenNamesFromValueExpr(expr, design, tokenNames);
+      collectDeclaredTokenNamesFromValueExpr(expr, design, tokenNames);
     }
   }
 }
@@ -209,9 +155,9 @@ function augmentTokenNamesTransitiveFromDefinitions(design: DesignDefinition, to
     prev = tokenNames.size;
     for (const name of [...tokenNames]) {
       const prim = design.primitives.get(name);
-      if (prim) collectTokenNamesFromValueExpr(prim.value, design, tokenNames);
+      if (prim) collectDeclaredTokenNamesFromValueExpr(prim.value, design, tokenNames);
       const sem = design.semantics.get(name);
-      if (sem) collectTokenNamesFromValueExpr(sem.value, design, tokenNames);
+      if (sem) collectDeclaredTokenNamesFromValueExpr(sem.value, design, tokenNames);
     }
   }
 }
@@ -227,7 +173,7 @@ function augmentTokenNamesFromRelevantThemesAndDefinitions(design: DesignDefinit
     for (const t of design.themes.values()) {
       for (const [key, expr] of Object.entries(t.overrides)) {
         if (!tokenNames.has(key)) continue;
-        collectTokenNamesFromValueExpr(expr, design, tokenNames);
+        collectDeclaredTokenNamesFromValueExpr(expr, design, tokenNames);
       }
     }
     augmentTokenNamesTransitiveFromDefinitions(design, tokenNames);
@@ -244,11 +190,12 @@ export function buildResolvedComponentDocument(
   },
 ): ResolvedComponentDocument {
   const { componentName, paramOverrides = {}, theme, modifiers = [] } = opts;
-  const cat = buildComponentCatalogue(design, { theme, modifiers });
-  const meta = cat.components[componentName];
-  if (!meta) {
+  const c = design.components.get(componentName);
+  if (!c) {
     throw new PdlError("PDL-E006", `Unknown component ${componentName}`, { path: design.entryPath });
   }
+  const tokenMap = buildResolvedTokenMap(design, theme || undefined, modifiers);
+  const meta = buildCatalogueComponentRow(design, tokenMap, c, RESOLVE_OPTIONS_GRAPH_CATALOGUE);
 
   const knownTypeStyles = new Set(design.typeStyles.keys());
   const { tokenNames, typeStyleNames } = collectUsageFromCatalogueComponent(meta, knownTypeStyles);
@@ -323,14 +270,20 @@ export function buildResolvedComponentDocument(
     meta.params.map((p) => p.variantTypeName).filter((x): x is string => Boolean(x)),
   );
   const variantTypesFiltered: Record<string, CatalogueVariantTypeDef> = Object.fromEntries(
-    [...usedVariantTypeNames].sort().map((n) => [n, cat.variantTypes[n]!]),
+    [...usedVariantTypeNames].sort().map((n) => {
+      const v = design.variants.get(n);
+      if (!v) {
+        throw new PdlError("PDL-E001", `Unknown variant type ${n}`, { path: design.entryPath });
+      }
+      return [n, { name: v.name, cases: [...v.cases] }] as const;
+    }),
   );
 
   const { defaultParams: _defaultParams, ...catalogueRow } = meta;
 
   return {
     schemaKind: "resolvedComponent",
-    schemaVersion: cat.schemaVersion,
+    schemaVersion: PDL_JSON_SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
     entryPath: design.entryPath,
     components: { [componentName]: catalogueRow },

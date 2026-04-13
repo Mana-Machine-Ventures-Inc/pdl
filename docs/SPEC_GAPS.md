@@ -22,6 +22,7 @@ This document records ambiguities between `full-spec.md` and this repository’s
 ## Graph and bake CLI (`graphSystem`, `graphComponent`, `bakeSystem`, `bakeComponent`)
 
 - **§16c–§16d** document **`pdl graph*`** (catalogue / **`resolvedComponent`**) and **`pdl bake*`** (**`bakedDesign`** — literal trees only). Implementation: **`src/cli.ts`**, **`src/bakeDesign.ts`**.
+- **`graphComponent` / `resolve` (default):** **`buildResolvedComponentDocument`** emits one catalogue row via **`buildCatalogueComponentRow`** plus a trimmed **`system`** — it does **not** build the full multi-component catalogue (see **`src/resolveBundle.ts`**). **`graphSystem` / `catalogue`** still use **`buildComponentCatalogue`** for the whole design.
 
 ## Component Catalogue
 
