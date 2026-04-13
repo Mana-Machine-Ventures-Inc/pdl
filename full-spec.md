@@ -25,6 +25,7 @@
 
 **Implementer Reference**
 16. [Component Catalogue and Pipeline](#16-component-catalogue-and-pipeline)
+16a. [Reference CLI wire JSON (compact serialization)](#16a--reference-cli-wire-json-compact-serialization)
 16b. [Serialised ValueExpr JSON (`SerialisedValueExpr`)](#16b-serialised-valueexpr-json-serialisedvalueexpr)
 16c. [Graph exports (`graphSystem`, `graphComponent`)](#16c-graph-exports-graphsystem-graphcomponent)
 16d. [Baked design JSON (`bakeSystem`, `bakeComponent`)](#16d-baked-design-json-bakesystem-bakecomponent)
@@ -1400,6 +1401,8 @@ From project root (`package.json` scripts). Each script runs **`tsc`** then **`n
 | `npm run build` | Compile TypeScript: **`tsc`** → **`dist/`** (required before **`node dist/cli.js`** unless you use an **`npm run graph*`** script, which runs **`tsc`** first). |
 | `npm test` | **`npm run build`** then **Vitest** (`tests/`, including JSON contract tests for catalogue / resolve / bake shapes). |
 
+**JSON on disk:** **`graphSystem`**, **`catalogue`**, **`graphComponent`**, **`resolve`**, **`bakeSystem`**, and **`bakeComponent`** write **`stableStringify(..., { omitEmpty: true })`** — compact rules in **§16a**. **`manifest`** uses **`stableStringify`** **without** **`omitEmpty`**.
+
 There is **no** **`vite`**, **`npm run html`**, **`npm run preview`**, or **`npm run web:dev`** in this package’s **`package.json`** today; add them only if a studio or static emitter is merged into the same repo.
 
 ---
@@ -1423,7 +1426,7 @@ There is **no** **`vite`**, **`npm run html`**, **`npm run preview`**, or **`npm
 | `src/bakeDesign.ts` | `bakedDesign` builders |
 | `src/manifest.ts` | Thin design manifest |
 | `src/cli.ts` | `pdl` CLI (`graphSystem`, `graphComponent`, `bake*`, `resolve`, `catalogue`, `manifest`) |
-| `src/stableJson.ts` | Deterministic JSON stringify for CLI output |
+| `src/stableJson.ts` | Deterministic JSON stringify for CLI output (sorted keys; optional **`omitEmpty`** compaction — **§16a**) |
 | `src/errors.ts` | `PdlError` and error codes |
 | `tests/` | Vitest suites (including JSON shape contracts under `tests/helpers/`) |
 | `test-fixtures/pdl/` | Fixture `.pdl` trees |
@@ -2764,14 +2767,14 @@ When the language changes:
 1. Update **`full-spec.md`** (this document) in lockstep with **`src/parser.ts`**, **`src/loadDesign.ts`**, and emitters.  
 2. Extend **`test-fixtures/pdl`** and **`tests/`** (Vitest) for new syntax and JSON contracts.  
 3. Record intentional gaps in **`docs/SPEC_GAPS.md`** until closed.
----
+
 ---
 
 ## 16 — Component Catalogue and Pipeline
 
 This chapter describes how PDL source files become the **Component Catalogue** — the primary handoff format for emitters like Kotlin, SwiftUI, React, and HTML generators. The goal is simple: emitter authors should be able to pick up the catalogue JSON and start writing code without needing to understand PDL syntax, implement a parser, or chase unresolved references.
 
-For the serialised **`ValueExpr`** JSON shapes embedded in catalogue and resolve output, see **§16b**. For the thin **design manifest** (registry of names and APIs without frame trees), see **§17**.
+For the serialised **`ValueExpr`** JSON shapes embedded in catalogue and resolve output, see **§16b**. For **CLI file** compaction (missing keys vs in-process builders), see **§16a**. For the thin **design manifest** (registry of names and APIs without frame trees), see **§17**.
 
 ---
 
@@ -2787,6 +2790,31 @@ PDL toolchains may emit more than one JSON artefact. They are **layered by purpo
 | **Design manifest** (§17) | **Small registry**: entry path, module list, theme / variant / typeStyle **names**, per-component **`expose`** and param types — **no** resolved frame trees, **no** token value map. | CI, docs, package indexes, sanity checks |
 
 **Guidance:** use **graph** outputs (catalogue / **`resolvedComponent`**) when receivers should follow **`primitive:`** / **`semantic:`** (and the same pointer rules inside **`typeStyles.props`** and token **`definition`**s). Use **bake** when trees must be **fully literal** (no token graph, no variant catalogue). Inline **`SerialisedValueExpr`** fragments (§16b) appear only inside those graph payloads, not inside **`bakedDesign`**.
+
+## 16a — Reference CLI wire JSON (compact serialization)
+
+The reference CLI (`src/cli.ts`) writes **graph** and **bake** JSON with **`stableStringify(value, { omitEmpty: true })`** from **`src/stableJson.ts`** for:
+
+- **`pdl graphSystem`**, **`pdl catalogue`**, **`pdl graphComponent`**, **`pdl resolve`** (default **`resolvedComponent`** or **`--tree-only`** **`CatalFrame`** tree), **`pdl bakeSystem`**, and **`pdl bakeComponent`**.
+
+**`pdl manifest`** uses **`stableStringify`** **without** **`omitEmpty`** (manifest rows stay explicit where the manifest schema expects keys).
+
+**Determinism:** Every **`stableStringify`** pass sorts **object keys** at all depths (lexicographic order of property names) before **`JSON.stringify`**, then appends a single trailing newline. The same logical value and the same **`omitEmpty`** flag **MUST** yield byte-identical output.
+
+**Compact rules** when **`omitEmpty: true`** (implemented by **`omitEmptyDeep`**):
+
+1. **Object keys dropped** when, after recursion, the property value is an **empty array** **`[]`** or **empty object** **`{}`**.
+2. **Array elements preserved:** empty **`[]`** / **`{}`** that appear **inside arrays** are **not** removed (only **object properties** whose value becomes an empty container are pruned).
+3. **Empty strings:** object properties whose value is **`""`** are dropped **except** while traversing the subtree under a property named **`props`** (frame property bags may intentionally carry **`""`**, e.g. **`text`** **`content`**). Keys named **`props`** at any depth that hold frame property objects enter this “preserve empty string values inside **`props`**” mode for their nested values.
+
+**Consumer contract (parsing CLI files):** Treat **missing** optional keys as their **logical defaults** unless a field is explicitly required:
+
+- Absent map → **`{}`**; absent array → **`[]`** where the logical schema is a list.
+- Catalogue / **`resolvedComponent`** component rows: absent **`usage`** → no usage prose; absent **`variants`** → **`[]`**; absent **`expose`** / **`params`** when the design truly has none → **`[]`**; **`childNodes`** registry frames: absent **`children`** → **`[]`** (no in-registry child list); absent **`instanceKwargs`** on an instance → **`{}`**; variant entries: absent **`changes`** → **`[]`**.
+- **`resolvedComponent`:** the top-level **`system`** object may be **omitted** when every subsystem would serialize to empty maps and there is no **`theme`** key. Individual **`system.*`** maps (**`primitives`**, **`semantics`**, **`themes`**, **`typeStyles`**, **`variantTypes`**) may each be omitted when that map would be **`{}`** after pruning.
+- **Component Catalogue root:** top-level **`primitives`**, **`semantics`**, **`themes`**, **`typeStyles`**, or **`variantTypes`** may be omitted when the corresponding merged map is empty. In-process **`buildComponentCatalogue`** still builds full maps; **on-disk CLI output** may therefore be **sparser** than the illustrative JSON blocks in §2.1 while remaining **logically** the same catalogue.
+
+**Normative for the reference toolchain:** Emitters and tests that consume **CLI-written** JSON **SHOULD** normalise absent optional keys as above before applying the field tables in §2 and §2.5. In-process callers that use **`buildComponentCatalogue`** / **`buildResolvedComponentDocument`** / **`buildBakedDesign*`** directly receive the full in-memory shapes without this pruning step.
 
 ---
 
@@ -2812,6 +2840,7 @@ PDL compilation has three stages. The first two happen in the PDL toolchain; the
 │  themes applied, variant deltas.   │
 │                                     │
 │  Optional `--out` / stdout          │
+│  (CLI JSON uses §16a compaction)     │
 └─────────────────┬───────────────────┘
                   │
                   ▼
@@ -2832,6 +2861,8 @@ PDL compilation has three stages. The first two happen in the PDL toolchain; the
 ## 2. The Component Catalogue format
 
 The catalogue is a single JSON file: the **canonical emitter input** and the **full** design-system graph. Every merged **`primitive`** / **`semantic`** appears **exactly once** under **`primitives` / `semantics`**; every **`typeStyle`** preset appears under **`typeStyles`**. Token **`definition`**s, theme **`overrides`** RHSs, and **`typeStyles[*].props`** all use the **same** serialisation: bare **`primitive` / `semantic`** idents become **`primitive:full.name`** / **`semantic:full.name`** strings; literals and composites remain inline **`ValueExpr`** JSON (**§16b**). Each **`themes[skin]`** row is **`{ baseTheme, overrides }`** where **`baseTheme`** is the parent theme name for inheritance or **`null`**, and **`overrides`** maps LHS token name → serialised RHS (same pointer rules). **`primitive:`** / **`semantic:`** strings on **component trees** (§2.3) name tokens the same way. When the CLI passes **`--theme`**, the catalogue and **`resolvedComponent.system`** include a **`theme`** field for **tree** resolution (matches **`buildResolvedTokenMap`**); when omitted, there is no **`theme`** key. **`resolvedComponent.system`** uses the **identical** JSON shapes for **`primitives`**, **`semantics`**, **`themes`**, and **`typeStyles`**, but **trimmed** to the subset needed for the requested component. **`modifiers`** (when used) can still make the resolved **tree** differ from what a pure walk of **`themes`** alone would imply — treat the compiler’s resolved map as authoritative for those builds.
+
+When the reference CLI writes catalogue JSON to disk, **§16a** (compact keys) may **omit** top-level or nested object keys whose values would serialize to empty **`{}`** / **`[]`**. The field tables in §2.1–§2.4 describe the **logical** shape; parsers **SHOULD** apply the defaults in **§16a** before interpreting “missing” keys as errors.
 
 ### 2.1 Top-level shape
 
@@ -2898,13 +2929,15 @@ The catalogue is a single JSON file: the **canonical emitter input** and the **f
 | `kind` | Always **`"componentCatalogue"`** when this object is the catalogue root (discriminant when multiple JSON artefacts are stored together). |
 | `schemaVersion` | Catalogue schema version. Emitters should check this before parsing. |
 | `generatedAt` | ISO 8601 timestamp. Useful for cache invalidation. |
-| `theme` | **Optional.** Present only when the catalogue was built with CLI **`--theme`**: the **active** theme label for **tree** resolution (same rule as **`buildResolvedTokenMap`** with that theme). Omitted when no theme is selected — theme keys are always **`Object.keys(themes)`**. |
+| `theme` | **Optional.** Present only when the catalogue was built with CLI **`--theme`**: the **active** theme label for **tree** resolution (same rule as **`buildResolvedTokenMap`** with that theme). Omitted when no theme is selected. Theme skins are the keys of the logical **`themes`** map (**`Object.keys(themes)`**); when the **`themes`** key itself is absent on CLI output (**§16a**), treat it as **`{}`**. |
 | `primitives` | Map **primitive token name** → **`{ name, tokenType, definition }`**. **`definition`** is the **authored** RHS once: bare token idents → **`primitive:`** / **`semantic:`** strings; otherwise **`SerialisedValueExpr`** (§16b). |
 | `semantics` | Map **semantic token name** → **`{ name, tokenType, definition }`**. Same shape as **`primitives`**. |
 | `themes` | Map **theme name** → **`{ baseTheme, overrides }`**. **`baseTheme`**: parent theme name when the PDL declares **`theme Name: ParentName { … }`**, else **`null`**. Each **`overrides`** entry is **LHS token name** → serialised RHS (same pointer rules as **`definition`**). |
 | `typeStyles` | Map **preset name** → **`{ name, props }`**. Each **`props`** value uses the same serialisation as token **`definition`**s (pointers for bare **`primitive` / `semantic`** idents). |
 | `variantTypes` | Every merged **`variant`** type (**name-keyed** object in the reference implementation): **`cases`** are case ids **without** a leading dot. Variant-typed **`components[].params`** carry **`variantTypeName`** only (§2.2). Empty object when the design defines no **`variant`** blocks. |
 | `components` | Map **component name** → component entry (§2.2). |
+
+**CLI wire note:** On files emitted with **`stableStringify(..., { omitEmpty: true })`** (**§16a**), any row in the table above whose logical value is an **empty map** may appear as a **missing** key at the catalogue root. Treat absent **`primitives`**, **`semantics`**, **`themes`**, **`typeStyles`**, or **`variantTypes`** as **`{}`**.
 
 ### 2.2 Component entry
 
@@ -2971,7 +3004,7 @@ Each component is one object in the `components` array. The **default** presenta
 | `usage` | Human-readable description from `usage` blocks. Empty string if not declared. |
 | `root` | **`{ "kind", "props" }`** for the component **root** frame at the **default** resolution (all variant params at defaults). **`kind`** is **`layout`**, **`text`**, **`icon`**, or **`media`**; **`props`** uses the same key/value rules as frame nodes (§2.3). This is **separate** from top-level catalogue fields (there is **no** row-level **`kind`** / **`props`**). |
 | `defaultParams` | String catalogue of **every** component parameter’s default binding (stable for emitters that previously read `base.params`). |
-| `childNodes` | **Flat registry:** **frame id → shell** for **every** frame id that can appear in this component’s catalogue materialisation (default + variants), **unioned** across `if` / `else` branches. Each value is **`id`**, **`kind`**, **`props`**, optional **`instanceOf`** / **`instanceKwargs`**, and **`children`: `[]`** — **no** nested wiring; parent/child order is **`childHierarchy`** only. |
+| `childNodes` | **Flat registry:** **frame id → shell** for **every** frame id that can appear in this component’s catalogue materialisation (default + variants), **unioned** across `if` / `else` branches. Each value is **`id`**, **`kind`**, **`props`**, optional **`instanceOf`** / **`instanceKwargs`**, and logically **`children`: `[]`** (in-registry children are always empty; on CLI output the **`children`** key may be omitted — **§16a**) — **no** nested wiring; parent/child order is **`childHierarchy`** only. |
 | `childHierarchy` | **Child hierarchy** for the **default** resolution: map **parent frame id** → ordered array of **visible** direct **child** frame ids (includes **`"Root"`**). Root’s ordered direct children are **`childHierarchy["Root"]`** only (there is **no** separate top-level **`children`** field). Adjacency only; payloads live in **`childNodes`**. |
 | `requiredComponents` | **Optional.** Sorted list of **other** component names transitively referenced by **`letInstance`** or **`children`** instance entries in this component’s body (union across **`if`** branches), excluding **`name`**. Omitted when empty. |
 | `variants` | Entries for non-default **variant tuples** (§2.4): property deltas and/or a differing **`childHierarchy`** map; **`structuralChange`** when the hierarchy map is present on the variant. |
@@ -2985,7 +3018,7 @@ Values inside **`root.props`** and inside each **`childNodes[*].props`** entry u
 
 **Frame node fields** in a **full** resolved `CatalFrame` tree (e.g. CLI **`--tree-only`**): **`id`**, **`kind`**, **`props`**, **`children`** (nested frame objects), optional **`instanceOf`** / **`instanceKwargs`**.
 
-**Catalogue `childNodes` registry entries** use the same **`id`**, **`kind`**, **`props`**, and optional **`instanceOf`** / **`instanceKwargs`**, but **`children` is always `[]`** — use **`childHierarchy`** (and variant **`childHierarchy`** when present) for wiring.
+**Catalogue `childNodes` registry entries** use the same **`id`**, **`kind`**, **`props`**, and optional **`instanceOf`** / **`instanceKwargs`**, but **in-registry `children` is always logically `[]`** (the key may be absent on CLI output — **§16a**) — use **`childHierarchy`** (and variant **`childHierarchy`** when present) for wiring.
 
 | Field | Description |
 |-------|-------------|
@@ -2994,7 +3027,7 @@ Values inside **`root.props`** and inside each **`childNodes[*].props`** entry u
 | `props` | All resolved properties as plain JSON values. See §5 for property names per kind. Enum values are plain strings without a leading dot (e.g. `"row"` not `".row"`). |
 | `children` | In **`--tree-only`** trees: ordered array of **child frame nodes** (full objects). In catalogue **`childNodes`**: always **`[]`**. |
 | `instanceOf` | **Optional.** When this node is the root of an inlined **`letInstance`** or **`Other()`** instance child, the **source component** name (`DeepSlot`, …). |
-| `instanceKwargs` | **Optional.** Evaluated explicit **`kwargs`** from the callsite (empty object when none). Present with **`instanceOf`** on graph catalogue output. |
+| `instanceKwargs` | **Optional.** Evaluated explicit **`kwargs`** from the callsite (empty object when none). With **`instanceOf`**, present on graph catalogue output when non-empty; when **`{}`**, the key may be omitted on CLI output (**§16a**). |
 
 **`param:name` markers:** When a property value is a free parameter (a `String` or `Icon` param that can't be pre-baked), the catalogue uses a **`param:name`** string. Emitters wire these through to their generated function parameters. Variant params are fully resolved — only open-ended string/icon/media params use this form.
 
@@ -3057,7 +3090,7 @@ The reference CLI’s **`pdl resolve <entry> <Component> [key=value …]`** (wit
 
 - **`primaryComponent`** — the component **`name`** passed on the CLI (must be a key of **`components`** and match that row’s **`name`** field).
 - **`components`** — object keyed by component **`name`**. Includes the **primary** component and **every** transitive dependency from **`requiredComponents`** (same closure as token collection). Each value matches a catalogue **§2.2** row (**`root`**, **`childNodes`**, **`childHierarchy`**, **`variants`**, **`params`**, **`expose`**, **`usage`**, …) but **omits** catalogue-only **`defaultParams`**.
-- **`system`** — optional **`theme`** (when **`--theme`** is set), trimmed **`variantTypes`**, **`primitives`**, **`semantics`**, **`themes`**, and **`typeStyles`** (same JSON shapes as the full catalogue, trimmed to the **union** of token / typeStyle usage across **`components`** in this document; no duplicate flat resolved **`tokens`** map on the document).
+- **`system`** — optional **`theme`** (when **`--theme`** is set), trimmed **`variantTypes`**, **`primitives`**, **`semantics`**, **`themes`**, and **`typeStyles`** (same JSON shapes as the full catalogue, trimmed to the **union** of token / typeStyle usage across **`components`** in this document; no duplicate flat resolved **`tokens`** map on the document). On CLI output (**§16a**), the entire **`system`** object may be **omitted** when it would serialize to only empty maps and no **`theme`**; individual **`system.*`** maps may likewise be omitted when empty.
 
 Optional **`paramOverrides`** mirrors CLI **`key=value`** arguments; it does **not** rewrite **`components[primaryComponent].childHierarchy`** — emitters still apply **§2.4** variant logic to the primary row. Emitters resolve **`primitive:`** / **`semantic:`** strings on **`components[…]`** using **`system.primitives` / `system.semantics`** (**`definition`** only) and strip the **`typeStyle:`** prefix when reading **`system.typeStyles`**. Per-skin values come from composing **`definition`** with **`system.themes[skin].overrides`** (see below).
 
@@ -3070,7 +3103,7 @@ Optional **`paramOverrides`** mirrors CLI **`key=value`** arguments; it does **n
 | `primaryComponent` | The CLI-requested component **`name`**; must equal **`components[primaryComponent].name`**. |
 | `paramOverrides` | Present when the CLI passes **`key=value`** overrides; maps param names to values. Does not mutate **`components`** rows. |
 | **`components`** | Map **component name → catalogue row** (minus **`defaultParams`**): primary plus transitive **`requiredComponents`** closure. |
-| **`system`** | Design-system bundle for this resolve (see below). |
+| **`system`** | Design-system bundle for this resolve (see below). **May be absent** on CLI output when empty — **§16a**. |
 
 **`system` object:**
 
@@ -3091,9 +3124,9 @@ Optional **`paramOverrides`** mirrors CLI **`key=value`** arguments; it does **n
 
 A typical emitter pass for a Kotlin / Compose target:
 
-1. **Read `primitives` / `semantics` / `themes`** → build a per-theme resolver (walk definitions, then apply **`themes[skin].overrides`**, following **`primitive:`** / **`semantic:`** strings on override RHSs and inside **definitions**). Theme keys are **`Object.keys(themes)`**.
+1. **Read `primitives` / `semantics` / `themes`** → build a per-theme resolver (walk definitions, then apply **`themes[skin].overrides`**, following **`primitive:`** / **`semantic:`** strings on override RHSs and inside **definitions**). Theme keys are **`Object.keys(themes)`** after normalising absent maps as **`{}`** per **§16a** when parsing CLI JSON.
 2. **For each component:**
-   - Use **`root.kind`**, **`root.props`**, and **`childHierarchy`** (including **`childHierarchy["Root"]`**) for the default Root shell and visible child order; use **`childNodes[id]`** for each frame’s **props** shell (registry entries have empty **`children`**).
+   - Use **`root.kind`**, **`root.props`**, and **`childHierarchy`** (including **`childHierarchy["Root"]`**) for the default Root shell and visible child order; use **`childNodes[id]`** for each frame’s **props** shell (registry entries have **no in-registry children**; on CLI output the **`children`** key may be **absent** when **`[]`** — treat as empty list, **§16a**).
    - Walk the **`variants`** array → generate branches keyed by the full **`params`** tuple; apply **`changes`** to **`props`** on the indicated **`frameId`** (use **`"Root"`** with **`root`** for root prop deltas, or a **`childNodes`** id). When a variant supplies **`childHierarchy`**, use that map for the permutation’s visible wiring; otherwise reuse the component default **`childHierarchy`**.
    - Wire **`param:name`** strings to function parameters.
    - Replace **`primitive:`** / **`semantic:`** tree strings with values from your resolver for the target skin.
@@ -3113,7 +3146,7 @@ npm run catalogue -- design.pdl
 npm run catalogue -- design.pdl --theme Dark
 ```
 
-A **single** catalogue JSON always includes the full **`primitives`**, **`semantics`**, **`themes`**, and **`typeStyles`** objects (canonical definitions + per-theme override maps). The **`--theme`** flag selects which theme context is used to resolve **trees** and literals that are not **`primitive:`** / **`semantic:`** markers (mirrors **`buildResolvedTokenMap`**).
+A **single** catalogue from **`buildComponentCatalogue`** (in-process or written by the CLI) is the **logical** union of all merged **`primitives`**, **`semantics`**, **`themes`**, and **`typeStyles`** rows (canonical definitions + per-theme override maps). On **CLI-written** files, empty top-level maps may be **omitted** — **§16a** — while the in-memory builder still materialises full objects. The **`--theme`** flag selects which theme context is used to resolve **trees** and literals that are not **`primitive:`** / **`semantic:`** markers (mirrors **`buildResolvedTokenMap`**).
 
 If **`--theme`** appears **more than once** on one invocation, the reference CLI **keeps the last** value (there is no multi-file emit in one process). To emit several themed JSON files, run the command **once per theme** (e.g. a shell loop) or use an external wrapper.
 
@@ -3195,9 +3228,11 @@ The reference CLI emits **two graph-shaped JSON artefacts** (rich, reference-hea
 | Command | Arguments | JSON output |
 |---------|-----------|-------------|
 | **`graphSystem`** (`npm run graphSystem -- …` or **`pdl graphSystem`** after build) | `<entry.pdl>` and optional **`--out`** only | **Full Component Catalogue** (§16 §2 onward): **`kind: "componentCatalogue"`** with **`primitives`**, **`semantics`**, **`themes`**, **`typeStyles`**, **`variantTypes`**, components, companions as implemented. **No `--theme`** flag: tree resolution uses the catalogue default (same as **`catalogue`** without **`--theme`**). |
-| **`graphComponent`** (`npm run graphComponent -- …` or **`pdl graphComponent`**) | `<entry.pdl>`, `<ComponentName>`, optional **`--theme`**, optional **`--out`**, optional **`param=value`** overrides | **`resolvedComponent`** document (§16 §2.5): **`primaryComponent`**, **`components`** (primary + transitive **`requiredComponents`** rows), and **`system`**. **`system.primitives` / `semantics` / `themes` / `typeStyles`** use the **same JSON shapes** as the full catalogue, trimmed to the **union** of usage across those rows; **`param=value`** pairs are recorded as **`paramOverrides`** (same semantics as legacy **`pdl resolve`** without **`--tree-only`**). |
+| **`graphComponent`** (`npm run graphComponent -- …` or **`pdl graphComponent`**) | `<entry.pdl>`, `<ComponentName>`, optional **`--theme`**, optional **`--out`**, optional **`param=value`** overrides | **`resolvedComponent`** document (§16 §2.5): **`primaryComponent`**, **`components`** (primary + transitive **`requiredComponents`** rows), and **`system`**. **`system.primitives` / `semantics` / `themes` / `typeStyles`** use the **same JSON shapes** as the full catalogue, trimmed to the **union** of usage across those rows; **`param=value`** pairs are recorded as **`paramOverrides`** (same semantics as legacy **`pdl resolve`** without **`--tree-only`**). The **`system`** key (and sparse component-row keys) follow **§16a** on disk. |
 
 **Normative JSON kinds:** **`componentCatalogue`** (system) and **`resolvedComponent`** (component slice). The **`graph*`** names refer to the **CLI verbs** only.
+
+**Serialization:** **`graphSystem`**, **`catalogue`**, **`graphComponent`**, default **`resolve`**, **`bakeSystem`**, and **`bakeComponent`** stdout / **`--out`** use **`stableStringify(..., { omitEmpty: true })`** — **§16a**. **`resolve --tree-only`** uses the same compaction path for the bare **`CatalFrame`** tree.
 
 ---
 
@@ -3209,6 +3244,8 @@ The reference CLI emits **two graph-shaped JSON artefacts** (rich, reference-hea
 |---------|-----------|-------------|
 | **`pdl bakeSystem`** | `<entry.pdl>`, optional **`--theme`**, optional **`--out`** | One **`bakedDesign`** document (below) whose **`components`** map contains **every** merged component, each at **default parameter values**, resolved under the chosen theme (or default token map when **`--theme`** is omitted). |
 | **`pdl bakeComponent`** | `<entry.pdl>`, `<ComponentName>`, optional **`--theme`**, optional **`--out`**, optional **`param=value`** | Same **`bakedDesign`** shape with **exactly one** entry in **`components`**. **`param=value`** overrides variant and non-variant params (same parsing rules as **`pdl resolve`**). |
+
+**Serialization:** **`bakeSystem`** and **`bakeComponent`** use the same **`stableStringify(..., { omitEmpty: true })`** rules as graph output — **§16a** (e.g. **`BakedFrame.children`** may be absent when there are no visible children).
 
 ### `bakedDesign` — root document
 
@@ -3241,7 +3278,7 @@ The reference CLI emits **two graph-shaped JSON artefacts** (rich, reference-hea
 | **`id`** | string | Frame id (**`Root`**, **`let`** ids, synthetic ids for spacers / instances). |
 | **`kind`** | string | **`layout`**, **`text`**, **`icon`**, **`media`**, **`spacer`**, … |
 | **`props`** | object | JSON-serialisable literals after evaluation. **`hidden`** frames are **omitted** from parent **`children`** lists (they do not appear as nodes in **`bake*`** output). |
-| **`children`** | **`BakedFrame[]`** | Ordered visible children. |
+| **`children`** | **`BakedFrame[]`** | Ordered visible children. **Optional** on CLI output when the list is empty — omit the key or use **`[]`** per **§16a**; parsers **SHOULD** treat a missing **`children`** property as **`[]`**. |
 
 **Reference implementation:** `buildBakedDesignSystem` / `buildBakedDesignComponent` in **`src/bakeDesign.ts`**, CLI in **`src/cli.ts`**.
 
@@ -4343,7 +4380,7 @@ A conforming parser MUST:
 4. Implement the import merge semantics of §2 including cycle detection (`PDL-E002`).
 5. Implement all token type checks (§23.2) and frame property checks (§23.3), emitting `PDL-E005` and `PDL-E006` respectively on violations.
 6. Implement the namespace and scoping rules of §22.
-7. Produce deterministic output: the same source files in the same import order **MUST** produce byte-identical catalogue JSON.
+7. Produce deterministic output: the same source files in the same import order **MUST** produce the same **logical** Component Catalogue. When serialised with the reference **`stableStringify`** settings for graph output (**`{ omitEmpty: true }`**, **§16a**), the same inputs **MUST** yield byte-identical JSON.
 
 A conforming parser **MAY** emit additional warnings beyond the `PDL-W0xx` catalog provided they are clearly distinguished from catalog codes.
 

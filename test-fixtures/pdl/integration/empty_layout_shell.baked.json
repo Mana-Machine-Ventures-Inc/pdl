@@ -1,0 +1,63 @@
+{
+  "components": {
+    "EmptyLayoutShell": {
+      "bakedParams": {
+        "embed": "flat"
+      },
+      "name": "EmptyLayoutShell",
+      "root": {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "id": "SlotThree",
+                    "kind": "layout",
+                    "props": {
+                      "direction": "column",
+                      "height": "fill",
+                      "width": "fill"
+                    }
+                  }
+                ],
+                "id": "SlotTwo",
+                "kind": "layout",
+                "props": {
+                  "align": "stretch",
+                  "direction": "row",
+                  "height": "fill",
+                  "width": "fill"
+                }
+              }
+            ],
+            "id": "SlotOne",
+            "kind": "layout",
+            "props": {
+              "align": "stretch",
+              "background": "#AABBCC",
+              "direction": "column",
+              "height": "fill",
+              "width": "fill"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "direction": "column"
+        }
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-04-13T07:53:51.514Z",
+  "provenance": {
+    "bakeProfile": "component-explicit",
+    "bakedTheme": null,
+    "entryPath": "/Users/andrewjclark/Developer/pdl/test-fixtures/pdl/integration/empty_layout_shell.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}
