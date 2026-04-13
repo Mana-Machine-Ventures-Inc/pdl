@@ -134,8 +134,12 @@ function assertRegistryFrame(x: unknown, path: string): void {
   assertString(x.id, `${path}.id`);
   assertString(x.kind, `${path}.kind`);
   assertPlainObject(x.props, `${path}.props`);
-  if (!Array.isArray(x.children)) fail(path, "children must be an array");
-  if (x.children.length !== 0) fail(path, "childNodes registry entries must have empty children");
+  if (x.children === undefined) {
+    // Compact graph JSON may omit **`children: []`** on registry leaves.
+  } else {
+    if (!Array.isArray(x.children)) fail(path, "children must be an array");
+    if (x.children.length !== 0) fail(path, "childNodes registry entries must have empty children");
+  }
   if (x.instanceOf !== undefined) assertString(x.instanceOf, `${path}.instanceOf`);
   if (x.instanceKwargs !== undefined) assertPlainObject(x.instanceKwargs, `${path}.instanceKwargs`);
   const extra = Object.keys(x).filter(
@@ -161,9 +165,10 @@ function assertCatalogueVariantEntry(x: unknown, path: string): void {
   assertPlainObject(x.params, `${path}.params`);
   if (!Array.isArray(x.affectedFrames)) fail(path, "affectedFrames must be an array");
   x.affectedFrames.forEach((id, i) => assertString(id, `${path}.affectedFrames[${i}]`));
-  if (!Array.isArray(x.changes)) fail(path, "changes must be an array");
-  for (let i = 0; i < x.changes.length; i++) {
-    const ch = x.changes[i];
+  const changes = x.changes ?? [];
+  if (!Array.isArray(changes)) fail(path, "changes must be an array");
+  for (let i = 0; i < changes.length; i++) {
+    const ch = changes[i];
     assertPlainObject(ch, `${path}.changes[${i}]`);
     assertString(ch.frameId, `${path}.changes[${i}].frameId`);
     assertString(ch.prop, `${path}.changes[${i}].prop`);
@@ -192,11 +197,13 @@ function assertCatalogueVariantEntry(x: unknown, path: string): void {
 function assertCatalogueComponentRow(x: unknown, path: string, opts: { requireDefaultParams: boolean }): void {
   assertPlainObject(x, path);
   assertString(x.name, `${path}.name`);
-  if (!Array.isArray(x.params)) fail(path, "params must be an array");
-  x.params.forEach((p, i) => assertCatalogueParam(p, `${path}.params[${i}]`));
-  if (!Array.isArray(x.expose)) fail(path, "expose must be an array");
-  x.expose.forEach((e, i) => assertString(e, `${path}.expose[${i}]`));
-  assertString(x.usage, `${path}.usage`);
+  const params = x.params ?? [];
+  if (!Array.isArray(params)) fail(path, "params must be an array");
+  params.forEach((p, i) => assertCatalogueParam(p, `${path}.params[${i}]`));
+  const expose = x.expose ?? [];
+  if (!Array.isArray(expose)) fail(path, "expose must be an array");
+  expose.forEach((e, i) => assertString(e, `${path}.expose[${i}]`));
+  assertString(x.usage ?? "", `${path}.usage`);
   assertPlainObject(x.root, `${path}.root`);
   assertString(x.root.kind, `${path}.root.kind`);
   assertPlainObject(x.root.props, `${path}.root.props`);
@@ -208,20 +215,25 @@ function assertCatalogueComponentRow(x: unknown, path: string, opts: { requireDe
   } else if ("defaultParams" in x) {
     fail(path, "resolved catalogue row must not include defaultParams");
   }
-  assertPlainObject(x.childNodes, `${path}.childNodes`);
-  for (const [cid, subtree] of Object.entries(x.childNodes)) {
+  const childNodes = x.childNodes ?? {};
+  assertPlainObject(childNodes, `${path}.childNodes`);
+  for (const [cid, subtree] of Object.entries(childNodes)) {
     assertRegistryFrame(subtree, `${path}.childNodes[${cid}]`);
   }
-  assertPlainObject(x.childHierarchy, `${path}.childHierarchy`);
-  if (!("Root" in x.childHierarchy)) fail(path, "childHierarchy must include Root");
-  if (!Array.isArray(x.childHierarchy.Root)) fail(path, "childHierarchy.Root must be an array");
-  for (const [pid, row] of Object.entries(x.childHierarchy)) {
-    assertString(pid, `${path}.childHierarchy key`);
-    if (!Array.isArray(row)) fail(path, `childHierarchy[${pid}] must be an array`);
-    row.forEach((id, i) => assertString(id, `${path}.childHierarchy[${pid}][${i}]`));
+  const childHierarchy = x.childHierarchy ?? {};
+  assertPlainObject(childHierarchy, `${path}.childHierarchy`);
+  if (Object.keys(childHierarchy).length > 0) {
+    if (!("Root" in childHierarchy)) fail(path, "non-empty childHierarchy must include Root");
+    if (!Array.isArray(childHierarchy.Root)) fail(path, "childHierarchy.Root must be an array");
+    for (const [pid, row] of Object.entries(childHierarchy)) {
+      assertString(pid, `${path}.childHierarchy key`);
+      if (!Array.isArray(row)) fail(path, `childHierarchy[${pid}] must be an array`);
+      row.forEach((id, i) => assertString(id, `${path}.childHierarchy[${pid}][${i}]`));
+    }
   }
-  if (!Array.isArray(x.variants)) fail(path, "variants must be an array");
-  x.variants.forEach((v, i) => assertCatalogueVariantEntry(v, `${path}.variants[${i}]`));
+  const variants = x.variants ?? [];
+  if (!Array.isArray(variants)) fail(path, "variants must be an array");
+  variants.forEach((v, i) => assertCatalogueVariantEntry(v, `${path}.variants[${i}]`));
   if (x.requiredComponents !== undefined) {
     if (!Array.isArray(x.requiredComponents)) fail(path, "requiredComponents must be an array");
     x.requiredComponents.forEach((id, i) => assertString(id, `${path}.requiredComponents[${i}]`));
@@ -377,33 +389,38 @@ export function assertResolvedComponentContract(doc: unknown, path = "resolvedCo
   }
   assertOptionalString(doc.system.theme, `${path}.system.theme`);
 
-  assertPlainObject(doc.system.variantTypes, `${path}.system.variantTypes`);
-  for (const [vn, row] of Object.entries(doc.system.variantTypes)) {
+  const variantTypes = doc.system.variantTypes ?? {};
+  assertPlainObject(variantTypes, `${path}.system.variantTypes`);
+  for (const [vn, row] of Object.entries(variantTypes)) {
     if (vn !== (row as { name?: string }).name) {
       fail(`${path}.system.variantTypes[${vn}]`, "row.name must match map key");
     }
     assertVariantTypeDef(row, `${path}.system.variantTypes[${vn}]`);
   }
 
-  assertPlainObject(doc.system.primitives, `${path}.system.primitives`);
-  for (const [name, row] of Object.entries(doc.system.primitives)) {
+  const primitives = doc.system.primitives ?? {};
+  assertPlainObject(primitives, `${path}.system.primitives`);
+  for (const [name, row] of Object.entries(primitives)) {
     if (name !== (row as { name?: string }).name) fail(`${path}.system.primitives[${name}]`, "row.name must match map key");
     assertGraphTokenRow(row, `${path}.system.primitives[${name}]`);
   }
 
-  assertPlainObject(doc.system.semantics, `${path}.system.semantics`);
-  for (const [name, row] of Object.entries(doc.system.semantics)) {
+  const semantics = doc.system.semantics ?? {};
+  assertPlainObject(semantics, `${path}.system.semantics`);
+  for (const [name, row] of Object.entries(semantics)) {
     if (name !== (row as { name?: string }).name) fail(`${path}.system.semantics[${name}]`, "row.name must match map key");
     assertGraphTokenRow(row, `${path}.system.semantics[${name}]`);
   }
 
-  assertPlainObject(doc.system.themes, `${path}.system.themes`);
-  for (const [tname, row] of Object.entries(doc.system.themes)) {
+  const themes = doc.system.themes ?? {};
+  assertPlainObject(themes, `${path}.system.themes`);
+  for (const [tname, row] of Object.entries(themes)) {
     assertGraphThemeEntry(row, `${path}.system.themes[${tname}]`);
   }
 
-  assertPlainObject(doc.system.typeStyles, `${path}.system.typeStyles`);
-  for (const [tsName, row] of Object.entries(doc.system.typeStyles)) {
+  const typeStyles = doc.system.typeStyles ?? {};
+  assertPlainObject(typeStyles, `${path}.system.typeStyles`);
+  for (const [tsName, row] of Object.entries(typeStyles)) {
     if (tsName !== (row as { name?: string }).name) {
       fail(`${path}.system.typeStyles[${tsName}]`, "row.name must match map key");
     }

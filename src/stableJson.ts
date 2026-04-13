@@ -29,7 +29,7 @@ export function omitEmptyDeep(value: unknown, ctx?: OmitEmptyCtx): unknown {
   const stripStrings = ctx?.stripEmptyStringsOutsideProps ?? false;
   const insideProps = ctx?.insideProps ?? false;
   const nextCtx = (inProps: boolean): OmitEmptyCtx | undefined =>
-    ctx ? { ...ctx, insideProps: inProps } : stripStrings ? { stripEmptyStringsOutsideProps: true, insideProps: inProps } : undefined;
+    ctx ? { ...ctx, insideProps: inProps } : undefined;
 
   if (value === null || typeof value !== "object") {
     return value;

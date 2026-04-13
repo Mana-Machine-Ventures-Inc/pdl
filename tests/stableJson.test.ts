@@ -35,4 +35,25 @@ describe("stableStringify omitEmpty", () => {
 `,
     );
   });
+
+  it("omits empty strings outside props but keeps them inside props", () => {
+    const s = stableStringify(
+      {
+        usage: "",
+        root: { kind: "layout", props: { content: "" } },
+      },
+      { omitEmpty: true },
+    );
+    expect(s).toBe(
+      `{
+  "root": {
+    "kind": "layout",
+    "props": {
+      "content": ""
+    }
+  }
+}
+`,
+    );
+  });
 });
