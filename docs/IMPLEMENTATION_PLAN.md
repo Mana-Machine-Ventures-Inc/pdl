@@ -93,7 +93,8 @@ None from the A0 question set. Further grammar nits can be decided when writing 
 - [x] Scaffold `crates/pdl-core`  
 - [x] Record owner answers to Q1–Q5  
 - [x] A1 lexer/parser *(parses non-error fixtures + golden entries)*  
-- [ ] A2 bake goldens + parity  
+- [x] A2 bake goldens + parity *(53 TS bakeSystem goldens, byte match)*  
+- [ ] A3 catalogue / graph  
 - [ ] First `full-spec` patch with B1  
 - [ ] Align published `schemaVersion` string to plain **`1.0.0`** when touching normative version prose (drop `-beta` framing; still unreleased)
 
