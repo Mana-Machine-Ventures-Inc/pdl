@@ -1,0 +1,133 @@
+{
+  "components": {
+    "MoleculeLayerInlineSandwich": {
+      "name": "MoleculeLayerInlineSandwich",
+      "root": {
+        "children": [
+          {
+            "id": "Left",
+            "kind": "layout",
+            "props": {
+              "background": [
+                "#EBEBEB",
+                "#d3d3d39e"
+              ],
+              "direction": "column",
+              "foreground": [
+                "#22222214"
+              ],
+              "height": "hug",
+              "padding": {
+                "bottom": 8,
+                "left": 8,
+                "right": 8,
+                "top": 8
+              },
+              "width": "fill"
+            }
+          },
+          {
+            "id": "Right",
+            "kind": "layout",
+            "props": {
+              "background": [
+                {
+                  "blur": 6,
+                  "kind": "blur"
+                },
+                "#f7f7f79e"
+              ],
+              "direction": "column",
+              "height": "fill",
+              "padding": {
+                "bottom": 10,
+                "left": 10,
+                "right": 10,
+                "top": 10
+              },
+              "width": "hug"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "background": "#F7F7F7",
+          "direction": "row",
+          "gap": 16,
+          "justify": "center",
+          "padding": {
+            "bottom": 12,
+            "left": 12,
+            "right": 12,
+            "top": 12
+          }
+        }
+      },
+      "rootKind": "layout"
+    },
+    "MoleculeLayerTokenFlat": {
+      "name": "MoleculeLayerTokenFlat",
+      "root": {
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": [
+            "#E5E7EB"
+          ],
+          "direction": "column",
+          "foreground": [
+            "#ebebeb33"
+          ],
+          "padding": {
+            "bottom": 14,
+            "left": 14,
+            "right": 14,
+            "top": 14
+          }
+        }
+      },
+      "rootKind": "layout"
+    },
+    "MoleculeLayeredPanel": {
+      "name": "MoleculeLayeredPanel",
+      "root": {
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": [
+            {
+              "blur": 6,
+              "kind": "blur"
+            },
+            "#f7f7f79e"
+          ],
+          "cornerRadius": 4,
+          "direction": "column",
+          "foreground": [
+            "#d3d3d39e"
+          ],
+          "gap": 8,
+          "height": "hug",
+          "padding": {
+            "bottom": 16,
+            "left": 16,
+            "right": 16,
+            "top": 16
+          },
+          "width": "fill"
+        }
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-05T23:46:06.111Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "/workspace/test-fixtures/pdl/molecules/m_07_layer_stacks.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

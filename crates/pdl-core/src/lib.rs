@@ -4,11 +4,19 @@
 //! stable bake/catalogue JSON contracts shared with the TypeScript oracle.
 
 pub mod ast;
+pub mod bake;
+pub mod design;
 pub mod error;
+pub mod evaluate;
 pub mod lexer;
 pub mod parser;
+pub mod resolve;
+pub mod stable_json;
+pub mod validate;
 
+pub use design::{load_design, DesignDefinition};
 pub use error::PdlError;
+pub use stable_json::{stable_stringify, StableStringifyOptions};
 
 /// Schema version string carried by catalogue / bake / manifest documents.
 /// Pre-release: plain 1.0.0 lineage (see IMPLEMENTATION_PLAN Q5). Keep aligned with

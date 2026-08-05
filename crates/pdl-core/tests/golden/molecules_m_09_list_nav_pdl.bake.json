@@ -1,0 +1,282 @@
+{
+  "components": {
+    "MoleculeNavListDemo": {
+      "name": "MoleculeNavListDemo",
+      "root": {
+        "children": [
+          {
+            "children": [
+              {
+                "id": "Title",
+                "kind": "text",
+                "props": {
+                  "content": "About"
+                }
+              },
+              {
+                "children": [
+                  {
+                    "id": "Meta",
+                    "kind": "text",
+                    "props": {
+                      "content": "v1"
+                    }
+                  },
+                  {
+                    "id": "Chev",
+                    "kind": "icon",
+                    "props": {
+                      "color": "#222222",
+                      "icon": "chevron-right",
+                      "size": 16
+                    }
+                  }
+                ],
+                "id": "Trail",
+                "kind": "layout",
+                "props": {
+                  "align": "center",
+                  "direction": "row",
+                  "gap": 4
+                }
+              }
+            ],
+            "id": "R0",
+            "instanceKwargs": {
+              "density": "roomy",
+              "meta": "Pro",
+              "title": "Account"
+            },
+            "instanceOf": "MoleculeNavRow",
+            "kind": "layout",
+            "props": {
+              "align": "center",
+              "background": "#F7F7F7",
+              "cornerRadius": 4,
+              "direction": "row",
+              "gap": 8,
+              "height": "hug",
+              "justify": "spaceBetween",
+              "padding": {
+                "bottom": 12,
+                "left": 14,
+                "right": 14,
+                "top": 12
+              },
+              "width": "fill"
+            }
+          },
+          {
+            "children": [
+              {
+                "id": "Title",
+                "kind": "text",
+                "props": {
+                  "content": "About"
+                }
+              },
+              {
+                "children": [
+                  {
+                    "id": "Meta",
+                    "kind": "text",
+                    "props": {
+                      "content": "v1"
+                    }
+                  },
+                  {
+                    "id": "Chev",
+                    "kind": "icon",
+                    "props": {
+                      "color": "#222222",
+                      "icon": "chevron-right",
+                      "size": 16
+                    }
+                  }
+                ],
+                "id": "Trail",
+                "kind": "layout",
+                "props": {
+                  "align": "center",
+                  "direction": "row",
+                  "gap": 4
+                }
+              }
+            ],
+            "id": "R1",
+            "instanceKwargs": {
+              "density": "compact",
+              "title": "Privacy"
+            },
+            "instanceOf": "MoleculeNavRow",
+            "kind": "layout",
+            "props": {
+              "align": "center",
+              "background": "#F7F7F7",
+              "cornerRadius": 4,
+              "direction": "row",
+              "gap": 4,
+              "height": "hug",
+              "justify": "spaceBetween",
+              "padding": {
+                "bottom": 6,
+                "left": 10,
+                "right": 10,
+                "top": 6
+              },
+              "width": "fill"
+            }
+          },
+          {
+            "children": [
+              {
+                "id": "Title",
+                "kind": "text",
+                "props": {
+                  "content": "About"
+                }
+              },
+              {
+                "children": [
+                  {
+                    "id": "Meta",
+                    "kind": "text",
+                    "props": {
+                      "content": "v1"
+                    }
+                  },
+                  {
+                    "id": "Chev",
+                    "kind": "icon",
+                    "props": {
+                      "color": "#222222",
+                      "icon": "chevron-right",
+                      "size": 16
+                    }
+                  }
+                ],
+                "id": "Trail",
+                "kind": "layout",
+                "props": {
+                  "align": "center",
+                  "direction": "row",
+                  "gap": 4
+                }
+              }
+            ],
+            "id": "R2",
+            "instanceKwargs": {
+              "density": "compact",
+              "meta": "v1",
+              "title": "About"
+            },
+            "instanceOf": "MoleculeNavRow",
+            "kind": "layout",
+            "props": {
+              "align": "center",
+              "background": "#F7F7F7",
+              "cornerRadius": 4,
+              "direction": "row",
+              "gap": 4,
+              "height": "hug",
+              "justify": "spaceBetween",
+              "padding": {
+                "bottom": 6,
+                "left": 10,
+                "right": 10,
+                "top": 6
+              },
+              "width": "fill"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": "#EBEBEB",
+          "direction": "column",
+          "gap": 4,
+          "padding": {
+            "bottom": 12,
+            "left": 12,
+            "right": 12,
+            "top": 12
+          }
+        }
+      },
+      "rootKind": "layout"
+    },
+    "MoleculeNavRow": {
+      "bakedParams": {
+        "density": "roomy",
+        "title": "Settings"
+      },
+      "name": "MoleculeNavRow",
+      "root": {
+        "children": [
+          {
+            "id": "Title",
+            "kind": "text",
+            "props": {
+              "content": "Settings"
+            }
+          },
+          {
+            "children": [
+              {
+                "id": "Meta",
+                "kind": "text",
+                "props": {
+                  "content": ""
+                }
+              },
+              {
+                "id": "Chev",
+                "kind": "icon",
+                "props": {
+                  "color": "#222222",
+                  "icon": "chevron-right",
+                  "size": 16
+                }
+              }
+            ],
+            "id": "Trail",
+            "kind": "layout",
+            "props": {
+              "align": "center",
+              "direction": "row",
+              "gap": 4
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "center",
+          "background": "#F7F7F7",
+          "cornerRadius": 4,
+          "direction": "row",
+          "gap": 8,
+          "height": "hug",
+          "justify": "spaceBetween",
+          "padding": {
+            "bottom": 12,
+            "left": 14,
+            "right": 14,
+            "top": 12
+          },
+          "width": "fill"
+        }
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-05T23:46:08.373Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "/workspace/test-fixtures/pdl/molecules/m_09_list_nav.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

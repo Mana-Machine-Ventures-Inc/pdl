@@ -1,0 +1,58 @@
+{
+  "components": {
+    "AtomParamsKitchenSink": {
+      "bakedParams": {
+        "count": 2,
+        "density": "comfortable",
+        "enabled": true,
+        "glyph": "dot",
+        "label": "Label"
+      },
+      "name": "AtomParamsKitchenSink",
+      "root": {
+        "children": [
+          {
+            "id": "Flag",
+            "kind": "text",
+            "props": {
+              "color": "#F7F7F7",
+              "content": "Label",
+              "fontSize": 14,
+              "fontWeight": 500
+            }
+          },
+          {
+            "id": "Glyph",
+            "kind": "icon",
+            "props": {
+              "color": "#222222",
+              "icon": "dot",
+              "size": 18
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "direction": "column",
+          "gap": 8,
+          "padding": {
+            "bottom": 8,
+            "left": 16,
+            "right": 16,
+            "top": 8
+          }
+        }
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-05T23:45:13.123Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "/workspace/test-fixtures/pdl/atoms/component_param_types_atoms.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

@@ -1,0 +1,264 @@
+{
+  "components": {
+    "AtomLayoutChrome": {
+      "name": "AtomLayoutChrome",
+      "root": {
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "background": "#F7F7F7",
+          "borderColor": "#222222",
+          "borderPosition": "inside",
+          "borderWidth": 1,
+          "cornerRadius": {
+            "bl": 2,
+            "br": 2,
+            "tl": 8,
+            "tr": 8
+          },
+          "direction": "column",
+          "justify": "start",
+          "opacity": 1,
+          "overflow": "hidden",
+          "padding": {
+            "bottom": 12,
+            "left": 12,
+            "right": 12,
+            "top": 12
+          },
+          "shadow": "0 2px 8px rgba(0,0,0,0.12)",
+          "wrap": "nowrap"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomLayoutColumnEnd": {
+      "name": "AtomLayoutColumnEnd",
+      "root": {
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "end",
+          "background": "#222222",
+          "direction": "column",
+          "gap": 4,
+          "justify": "end",
+          "wrap": "nowrap"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomLayoutColumnReverse": {
+      "name": "AtomLayoutColumnReverse",
+      "root": {
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "background": "#222222",
+          "direction": "columnReverse",
+          "justify": "start",
+          "wrap": "nowrap"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomLayoutColumnStretch": {
+      "name": "AtomLayoutColumnStretch",
+      "root": {
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "background": "#d3d3d340",
+          "direction": "column",
+          "justify": "stretch",
+          "padding": {
+            "bottom": 4,
+            "left": 8,
+            "right": 8,
+            "top": 4
+          },
+          "wrap": "nowrap"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomLayoutRowAround": {
+      "name": "AtomLayoutRowAround",
+      "root": {
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "background": "#D3D3D3",
+          "direction": "row",
+          "justify": "spaceAround",
+          "wrap": "nowrap"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomLayoutRowBetween": {
+      "name": "AtomLayoutRowBetween",
+      "root": {
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "center",
+          "background": "#EBEBEB",
+          "direction": "row",
+          "gap": 16,
+          "justify": "spaceBetween",
+          "wrap": "nowrap"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomLayoutRowReverse": {
+      "name": "AtomLayoutRowReverse",
+      "root": {
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "center",
+          "background": "#D3D3D3",
+          "direction": "rowReverse",
+          "justify": "center",
+          "wrap": "nowrap"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomLayoutRowStart": {
+      "name": "AtomLayoutRowStart",
+      "root": {
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "start",
+          "background": "#F7F7F7",
+          "direction": "row",
+          "gap": 8,
+          "justify": "start",
+          "padding": {
+            "bottom": 4,
+            "left": 8,
+            "right": 8,
+            "top": 4
+          },
+          "wrap": "nowrap"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomLayoutSizingFixedFlex": {
+      "name": "AtomLayoutSizingFixedFlex",
+      "root": {
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "start",
+          "background": "#D3D3D3",
+          "direction": "column",
+          "height": {
+            "flex": {
+              "max": 200,
+              "min": 40
+            }
+          },
+          "justify": "start",
+          "width": {
+            "fixed": 200
+          },
+          "wrap": "nowrap"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomLayoutSizingVH": {
+      "name": "AtomLayoutSizingVH",
+      "root": {
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "start",
+          "background": "#EBEBEB",
+          "direction": "row",
+          "height": "hug",
+          "justify": "start",
+          "width": "fill",
+          "wrap": "nowrap"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomLayoutSpacerRow": {
+      "name": "AtomLayoutSpacerRow",
+      "root": {
+        "children": [
+          {
+            "id": "Root_spacer_0",
+            "kind": "spacer"
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "center",
+          "background": "#F7F7F7",
+          "direction": "row",
+          "gap": 8,
+          "justify": "start"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomLayoutStack": {
+      "name": "AtomLayoutStack",
+      "root": {
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": "#EBEBEB",
+          "direction": "stack",
+          "gap": 0,
+          "padding": {
+            "bottom": 8,
+            "left": 8,
+            "right": 8,
+            "top": 8
+          }
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomLayoutWrap": {
+      "name": "AtomLayoutWrap",
+      "root": {
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "start",
+          "background": "#F7F7F7",
+          "columnGap": 4,
+          "direction": "row",
+          "gap": 6,
+          "justify": "start",
+          "rowGap": 8,
+          "wrap": "wrap"
+        }
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-05T23:45:20.977Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "/workspace/test-fixtures/pdl/atoms/layout_enums_atoms.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

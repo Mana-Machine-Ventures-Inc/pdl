@@ -1,0 +1,51 @@
+{
+  "components": {
+    "AtomHiddenFrame": {
+      "bakedParams": {
+        "mode": "showExtra"
+      },
+      "name": "AtomHiddenFrame",
+      "root": {
+        "children": [
+          {
+            "id": "A",
+            "kind": "text",
+            "props": {
+              "content": "Always"
+            }
+          },
+          {
+            "children": [
+              {
+                "id": "Inner",
+                "kind": "text",
+                "props": {
+                  "content": "Sometimes"
+                }
+              }
+            ],
+            "id": "B",
+            "kind": "layout",
+            "props": {
+              "direction": "row"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "direction": "column"
+        }
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-05T23:45:18.755Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "/workspace/test-fixtures/pdl/atoms/hidden_frame_atoms.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

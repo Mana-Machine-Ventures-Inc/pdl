@@ -1,0 +1,189 @@
+{
+  "components": {
+    "AtomTextJustifyAlign": {
+      "name": "AtomTextJustifyAlign",
+      "root": {
+        "children": [
+          {
+            "id": "L",
+            "kind": "text",
+            "props": {
+              "align": "start",
+              "color": "#F7F7F7",
+              "content": "Left",
+              "fontSize": 12,
+              "justify": "start"
+            }
+          },
+          {
+            "id": "C",
+            "kind": "text",
+            "props": {
+              "align": "center",
+              "color": "#EBEBEB",
+              "content": "Center",
+              "fontSize": 12,
+              "justify": "center"
+            }
+          },
+          {
+            "id": "R",
+            "kind": "text",
+            "props": {
+              "align": "end",
+              "color": "#222222",
+              "content": "Right end",
+              "fontSize": 12,
+              "justify": "end"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": "#D3D3D3",
+          "direction": "row",
+          "gap": 16
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomTextOverflow": {
+      "name": "AtomTextOverflow",
+      "root": {
+        "children": [
+          {
+            "id": "Clipped",
+            "kind": "text",
+            "props": {
+              "color": "#222222",
+              "content": "Clipped overflow",
+              "fontSize": 13,
+              "overflow": "clip",
+              "textOverflow": "clip"
+            }
+          },
+          {
+            "id": "Ellipsis",
+            "kind": "text",
+            "props": {
+              "color": "#EBEBEB",
+              "content": "Very long label that should ellipsize when constrained",
+              "fontSize": 13,
+              "lineClamp": 2,
+              "overflow": "hidden",
+              "textOverflow": "ellipsis"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": "#F7F7F7",
+          "direction": "column",
+          "gap": 4
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomTextPlain": {
+      "name": "AtomTextPlain",
+      "root": {
+        "children": [
+          {
+            "id": "T",
+            "kind": "text",
+            "props": {
+              "color": "#222222",
+              "content": "Plain text",
+              "fontSize": 14,
+              "fontWeight": 500,
+              "letterSpacing": 0.01,
+              "lineHeight": 1.35
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": "#F7F7F7",
+          "direction": "column",
+          "gap": 8
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomTextStylePlusOverride": {
+      "name": "AtomTextStylePlusOverride",
+      "root": {
+        "children": [
+          {
+            "id": "T",
+            "kind": "text",
+            "props": {
+              "content": "Mixed",
+              "fontSize": 22
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": "#F7F7F7",
+          "direction": "column"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomTextTypeStyle": {
+      "name": "AtomTextTypeStyle",
+      "root": {
+        "children": [
+          {
+            "id": "A",
+            "kind": "text",
+            "props": {
+              "content": "Caption line"
+            }
+          },
+          {
+            "id": "B",
+            "kind": "text",
+            "props": {
+              "content": "Body line"
+            }
+          },
+          {
+            "id": "C",
+            "kind": "text",
+            "props": {
+              "content": "Title line"
+            }
+          },
+          {
+            "id": "D",
+            "kind": "text",
+            "props": {
+              "content": "Mono line"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": "#EBEBEB",
+          "direction": "column"
+        }
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-05T23:45:27.745Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "/workspace/test-fixtures/pdl/atoms/text_atoms.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

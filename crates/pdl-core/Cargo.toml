@@ -12,5 +12,7 @@ path = "src/lib.rs"
 
 [dependencies]
 indexmap = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
 
 [dev-dependencies]

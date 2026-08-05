@@ -1,0 +1,89 @@
+{
+  "components": {
+    "AtomMediaContainCorners": {
+      "name": "AtomMediaContainCorners",
+      "root": {
+        "children": [
+          {
+            "id": "M",
+            "kind": "media",
+            "props": {
+              "background": "#D3D3D3",
+              "contentMode": "contain",
+              "height": {
+                "fixed": 180
+              },
+              "objectPosition": "topLeft",
+              "source": "https://example.com/poster.jpg",
+              "width": "fill"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": "#EBEBEB",
+          "direction": "column"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomMediaCover": {
+      "name": "AtomMediaCover",
+      "root": {
+        "children": [
+          {
+            "id": "M",
+            "kind": "media",
+            "props": {
+              "aspectRatio": 1.777,
+              "contentMode": "cover",
+              "cornerRadius": 4,
+              "objectPosition": "center",
+              "source": "https://example.com/hero.png"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": "#F7F7F7",
+          "direction": "column"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomMediaScaleDown": {
+      "name": "AtomMediaScaleDown",
+      "root": {
+        "children": [
+          {
+            "id": "M",
+            "kind": "media",
+            "props": {
+              "contentMode": "scaleDown",
+              "objectPosition": "bottomRight",
+              "opacity": 0.92,
+              "source": "asset://local.png"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": "#222222",
+          "direction": "column"
+        }
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-05T23:45:23.263Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "/workspace/test-fixtures/pdl/atoms/media_atoms.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

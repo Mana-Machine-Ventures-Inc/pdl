@@ -1,0 +1,76 @@
+{
+  "components": {
+    "AtomIconDefault": {
+      "name": "AtomIconDefault",
+      "root": {
+        "children": [
+          {
+            "id": "A",
+            "kind": "icon",
+            "props": {
+              "color": "#222222",
+              "icon": "check",
+              "size": 20
+            }
+          },
+          {
+            "id": "B",
+            "kind": "icon",
+            "props": {
+              "color": "#D3D3D3",
+              "icon": "close",
+              "opacity": 0.62,
+              "size": 24
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "center",
+          "background": "#F7F7F7",
+          "direction": "row",
+          "gap": 16
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomIconSizing": {
+      "name": "AtomIconSizing",
+      "root": {
+        "children": [
+          {
+            "id": "W",
+            "kind": "icon",
+            "props": {
+              "color": "#F7F7F7",
+              "height": {
+                "fixed": 32
+              },
+              "icon": "menu",
+              "width": {
+                "fixed": 32
+              }
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": "#EBEBEB",
+          "direction": "row",
+          "gap": 8
+        }
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-05T23:45:19.870Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "/workspace/test-fixtures/pdl/atoms/icon_atoms.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

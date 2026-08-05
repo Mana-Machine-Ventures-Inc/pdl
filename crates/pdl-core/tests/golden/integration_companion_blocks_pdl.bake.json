@@ -1,0 +1,35 @@
+{
+  "components": {
+    "CompanionBlock": {
+      "bakedParams": {
+        "tone": "neutral"
+      },
+      "name": "CompanionBlock",
+      "root": {
+        "children": [
+          {
+            "id": "L",
+            "kind": "text",
+            "props": {
+              "content": "Hi"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "direction": "row"
+        }
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-05T23:45:44.586Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "/workspace/test-fixtures/pdl/integration/companion_blocks.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

@@ -1,0 +1,251 @@
+{
+  "components": {
+    "MoleculeHtmlLayerPreview": {
+      "name": "MoleculeHtmlLayerPreview",
+      "root": {
+        "children": [
+          {
+            "id": "Hint",
+            "kind": "text",
+            "props": {
+              "color": "#3F3F46",
+              "content": "HTML check: outer layouts use pdl-layout--layers, pdl-layer-band, backdrop-filter on blur; foreground tints are overlays (not inset box-shadow).",
+              "fontSize": 12,
+              "lineHeight": 1.45
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "id": "CardStackT1",
+                    "kind": "text",
+                    "props": {
+                      "color": "#1E1B4B",
+                      "content": "Two fills + fg tint",
+                      "fontSize": 13,
+                      "fontWeight": 600
+                    }
+                  },
+                  {
+                    "id": "CardStackT2",
+                    "kind": "text",
+                    "props": {
+                      "color": "#312E81",
+                      "content": "Under: base + indigo wash. Over: dark veil.",
+                      "fontSize": 11
+                    }
+                  }
+                ],
+                "id": "CardStack",
+                "kind": "layout",
+                "props": {
+                  "background": [
+                    "#E0E7FF",
+                    "#4338CA55"
+                  ],
+                  "cornerRadius": 4,
+                  "direction": "column",
+                  "foreground": [
+                    "#00000018"
+                  ],
+                  "gap": 8,
+                  "height": "hug",
+                  "padding": {
+                    "bottom": 12,
+                    "left": 12,
+                    "right": 12,
+                    "top": 12
+                  },
+                  "width": {
+                    "flex": {
+                      "min": 160,
+                      "preferred": 200
+                    }
+                  }
+                }
+              },
+              {
+                "children": [
+                  {
+                    "id": "CardBlurT1",
+                    "kind": "text",
+                    "props": {
+                      "color": "#222222",
+                      "content": "Blur + frosted tint",
+                      "fontSize": 13,
+                      "fontWeight": 600
+                    }
+                  },
+                  {
+                    "id": "CardBlurT2",
+                    "kind": "text",
+                    "props": {
+                      "color": "#444444",
+                      "content": "Expect backdrop-filter on the blur band.",
+                      "fontSize": 11
+                    }
+                  }
+                ],
+                "id": "CardBlur",
+                "kind": "layout",
+                "props": {
+                  "background": [
+                    {
+                      "blur": 6,
+                      "kind": "blur"
+                    },
+                    "#f7f7f79e"
+                  ],
+                  "cornerRadius": 4,
+                  "direction": "column",
+                  "foreground": [
+                    "#d3d3d30f"
+                  ],
+                  "gap": 8,
+                  "height": "hug",
+                  "padding": {
+                    "bottom": 12,
+                    "left": 12,
+                    "right": 12,
+                    "top": 12
+                  },
+                  "width": {
+                    "flex": {
+                      "min": 160,
+                      "preferred": 200
+                    }
+                  }
+                }
+              },
+              {
+                "children": [
+                  {
+                    "id": "CardRampT1",
+                    "kind": "text",
+                    "props": {
+                      "color": "#0F172A",
+                      "content": "Ramp + wash",
+                      "fontSize": 13,
+                      "fontWeight": 600
+                    }
+                  },
+                  {
+                    "id": "CardRampT2",
+                    "kind": "text",
+                    "props": {
+                      "color": "#1E293B",
+                      "content": "Token ramp (atoms.ramp.fade) then a second layer.",
+                      "fontSize": 11
+                    }
+                  }
+                ],
+                "id": "CardRamp",
+                "kind": "layout",
+                "props": {
+                  "background": [
+                    {
+                      "direction": ".bottomToTop",
+                      "kind": "ramp",
+                      "stops": [
+                        {
+                          "color": "#FFFFFF",
+                          "kind": "gradientStop",
+                          "opacity": 1,
+                          "position": 0
+                        },
+                        {
+                          "color": "#000000",
+                          "kind": "gradientStop",
+                          "opacity": 0,
+                          "position": 1
+                        }
+                      ]
+                    },
+                    "#0F172A35"
+                  ],
+                  "cornerRadius": 4,
+                  "direction": "column",
+                  "gap": 8,
+                  "height": "hug",
+                  "padding": {
+                    "bottom": 12,
+                    "left": 12,
+                    "right": 12,
+                    "top": 12
+                  },
+                  "width": {
+                    "flex": {
+                      "min": 160,
+                      "preferred": 200
+                    }
+                  }
+                }
+              },
+              {
+                "id": "TextLayers",
+                "kind": "text",
+                "props": {
+                  "background": [
+                    "#FECACA",
+                    "#B91C1C40"
+                  ],
+                  "color": "#7F1D1D",
+                  "content": "Text with layer bands",
+                  "cornerRadius": 4,
+                  "fontSize": 13,
+                  "fontWeight": 600,
+                  "foreground": [
+                    "#00000012"
+                  ],
+                  "padding": {
+                    "bottom": 6,
+                    "left": 10,
+                    "right": 10,
+                    "top": 6
+                  }
+                }
+              }
+            ],
+            "id": "Row",
+            "kind": "layout",
+            "props": {
+              "align": "stretch",
+              "direction": "row",
+              "gap": 16,
+              "height": "hug",
+              "justify": "start",
+              "width": "fill",
+              "wrap": "wrap"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": "#E8E8ED",
+          "direction": "column",
+          "gap": 16,
+          "height": "hug",
+          "padding": {
+            "bottom": 16,
+            "left": 16,
+            "right": 16,
+            "top": 16
+          },
+          "width": "fill"
+        }
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-05T23:46:11.923Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "/workspace/test-fixtures/pdl/molecules/m_12_html_layer_preview.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

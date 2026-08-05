@@ -1,0 +1,225 @@
+{
+  "components": {
+    "MoleculeLabelRowJustifySweep": {
+      "name": "MoleculeLabelRowJustifySweep",
+      "root": {
+        "children": [
+          {
+            "children": [
+              {
+                "id": "LStart",
+                "kind": "text",
+                "props": {
+                  "color": "#F7F7F7",
+                  "content": "Start",
+                  "fontSize": 14
+                }
+              }
+            ],
+            "id": "RowStart",
+            "kind": "layout",
+            "props": {
+              "align": "center",
+              "direction": "row",
+              "gap": 8,
+              "justify": "start"
+            }
+          },
+          {
+            "children": [
+              {
+                "id": "A",
+                "kind": "text",
+                "props": {
+                  "color": "#D3D3D3",
+                  "content": "A",
+                  "fontSize": 12
+                }
+              },
+              {
+                "id": "B",
+                "kind": "text",
+                "props": {
+                  "color": "#222222",
+                  "content": "B",
+                  "fontSize": 12
+                }
+              }
+            ],
+            "id": "RowBetween",
+            "kind": "layout",
+            "props": {
+              "align": "center",
+              "direction": "row",
+              "gap": 8,
+              "justify": "spaceBetween"
+            }
+          },
+          {
+            "children": [
+              {
+                "id": "LEnd",
+                "kind": "text",
+                "props": {
+                  "color": "#EBEBEB",
+                  "content": "End",
+                  "fontSize": 14
+                }
+              }
+            ],
+            "id": "RowEnd",
+            "kind": "layout",
+            "props": {
+              "align": "stretch",
+              "direction": "row",
+              "gap": 4,
+              "justify": "end"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": "#EBEBEB",
+          "direction": "column",
+          "gap": 16
+        }
+      },
+      "rootKind": "layout"
+    },
+    "MoleculeLabelStack": {
+      "name": "MoleculeLabelStack",
+      "root": {
+        "children": [
+          {
+            "id": "A",
+            "kind": "text",
+            "props": {
+              "content": "Caption"
+            }
+          },
+          {
+            "id": "B",
+            "kind": "text",
+            "props": {
+              "content": "Title line"
+            }
+          },
+          {
+            "id": "C",
+            "kind": "text",
+            "props": {
+              "content": "Muted supporting copy"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": "#F7F7F7",
+          "direction": "column",
+          "gap": 8,
+          "padding": {
+            "bottom": 16,
+            "left": 16,
+            "right": 16,
+            "top": 16
+          }
+        }
+      },
+      "rootKind": "layout"
+    },
+    "MoleculeThreeColumnLabels": {
+      "name": "MoleculeThreeColumnLabels",
+      "root": {
+        "children": [
+          {
+            "children": [
+              {
+                "id": "T1",
+                "kind": "text",
+                "props": {
+                  "color": "#F7F7F7",
+                  "content": "Column 1",
+                  "fontSize": 13
+                }
+              }
+            ],
+            "id": "Col1",
+            "kind": "layout",
+            "props": {
+              "align": "start",
+              "direction": "column",
+              "gap": 4
+            }
+          },
+          {
+            "children": [
+              {
+                "id": "T2",
+                "kind": "text",
+                "props": {
+                  "color": "#EBEBEB",
+                  "content": "Column 2",
+                  "fontSize": 13
+                }
+              }
+            ],
+            "id": "Col2",
+            "kind": "layout",
+            "props": {
+              "align": "center",
+              "direction": "column",
+              "gap": 4
+            }
+          },
+          {
+            "children": [
+              {
+                "id": "T3",
+                "kind": "text",
+                "props": {
+                  "color": "#222222",
+                  "content": "Column 3",
+                  "fontSize": 13
+                }
+              }
+            ],
+            "id": "Col3",
+            "kind": "layout",
+            "props": {
+              "align": "end",
+              "direction": "column",
+              "gap": 4
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "background": "#D3D3D3",
+          "direction": "row",
+          "gap": 16,
+          "justify": "stretch",
+          "padding": {
+            "bottom": 12,
+            "left": 12,
+            "right": 12,
+            "top": 12
+          },
+          "wrap": "nowrap"
+        }
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-05T23:45:59.307Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "/workspace/test-fixtures/pdl/molecules/m_01_labels_layouts.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

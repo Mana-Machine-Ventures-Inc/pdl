@@ -1,0 +1,316 @@
+//! Merged design model + loader.
+//!
+//! Rust port of `src/designModel.ts` + `src/loadDesign.ts`. Collects the import
+//! closure (post-order DFS, cycle → `PDL-E002`), merges declarations (last module
+//! wins on symbol clashes) and runs [`crate::validate::validate_merged_design`].
+
+use std::collections::HashSet;
+use std::path::{Component, Path, PathBuf};
+
+use indexmap::IndexMap;
+
+use crate::ast::*;
+use crate::error::PdlError;
+use crate::parser::parse_module_source;
+use crate::validate::validate_merged_design;
+
+/// Merged `usage` values per key (v1: typically `description`).
+pub type UsageKeyMap = IndexMap<String, String>;
+
+/// Fully merged design (import closure + entry), pre-resolution.
+#[derive(Debug, Clone)]
+pub struct DesignDefinition {
+    pub entry_path: String,
+    /// Post-order DFS: dependencies then dependents; last module wins on clashes.
+    pub module_paths: Vec<String>,
+    pub preview_background: Option<String>,
+    pub primitives: IndexMap<String, PrimitiveDecl>,
+    pub semantics: IndexMap<String, SemanticDecl>,
+    pub themes: IndexMap<String, ThemeDecl>,
+    pub variants: IndexMap<String, VariantDecl>,
+    pub type_styles: IndexMap<String, TypeStyleDecl>,
+    pub components: IndexMap<String, ComponentDecl>,
+    pub expose: IndexMap<String, Vec<String>>,
+    pub usage: IndexMap<String, UsageKeyMap>,
+    pub fixtures: IndexMap<String, IndexMap<String, FixtureExampleDecl>>,
+    pub rules: IndexMap<String, Vec<RulesStatement>>,
+    pub interactions: IndexMap<String, IndexMap<String, InteractionDecl>>,
+}
+
+/// Lexically normalize a path to absolute (mirrors Node `path.resolve` — no symlink resolution).
+fn resolve_path(p: &str) -> PathBuf {
+    let path = Path::new(p);
+    let abs = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .unwrap_or_else(|_| PathBuf::from("/"))
+            .join(path)
+    };
+    let mut out = PathBuf::new();
+    for comp in abs.components() {
+        match comp {
+            Component::Prefix(_) | Component::RootDir => out.push(comp.as_os_str()),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if !out.pop() {
+                    out.push("..");
+                }
+            }
+            Component::Normal(seg) => out.push(seg),
+        }
+    }
+    out
+}
+
+fn path_to_string(p: &Path) -> String {
+    p.to_string_lossy().into_owned()
+}
+
+fn is_import(d: &TopLevelDecl) -> Option<&ImportDecl> {
+    match d {
+        TopLevelDecl::Import(i) => Some(i),
+        _ => None,
+    }
+}
+
+/// `collect_modules` can enqueue the same file via different import paths; merge each once.
+fn dedupe_modules_in_merge_order(ordered: Vec<ModuleAst>) -> Vec<ModuleAst> {
+    let mut seen = HashSet::new();
+    let mut out = Vec::new();
+    for m in ordered {
+        let key = path_to_string(&resolve_path(&m.path));
+        if seen.contains(&key) {
+            continue;
+        }
+        seen.insert(key);
+        out.push(m);
+    }
+    out
+}
+
+fn merge_usage_props(target: &mut UsageKeyMap, props: &[UsageProp]) {
+    for p in props {
+        match p.op {
+            UsageOp::Assign => {
+                target.insert(p.key.clone(), p.value.clone());
+            }
+            UsageOp::Append => {
+                let merged = match target.get(&p.key) {
+                    Some(cur) if !cur.is_empty() => format!("{} {}", cur, p.value),
+                    _ => p.value.clone(),
+                };
+                target.insert(p.key.clone(), merged);
+            }
+        }
+    }
+}
+
+fn merge_fixtures(
+    dest: &mut IndexMap<String, IndexMap<String, FixtureExampleDecl>>,
+    component: &str,
+    examples: &[FixtureExampleDecl],
+) {
+    let m = dest.entry(component.to_string()).or_default();
+    for ex in examples {
+        m.insert(ex.label.clone(), ex.clone());
+    }
+}
+
+fn merge_rules(
+    dest: &mut IndexMap<String, Vec<RulesStatement>>,
+    component: &str,
+    statements: &[RulesStatement],
+) {
+    let arr = dest.entry(component.to_string()).or_default();
+    arr.extend(statements.iter().cloned());
+}
+
+fn merge_interaction(
+    dest: &mut IndexMap<String, IndexMap<String, InteractionDecl>>,
+    decl: &InteractionDecl,
+) {
+    let m = dest.entry(decl.component.clone()).or_default();
+    m.insert(decl.name.clone(), decl.clone());
+}
+
+#[allow(clippy::too_many_arguments)]
+fn apply_extend(
+    entry_path: &str,
+    components: &IndexMap<String, ComponentDecl>,
+    expose: &mut IndexMap<String, Vec<String>>,
+    usage: &mut IndexMap<String, UsageKeyMap>,
+    fixtures: &mut IndexMap<String, IndexMap<String, FixtureExampleDecl>>,
+    rules: &mut IndexMap<String, Vec<RulesStatement>>,
+    ext: &ExtendDecl,
+) -> Result<(), PdlError> {
+    let c = &ext.component;
+    if !components.contains_key(c) {
+        return Err(PdlError::new(
+            "PDL-E006",
+            format!("extend targets unknown component `{}`", c),
+            Some(entry_path.to_string()),
+            None,
+            None,
+        ));
+    }
+    for sec in &ext.sections {
+        match sec {
+            ExtendSection::Expose { names } => {
+                expose.insert(c.clone(), names.clone());
+            }
+            ExtendSection::Usage { props } => {
+                let u = usage.entry(c.clone()).or_default();
+                merge_usage_props(u, props);
+            }
+            ExtendSection::Fixtures { examples } => {
+                merge_fixtures(fixtures, c, examples);
+            }
+            ExtendSection::Rules { statements } => {
+                merge_rules(rules, c, statements);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn collect_modules(
+    entry_path: &str,
+    visiting: &mut HashSet<String>,
+    ordered: &mut Vec<ModuleAst>,
+) -> Result<(), PdlError> {
+    let abs = path_to_string(&resolve_path(entry_path));
+    if visiting.contains(&abs) {
+        return Err(PdlError::new(
+            "PDL-E002",
+            format!("Import cycle detected at {}", entry_path),
+            Some(entry_path.to_string()),
+            None,
+            None,
+        ));
+    }
+    visiting.insert(abs.clone());
+    let source = std::fs::read_to_string(&abs).map_err(|e| {
+        PdlError::new(
+            "PDL-E000",
+            format!("Failed to read {}: {}", abs, e),
+            Some(abs.clone()),
+            None,
+            None,
+        )
+    })?;
+    let module = parse_module_source(&source, &abs)?;
+    let dir = resolve_path(&abs)
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| PathBuf::from("/"));
+    for decl in &module.declarations {
+        if let Some(imp) = is_import(decl) {
+            let next = path_to_string(&dir.join(&imp.path));
+            collect_modules(&next, visiting, ordered)?;
+        }
+    }
+    visiting.remove(&abs);
+    ordered.push(module);
+    Ok(())
+}
+
+fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefinition, PdlError> {
+    let mut primitives = IndexMap::new();
+    let mut semantics = IndexMap::new();
+    let mut themes = IndexMap::new();
+    let mut variants = IndexMap::new();
+    let mut type_styles = IndexMap::new();
+    let mut components = IndexMap::new();
+    let mut expose = IndexMap::new();
+    let mut usage: IndexMap<String, UsageKeyMap> = IndexMap::new();
+    let mut fixtures: IndexMap<String, IndexMap<String, FixtureExampleDecl>> = IndexMap::new();
+    let mut rules: IndexMap<String, Vec<RulesStatement>> = IndexMap::new();
+    let mut interactions: IndexMap<String, IndexMap<String, InteractionDecl>> = IndexMap::new();
+    let mut preview_background: Option<String> = None;
+    let resolved_entry = path_to_string(&resolve_path(entry_path));
+    let module_paths: Vec<String> = ordered.iter().map(|m| m.path.clone()).collect();
+
+    for module in &ordered {
+        for decl in &module.declarations {
+            match decl {
+                TopLevelDecl::Import(_) => {}
+                TopLevelDecl::PreviewBackground(pb) => {
+                    preview_background = Some(pb.token.clone());
+                }
+                TopLevelDecl::Primitive(p) => {
+                    primitives.insert(p.name.clone(), p.clone());
+                }
+                TopLevelDecl::Semantic(s) => {
+                    semantics.insert(s.name.clone(), s.clone());
+                }
+                TopLevelDecl::Theme(t) => {
+                    themes.insert(t.name.clone(), t.clone());
+                }
+                TopLevelDecl::Variant(v) => {
+                    variants.insert(v.name.clone(), v.clone());
+                }
+                TopLevelDecl::TypeStyle(ts) => {
+                    type_styles.insert(ts.name.clone(), ts.clone());
+                }
+                TopLevelDecl::Component(c) => {
+                    components.insert(c.name.clone(), c.clone());
+                }
+                TopLevelDecl::Expose(e) => {
+                    expose.insert(e.component.clone(), e.names.clone());
+                }
+                TopLevelDecl::Usage(u) => {
+                    let entry = usage.entry(u.component.clone()).or_default();
+                    merge_usage_props(entry, &u.props);
+                }
+                TopLevelDecl::Fixtures(f) => {
+                    merge_fixtures(&mut fixtures, &f.component, &f.examples);
+                }
+                TopLevelDecl::Rules(r) => {
+                    merge_rules(&mut rules, &r.component, &r.statements);
+                }
+                TopLevelDecl::Interaction(i) => {
+                    merge_interaction(&mut interactions, i);
+                }
+                TopLevelDecl::Extend(ext) => {
+                    apply_extend(
+                        &resolved_entry,
+                        &components,
+                        &mut expose,
+                        &mut usage,
+                        &mut fixtures,
+                        &mut rules,
+                        ext,
+                    )?;
+                }
+            }
+        }
+    }
+
+    Ok(DesignDefinition {
+        entry_path: resolved_entry,
+        module_paths,
+        preview_background,
+        primitives,
+        semantics,
+        themes,
+        variants,
+        type_styles,
+        components,
+        expose,
+        usage,
+        fixtures,
+        rules,
+        interactions,
+    })
+}
+
+/// Load, merge and validate a design starting from `entry_path`.
+pub fn load_design(entry_path: &str) -> Result<DesignDefinition, PdlError> {
+    let mut ordered = Vec::new();
+    let mut visiting = HashSet::new();
+    collect_modules(entry_path, &mut visiting, &mut ordered)?;
+    let design = merge_design(entry_path, dedupe_modules_in_merge_order(ordered))?;
+    validate_merged_design(&design)?;
+    Ok(design)
+}

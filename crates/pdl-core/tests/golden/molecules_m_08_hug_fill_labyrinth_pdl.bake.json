@@ -1,0 +1,204 @@
+{
+  "components": {
+    "MoleculeFillWidthHugHeightColumn": {
+      "name": "MoleculeFillWidthHugHeightColumn",
+      "root": {
+        "children": [
+          {
+            "id": "RowFill",
+            "kind": "layout",
+            "props": {
+              "align": "center",
+              "background": "#D3D3D3",
+              "direction": "row",
+              "height": "hug",
+              "justify": "spaceAround",
+              "width": "fill"
+            }
+          },
+          {
+            "id": "RowMixed",
+            "kind": "layout",
+            "props": {
+              "alignSelf": "end",
+              "background": "#222222",
+              "direction": "row",
+              "gap": 4,
+              "height": "fill",
+              "padding": {
+                "bottom": 4,
+                "left": 4,
+                "right": 4,
+                "top": 4
+              },
+              "width": "hug"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "background": "#EBEBEB",
+          "direction": "column",
+          "gap": 8,
+          "height": "hug",
+          "padding": {
+            "bottom": 10,
+            "left": 16,
+            "right": 16,
+            "top": 10
+          },
+          "width": "fill"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "MoleculeHugFillLabyrinth": {
+      "name": "MoleculeHugFillLabyrinth",
+      "root": {
+        "children": [
+          {
+            "children": [
+              {
+                "id": "Top",
+                "kind": "text",
+                "props": {
+                  "color": "#F7F7F7",
+                  "content": "Hug×Fill",
+                  "fontSize": 11
+                }
+              },
+              {
+                "id": "Bottom",
+                "kind": "layout",
+                "props": {
+                  "background": "#EBEBEB",
+                  "direction": "row",
+                  "height": "hug",
+                  "justify": "end",
+                  "width": "fill"
+                }
+              }
+            ],
+            "id": "NarrowHug",
+            "kind": "layout",
+            "props": {
+              "align": "stretch",
+              "background": "#222222",
+              "direction": "column",
+              "gap": 4,
+              "height": "fill",
+              "justify": "spaceBetween",
+              "padding": {
+                "bottom": 6,
+                "left": 6,
+                "right": 6,
+                "top": 6
+              },
+              "width": "hug"
+            }
+          },
+          {
+            "children": [
+              {
+                "id": "Banner",
+                "kind": "text",
+                "props": {
+                  "color": "#EBEBEB",
+                  "content": "Flex middle",
+                  "fontSize": 12
+                }
+              },
+              {
+                "id": "StretchChild",
+                "kind": "layout",
+                "props": {
+                  "align": "stretch",
+                  "background": "#222222",
+                  "direction": "column",
+                  "height": {
+                    "fixed": 48
+                  },
+                  "width": "fill"
+                }
+              }
+            ],
+            "id": "FlexMiddle",
+            "kind": "layout",
+            "props": {
+              "alignSelf": "center",
+              "background": "#D3D3D3",
+              "direction": "column",
+              "gap": 4,
+              "grow": 1,
+              "height": "hug",
+              "padding": {
+                "bottom": 8,
+                "left": 8,
+                "right": 8,
+                "top": 8
+              },
+              "shrink": 1,
+              "width": {
+                "flex": {
+                  "max": 200,
+                  "min": 40
+                }
+              }
+            }
+          },
+          {
+            "id": "FixedIsland",
+            "kind": "layout",
+            "props": {
+              "align": "center",
+              "alignSelf": "end",
+              "background": "#EBEBEB",
+              "direction": "column",
+              "height": {
+                "flex": {
+                  "max": 180,
+                  "min": 60
+                }
+              },
+              "justify": "center",
+              "width": {
+                "fixed": 72
+              }
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "background": "#F7F7F7",
+          "direction": "row",
+          "gap": 8,
+          "height": {
+            "fixed": 220
+          },
+          "justify": "start",
+          "padding": {
+            "bottom": 12,
+            "left": 12,
+            "right": 12,
+            "top": 12
+          },
+          "width": "fill",
+          "wrap": "nowrap"
+        }
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-05T23:46:07.240Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "/workspace/test-fixtures/pdl/molecules/m_08_hug_fill_labyrinth.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

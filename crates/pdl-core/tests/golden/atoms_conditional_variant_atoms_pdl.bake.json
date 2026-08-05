@@ -1,0 +1,61 @@
+{
+  "components": {
+    "AtomVariantAxis": {
+      "bakedParams": {
+        "axis": "horizontal"
+      },
+      "name": "AtomVariantAxis",
+      "root": {
+        "children": [
+          {
+            "id": "Box",
+            "kind": "layout",
+            "props": {
+              "background": "#F7F7F7",
+              "direction": "row",
+              "gap": 4
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout"
+      },
+      "rootKind": "layout"
+    },
+    "AtomVariantSwatch": {
+      "bakedParams": {
+        "tone": "neutral"
+      },
+      "name": "AtomVariantSwatch",
+      "root": {
+        "children": [
+          {
+            "id": "Swatch",
+            "kind": "layout",
+            "props": {
+              "background": "#F7F7F7",
+              "direction": "column",
+              "padding": {
+                "bottom": 8,
+                "left": 16,
+                "right": 16,
+                "top": 8
+              }
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout"
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-05T23:45:14.260Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "/workspace/test-fixtures/pdl/atoms/conditional_variant_atoms.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

@@ -1,0 +1,82 @@
+{
+  "components": {
+    "RulesElseHost": {
+      "bakedParams": {
+        "mode": "ea"
+      },
+      "name": "RulesElseHost",
+      "root": {
+        "children": [
+          {
+            "id": "L",
+            "kind": "text",
+            "props": {
+              "content": "e"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "direction": "column"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "RulesNestHost": {
+      "bakedParams": {
+        "i": "i1",
+        "o": "o1"
+      },
+      "name": "RulesNestHost",
+      "root": {
+        "children": [
+          {
+            "id": "L",
+            "kind": "text",
+            "props": {
+              "content": "n"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "direction": "column"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "RulesTagHost": {
+      "bakedParams": {
+        "mode": "ta"
+      },
+      "name": "RulesTagHost",
+      "root": {
+        "children": [
+          {
+            "id": "L",
+            "kind": "text",
+            "props": {
+              "content": "r"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "direction": "column"
+        }
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-05T23:45:53.637Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "/workspace/test-fixtures/pdl/integration/rules_tags_when.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

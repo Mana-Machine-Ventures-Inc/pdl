@@ -1,0 +1,348 @@
+{
+  "components": {
+    "MoleculeButtonRowDemo": {
+      "name": "MoleculeButtonRowDemo",
+      "root": {
+        "children": [
+          {
+            "children": [
+              {
+                "id": "L",
+                "kind": "text",
+                "props": {
+                  "color": "#222222",
+                  "content": "Ghost sm",
+                  "fontSize": 14,
+                  "fontWeight": 600
+                }
+              }
+            ],
+            "id": "A",
+            "instanceKwargs": {
+              "label": "Primary sm",
+              "size": "sm",
+              "tone": "primary"
+            },
+            "instanceOf": "MoleculeTextButton",
+            "kind": "layout",
+            "props": {
+              "align": "center",
+              "background": "#FF5A5F",
+              "cornerRadius": 4,
+              "direction": "row",
+              "gap": 4,
+              "justify": "center",
+              "padding": {
+                "bottom": 6,
+                "left": 10,
+                "right": 10,
+                "top": 6
+              },
+              "wrap": "nowrap"
+            }
+          },
+          {
+            "children": [
+              {
+                "id": "L",
+                "kind": "text",
+                "props": {
+                  "color": "#222222",
+                  "content": "Ghost sm",
+                  "fontSize": 14,
+                  "fontWeight": 600
+                }
+              }
+            ],
+            "id": "B",
+            "instanceKwargs": {
+              "label": "Secondary lg",
+              "size": "lg",
+              "tone": "secondary"
+            },
+            "instanceOf": "MoleculeTextButton",
+            "kind": "layout",
+            "props": {
+              "align": "center",
+              "background": "#00A699",
+              "cornerRadius": 4,
+              "direction": "row",
+              "gap": 4,
+              "justify": "center",
+              "padding": {
+                "bottom": 12,
+                "left": 18,
+                "right": 18,
+                "top": 12
+              },
+              "wrap": "nowrap"
+            }
+          },
+          {
+            "children": [
+              {
+                "id": "L",
+                "kind": "text",
+                "props": {
+                  "color": "#222222",
+                  "content": "Ghost sm",
+                  "fontSize": 14,
+                  "fontWeight": 600
+                }
+              }
+            ],
+            "id": "C",
+            "instanceKwargs": {
+              "label": "Ghost sm",
+              "size": "sm",
+              "tone": "ghost"
+            },
+            "instanceOf": "MoleculeTextButton",
+            "kind": "layout",
+            "props": {
+              "align": "center",
+              "background": "#D3D3D3",
+              "cornerRadius": 4,
+              "direction": "row",
+              "gap": 4,
+              "justify": "center",
+              "opacity": 0.15,
+              "padding": {
+                "bottom": 6,
+                "left": 10,
+                "right": 10,
+                "top": 6
+              },
+              "wrap": "nowrap"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "center",
+          "background": "#F7F7F7",
+          "direction": "row",
+          "gap": 8,
+          "justify": "start",
+          "padding": {
+            "bottom": 16,
+            "left": 16,
+            "right": 16,
+            "top": 16
+          },
+          "wrap": "wrap"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "MoleculeModalShell": {
+      "bakedParams": {
+        "body": "This cannot be undone.",
+        "cancelLabel": "Cancel",
+        "confirmLabel": "Delete",
+        "heading": "Confirm"
+      },
+      "name": "MoleculeModalShell",
+      "root": {
+        "children": [
+          {
+            "children": [
+              {
+                "id": "Header",
+                "kind": "text",
+                "props": {
+                  "content": "Confirm"
+                }
+              },
+              {
+                "id": "Copy",
+                "kind": "text",
+                "props": {
+                  "content": "This cannot be undone."
+                }
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "id": "L",
+                        "kind": "text",
+                        "props": {
+                          "color": "#FFFFFF",
+                          "content": "Delete",
+                          "fontSize": 14,
+                          "fontWeight": 600
+                        }
+                      }
+                    ],
+                    "id": "Cancel",
+                    "instanceKwargs": {
+                      "label": "Cancel",
+                      "size": "sm",
+                      "tone": "ghost"
+                    },
+                    "instanceOf": "MoleculeTextButton",
+                    "kind": "layout",
+                    "props": {
+                      "align": "center",
+                      "background": "#D3D3D3",
+                      "cornerRadius": 4,
+                      "direction": "row",
+                      "gap": 4,
+                      "justify": "center",
+                      "opacity": 0.15,
+                      "padding": {
+                        "bottom": 6,
+                        "left": 10,
+                        "right": 10,
+                        "top": 6
+                      },
+                      "wrap": "nowrap"
+                    }
+                  },
+                  {
+                    "children": [
+                      {
+                        "id": "L",
+                        "kind": "text",
+                        "props": {
+                          "color": "#FFFFFF",
+                          "content": "Delete",
+                          "fontSize": 14,
+                          "fontWeight": 600
+                        }
+                      }
+                    ],
+                    "id": "Go",
+                    "instanceKwargs": {
+                      "label": "Delete",
+                      "size": "sm",
+                      "tone": "primary"
+                    },
+                    "instanceOf": "MoleculeTextButton",
+                    "kind": "layout",
+                    "props": {
+                      "align": "center",
+                      "background": "#FF5A5F",
+                      "cornerRadius": 4,
+                      "direction": "row",
+                      "gap": 4,
+                      "justify": "center",
+                      "padding": {
+                        "bottom": 6,
+                        "left": 10,
+                        "right": 10,
+                        "top": 6
+                      },
+                      "wrap": "nowrap"
+                    }
+                  }
+                ],
+                "id": "Footer",
+                "kind": "layout",
+                "props": {
+                  "align": "center",
+                  "direction": "row",
+                  "gap": 8,
+                  "justify": "end"
+                }
+              }
+            ],
+            "id": "Panel",
+            "kind": "layout",
+            "props": {
+              "align": "stretch",
+              "background": "#F7F7F7",
+              "cornerRadius": {
+                "bl": 2,
+                "br": 2,
+                "tl": 8,
+                "tr": 8
+              },
+              "direction": "column",
+              "foreground": [
+                "#d3d3d30f"
+              ],
+              "gap": 16,
+              "padding": {
+                "bottom": 16,
+                "left": 16,
+                "right": 16,
+                "top": 16
+              },
+              "shadow": "0 1px 3px 0 rgba(0,0,0,0.35)",
+              "width": "hug"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "center",
+          "background": "#d3d3d340",
+          "direction": "column",
+          "height": "fill",
+          "justify": "center",
+          "padding": {
+            "bottom": 48,
+            "left": 24,
+            "right": 24,
+            "top": 48
+          },
+          "width": "fill"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "MoleculeTextButton": {
+      "bakedParams": {
+        "label": "Button",
+        "size": "sm",
+        "tone": "primary"
+      },
+      "name": "MoleculeTextButton",
+      "root": {
+        "children": [
+          {
+            "id": "L",
+            "kind": "text",
+            "props": {
+              "color": "#FFFFFF",
+              "content": "Button",
+              "fontSize": 14,
+              "fontWeight": 600
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "center",
+          "background": "#FF5A5F",
+          "cornerRadius": 4,
+          "direction": "row",
+          "gap": 4,
+          "justify": "center",
+          "padding": {
+            "bottom": 6,
+            "left": 10,
+            "right": 10,
+            "top": 6
+          },
+          "wrap": "nowrap"
+        }
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-05T23:46:04.968Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "/workspace/test-fixtures/pdl/molecules/m_06_modal.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

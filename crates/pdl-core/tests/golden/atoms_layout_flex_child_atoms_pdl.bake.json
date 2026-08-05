@@ -1,0 +1,91 @@
+{
+  "components": {
+    "AtomFlexChildAbsolute": {
+      "name": "AtomFlexChildAbsolute",
+      "root": {
+        "children": [
+          {
+            "id": "Floated",
+            "kind": "layout",
+            "props": {
+              "alignSelf": "auto",
+              "background": "#D3D3D3",
+              "direction": "column",
+              "inset": {
+                "bottom": 4,
+                "left": 4,
+                "right": 4,
+                "top": 4
+              },
+              "position": "absolute"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "start",
+          "background": "#F7F7F7",
+          "direction": "row",
+          "justify": "start",
+          "padding": {
+            "bottom": 16,
+            "left": 16,
+            "right": 16,
+            "top": 16
+          },
+          "wrap": "nowrap"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomFlexChildGrow": {
+      "name": "AtomFlexChildGrow",
+      "root": {
+        "children": [
+          {
+            "id": "A",
+            "kind": "layout",
+            "props": {
+              "alignSelf": "stretch",
+              "background": "#222222",
+              "direction": "column",
+              "grow": 1,
+              "shrink": 1
+            }
+          },
+          {
+            "id": "B",
+            "kind": "layout",
+            "props": {
+              "alignSelf": "end",
+              "background": "#EBEBEB",
+              "direction": "column",
+              "grow": 0,
+              "shrink": 0
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "background": "#F7F7F7",
+          "direction": "row",
+          "gap": 8,
+          "justify": "start",
+          "wrap": "nowrap"
+        }
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-05T23:45:22.119Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "/workspace/test-fixtures/pdl/atoms/layout_flex_child_atoms.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

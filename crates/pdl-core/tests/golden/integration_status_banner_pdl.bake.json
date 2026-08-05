@@ -1,0 +1,34 @@
+{
+  "components": {
+    "StatusBanner": {
+      "bakedParams": {
+        "label": "Everything is fine",
+        "tone": "success"
+      },
+      "name": "StatusBanner",
+      "root": {
+        "children": [
+          {
+            "id": "Message",
+            "kind": "text",
+            "props": {
+              "color": "#22C55E",
+              "content": "Everything is fine"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout"
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-05T23:45:54.753Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "/workspace/test-fixtures/pdl/integration/status_banner.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

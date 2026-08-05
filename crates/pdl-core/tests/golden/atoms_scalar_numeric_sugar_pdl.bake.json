@@ -1,0 +1,59 @@
+{
+  "components": {
+    "ScalarNumericSugar": {
+      "name": "ScalarNumericSugar",
+      "root": {
+        "children": [
+          {
+            "id": "T",
+            "kind": "text",
+            "props": {
+              "content": "Hi",
+              "padding": {
+                "bottom": 4,
+                "left": 4,
+                "right": 4,
+                "top": 4
+              },
+              "width": {
+                "fixed": 80
+              }
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "direction": "column",
+          "height": {
+            "fixed": 100
+          },
+          "margin": {
+            "bottom": 8,
+            "left": 8,
+            "right": 8,
+            "top": 8
+          },
+          "padding": {
+            "bottom": 12,
+            "left": 12,
+            "right": 12,
+            "top": 12
+          },
+          "width": {
+            "fixed": 200
+          }
+        }
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-05T23:45:26.625Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "/workspace/test-fixtures/pdl/atoms/scalar_numeric_sugar.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}
