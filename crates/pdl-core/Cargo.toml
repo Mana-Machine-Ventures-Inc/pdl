@@ -1,0 +1,15 @@
+[package]
+name = "pdl-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Portable PDL interpreter/baker core (Rust). TypeScript in src/ remains the reference oracle until bake parity."
+readme = "README.md"
+
+[lib]
+name = "pdl_core"
+path = "src/lib.rs"
+
+[dependencies]
+
+[dev-dependencies]

@@ -20,7 +20,8 @@
     "manifest": "tsc && node dist/cli.js manifest",
     "playground": "npm run build --prefix playground && node playground/server/playground-server.mjs",
     "test": "npm run build && vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:rust": "cargo test -p pdl-core"
   },
   "engines": {
     "node": ">=20"

@@ -1,8 +1,9 @@
 # Proposal: Protocols, Slots, Expandable Lists, Emits & Dual Fixtures
 
-**Status:** draft  
+**Status:** accepted (2026-08-05) — not yet shipped in `full-spec` / compilers  
 **Depends on:** `docs/PROPOSAL_PORTABLE_CORE.md` (portable core, bake → native views)  
-**Related:** `docs/full-spec.md` §4 (params), §8 (interactions), §11 (fixtures / expose), §16 (catalogue / bake)
+**Related:** `docs/full-spec.md` §4 (params), §8 (interactions), §11 (fixtures / expose), §16 (catalogue / bake)  
+**Implementation:** `docs/IMPLEMENTATION_PLAN.md`
 
 ---
 

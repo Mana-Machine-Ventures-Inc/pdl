@@ -2,6 +2,19 @@
 
 This document records ambiguities between **`docs/full-spec.md`** and this repository’s reference TypeScript implementation (`src/`), plus intentional v1 limits.
 
+## Accepted proposals (not yet shipped)
+
+| Proposal | Status | Notes |
+|----------|--------|--------|
+| [`PROPOSAL_PORTABLE_CORE.md`](./PROPOSAL_PORTABLE_CORE.md) | **Accepted** 2026-08-05 | Rust portable core; TS oracle until bake parity |
+| [`PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md`](./PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md) | **Accepted** 2026-08-05 | Protocols, `[T]` slots, emits, dual fixtures, layout `on` |
+
+**Roadmap:** [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md). Crate: **`crates/pdl-core`**.
+
+Until a feature is merged into **`full-spec.md`** with fixtures/goldens, tooling **must not** treat proposal syntax as normative.
+
+---
+
 ## Lexer: frame kind keywords vs `icon` / `media` property names
 
 - **§20** lists `layout`, `text`, `icon`, `media` as reserved words. Those spellings are also **frame kind keywords** and, for `icon` / `media`, **property names** on the same kinds (`icon = "…"`, `media { source = … }`).

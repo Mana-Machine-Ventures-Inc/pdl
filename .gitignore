@@ -7,3 +7,6 @@ dist/
 /system.json
 /design-graph.json
 /*.html
+
+# Rust
+/target/

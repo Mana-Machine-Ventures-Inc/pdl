@@ -1,6 +1,9 @@
 # PDL toolchain
 
-TypeScript compiler for **PDL** (Programmatic Design Language) as described in **`docs/full-spec.md`**.
+Compilers for **PDL** (Programmatic Design Language) as described in **`docs/full-spec.md`**.
+
+- **TypeScript** (`src/`) — current reference CLI / oracle (`npm test`)  
+- **Rust** (`crates/pdl-core`) — portable core in progress (`cargo test -p pdl-core`); see **`docs/IMPLEMENTATION_PLAN.md`**
 
 ## Commands
 
@@ -18,7 +21,7 @@ After `npm install`, use the npm scripts below (each runs **`tsc`** first so **`
 | `npm run catalogue --silent -- <entry.pdl> [--theme Name] [--out file.json]` | Same JSON shape as **graphSystem**, but allows **`--theme`** for **tree** resolution (`docs/full-spec.md` §16). |
 | `npm run resolve --silent -- <entry.pdl> <Component> [--tree-only] [--theme Name] [key=value …]` | Legacy: **`resolvedComponent`** (default) or bare **`CatalFrame`** with **`--tree-only`**. Prefer **graphComponent** / **bakeComponent** for new tooling. |
 
-`npm test` runs the Vitest suite.
+`npm test` runs the Vitest suite. `npm run test:rust` runs `cargo test -p pdl-core`.
 
 ## Test fixtures
 
@@ -31,3 +34,6 @@ After `npm install`, use the npm scripts below (each runs **`tsc`** first so **`
 
 - Normative language: **`docs/full-spec.md`**
 - Known spec/tooling gaps: `docs/SPEC_GAPS.md`
+- Accepted proposals + roadmap: `docs/IMPLEMENTATION_PLAN.md`
+- Portable core proposal: `docs/PROPOSAL_PORTABLE_CORE.md`
+- Slots / protocols / emits proposal: `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md`
