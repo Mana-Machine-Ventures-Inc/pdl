@@ -2,7 +2,9 @@
 
 Rust **portable PDL core** (lex → parse → merge → validate → bake).
 
-**Status:** **A1** — lexer + parser + AST for the current language (`docs/full-spec.md`). TypeScript in `src/` remains the bake/catalogue oracle until **A2** parity.
+**Status:** skeleton (step **A0** in [`docs/IMPLEMENTATION_PLAN.md`](../../docs/IMPLEMENTATION_PLAN.md)).
+
+The TypeScript toolchain in `src/` is the **conformance oracle** until this crate matches bake/catalogue goldens.
 
 ## Develop
 
@@ -11,24 +13,8 @@ cargo test -p pdl-core
 cargo build -p pdl-core
 ```
 
-Parse a module:
+## Next
 
-```rust
-use pdl_core::parser::parse_module_source;
-let module = parse_module_source(source, "design.pdl")?;
-```
-
-## Layout
-
-| Module | Role |
-|--------|------|
-| `lexer` | §20 tokenize |
-| `parser` | §21 module AST |
-| `ast` | Declaration / value / frame trees |
-| `error` | `PdlError` (`PDL-E00x`) |
-
-## Next (A2)
-
-1. `loadDesign` / merge / validate  
+1. Lexer / parser / AST for current `docs/full-spec.md` language  
 2. `bake_component` parity vs `npm run bakeComponent`  
-3. Goldens for atoms / molecules / integration `design.pdl`
+3. Then proposal language slices (protocols, `[T]`, emits, …)

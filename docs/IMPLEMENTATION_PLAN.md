@@ -20,7 +20,7 @@
 | Step | Deliverable | Done when |
 |------|-------------|-----------|
 | **A0** | `crates/pdl-core` skeleton + workspace | `cargo test` green |
-| **A1** | Lexer + parser + AST for *current* PDL | Parse `test-fixtures/pdl/**/*.pdl` (excl. intentional errors) |
+| **A1** | Lexer + parser + AST for *current* PDL | ✅ Parse non-error `test-fixtures/pdl/**/*.pdl` + golden entries |
 | **A2** | load / merge / validate / **bakeComponent** | Golden parity vs TS on a starter set |
 | **A3** | Catalogue / graph subset needed by hosts | Selected goldens match |
 | **A4** | `pdl` Rust CLI (`bake` first) | CI dual-run TS vs Rust |
