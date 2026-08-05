@@ -1,8 +1,8 @@
-# Proposal: Protocols, Slots, Expandable Lists & Dual Fixtures
+# Proposal: Protocols, Slots, Expandable Lists, Emits & Dual Fixtures
 
 **Status:** draft  
 **Depends on:** `docs/PROPOSAL_PORTABLE_CORE.md` (portable core, bake → native views)  
-**Related:** `docs/full-spec.md` §4 (params), §11 (fixtures / expose), §16 (catalogue / bake)
+**Related:** `docs/full-spec.md` §4 (params), §8 (interactions), §11 (fixtures / expose), §16 (catalogue / bake)
 
 ---
 
@@ -14,6 +14,7 @@ PDL today models **scalar** component parameters (`String`, variants, …) and *
 - **Lists** of cards fed by APIs or shims
 - **Mixed** lists (e.g. host cards and user cards)
 - **Reusable shells** (modal, page chrome) that must accept **any** suitable body without endless internal variants
+- **Prototype interaction** where child intents (e.g. filter select, open episode) must reach an owner without indexes or parent pointers
 
 We need a content model that stays **PDL-authored and typed** for design-time truth, yet accepts **external JSON packs** for prototypes driven by real or generated data—without a second display language and without requiring `isType` forests in containers.
 
@@ -27,58 +28,93 @@ We need a content model that stays **PDL-authored and typed** for design-time tr
 | **List content** | Arrays of instances expand into the tree at bake/interpret time |
 | **Dual fixtures** | Strict PDL fixtures **and** malleable injection packs share one shape |
 | **Thin happy path** | Placing `slots` in `children` is enough; no mandatory `ForEach` |
-| **Optional list chrome** | Expandable `ForEach` with `before` / `between` / `after` when needed |
+| **Optional list chrome / binding** | `ForEach` when the parent needs chrome or **derived child params** |
+| **Layout as view body** | Structure **down** and local emit capture **up** live together in `layout` |
+| **Public contracts outside layout** | `expose` / `emits` / protocols define what **other parents** see |
+| **Identity, not indexes** | Intents carry stable ids (`filter`, `episodeId`), not array positions |
 | **PDL remains SoT** | Visual structure and contracts live in `.pdl`; packs only supply instance data |
 | **Validate at the gate** | Unknown names / bad params fail inject or CI—not silent wrong UI |
 
 ### Non-goals
 
 - `isType` / runtime type switching inside containers as a primary pattern  
-- Making PDL a general programming language (arbitrary loops, maps, network)  
+- Making PDL a general programming language (arbitrary loops, maps, network, DB)  
+- Children knowing or calling their parent  
+- Foundational `[String]` / `[Bool]` / `[Number]` as expandable layout lists (prefer `[Component]` / `[Protocol]`)  
 - Hand-editing injection packs as a second authoring format for designers  
 - CRDT-merging of fixture trees across peers (whole-file / whole-pack sync is enough)
 
 ---
 
-## 3. Concepts at a glance
+## 3. Component surfaces (mental model)
+
+A component has two kinds of surface:
+
+| Surface | Role | Analogy |
+|---------|------|---------|
+| **`expose` / `emits` / `protocol`** | What **parents** may pass in and hear out | Public API |
+| **`layout`** | How **this** component builds its child tree **and** wires those children’s intents | SwiftUI `body` |
+
+`layout` already does more than spacing: it composes under variants, state, and fixture/pack inputs. It is the place that defines the **stack down** (`children`, expandable slots, `ForEach`). It is therefore also the natural place to define the **stack back up**: capture child emits and assign local params.
+
+Sibling companions like `on LibrarySubnav { … }` are **not** preferred for child→parent wiring—they split composition across two places. Keep contracts (`expose` / `emits`) as companions; keep **composition + local capture** in `layout`.
 
 ```text
-protocol ModalContent {
-  title = "Modal Title"
-  subtitle = ""
-}
-
-component UpsellBody <ModalContent>(
-  cta: String = "Upgrade"
-) layout { … }                 // inherits protocol params; declares extras
-
-component Modal(
-  title: String = "",
-  slots: [ModalContent] = [UpsellBody()]
-) layout {
-  children = [Header, slots]   // expand in place
-  // or, when chrome per item is needed:
-  // ForEach(slots) { before { … } between { … } after { … } }
-}
-
-fixtures Modal { example "…" { … } }   // typed, in .pdl
-
-injection pack (JSON)                  // same tree, from API / shim / file
-    → validate vs catalogue
-    → bake / expand → frame IR → SwiftUI / HTML
+Parents see:     expose, emits, protocol conformance
+This view body:  layout { children / ForEach / on select … }
 ```
 
 ---
 
-## 4. Protocols & conformance
+## 4. Concepts at a glance
 
-### 4.1 Why
+```text
+protocol SubnavItem {
+  title = ""
+  filter: FilterId = .all
+  emits {
+    select(filter)
+  }
+}
+
+component FilterChip <SubnavItem>(
+  selected: Bool = false
+) layout { … }
+
+emits FilterChip { select(filter) }   // may be inherited from protocol; see §8
+
+component LibrarySubnav(
+  currentFilter: FilterId = .all,
+  chips: [SubnavItem] = [
+    FilterChip(title: "All", filter: .all),
+    FilterChip(title: "Podcasts", filter: .podcasts)
+  ]
+) layout {
+  direction = .row
+  ForEach(chips) {
+    selected = (currentFilter == filter)
+    on select { filter in
+      currentFilter = filter
+    }
+  }
+}
+
+fixtures / injection pack → validate → bake / expand → view runtime
+
+unhandled emits (openEpisode, back, …) → prototype runtime (routes, data, nav stack)
+```
+
+---
+
+## 5. Protocols & conformance
+
+### 5.1 Why
 
 Figma-like **instance swap with constraints**: a `Modal` should not enumerate every possible body as variants. It should accept **any component that conforms** to a small contract (e.g. `ModalContent`).
 
-Conformance is **declared on the component** (not a separate `conform` statement), and the protocol itself defines the **shared parameter surface** (names + defaults) that every adopter exposes.
+Conformance is **declared on the component** (not a separate `conform` statement). The protocol defines the **shared parameter surface** and may declare **shared emits**.
 
-### 4.2 Language sketch
+### 5.2 Language sketch
 
 ```pdl
 protocol ModalContent {
@@ -115,52 +151,68 @@ component Name <Protocol>( /* additional params */ ) layout|text|icon|media { �
 - Multiple protocols later: `component X <A, B>(…)` if needed — **v1 may allow a single protocol**.  
 - No separate top-level `conform` declaration.
 
-### 4.3 Protocol body = shared params
-
-A protocol declares the **common injectable fields** every conformer must accept:
+### 5.3 Protocol body = shared params (+ optional emits)
 
 ```pdl
 protocol ModalContent {
   title = "Modal Title"
   subtitle = ""
 }
+
+protocol SubnavItem {
+  title = ""
+  filter: FilterId = .all
+  emits {
+    select(filter)
+  }
+}
 ```
 
 | Rule | Intent |
 |------|--------|
-| Entries look like param defaults | `name = default` (and optionally `name: Type = default`) |
-| Types | Infer from defaults where unambiguous (`""` → `String`); prefer explicit `: Type` when unclear |
-| Inheritance | Conforming components **include** protocol params in their API automatically (before/with their own params) |
-| Override defaults | A conformer **may** redeclare a protocol param with a tighter default; type must stay compatible |
-| Extra params | Conformer may add params beyond the protocol (`cta` on `UpsellBody`) |
-| Slot binding | A `[ModalContent]` / `ModalContent` position must supply at least the protocol fields; extra fields allowed when the concrete component is known |
+| Param entries | `name = default` (and optionally `name: Type = default`) |
+| Types | Infer from defaults where unambiguous; prefer explicit `: Type` when unclear |
+| Inheritance | Conforming components **include** protocol params in their API automatically |
+| Override defaults | Conformer **may** redeclare a protocol param with a tighter default; type must stay compatible |
+| Extra params | Conformer may add params beyond the protocol |
+| **Protocol `emits`** | Shared intent channel for mixed lists; any conformer may fire them |
+| Slot binding | `[P]` / `P` positions require protocol fields; extras allowed when concrete type is known |
 
-**Not** (for v1): protocols as free-form constraint DSLs (`root = layout`) only. Shared **content params** are the primary contract; structural constraints can be added later if needed.
-
-### 4.4 Normative intent (v1)
+### 5.4 Normative intent (v1)
 
 | Rule | Intent |
 |------|--------|
-| `protocol` | Design contract: shared params + defaults |
+| `protocol` | Design contract: shared params + defaults (+ optional emits) |
 | `component C <P>(…)` | Declares conformance inline; `C` may appear where `P` / `[P]` is expected |
 | Effective params of `C` | Protocol params ∪ component-own params |
-| Catalogue | `protocols[P].params` + `components[C].conformsTo: ["P"]` (+ flattened `params`) |
-| Host packs | May target concrete `UpsellBody` or rely on protocol field set when concrete type is named |
+| Effective emits of `C` | Protocol emits ∪ component `emits` block |
+| Catalogue | `protocols[P].params` / `.emits` + `components[C].conformsTo` |
+| Host packs | Target concrete component names; validate against protocol bounds |
 
-### 4.5 Closed union vs open protocol
+### 5.5 Closed union vs open protocol
 
 | Use | Form |
 |-----|------|
-| Known finite mix in one list | One protocol adopted by those cards (`FeedRow`), or documented closed set in pack schema |
+| Known finite mix in one list | One protocol adopted by those cards (`FeedRow` / `SubnavItem`) |
 | Open plug-in bodies | `protocol ModalContent` + any `component … <ModalContent>` |
 
-Avoid encoding diversity as `if kind == …` on the shell.
+Avoid encoding diversity as `if kind == …` on the shell. Mixed list types share **protocol emits** so the parent listens to one channel (`select`), not each concrete class.
+
+### 5.6 Who is listened to (not layout indexes)
+
+Capture is about **intent channels**, not predeclaring every instance:
+
+- Membership in a list/slot param (`chips`)  
+- Whether the item’s type **emits** that intent (often via protocol)  
+- “Don’t care” about some on-screen chrome → keep it **out of that list**, or don’t emit  
+
+Layout position alone must not decide capture.
 
 ---
 
-## 5. Array params & slot injection
+## 6. Array params & slot injection
 
-### 5.1 `[T]` as a foundational param type
+### 6.1 `[T]` as a foundational param type
 
 `T` is a **component name** or a **protocol name**.
 
@@ -174,18 +226,19 @@ component Feed(
   rows: [FeedRow] = []
 ) layout { … }
 
-component Carousel(
-  cards: [ContentCard] = []
+component LibrarySubnav(
+  chips: [SubnavItem] = []
 ) layout { … }
 ```
 
-- **`[ModalContent]`** — open protocol list; only `component … <ModalContent>` may appear.  
-- **`[ContentCard]`** — homogeneous list of a concrete component.  
-- **`[FeedRow]`** — protocol adopted via `component HostCard <FeedRow>` / `UserCard <FeedRow>`.
+- **`[ModalContent]`** / **`[SubnavItem]`** — protocol lists; only conformers may appear.  
+- **`[ContentCard]`** — homogeneous concrete list.
 
 Defaults may use **instance literals**: `Name(param: value, …)`. Protocol-inherited params may be omitted when defaults suffice (`UpsellBody()`).
 
-### 5.2 Expansion (no `ForEach` required)
+**Not foundational for v1:** expandable `[String]` / `[Bool]` / `[Number]`. Lists that become UI should be **instance arrays** (e.g. filter chips with `title`, not raw strings). Opaque primitive arrays as host pass-through may be considered later—they must **not** auto-expand in `children`.
+
+### 6.2 Expansion (no `ForEach` required)
 
 A list/protocol param referenced in `children` is an **expandable fragment**:
 
@@ -196,18 +249,15 @@ component Modal(
 ) layout {
   let Header: text = {
     content = title
-    // …
   }
   children = [Header, slots]
 }
 ```
 
-**Bake / interpret:**
-
 ```text
 children = [Header, slots]
                 ↓
-children = [Header, Body0, Body1, …]   // each baked instance root
+children = [Header, Body0, Body1, …]
 ```
 
 | Rule | Suggestion |
@@ -218,9 +268,9 @@ children = [Header, Body0, Body1, …]   // each baked instance root
 | Depth | Expand one list level at the reference site (v1) |
 | Validation | Every element must conform to the array’s bound |
 
-### 5.3 Nested digestion (finite trees)
+### 6.3 Nested digestion (finite trees)
 
-Parent fixtures/packs may nest instance objects that mirror child `expose`:
+Parent fixtures/packs may nest instance objects that mirror child contracts:
 
 ```pdl
 fixtures UpsellModal {
@@ -233,65 +283,173 @@ fixtures UpsellModal {
 }
 ```
 
-(Or `primary` / `secondary` as **bundle-typed** params matching `ReusableButton`—same idea as length-1 slots.)
+Each layer digests its scalars and forwards nested instances to children. Nesting is structural—**no** stringly `fixture["key"]` in `.pdl` authoring.
 
-Each layer digests its scalars and forwards nested instances to children. **No** stringly `fixture["key"]` in `.pdl` authoring; nesting is structural.
+### 6.4 Explicitly out: `isType`
 
-### 5.4 Explicitly out: `isType`
-
-Container logic like `if slot.isType(UpsellBody)` is an **anti-pattern**: it recreates variant explosion inside the shell. Diversity belongs on slotted components. Omit `isType` from v1 (and treat later additions as discouraged escapes).
+Container logic like `if slot.isType(UpsellBody)` is an **anti-pattern**. Omit from v1.
 
 ---
 
-## 6. Optional expandable `ForEach`
+## 7. `ForEach` — chrome and derived bindings
 
-### 6.1 When
+### 7.1 When
 
-Only when the **parent** must emit chrome around list items (dividers, spacing frames, first/last ornaments). The happy path remains bare `slots` in `children`.
+| Need | Use |
+|------|-----|
+| Just mount instances | `children = [slots]` (no `ForEach`) |
+| Dividers / before / after chrome | `ForEach` + `before` / `between` / `after` |
+| Derive child params from parent SoT | `ForEach` + binding (e.g. selection) |
+| Capture list emits next to composition | `on select` inside that `ForEach` / beside the list |
 
-### 6.2 Sketch
+### 7.2 List chrome
 
 ```pdl
 ForEach(slots) {
-  before {
-    let TopRule: layout = { /* … */ }
-    children = [TopRule]
-  }
-  between {
-    let Divider: layout = { /* … */ }
-    children = [Divider]
-  }
-  after {
-    let BottomPad: layout = { /* … */ }
-    children = [BottomPad]
+  before { … }
+  between { … }
+  after { … }
+}
+```
+
+```text
+slots = [A, B, C]
+→ before + A + between + B + between + C + after
+```
+
+### 7.3 Derived bindings (filter bar)
+
+Parent owns **one** source of truth; children get a **derived** flag. Prefer **ids/enums**, not indexes:
+
+```pdl
+component LibrarySubnav(
+  currentFilter: FilterId = .all,
+  chips: [SubnavItem] = [ … ]
+) layout {
+  direction = .row
+
+  ForEach(chips) {
+    selected = (currentFilter == filter)
+
+    on select { filter in
+      currentFilter = filter
+    }
   }
 }
 ```
 
-**Expansion semantics** (conceptual):
+- `selected = (currentFilter == filter)` is **presentation binding** in the view body.  
+- Per-chip `selected: true` in fixtures remains valid as a **baked snapshot**; live prototypes prefer parent SoT + derive.  
+- Do **not** require general mutable instance variables or `selectedIndex` for v1.
 
-```text
-slots = [A, B, C]
+### 7.4 v1 sequencing
 
-before + A + between + B + between + C + after
-```
-
-- **`before` / `after`**: optional fragments once per list.  
-- **`between`**: optional fragment **between** consecutive items (not after the last).  
-- Implicit **item body**: mount each baked slot instance (no per-item closure required for v1).  
-- If a future per-item wrap is needed, prefer wrapping inside the conformer, or a later explicit item body—**not** `isType`.
-
-### 6.3 v1 recommendation
-
-- Ship **array expansion in `children`** first.  
-- Add `ForEach` + `before` / `between` / `after` when a real shell needs it.  
-- Do not block protocols/slots on `ForEach`.
+1. Expand list params in `children`.  
+2. Add `ForEach` bindings + `on` capture for list SoT (filter-style).  
+3. Add `before` / `between` / `after` when shells need chrome.
 
 ---
 
-## 7. Dual fixtures
+## 8. Emits — declare out, fire, capture in layout
 
-### 7.1 Same shape, two sources
+### 8.1 Declare (`emits`) — public output API
+
+Prefer the name **`emits`** (not `functions`): named **intents with param payloads**, not general callable methods.
+
+```pdl
+emits FilterChip {
+  select(filter)
+}
+
+// or on the protocol — mixed types, one channel
+protocol SubnavItem {
+  title = ""
+  filter: FilterId = .all
+  emits {
+    select(filter)
+  }
+}
+```
+
+Children **never** know their parent. They only declare and fire intents.
+
+### 8.2 Fire — existing interaction lane
+
+```pdl
+interaction FilterChipTap for FilterChip {
+  on pressEnd {
+    emit select
+  }
+}
+```
+
+Payload fields bind from the instance’s params (`filter`). Local chrome (hover tone, press emphasis) continues to use §8 param assignments; **cross-owner** effects use `emit`.
+
+### 8.3 Capture — in `layout` (view body)
+
+```pdl
+ForEach(chips) {
+  selected = (currentFilter == filter)
+  on select { filter in
+    currentFilter = filter
+  }
+}
+```
+
+Equivalent list-hole form:
+
+```pdl
+children = [chips]
+on chips.select { filter in
+  currentFilter = filter
+}
+```
+
+| Rule | Intent |
+|------|--------|
+| Where | Inside `layout`, next to the children / `ForEach` that introduce the emitters |
+| Who | Parent view registers interest; child has no parent pointer |
+| Payload | Stable ids / enums from child params |
+| Unhandled | Bubble to page / **prototype runtime** |
+
+One handler per list channel is enough; avoid registering N identical per-item handlers unless needed.
+
+### 8.4 Two lanes
+
+| Lane | Captured by | Examples |
+|------|-------------|----------|
+| **Local** | Parent `layout` `on …` | Filter select → `currentFilter`; simple toggle chrome |
+| **Prototype / app** | Prototype runtime | `openEpisode(id)`, `back()`, `dismiss()`, DB/API, nav stack |
+
+```text
+emit select(filter)
+  → LibrarySubnav on select → currentFilter = filter → rebind selected
+  → small redraw
+
+emit openEpisode(id)
+  → not handled in layout
+  → prototype runtime routes + data lookup
+  → push EpisodePage pack
+  → big redraw
+```
+
+### 8.5 Prototype runtime (out of PDL language core)
+
+A host **environment blob** owns routes, nav stack, id-keyed data, and cross-screen UI state. PDL screens emit intents; the runtime maps them:
+
+```text
+openEpisode → push EpisodePage, packFrom data.episodes[id]
+back        → pop
+dismiss     → dismissModal
+```
+
+Optional `prototype { … }` structure may declare routes/handlers for a demo—**not** required inside every component. PDL does not own DB lookups or stack discipline.
+
+---
+
+## 9. Dual fixtures
+
+### 9.1 Same shape, two sources
 
 | Kind | Name | Typed? | Source | When validated |
 |------|------|--------|--------|----------------|
@@ -300,204 +458,180 @@ before + A + between + B + between + C + after
 
 Both represent **instance trees**: scalars + nested `{ component, params }` / instance literals.
 
-Designers author **A**. Apps and generators emit **B**. Runtime always consumes a validated instance tree (from either path).
-
-### 7.2 PDL fixtures (strict)
-
-Remain the design-time contract (§11 extended for instances and arrays):
+### 9.2 PDL fixtures (strict)
 
 ```pdl
 fixtures Modal {
   example "Upgrade" {
     title = "Go Pro"
     slots = [
-      UpsellBody(headline: "Unlimited projects", cta: "Upgrade")
+      UpsellBody(title: "Unlimited projects", cta: "Upgrade")
+    ]
+  }
+}
+
+fixtures LibrarySubnav {
+  example "Podcasts selected" {
+    currentFilter = .podcasts
+    chips = [
+      FilterChip(title: "All", filter: .all),
+      FilterChip(title: "Podcasts", filter: .podcasts)
     ]
   }
 }
 ```
 
-- Unknown params / type mismatches / non-conformers → **hard errors**.  
-- Example labels stay display strings for studios and tests.  
-- Catalogue continues to serialize fixtures for tooling.
+Unknown params / type mismatches / non-conformers → **hard errors**.
 
-### 7.3 Injection packs (external / runtime)
+### 9.3 Injection packs (external / runtime)
 
 ```json
 {
   "schemaVersion": "1.0.0-beta",
-  "component": "Modal",
+  "component": "LibrarySubnav",
   "theme": "Light",
   "params": {
-    "title": "Go Pro",
-    "slots": [
-      {
-        "component": "UpsellBody",
-        "params": {
-          "headline": "Unlimited projects",
-          "cta": "Upgrade"
-        }
-      }
+    "currentFilter": "podcasts",
+    "chips": [
+      { "component": "FilterChip", "params": { "title": "All", "filter": "all" } },
+      { "component": "FilterChip", "params": { "title": "Podcasts", "filter": "podcasts" } }
     ]
   }
 }
 ```
 
-**Properties:**
+- Targets **component names**; catalogue validates.  
+- Generable from APIs via normalizer.  
+- After validation, same bake path as a fixture.
 
-- Targets **component names** (fragile if renamed—mitigate with catalogue validation + CI for checked-in packs).  
-- Can be **generated from APIs** via a normalizer (`Dto → pack`).  
-- **Lazy**: parse at mount; do not require Mac-side PDL rewrite.  
-- After validation, identical bake path to a resolved fixture example.
+**Inject gate:** schemaVersion → component exists → protocol bounds → params allowed → never silent mis-bind.
 
-**Inject gate:**
+### 9.4 Homogeneous vs polymorphic packs
 
-1. `schemaVersion` compatible with core.  
-2. Root / nested `component` exists in catalogue.  
-3. Protocol bounds satisfied (`conformsTo`).  
-4. Params ⊆ allowed set (`expose` policy or all declared params).  
-5. On failure: reject mount, skip item, or prototype placeholder—**never** silent mis-bind.
+Uniform: all items same `component` (or omitted when param type is concrete `[ContentCard]`).  
+Polymorphic: per-item `component` must `conformsTo` the list protocol; shared **protocol emits** keep parent wiring stable.
 
-### 7.4 Homogeneous vs polymorphic packs
+### 9.5 Bridge
 
-**Uniform list:**
-
-```json
-"cards": {
-  "items": [
-    { "component": "ContentCard", "params": { "title": "…", "imageUrl": "…" } }
-  ]
-}
-```
-
-(Or omit per-item `component` when the param type is a concrete `[ContentCard]`—engine fills it in.)
-
-**Polymorphic / protocol list:**
-
-```json
-"rows": [
-  { "component": "HostCard", "params": { "title": "Acme", "badge": "Verified" } },
-  { "component": "UserCard", "params": { "name": "Alex", "avatarUrl": "…" } }
-]
-```
-
-Each `component` must conform to the param’s protocol (`FeedRow`, etc.).
-
-### 7.5 Bridge between A and B
-
-- **Export:** catalogue / CLI can emit an injection pack from a named PDL fixture (golden demos, LAN peers).  
-- **Import:** checked-in packs validated in CI against the same catalogue.  
-- **Normalizer:** only place that knows vendor API shapes.
+Export fixtures → packs; CI-validate packs; normalizer is the only API-specific layer.
 
 ---
 
-## 8. End-to-end flows
+## 10. End-to-end flows
 
-### 8.1 Design-time (typed fixture)
-
-```text
-.pdl fixtures
-  → loadDesign / validate
-  → catalogue.fixtures["Modal"]["Upgrade"]
-  → bake(Modal, fixture params)
-  → expand [ModalContent] into children
-  → view runtime (HTML / SwiftUI)
-```
-
-### 8.2 Runtime API (injection pack)
+### 10.1 Design-time fixture
 
 ```text
-API → normalizer → Injection Pack JSON
-  → validate vs catalogue (+ protocols)
-  → bake(Modal, pack.params)
-  → expand slots
-  → view runtime
+.pdl fixtures → load / validate → catalogue
+  → bake + expand lists → view runtime
 ```
 
-### 8.3 Page of data (home)
+### 10.2 Injection pack
 
-- **Chrome** (`title`, `userName`, FAB): scalars on `HomePage` / fixture / pack.  
-- **Carousels:** `[ContentCard]` (or section components whose list params expand).  
-- **Mixed feed:** `[FeedRow]` protocol + pack items with per-row `component`.  
-- Prefer a **canonical PDL fixture** for offline “feels real” demos; swap pack for live/shim data without editing layout.
+```text
+API → normalizer → pack JSON → validate vs catalogue
+  → bake + expand → view runtime
+```
+
+### 10.3 Local emit (filter)
+
+```text
+press FilterChip → emit select(filter)
+  → layout on select → currentFilter = filter
+  → ForEach rebinds selected → small refresh
+```
+
+### 10.4 Prototype navigation
+
+```text
+emit openEpisode(id) → (no local handler)
+  → prototype route → push EpisodePage
+  → derive pack from data[id] → bake → mount
+```
 
 ---
 
-## 9. Catalogue & bake implications
+## 11. Catalogue & bake implications
 
 | Addition | Purpose |
 |----------|---------|
-| `protocols` map | Name → constraints |
+| `protocols` | Params + optional emits |
 | `components[C].conformsTo` | Protocol list |
-| Param `type: { kind: "array", element: "ModalContent" }` | Array/protocol params |
-| Fixture values | Allow instance literals / arrays in serialized fixtures |
-| Bake | Expand list fragments; optional `ForEach` chrome nodes |
-| Manifest / host SDK | Document slot params and protocols for binders |
+| `components[C].emits` | Output intents |
+| Param `type: { kind: "array", element: "…" }` | Array/protocol params |
+| Fixture / pack values | Instance literals and arrays |
+| Bake | Expand lists; apply ForEach bindings; attach emit handler metadata for hosts |
+| Host SDK | Mount packs; dispatch emits (local reduce vs prototype routes) |
 
-Portable core (Rust, per portable-core proposal) owns expand + validate; platform runtimes only see baked frames (plus optional unresolved repeat IR if live lists are deferred—product choice).
-
-**Recommendation:** for static packs, **expand at bake**. For live-updating lists, either rebake the parent or keep a small repeat IR—document one approach per platform host.
+**Recommendation:** expand static packs at bake; live lists rebake parent or keep a small repeat IR—document per host.
 
 ---
 
-## 10. Phased delivery
+## 12. Phased delivery
 
 | Phase | Deliverable |
 |-------|-------------|
-| **0** | Spec this proposal; extend open items in `SPEC_GAPS` / §19 as needed |
-| **1** | Catalogue metadata: protocols + `conformsTo` (even if authored as JSON/sidecar first) |
-| **2** | Injection pack schema + validate + bake path (TS reference) |
-| **3** | PDL: `protocol` (shared params) / `component C <P>(…)` / `[T]` params / instance literals in fixtures |
+| **0** | This proposal; track gaps in `SPEC_GAPS` / §19 |
+| **1** | Catalogue: protocols + `conformsTo` (+ emits metadata) |
+| **2** | Injection pack schema + validate + bake (TS reference) |
+| **3** | PDL: `protocol` / `component C <P>` / `[T]` / instance literals |
 | **4** | Expand list params in `children` |
-| **5** | Optional `ForEach` + `before` / `between` / `after` |
-| **6** | Host SDK mount(scene, pack); SwiftUI / HTML parity tests |
-| **7** | Fixture ↔ pack export in CLI; CI goldens |
+| **5** | `emits` + `emit` in interactions; layout `on` capture |
+| **6** | `ForEach` derived bindings (+ optional before/between/after) |
+| **7** | Host SDK mount + emit dispatch; prototype runtime (routes/stack) |
+| **8** | Fixture ↔ pack export; CI goldens |
 
 ---
 
-## 11. Risks & mitigations
+## 13. Risks & mitigations
 
 | Risk | Mitigation |
 |------|------------|
-| Rename breaks packs | Catalogue gate; codemods; stable aliases later |
+| Rename breaks packs | Catalogue gate; aliases later |
 | Oversized protocols | Narrow contracts; multiple small protocols |
-| `ForEach` complexity early | Ship expand-in-children first |
-| Designers editing raw JSON | Studio edits PDL fixtures; packs are eng/API |
+| Layout becomes a script dump | Limit `on` to simple assignments; navigation stays in prototype |
+| Param-name coupling (`chips.select`) | Prefer protocol-shared emits; ForEach-local `on select` sugar |
 | Dual sources drift | Export fixtures → packs; shared validation |
-| Layout identity churn | Stable item ids in packs for hot reload |
+| Index-based selection | Forbid as primary pattern; use id params |
+| Identity churn on hot reload | Stable item ids in packs |
 
 ---
 
-## 12. Success criteria
+## 14. Success criteria
 
-1. A `Modal` shell accepts any `component … <ModalContent>` via `slots: [ModalContent]` without Modal variants per body.  
-2. Protocol params (`title`, `subtitle`, …) appear on every conformer’s effective API; conformers may add extras.  
-3. `children = [Header, slots]` expands correctly for empty, one, and many items.  
-4. A PDL fixture and an injection pack with the same logical tree bake to equivalent frame IR.  
-5. An API normalizer can feed a home feed of mixed `HostCard` / `UserCard` through a protocol list param.  
-6. No requirement for `isType` in container layout.  
-7. Optional `ForEach` chrome (`before` / `between` / `after`) can be added without changing the pack schema.
-
----
-
-## 13. Open questions
-
-1. Single protocol slot param (`content: ModalContent`) vs always `[T]` (length 0..n)?  
-2. `expose` policy — does conforming imply protocol params are exposed by default?  
-3. Item identity field name (`id` vs fixture label) for hot reload.  
-4. Soft vs hard failure for bad pack items in prototype vs production hosts.  
-5. Whether bake always expands or may emit repeat IR for live lists.  
-6. Grammar for `component C <P>(…)`, instance literals, and `ForEach` blocks (formal EBNF follow-up).  
-7. Multiple protocols per component (`<A, B>`) in v1 or later?  
-8. May a protocol declare non-String params / variants in the shared surface?
+1. `Modal` accepts any `component … <ModalContent>` via `slots: [ModalContent]`.  
+2. Protocol params (and optional protocol emits) appear on conformers’ effective API.  
+3. `children = [Header, slots]` expands for empty / one / many.  
+4. PDL fixture and injection pack with the same tree bake equivalently.  
+5. Mixed `HostCard` / `UserCard` (or filter chip types) work through a protocol list + shared emits.  
+6. `LibrarySubnav` can own `currentFilter`, derive `selected` in `ForEach`, and capture `select` **in layout** without indexes.  
+7. Unhandled emits can reach a prototype runtime for push/back/dismiss and data lookup.  
+8. No `isType` requirement; children never reference parents.
 
 ---
 
-## 14. Summary
+## 15. Open questions
 
-**Protocols** declare a shared param surface; **`component Name <Protocol>(…)`** opts in on the declaration (no separate `conform`).  
-**`[T]` params** are the content bus for lists and multi-body regions.  
-**Expansion in `children`** is the default; **`ForEach` + before/between/after** is optional list chrome.  
-**Dual fixtures:** strict PDL examples for authors; JSON injection packs for APIs and runtime—**one tree shape**, catalogue-validated, then bake.
+1. Single protocol slot (`content: ModalContent`) vs always `[T]`?  
+2. Does conforming imply protocol params are in `expose` by default?  
+3. Item identity field conventions (`id` vs domain keys like `filter` / `episodeId`).  
+4. Soft vs hard failure for bad pack items (prototype vs production).  
+5. Bake-always-expand vs repeat IR for live lists.  
+6. Formal EBNF for `component C <P>`, `emits`, layout `on`, `ForEach`.  
+7. Multiple protocols per component (`<A, B>`) in v1?  
+8. Protocol-qualified capture sugar (`on SubnavItem.select`) vs slot-qualified only?  
+9. Shape of optional `prototype { routes … }` authoring vs host-only JSON.
 
-Together with the portable core proposal, this yields prototypes that look real, accept live data, and keep `.pdl` as the only authored visual source of truth.
+---
+
+## 16. Summary
+
+**Protocols** declare shared params and optional **emits**; **`component Name <Protocol>(…)`** opts in on the declaration.  
+**`[T]` params** are the content bus; they **expand in `children`**.  
+**`layout` is the view body**: stack down (children / ForEach) and stack up (local `on` capture).  
+**`expose` / `emits`** are what other parents see—not where child wiring lives.  
+**`ForEach`** adds chrome and **derived bindings** (`selected = currentFilter == filter`); prefer **ids**, not indexes.  
+**Dual fixtures:** strict PDL examples + JSON injection packs, one tree shape, catalogue-gated.  
+**Unhandled emits** go to a **prototype runtime** (navigation, data)—not deeper into PDL.
+
+Together with the portable core proposal, this yields prototypes that look real, accept live data, support local selection chrome and multi-screen flows, and keep `.pdl` as the authored visual source of truth.
