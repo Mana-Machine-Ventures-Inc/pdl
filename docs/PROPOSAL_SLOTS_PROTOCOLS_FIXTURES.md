@@ -43,14 +43,20 @@ We need a content model that stays **PDL-authored and typed** for design-time tr
 ## 3. Concepts at a glance
 
 ```text
-protocol ModalContent { … }
-conform UpsellBody: ModalContent
+protocol ModalContent {
+  title = "Modal Title"
+  subtitle = ""
+}
+
+component UpsellBody <ModalContent>(
+  cta: String = "Upgrade"
+) layout { … }                 // inherits protocol params; declares extras
 
 component Modal(
   title: String = "",
-  slots: [ModalContent] = [ExampleBody(…)]
+  slots: [ModalContent] = [UpsellBody()]
 ) layout {
-  children = [Header, slots]           // expand in place
+  children = [Header, slots]   // expand in place
   // or, when chrome per item is needed:
   // ForEach(slots) { before { … } between { … } after { … } }
 }
@@ -70,44 +76,83 @@ injection pack (JSON)                  // same tree, from API / shim / file
 
 Figma-like **instance swap with constraints**: a `Modal` should not enumerate every possible body as variants. It should accept **any component that conforms** to a small contract (e.g. `ModalContent`).
 
+Conformance is **declared on the component** (not a separate `conform` statement), and the protocol itself defines the **shared parameter surface** (names + defaults) that every adopter exposes.
+
 ### 4.2 Language sketch
 
 ```pdl
 protocol ModalContent {
-  root = layout
-  // v1: keep constraints minimal and checkable
+  title = "Modal Title"
+  subtitle = ""
 }
 
-component UpsellBody(
-  headline: String = "",
+component UpsellBody <ModalContent>(
   cta: String = "Upgrade"
+) layout {
+  // may use title, subtitle (from protocol) and cta (own)
+  …
+}
+
+component ConfirmBody <ModalContent>(
+  // no extras — API is exactly protocol params
 ) layout { … }
 
-conform UpsellBody: ModalContent
-
-component ConfirmBody(
-  title: String = "",
-  message: String = ""
-) layout { … }
-
-conform ConfirmBody: ModalContent
+component Modal(
+  chromeTitle: String = "",
+  slots: [ModalContent] = [UpsellBody()]
+) layout {
+  children = [Header, slots]
+}
 ```
 
-### 4.3 Normative intent (v1)
+**Header form:**
+
+```txt
+component Name <Protocol>( /* additional params */ ) layout|text|icon|media { … }
+```
+
+- `<Protocol>` opts the component into slot/array positions typed as that protocol.  
+- Multiple protocols later: `component X <A, B>(…)` if needed — **v1 may allow a single protocol**.  
+- No separate top-level `conform` declaration.
+
+### 4.3 Protocol body = shared params
+
+A protocol declares the **common injectable fields** every conformer must accept:
+
+```pdl
+protocol ModalContent {
+  title = "Modal Title"
+  subtitle = ""
+}
+```
 
 | Rule | Intent |
 |------|--------|
-| `protocol` names a **design contract** | Not a host-language protocol (Swift/Kotlin) |
-| `conform C: P` | Opts `C` into slot/array positions typed as `P` |
-| Constraints | Start with **root kind** (and optionally required tags); grow carefully |
-| Catalogue | Emit `protocols` + per-component `conformsTo: string[]` for binders |
+| Entries look like param defaults | `name = default` (and optionally `name: Type = default`) |
+| Types | Infer from defaults where unambiguous (`""` → `String`); prefer explicit `: Type` when unclear |
+| Inheritance | Conforming components **include** protocol params in their API automatically (before/with their own params) |
+| Override defaults | A conformer **may** redeclare a protocol param with a tighter default; type must stay compatible |
+| Extra params | Conformer may add params beyond the protocol (`cta` on `UpsellBody`) |
+| Slot binding | A `[ModalContent]` / `ModalContent` position must supply at least the protocol fields; extra fields allowed when the concrete component is known |
 
-### 4.4 Closed union vs open protocol
+**Not** (for v1): protocols as free-form constraint DSLs (`root = layout`) only. Shared **content params** are the primary contract; structural constraints can be added later if needed.
+
+### 4.4 Normative intent (v1)
+
+| Rule | Intent |
+|------|--------|
+| `protocol` | Design contract: shared params + defaults |
+| `component C <P>(…)` | Declares conformance inline; `C` may appear where `P` / `[P]` is expected |
+| Effective params of `C` | Protocol params ∪ component-own params |
+| Catalogue | `protocols[P].params` + `components[C].conformsTo: ["P"]` (+ flattened `params`) |
+| Host packs | May target concrete `UpsellBody` or rely on protocol field set when concrete type is named |
+
+### 4.5 Closed union vs open protocol
 
 | Use | Form |
 |-----|------|
-| Known finite mix in one list | Prefer a dedicated protocol adopted only by those cards, **or** a documented closed set in the pack schema |
-| Open plug-in bodies | `protocol ModalContent` + any future `conform` |
+| Known finite mix in one list | One protocol adopted by those cards (`FeedRow`), or documented closed set in pack schema |
+| Open plug-in bodies | `protocol ModalContent` + any `component … <ModalContent>` |
 
 Avoid encoding diversity as `if kind == …` on the shell.
 
@@ -122,7 +167,7 @@ Avoid encoding diversity as `if kind == …` on the shell.
 ```pdl
 component Modal(
   title: String = "",
-  slots: [ModalContent] = [ExampleBody(title: "", body: "")]
+  slots: [ModalContent] = [UpsellBody()]
 ) layout { … }
 
 component Feed(
@@ -134,11 +179,11 @@ component Carousel(
 ) layout { … }
 ```
 
-- **`[ModalContent]`** — open protocol list (modal bodies, often length 1+).  
-- **`[ContentCard]`** — homogeneous list.  
-- **`[FeedRow]`** — protocol adopted by `HostCard` and `UserCard` (polymorphic list).
+- **`[ModalContent]`** — open protocol list; only `component … <ModalContent>` may appear.  
+- **`[ContentCard]`** — homogeneous list of a concrete component.  
+- **`[FeedRow]`** — protocol adopted via `component HostCard <FeedRow>` / `UserCard <FeedRow>`.
 
-Defaults may use **instance literals**: `Name(param: value, …)`.
+Defaults may use **instance literals**: `Name(param: value, …)`. Protocol-inherited params may be omitted when defaults suffice (`UpsellBody()`).
 
 ### 5.2 Expansion (no `ForEach` required)
 
@@ -147,7 +192,7 @@ A list/protocol param referenced in `children` is an **expandable fragment**:
 ```pdl
 component Modal(
   title: String = "",
-  slots: [ModalContent] = [ExampleBody(title: "", body: "")]
+  slots: [ModalContent] = [UpsellBody()]
 ) layout {
   let Header: text = {
     content = title
@@ -402,7 +447,7 @@ Portable core (Rust, per portable-core proposal) owns expand + validate; platfor
 | **0** | Spec this proposal; extend open items in `SPEC_GAPS` / §19 as needed |
 | **1** | Catalogue metadata: protocols + `conformsTo` (even if authored as JSON/sidecar first) |
 | **2** | Injection pack schema + validate + bake path (TS reference) |
-| **3** | PDL: `protocol` / `conform` / `[T]` params / instance literals in fixtures |
+| **3** | PDL: `protocol` (shared params) / `component C <P>(…)` / `[T]` params / instance literals in fixtures |
 | **4** | Expand list params in `children` |
 | **5** | Optional `ForEach` + `before` / `between` / `after` |
 | **6** | Host SDK mount(scene, pack); SwiftUI / HTML parity tests |
@@ -425,29 +470,32 @@ Portable core (Rust, per portable-core proposal) owns expand + validate; platfor
 
 ## 12. Success criteria
 
-1. A `Modal` shell accepts any `ModalContent` conformer via `slots: [ModalContent]` without Modal variants per body.  
-2. `children = [Header, slots]` expands correctly for empty, one, and many items.  
-3. A PDL fixture and an injection pack with the same logical tree bake to equivalent frame IR.  
-4. An API normalizer can feed a home feed of mixed `HostCard` / `UserCard` through a protocol list param.  
-5. No requirement for `isType` in container layout.  
-6. Optional `ForEach` chrome (`before` / `between` / `after`) can be added without changing the pack schema.
+1. A `Modal` shell accepts any `component … <ModalContent>` via `slots: [ModalContent]` without Modal variants per body.  
+2. Protocol params (`title`, `subtitle`, …) appear on every conformer’s effective API; conformers may add extras.  
+3. `children = [Header, slots]` expands correctly for empty, one, and many items.  
+4. A PDL fixture and an injection pack with the same logical tree bake to equivalent frame IR.  
+5. An API normalizer can feed a home feed of mixed `HostCard` / `UserCard` through a protocol list param.  
+6. No requirement for `isType` in container layout.  
+7. Optional `ForEach` chrome (`before` / `between` / `after`) can be added without changing the pack schema.
 
 ---
 
 ## 13. Open questions
 
 1. Single protocol slot param (`content: ModalContent`) vs always `[T]` (length 0..n)?  
-2. `expose` policy for nested instance params—must nested keys be exposed on the child only?  
+2. `expose` policy — does conforming imply protocol params are exposed by default?  
 3. Item identity field name (`id` vs fixture label) for hot reload.  
 4. Soft vs hard failure for bad pack items in prototype vs production hosts.  
 5. Whether bake always expands or may emit repeat IR for live lists.  
-6. Grammar for instance literals and `ForEach` blocks (formal EBNF in a follow-up spec patch).
+6. Grammar for `component C <P>(…)`, instance literals, and `ForEach` blocks (formal EBNF follow-up).  
+7. Multiple protocols per component (`<A, B>`) in v1 or later?  
+8. May a protocol declare non-String params / variants in the shared surface?
 
 ---
 
 ## 14. Summary
 
-**Protocols** make shells reusable (Figma-like slots with types).  
+**Protocols** declare a shared param surface; **`component Name <Protocol>(…)`** opts in on the declaration (no separate `conform`).  
 **`[T]` params** are the content bus for lists and multi-body regions.  
 **Expansion in `children`** is the default; **`ForEach` + before/between/after** is optional list chrome.  
 **Dual fixtures:** strict PDL examples for authors; JSON injection packs for APIs and runtime—**one tree shape**, catalogue-validated, then bake.
