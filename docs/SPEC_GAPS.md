@@ -1,6 +1,6 @@
 # Spec notes and implementation gaps
 
-This document records ambiguities between `full-spec.md` and this repository’s first compiler pass, plus intentional v1 limits.
+This document records ambiguities between **`docs/full-spec.md`** and this repository’s reference TypeScript implementation (`src/`), plus intentional v1 limits.
 
 ## Lexer: frame kind keywords vs `icon` / `media` property names
 
@@ -17,7 +17,7 @@ This document records ambiguities between `full-spec.md` and this repository’s
 
 ## Serialised `ValueExpr` slices (`SerialisedValueExpr`)
 
-- **§16b** in **`full-spec.md`** documents the JSON shape of embedded **`ValueExpr`** / **`ConditionExpr`** fragments used inside **Component Catalogue** and **`resolvedComponent.system`** (`serialiseValueExpr` / `serialiseConditionExpr` in **`src/graph.ts`**). There is no standalone merged-AST JSON CLI output.
+- **§16b** in **`docs/full-spec.md`** documents the JSON shape of embedded **`ValueExpr`** / **`ConditionExpr`** fragments used inside **Component Catalogue** and **`resolvedComponent.system`** (`serialiseValueExpr` / `serialiseConditionExpr` in **`src/graph.ts`**). There is no standalone merged-AST JSON CLI output.
 
 ## Graph and bake CLI (`graphSystem`, `graphComponent`, `bakeSystem`, `bakeComponent`)
 
@@ -34,11 +34,17 @@ This document records ambiguities between `full-spec.md` and this repository’s
 - **Variant deltas:** only **single-parameter** axes are expanded automatically against the default instance. Combined variant rows (e.g. `emphasis` + `size` interaction) must be authored explicitly per **§16**; not generated yet.
 - **`$ref` in `children`:** structural variant entries in the spec use `{ "$ref": "Label" }` for reuse. The current diff emits full child trees; emitters can still consume them, but JSON may be larger than the spec’s examples.
 - **`expose`:** if no `expose` block exists for a component, the catalogue lists **all** parameter names as `expose` for ergonomics. The spec emphasises explicit `expose`; confirm product expectations.
+- **`rules` tags:** only **top-level** `tags =` / `tags.add` inside `rules C { … }` feed **`components[C].rules.tags`** today; tag lines inside nested `rules if { … }` arms are not merged into that array (see TODO in **`src/catalogue.ts`**).
 
-## Language surface not implemented (parse or execute)
+## Companion blocks (§11) and `rules` / queries (§12) — implemented
 
-- `interaction`, `fixtures`, `usage`, `rules`, `extend` (and full **§12–§15** companion / motion / layer depth).
-- **Fat manifest** fields (resolved `tokens` on manifest, `interactions`, `fixtures`, `rules` on manifest) described historically in §17 — **not** emitted; v1 manifest is thin only (`src/manifest.ts`).
+**`expose`**, **`fixtures`**, **`usage`**, **`rules`**, **`extend`**, and **`interaction`** are parsed (**`src/parser.ts`**), merged into **`DesignDefinition`** (**`src/loadDesign.ts`**), validated (**`src/validateDesign.ts`**), and emitted on **Component Catalogue** component rows (**`src/catalogue.ts`**: **`fixtures`**, **`usage`** / **`usageByKey`**, flattened **`rules`**, **`interactions`**). **`pdl graphSystem`**, **`catalogue`**, and **`graphComponent`** / **`resolve`** surfaces include this metadata where applicable.
+
+Later chapters (motion, layers, composite tokens, best practices) may still outpace the reference compiler in spots — see **`docs/full-spec.md`** (“Implementation parity”) and the gap notes below.
+
+## Design manifest — thin only
+
+The reference **`pdl manifest`** command emits the **thin** **`designManifest`** registry only (**`src/manifest.ts`**). A heavier “fat manifest” (resolved tokens and duplicated companions on the manifest) was sketched in **§17 §3.3** of **`docs/full-spec.md`** and is **not** emitted; consume **`usage`**, **`fixtures`**, **`rules`**, and **`interactions`** from **Component Catalogue** JSON when you need them.
 
 ## Other minor notes
 

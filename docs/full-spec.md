@@ -1,6 +1,8 @@
 # PDL — Programmatic Design Language: Full Specification
 
 > **Single-document reference.** This file consolidates the PDL developer specification (chapters 1–19) plus the formal specification additions (chapters 20–26) into one reviewable document. Navigation links between former chapter files have been removed; use your editor's heading search instead.
+>
+> **Repository path:** `docs/full-spec.md` (normative copy in this repo).
 
 ---
 
@@ -1462,11 +1464,11 @@ This repository is the **compiler and JSON emitters** only; a **studio** (multi-
 
 ## Documentation ↔ code alignment
 
-1. **`full-spec.md`** (this document) is the **normative** language and JSON-contract spec for the PDL compiler in this repository.  
+1. **`docs/full-spec.md`** (this document) is the **normative** language and JSON-contract spec for the PDL compiler in this repository.  
 2. **`src/ast.ts`** and **`src/parser.ts`** should stay aligned with §5–§7 (frames, props, values) when the grammar changes.  
 3. **`loadDesign`**, **`evaluate`**, **`resolveTree`**, and JSON emitters (**`catalogue`**, **`resolveBundle`**, **`bakeDesign`**, **`manifest`**) should be updated in the **same change** as normative edits here, or the gap recorded in **`docs/SPEC_GAPS.md`** until closed.  
 4. Add **`test-fixtures/pdl`** examples for new surface syntax (§15).  
-5. **`pdl_spec.html`** (if present) is a **secondary** human-readable view — prefer **`full-spec.md`** for implementers.
+5. **`pdl_spec.html`** (if present) is a **secondary** human-readable view — prefer **`docs/full-spec.md`** for implementers.
 
 ### Implementation parity (reference repo)
 
@@ -1474,9 +1476,9 @@ Companion blocks (**`expose`**, **`fixtures`**, **`usage`**, **`rules`**, **`ext
 
 | Area | Notes |
 |------|--------|
-| **§13 Rules** | **`query`** objects are serialised on catalogue rows; full evaluator richness vs studio enforcement may differ. |
-| **§14 Motion** | Handler / motion tiers — see §16b TODOs for catalogue-only serialisation. |
-| **§15 Expressiveness** | Some composite token / layer forms — keep fixtures and tests aligned with claims. |
+| **§12 Rules** | **`query`** objects are serialised on catalogue rows; full evaluator richness vs studio enforcement may differ. |
+| **§13 Motion** | Handler / motion tiers — see §16b TODOs for catalogue-only serialisation. |
+| **§14 Visual layers** | Some composite token / layer forms — keep fixtures and tests aligned with claims. |
 
 Track progress by updating rows or **`docs/SPEC_GAPS.md`** when parity improves.
 
@@ -2784,7 +2786,7 @@ In §5, **`background`** and **`foreground`** on `layout` / `text` / `media` eac
 
 When the language changes:
 
-1. Update **`full-spec.md`** (this document) in lockstep with **`src/parser.ts`**, **`src/loadDesign.ts`**, and emitters.  
+1. Update **`docs/full-spec.md`** (this document) in lockstep with **`src/parser.ts`**, **`src/loadDesign.ts`**, and emitters.  
 2. Extend **`test-fixtures/pdl`** and **`tests/`** (Vitest) for new syntax and JSON contracts.  
 3. Record intentional gaps in **`docs/SPEC_GAPS.md`** until closed.
 
@@ -3422,8 +3424,11 @@ Same verbs as **`src/cli.ts`** after **`npm run build`** (or use **`npm run grap
 | `manifest -- <entry.pdl>` | **Design manifest JSON** — compact component API summary. |
 | `graphSystem -- <entry.pdl>` | Full catalogue; no **`--theme`**. |
 | `graphComponent -- <entry.pdl> <Component>` | **`resolvedComponent`** slice (§16c). |
+| `renderHtml -- <entry.pdl> <Component>` | **HTML5** preview for one baked component (§16d + HTML emitter); optional **`--theme`**, **`--out`**, **`param=value`**. |
+| `renderHtml -- <entry.pdl> --system` | Same for **every** merged component (gallery). |
+| `renderCatalogueHtml -- <entry.pdl>` | **HTML5** catalogue page (tokens + baked previews). |
 
-There is **no** `html` subcommand in this package’s CLI.
+There is **no** separate shorthand named `html`; use **`renderHtml`** or **`renderCatalogueHtml`** (see **Repository tools** in [§9](#9-tooling-cli-and-limits)). **`npm run playground`** serves the optional live editor (**`playground/`**).
 
 ---
 
