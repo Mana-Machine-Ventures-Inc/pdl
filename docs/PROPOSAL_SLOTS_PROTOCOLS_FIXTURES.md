@@ -30,7 +30,7 @@ We need a content model that stays **PDL-authored and typed** for design-time tr
 | **Thin happy path** | Placing `slots` in `children` is enough; no mandatory `ForEach` |
 | **Optional list chrome / binding** | `ForEach` when the parent needs chrome or **derived child params** |
 | **Layout as view body** | Structure **down** and local emit capture **up** live together in `layout` |
-| **`interaction` extends the component** | Inline `} interaction { … }` or external `interaction … for C`; events → params / `emit` |
+| **`interaction` extends the component** | Inline or external; ambient host `on` → params / `emit`; attached per instance |
 | **Public contracts outside layout** | `expose` / `emits` / protocols define what **other parents** see |
 | **Identity, not indexes** | Intents carry stable ids (`filter`, `episodeId`), not array positions |
 | **PDL remains SoT** | Visual structure and contracts live in `.pdl`; packs only supply instance data |
