@@ -108,7 +108,9 @@ interaction FilterChipTap for FilterChip {
 | **Inline `} interaction { … }`** | Default for co-located chrome + emit firing |
 | **External `interaction … for Component`** | Split files, shared behaviors, or today’s merge style |
 
-Both attach to the **same component record** after merge. Multiple external blocks may append/replace by name per §8; inline form is the anonymous/default behavior bundle (named external blocks remain additive).
+Both attach to the **same component record** after merge. **Inline** is a synthetic interaction name **`default`**. Unique names **append**; the **same name replaces** (same as §2 today). That avoids accidental duplicate bundles with one name while still allowing `default` + `Extra`.
+
+**Event dispatch:** if two differently named bundles both define the same ambient `on` (e.g. `hoverStart`), **last wins** — treat as an **override**, not multi-fire.
 
 ### 3.4 Instances carry the interaction wrapper
 
@@ -610,7 +612,7 @@ Unknown params / type mismatches / non-conformers → **hard errors**.
 - Generable from APIs via normalizer.  
 - After validation, same bake path as a fixture.
 
-**Inject gate:** schemaVersion → component exists → protocol bounds → params allowed → never silent mis-bind.
+**Inject gate:** schemaVersion → component exists → protocol bounds → params allowed. Bad items: **soft skip / placeholder with warning** (do not silent-misbind; do not fail the whole mount by default).
 
 ### 9.4 Homogeneous vs polymorphic packs
 
@@ -718,16 +720,18 @@ emit openEpisode(id) → (no local handler)
 
 ## 15. Open questions
 
-1. Single protocol slot (`content: ModalContent`) vs always `[T]`?  
+1. ~~Single protocol slot (`content: ModalContent`) vs always `[T]`?~~ **Decided: both.**  
 2. Does conforming imply protocol params are in `expose` by default?  
-3. Item identity field conventions (`id` vs domain keys like `filter` / `episodeId`).  
-4. Soft vs hard failure for bad pack items (prototype vs production).  
+3. Item identity field conventions (`id` vs domain keys like `filter` / `episodeId`).
+4. ~~Soft vs hard failure for bad pack items~~ **Decided: soft skip/placeholder with warning.**  
 5. Bake-always-expand vs repeat IR for live lists.  
 6. Formal EBNF for `component C <P>`, inline `interaction`, `emits`, layout `on`, `ForEach`.  
 7. Multiple protocols per component (`<A, B>`) in v1?  
 8. Protocol-qualified capture sugar (`on SubnavItem.select`) vs slot-qualified only?  
-9. Shape of optional `prototype { routes … }` authoring vs host-only JSON.  
-10. Merge rules when both inline `interaction` and named external `interaction … for C` exist.
+9. ~~Shape of optional `prototype { routes … }` authoring vs host-only JSON.~~  
+10. ~~Merge / ambient event override rules for `interaction`.~~ **Decided** (see IMPLEMENTATION_PLAN Q3/Q3b).  
+11. ~~`schemaVersion` strategy for B1.~~ **Decided: keep simple `1.0.0` / 1.0 lineage while pre-release — no public version theater yet.**
+
 
 ---
 

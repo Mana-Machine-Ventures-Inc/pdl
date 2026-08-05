@@ -58,24 +58,32 @@ Implement **after A2** unless a spike is explicitly throwaway.
 
 ## Golden harness (shared)
 
-1. Generate or check in **bake JSON goldens** under e.g. `test-fixtures/goldens/` (exact layout TBD in A2).  
-2. CI: `npm test` (TS) + `cargo test -p pdl-core`.  
-3. Dual-bake compare job once A2 exists.  
+1. Generate or check in **bake JSON goldens** for:
+   - `test-fixtures/pdl/atoms/design.pdl`
+   - `test-fixtures/pdl/molecules/design.pdl`
+   - `test-fixtures/pdl/integration/design.pdl`  
+   (Exact golden directory layout TBD in A2.)
+2. CI: `npm test` (TS) + `cargo test -p pdl-core`.
+3. Dual-bake compare job once A2 exists.
 4. Error fixtures in `test-fixtures/pdl/errors/` remain the validate/parse oracle.
+---
+
+## Decisions (owner)
+
+| ID | Topic | Decision |
+|----|--------|----------|
+| **Q1** | Single slot vs always array | **A** — both `content: ModalContent` and `slots: [ModalContent]` |
+| **Q2** | Bad injection pack items | **A** — soft skip/placeholder **with warning**; continue mounting rest |
+| **Q3** | Inline + named `interaction` merge | Inline = synthetic name **`default`**; unique names **append**; **same name replaces** |
+| **Q3b** | Same ambient event in two bundles | **A** — **last wins** per event (override); no double `hoverStart` |
+| **Q4** | First golden set | **A** — `atoms/design.pdl` + `molecules/design.pdl` + `integration/design.pdl` |
+| **Q5** | `schemaVersion` when B1 ships | **C** — pre-release: stay on **`1.0.0`** lineage only (no `1.1` / capability-flag scheme). Not publicly released yet; treat versioning as simple **1.0** for now. |
 
 ---
 
-## Decisions still needed (block grammar, not A0–A1)
+## Decisions still open
 
-See questions for the owner in the PR / chat. Until answered, implementers **must not** invent dialect beyond the proposal’s sketches.
-
-| ID | Topic | Options (summary) |
-|----|--------|-------------------|
-| Q1 | Single slot vs always array | `content: ModalContent` **or** only `[ModalContent]` |
-| Q2 | Bad injection pack items | Soft skip/placeholder vs hard fail (proto vs prod) |
-| Q3 | Inline + named `interaction` merge | Inline = default bundle; named replace/append rules |
-| Q4 | First golden set | Which entries (`atoms/design`, `molecules/design`, one integration)? |
-| Q5 | `schemaVersion` bump | When B1 ships — minor vs stay `1.0.0-beta` with capability flags |
+None from the A0 question set. Further grammar nits can be decided when writing `full-spec` patches.
 
 ---
 
@@ -83,9 +91,10 @@ See questions for the owner in the PR / chat. Until answered, implementers **mus
 
 - [x] Accept both proposals  
 - [x] Scaffold `crates/pdl-core`  
-- [ ] Record owner answers to Q1–Q5  
+- [x] Record owner answers to Q1–Q5  
 - [ ] A1 lexer/parser  
 - [ ] A2 bake goldens + parity  
 - [ ] First `full-spec` patch with B1  
+- [ ] Align published `schemaVersion` string to plain **`1.0.0`** when touching normative version prose (drop `-beta` framing; still unreleased)
 
 Progress and intentional gaps also tracked in **`docs/SPEC_GAPS.md`**.

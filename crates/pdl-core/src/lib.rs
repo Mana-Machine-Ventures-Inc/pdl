@@ -4,8 +4,9 @@
 //! stable bake/catalogue JSON contracts shared with the TypeScript oracle.
 
 /// Schema version string carried by catalogue / bake / manifest documents.
-/// Keep in sync with `docs/full-spec.md` until a version bump is declared.
-pub const SCHEMA_VERSION: &str = "1.0.0-beta";
+/// Pre-release: plain 1.0.0 lineage (see IMPLEMENTATION_PLAN Q5). Keep aligned with
+/// `docs/full-spec.md` when normative prose is updated.
+pub const SCHEMA_VERSION: &str = "1.0.0";
 
 /// Crate/semver label for tooling (not the PDL document schemaVersion).
 pub fn crate_version() -> &'static str {
@@ -17,8 +18,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn schema_version_is_beta() {
-        assert_eq!(SCHEMA_VERSION, "1.0.0-beta");
+    fn schema_version_is_v1() {
+        assert_eq!(SCHEMA_VERSION, "1.0.0");
     }
 
     #[test]
