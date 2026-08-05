@@ -55,11 +55,30 @@ A component has these surfaces:
 |---------|------|---------|
 | **`expose` / `emits` / `protocol`** | What **parents** may pass in and hear out | Public API |
 | **`layout`** | How **this** component builds its child tree **and** wires those children’s intents | SwiftUI `body` |
-| **`interaction`** | How **this** component maps pointer/focus/lifecycle events → param updates and `emit` | Event extension of the component |
+| **`interaction`** | How **this** component subscribes to **ambient host events** → param updates and/or `emit` | Event extension of the component |
 
-`layout` already does more than spacing: it composes under variants, state, and fixture/pack inputs. It is the place that defines the **stack down** (`children`, expandable slots, `ForEach`). It is therefore also the natural place to define the **stack back up**: capture child emits and assign local params.
+### 3.1 One `on` shape, two signal kinds
 
-**`interaction` stays the event metaphor** — not a second styling system. It does not draw hover/press looks; it **feeds params** (and fires `emit`) that `layout` already branches on. It is an **extension of the component**, authorable in either form:
+```text
+on <signal> { … }   // within this scope, when this fires, do this
+```
+
+| Signal kind | Produced by | Handled in | In `emits`? |
+|-------------|-------------|------------|-------------|
+| **Ambient / host events** | Runtime (`hoverStart`, `pressEnd`, `appear`, …) | That component’s **`interaction`** | No — not a public parent API |
+| **Declared emits** | Child (`emit select`) | Parent **`layout`** `on select` / prototype | Yes — catalogued contract |
+
+Same consistency: *when this happens, run this.* Ambient events are like **secret/system inputs** every interactive component instance can receive; `interaction` is how the component **calls those methods**. Declared emits are the **public** upward channel.
+
+### 3.2 `layout` — stack down and stack up
+
+`layout` already does more than spacing: it composes under variants, state, and fixture/pack inputs. It defines the **stack down** (`children`, expandable slots, `ForEach`) and the **stack back up**: capture **child emits** and assign local params.
+
+Sibling companions like `on LibrarySubnav { … }` are **not** preferred for child→parent wiring. Keep contracts (`expose` / `emits`) as companions; keep **composition + emit capture** in `layout`.
+
+### 3.3 `interaction` — component extension (inline or external)
+
+**`interaction` stays the event metaphor** — not a second styling system. It does not draw hover/press; it **feeds params** (and fires `emit`) that `layout` already branches on.
 
 ```pdl
 // Inline — attached to the component declaration
@@ -76,7 +95,7 @@ component FilterChip(
   on pressEnd   { emit select }
 }
 
-// External — same semantics, separate block (today’s shape, optionally named)
+// External — same semantics (today’s shape, optionally named)
 interaction FilterChipTap for FilterChip {
   on hoverStart { interactionState = .hovered }
   on pressEnd   { emit select }
@@ -86,16 +105,35 @@ interaction FilterChipTap for FilterChip {
 | Form | When |
 |------|------|
 | **Inline `} interaction { … }`** | Default for co-located chrome + emit firing |
-| **External `interaction … for Component`** | Split files, shared behaviors, or keep today’s merge style |
+| **External `interaction … for Component`** | Split files, shared behaviors, or today’s merge style |
 
-Both attach to the **same component record** after merge. Multiple external blocks may still append/replace by name per §8 merge rules; inline form is the anonymous/default behavior bundle for that component (later external blocks with an explicit name remain additive).
+Both attach to the **same component record** after merge. Multiple external blocks may append/replace by name per §8; inline form is the anonymous/default behavior bundle (named external blocks remain additive).
 
-Sibling companions like `on LibrarySubnav { … }` are **not** preferred for child→parent wiring—they split composition across two places. Keep contracts (`expose` / `emits`) as companions; keep **composition + local capture** in `layout`; keep **pointer→param/`emit`** in `interaction` (inline or external).
+### 3.4 Instances carry the interaction wrapper
+
+When a parent mounts instances (`ForEach(chips)`, `children = [slots]`, `FilterChip(…)`), each instance **automatically attaches that component type’s `interaction` dispatcher**. The parent does **not** re-wrap `hoverStart` at the call site.
+
+```text
+Host hit-test → FilterChip instance
+  → runs FilterChip.interaction (ambient ons)
+  → maybe emit select
+  → parent layout on select { … }
+```
+
+| Node | Ambient `interaction`? |
+|------|-------------------------|
+| Component with `interaction { }` / external block | Yes — type’s handlers on every instance |
+| Component with no `interaction` | Host default (none / optional system highlight) |
+| Bare `let` `layout` / `text` frames | No component interaction bundle |
+| Protocol slot instance | Whatever **concrete** component was mounted |
+
+So: every **interactive component instance** behaves as if it has that wrapper; the wrapper is **defined once on the type**, inherited at instantiate/bake—not authored per use in the parent’s layout.
 
 ```text
 Parents see:     expose, emits, protocol conformance
-This view body:  layout { children / ForEach / on select … }
-This events:     interaction { on hoverStart …; emit select }   // inline or external
+This view body:  layout { children / ForEach / on select … }   // declared emits
+This events:     interaction { on hoverStart …; emit select } // ambient → params/emit
+Instance:        layout tree + attached interaction dispatcher (if any) + emit outlet
 ```
 
 ---
@@ -417,7 +455,7 @@ Children **never** know their parent. They only declare and fire intents.
 
 ### 8.2 Fire — `interaction` as component extension
 
-Keep the **`interaction` metaphor** (events: `hoverStart`, `pressEnd`, `appear`, …). It is **part of the component**, not a foreign sidecar concept:
+Keep the **`interaction` metaphor**. It is **part of the component**, not a foreign sidecar:
 
 **Inline** (preferred when co-located):
 
@@ -442,13 +480,15 @@ interaction FilterChipTap for FilterChip {
 
 | Rule | Intent |
 |------|--------|
-| Role | Map platform events → **param assignments** and/or **`emit`** |
+| Role | Subscribe to **ambient host events** → **param assignments** and/or **`emit`** |
+| Ambient vs public | `hoverStart` etc. are host-synthesized; not listed in `emits` |
 | Not responsible for | Drawing hover/press — that stays in `layout` `if` chains |
+| Promote | `on pressEnd { emit select }` turns ambient press into a **declared** intent |
 | Payload | `emit select` binds fields from instance params (`filter`) |
-| Local vs owner | Param writes = local chrome; `emit` = cross-owner / prototype |
+| Instances | Type’s `interaction` attaches automatically when the component is mounted |
 | Preview-only params | Prefer omitting `interactionState` from `expose` |
 
-Hover “belongs with” the component via **`interaction` + layout `if`s**, not by turning `layout` into the event bus. `layout` still owns **presentation under state** and **child emit capture**.
+`on` in `interaction` and `on` in `layout` share syntax; they listen to **different signal namespaces** (ambient events vs declared emits). Parents never re-author the child’s ambient handlers at the call site.
 
 ### 8.3 Capture — in `layout` (view body)
 
@@ -694,8 +734,9 @@ emit openEpisode(id) → (no local handler)
 
 **Protocols** declare shared params and optional **emits**; **`component Name <Protocol>(…)`** opts in on the declaration.  
 **`[T]` params** are the content bus; they **expand in `children`**.  
-**`layout` is the view body**: stack down (children / ForEach) and stack up (local `on` capture).  
-**`interaction` extends the component** (inline `} interaction { … }` or external `for C`): events → params / `emit`—not a separate styling channel.  
+**`layout` is the view body**: stack down (children / ForEach) and stack up (local `on` capture of **declared emits**).  
+**`interaction` extends the component** (inline or external): **`on` ambient host events** → params / `emit`; attached to every mounted instance of that type.  
+**One `on` syntax**, two namespaces: ambient (secret/system) vs `emits` (public).  
 **`expose` / `emits`** are what other parents see—not where child wiring lives.  
 **`ForEach`** adds chrome and **derived bindings** (`selected = currentFilter == filter`); prefer **ids**, not indexes.  
 **Dual fixtures:** strict PDL examples + JSON injection packs, one tree shape, catalogue-gated.  
