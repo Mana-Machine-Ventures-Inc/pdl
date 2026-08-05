@@ -30,6 +30,7 @@ We need a content model that stays **PDL-authored and typed** for design-time tr
 | **Thin happy path** | Placing `slots` in `children` is enough; no mandatory `ForEach` |
 | **Optional list chrome / binding** | `ForEach` when the parent needs chrome or **derived child params** |
 | **Layout as view body** | Structure **down** and local emit capture **up** live together in `layout` |
+| **`interaction` extends the component** | Inline `} interaction { … }` or external `interaction … for C`; events → params / `emit` |
 | **Public contracts outside layout** | `expose` / `emits` / protocols define what **other parents** see |
 | **Identity, not indexes** | Intents carry stable ids (`filter`, `episodeId`), not array positions |
 | **PDL remains SoT** | Visual structure and contracts live in `.pdl`; packs only supply instance data |
@@ -48,20 +49,53 @@ We need a content model that stays **PDL-authored and typed** for design-time tr
 
 ## 3. Component surfaces (mental model)
 
-A component has two kinds of surface:
+A component has these surfaces:
 
 | Surface | Role | Analogy |
 |---------|------|---------|
 | **`expose` / `emits` / `protocol`** | What **parents** may pass in and hear out | Public API |
 | **`layout`** | How **this** component builds its child tree **and** wires those children’s intents | SwiftUI `body` |
+| **`interaction`** | How **this** component maps pointer/focus/lifecycle events → param updates and `emit` | Event extension of the component |
 
 `layout` already does more than spacing: it composes under variants, state, and fixture/pack inputs. It is the place that defines the **stack down** (`children`, expandable slots, `ForEach`). It is therefore also the natural place to define the **stack back up**: capture child emits and assign local params.
 
-Sibling companions like `on LibrarySubnav { … }` are **not** preferred for child→parent wiring—they split composition across two places. Keep contracts (`expose` / `emits`) as companions; keep **composition + local capture** in `layout`.
+**`interaction` stays the event metaphor** — not a second styling system. It does not draw hover/press looks; it **feeds params** (and fires `emit`) that `layout` already branches on. It is an **extension of the component**, authorable in either form:
+
+```pdl
+// Inline — attached to the component declaration
+component FilterChip(
+  filter: FilterId = .all,
+  selected: Bool = false,
+  interactionState: ChipState = .rest
+) layout {
+  if interactionState == .hovered { … }
+  if selected == true { … }
+} interaction {
+  on hoverStart { interactionState = .hovered }
+  on hoverEnd   { interactionState = .rest }
+  on pressEnd   { emit select }
+}
+
+// External — same semantics, separate block (today’s shape, optionally named)
+interaction FilterChipTap for FilterChip {
+  on hoverStart { interactionState = .hovered }
+  on pressEnd   { emit select }
+}
+```
+
+| Form | When |
+|------|------|
+| **Inline `} interaction { … }`** | Default for co-located chrome + emit firing |
+| **External `interaction … for Component`** | Split files, shared behaviors, or keep today’s merge style |
+
+Both attach to the **same component record** after merge. Multiple external blocks may still append/replace by name per §8 merge rules; inline form is the anonymous/default behavior bundle for that component (later external blocks with an explicit name remain additive).
+
+Sibling companions like `on LibrarySubnav { … }` are **not** preferred for child→parent wiring—they split composition across two places. Keep contracts (`expose` / `emits`) as companions; keep **composition + local capture** in `layout`; keep **pointer→param/`emit`** in `interaction` (inline or external).
 
 ```text
 Parents see:     expose, emits, protocol conformance
 This view body:  layout { children / ForEach / on select … }
+This events:     interaction { on hoverStart …; emit select }   // inline or external
 ```
 
 ---
@@ -78,8 +112,16 @@ protocol SubnavItem {
 }
 
 component FilterChip <SubnavItem>(
-  selected: Bool = false
-) layout { … }
+  selected: Bool = false,
+  interactionState: ChipState = .rest
+) layout {
+  if interactionState == .hovered { … }
+  if selected == true { … }
+} interaction {
+  on hoverStart { interactionState = .hovered }
+  on hoverEnd   { interactionState = .rest }
+  on pressEnd   { emit select }
+}
 
 emits FilterChip { select(filter) }   // may be inherited from protocol; see §8
 
@@ -373,17 +415,40 @@ protocol SubnavItem {
 
 Children **never** know their parent. They only declare and fire intents.
 
-### 8.2 Fire — existing interaction lane
+### 8.2 Fire — `interaction` as component extension
+
+Keep the **`interaction` metaphor** (events: `hoverStart`, `pressEnd`, `appear`, …). It is **part of the component**, not a foreign sidecar concept:
+
+**Inline** (preferred when co-located):
 
 ```pdl
-interaction FilterChipTap for FilterChip {
-  on pressEnd {
-    emit select
-  }
+component FilterChip(…) layout {
+  if interactionState == .hovered { … }
+} interaction {
+  on hoverStart { interactionState = .hovered }
+  on hoverEnd   { interactionState = .rest }
+  on pressEnd   { emit select }
 }
 ```
 
-Payload fields bind from the instance’s params (`filter`). Local chrome (hover tone, press emphasis) continues to use §8 param assignments; **cross-owner** effects use `emit`.
+**External** (allowed; same merge into the component record):
+
+```pdl
+interaction FilterChipTap for FilterChip {
+  on hoverStart { interactionState = .hovered }
+  on pressEnd   { emit select }
+}
+```
+
+| Rule | Intent |
+|------|--------|
+| Role | Map platform events → **param assignments** and/or **`emit`** |
+| Not responsible for | Drawing hover/press — that stays in `layout` `if` chains |
+| Payload | `emit select` binds fields from instance params (`filter`) |
+| Local vs owner | Param writes = local chrome; `emit` = cross-owner / prototype |
+| Preview-only params | Prefer omitting `interactionState` from `expose` |
+
+Hover “belongs with” the component via **`interaction` + layout `if`s**, not by turning `layout` into the event bus. `layout` still owns **presentation under state** and **child emit capture**.
 
 ### 8.3 Capture — in `layout` (view body)
 
@@ -576,7 +641,7 @@ emit openEpisode(id) → (no local handler)
 | **2** | Injection pack schema + validate + bake (TS reference) |
 | **3** | PDL: `protocol` / `component C <P>` / `[T]` / instance literals |
 | **4** | Expand list params in `children` |
-| **5** | `emits` + `emit` in interactions; layout `on` capture |
+| **5** | `emits` + `emit`; inline and external `interaction`; layout `on` capture |
 | **6** | `ForEach` derived bindings (+ optional before/between/after) |
 | **7** | Host SDK mount + emit dispatch; prototype runtime (routes/stack) |
 | **8** | Fixture ↔ pack export; CI goldens |
@@ -617,10 +682,11 @@ emit openEpisode(id) → (no local handler)
 3. Item identity field conventions (`id` vs domain keys like `filter` / `episodeId`).  
 4. Soft vs hard failure for bad pack items (prototype vs production).  
 5. Bake-always-expand vs repeat IR for live lists.  
-6. Formal EBNF for `component C <P>`, `emits`, layout `on`, `ForEach`.  
+6. Formal EBNF for `component C <P>`, inline `interaction`, `emits`, layout `on`, `ForEach`.  
 7. Multiple protocols per component (`<A, B>`) in v1?  
 8. Protocol-qualified capture sugar (`on SubnavItem.select`) vs slot-qualified only?  
-9. Shape of optional `prototype { routes … }` authoring vs host-only JSON.
+9. Shape of optional `prototype { routes … }` authoring vs host-only JSON.  
+10. Merge rules when both inline `interaction` and named external `interaction … for C` exist.
 
 ---
 
@@ -629,6 +695,7 @@ emit openEpisode(id) → (no local handler)
 **Protocols** declare shared params and optional **emits**; **`component Name <Protocol>(…)`** opts in on the declaration.  
 **`[T]` params** are the content bus; they **expand in `children`**.  
 **`layout` is the view body**: stack down (children / ForEach) and stack up (local `on` capture).  
+**`interaction` extends the component** (inline `} interaction { … }` or external `for C`): events → params / `emit`—not a separate styling channel.  
 **`expose` / `emits`** are what other parents see—not where child wiring lives.  
 **`ForEach`** adds chrome and **derived bindings** (`selected = currentFilter == filter`); prefer **ids**, not indexes.  
 **Dual fixtures:** strict PDL examples + JSON injection packs, one tree shape, catalogue-gated.  
