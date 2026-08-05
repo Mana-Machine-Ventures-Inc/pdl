@@ -21,7 +21,7 @@
 |------|-------------|-----------|
 | **A0** | `crates/pdl-core` skeleton + workspace | `cargo test` green |
 | **A1** | Lexer + parser + AST for *current* PDL | ✅ Parse non-error `test-fixtures/pdl/**/*.pdl` + golden entries |
-| **A2** | load / merge / validate / **bakeComponent** | Golden parity vs TS on a starter set |
+| **A2** | load / merge / validate / **bake** | ✅ `bakeSystem` byte-parity vs TS goldens (`crates/pdl-core/tests/golden/`) |
 | **A3** | Catalogue / graph subset needed by hosts | Selected goldens match |
 | **A4** | `pdl` Rust CLI (`bake` first) | CI dual-run TS vs Rust |
 | **A5** | C ABI (later) | Swift/Kotlin can `bake` |
