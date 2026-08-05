@@ -11,5 +11,6 @@ name = "pdl_core"
 path = "src/lib.rs"
 
 [dependencies]
+indexmap = "2"
 
 [dev-dependencies]

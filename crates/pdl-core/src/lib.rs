@@ -3,6 +3,13 @@
 //! Skeleton only (implementation plan step A0). Public API will grow behind
 //! stable bake/catalogue JSON contracts shared with the TypeScript oracle.
 
+pub mod ast;
+pub mod error;
+pub mod lexer;
+pub mod parser;
+
+pub use error::PdlError;
+
 /// Schema version string carried by catalogue / bake / manifest documents.
 /// Pre-release: plain 1.0.0 lineage (see IMPLEMENTATION_PLAN Q5). Keep aligned with
 /// `docs/full-spec.md` when normative prose is updated.
