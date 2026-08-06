@@ -188,6 +188,7 @@ These may appear in any **module** (entry or imported). Order **within** a file 
 | `theme` | Theme blocks |
 | `typeStyle` | Typography presets |
 | `variant` | Enum types |
+| `protocol` | Shared param/emits contract for conforming components (§4a) |
 | `component` | UI definition |
 | `interaction` | Preview behavior (§8) |
 | **`expose`** | Public param surface (§12) |
@@ -478,6 +479,52 @@ variant BannerTone {
 
 ---
 
+## 4a — Protocols (B1)
+
+**Status:** shipped in the **Rust** portable core (`crates/pdl-core`); TypeScript oracle still accepts only pre-protocol grammar until a follow-up port. Proposal: `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` §5.
+
+A **`protocol`** declares a shared parameter surface (and optional **`emits`**) that conforming components inherit. Conformance is declared inline on the component header — there is no separate `conform` statement.
+
+```pdl
+protocol ModalContent {
+  title = "Modal Title"
+  subtitle: String = ""
+}
+
+component UpsellBody <ModalContent>(
+  cta: String = "Upgrade"
+) layout {
+  // may use title, subtitle (from protocol) and cta (own)
+  …
+}
+
+component ConfirmBody <ModalContent>() layout {
+  // API is exactly protocol params
+  …
+}
+```
+
+### Protocol body
+
+| Form | Meaning |
+|------|---------|
+| `name = default` | Param with type **inferred** from an unambiguous default (`"…"` → `String`, `#RRGGBB` / `Color(…)` → `Color`, …). Ambiguous defaults (bare numbers, booleans, `.case`) **require** an explicit type. |
+| `name: Type = default` | Explicit typed param (same types as component params). |
+| `emits { intent(arg, …) … }` | Shared emit channels (stored on the protocol; host dispatch lands in later slices). |
+
+### Conformance rules (v1)
+
+| Rule | Intent |
+|------|--------|
+| `component C <P>(…)` | `C` conforms to protocol `P` (single protocol in v1). |
+| Effective params of `C` | Protocol params ∪ component-own params; **same name replaces** (override default / type must stay compatible). |
+| Catalogue | When present: root **`protocols`** map; component rows may include **`conformsTo`**. Params on the row are the **effective** list. |
+| Unknown `P` | `PDL-E006` at validate/load. |
+
+Array/slot params typed as a protocol (`[ModalContent]`) and injection packs are **not** in this slice (see Track B2–B3).
+
+---
+
 ## Component parameters
 
 Components declare a public API in parentheses after the name:
@@ -613,6 +660,14 @@ component Name(
   // optional: if / else if / else on root or lets
   children = [ … ]
 }
+```
+
+Optional protocol conformance (see **§4a**):
+
+```pdl
+component Name <Protocol>(
+  /* additional params */
+) <rootKind> { … }
 ```
 
 **`<rootKind>`** — `layout`, `text`, `icon`, or `media`.

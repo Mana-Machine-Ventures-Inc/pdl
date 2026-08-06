@@ -104,3 +104,61 @@ component Greeting(title: String = "Hi") layout {
     let m = parse_module_source(src, "greeting.pdl").unwrap();
     assert_eq!(m.declarations.len(), 1);
 }
+
+#[test]
+fn parses_protocol_and_conformance() {
+    let src = r#"
+protocol ModalContent {
+  title = "Modal Title"
+  subtitle: String = ""
+  emits {
+    select(filter)
+  }
+}
+
+component UpsellBody <ModalContent>(
+  cta: String = "Upgrade"
+) layout {
+  let T: text = { content = title }
+  children = [T]
+}
+"#;
+    let m = parse_module_source(src, "proto.pdl").unwrap();
+    assert_eq!(m.declarations.len(), 2);
+    match &m.declarations[0] {
+        pdl_core::ast::TopLevelDecl::Protocol(p) => {
+            assert_eq!(p.name, "ModalContent");
+            assert_eq!(p.params.len(), 2);
+            assert_eq!(p.params[0].type_name, "String");
+            assert_eq!(p.emits.len(), 1);
+            assert_eq!(p.emits[0].name, "select");
+        }
+        other => panic!("expected protocol, got {other:?}"),
+    }
+    match &m.declarations[1] {
+        pdl_core::ast::TopLevelDecl::Component(c) => {
+            assert_eq!(c.conforms_to.as_deref(), Some("ModalContent"));
+            assert_eq!(c.params.len(), 1);
+            assert_eq!(c.params[0].name, "cta");
+        }
+        other => panic!("expected component, got {other:?}"),
+    }
+}
+
+#[test]
+fn loads_protocol_fixture_with_effective_params() {
+    use pdl_core::design::{effective_params, load_design};
+    let root = repo_root();
+    let entry = root.join("test-fixtures/pdl/protocols/design.pdl");
+    let design = load_design(entry.to_str().unwrap()).expect("load protocols design");
+    assert!(design.protocols.contains_key("ModalContent"));
+    let upsell = design.components.get("UpsellBody").expect("UpsellBody");
+    assert_eq!(upsell.conforms_to.as_deref(), Some("ModalContent"));
+    let params = effective_params(&design, upsell).unwrap();
+    let names: Vec<_> = params.iter().map(|p| p.name.as_str()).collect();
+    assert_eq!(names, vec!["title", "subtitle", "cta"]);
+    let confirm = design.components.get("ConfirmBody").expect("ConfirmBody");
+    let cparams = effective_params(&design, confirm).unwrap();
+    let cnames: Vec<_> = cparams.iter().map(|p| p.name.as_str()).collect();
+    assert_eq!(cnames, vec!["title", "subtitle"]);
+}

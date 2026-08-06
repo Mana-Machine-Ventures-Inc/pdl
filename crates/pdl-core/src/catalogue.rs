@@ -12,7 +12,7 @@ use serde_json::{Map, Value};
 
 use crate::ast::*;
 use crate::bake::{now_iso8601, PDL_JSON_SCHEMA_VERSION};
-use crate::design::DesignDefinition;
+use crate::design::{effective_params, DesignDefinition};
 use crate::error::PdlError;
 use crate::evaluate::{build_resolved_token_map, evaluate_value, Eval, ParamMeta, ParamValues, Tokens};
 use crate::graph_serialize::{
@@ -446,15 +446,15 @@ struct Axis {
     cases: Vec<String>,
 }
 
-fn variant_param_axes(design: &DesignDefinition, c: &ComponentDecl) -> Vec<Axis> {
-    c.params
-        .iter()
+fn variant_param_axes(design: &DesignDefinition, c: &ComponentDecl) -> Result<Vec<Axis>, PdlError> {
+    Ok(effective_params(design, c)?
+        .into_iter()
         .filter(|p| design.variants.contains_key(&p.type_name))
         .map(|p| Axis {
             name: p.name.clone(),
             cases: design.variants[&p.type_name].cases.clone(),
         })
-        .collect()
+        .collect())
 }
 
 fn default_variant_assignment(
@@ -462,7 +462,7 @@ fn default_variant_assignment(
     c: &ComponentDecl,
 ) -> Result<Vec<(String, String)>, PdlError> {
     let mut out: Vec<(String, String)> = Vec::new();
-    for p in &c.params {
+    for p in effective_params(design, c)? {
         if !design.variants.contains_key(&p.type_name) {
             continue;
         }
@@ -544,7 +544,7 @@ fn catalogue_params(
 ) -> Result<Value, PdlError> {
     let defaults = resolve_default_param_values(design, tokens, c)?;
     let mut arr: Vec<Value> = Vec::new();
-    for p in &c.params {
+    for p in effective_params(design, c)? {
         let resolved_default = defaults.get(&p.name).cloned().unwrap_or(Value::Null);
         let mut entries = vec![("name", Value::String(p.name.clone()))];
         if design.variants.contains_key(&p.type_name) {
@@ -742,7 +742,7 @@ pub fn build_catalogue_component_row(
     let opts = RESOLVE_OPTIONS_GRAPH_CATALOGUE;
     let base_tree = resolve_component_tree(design, &c.name, tokens, &Map::new(), opts)?;
 
-    let axes = variant_param_axes(design, c);
+    let axes = variant_param_axes(design, c)?;
     let default_assign = default_variant_assignment(design, c)?;
     let variant_keys: Vec<String> = axes.iter().map(|a| a.name.clone()).collect();
 
@@ -907,10 +907,9 @@ pub fn build_catalogue_component_row(
     // expose
     let expose_arr: Vec<Value> = match design.expose.get(&c.name) {
         Some(names) => names.iter().map(|n| Value::String(n.clone())).collect(),
-        None => c
-            .params
-            .iter()
-            .map(|p| Value::String(p.name.clone()))
+        None => effective_params(design, c)?
+            .into_iter()
+            .map(|p| Value::String(p.name))
             .collect(),
     };
 
@@ -969,6 +968,9 @@ pub fn build_catalogue_component_row(
 
     let mut out = Map::new();
     out.insert("name".to_string(), Value::String(c.name.clone()));
+    if let Some(proto) = &c.conforms_to {
+        out.insert("conformsTo".to_string(), Value::String(proto.clone()));
+    }
     out.insert("params".to_string(), catalogue_params(design, c, tokens)?);
     out.insert("expose".to_string(), Value::Array(expose_arr));
     out.insert("usage".to_string(), Value::String(usage_str));
@@ -1061,6 +1063,56 @@ pub fn build_component_catalogue(
     doc.insert("themes".to_string(), layers.themes);
     doc.insert("typeStyles".to_string(), layers.type_styles);
     doc.insert("variantTypes".to_string(), Value::Object(variant_types));
+    if !design.protocols.is_empty() {
+        let mut protocols = Map::new();
+        for p in design.protocols.values() {
+            let params: Vec<Value> = p
+                .params
+                .iter()
+                .map(|param| {
+                    let mut entries = vec![("name", Value::String(param.name.clone()))];
+                    if design.variants.contains_key(&param.type_name) {
+                        entries.push(("type", Value::String("variant".to_string())));
+                        entries.push((
+                            "default",
+                            serialise_value_expr(&param.default_value),
+                        ));
+                        entries.push(("variantTypeName", Value::String(param.type_name.clone())));
+                    } else {
+                        entries.push(("type", Value::String(param.type_name.clone())));
+                        entries.push((
+                            "default",
+                            serialise_value_expr(&param.default_value),
+                        ));
+                    }
+                    obj(entries)
+                })
+                .collect();
+            let mut row = Map::new();
+            row.insert("name".to_string(), Value::String(p.name.clone()));
+            row.insert("params".to_string(), Value::Array(params));
+            if !p.emits.is_empty() {
+                let emits: Vec<Value> = p
+                    .emits
+                    .iter()
+                    .map(|e| {
+                        obj(vec![
+                            ("name", Value::String(e.name.clone())),
+                            (
+                                "args",
+                                Value::Array(
+                                    e.args.iter().map(|a| Value::String(a.clone())).collect(),
+                                ),
+                            ),
+                        ])
+                    })
+                    .collect();
+                row.insert("emits".to_string(), Value::Array(emits));
+            }
+            protocols.insert(p.name.clone(), Value::Object(row));
+        }
+        doc.insert("protocols".to_string(), Value::Object(protocols));
+    }
     doc.insert("components".to_string(), Value::Object(components));
 
     Ok(Value::Object(doc))

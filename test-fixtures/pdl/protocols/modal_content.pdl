@@ -1,0 +1,30 @@
+// B1: protocol + conforming components (shared params).
+protocol ModalContent {
+  title = "Modal Title"
+  subtitle = ""
+}
+
+component UpsellBody <ModalContent>(
+  cta: String = "Upgrade"
+) layout {
+  let Title: text = {
+    content = title
+  }
+  let Sub: text = {
+    content = subtitle
+  }
+  let Cta: text = {
+    content = cta
+  }
+  children = [Title, Sub, Cta]
+}
+
+component ConfirmBody <ModalContent>() layout {
+  let Title: text = {
+    content = title
+  }
+  let Sub: text = {
+    content = subtitle
+  }
+  children = [Title, Sub]
+}

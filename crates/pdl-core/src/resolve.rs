@@ -9,7 +9,7 @@ use indexmap::IndexMap;
 use serde_json::{Map, Value};
 
 use crate::ast::*;
-use crate::design::DesignDefinition;
+use crate::design::{effective_params, DesignDefinition};
 use crate::error::PdlError;
 use crate::evaluate::{evaluate_condition, evaluate_value, Eval, ParamMeta, ParamValues, Tokens};
 
@@ -274,7 +274,8 @@ pub fn resolve_default_param_values(
     let mut out = Map::new();
     let empty_pv: ParamValues = Map::new();
     let empty_pm: ParamMeta = IndexMap::new();
-    for p in &c.params {
+    let params = effective_params(design, c)?;
+    for p in &params {
         if design.variants.contains_key(&p.type_name) {
             match &p.default_value {
                 ValueExpr::DotEnum { value } => {
@@ -310,12 +311,12 @@ pub fn resolve_default_param_values(
     Ok(out)
 }
 
-fn build_param_meta(c: &ComponentDecl) -> ParamMeta {
+fn build_param_meta(design: &DesignDefinition, c: &ComponentDecl) -> Result<ParamMeta, PdlError> {
     let mut m = ParamMeta::new();
-    for p in &c.params {
-        m.insert(p.name.clone(), p.type_name.clone());
+    for p in effective_params(design, c)? {
+        m.insert(p.name, p.type_name);
     }
-    m
+    Ok(m)
 }
 
 fn ensure_frame(frames: &mut HashMap<String, MutableFrame>, id: &str, kind: &str) {
@@ -476,7 +477,7 @@ fn process_frame_items(
                     base_pv.insert(k.clone(), evaluated.clone());
                     kw_explicit.insert(k.clone(), evaluated);
                 }
-                let sub_meta = build_param_meta(&child_comp);
+                let sub_meta = build_param_meta(design, &child_comp)?;
                 ensure_frame(frames, id, root_kind_str(child_comp.root_kind));
                 {
                     let inst = frames.get_mut(id).unwrap();
@@ -537,7 +538,7 @@ pub fn resolve_component_tree(
     for (k, v) in param_overrides {
         param_values.insert(k.clone(), v.clone());
     }
-    let param_meta = build_param_meta(&c);
+    let param_meta = build_param_meta(design, &c)?;
     let mut frames: HashMap<String, MutableFrame> = HashMap::new();
     frames.insert(
         "Root".to_string(),

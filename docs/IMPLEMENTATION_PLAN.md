@@ -36,7 +36,7 @@ Implement **after A2** unless a spike is explicitly throwaway.
 
 | Step | Feature | Spec + fixtures |
 |------|---------|-----------------|
-| **B1** | `protocol` / `component C <P>` / shared params | atoms + molecules demo |
+| **B1** | `protocol` / `component C <P>` / shared params | ✅ Rust parse/merge/validate/effective params + catalogue `protocols`/`conformsTo`; fixtures `test-fixtures/pdl/protocols/`; §4a in `full-spec.md`. TS oracle + atoms/molecules demo bake goldens still open |
 | **B2** | `[T]` params, instance literals, expand in `children` | Modal + slots |
 | **B3** | Injection pack validate + bake | JSON packs + CI |
 | **B4** | `emits` / `emit` + inline `interaction` | FilterChip-style |
@@ -97,7 +97,7 @@ None from the A0 question set. Further grammar nits can be decided when writing 
 - [x] A3 catalogue / graph *(53 TS `graphSystem` goldens + 4 `graphComponent` goldens, byte match)*  
 - [x] A4 Rust CLI (`crates/pdl-cli` / `pdl`) for bake/graph/catalogue/resolve  
 - [ ] Dual-run CI job (TS vs Rust JSON, volatiles normalized)  
-- [ ] First `full-spec` patch with B1  
+- [x] First `full-spec` patch with B1 (§4a protocols; Rust-first)  
 - [ ] Align published `schemaVersion` string to plain **`1.0.0`** when touching normative version prose (drop `-beta` framing; still unreleased)
 
 Progress and intentional gaps also tracked in **`docs/SPEC_GAPS.md`**.

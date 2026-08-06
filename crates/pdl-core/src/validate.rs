@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use crate::ast::*;
-use crate::design::DesignDefinition;
+use crate::design::{effective_params, DesignDefinition};
 use crate::error::PdlError;
 
 fn root_kind_str(k: RootKind) -> &'static str {
@@ -342,7 +342,10 @@ fn validate_fixtures_for_component(
     let Some(c) = design.components.get(component_name) else {
         return Ok(());
     };
-    let pmap: HashSet<&String> = c.params.iter().map(|p| &p.name).collect();
+    let pmap: HashSet<String> = effective_params(design, c)?
+        .into_iter()
+        .map(|p| p.name)
+        .collect();
     let Some(fm) = design.fixtures.get(component_name) else {
         return Ok(());
     };
@@ -398,11 +401,14 @@ fn validate_interaction_body(
     Ok(())
 }
 
-fn param_by_name_map(c: &ComponentDecl) -> HashMap<String, String> {
-    c.params
-        .iter()
-        .map(|p| (p.name.clone(), p.type_name.clone()))
-        .collect()
+fn param_by_name_map(
+    design: &DesignDefinition,
+    c: &ComponentDecl,
+) -> Result<HashMap<String, String>, PdlError> {
+    Ok(effective_params(design, c)?
+        .into_iter()
+        .map(|p| (p.name, p.type_name))
+        .collect())
 }
 
 fn validate_interactions_for_component(
@@ -413,7 +419,7 @@ fn validate_interactions_for_component(
         return Ok(());
     };
     let c = design.components.get(component_name).unwrap();
-    let param_by_name = param_by_name_map(c);
+    let param_by_name = param_by_name_map(design, c)?;
     for decl in m.values() {
         for h in &decl.handlers {
             validate_interaction_body(design, &h.body, &param_by_name, component_name)?;
@@ -453,7 +459,7 @@ fn validate_rules_for_component(
         return Ok(());
     }
     let c = design.components.get(component_name).unwrap();
-    let param_by_name = param_by_name_map(c);
+    let param_by_name = param_by_name_map(design, c)?;
     validate_rules_statements(design, stmts, &param_by_name, component_name)
 }
 
@@ -461,9 +467,21 @@ fn validate_rules_for_component(
 pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError> {
     validate_companion_symbols(design)?;
     for c in design.components.values() {
+        if let Some(proto) = &c.conforms_to {
+            if !design.protocols.contains_key(proto) {
+                return Err(err(
+                    "PDL-E006",
+                    format!(
+                        "Component `{}` conforms to unknown protocol `{}`",
+                        c.name, proto
+                    ),
+                    design,
+                ));
+            }
+        }
         let mut seen = HashSet::new();
         collect_unique_frame_ids_from_body(&c.body, &mut seen, &c.name, design)?;
-        let param_by_name = param_by_name_map(c);
+        let param_by_name = param_by_name_map(design, c)?;
         validate_if_conditions_in_body(design, &c.body, &param_by_name, &c.name)?;
         let let_kinds = collect_let_frame_kinds(&c.body);
         validate_hidden_in_body(

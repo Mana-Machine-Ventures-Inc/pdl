@@ -2,7 +2,7 @@
 
 Rust **portable PDL core** (lex → parse → merge → validate → bake → catalogue / graph).
 
-**Status:** **A4** — load / validate / evaluate / resolve / **bake** / **catalogue** / **resolved-component** with byte-for-byte parity against the TS goldens, plus the **`pdl`** Rust CLI (`crates/pdl-cli`). TypeScript in `src/` remains the reference oracle.
+**Status:** **A4** done + **B1** started — bake/catalogue/CLI parity for current PDL; Rust **`protocol` / `component C <P>`** (effective params, catalogue hooks). TypeScript in `src/` remains the oracle for pre-protocol designs.
 
 ## Develop
 
@@ -56,5 +56,6 @@ Goldens (`tests/golden/`):
 ## Next
 
 - **A5** — C ABI (later)  
-- **B1+** — proposal language (protocols, `[T]`, emits, …)  
+- **B1 remainder** — TS port / bake goldens for protocol demos  
+- **B2+** — `[T]` slots, injection packs, emits runtime, layout `on`  
 - Dual-run CI job comparing TS vs Rust CLI JSON (strip `generatedAt` / normalize paths)

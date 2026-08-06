@@ -29,12 +29,43 @@ pub struct DesignDefinition {
     pub themes: IndexMap<String, ThemeDecl>,
     pub variants: IndexMap<String, VariantDecl>,
     pub type_styles: IndexMap<String, TypeStyleDecl>,
+    pub protocols: IndexMap<String, ProtocolDecl>,
     pub components: IndexMap<String, ComponentDecl>,
     pub expose: IndexMap<String, Vec<String>>,
     pub usage: IndexMap<String, UsageKeyMap>,
     pub fixtures: IndexMap<String, IndexMap<String, FixtureExampleDecl>>,
     pub rules: IndexMap<String, Vec<RulesStatement>>,
     pub interactions: IndexMap<String, IndexMap<String, InteractionDecl>>,
+}
+
+/// Effective parameter list for a component: protocol params ∪ own params
+/// (own params with the same name replace protocol defaults / types).
+pub fn effective_params(
+    design: &DesignDefinition,
+    c: &ComponentDecl,
+) -> Result<Vec<ComponentParam>, PdlError> {
+    let mut merged: IndexMap<String, ComponentParam> = IndexMap::new();
+    if let Some(proto_name) = &c.conforms_to {
+        let proto = design.protocols.get(proto_name).ok_or_else(|| {
+            PdlError::new(
+                "PDL-E006",
+                format!(
+                    "Component `{}` conforms to unknown protocol `{}`",
+                    c.name, proto_name
+                ),
+                Some(design.entry_path.clone()),
+                None,
+                None,
+            )
+        })?;
+        for p in &proto.params {
+            merged.insert(p.name.clone(), p.clone());
+        }
+    }
+    for p in &c.params {
+        merged.insert(p.name.clone(), p.clone());
+    }
+    Ok(merged.into_values().collect())
 }
 
 /// Lexically normalize a path to absolute (mirrors Node `path.resolve` — no symlink resolution).
@@ -221,6 +252,7 @@ fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefin
     let mut themes = IndexMap::new();
     let mut variants = IndexMap::new();
     let mut type_styles = IndexMap::new();
+    let mut protocols = IndexMap::new();
     let mut components = IndexMap::new();
     let mut expose = IndexMap::new();
     let mut usage: IndexMap<String, UsageKeyMap> = IndexMap::new();
@@ -252,6 +284,9 @@ fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefin
                 }
                 TopLevelDecl::TypeStyle(ts) => {
                     type_styles.insert(ts.name.clone(), ts.clone());
+                }
+                TopLevelDecl::Protocol(p) => {
+                    protocols.insert(p.name.clone(), p.clone());
                 }
                 TopLevelDecl::Component(c) => {
                     components.insert(c.name.clone(), c.clone());
@@ -296,6 +331,7 @@ fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefin
         themes,
         variants,
         type_styles,
+        protocols,
         components,
         expose,
         usage,

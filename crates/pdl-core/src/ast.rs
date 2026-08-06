@@ -209,9 +209,28 @@ pub enum RootKind {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComponentDecl {
     pub name: String,
+    /// Optional protocol this component conforms to (`component Name <Protocol>(…)`).
+    pub conforms_to: Option<String>,
+    /// Params declared on the component itself (protocol params are merged via
+    /// [`crate::design::effective_params`]).
     pub params: Vec<ComponentParam>,
     pub root_kind: RootKind,
     pub body: Vec<FrameBodyItem>,
+}
+
+/// Shared emit channel declared on a `protocol` (`select(filter)`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProtocolEmitDecl {
+    pub name: String,
+    pub args: Vec<String>,
+}
+
+/// `protocol Name { … }` — shared params (+ optional emits). B1 language slice.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProtocolDecl {
+    pub name: String,
+    pub params: Vec<ComponentParam>,
+    pub emits: Vec<ProtocolEmitDecl>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -484,6 +503,7 @@ pub enum TopLevelDecl {
     Theme(ThemeDecl),
     TypeStyle(TypeStyleDecl),
     Variant(VariantDecl),
+    Protocol(ProtocolDecl),
     Component(ComponentDecl),
     Expose(ExposeDecl),
     Usage(UsageDecl),

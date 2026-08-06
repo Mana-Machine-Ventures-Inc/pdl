@@ -12,8 +12,9 @@
 //! * Literals / atoms: `Ident`, `DotEnum`, `StringLit`, `Number`, `HexColor`.
 //! * End of input: `Eof`.
 //! * Keywords (PascalCase of the TS spelling): `Import`, `PreviewBackground`,
-//!   `Primitive`, `Semantic`, `Theme`, `TypeStyle`, `Variant`, `Component`,
-//!   `Interaction`, `Expose`, `Fixtures`, `Usage`, `Rules`, `Extend`, `Let`,
+//!   `Primitive`, `Semantic`, `Theme`, `TypeStyle`, `Variant`, `Protocol`,
+//!   `Component`, `Interaction`, `Expose`, `Fixtures`, `Usage`, `Rules`,
+//!   `Extend`, `Let`,
 //!   `If`, `Else`, `On`, `For`, `True`, `False`, `Case`, `Example`, `Rule`,
 //!   `Description`, `Animate`, `From`, `To`, `Stagger`, `StaggerFrom`, `Where`,
 //!   `Tags`, and the type/call keywords `EdgeInsets`, `Corner`, `GradientStop`,
@@ -80,6 +81,7 @@ impl Parser {
             TokenKind::Theme => Ok(TopLevelDecl::Theme(self.parse_theme()?)),
             TokenKind::TypeStyle => Ok(TopLevelDecl::TypeStyle(self.parse_type_style()?)),
             TokenKind::Variant => Ok(TopLevelDecl::Variant(self.parse_variant()?)),
+            TokenKind::Protocol => Ok(TopLevelDecl::Protocol(self.parse_protocol()?)),
             TokenKind::Component => Ok(TopLevelDecl::Component(self.parse_component()?)),
             TokenKind::Expose => Ok(TopLevelDecl::Expose(self.parse_expose()?)),
             TokenKind::Interaction => Ok(TopLevelDecl::Interaction(self.parse_interaction()?)),
@@ -788,9 +790,116 @@ impl Parser {
         })
     }
 
+    /// Infer a param type name from a default expression (protocol sugar).
+    fn infer_type_from_default(expr: &ValueExpr) -> Option<&'static str> {
+        match expr {
+            ValueExpr::String { .. } => Some("String"),
+            ValueExpr::Hex { .. } => Some("Color"),
+            ValueExpr::Boolean { .. } => None, // prefer explicit variant / typed form
+            ValueExpr::Number { .. } => None,  // ambiguous across Distance/Size/…
+            ValueExpr::Call { callee, .. } => Some(match callee {
+                CallCallee::Color => "Color",
+                CallCallee::Ramp => "Ramp",
+                CallCallee::Blur => "Blur",
+                CallCallee::Media => "Media",
+                CallCallee::Vibrancy => "Vibrancy",
+            }),
+            _ => None,
+        }
+    }
+
+    /// Protocol / optional-typed param: `name: Type = default` or `name = default`.
+    fn parse_protocol_param(&mut self) -> Result<ComponentParam, PdlError> {
+        let pname = self.consume(TokenKind::Ident)?.value;
+        let type_name = if self.is(TokenKind::Colon) {
+            self.advance();
+            self.consume_param_type_name()?
+        } else {
+            String::new() // filled after default is parsed
+        };
+        self.consume(TokenKind::Eq)?;
+        let default_value = self.parse_value_expr()?;
+        let type_name = if type_name.is_empty() {
+            Self::infer_type_from_default(&default_value)
+                .map(|s| s.to_string())
+                .ok_or_else(|| {
+                    self.err(format!(
+                        "Protocol param `{pname}` needs an explicit type (`name: Type = …`); could not infer from default"
+                    ))
+                })?
+        } else {
+            type_name
+        };
+        Ok(ComponentParam {
+            name: pname,
+            type_name,
+            default_value,
+        })
+    }
+
+    fn parse_protocol_emits_block(&mut self) -> Result<Vec<ProtocolEmitDecl>, PdlError> {
+        // `emits` is an ordinary IDENT in the lexer (not a keyword yet).
+        let t = self.peek().clone();
+        if t.kind != TokenKind::Ident || t.value != "emits" {
+            return Ok(Vec::new());
+        }
+        self.advance();
+        self.consume(TokenKind::LBrace)?;
+        let mut emits = Vec::new();
+        while !self.is(TokenKind::RBrace) {
+            let name = self.consume(TokenKind::Ident)?.value;
+            self.consume(TokenKind::LParen)?;
+            let mut args = Vec::new();
+            if !self.is(TokenKind::RParen) {
+                loop {
+                    args.push(self.consume(TokenKind::Ident)?.value);
+                    if self.is(TokenKind::RParen) {
+                        break;
+                    }
+                    self.consume(TokenKind::Comma)?;
+                }
+            }
+            self.consume(TokenKind::RParen)?;
+            emits.push(ProtocolEmitDecl { name, args });
+        }
+        self.consume(TokenKind::RBrace)?;
+        Ok(emits)
+    }
+
+    fn parse_protocol(&mut self) -> Result<ProtocolDecl, PdlError> {
+        self.consume(TokenKind::Protocol)?;
+        let name = self.consume(TokenKind::Ident)?.value;
+        self.consume(TokenKind::LBrace)?;
+        let mut params: Vec<ComponentParam> = Vec::new();
+        let mut emits: Vec<ProtocolEmitDecl> = Vec::new();
+        while !self.is(TokenKind::RBrace) {
+            let t = self.peek().clone();
+            if t.kind == TokenKind::Ident && t.value == "emits" {
+                emits = self.parse_protocol_emits_block()?;
+                continue;
+            }
+            params.push(self.parse_protocol_param()?);
+        }
+        self.consume(TokenKind::RBrace)?;
+        Ok(ProtocolDecl {
+            name,
+            params,
+            emits,
+        })
+    }
+
     fn parse_component(&mut self) -> Result<ComponentDecl, PdlError> {
         self.consume(TokenKind::Component)?;
         let name = self.consume(TokenKind::Ident)?.value;
+        // Optional `component Name <Protocol>(…)`
+        let conforms_to = if self.is(TokenKind::Lt) {
+            self.advance();
+            let proto = self.consume(TokenKind::Ident)?.value;
+            self.consume(TokenKind::Gt)?;
+            Some(proto)
+        } else {
+            None
+        };
         self.consume(TokenKind::LParen)?;
         let mut params: Vec<ComponentParam> = Vec::new();
         if !self.is(TokenKind::RParen) {
@@ -841,6 +950,7 @@ impl Parser {
         self.consume(TokenKind::RBrace)?;
         Ok(ComponentDecl {
             name,
+            conforms_to,
             params,
             root_kind,
             body,

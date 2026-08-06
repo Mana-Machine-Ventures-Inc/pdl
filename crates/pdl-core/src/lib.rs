@@ -19,7 +19,7 @@ pub mod stable_json;
 pub mod validate;
 
 pub use catalogue::{build_catalogue_component_row, build_component_catalogue};
-pub use design::{load_design, DesignDefinition};
+pub use design::{effective_params, load_design, DesignDefinition};
 pub use error::PdlError;
 pub use resolve_bundle::build_resolved_component_document;
 pub use stable_json::{stable_stringify, StableStringifyOptions};
