@@ -13,6 +13,7 @@
 2. [Files, Imports, and Entry](#2-files-imports-and-entry)
 3. [Tokens, Themes, and Type Styles](#3-tokens-themes-and-type-styles)
 4. [Variants and Component Parameters](#4-variants-and-component-parameters)
+4a. [Protocols (B1)](#4a--protocols-b1)
 5. [Components, Frames, and Properties](#5-components-frames-and-properties)
 6. [Values and Expressions](#6-values-and-expressions)
 7. [Conditional Overrides, `let`, and Composition](#7-conditional-overrides-let-and-composition)
