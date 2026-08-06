@@ -22,7 +22,7 @@
 | **A0** | `crates/pdl-core` skeleton + workspace | `cargo test` green |
 | **A1** | Lexer + parser + AST for *current* PDL | ✅ Parse non-error `test-fixtures/pdl/**/*.pdl` + golden entries |
 | **A2** | load / merge / validate / **bake** | ✅ `bakeSystem` byte-parity vs TS goldens (`crates/pdl-core/tests/golden/`) |
-| **A3** | Catalogue / graph subset needed by hosts | Selected goldens match |
+| **A3** | Catalogue / graph subset needed by hosts | ✅ `graphSystem` + `graphComponent` byte-parity vs TS goldens (`crates/pdl-core/tests/golden/`) |
 | **A4** | `pdl` Rust CLI (`bake` first) | CI dual-run TS vs Rust |
 | **A5** | C ABI (later) | Swift/Kotlin can `bake` |
 
@@ -94,7 +94,7 @@ None from the A0 question set. Further grammar nits can be decided when writing 
 - [x] Record owner answers to Q1–Q5  
 - [x] A1 lexer/parser *(parses non-error fixtures + golden entries)*  
 - [x] A2 bake goldens + parity *(53 TS bakeSystem goldens, byte match)*  
-- [ ] A3 catalogue / graph  
+- [x] A3 catalogue / graph *(53 TS `graphSystem` goldens + 4 `graphComponent` goldens, byte match)*  
 - [ ] First `full-spec` patch with B1  
 - [ ] Align published `schemaVersion` string to plain **`1.0.0`** when touching normative version prose (drop `-beta` framing; still unreleased)
 
