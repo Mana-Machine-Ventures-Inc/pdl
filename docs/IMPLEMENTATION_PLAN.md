@@ -23,7 +23,7 @@
 | **A1** | Lexer + parser + AST for *current* PDL | ✅ Parse non-error `test-fixtures/pdl/**/*.pdl` + golden entries |
 | **A2** | load / merge / validate / **bake** | ✅ `bakeSystem` byte-parity vs TS goldens (`crates/pdl-core/tests/golden/`) |
 | **A3** | Catalogue / graph subset needed by hosts | ✅ `graphSystem` + `graphComponent` byte-parity vs TS goldens (`crates/pdl-core/tests/golden/`) |
-| **A4** | `pdl` Rust CLI (`bake` first) | ✅ `crates/pdl-cli` (`bake*` / `graph*` / `catalogue` / `resolve`); dual-run CI job still open |
+| **A4** | `pdl` Rust CLI (`bake` first) | ✅ `crates/pdl-cli`; dual-run script + CI workflow |
 | **A5** | C ABI (later) | Swift/Kotlin can `bake` |
 
 Crate path: **`crates/pdl-core`**.
@@ -36,8 +36,8 @@ Implement **after A2** unless a spike is explicitly throwaway.
 
 | Step | Feature | Spec + fixtures |
 |------|---------|-----------------|
-| **B1** | `protocol` / `component C <P>` / shared params | ✅ Rust parse/merge/validate/effective params + catalogue `protocols`/`conformsTo`; fixtures `test-fixtures/pdl/protocols/`; §4a in `full-spec.md`. TS oracle + atoms/molecules demo bake goldens still open |
-| **B2** | `[T]` params, instance literals, expand in `children` | Modal + slots |
+| **B1** | `protocol` / `component C <P>` / shared params | ✅ Rust + §4a + `protocols/` fixtures + bake/catalogue goldens |
+| **B2** | `[T]` params, instance literals, expand in `children` | ✅ Rust parse/eval/resolve expand + §4b; Modal slots in `protocols/modal_content.pdl` |
 | **B3** | Injection pack validate + bake | JSON packs + CI |
 | **B4** | `emits` / `emit` + inline `interaction` | FilterChip-style |
 | **B5** | Layout `on` capture + `ForEach` derived binds | LibrarySubnav |
@@ -96,8 +96,9 @@ None from the A0 question set. Further grammar nits can be decided when writing 
 - [x] A2 bake goldens + parity *(53 TS bakeSystem goldens, byte match)*  
 - [x] A3 catalogue / graph *(53 TS `graphSystem` goldens + 4 `graphComponent` goldens, byte match)*  
 - [x] A4 Rust CLI (`crates/pdl-cli` / `pdl`) for bake/graph/catalogue/resolve  
-- [ ] Dual-run CI job (TS vs Rust JSON, volatiles normalized)  
+- [x] Dual-run CI job (TS vs Rust JSON, volatiles normalized) — `.github/workflows/ci.yml` + `scripts/dual-run-compare.mjs`  
 - [x] First `full-spec` patch with B1 (§4a protocols; Rust-first)  
+- [x] B2 `[T]` / instance literals / children expand (§4b; Rust-first)  
 - [ ] Align published `schemaVersion` string to plain **`1.0.0`** when touching normative version prose (drop `-beta` framing; still unreleased)
 
 Progress and intentional gaps also tracked in **`docs/SPEC_GAPS.md`**.

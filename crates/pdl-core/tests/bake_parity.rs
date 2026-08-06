@@ -115,3 +115,16 @@ fn status_banner_variant_override_bakes() {
     assert_eq!(msg["props"]["content"], "Immediate action required");
     assert_eq!(msg["props"]["color"], "#F43F5E");
 }
+
+/// Rust-only B1/B2 golden (protocols + slot expansion). Not in the TS oracle set.
+#[test]
+fn protocols_design_bake_golden() {
+    let golden_text =
+        fs::read_to_string(golden_dir().join("protocols_design_pdl.bake.json")).expect("golden");
+    let golden: Value = serde_json::from_str(&golden_text).unwrap();
+    let (generated_at, entry_path) = golden_volatiles(&golden);
+    let design = load_pinned("test-fixtures/pdl/protocols/design.pdl", &entry_path);
+    let doc = build_baked_design_system(&design, None, Some(generated_at)).unwrap();
+    let out = stable_stringify(&doc, StableStringifyOptions { omit_empty: true });
+    assert_eq!(out, golden_text, "protocols bake golden mismatch");
+}

@@ -162,3 +162,44 @@ fn loads_protocol_fixture_with_effective_params() {
     let cnames: Vec<_> = cparams.iter().map(|p| p.name.as_str()).collect();
     assert_eq!(cnames, vec!["title", "subtitle"]);
 }
+
+#[test]
+fn parses_array_param_and_instance_literal() {
+    let src = r#"
+protocol ModalContent {
+  title = "T"
+}
+
+component Body <ModalContent>() layout {
+  let T: text = { content = title }
+  children = [T]
+}
+
+component Modal(
+  slots: [ModalContent] = [Body(title: "X")]
+) layout {
+  children = [slots]
+}
+"#;
+    let m = parse_module_source(src, "slots.pdl").unwrap();
+    let modal = m
+        .declarations
+        .iter()
+        .find_map(|d| match d {
+            pdl_core::ast::TopLevelDecl::Component(c) if c.name == "Modal" => Some(c),
+            _ => None,
+        })
+        .unwrap();
+    assert!(modal.params[0].is_array);
+    assert_eq!(modal.params[0].type_name, "ModalContent");
+    match &modal.params[0].default_value {
+        pdl_core::ast::ValueExpr::Array { items } => match &items[0] {
+            pdl_core::ast::ValueExpr::Instance { component, kwargs } => {
+                assert_eq!(component, "Body");
+                assert!(kwargs.contains_key("title"));
+            }
+            other => panic!("expected instance, got {other:?}"),
+        },
+        other => panic!("expected array, got {other:?}"),
+    }
+}

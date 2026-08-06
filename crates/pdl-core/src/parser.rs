@@ -152,6 +152,17 @@ impl Parser {
         Err(self.err(format!("Expected parameter type name, got {:?}", t.kind)))
     }
 
+    /// `Type` or `[Type]` (array / slot list).
+    fn parse_param_type(&mut self) -> Result<(String, bool), PdlError> {
+        if self.is(TokenKind::LBracket) {
+            self.advance();
+            let element = self.consume_param_type_name()?;
+            self.consume(TokenKind::RBracket)?;
+            return Ok((element, true));
+        }
+        Ok((self.consume_param_type_name()?, false))
+    }
+
     fn consume_token_type_name(&mut self) -> Result<String, PdlError> {
         let t = self.peek().clone();
         if t.kind == TokenKind::Ident {
@@ -811,28 +822,37 @@ impl Parser {
     /// Protocol / optional-typed param: `name: Type = default` or `name = default`.
     fn parse_protocol_param(&mut self) -> Result<ComponentParam, PdlError> {
         let pname = self.consume(TokenKind::Ident)?.value;
-        let type_name = if self.is(TokenKind::Colon) {
+        let (mut type_name, is_array) = if self.is(TokenKind::Colon) {
             self.advance();
-            self.consume_param_type_name()?
+            self.parse_param_type()?
         } else {
-            String::new() // filled after default is parsed
+            (String::new(), false)
         };
         self.consume(TokenKind::Eq)?;
         let default_value = self.parse_value_expr()?;
-        let type_name = if type_name.is_empty() {
-            Self::infer_type_from_default(&default_value)
-                .map(|s| s.to_string())
-                .ok_or_else(|| {
-                    self.err(format!(
-                        "Protocol param `{pname}` needs an explicit type (`name: Type = …`); could not infer from default"
-                    ))
-                })?
-        } else {
-            type_name
-        };
+        if type_name.is_empty() {
+            // Infer from default; array defaults `[…]` keep is_array.
+            match &default_value {
+                ValueExpr::Array { .. } => {
+                    return Err(self.err(format!(
+                        "Protocol param `{pname}` is an array default; declare an explicit element type (`name: [T] = …`)"
+                    )));
+                }
+                _ => {
+                    type_name = Self::infer_type_from_default(&default_value)
+                        .map(|s| s.to_string())
+                        .ok_or_else(|| {
+                            self.err(format!(
+                                "Protocol param `{pname}` needs an explicit type (`name: Type = …`); could not infer from default"
+                            ))
+                        })?;
+                }
+            }
+        }
         Ok(ComponentParam {
             name: pname,
             type_name,
+            is_array,
             default_value,
         })
     }
@@ -906,12 +926,13 @@ impl Parser {
             loop {
                 let pname = self.consume(TokenKind::Ident)?.value;
                 self.consume(TokenKind::Colon)?;
-                let type_name = self.consume_param_type_name()?;
+                let (type_name, is_array) = self.parse_param_type()?;
                 self.consume(TokenKind::Eq)?;
                 let default_value = self.parse_value_expr()?;
                 params.push(ComponentParam {
                     name: pname,
                     type_name,
+                    is_array,
                     default_value,
                 });
                 if self.is(TokenKind::RParen) {
@@ -1475,7 +1496,13 @@ impl Parser {
             self.consume(TokenKind::RParen)?;
             return Ok(ValueExpr::Call { callee, args });
         }
-        Err(self.err(format!("Unknown call {}", name)))
+        // Component instance literal: Name() / Name(param: value, …)
+        let kwargs = self.parse_labelled_args()?;
+        self.consume(TokenKind::RParen)?;
+        Ok(ValueExpr::Instance {
+            component: name,
+            kwargs,
+        })
     }
 
     fn parse_labelled_args(&mut self) -> Result<indexmap::IndexMap<String, ValueExpr>, PdlError> {

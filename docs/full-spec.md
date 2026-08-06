@@ -14,6 +14,7 @@
 3. [Tokens, Themes, and Type Styles](#3-tokens-themes-and-type-styles)
 4. [Variants and Component Parameters](#4-variants-and-component-parameters)
 4a. [Protocols (B1)](#4a--protocols-b1)
+4b. [Array params & children expansion (B2)](#4b--array-params--children-expansion-b2)
 5. [Components, Frames, and Properties](#5-components-frames-and-properties)
 6. [Values and Expressions](#6-values-and-expressions)
 7. [Conditional Overrides, `let`, and Composition](#7-conditional-overrides-let-and-composition)
@@ -543,12 +544,15 @@ component StatusBanner(
 
 ```pdl
 name: TypeName = default
+name: [TypeName] = [Instance(), …]   // array / slot list (§4b)
 ```
 
 - **`TypeName`**:  
   - **`String`** — text parameters.  
   - **`AnyDeclaredVariant`** — use the variant’s name as the type (`BannerTone`, `M3ButtonForm`, …).  
+  - **Protocol or component name** — single slot (`content: ModalContent = UpsellBody()`).  
   - Other identifier types may be accepted by the parser; **string and variant-typed** params are the common, well-supported paths for UI and interactions.  
+- **`[TypeName]`** — array of component/protocol instances (see **§4b**).  
 
 ### Default values
 
@@ -557,6 +561,8 @@ name: TypeName = default
 | `"quoted"` | String default |
 | `42` | Numeric default |
 | `.caseName` | Variant case default |
+| `Name()` / `Name(…)` | Component instance literal (slot defaults) |
+| `[Name(), …]` / `[]` | Array of instances |
 
 Examples:
 
@@ -566,6 +572,32 @@ component Chip(
   tone: BannerTone = .success
 ) layout { … }
 ```
+
+---
+
+## 4b — Array params & children expansion (B2)
+
+**Status:** shipped in the **Rust** portable core; TypeScript oracle unchanged for this slice. Proposal: `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` §6.
+
+```pdl
+component Modal(
+  chromeTitle: String = "Dialog",
+  slots: [ModalContent] = [UpsellBody()]
+) layout {
+  let Header: text = { content = chromeTitle }
+  children = [Header, slots]
+}
+```
+
+| Rule | Intent |
+|------|--------|
+| `[T]` | Param type: array of instances whose concrete component is `T` or conforms to protocol `T` |
+| Defaults | Instance literals `Name()` / `Name(param: value, …)`; empty `[]` allowed |
+| Expansion | A list/slot param name in `children = […]` splices evaluated instances in place (one level) |
+| Single slot | Non-array `content: ModalContent = UpsellBody()` also expands when referenced in `children` |
+| Catalogue | Param `type` is `{ "kind": "array", "element": "…" }` for `[T]` |
+
+Injection packs / soft-fail (B3) and `ForEach` chrome (B5–B6) are separate slices.
 
 ---
 

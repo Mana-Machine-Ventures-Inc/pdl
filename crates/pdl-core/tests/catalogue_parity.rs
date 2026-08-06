@@ -129,3 +129,15 @@ fn resolved_component_matches_ts_goldens() {
         failures
     );
 }
+
+#[test]
+fn protocols_design_catalogue_golden() {
+    let golden_text =
+        fs::read_to_string(golden_dir().join("protocols_design_pdl.catalogue.json")).unwrap();
+    let golden: Value = serde_json::from_str(&golden_text).unwrap();
+    let generated_at = golden["generatedAt"].as_str().unwrap().to_string();
+    let design = load_design_at("test-fixtures/pdl/protocols/design.pdl");
+    let doc = build_component_catalogue(&design, None, &[], Some(generated_at)).unwrap();
+    let out = stable_stringify(&doc, StableStringifyOptions { omit_empty: true });
+    assert_eq!(out, golden_text, "protocols catalogue golden mismatch");
+}

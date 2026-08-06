@@ -449,7 +449,7 @@ struct Axis {
 fn variant_param_axes(design: &DesignDefinition, c: &ComponentDecl) -> Result<Vec<Axis>, PdlError> {
     Ok(effective_params(design, c)?
         .into_iter()
-        .filter(|p| design.variants.contains_key(&p.type_name))
+        .filter(|p| !p.is_array && design.variants.contains_key(&p.type_name))
         .map(|p| Axis {
             name: p.name.clone(),
             cases: design.variants[&p.type_name].cases.clone(),
@@ -463,7 +463,7 @@ fn default_variant_assignment(
 ) -> Result<Vec<(String, String)>, PdlError> {
     let mut out: Vec<(String, String)> = Vec::new();
     for p in effective_params(design, c)? {
-        if !design.variants.contains_key(&p.type_name) {
+        if p.is_array || !design.variants.contains_key(&p.type_name) {
             continue;
         }
         match &p.default_value {
@@ -547,7 +547,16 @@ fn catalogue_params(
     for p in effective_params(design, c)? {
         let resolved_default = defaults.get(&p.name).cloned().unwrap_or(Value::Null);
         let mut entries = vec![("name", Value::String(p.name.clone()))];
-        if design.variants.contains_key(&p.type_name) {
+        if p.is_array {
+            entries.push((
+                "type",
+                obj(vec![
+                    ("kind", Value::String("array".to_string())),
+                    ("element", Value::String(p.type_name.clone())),
+                ]),
+            ));
+            entries.push(("default", resolved_default));
+        } else if design.variants.contains_key(&p.type_name) {
             entries.push(("type", Value::String("variant".to_string())));
             entries.push(("default", resolved_default));
             entries.push(("variantTypeName", Value::String(p.type_name.clone())));
@@ -1071,7 +1080,19 @@ pub fn build_component_catalogue(
                 .iter()
                 .map(|param| {
                     let mut entries = vec![("name", Value::String(param.name.clone()))];
-                    if design.variants.contains_key(&param.type_name) {
+                    if param.is_array {
+                        entries.push((
+                            "type",
+                            obj(vec![
+                                ("kind", Value::String("array".to_string())),
+                                ("element", Value::String(param.type_name.clone())),
+                            ]),
+                        ));
+                        entries.push((
+                            "default",
+                            serialise_value_expr(&param.default_value),
+                        ));
+                    } else if design.variants.contains_key(&param.type_name) {
                         entries.push(("type", Value::String("variant".to_string())));
                         entries.push((
                             "default",

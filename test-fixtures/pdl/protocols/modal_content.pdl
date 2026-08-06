@@ -1,4 +1,4 @@
-// B1: protocol + conforming components (shared params).
+// B1+B2: protocols, [T] slots, instance literals, children expansion.
 protocol ModalContent {
   title = "Modal Title"
   subtitle = ""
@@ -27,4 +27,14 @@ component ConfirmBody <ModalContent>() layout {
     content = subtitle
   }
   children = [Title, Sub]
+}
+
+component Modal(
+  chromeTitle: String = "Dialog",
+  slots: [ModalContent] = [UpsellBody()]
+) layout {
+  let Header: text = {
+    content = chromeTitle
+  }
+  children = [Header, slots]
 }

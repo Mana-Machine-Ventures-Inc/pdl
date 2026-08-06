@@ -124,6 +124,11 @@ pub enum ValueExpr {
         callee: CallCallee,
         args: IndexMap<String, ValueExpr>,
     },
+    /// Component instance literal: `Name()` / `Name(param: value, …)`.
+    Instance {
+        component: String,
+        kwargs: IndexMap<String, ValueExpr>,
+    },
     GradientStop {
         fields: IndexMap<String, ValueExpr>,
     },
@@ -132,7 +137,10 @@ pub enum ValueExpr {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComponentParam {
     pub name: String,
+    /// Element type name (`String`, `ModalContent`, variant name, …).
     pub type_name: String,
+    /// True when declared as `[T]` (array / slot list).
+    pub is_array: bool,
     pub default_value: ValueExpr,
 }
 

@@ -18,8 +18,14 @@ use crate::stable_json::number_value;
 pub type Tokens = HashMap<String, Value>;
 /// Component parameter bindings (variant values as bare strings).
 pub type ParamValues = Map<String, Value>;
-/// Parameter name → declared type name.
-pub type ParamMeta = IndexMap<String, String>;
+/// Parameter name → declared type metadata.
+#[derive(Debug, Clone)]
+pub struct ParamTypeMeta {
+    pub type_name: String,
+    pub is_array: bool,
+}
+
+pub type ParamMeta = IndexMap<String, ParamTypeMeta>;
 
 /// Evaluation context (mirrors the TS `EvalOptions`).
 pub struct Eval<'a> {
@@ -216,6 +222,16 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
             }
             Ok(Value::Array(out))
         }
+        ValueExpr::Instance { component, kwargs } => {
+            let mut params = Map::new();
+            for (k, v) in kwargs {
+                params.insert(k.clone(), evaluate_value(v, ev)?);
+            }
+            Ok(obj(vec![
+                ("component", Value::String(component.clone())),
+                ("params", Value::Object(params)),
+            ]))
+        }
         ValueExpr::Transition {
             duration,
             easing,
@@ -332,7 +348,7 @@ fn evaluate_call(
 fn evaluate_ident(name: &str, ev: &mut Eval) -> Result<Value, PdlError> {
     if let Some(meta) = ev.param_meta {
         if let Some(t) = meta.get(name) {
-            if ev.use_string_placeholders && is_placeholder_type(t) {
+            if ev.use_string_placeholders && is_placeholder_type(&t.type_name) && !t.is_array {
                 return Ok(Value::String(format!("param:{name}")));
             }
         }
@@ -344,7 +360,7 @@ fn evaluate_ident(name: &str, ev: &mut Eval) -> Result<Value, PdlError> {
     }
     if let Some(meta) = ev.param_meta {
         if let Some(t) = meta.get(name) {
-            if is_placeholder_type(t) {
+            if is_placeholder_type(&t.type_name) && !t.is_array {
                 return Ok(Value::String(format!("param:{name}")));
             }
         }

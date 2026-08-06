@@ -1,0 +1,487 @@
+{
+  "components": {
+    "AtomTextJustifyAlign": {
+      "childHierarchy": {
+        "Root": [
+          "L",
+          "C",
+          "R"
+        ]
+      },
+      "childNodes": {
+        "C": {
+          "id": "C",
+          "kind": "text",
+          "props": {
+            "align": "center",
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "Center",
+            "fontSize": 12,
+            "justify": "center"
+          }
+        },
+        "L": {
+          "id": "L",
+          "kind": "text",
+          "props": {
+            "align": "start",
+            "color": "semantic:atoms.color.sem.fromRgb",
+            "content": "Left",
+            "fontSize": 12,
+            "justify": "start"
+          }
+        },
+        "R": {
+          "id": "R",
+          "kind": "text",
+          "props": {
+            "align": "end",
+            "color": "primitive:atoms.color.rgba",
+            "content": "Right end",
+            "fontSize": 12,
+            "justify": "end"
+          }
+        }
+      },
+      "name": "AtomTextJustifyAlign",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "primitive:atoms.color.rgb",
+          "direction": "row",
+          "gap": "primitive:atoms.space.md"
+        }
+      }
+    },
+    "AtomTextOverflow": {
+      "childHierarchy": {
+        "Root": [
+          "Clipped",
+          "Ellipsis"
+        ]
+      },
+      "childNodes": {
+        "Clipped": {
+          "id": "Clipped",
+          "kind": "text",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "content": "Clipped overflow",
+            "fontSize": 13,
+            "overflow": "clip",
+            "textOverflow": "clip"
+          }
+        },
+        "Ellipsis": {
+          "id": "Ellipsis",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "Very long label that should ellipsize when constrained",
+            "fontSize": 13,
+            "lineClamp": 2,
+            "overflow": "hidden",
+            "textOverflow": "ellipsis"
+          }
+        }
+      },
+      "name": "AtomTextOverflow",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "semantic:atoms.color.sem.fromRgb",
+          "direction": "column",
+          "gap": "primitive:atoms.space.xs"
+        }
+      }
+    },
+    "AtomTextPlain": {
+      "childHierarchy": {
+        "Root": [
+          "T"
+        ]
+      },
+      "childNodes": {
+        "T": {
+          "id": "T",
+          "kind": "text",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "content": "Plain text",
+            "fontSize": 14,
+            "fontWeight": 500,
+            "letterSpacing": 0.01,
+            "lineHeight": 1.35
+          }
+        }
+      },
+      "name": "AtomTextPlain",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "semantic:atoms.color.sem.fromRgb",
+          "direction": "column",
+          "gap": "primitive:atoms.space.sm"
+        }
+      }
+    },
+    "AtomTextStylePlusOverride": {
+      "childHierarchy": {
+        "Root": [
+          "T"
+        ]
+      },
+      "childNodes": {
+        "T": {
+          "id": "T",
+          "kind": "text",
+          "props": {
+            "content": "Mixed",
+            "fontSize": 22,
+            "typeStyle": "typeStyle:AtomCaption"
+          }
+        }
+      },
+      "name": "AtomTextStylePlusOverride",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "semantic:atoms.color.sem.fromRgb",
+          "direction": "column"
+        }
+      }
+    },
+    "AtomTextTypeStyle": {
+      "childHierarchy": {
+        "Root": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      "childNodes": {
+        "A": {
+          "id": "A",
+          "kind": "text",
+          "props": {
+            "content": "Caption line",
+            "typeStyle": "typeStyle:AtomCaption"
+          }
+        },
+        "B": {
+          "id": "B",
+          "kind": "text",
+          "props": {
+            "content": "Body line",
+            "typeStyle": "typeStyle:AtomBody"
+          }
+        },
+        "C": {
+          "id": "C",
+          "kind": "text",
+          "props": {
+            "content": "Title line",
+            "typeStyle": "typeStyle:AtomTitle"
+          }
+        },
+        "D": {
+          "id": "D",
+          "kind": "text",
+          "props": {
+            "content": "Mono line",
+            "typeStyle": "typeStyle:AtomMono"
+          }
+        }
+      },
+      "name": "AtomTextTypeStyle",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "semantic:atoms.color.sem.fromRgba",
+          "direction": "column"
+        }
+      }
+    }
+  },
+  "generatedAt": "2026-08-06T01:16:46.021Z",
+  "kind": "componentCatalogue",
+  "primitives": {
+    "atoms.color.brandPrimary": {
+      "definition": {
+        "kind": "hex",
+        "value": "#FF5A5F"
+      },
+      "name": "atoms.color.brandPrimary",
+      "tokenType": "Color"
+    },
+    "atoms.color.brandSecondary": {
+      "definition": {
+        "kind": "hex",
+        "value": "#00A699"
+      },
+      "name": "atoms.color.brandSecondary",
+      "tokenType": "Color"
+    },
+    "atoms.color.canvas": {
+      "definition": {
+        "kind": "hex",
+        "value": "#F7F7F7"
+      },
+      "name": "atoms.color.canvas",
+      "tokenType": "Color"
+    },
+    "atoms.color.elevated": {
+      "definition": {
+        "kind": "hex",
+        "value": "#EBEBEB"
+      },
+      "name": "atoms.color.elevated",
+      "tokenType": "Color"
+    },
+    "atoms.color.rgb": {
+      "definition": {
+        "kind": "hex",
+        "value": "#D3D3D3"
+      },
+      "name": "atoms.color.rgb",
+      "tokenType": "Color"
+    },
+    "atoms.color.rgba": {
+      "definition": {
+        "kind": "hex",
+        "value": "#222222"
+      },
+      "name": "atoms.color.rgba",
+      "tokenType": "Color"
+    },
+    "atoms.color.textMuted": {
+      "definition": {
+        "kind": "hex",
+        "value": "#717171"
+      },
+      "name": "atoms.color.textMuted",
+      "tokenType": "Color"
+    },
+    "atoms.color.textOnBrand": {
+      "definition": {
+        "kind": "hex",
+        "value": "#FFFFFF"
+      },
+      "name": "atoms.color.textOnBrand",
+      "tokenType": "Color"
+    },
+    "atoms.color.textPrimary": {
+      "definition": {
+        "kind": "hex",
+        "value": "#222222"
+      },
+      "name": "atoms.color.textPrimary",
+      "tokenType": "Color"
+    },
+    "atoms.font.mono": {
+      "definition": {
+        "kind": "string",
+        "value": "ui-monospace, monospace"
+      },
+      "name": "atoms.font.mono",
+      "tokenType": "FontFamily"
+    },
+    "atoms.font.ui": {
+      "definition": {
+        "kind": "string",
+        "value": "system-ui, sans-serif"
+      },
+      "name": "atoms.font.ui",
+      "tokenType": "FontFamily"
+    },
+    "atoms.radius.mixed": {
+      "definition": {
+        "bl": {
+          "kind": "number",
+          "value": 2
+        },
+        "br": {
+          "kind": "number",
+          "value": 2
+        },
+        "kind": "corner",
+        "tl": {
+          "kind": "number",
+          "value": 8
+        },
+        "tr": {
+          "kind": "number",
+          "value": 8
+        }
+      },
+      "name": "atoms.radius.mixed",
+      "tokenType": "Radius"
+    },
+    "atoms.radius.sm": {
+      "definition": {
+        "kind": "number",
+        "value": 4
+      },
+      "name": "atoms.radius.sm",
+      "tokenType": "Radius"
+    },
+    "atoms.space.md": {
+      "definition": {
+        "kind": "number",
+        "value": 16
+      },
+      "name": "atoms.space.md",
+      "tokenType": "Distance"
+    },
+    "atoms.space.sm": {
+      "definition": {
+        "kind": "number",
+        "value": 8
+      },
+      "name": "atoms.space.sm",
+      "tokenType": "Distance"
+    },
+    "atoms.space.xs": {
+      "definition": {
+        "kind": "number",
+        "value": 4
+      },
+      "name": "atoms.space.xs",
+      "tokenType": "Distance"
+    },
+    "atoms.type.size.body": {
+      "definition": {
+        "kind": "number",
+        "value": 16
+      },
+      "name": "atoms.type.size.body",
+      "tokenType": "Size"
+    },
+    "atoms.type.size.caption": {
+      "definition": {
+        "kind": "number",
+        "value": 12
+      },
+      "name": "atoms.type.size.caption",
+      "tokenType": "Size"
+    },
+    "atoms.type.size.title": {
+      "definition": {
+        "kind": "number",
+        "value": 22
+      },
+      "name": "atoms.type.size.title",
+      "tokenType": "Size"
+    },
+    "atoms.type.weight.bold": {
+      "definition": {
+        "kind": "number",
+        "value": 700
+      },
+      "name": "atoms.type.weight.bold",
+      "tokenType": "Weight"
+    },
+    "atoms.type.weight.medium": {
+      "definition": {
+        "kind": "number",
+        "value": 600
+      },
+      "name": "atoms.type.weight.medium",
+      "tokenType": "Weight"
+    },
+    "atoms.type.weight.regular": {
+      "definition": {
+        "kind": "number",
+        "value": 400
+      },
+      "name": "atoms.type.weight.regular",
+      "tokenType": "Weight"
+    }
+  },
+  "schemaVersion": "1.0.0-beta",
+  "semantics": {
+    "atoms.color.scrimLiteral": {
+      "definition": {
+        "base": "primitive:atoms.color.rgb",
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.25
+        }
+      },
+      "name": "atoms.color.scrimLiteral",
+      "tokenType": "Color"
+    },
+    "atoms.color.scrimRgba": {
+      "definition": {
+        "base": "primitive:atoms.color.rgba",
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.5
+        }
+      },
+      "name": "atoms.color.scrimRgba",
+      "tokenType": "Color"
+    },
+    "atoms.color.sem.fromRgb": {
+      "definition": "primitive:atoms.color.canvas",
+      "name": "atoms.color.sem.fromRgb",
+      "tokenType": "Color"
+    },
+    "atoms.color.sem.fromRgba": {
+      "definition": "primitive:atoms.color.elevated",
+      "name": "atoms.color.sem.fromRgba",
+      "tokenType": "Color"
+    },
+    "atoms.radius.card": {
+      "definition": "primitive:atoms.radius.mixed",
+      "name": "atoms.radius.card",
+      "tokenType": "Radius"
+    },
+    "atoms.space.card.pad": {
+      "definition": "primitive:atoms.space.md",
+      "name": "atoms.space.card.pad",
+      "tokenType": "Distance"
+    }
+  },
+  "typeStyles": {
+    "AtomBody": {
+      "name": "AtomBody",
+      "props": {
+        "color": "primitive:atoms.color.textPrimary",
+        "fontFamily": "primitive:atoms.font.ui",
+        "fontSize": "primitive:atoms.type.size.body",
+        "fontWeight": "primitive:atoms.type.weight.regular"
+      }
+    },
+    "AtomCaption": {
+      "name": "AtomCaption",
+      "props": {
+        "color": "primitive:atoms.color.textMuted",
+        "fontFamily": "primitive:atoms.font.ui",
+        "fontSize": "primitive:atoms.type.size.caption",
+        "fontWeight": "primitive:atoms.type.weight.medium"
+      }
+    },
+    "AtomMono": {
+      "name": "AtomMono",
+      "props": {
+        "color": "primitive:atoms.color.textPrimary",
+        "fontFamily": "primitive:atoms.font.mono",
+        "fontSize": "primitive:atoms.type.size.caption",
+        "fontWeight": "primitive:atoms.type.weight.regular"
+      }
+    },
+    "AtomTitle": {
+      "name": "AtomTitle",
+      "props": {
+        "color": "primitive:atoms.color.textPrimary",
+        "fontFamily": "primitive:atoms.font.ui",
+        "fontSize": "primitive:atoms.type.size.title",
+        "fontWeight": "primitive:atoms.type.weight.bold"
+      }
+    }
+  }
+}

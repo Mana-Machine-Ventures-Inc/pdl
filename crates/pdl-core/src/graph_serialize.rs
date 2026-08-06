@@ -190,6 +190,11 @@ pub fn serialise_value_expr(e: &ValueExpr) -> Value {
             ("callee", Value::String(callee_str(*callee).to_string())),
             ("args", serialise_fields(args, serialise_value_expr)),
         ]),
+        ValueExpr::Instance { component, kwargs } => obj(vec![
+            ("kind", Value::String("instance".to_string())),
+            ("component", Value::String(component.clone())),
+            ("kwargs", serialise_fields(kwargs, serialise_value_expr)),
+        ]),
         ValueExpr::GradientStop { fields } => obj(vec![
             ("kind", Value::String("gradientStop".to_string())),
             ("fields", serialise_fields(fields, serialise_value_expr)),
@@ -355,6 +360,14 @@ pub fn serialise_value_expr_with_token_refs(expr: &ValueExpr, design: &DesignDef
                 serialise_fields(args, |v| serialise_value_expr_with_token_refs(v, design)),
             ),
         ]),
+        ValueExpr::Instance { component, kwargs } => obj(vec![
+            ("kind", Value::String("instance".to_string())),
+            ("component", Value::String(component.clone())),
+            (
+                "kwargs",
+                serialise_fields(kwargs, |v| serialise_value_expr_with_token_refs(v, design)),
+            ),
+        ]),
         ValueExpr::GradientStop { fields } => obj(vec![
             ("kind", Value::String("gradientStop".to_string())),
             (
@@ -423,6 +436,11 @@ pub fn collect_declared_token_names_from_value_expr(
         }
         ValueExpr::Call { args, .. } => {
             for v in args.values() {
+                collect_declared_token_names_from_value_expr(v, design, sink);
+            }
+        }
+        ValueExpr::Instance { kwargs, .. } => {
+            for v in kwargs.values() {
                 collect_declared_token_names_from_value_expr(v, design, sink);
             }
         }

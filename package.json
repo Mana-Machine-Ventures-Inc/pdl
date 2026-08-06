@@ -23,7 +23,8 @@
     "pdl:rust": "cargo run -q -p pdl-cli --",
     "test": "npm run build && vitest run",
     "test:watch": "vitest",
-    "test:rust": "cargo test -p pdl-core"
+    "test:rust": "cargo test -p pdl-core",
+    "test:dual": "npm run build && cargo build -q -p pdl-cli && node scripts/dual-run-compare.mjs"
   },
   "engines": {
     "node": ">=20"

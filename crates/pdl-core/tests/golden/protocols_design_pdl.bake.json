@@ -1,0 +1,127 @@
+{
+  "components": {
+    "ConfirmBody": {
+      "bakedParams": {
+        "title": "Modal Title"
+      },
+      "name": "ConfirmBody",
+      "root": {
+        "children": [
+          {
+            "id": "Title",
+            "kind": "text",
+            "props": {
+              "content": "Modal Title"
+            }
+          },
+          {
+            "id": "Sub",
+            "kind": "text",
+            "props": {
+              "content": ""
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout"
+      },
+      "rootKind": "layout"
+    },
+    "Modal": {
+      "bakedParams": {
+        "chromeTitle": "Dialog",
+        "slots": [
+          {
+            "component": "UpsellBody"
+          }
+        ]
+      },
+      "name": "Modal",
+      "root": {
+        "children": [
+          {
+            "id": "Header",
+            "kind": "text",
+            "props": {
+              "content": "Dialog"
+            }
+          },
+          {
+            "children": [
+              {
+                "id": "Title",
+                "kind": "text",
+                "props": {
+                  "content": "Modal Title"
+                }
+              },
+              {
+                "id": "Sub",
+                "kind": "text",
+                "props": {
+                  "content": ""
+                }
+              },
+              {
+                "id": "Cta",
+                "kind": "text",
+                "props": {
+                  "content": "Upgrade"
+                }
+              }
+            ],
+            "id": "Root_UpsellBody_0",
+            "instanceOf": "UpsellBody",
+            "kind": "layout"
+          }
+        ],
+        "id": "Root",
+        "kind": "layout"
+      },
+      "rootKind": "layout"
+    },
+    "UpsellBody": {
+      "bakedParams": {
+        "cta": "Upgrade",
+        "title": "Modal Title"
+      },
+      "name": "UpsellBody",
+      "root": {
+        "children": [
+          {
+            "id": "Title",
+            "kind": "text",
+            "props": {
+              "content": "Modal Title"
+            }
+          },
+          {
+            "id": "Sub",
+            "kind": "text",
+            "props": {
+              "content": ""
+            }
+          },
+          {
+            "id": "Cta",
+            "kind": "text",
+            "props": {
+              "content": "Upgrade"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout"
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-06T00:00:00.000Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "test-fixtures/pdl/protocols/design.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

@@ -22,7 +22,8 @@ After `npm install`, use the npm scripts below (each runs **`tsc`** first so **`
 | `npm run resolve --silent -- <entry.pdl> <Component> [--tree-only] [--theme Name] [key=value …]` | Legacy: **`resolvedComponent`** (default) or bare **`CatalFrame`** with **`--tree-only`**. Prefer **graphComponent** / **bakeComponent** for new tooling. |
 
 `npm test` runs the Vitest suite. `npm run test:rust` runs `cargo test -p pdl-core`.  
-`npm run pdl:rust -- <cmd> …` runs the Rust `pdl` CLI (same bake/graph/catalogue/resolve shapes as the TS CLI).
+`npm run pdl:rust -- <cmd> …` runs the Rust `pdl` CLI (same bake/graph/catalogue/resolve shapes as the TS CLI).  
+`npm run test:dual` compares TS vs Rust bake/graph JSON (volatiles pinned).
 
 ## Test fixtures
 

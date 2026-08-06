@@ -1,0 +1,41 @@
+{
+  "components": {
+    "Greeting": {
+      "bakedParams": {
+        "title": "Hello"
+      },
+      "name": "Greeting",
+      "root": {
+        "children": [
+          {
+            "id": "Title",
+            "kind": "text",
+            "props": {
+              "content": "Hello"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "direction": "column",
+          "padding": {
+            "bottom": 16,
+            "left": 16,
+            "right": 16,
+            "top": 16
+          }
+        }
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-06T01:16:45.867Z",
+  "provenance": {
+    "bakeProfile": "system-defaults",
+    "bakedTheme": null,
+    "entryPath": "/workspace/test-fixtures/pdl/integration/greeting.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

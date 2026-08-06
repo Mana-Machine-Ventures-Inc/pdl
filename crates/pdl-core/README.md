@@ -2,7 +2,7 @@
 
 Rust **portable PDL core** (lex → parse → merge → validate → bake → catalogue / graph).
 
-**Status:** **A4** done + **B1** started — bake/catalogue/CLI parity for current PDL; Rust **`protocol` / `component C <P>`** (effective params, catalogue hooks). TypeScript in `src/` remains the oracle for pre-protocol designs.
+**Status:** **A4** + **B1/B2** (Rust-first) — bake/catalogue/CLI parity for current PDL; protocols, `[T]` slots, instance literals, and children expansion. TypeScript in `src/` remains the oracle for pre-protocol designs.
 
 ## Develop
 
@@ -56,6 +56,5 @@ Goldens (`tests/golden/`):
 ## Next
 
 - **A5** — C ABI (later)  
-- **B1 remainder** — TS port / bake goldens for protocol demos  
-- **B2+** — `[T]` slots, injection packs, emits runtime, layout `on`  
-- Dual-run CI job comparing TS vs Rust CLI JSON (strip `generatedAt` / normalize paths)
+- **B3+** — injection packs, emits runtime, layout `on`  
+- TS port of B1/B2 when hosts need the oracle to accept the new grammar

@@ -1,0 +1,217 @@
+{
+  "components": {
+    "ConfirmBody": {
+      "childHierarchy": {
+        "Root": [
+          "Title",
+          "Sub"
+        ]
+      },
+      "childNodes": {
+        "Sub": {
+          "id": "Sub",
+          "kind": "text",
+          "props": {
+            "content": "param:subtitle"
+          }
+        },
+        "Title": {
+          "id": "Title",
+          "kind": "text",
+          "props": {
+            "content": "param:title"
+          }
+        }
+      },
+      "conformsTo": "ModalContent",
+      "defaultParams": {
+        "title": "Modal Title"
+      },
+      "expose": [
+        "title",
+        "subtitle"
+      ],
+      "name": "ConfirmBody",
+      "params": [
+        {
+          "default": "Modal Title",
+          "name": "title",
+          "type": "String"
+        },
+        {
+          "name": "subtitle",
+          "type": "String"
+        }
+      ],
+      "root": {
+        "kind": "layout"
+      }
+    },
+    "Modal": {
+      "childHierarchy": {
+        "Root": [
+          "Header",
+          "Root_UpsellBody_0"
+        ],
+        "Root_UpsellBody_0": [
+          "Title",
+          "Sub",
+          "Cta"
+        ]
+      },
+      "childNodes": {
+        "Cta": {
+          "id": "Cta",
+          "kind": "text",
+          "props": {
+            "content": "param:cta"
+          }
+        },
+        "Header": {
+          "id": "Header",
+          "kind": "text",
+          "props": {
+            "content": "param:chromeTitle"
+          }
+        },
+        "Root_UpsellBody_0": {
+          "id": "Root_UpsellBody_0",
+          "instanceOf": "UpsellBody",
+          "kind": "layout"
+        },
+        "Sub": {
+          "id": "Sub",
+          "kind": "text",
+          "props": {
+            "content": "param:subtitle"
+          }
+        },
+        "Title": {
+          "id": "Title",
+          "kind": "text",
+          "props": {
+            "content": "param:title"
+          }
+        }
+      },
+      "defaultParams": {
+        "chromeTitle": "Dialog",
+        "slots": "[{\"component\":\"UpsellBody\",\"params\":{}}]"
+      },
+      "expose": [
+        "chromeTitle",
+        "slots"
+      ],
+      "name": "Modal",
+      "params": [
+        {
+          "default": "Dialog",
+          "name": "chromeTitle",
+          "type": "String"
+        },
+        {
+          "default": [
+            {
+              "component": "UpsellBody"
+            }
+          ],
+          "name": "slots",
+          "type": {
+            "element": "ModalContent",
+            "kind": "array"
+          }
+        }
+      ],
+      "root": {
+        "kind": "layout"
+      }
+    },
+    "UpsellBody": {
+      "childHierarchy": {
+        "Root": [
+          "Title",
+          "Sub",
+          "Cta"
+        ]
+      },
+      "childNodes": {
+        "Cta": {
+          "id": "Cta",
+          "kind": "text",
+          "props": {
+            "content": "param:cta"
+          }
+        },
+        "Sub": {
+          "id": "Sub",
+          "kind": "text",
+          "props": {
+            "content": "param:subtitle"
+          }
+        },
+        "Title": {
+          "id": "Title",
+          "kind": "text",
+          "props": {
+            "content": "param:title"
+          }
+        }
+      },
+      "conformsTo": "ModalContent",
+      "defaultParams": {
+        "cta": "Upgrade",
+        "title": "Modal Title"
+      },
+      "expose": [
+        "title",
+        "subtitle",
+        "cta"
+      ],
+      "name": "UpsellBody",
+      "params": [
+        {
+          "default": "Modal Title",
+          "name": "title",
+          "type": "String"
+        },
+        {
+          "name": "subtitle",
+          "type": "String"
+        },
+        {
+          "default": "Upgrade",
+          "name": "cta",
+          "type": "String"
+        }
+      ],
+      "root": {
+        "kind": "layout"
+      }
+    }
+  },
+  "generatedAt": "2026-08-06T00:00:00.000Z",
+  "kind": "componentCatalogue",
+  "protocols": {
+    "ModalContent": {
+      "name": "ModalContent",
+      "params": [
+        {
+          "default": {
+            "kind": "string",
+            "value": "Modal Title"
+          },
+          "name": "title",
+          "type": "String"
+        },
+        {
+          "default": {
+            "kind": "string"
+          },
+          "name": "subtitle",
+          "type": "String"
+        }
+      ]
+    }
+  },
+  "schemaVersion": "1.0.0-beta"
+}

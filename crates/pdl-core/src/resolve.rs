@@ -276,7 +276,7 @@ pub fn resolve_default_param_values(
     let empty_pm: ParamMeta = IndexMap::new();
     let params = effective_params(design, c)?;
     for p in &params {
-        if design.variants.contains_key(&p.type_name) {
+        if !p.is_array && design.variants.contains_key(&p.type_name) {
             match &p.default_value {
                 ValueExpr::DotEnum { value } => {
                     out.insert(
@@ -314,7 +314,13 @@ pub fn resolve_default_param_values(
 fn build_param_meta(design: &DesignDefinition, c: &ComponentDecl) -> Result<ParamMeta, PdlError> {
     let mut m = ParamMeta::new();
     for p in effective_params(design, c)? {
-        m.insert(p.name, p.type_name);
+        m.insert(
+            p.name,
+            crate::evaluate::ParamTypeMeta {
+                type_name: p.type_name,
+                is_array: p.is_array,
+            },
+        );
     }
     Ok(m)
 }
@@ -565,9 +571,100 @@ pub fn resolve_component_tree(
         &frames,
         design,
         tokens,
+        &param_values,
+        &param_meta,
         &mut HashSet::new(),
         options,
     )
+}
+
+fn mount_instance(
+    parent_id: &str,
+    component: &str,
+    kw_overrides: Map<String, Value>,
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+    visiting_inst: &mut HashSet<String>,
+    options: ResolveOptions,
+    si: &mut usize,
+) -> Result<CatalFrame, PdlError> {
+    let key = format!("{parent_id}>{component}");
+    if visiting_inst.contains(&key) {
+        return Err(PdlError::new(
+            "PDL-E004",
+            format!("Recursive component instance {component}"),
+            None,
+            None,
+            None,
+        ));
+    }
+    visiting_inst.insert(key.clone());
+    let mut sub = resolve_component_tree(design, component, tokens, &kw_overrides, options)?;
+    visiting_inst.remove(&key);
+    sub.id = format!("{parent_id}_{component}_{si}");
+    *si += 1;
+    sub.instance_of = Some(component.to_string());
+    sub.instance_kwargs = Some(kw_overrides);
+    Ok(sub)
+}
+
+fn expand_slot_items(
+    parent_id: &str,
+    items: &[Value],
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+    visiting_inst: &mut HashSet<String>,
+    options: ResolveOptions,
+    si: &mut usize,
+    children: &mut Vec<CatalFrame>,
+) -> Result<(), PdlError> {
+    for item in items {
+        let obj = item.as_object().ok_or_else(|| {
+            PdlError::new(
+                "PDL-E010",
+                "Slot array items must be instance objects `{ component, params }`",
+                Some(design.entry_path.clone()),
+                None,
+                None,
+            )
+        })?;
+        let component = obj
+            .get("component")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                PdlError::new(
+                    "PDL-E010",
+                    "Slot instance missing `component`",
+                    Some(design.entry_path.clone()),
+                    None,
+                    None,
+                )
+            })?;
+        let kw_overrides = match obj.get("params") {
+            Some(Value::Object(m)) => m.clone(),
+            None => Map::new(),
+            Some(_) => {
+                return Err(PdlError::new(
+                    "PDL-E010",
+                    "Slot instance `params` must be an object",
+                    Some(design.entry_path.clone()),
+                    None,
+                    None,
+                ))
+            }
+        };
+        children.push(mount_instance(
+            parent_id,
+            component,
+            kw_overrides,
+            design,
+            tokens,
+            visiting_inst,
+            options,
+            si,
+        )?);
+    }
+    Ok(())
 }
 
 fn materialize(
@@ -575,6 +672,8 @@ fn materialize(
     frames: &HashMap<String, MutableFrame>,
     design: &DesignDefinition,
     tokens: &mut Tokens,
+    param_values: &ParamValues,
+    param_meta: &ParamMeta,
     visiting_inst: &mut HashSet<String>,
     options: ResolveOptions,
 ) -> Result<CatalFrame, PdlError> {
@@ -597,27 +696,72 @@ fn materialize(
                 si += 1;
             }
             ChildEntry::FrameRef { id: cid } => {
-                children.push(materialize(
-                    cid,
-                    frames,
-                    design,
-                    tokens,
-                    visiting_inst,
-                    options,
-                )?);
-            }
-            ChildEntry::Instance { component, kwargs } => {
-                let key = format!("{id}>{component}");
-                if visiting_inst.contains(&key) {
+                if frames.contains_key(cid) {
+                    children.push(materialize(
+                        cid,
+                        frames,
+                        design,
+                        tokens,
+                        param_values,
+                        param_meta,
+                        visiting_inst,
+                        options,
+                    )?);
+                } else if let Some(meta) = param_meta.get(cid) {
+                    // Expandable list/slot param referenced in `children`.
+                    let val = param_values.get(cid).ok_or_else(|| {
+                        PdlError::new(
+                            "PDL-E007",
+                            format!("Missing value for slot param `{cid}`"),
+                            Some(design.entry_path.clone()),
+                            None,
+                            None,
+                        )
+                    })?;
+                    if meta.is_array {
+                        let items = val.as_array().ok_or_else(|| {
+                            PdlError::new(
+                                "PDL-E010",
+                                format!("Array slot param `{cid}` must evaluate to an array"),
+                                Some(design.entry_path.clone()),
+                                None,
+                                None,
+                            )
+                        })?;
+                        expand_slot_items(
+                            id,
+                            items,
+                            design,
+                            tokens,
+                            visiting_inst,
+                            options,
+                            &mut si,
+                            &mut children,
+                        )?;
+                    } else {
+                        // Single protocol/component slot: one instance object.
+                        expand_slot_items(
+                            id,
+                            std::slice::from_ref(val),
+                            design,
+                            tokens,
+                            visiting_inst,
+                            options,
+                            &mut si,
+                            &mut children,
+                        )?;
+                    }
+                } else {
                     return Err(PdlError::new(
-                        "PDL-E004",
-                        format!("Recursive component instance {component}"),
+                        "PDL-E001",
+                        format!("Missing frame {cid}"),
                         None,
                         None,
                         None,
                     ));
                 }
-                visiting_inst.insert(key.clone());
+            }
+            ChildEntry::Instance { component, kwargs } => {
                 let mut kw_overrides = Map::new();
                 for (k, expr) in kwargs {
                     let mut visiting = HashSet::new();
@@ -625,20 +769,22 @@ fn materialize(
                         design,
                         tokens,
                         visiting: &mut visiting,
-                        param_values: None,
-                        param_meta: None,
+                        param_values: Some(param_values),
+                        param_meta: Some(param_meta),
                         use_string_placeholders: false,
                     };
                     kw_overrides.insert(k.clone(), evaluate_value(expr, &mut ev)?);
                 }
-                let mut sub =
-                    resolve_component_tree(design, component, tokens, &kw_overrides, options)?;
-                visiting_inst.remove(&key);
-                sub.id = format!("{id}_{component}_{si}");
-                si += 1;
-                sub.instance_of = Some(component.clone());
-                sub.instance_kwargs = Some(kw_overrides);
-                children.push(sub);
+                children.push(mount_instance(
+                    id,
+                    component,
+                    kw_overrides,
+                    design,
+                    tokens,
+                    visiting_inst,
+                    options,
+                    &mut si,
+                )?);
             }
         }
     }
