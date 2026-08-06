@@ -1,1 +1,2 @@
 import "./modal_content.pdl"
+import "./filter_chip.pdl"

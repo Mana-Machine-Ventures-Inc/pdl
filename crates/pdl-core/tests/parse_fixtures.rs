@@ -203,3 +203,58 @@ component Modal(
         other => panic!("expected array, got {other:?}"),
     }
 }
+
+#[test]
+fn parses_emits_and_inline_interaction() {
+    let src = r#"
+variant FilterId { case all }
+protocol SubnavItem {
+  filter: FilterId = .all
+  emits { select(filter) }
+}
+component FilterChip <SubnavItem>() layout {
+  children = []
+} interaction {
+  on pressEnd { emit select(filter) }
+}
+emits FilterChip {
+  select(filter)
+}
+"#;
+    let m = parse_module_source(src, "chip.pdl").unwrap();
+    let kinds: Vec<_> = m.declarations.iter().map(|d| match d {
+        pdl_core::ast::TopLevelDecl::Variant(_) => "variant",
+        pdl_core::ast::TopLevelDecl::Protocol(p) => {
+            assert_eq!(p.emits[0].name, "select");
+            "protocol"
+        }
+        pdl_core::ast::TopLevelDecl::Component(_) => "component",
+        pdl_core::ast::TopLevelDecl::Interaction(i) => {
+            assert_eq!(i.name, "default");
+            assert!(matches!(
+                i.handlers[0].body[0],
+                pdl_core::ast::InteractionHandlerItem::Emit { .. }
+            ));
+            "interaction"
+        }
+        pdl_core::ast::TopLevelDecl::Emits(e) => {
+            assert_eq!(e.component, "FilterChip");
+            "emits"
+        }
+        _ => "other",
+    }).collect();
+    assert_eq!(kinds, vec!["variant", "protocol", "component", "interaction", "emits"]);
+}
+
+#[test]
+fn loads_filter_chip_with_effective_emits() {
+    use pdl_core::design::{effective_emits, load_design};
+    let root = repo_root();
+    let entry = root.join("test-fixtures/pdl/protocols/design.pdl");
+    let design = load_design(entry.to_str().unwrap()).expect("load");
+    let chip = design.components.get("FilterChip").expect("FilterChip");
+    let emits = effective_emits(&design, chip);
+    assert_eq!(emits.len(), 1);
+    assert_eq!(emits[0].name, "select");
+    assert!(design.interactions.get("FilterChip").unwrap().contains_key("default"));
+}

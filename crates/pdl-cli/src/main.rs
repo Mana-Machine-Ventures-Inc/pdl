@@ -12,6 +12,9 @@ use pdl_core::bake::{build_baked_design_component, build_baked_design_system};
 use pdl_core::catalogue::build_component_catalogue;
 use pdl_core::design::load_design;
 use pdl_core::evaluate::build_resolved_token_map;
+use pdl_core::pack::{
+    bake_injection_pack, load_injection_pack_file, validate_injection_pack,
+};
 use pdl_core::resolve::{resolve_component_tree, RESOLVE_OPTIONS_LITERAL_BAKE};
 use pdl_core::resolve_bundle::build_resolved_component_document;
 use pdl_core::stable_json::{stable_stringify, StableStringifyOptions};
@@ -26,6 +29,8 @@ Usage:
   pdl graphComponent <entry.pdl> <ComponentName> [--theme <ThemeName>] [--out <file.json>] [key=value ...]
   pdl bakeSystem <entry.pdl> [--theme <ThemeName>] [--out <file.json>]
   pdl bakeComponent <entry.pdl> <ComponentName> [--theme <ThemeName>] [--out <file.json>] [key=value ...]
+  pdl bakePack <entry.pdl> <pack.json> [--out <file.json>]
+  pdl validatePack <entry.pdl> <pack.json> [--out <file.json>]
   pdl catalogue <entry.pdl> [--theme <ThemeName>] [--out <file.json>]
   pdl resolve <entry.pdl> <ComponentName> [--tree-only] [--theme <ThemeName>] [key=value ...]
 
@@ -267,6 +272,55 @@ fn run(cmd: &str, entry: &str, argv: &[String]) -> Result<(), String> {
             .map_err(|e| e.format())?;
             let s = stable_stringify(&baked, omit_empty());
             write_json(out_path.as_deref(), &s).map_err(|e| e.to_string())?;
+            Ok(())
+        }
+        "bakePack" | "validatePack" => {
+            let pack_path = argv.get(2).cloned().unwrap_or_else(|| usage());
+            let ThemeOutKv {
+                theme: unexpected_theme,
+                out_path,
+                kv_parts,
+            } = parse_theme_out_and_kv(&argv[3..]);
+            if unexpected_theme.is_some() || !kv_parts.is_empty() {
+                usage();
+            }
+            let design = load_design(entry).map_err(|e| e.format())?;
+            let raw = load_injection_pack_file(&pack_path).map_err(|e| e.format())?;
+            if cmd == "validatePack" {
+                let v = validate_injection_pack(&design, &raw).map_err(|e| e.format())?;
+                for w in &v.warnings {
+                    eprintln!("warning: {}", w.format());
+                }
+                let mut report = Map::new();
+                report.insert("ok".into(), Value::Bool(true));
+                report.insert(
+                    "component".into(),
+                    Value::String(v.pack.component.clone()),
+                );
+                report.insert(
+                    "warnings".into(),
+                    Value::Array(
+                        v.warnings
+                            .iter()
+                            .map(|w| {
+                                let mut o = Map::new();
+                                o.insert("path".into(), Value::String(w.path.clone()));
+                                o.insert("message".into(), Value::String(w.message.clone()));
+                                Value::Object(o)
+                            })
+                            .collect(),
+                    ),
+                );
+                let s = stable_stringify(&Value::Object(report), omit_empty());
+                write_json(out_path.as_deref(), &s).map_err(|e| e.to_string())?;
+            } else {
+                let baked = bake_injection_pack(&design, &raw, None).map_err(|e| e.format())?;
+                for w in &baked.warnings {
+                    eprintln!("warning: {}", w.format());
+                }
+                let s = stable_stringify(&baked.document, omit_empty());
+                write_json(out_path.as_deref(), &s).map_err(|e| e.to_string())?;
+            }
             Ok(())
         }
         "catalogue" => {

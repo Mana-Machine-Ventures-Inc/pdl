@@ -332,6 +332,7 @@ fn validate_companion_symbols(design: &DesignDefinition) -> Result<(), PdlError>
     check(design.fixtures.keys().collect(), "fixtures references")?;
     check(design.rules.keys().collect(), "rules references")?;
     check(design.interactions.keys().collect(), "interaction targets")?;
+    check(design.emits.keys().collect(), "emits targets")?;
     Ok(())
 }
 

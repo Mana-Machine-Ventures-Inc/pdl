@@ -1,0 +1,66 @@
+{
+  "components": {
+    "Modal": {
+      "bakedParams": {
+        "chromeTitle": "Confirm",
+        "slots": [
+          {
+            "component": "ConfirmBody",
+            "params": {
+              "subtitle": "This cannot be undone.",
+              "title": "Delete project?"
+            }
+          }
+        ]
+      },
+      "name": "Modal",
+      "root": {
+        "children": [
+          {
+            "id": "Header",
+            "kind": "text",
+            "props": {
+              "content": "Confirm"
+            }
+          },
+          {
+            "children": [
+              {
+                "id": "Title",
+                "kind": "text",
+                "props": {
+                  "content": "Delete project?"
+                }
+              },
+              {
+                "id": "Sub",
+                "kind": "text",
+                "props": {
+                  "content": "This cannot be undone."
+                }
+              }
+            ],
+            "id": "Root_ConfirmBody_0",
+            "instanceKwargs": {
+              "subtitle": "This cannot be undone.",
+              "title": "Delete project?"
+            },
+            "instanceOf": "ConfirmBody",
+            "kind": "layout"
+          }
+        ],
+        "id": "Root",
+        "kind": "layout"
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "2026-08-06T00:00:00.000Z",
+  "provenance": {
+    "bakeProfile": "injection-pack",
+    "bakedTheme": null,
+    "entryPath": "test-fixtures/pdl/protocols/design.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

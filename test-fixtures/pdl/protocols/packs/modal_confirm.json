@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "1.0.0-beta",
+  "component": "Modal",
+  "params": {
+    "chromeTitle": "Confirm",
+    "slots": [
+      {
+        "component": "ConfirmBody",
+        "params": {
+          "title": "Delete project?",
+          "subtitle": "This cannot be undone."
+        }
+      }
+    ]
+  }
+}

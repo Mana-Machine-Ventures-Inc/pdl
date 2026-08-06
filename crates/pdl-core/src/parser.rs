@@ -61,7 +61,24 @@ impl Parser {
     pub fn parse_module(&mut self) -> Result<ModuleAst, PdlError> {
         let mut declarations: Vec<TopLevelDecl> = Vec::new();
         while !self.is(TokenKind::Eof) {
-            declarations.push(self.parse_top_level()?);
+            let decl = self.parse_top_level()?;
+            // Inline `} interaction { … }` is attached after a component via a
+            // follow-up `interaction` keyword (synthetic name `default`).
+            if let TopLevelDecl::Component(ref c) = decl {
+                let name = c.name.clone();
+                declarations.push(decl);
+                // Inline form is `interaction { … }` (brace immediately).
+                // External `interaction Name for Component { … }` stays a top-level decl.
+                if self.is(TokenKind::Interaction)
+                    && self.peek_ahead_kind(1) == TokenKind::LBrace
+                {
+                    declarations.push(TopLevelDecl::Interaction(
+                        self.parse_inline_interaction(name)?,
+                    ));
+                }
+            } else {
+                declarations.push(decl);
+            }
         }
         Ok(ModuleAst {
             path: self.file_path.clone(),
@@ -85,6 +102,7 @@ impl Parser {
             TokenKind::Component => Ok(TopLevelDecl::Component(self.parse_component()?)),
             TokenKind::Expose => Ok(TopLevelDecl::Expose(self.parse_expose()?)),
             TokenKind::Interaction => Ok(TopLevelDecl::Interaction(self.parse_interaction()?)),
+            TokenKind::Emits => Ok(TopLevelDecl::Emits(self.parse_emits_decl()?)),
             TokenKind::Fixtures => Ok(TopLevelDecl::Fixtures(self.parse_fixtures()?)),
             TokenKind::Usage => Ok(TopLevelDecl::Usage(self.parse_usage()?)),
             TokenKind::Rules => Ok(TopLevelDecl::Rules(self.parse_rules()?)),
@@ -272,6 +290,29 @@ impl Parser {
         self.consume(TokenKind::For)?;
         let component = self.consume(TokenKind::Ident)?.value;
         self.consume(TokenKind::LBrace)?;
+        let handlers = self.parse_interaction_handlers_block()?;
+        self.consume(TokenKind::RBrace)?;
+        Ok(InteractionDecl {
+            name,
+            component,
+            handlers,
+        })
+    }
+
+    /// Inline trailing block: `interaction { on … { … } }` (name = `default`).
+    fn parse_inline_interaction(&mut self, component: String) -> Result<InteractionDecl, PdlError> {
+        self.consume(TokenKind::Interaction)?;
+        self.consume(TokenKind::LBrace)?;
+        let handlers = self.parse_interaction_handlers_block()?;
+        self.consume(TokenKind::RBrace)?;
+        Ok(InteractionDecl {
+            name: "default".to_string(),
+            component,
+            handlers,
+        })
+    }
+
+    fn parse_interaction_handlers_block(&mut self) -> Result<Vec<InteractionHandler>, PdlError> {
         let mut handlers: Vec<InteractionHandler> = Vec::new();
         while !self.is(TokenKind::RBrace) {
             self.consume(TokenKind::On)?;
@@ -281,12 +322,37 @@ impl Parser {
             self.consume(TokenKind::RBrace)?;
             handlers.push(InteractionHandler { event, body });
         }
+        Ok(handlers)
+    }
+
+    fn parse_emits_list_body(&mut self) -> Result<Vec<ProtocolEmitDecl>, PdlError> {
+        let mut emits = Vec::new();
+        while !self.is(TokenKind::RBrace) {
+            let name = self.consume(TokenKind::Ident)?.value;
+            self.consume(TokenKind::LParen)?;
+            let mut args = Vec::new();
+            if !self.is(TokenKind::RParen) {
+                loop {
+                    args.push(self.consume(TokenKind::Ident)?.value);
+                    if self.is(TokenKind::RParen) {
+                        break;
+                    }
+                    self.consume(TokenKind::Comma)?;
+                }
+            }
+            self.consume(TokenKind::RParen)?;
+            emits.push(ProtocolEmitDecl { name, args });
+        }
+        Ok(emits)
+    }
+
+    fn parse_emits_decl(&mut self) -> Result<EmitsDecl, PdlError> {
+        self.consume(TokenKind::Emits)?;
+        let component = self.consume(TokenKind::Ident)?.value;
+        self.consume(TokenKind::LBrace)?;
+        let emits = self.parse_emits_list_body()?;
         self.consume(TokenKind::RBrace)?;
-        Ok(InteractionDecl {
-            name,
-            component,
-            handlers,
-        })
+        Ok(EmitsDecl { component, emits })
     }
 
     fn parse_interaction_handler_body(&mut self) -> Result<Vec<InteractionHandlerItem>, PdlError> {
@@ -304,6 +370,26 @@ impl Parser {
                 items.push(InteractionHandlerItem::Animate {
                     value: self.parse_value_expr()?,
                 });
+                continue;
+            }
+            if self.is(TokenKind::Emit) {
+                self.advance();
+                let name = self.consume(TokenKind::Ident)?.value;
+                let mut args = Vec::new();
+                if self.is(TokenKind::LParen) {
+                    self.advance();
+                    if !self.is(TokenKind::RParen) {
+                        loop {
+                            args.push(self.consume(TokenKind::Ident)?.value);
+                            if self.is(TokenKind::RParen) {
+                                break;
+                            }
+                            self.consume(TokenKind::Comma)?;
+                        }
+                    }
+                    self.consume(TokenKind::RParen)?;
+                }
+                items.push(InteractionHandlerItem::Emit { name, args });
                 continue;
             }
             if self.is(TokenKind::From)
@@ -858,30 +944,9 @@ impl Parser {
     }
 
     fn parse_protocol_emits_block(&mut self) -> Result<Vec<ProtocolEmitDecl>, PdlError> {
-        // `emits` is an ordinary IDENT in the lexer (not a keyword yet).
-        let t = self.peek().clone();
-        if t.kind != TokenKind::Ident || t.value != "emits" {
-            return Ok(Vec::new());
-        }
-        self.advance();
+        self.consume(TokenKind::Emits)?;
         self.consume(TokenKind::LBrace)?;
-        let mut emits = Vec::new();
-        while !self.is(TokenKind::RBrace) {
-            let name = self.consume(TokenKind::Ident)?.value;
-            self.consume(TokenKind::LParen)?;
-            let mut args = Vec::new();
-            if !self.is(TokenKind::RParen) {
-                loop {
-                    args.push(self.consume(TokenKind::Ident)?.value);
-                    if self.is(TokenKind::RParen) {
-                        break;
-                    }
-                    self.consume(TokenKind::Comma)?;
-                }
-            }
-            self.consume(TokenKind::RParen)?;
-            emits.push(ProtocolEmitDecl { name, args });
-        }
+        let emits = self.parse_emits_list_body()?;
         self.consume(TokenKind::RBrace)?;
         Ok(emits)
     }
@@ -893,8 +958,7 @@ impl Parser {
         let mut params: Vec<ComponentParam> = Vec::new();
         let mut emits: Vec<ProtocolEmitDecl> = Vec::new();
         while !self.is(TokenKind::RBrace) {
-            let t = self.peek().clone();
-            if t.kind == TokenKind::Ident && t.value == "emits" {
+            if self.is(TokenKind::Emits) {
                 emits = self.parse_protocol_emits_block()?;
                 continue;
             }

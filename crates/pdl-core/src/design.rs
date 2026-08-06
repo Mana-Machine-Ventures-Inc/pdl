@@ -36,6 +36,30 @@ pub struct DesignDefinition {
     pub fixtures: IndexMap<String, IndexMap<String, FixtureExampleDecl>>,
     pub rules: IndexMap<String, Vec<RulesStatement>>,
     pub interactions: IndexMap<String, IndexMap<String, InteractionDecl>>,
+    /// Declared public emits per component (`emits C { … }` + protocol inheritance at catalogue time).
+    pub emits: IndexMap<String, Vec<ProtocolEmitDecl>>,
+}
+
+/// Effective emits for a component: protocol emits ∪ component-owned emits
+/// (same emit name: component declaration replaces).
+pub fn effective_emits(
+    design: &DesignDefinition,
+    c: &ComponentDecl,
+) -> Vec<ProtocolEmitDecl> {
+    let mut merged: IndexMap<String, ProtocolEmitDecl> = IndexMap::new();
+    if let Some(proto_name) = &c.conforms_to {
+        if let Some(proto) = design.protocols.get(proto_name) {
+            for e in &proto.emits {
+                merged.insert(e.name.clone(), e.clone());
+            }
+        }
+    }
+    if let Some(own) = design.emits.get(&c.name) {
+        for e in own {
+            merged.insert(e.name.clone(), e.clone());
+        }
+    }
+    merged.into_values().collect()
 }
 
 /// Effective parameter list for a component: protocol params ∪ own params
@@ -259,6 +283,7 @@ fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefin
     let mut fixtures: IndexMap<String, IndexMap<String, FixtureExampleDecl>> = IndexMap::new();
     let mut rules: IndexMap<String, Vec<RulesStatement>> = IndexMap::new();
     let mut interactions: IndexMap<String, IndexMap<String, InteractionDecl>> = IndexMap::new();
+    let mut emits: IndexMap<String, Vec<ProtocolEmitDecl>> = IndexMap::new();
     let mut preview_background: Option<String> = None;
     let resolved_entry = path_to_string(&resolve_path(entry_path));
     let module_paths: Vec<String> = ordered.iter().map(|m| m.path.clone()).collect();
@@ -307,6 +332,9 @@ fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefin
                 TopLevelDecl::Interaction(i) => {
                     merge_interaction(&mut interactions, i);
                 }
+                TopLevelDecl::Emits(e) => {
+                    emits.insert(e.component.clone(), e.emits.clone());
+                }
                 TopLevelDecl::Extend(ext) => {
                     apply_extend(
                         &resolved_entry,
@@ -338,6 +366,7 @@ fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefin
         fixtures,
         rules,
         interactions,
+        emits,
     })
 }
 

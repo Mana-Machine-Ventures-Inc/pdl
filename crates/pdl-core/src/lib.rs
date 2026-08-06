@@ -11,6 +11,7 @@ pub mod error;
 pub mod evaluate;
 pub mod graph_serialize;
 pub mod lexer;
+pub mod pack;
 pub mod parser;
 pub mod resolve;
 pub mod resolve_bundle;
@@ -19,8 +20,12 @@ pub mod stable_json;
 pub mod validate;
 
 pub use catalogue::{build_catalogue_component_row, build_component_catalogue};
-pub use design::{effective_params, load_design, DesignDefinition};
+pub use design::{effective_emits, effective_params, load_design, DesignDefinition};
 pub use error::PdlError;
+pub use pack::{
+    bake_injection_pack, load_injection_pack_file, validate_injection_pack, PackBakeResult,
+    PackValidation, PackWarning,
+};
 pub use resolve_bundle::build_resolved_component_document;
 pub use stable_json::{stable_stringify, StableStringifyOptions};
 

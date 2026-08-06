@@ -1,0 +1,50 @@
+// B4: emits + emit + inline interaction (FilterChip-style).
+variant FilterId {
+  case all
+  case podcasts
+}
+
+variant ChipInteraction {
+  case rest
+  case hovered
+}
+
+protocol SubnavItem {
+  title = ""
+  filter: FilterId = .all
+  emits {
+    select(filter)
+  }
+}
+
+component FilterChip <SubnavItem>(
+  selected: FilterId = .all,
+  interactionState: ChipInteraction = .rest
+) layout {
+  direction = .row
+  let Label: text = {
+    content = title
+  }
+  children = [Label]
+} interaction {
+  on hoverStart {
+    interactionState = .hovered
+  }
+  on hoverEnd {
+    interactionState = .rest
+  }
+  on pressEnd {
+    emit select(filter)
+  }
+}
+
+component LibrarySubnav(
+  currentFilter: FilterId = .all,
+  chips: [SubnavItem] = [
+    FilterChip(title: "All", filter: .all),
+    FilterChip(title: "Podcasts", filter: .podcasts)
+  ]
+) layout {
+  direction = .row
+  children = [chips]
+}

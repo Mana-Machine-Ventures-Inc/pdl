@@ -484,6 +484,11 @@ pub enum InteractionHandlerItem {
     Animate {
         value: ValueExpr,
     },
+    /// Fire a declared intent: `emit select` / `emit select(filter)`.
+    Emit {
+        name: String,
+        args: Vec<String>,
+    },
     If {
         chain: InteractionIfChain,
     },
@@ -502,6 +507,13 @@ pub struct InteractionDecl {
     pub handlers: Vec<InteractionHandler>,
 }
 
+/// Top-level `emits Component { select(filter) … }`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EmitsDecl {
+    pub component: String,
+    pub emits: Vec<ProtocolEmitDecl>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum TopLevelDecl {
     Import(ImportDecl),
@@ -518,6 +530,7 @@ pub enum TopLevelDecl {
     Fixtures(FixturesDecl),
     Rules(RulesDecl),
     Interaction(InteractionDecl),
+    Emits(EmitsDecl),
     Extend(ExtendDecl),
 }
 

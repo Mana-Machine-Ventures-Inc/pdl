@@ -15,6 +15,8 @@
 4. [Variants and Component Parameters](#4-variants-and-component-parameters)
 4a. [Protocols (B1)](#4a--protocols-b1)
 4b. [Array params & children expansion (B2)](#4b--array-params--children-expansion-b2)
+4c. [Injection packs (B3)](#4c--injection-packs-b3)
+4d. [Emits & inline interaction (B4)](#4d--emits--inline-interaction-b4)
 5. [Components, Frames, and Properties](#5-components-frames-and-properties)
 6. [Values and Expressions](#6-values-and-expressions)
 7. [Conditional Overrides, `let`, and Composition](#7-conditional-overrides-let-and-composition)
@@ -598,6 +600,67 @@ component Modal(
 | Catalogue | Param `type` is `{ "kind": "array", "element": "…" }` for `[T]` |
 
 Injection packs / soft-fail (B3) and `ForEach` chrome (B5–B6) are separate slices.
+
+---
+
+## 4c — Injection packs (B3)
+
+**Status:** shipped in the **Rust** portable core (`pdl bakePack` / `validatePack`). Proposal: `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` §9.3.
+
+```json
+{
+  "schemaVersion": "1.0.0-beta",
+  "component": "Modal",
+  "theme": "Light",
+  "params": {
+    "chromeTitle": "Confirm",
+    "slots": [
+      { "component": "ConfirmBody", "params": { "title": "Delete?" } }
+    ]
+  }
+}
+```
+
+| Rule | Intent |
+|------|--------|
+| Gate | `schemaVersion` → component exists → known params → protocol/concrete bounds on slot items |
+| Bad list items | Soft skip with warning (do not fail the whole pack); remaining items bake |
+| Unknown root param | Hard error (`PDL-E007`) |
+| Bake | Same tree path as `bakeComponent`; provenance `bakeProfile` = `injection-pack` |
+
+CLI: `pdl bakePack <entry.pdl> <pack.json>` · `pdl validatePack <entry.pdl> <pack.json>`.
+
+---
+
+## 4d — Emits & inline interaction (B4)
+
+**Status:** shipped in the **Rust** portable core (declare + fire; host dispatch is later). Proposal §8.
+
+```pdl
+protocol SubnavItem {
+  filter: FilterId = .all
+  emits { select(filter) }
+}
+
+component FilterChip <SubnavItem>(…) layout {
+  …
+} interaction {
+  on pressEnd { emit select(filter) }
+}
+
+emits FilterChip {
+  select(filter)
+}
+```
+
+| Rule | Intent |
+|------|--------|
+| `emits` / protocol `emits` | Public output API |
+| `emit name` / `emit name(args)` | Fire from interaction handlers |
+| Inline `} interaction { … }` | Synthetic name **`default`**; merges into component interactions |
+| Catalogue | `components[C].emits` = effective (protocol ∪ own) |
+
+Layout `on select` capture and `ForEach` bindings are **B5**.
 
 ---
 

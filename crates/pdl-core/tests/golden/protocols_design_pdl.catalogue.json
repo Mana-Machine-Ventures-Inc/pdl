@@ -47,6 +47,212 @@
         "kind": "layout"
       }
     },
+    "FilterChip": {
+      "childHierarchy": {
+        "Root": [
+          "Label"
+        ]
+      },
+      "childNodes": {
+        "Label": {
+          "id": "Label",
+          "kind": "text",
+          "props": {
+            "content": "param:title"
+          }
+        }
+      },
+      "conformsTo": "SubnavItem",
+      "defaultParams": {
+        "filter": "all",
+        "interactionState": "rest",
+        "selected": "all"
+      },
+      "emits": [
+        {
+          "args": [
+            "filter"
+          ],
+          "name": "select"
+        }
+      ],
+      "expose": [
+        "title",
+        "filter",
+        "selected",
+        "interactionState"
+      ],
+      "interactions": [
+        {
+          "component": "FilterChip",
+          "handlers": [
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "interactionState",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".hovered"
+                  }
+                }
+              ],
+              "event": "hoverStart"
+            },
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "interactionState",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".rest"
+                  }
+                }
+              ],
+              "event": "hoverEnd"
+            },
+            {
+              "body": [
+                {
+                  "args": [
+                    "filter"
+                  ],
+                  "kind": "emit",
+                  "name": "select"
+                }
+              ],
+              "event": "pressEnd"
+            }
+          ],
+          "name": "default"
+        }
+      ],
+      "name": "FilterChip",
+      "params": [
+        {
+          "name": "title",
+          "type": "String"
+        },
+        {
+          "default": "all",
+          "name": "filter",
+          "type": "variant",
+          "variantTypeName": "FilterId"
+        },
+        {
+          "default": "all",
+          "name": "selected",
+          "type": "variant",
+          "variantTypeName": "FilterId"
+        },
+        {
+          "default": "rest",
+          "name": "interactionState",
+          "type": "variant",
+          "variantTypeName": "ChipInteraction"
+        }
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "direction": "row"
+        }
+      }
+    },
+    "LibrarySubnav": {
+      "childHierarchy": {
+        "Root": [
+          "Root_FilterChip_0",
+          "Root_FilterChip_1"
+        ],
+        "Root_FilterChip_0": [
+          "Label"
+        ],
+        "Root_FilterChip_1": [
+          "Label"
+        ]
+      },
+      "childNodes": {
+        "Label": {
+          "id": "Label",
+          "kind": "text",
+          "props": {
+            "content": "param:title"
+          }
+        },
+        "Root_FilterChip_0": {
+          "id": "Root_FilterChip_0",
+          "instanceKwargs": {
+            "filter": "all",
+            "title": "All"
+          },
+          "instanceOf": "FilterChip",
+          "kind": "layout",
+          "props": {
+            "direction": "row"
+          }
+        },
+        "Root_FilterChip_1": {
+          "id": "Root_FilterChip_1",
+          "instanceKwargs": {
+            "filter": "podcasts",
+            "title": "Podcasts"
+          },
+          "instanceOf": "FilterChip",
+          "kind": "layout",
+          "props": {
+            "direction": "row"
+          }
+        }
+      },
+      "defaultParams": {
+        "chips": "[{\"component\":\"FilterChip\",\"params\":{\"title\":\"All\",\"filter\":\"all\"}},{\"component\":\"FilterChip\",\"params\":{\"title\":\"Podcasts\",\"filter\":\"podcasts\"}}]",
+        "currentFilter": "all"
+      },
+      "expose": [
+        "currentFilter",
+        "chips"
+      ],
+      "name": "LibrarySubnav",
+      "params": [
+        {
+          "default": "all",
+          "name": "currentFilter",
+          "type": "variant",
+          "variantTypeName": "FilterId"
+        },
+        {
+          "default": [
+            {
+              "component": "FilterChip",
+              "params": {
+                "filter": "all",
+                "title": "All"
+              }
+            },
+            {
+              "component": "FilterChip",
+              "params": {
+                "filter": "podcasts",
+                "title": "Podcasts"
+              }
+            }
+          ],
+          "name": "chips",
+          "type": {
+            "element": "SubnavItem",
+            "kind": "array"
+          }
+        }
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "direction": "row"
+        }
+      }
+    },
     "Modal": {
       "childHierarchy": {
         "Root": [
@@ -211,7 +417,52 @@
           "type": "String"
         }
       ]
+    },
+    "SubnavItem": {
+      "emits": [
+        {
+          "args": [
+            "filter"
+          ],
+          "name": "select"
+        }
+      ],
+      "name": "SubnavItem",
+      "params": [
+        {
+          "default": {
+            "kind": "string"
+          },
+          "name": "title",
+          "type": "String"
+        },
+        {
+          "default": {
+            "kind": "dotEnum",
+            "value": ".all"
+          },
+          "name": "filter",
+          "type": "variant",
+          "variantTypeName": "FilterId"
+        }
+      ]
     }
   },
-  "schemaVersion": "1.0.0-beta"
+  "schemaVersion": "1.0.0-beta",
+  "variantTypes": {
+    "ChipInteraction": {
+      "cases": [
+        "rest",
+        "hovered"
+      ],
+      "name": "ChipInteraction"
+    },
+    "FilterId": {
+      "cases": [
+        "all",
+        "podcasts"
+      ],
+      "name": "FilterId"
+    }
+  }
 }

@@ -37,9 +37,9 @@ Implement **after A2** unless a spike is explicitly throwaway.
 | Step | Feature | Spec + fixtures |
 |------|---------|-----------------|
 | **B1** | `protocol` / `component C <P>` / shared params | ✅ Rust + §4a + `protocols/` fixtures + bake/catalogue goldens |
-| **B2** | `[T]` params, instance literals, expand in `children` | ✅ Rust parse/eval/resolve expand + §4b; Modal slots in `protocols/modal_content.pdl` |
-| **B3** | Injection pack validate + bake | JSON packs + CI |
-| **B4** | `emits` / `emit` + inline `interaction` | FilterChip-style |
+| **B2** | `[T]` params, instance literals, expand in `children` | ✅ Rust + §4b; Modal slots |
+| **B3** | Injection pack validate + bake | ✅ `pack.rs` + `bakePack`/`validatePack` + soft-skip + §4c |
+| **B4** | `emits` / `emit` + inline `interaction` | ✅ Parse/merge/catalogue + FilterChip fixture + §4d; host dispatch later |
 | **B5** | Layout `on` capture + `ForEach` derived binds | LibrarySubnav |
 | **B6** | `ForEach` before/between/after | optional chrome |
 | **B7** | Host emit dispatch + prototype runtime stub | outside core language |
@@ -99,6 +99,8 @@ None from the A0 question set. Further grammar nits can be decided when writing 
 - [x] Dual-run CI job (TS vs Rust JSON, volatiles normalized) — `.github/workflows/ci.yml` + `scripts/dual-run-compare.mjs`  
 - [x] First `full-spec` patch with B1 (§4a protocols; Rust-first)  
 - [x] B2 `[T]` / instance literals / children expand (§4b; Rust-first)  
+- [x] B3 injection packs (`bakePack` / `validatePack`)  
+- [x] B4 emits + inline interaction (declare/fire; host dispatch later)  
 - [ ] Align published `schemaVersion` string to plain **`1.0.0`** when touching normative version prose (drop `-beta` framing; still unreleased)
 
 Progress and intentional gaps also tracked in **`docs/SPEC_GAPS.md`**.

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0.0-beta",
+  "component": "Modal",
+  "params": {
+    "slots": [
+      { "component": "NotAComponent", "params": {} },
+      {
+        "component": "UpsellBody",
+        "params": { "title": "Go Pro", "cta": "Upgrade now" }
+      }
+    ]
+  }
+}

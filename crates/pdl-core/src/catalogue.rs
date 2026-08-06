@@ -12,7 +12,7 @@ use serde_json::{Map, Value};
 
 use crate::ast::*;
 use crate::bake::{now_iso8601, PDL_JSON_SCHEMA_VERSION};
-use crate::design::{effective_params, DesignDefinition};
+use crate::design::{effective_emits, effective_params, DesignDefinition};
 use crate::error::PdlError;
 use crate::evaluate::{build_resolved_token_map, evaluate_value, Eval, ParamMeta, ParamValues, Tokens};
 use crate::graph_serialize::{
@@ -146,6 +146,14 @@ fn serialise_interaction_handler_item(item: &InteractionHandlerItem) -> Value {
         InteractionHandlerItem::Animate { value } => obj(vec![
             ("kind", Value::String("animate".to_string())),
             ("value", serialise_value_expr(value)),
+        ]),
+        InteractionHandlerItem::Emit { name, args } => obj(vec![
+            ("kind", Value::String("emit".to_string())),
+            ("name", Value::String(name.clone())),
+            (
+                "args",
+                Value::Array(args.iter().map(|a| Value::String(a.clone())).collect()),
+            ),
         ]),
         InteractionHandlerItem::If { chain } => obj(vec![
             ("kind", Value::String("if".to_string())),
@@ -994,6 +1002,28 @@ pub fn build_catalogue_component_row(
     }
     if let Some(i) = interactions_out {
         out.insert("interactions".to_string(), i);
+    }
+    let emits = effective_emits(design, c);
+    if !emits.is_empty() {
+        out.insert(
+            "emits".to_string(),
+            Value::Array(
+                emits
+                    .into_iter()
+                    .map(|e| {
+                        obj(vec![
+                            ("name", Value::String(e.name)),
+                            (
+                                "args",
+                                Value::Array(
+                                    e.args.into_iter().map(Value::String).collect(),
+                                ),
+                            ),
+                        ])
+                    })
+                    .collect(),
+            ),
+        );
     }
     out.insert("root".to_string(), root);
     out.insert(

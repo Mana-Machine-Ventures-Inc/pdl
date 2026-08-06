@@ -27,6 +27,105 @@
       },
       "rootKind": "layout"
     },
+    "FilterChip": {
+      "bakedParams": {
+        "filter": "all",
+        "interactionState": "rest",
+        "selected": "all"
+      },
+      "name": "FilterChip",
+      "root": {
+        "children": [
+          {
+            "id": "Label",
+            "kind": "text",
+            "props": {
+              "content": ""
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "direction": "row"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "LibrarySubnav": {
+      "bakedParams": {
+        "chips": [
+          {
+            "component": "FilterChip",
+            "params": {
+              "filter": "all",
+              "title": "All"
+            }
+          },
+          {
+            "component": "FilterChip",
+            "params": {
+              "filter": "podcasts",
+              "title": "Podcasts"
+            }
+          }
+        ],
+        "currentFilter": "all"
+      },
+      "name": "LibrarySubnav",
+      "root": {
+        "children": [
+          {
+            "children": [
+              {
+                "id": "Label",
+                "kind": "text",
+                "props": {
+                  "content": "All"
+                }
+              }
+            ],
+            "id": "Root_FilterChip_0",
+            "instanceKwargs": {
+              "filter": "all",
+              "title": "All"
+            },
+            "instanceOf": "FilterChip",
+            "kind": "layout",
+            "props": {
+              "direction": "row"
+            }
+          },
+          {
+            "children": [
+              {
+                "id": "Label",
+                "kind": "text",
+                "props": {
+                  "content": "Podcasts"
+                }
+              }
+            ],
+            "id": "Root_FilterChip_1",
+            "instanceKwargs": {
+              "filter": "podcasts",
+              "title": "Podcasts"
+            },
+            "instanceOf": "FilterChip",
+            "kind": "layout",
+            "props": {
+              "direction": "row"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "direction": "row"
+        }
+      },
+      "rootKind": "layout"
+    },
     "Modal": {
       "bakedParams": {
         "chromeTitle": "Dialog",

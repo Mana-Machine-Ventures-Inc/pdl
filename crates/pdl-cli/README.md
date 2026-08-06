@@ -21,6 +21,8 @@ cargo run -q -p pdl-cli -- bakeSystem test-fixtures/pdl/integration/greeting.pdl
 |---------|--------|
 | `bakeSystem` | Full `bakedDesign` |
 | `bakeComponent` | Single-component bake + `key=value` overrides |
+| `bakePack` | Injection pack JSON → `bakedDesign` (`bakeProfile: injection-pack`) |
+| `validatePack` | Catalogue-gate a pack; soft-skip warnings in report |
 | `graphSystem` | `componentCatalogue` (no `--theme`) |
 | `graphComponent` | `resolvedComponent` slice |
 | `catalogue` | Same shape as `graphSystem`, allows `--theme` |

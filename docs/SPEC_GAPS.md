@@ -7,7 +7,7 @@ This document records ambiguities between **`docs/full-spec.md`** and this repos
 | Proposal | Status | Notes |
 |----------|--------|--------|
 | [`PROPOSAL_PORTABLE_CORE.md`](./PROPOSAL_PORTABLE_CORE.md) | **Accepted** 2026-08-05 | Rust portable core; TS oracle until bake parity |
-| [`PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md`](./PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md) | **Accepted** 2026-08-05; **B1+B2 partial** in Rust | `protocol` / `component C <P>` / `[T]` / instance literals / children expand in `crates/pdl-core` + §4a/§4b; TS oracle not yet; injection packs / emits runtime still open |
+| [`PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md`](./PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md) | **Accepted** 2026-08-05; **B1–B4 partial** in Rust | Protocols, `[T]`, packs, emits/inline interaction in `crates/pdl-core` + §4a–§4d; TS oracle not yet; layout `on` / ForEach / host dispatch still open |
 
 **Roadmap:** [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md). Crate: **`crates/pdl-core`**.
 
