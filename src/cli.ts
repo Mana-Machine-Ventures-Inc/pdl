@@ -1,7 +1,11 @@
 #!/usr/bin/env node
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { buildBakedDesignComponent, buildBakedDesignSystem } from "./bakeDesign.js";
+import {
+  buildBakedDesignComponent,
+  buildBakedDesignSystem,
+  type BakedDesignDocument,
+} from "./bakeDesign.js";
 import { renderBakedDesignToHtmlDocument } from "./renderHtml.js";
 import { buildComponentCatalogue } from "./catalogue.js";
 import { renderCatalogueSystemHtml } from "./renderCatalogueHtml.js";
@@ -22,6 +26,7 @@ Usage:
   pdl bakeComponent <entry.pdl> <ComponentName> [--theme <ThemeName>] [--out <file.json>] [key=value ...]
   pdl renderHtml <entry.pdl> <ComponentName> [--theme <ThemeName>] [--out <file.html>] [key=value ...]
   pdl renderHtml <entry.pdl> --system [--theme <ThemeName>] [--out <file.html>]
+  pdl renderHtml --from-bake <baked.json> [--component <Name>] [--out <file.html>]
   pdl renderCatalogueHtml <entry.pdl> [--theme <ThemeName>] [--out <file.html>]
   pdl manifest <entry.pdl> [--out <file.json>]
   pdl resolve <entry.pdl> <ComponentName> [--tree-only] [--theme <ThemeName>] [key=value ...]
@@ -32,10 +37,26 @@ Legacy: catalogue matches graphSystem JSON but allows --theme. resolve without -
 Options:
   --theme <name>   Primary theme for token resolution (graphComponent, bake*, catalogue, resolve, renderHtml)
   --out <path>     Write output to file instead of stdout (JSON or HTML by command)
+  --from-bake      Render HTML from an existing bakedDesign JSON (e.g. Rust \`pdl bake*\` / \`bakePack\` output)
+  --component      With --from-bake: preview only this component (default: all in the bake doc)
 
 Note: \`node dist/cli.js …\` uses compiled output in dist/. After changing src/, run \`npm run build\` (or \`tsc\`), or use npm scripts that run \`tsc\` first.
 `);
   process.exit(1);
+}
+
+function loadBakedDesignDocument(path: string): BakedDesignDocument {
+  const abs = resolve(path);
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(abs, "utf-8"));
+  } catch (e) {
+    throw new Error(`Failed to read bake JSON ${abs}: ${e instanceof Error ? e.message : e}`);
+  }
+  if (!raw || typeof raw !== "object" || (raw as { schemaKind?: string }).schemaKind !== "bakedDesign") {
+    throw new Error(`Expected a bakedDesign document in ${abs}`);
+  }
+  return raw as BakedDesignDocument;
 }
 
 function parseKeyValues(args: string[]): Record<string, unknown> {
@@ -81,8 +102,42 @@ function writeJson(outPath: string | undefined, s: string): void {
 
 function main() {
   const argv = process.argv.slice(2);
-  if (argv.length < 2) usage();
+  if (argv.length < 1) usage();
   const cmd = argv[0];
+
+  // HTML from pre-baked JSON (Rust or TS bake artifacts) — no .pdl load.
+  if (cmd === "renderHtml" && argv[1] === "--from-bake") {
+    const bakePath = argv[2];
+    if (!bakePath || bakePath.startsWith("-")) usage();
+    let outPath: string | undefined;
+    let component: string | undefined;
+    for (let i = 3; i < argv.length; i++) {
+      const a = argv[i]!;
+      if (a === "--out") {
+        const p = argv[++i];
+        if (!p || p.startsWith("-")) usage();
+        outPath = p;
+      } else if (a === "--component") {
+        const c = argv[++i];
+        if (!c || c.startsWith("-")) usage();
+        component = c;
+      } else {
+        usage();
+      }
+    }
+    const baked = loadBakedDesignDocument(bakePath);
+    if (component && !baked.components[component]) {
+      throw new Error(`Component \`${component}\` not found in bake document`);
+    }
+    const html = renderBakedDesignToHtmlDocument(baked, {
+      singleComponent: component,
+    });
+    if (outPath) writeFileSync(outPath, html, "utf-8");
+    else process.stdout.write(html);
+    return;
+  }
+
+  if (argv.length < 2) usage();
   const entry = resolve(argv[1]!);
 
   if (cmd === "graphSystem") {

@@ -17,6 +17,7 @@ After `npm install`, use the npm scripts below (each runs **`tsc`** first so **`
 | `npm run bakeComponent --silent -- <entry.pdl> <Component> [--theme Name] [--out file.json] [key=value …]` | **Baked instance** — one component, optional param overrides (`docs/full-spec.md` §16d). |
 | `npm run manifest --silent -- <entry.pdl> [--out file.json]` | Thin **design manifest** JSON (`docs/full-spec.md` §17 §3). |
 | `npm run renderHtml --silent -- <entry.pdl> <Component> [--theme Name] [--out file.html] [key=value …]` | **Bake → HTML5** for one component; optional **`--system`** instead of a component name for a full-library gallery (`docs/full-spec.md` §9). |
+| `npm run renderHtmlFromBake --silent -- <baked.json> [--component Name] [--out file.html]` | **HTML5 from bake JSON** — use Rust (or TS) `bake*` / `bakePack` output without re-parsing `.pdl`. |
 | `npm run renderCatalogueHtml --silent -- <entry.pdl> [--theme Name] [--out file.html]` | **Catalogue + bake → HTML5** reference page (`src/renderCatalogueHtml.ts`). |
 | `npm run catalogue --silent -- <entry.pdl> [--theme Name] [--out file.json]` | Same JSON shape as **graphSystem**, but allows **`--theme`** for **tree** resolution (`docs/full-spec.md` §16). |
 | `npm run resolve --silent -- <entry.pdl> <Component> [--tree-only] [--theme Name] [key=value …]` | Legacy: **`resolvedComponent`** (default) or bare **`CatalFrame`** with **`--tree-only`**. Prefer **graphComponent** / **bakeComponent** for new tooling. |
@@ -24,6 +25,22 @@ After `npm install`, use the npm scripts below (each runs **`tsc`** first so **`
 `npm test` runs the Vitest suite. `npm run test:rust` runs `cargo test -p pdl-core`.  
 `npm run pdl:rust -- <cmd> …` runs the Rust `pdl` CLI (same bake/graph/catalogue/resolve shapes as the TS CLI).  
 `npm run test:dual` compares TS vs Rust bake/graph JSON (volatiles pinned).
+
+### End-to-end: Rust bake → HTML preview
+
+```bash
+# 1) Bake with Rust (protocols / packs work here)
+cargo run -q -p pdl-cli -- bakePack \
+  test-fixtures/pdl/protocols/design.pdl \
+  test-fixtures/pdl/protocols/packs/modal_confirm.json \
+  --out /tmp/modal.bake.json
+
+# 2) Render that artifact with the TS HTML emitter
+npm run renderHtmlFromBake --silent -- /tmp/modal.bake.json --out /tmp/modal.html
+open /tmp/modal.html
+```
+
+Same pattern with `bakeSystem` / `bakeComponent` for non-protocol designs.
 
 ## Test fixtures
 

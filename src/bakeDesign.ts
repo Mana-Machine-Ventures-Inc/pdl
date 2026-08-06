@@ -15,7 +15,8 @@ export type BakedFrame = CatalFrame;
 export type BakedComponentJson = {
   name: string;
   rootKind: string;
-  bakedParams: Record<string, unknown>;
+  /** Omitted when empty under omitEmpty (Rust / TS bake). */
+  bakedParams?: Record<string, unknown>;
   root: BakedFrame;
 };
 
@@ -26,7 +27,8 @@ export type BakedDesignDocument = {
   provenance: {
     entryPath: string;
     bakedTheme: string | null;
-    bakeProfile: "system-defaults" | "component-explicit";
+    /** `system-defaults` | `component-explicit` | `injection-pack` (Rust packs) | future profiles */
+    bakeProfile: string;
   };
   components: Record<string, BakedComponentJson>;
 };

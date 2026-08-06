@@ -702,8 +702,10 @@ function mediaFrameStyle(props: Record<string, unknown>, opts: FrameRenderOpts):
 }
 
 function renderFrame(frame: BakedFrame, opts: FrameRenderOpts = { stackChild: false, stackIndex: 0 }): string {
-  const { id, kind, props, children } = frame;
-  const kids = children ?? [];
+  const { id, kind } = frame;
+  // omitEmpty bake JSON may drop empty `props: {}` / `children: []`.
+  const props = (frame.props ?? {}) as Record<string, unknown>;
+  const kids = frame.children ?? [];
   const dataId = ` data-pdl-id="${escapeAttr(id)}"`;
   const inst =
     frame.instanceOf !== undefined ? ` data-pdl-instance-of="${escapeAttr(frame.instanceOf)}"` : "";
@@ -909,7 +911,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
   const sections = list
     .map((name) => {
       const comp = doc.components[name]!;
-      const paramsJson = escapeHtml(JSON.stringify(comp.bakedParams));
+      const paramsJson = escapeHtml(JSON.stringify(comp.bakedParams ?? {}));
       try {
         const body = renderBakedComponentToHtmlFragment(comp);
         return `<section class="pdl-preview" data-pdl-component="${escapeAttr(name)}"><h2 class="pdl-preview-title">${escapeHtml(name)}</h2><p class="pdl-preview-params">${paramsJson}</p>${body}</section>`;
