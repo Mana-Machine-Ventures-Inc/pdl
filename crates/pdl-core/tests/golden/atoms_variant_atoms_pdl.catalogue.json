@@ -1,0 +1,37 @@
+{
+  "generatedAt": "2026-08-06T00:33:36.898Z",
+  "kind": "componentCatalogue",
+  "schemaVersion": "1.0.0-beta",
+  "variantTypes": {
+    "AtomsAxis": {
+      "cases": [
+        "horizontal",
+        "vertical"
+      ],
+      "name": "AtomsAxis"
+    },
+    "AtomsDensity": {
+      "cases": [
+        "comfortable",
+        "compact"
+      ],
+      "name": "AtomsDensity"
+    },
+    "AtomsSize": {
+      "cases": [
+        "sm",
+        "md",
+        "lg"
+      ],
+      "name": "AtomsSize"
+    },
+    "AtomsTone": {
+      "cases": [
+        "neutral",
+        "accent",
+        "danger"
+      ],
+      "name": "AtomsTone"
+    }
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "components": {
+    "StatusBanner": {
+      "childHierarchy": {
+        "Root": [
+          "Message"
+        ]
+      },
+      "childNodes": {
+        "Message": {
+          "id": "Message",
+          "kind": "text",
+          "props": {
+            "color": "semantic:color.status.success",
+            "content": "param:label"
+          }
+        }
+      },
+      "expose": [
+        "label",
+        "tone"
+      ],
+      "name": "StatusBanner",
+      "params": [
+        {
+          "default": "Everything is fine",
+          "name": "label",
+          "type": "String"
+        },
+        {
+          "default": "success",
+          "name": "tone",
+          "type": "variant",
+          "variantTypeName": "BannerTone"
+        }
+      ],
+      "root": {
+        "kind": "layout"
+      },
+      "variants": [
+        {
+          "affectedFrames": [
+            "Message"
+          ],
+          "changes": [
+            {
+              "frameId": "Message",
+              "prop": "color",
+              "value": "semantic:color.status.danger"
+            },
+            {
+              "frameId": "Message",
+              "prop": "content",
+              "value": "Immediate action required"
+            }
+          ],
+          "params": {
+            "tone": "danger"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Message"
+          ],
+          "changes": [
+            {
+              "frameId": "Message",
+              "prop": "color",
+              "value": "semantic:color.status.warning"
+            },
+            {
+              "frameId": "Message",
+              "prop": "content",
+              "value": "Check this warning"
+            }
+          ],
+          "params": {
+            "tone": "warning"
+          }
+        }
+      ]
+    }
+  },
+  "entryPath": "/workspace/test-fixtures/pdl/integration/status_banner.pdl",
+  "generatedAt": "2026-08-06T00:33:52.056Z",
+  "primaryComponent": "StatusBanner",
+  "schemaKind": "resolvedComponent",
+  "schemaVersion": "1.0.0-beta",
+  "system": {
+    "semantics": {
+      "color.status.danger": {
+        "definition": {
+          "kind": "hex",
+          "value": "#F43F5E"
+        },
+        "name": "color.status.danger",
+        "tokenType": "Color"
+      },
+      "color.status.success": {
+        "definition": {
+          "kind": "hex",
+          "value": "#22C55E"
+        },
+        "name": "color.status.success",
+        "tokenType": "Color"
+      },
+      "color.status.warning": {
+        "definition": {
+          "kind": "hex",
+          "value": "#F59E0B"
+        },
+        "name": "color.status.warning",
+        "tokenType": "Color"
+      }
+    },
+    "variantTypes": {
+      "BannerTone": {
+        "cases": [
+          "success",
+          "warning",
+          "danger"
+        ],
+        "name": "BannerTone"
+      }
+    }
+  }
+}

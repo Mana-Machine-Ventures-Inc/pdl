@@ -1,0 +1,279 @@
+{
+  "components": {
+    "AtomIconDefault": {
+      "childHierarchy": {
+        "Root": [
+          "A",
+          "B"
+        ]
+      },
+      "childNodes": {
+        "A": {
+          "id": "A",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "check",
+            "size": 20
+          }
+        },
+        "B": {
+          "id": "B",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgb",
+            "icon": "close",
+            "opacity": "primitive:atoms.opacity.mid",
+            "size": 24
+          }
+        }
+      },
+      "name": "AtomIconDefault",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "align": "center",
+          "background": "semantic:atoms.color.sem.fromRgb",
+          "direction": "row",
+          "gap": "primitive:atoms.space.md"
+        }
+      }
+    },
+    "AtomIconSizing": {
+      "childHierarchy": {
+        "Root": [
+          "W"
+        ]
+      },
+      "childNodes": {
+        "W": {
+          "id": "W",
+          "kind": "icon",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgb",
+            "height": {
+              "fixed": 32
+            },
+            "icon": "menu",
+            "width": {
+              "fixed": 32
+            }
+          }
+        }
+      },
+      "name": "AtomIconSizing",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "semantic:atoms.color.sem.fromRgba",
+          "direction": "row",
+          "gap": "primitive:atoms.space.sm"
+        }
+      }
+    }
+  },
+  "generatedAt": "2026-08-06T00:33:36.086Z",
+  "kind": "componentCatalogue",
+  "primitives": {
+    "atoms.color.brandPrimary": {
+      "definition": {
+        "kind": "hex",
+        "value": "#FF5A5F"
+      },
+      "name": "atoms.color.brandPrimary",
+      "tokenType": "Color"
+    },
+    "atoms.color.brandSecondary": {
+      "definition": {
+        "kind": "hex",
+        "value": "#00A699"
+      },
+      "name": "atoms.color.brandSecondary",
+      "tokenType": "Color"
+    },
+    "atoms.color.canvas": {
+      "definition": {
+        "kind": "hex",
+        "value": "#F7F7F7"
+      },
+      "name": "atoms.color.canvas",
+      "tokenType": "Color"
+    },
+    "atoms.color.elevated": {
+      "definition": {
+        "kind": "hex",
+        "value": "#EBEBEB"
+      },
+      "name": "atoms.color.elevated",
+      "tokenType": "Color"
+    },
+    "atoms.color.rgb": {
+      "definition": {
+        "kind": "hex",
+        "value": "#D3D3D3"
+      },
+      "name": "atoms.color.rgb",
+      "tokenType": "Color"
+    },
+    "atoms.color.rgba": {
+      "definition": {
+        "kind": "hex",
+        "value": "#222222"
+      },
+      "name": "atoms.color.rgba",
+      "tokenType": "Color"
+    },
+    "atoms.color.textMuted": {
+      "definition": {
+        "kind": "hex",
+        "value": "#717171"
+      },
+      "name": "atoms.color.textMuted",
+      "tokenType": "Color"
+    },
+    "atoms.color.textOnBrand": {
+      "definition": {
+        "kind": "hex",
+        "value": "#FFFFFF"
+      },
+      "name": "atoms.color.textOnBrand",
+      "tokenType": "Color"
+    },
+    "atoms.color.textPrimary": {
+      "definition": {
+        "kind": "hex",
+        "value": "#222222"
+      },
+      "name": "atoms.color.textPrimary",
+      "tokenType": "Color"
+    },
+    "atoms.opacity.full": {
+      "definition": {
+        "kind": "number",
+        "value": 1
+      },
+      "name": "atoms.opacity.full",
+      "tokenType": "Opacity"
+    },
+    "atoms.opacity.mid": {
+      "definition": {
+        "kind": "number",
+        "value": 0.62
+      },
+      "name": "atoms.opacity.mid",
+      "tokenType": "Opacity"
+    },
+    "atoms.radius.mixed": {
+      "definition": {
+        "bl": {
+          "kind": "number",
+          "value": 2
+        },
+        "br": {
+          "kind": "number",
+          "value": 2
+        },
+        "kind": "corner",
+        "tl": {
+          "kind": "number",
+          "value": 8
+        },
+        "tr": {
+          "kind": "number",
+          "value": 8
+        }
+      },
+      "name": "atoms.radius.mixed",
+      "tokenType": "Radius"
+    },
+    "atoms.radius.sm": {
+      "definition": {
+        "kind": "number",
+        "value": 4
+      },
+      "name": "atoms.radius.sm",
+      "tokenType": "Radius"
+    },
+    "atoms.space.md": {
+      "definition": {
+        "kind": "number",
+        "value": 16
+      },
+      "name": "atoms.space.md",
+      "tokenType": "Distance"
+    },
+    "atoms.space.sm": {
+      "definition": {
+        "kind": "number",
+        "value": 8
+      },
+      "name": "atoms.space.sm",
+      "tokenType": "Distance"
+    },
+    "atoms.space.xs": {
+      "definition": {
+        "kind": "number",
+        "value": 4
+      },
+      "name": "atoms.space.xs",
+      "tokenType": "Distance"
+    }
+  },
+  "schemaVersion": "1.0.0-beta",
+  "semantics": {
+    "atoms.color.scrimLiteral": {
+      "definition": {
+        "base": "primitive:atoms.color.rgb",
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.25
+        }
+      },
+      "name": "atoms.color.scrimLiteral",
+      "tokenType": "Color"
+    },
+    "atoms.color.scrimRgba": {
+      "definition": {
+        "base": "primitive:atoms.color.rgba",
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.5
+        }
+      },
+      "name": "atoms.color.scrimRgba",
+      "tokenType": "Color"
+    },
+    "atoms.color.sem.fromRgb": {
+      "definition": "primitive:atoms.color.canvas",
+      "name": "atoms.color.sem.fromRgb",
+      "tokenType": "Color"
+    },
+    "atoms.color.sem.fromRgba": {
+      "definition": "primitive:atoms.color.elevated",
+      "name": "atoms.color.sem.fromRgba",
+      "tokenType": "Color"
+    },
+    "atoms.opacity.sem.full": {
+      "definition": "primitive:atoms.opacity.full",
+      "name": "atoms.opacity.sem.full",
+      "tokenType": "Opacity"
+    },
+    "atoms.opacity.sem.mid": {
+      "definition": "primitive:atoms.opacity.mid",
+      "name": "atoms.opacity.sem.mid",
+      "tokenType": "Opacity"
+    },
+    "atoms.radius.card": {
+      "definition": "primitive:atoms.radius.mixed",
+      "name": "atoms.radius.card",
+      "tokenType": "Radius"
+    },
+    "atoms.space.card.pad": {
+      "definition": "primitive:atoms.space.md",
+      "name": "atoms.space.card.pad",
+      "tokenType": "Distance"
+    }
+  }
+}

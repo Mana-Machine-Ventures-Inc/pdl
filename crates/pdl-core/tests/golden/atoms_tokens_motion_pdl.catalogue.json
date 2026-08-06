@@ -1,0 +1,60 @@
+{
+  "generatedAt": "2026-08-06T00:33:36.627Z",
+  "kind": "componentCatalogue",
+  "primitives": {
+    "atoms.motion.ease.linear": {
+      "definition": {
+        "kind": "string",
+        "value": "linear"
+      },
+      "name": "atoms.motion.ease.linear",
+      "tokenType": "Easing"
+    },
+    "atoms.motion.ease.standard": {
+      "definition": {
+        "kind": "string",
+        "value": "cubic-bezier(0.2, 0, 0, 1)"
+      },
+      "name": "atoms.motion.ease.standard",
+      "tokenType": "Easing"
+    },
+    "atoms.motion.fast": {
+      "definition": {
+        "kind": "number",
+        "value": 120
+      },
+      "name": "atoms.motion.fast",
+      "tokenType": "Duration"
+    },
+    "atoms.motion.slow": {
+      "definition": {
+        "kind": "number",
+        "value": 320
+      },
+      "name": "atoms.motion.slow",
+      "tokenType": "Duration"
+    }
+  },
+  "schemaVersion": "1.0.0-beta",
+  "semantics": {
+    "atoms.motion.transition.quick": {
+      "definition": {
+        "duration": "primitive:atoms.motion.fast",
+        "easing": "primitive:atoms.motion.ease.linear",
+        "kind": "transition"
+      },
+      "name": "atoms.motion.transition.quick",
+      "tokenType": "Transition"
+    },
+    "atoms.motion.transition.smooth": {
+      "definition": {
+        "delay": "primitive:atoms.motion.fast",
+        "duration": "primitive:atoms.motion.slow",
+        "easing": "primitive:atoms.motion.ease.standard",
+        "kind": "transition"
+      },
+      "name": "atoms.motion.transition.smooth",
+      "tokenType": "Transition"
+    }
+  }
+}

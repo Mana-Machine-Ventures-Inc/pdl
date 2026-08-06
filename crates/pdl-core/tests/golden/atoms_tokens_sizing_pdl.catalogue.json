@@ -1,0 +1,50 @@
+{
+  "generatedAt": "2026-08-06T00:33:36.745Z",
+  "kind": "componentCatalogue",
+  "primitives": {
+    "atoms.sizing.fill": {
+      "definition": {
+        "kind": "sizing",
+        "mode": "fill"
+      },
+      "name": "atoms.sizing.fill",
+      "tokenType": "Sizing"
+    },
+    "atoms.sizing.fixed": {
+      "definition": {
+        "fixed": 48,
+        "kind": "sizing",
+        "mode": "fixed"
+      },
+      "name": "atoms.sizing.fixed",
+      "tokenType": "Sizing"
+    },
+    "atoms.sizing.flex": {
+      "definition": {
+        "flexArgs": {
+          "max": {
+            "kind": "number",
+            "value": 120
+          },
+          "min": {
+            "kind": "number",
+            "value": 8
+          }
+        },
+        "kind": "sizing",
+        "mode": "flex"
+      },
+      "name": "atoms.sizing.flex",
+      "tokenType": "Sizing"
+    },
+    "atoms.sizing.hug": {
+      "definition": {
+        "kind": "sizing",
+        "mode": "hug"
+      },
+      "name": "atoms.sizing.hug",
+      "tokenType": "Sizing"
+    }
+  },
+  "schemaVersion": "1.0.0-beta"
+}

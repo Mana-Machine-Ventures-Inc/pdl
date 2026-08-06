@@ -1,0 +1,85 @@
+{
+  "generatedAt": "2026-08-06T00:33:36.427Z",
+  "kind": "componentCatalogue",
+  "primitives": {
+    "atoms.blur.heavy": {
+      "definition": {
+        "kind": "number",
+        "value": 24
+      },
+      "name": "atoms.blur.heavy",
+      "tokenType": "Blur"
+    },
+    "atoms.blur.light": {
+      "definition": {
+        "kind": "number",
+        "value": 6
+      },
+      "name": "atoms.blur.light",
+      "tokenType": "Blur"
+    },
+    "atoms.ramp.fade": {
+      "definition": {
+        "direction": ".bottomToTop",
+        "kind": "rampInline",
+        "stops": [
+          {
+            "fields": {
+              "color": {
+                "kind": "hex",
+                "value": "#FFFFFF"
+              },
+              "opacity": {
+                "kind": "number",
+                "value": 1
+              },
+              "position": {
+                "kind": "number",
+                "value": 0
+              }
+            },
+            "kind": "gradientStop"
+          },
+          {
+            "fields": {
+              "color": {
+                "kind": "hex",
+                "value": "#000000"
+              },
+              "opacity": {
+                "kind": "number",
+                "value": 0
+              },
+              "position": {
+                "kind": "number",
+                "value": 1
+              }
+            },
+            "kind": "gradientStop"
+          }
+        ]
+      },
+      "name": "atoms.ramp.fade",
+      "tokenType": "Ramp"
+    },
+    "atoms.vibrancy.strong": {
+      "definition": {
+        "brightness": 0.95,
+        "kind": "vibrancyTuple",
+        "saturation": 1.2
+      },
+      "name": "atoms.vibrancy.strong",
+      "tokenType": "Vibrancy"
+    },
+    "atoms.vibrancy.subtle": {
+      "definition": {
+        "brightness": 1.02,
+        "kind": "vibrancyTuple",
+        "saturation": 1.05
+      },
+      "name": "atoms.vibrancy.subtle",
+      "tokenType": "Vibrancy"
+    }
+  },
+  "schemaVersion": "1.0.0-beta"
+}

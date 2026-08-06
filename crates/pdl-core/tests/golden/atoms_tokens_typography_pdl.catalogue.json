@@ -1,0 +1,71 @@
+{
+  "generatedAt": "2026-08-06T00:33:36.782Z",
+  "kind": "componentCatalogue",
+  "primitives": {
+    "atoms.font.mono": {
+      "definition": {
+        "kind": "string",
+        "value": "ui-monospace, monospace"
+      },
+      "name": "atoms.font.mono",
+      "tokenType": "FontFamily"
+    },
+    "atoms.font.ui": {
+      "definition": {
+        "kind": "string",
+        "value": "system-ui, sans-serif"
+      },
+      "name": "atoms.font.ui",
+      "tokenType": "FontFamily"
+    },
+    "atoms.type.size.body": {
+      "definition": {
+        "kind": "number",
+        "value": 16
+      },
+      "name": "atoms.type.size.body",
+      "tokenType": "Size"
+    },
+    "atoms.type.size.caption": {
+      "definition": {
+        "kind": "number",
+        "value": 12
+      },
+      "name": "atoms.type.size.caption",
+      "tokenType": "Size"
+    },
+    "atoms.type.size.title": {
+      "definition": {
+        "kind": "number",
+        "value": 22
+      },
+      "name": "atoms.type.size.title",
+      "tokenType": "Size"
+    },
+    "atoms.type.weight.bold": {
+      "definition": {
+        "kind": "number",
+        "value": 700
+      },
+      "name": "atoms.type.weight.bold",
+      "tokenType": "Weight"
+    },
+    "atoms.type.weight.medium": {
+      "definition": {
+        "kind": "number",
+        "value": 600
+      },
+      "name": "atoms.type.weight.medium",
+      "tokenType": "Weight"
+    },
+    "atoms.type.weight.regular": {
+      "definition": {
+        "kind": "number",
+        "value": 400
+      },
+      "name": "atoms.type.weight.regular",
+      "tokenType": "Weight"
+    }
+  },
+  "schemaVersion": "1.0.0-beta"
+}

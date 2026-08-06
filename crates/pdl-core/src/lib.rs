@@ -5,17 +5,23 @@
 
 pub mod ast;
 pub mod bake;
+pub mod catalogue;
 pub mod design;
 pub mod error;
 pub mod evaluate;
+pub mod graph_serialize;
 pub mod lexer;
 pub mod parser;
 pub mod resolve;
+pub mod resolve_bundle;
+pub mod rules_json;
 pub mod stable_json;
 pub mod validate;
 
+pub use catalogue::{build_catalogue_component_row, build_component_catalogue};
 pub use design::{load_design, DesignDefinition};
 pub use error::PdlError;
+pub use resolve_bundle::build_resolved_component_document;
 pub use stable_json::{stable_stringify, StableStringifyOptions};
 
 /// Schema version string carried by catalogue / bake / manifest documents.

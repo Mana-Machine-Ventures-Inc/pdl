@@ -198,7 +198,7 @@ pub fn build_baked_design_component(
 }
 
 /// Minimal UTC ISO-8601 timestamp (`YYYY-MM-DDTHH:MM:SS.sssZ`) without external deps.
-fn now_iso8601() -> String {
+pub(crate) fn now_iso8601() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let dur = SystemTime::now()
         .duration_since(UNIX_EPOCH)

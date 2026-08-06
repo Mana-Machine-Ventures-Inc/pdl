@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-08-06T00:33:36.707Z",
+  "kind": "componentCatalogue",
+  "primitives": {
+    "atoms.shadow.hard": {
+      "definition": {
+        "kind": "string",
+        "value": "0 1px 3px 0 rgba(0,0,0,0.35)"
+      },
+      "name": "atoms.shadow.hard",
+      "tokenType": "Shadow"
+    },
+    "atoms.shadow.soft": {
+      "definition": {
+        "kind": "string",
+        "value": "0 2px 8px rgba(0,0,0,0.12)"
+      },
+      "name": "atoms.shadow.soft",
+      "tokenType": "Shadow"
+    }
+  },
+  "schemaVersion": "1.0.0-beta"
+}

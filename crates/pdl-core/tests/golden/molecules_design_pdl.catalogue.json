@@ -1,0 +1,4218 @@
+{
+  "components": {
+    "MoleculeButtonRowDemo": {
+      "childHierarchy": {
+        "A": [
+          "L"
+        ],
+        "B": [
+          "L"
+        ],
+        "C": [
+          "L"
+        ],
+        "Root": [
+          "A",
+          "B",
+          "C"
+        ]
+      },
+      "childNodes": {
+        "A": {
+          "id": "A",
+          "instanceKwargs": {
+            "label": "Primary sm",
+            "size": "sm",
+            "tone": "primary"
+          },
+          "instanceOf": "MoleculeTextButton",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "primitive:atoms.color.brandPrimary",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.xs",
+            "justify": "center",
+            "padding": {
+              "bottom": 6,
+              "left": 10,
+              "right": 10,
+              "top": 6
+            },
+            "wrap": "nowrap"
+          }
+        },
+        "B": {
+          "id": "B",
+          "instanceKwargs": {
+            "label": "Secondary lg",
+            "size": "lg",
+            "tone": "secondary"
+          },
+          "instanceOf": "MoleculeTextButton",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "primitive:atoms.color.brandSecondary",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.xs",
+            "justify": "center",
+            "padding": {
+              "bottom": 12,
+              "left": 18,
+              "right": 18,
+              "top": 12
+            },
+            "wrap": "nowrap"
+          }
+        },
+        "C": {
+          "id": "C",
+          "instanceKwargs": {
+            "label": "Ghost sm",
+            "size": "sm",
+            "tone": "ghost"
+          },
+          "instanceOf": "MoleculeTextButton",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "primitive:atoms.color.rgb",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.xs",
+            "justify": "center",
+            "opacity": 0.15,
+            "padding": {
+              "bottom": 6,
+              "left": 10,
+              "right": 10,
+              "top": 6
+            },
+            "wrap": "nowrap"
+          }
+        },
+        "L": {
+          "id": "L",
+          "kind": "text",
+          "props": {
+            "color": "primitive:atoms.color.textPrimary",
+            "content": "param:label",
+            "fontSize": 14,
+            "fontWeight": 600
+          }
+        }
+      },
+      "name": "MoleculeButtonRowDemo",
+      "requiredComponents": [
+        "MoleculeTextButton"
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "align": "center",
+          "background": "semantic:atoms.color.sem.fromRgb",
+          "direction": "row",
+          "gap": "primitive:atoms.space.sm",
+          "justify": "start",
+          "padding": {
+            "bottom": 16,
+            "left": 16,
+            "right": 16,
+            "top": 16
+          },
+          "wrap": "wrap"
+        }
+      }
+    },
+    "MoleculeCardArticle": {
+      "childHierarchy": {
+        "Actions": [
+          "Primary",
+          "Secondary"
+        ],
+        "Primary": [
+          "L"
+        ],
+        "Root": [
+          "Hero",
+          "Title",
+          "Sub",
+          "Actions"
+        ],
+        "Secondary": [
+          "T",
+          "Chev"
+        ]
+      },
+      "childNodes": {
+        "Actions": {
+          "id": "Actions",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "direction": "row",
+            "gap": "primitive:atoms.space.sm",
+            "justify": "spaceBetween",
+            "padding": {
+              "bottom": 0,
+              "left": 0,
+              "right": 0,
+              "top": 8
+            }
+          }
+        },
+        "Chev": {
+          "id": "Chev",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.chevron",
+            "size": 18
+          }
+        },
+        "Hero": {
+          "id": "Hero",
+          "kind": "media",
+          "props": {
+            "aspectRatio": "primitive:atoms.ratio.video",
+            "contentMode": "cover",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "height": {
+              "fixed": 120
+            },
+            "objectPosition": "center",
+            "source": "primitive:atoms.media.hero",
+            "width": "fill"
+          }
+        },
+        "L": {
+          "id": "L",
+          "kind": "text",
+          "props": {
+            "color": "primitive:atoms.color.textOnBrand",
+            "content": "param:label",
+            "fontSize": 14,
+            "fontWeight": 600
+          }
+        },
+        "Primary": {
+          "id": "Primary",
+          "instanceKwargs": {
+            "label": "Open",
+            "size": "sm",
+            "tone": "primary"
+          },
+          "instanceOf": "MoleculeTextButton",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "primitive:atoms.color.brandPrimary",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.xs",
+            "justify": "center",
+            "padding": {
+              "bottom": 6,
+              "left": 10,
+              "right": 10,
+              "top": 6
+            },
+            "wrap": "nowrap"
+          }
+        },
+        "Secondary": {
+          "id": "Secondary",
+          "instanceKwargs": {
+            "label": "Share",
+            "mode": "trailingChevron"
+          },
+          "instanceOf": "MoleculeIconTextRow",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.sm",
+            "justify": "start",
+            "padding": {
+              "bottom": 10,
+              "left": 14,
+              "right": 14,
+              "top": 10
+            }
+          }
+        },
+        "Sub": {
+          "id": "Sub",
+          "kind": "text",
+          "props": {
+            "content": "param:subtitle",
+            "typeStyle": "typeStyle:AtomBody"
+          }
+        },
+        "T": {
+          "id": "T",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "param:label",
+            "fontSize": 15,
+            "fontWeight": 600
+          }
+        },
+        "Title": {
+          "id": "Title",
+          "kind": "text",
+          "props": {
+            "content": "param:title",
+            "typeStyle": "typeStyle:AtomTitle"
+          }
+        }
+      },
+      "defaultParams": {
+        "layoutMode": "withHero",
+        "subtitle": "Supporting line",
+        "title": "Article"
+      },
+      "expose": [
+        "title",
+        "subtitle",
+        "layoutMode"
+      ],
+      "fixtures": {
+        "Text-only shell": {
+          "layoutMode": "textOnly",
+          "subtitle": "Connect Slack, GitHub, or webhooks.",
+          "title": "Integrations"
+        },
+        "With hero media": {
+          "layoutMode": "withHero",
+          "subtitle": "What changed in this release.",
+          "title": "Ship notes"
+        }
+      },
+      "interactions": [
+        {
+          "component": "MoleculeCardArticle",
+          "handlers": [
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "layoutMode",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".textOnly"
+                  }
+                }
+              ],
+              "event": "hoverStart"
+            },
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "layoutMode",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".withHero"
+                  }
+                }
+              ],
+              "event": "hoverEnd"
+            }
+          ],
+          "name": "MoleculeCardArticleLayoutPeek"
+        }
+      ],
+      "name": "MoleculeCardArticle",
+      "params": [
+        {
+          "default": "Article",
+          "name": "title",
+          "type": "String"
+        },
+        {
+          "default": "Supporting line",
+          "name": "subtitle",
+          "type": "String"
+        },
+        {
+          "default": "withHero",
+          "name": "layoutMode",
+          "type": "variant",
+          "variantTypeName": "MoleculeCardMedia"
+        }
+      ],
+      "requiredComponents": [
+        "MoleculeIconTextRow",
+        "MoleculeTextButton"
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "background": "semantic:atoms.color.sem.fromRgb",
+          "borderColor": "primitive:atoms.color.rgba",
+          "borderPosition": "inside",
+          "borderWidth": 1,
+          "cornerRadius": "semantic:atoms.radius.card",
+          "direction": "column",
+          "gap": "primitive:atoms.space.sm",
+          "overflow": "hidden",
+          "padding": {
+            "bottom": 16,
+            "left": 16,
+            "right": 16,
+            "top": 16
+          },
+          "shadow": "primitive:atoms.shadow.soft"
+        }
+      },
+      "rules": {
+        "rules": [
+          {
+            "description": null,
+            "query": {
+              "kind": "chain",
+              "nav": {
+                "axis": "descendants",
+                "kind": "nav"
+              },
+              "terminal": {
+                "kind": "exists"
+              }
+            },
+            "strength": "should",
+            "tier": "static",
+            "when": {
+              "kind": "cmp",
+              "op": "==",
+              "param": "layoutMode",
+              "rhs": ".withHero"
+            }
+          },
+          {
+            "description": null,
+            "query": {
+              "kind": "chain",
+              "nav": {
+                "axis": "self",
+                "kind": "nav"
+              },
+              "terminal": {
+                "kind": "exists"
+              }
+            },
+            "strength": "should",
+            "tier": "static",
+            "when": {
+              "expr": {
+                "kind": "cmp",
+                "op": "==",
+                "param": "layoutMode",
+                "rhs": ".withHero"
+              },
+              "kind": "not"
+            }
+          }
+        ],
+        "tags": [
+          "molecule",
+          "card",
+          "layout"
+        ]
+      },
+      "usage": "Editorial card with optional hero media, title stack, and a footer row mixing text and icon actions.",
+      "usageByKey": {
+        "description": "Editorial card with optional hero media, title stack, and a footer row mixing text and icon actions."
+      },
+      "variants": [
+        {
+          "affectedFrames": [
+            "Actions",
+            "Hero",
+            "Root",
+            "Sub",
+            "Title"
+          ],
+          "changes": [
+            {
+              "frameId": "Hero",
+              "prop": "aspectRatio",
+              "value": null
+            },
+            {
+              "frameId": "Hero",
+              "prop": "contentMode",
+              "value": null
+            },
+            {
+              "frameId": "Hero",
+              "prop": "cornerRadius",
+              "value": null
+            },
+            {
+              "frameId": "Hero",
+              "prop": "height",
+              "value": null
+            },
+            {
+              "frameId": "Hero",
+              "prop": "objectPosition",
+              "value": null
+            },
+            {
+              "frameId": "Hero",
+              "prop": "source",
+              "value": null
+            },
+            {
+              "frameId": "Hero",
+              "prop": "width",
+              "value": null
+            }
+          ],
+          "childHierarchy": {
+            "Actions": [
+              "Primary",
+              "Secondary"
+            ],
+            "Primary": [
+              "L"
+            ],
+            "Root": [
+              "Title",
+              "Sub",
+              "Actions"
+            ],
+            "Secondary": [
+              "T",
+              "Chev"
+            ]
+          },
+          "params": {
+            "layoutMode": "textOnly"
+          },
+          "structuralChange": true
+        }
+      ]
+    },
+    "MoleculeCardGridDemo": {
+      "childHierarchy": {
+        "Actions": [
+          "Primary",
+          "Secondary"
+        ],
+        "C1": [
+          "Hero",
+          "Title",
+          "Sub",
+          "Actions"
+        ],
+        "C2": [
+          "Title",
+          "Sub",
+          "Actions"
+        ],
+        "Primary": [
+          "L"
+        ],
+        "Root": [
+          "C1",
+          "C2"
+        ],
+        "Secondary": [
+          "T",
+          "Chev"
+        ]
+      },
+      "childNodes": {
+        "Actions": {
+          "id": "Actions",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "direction": "row",
+            "gap": "primitive:atoms.space.sm",
+            "justify": "spaceBetween",
+            "padding": {
+              "bottom": 0,
+              "left": 0,
+              "right": 0,
+              "top": 8
+            }
+          }
+        },
+        "C1": {
+          "id": "C1",
+          "instanceKwargs": {
+            "layoutMode": "withHero",
+            "subtitle": "Default",
+            "title": "With media"
+          },
+          "instanceOf": "MoleculeCardArticle",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "borderColor": "primitive:atoms.color.rgba",
+            "borderPosition": "inside",
+            "borderWidth": 1,
+            "cornerRadius": "semantic:atoms.radius.card",
+            "direction": "column",
+            "gap": "primitive:atoms.space.sm",
+            "overflow": "hidden",
+            "padding": {
+              "bottom": 16,
+              "left": 16,
+              "right": 16,
+              "top": 16
+            },
+            "shadow": "primitive:atoms.shadow.soft"
+          }
+        },
+        "C2": {
+          "id": "C2",
+          "instanceKwargs": {
+            "layoutMode": "textOnly",
+            "subtitle": "Text only shell",
+            "title": "No media"
+          },
+          "instanceOf": "MoleculeCardArticle",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "borderColor": "primitive:atoms.color.rgba",
+            "borderPosition": "inside",
+            "borderWidth": 1,
+            "cornerRadius": "semantic:atoms.radius.card",
+            "direction": "column",
+            "gap": "primitive:atoms.space.sm",
+            "overflow": "hidden",
+            "padding": {
+              "bottom": 16,
+              "left": 16,
+              "right": 16,
+              "top": 16
+            },
+            "shadow": "primitive:atoms.shadow.soft"
+          }
+        },
+        "Chev": {
+          "id": "Chev",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.chevron",
+            "size": 18
+          }
+        },
+        "Hero": {
+          "id": "Hero",
+          "kind": "media",
+          "props": {
+            "aspectRatio": "primitive:atoms.ratio.video",
+            "contentMode": "cover",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "height": {
+              "fixed": 120
+            },
+            "objectPosition": "center",
+            "source": "primitive:atoms.media.hero",
+            "width": "fill"
+          }
+        },
+        "L": {
+          "id": "L",
+          "kind": "text",
+          "props": {
+            "color": "primitive:atoms.color.textOnBrand",
+            "content": "param:label",
+            "fontSize": 14,
+            "fontWeight": 600
+          }
+        },
+        "Primary": {
+          "id": "Primary",
+          "instanceKwargs": {
+            "label": "Open",
+            "size": "sm",
+            "tone": "primary"
+          },
+          "instanceOf": "MoleculeTextButton",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "primitive:atoms.color.brandPrimary",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.xs",
+            "justify": "center",
+            "padding": {
+              "bottom": 6,
+              "left": 10,
+              "right": 10,
+              "top": 6
+            },
+            "wrap": "nowrap"
+          }
+        },
+        "Secondary": {
+          "id": "Secondary",
+          "instanceKwargs": {
+            "label": "Share",
+            "mode": "trailingChevron"
+          },
+          "instanceOf": "MoleculeIconTextRow",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.sm",
+            "justify": "start",
+            "padding": {
+              "bottom": 10,
+              "left": 14,
+              "right": 14,
+              "top": 10
+            }
+          }
+        },
+        "Sub": {
+          "id": "Sub",
+          "kind": "text",
+          "props": {
+            "content": "param:subtitle",
+            "typeStyle": "typeStyle:AtomBody"
+          }
+        },
+        "T": {
+          "id": "T",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "param:label",
+            "fontSize": 15,
+            "fontWeight": 600
+          }
+        },
+        "Title": {
+          "id": "Title",
+          "kind": "text",
+          "props": {
+            "content": "param:title",
+            "typeStyle": "typeStyle:AtomTitle"
+          }
+        }
+      },
+      "name": "MoleculeCardGridDemo",
+      "requiredComponents": [
+        "MoleculeCardArticle",
+        "MoleculeIconTextRow",
+        "MoleculeTextButton"
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "semantic:atoms.color.sem.fromRgba",
+          "direction": "row",
+          "gap": "primitive:atoms.space.md",
+          "padding": {
+            "bottom": 16,
+            "left": 16,
+            "right": 16,
+            "top": 16
+          },
+          "wrap": "wrap"
+        }
+      }
+    },
+    "MoleculeFieldBlock": {
+      "childHierarchy": {
+        "Box": [
+          "Val"
+        ],
+        "Root": [
+          "Lab",
+          "Box",
+          "Help"
+        ]
+      },
+      "childNodes": {
+        "Box": {
+          "id": "Box",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "borderColor": "primitive:atoms.color.rgba",
+            "borderWidth": 1,
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "padding": {
+              "bottom": 10,
+              "left": 12,
+              "right": 12,
+              "top": 10
+            }
+          }
+        },
+        "Help": {
+          "id": "Help",
+          "kind": "text",
+          "props": {
+            "content": "param:helper",
+            "typeStyle": "typeStyle:AtomMono"
+          }
+        },
+        "Lab": {
+          "id": "Lab",
+          "kind": "text",
+          "props": {
+            "content": "param:label",
+            "typeStyle": "typeStyle:AtomCaption"
+          }
+        },
+        "Val": {
+          "id": "Val",
+          "kind": "text",
+          "props": {
+            "content": "param:value",
+            "typeStyle": "typeStyle:AtomBody"
+          }
+        }
+      },
+      "defaultParams": {
+        "helper": "We never share your address.",
+        "label": "Email",
+        "layoutMode": "includeHelp",
+        "value": "you@example.com"
+      },
+      "expose": [
+        "label",
+        "value",
+        "helper",
+        "layoutMode"
+      ],
+      "fixtures": {
+        "Compact (no helper)": {
+          "label": "SKU",
+          "layoutMode": "noHelp",
+          "value": "PDL-001"
+        },
+        "With helper": {
+          "helper": "Shown on invoices and shared links.",
+          "label": "Display name",
+          "layoutMode": "includeHelp",
+          "value": "Acme Corp"
+        }
+      },
+      "interactions": [
+        {
+          "component": "MoleculeFieldBlock",
+          "handlers": [
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "layoutMode",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".noHelp"
+                  }
+                }
+              ],
+              "event": "hoverStart"
+            },
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "layoutMode",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".includeHelp"
+                  }
+                }
+              ],
+              "event": "hoverEnd"
+            }
+          ],
+          "name": "MoleculeFieldBlockLayoutPeek"
+        }
+      ],
+      "name": "MoleculeFieldBlock",
+      "params": [
+        {
+          "default": "Email",
+          "name": "label",
+          "type": "String"
+        },
+        {
+          "default": "you@example.com",
+          "name": "value",
+          "type": "String"
+        },
+        {
+          "default": "We never share your address.",
+          "name": "helper",
+          "type": "String"
+        },
+        {
+          "default": "includeHelp",
+          "name": "layoutMode",
+          "type": "variant",
+          "variantTypeName": "MoleculeFieldBlockLayout"
+        }
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "direction": "column",
+          "gap": "primitive:atoms.space.xs",
+          "padding": {
+            "bottom": 8,
+            "left": 0,
+            "right": 0,
+            "top": 8
+          }
+        }
+      },
+      "rules": {
+        "rules": [
+          {
+            "description": null,
+            "query": {
+              "kind": "chain",
+              "nav": {
+                "axis": "descendants",
+                "kind": "nav"
+              },
+              "terminal": {
+                "kind": "exists"
+              }
+            },
+            "strength": "should",
+            "tier": "static",
+            "when": {
+              "kind": "cmp",
+              "op": "==",
+              "param": "layoutMode",
+              "rhs": ".includeHelp"
+            }
+          },
+          {
+            "description": null,
+            "query": {
+              "kind": "chain",
+              "nav": {
+                "axis": "self",
+                "kind": "nav"
+              },
+              "terminal": {
+                "kind": "exists"
+              }
+            },
+            "strength": "should",
+            "tier": "static",
+            "when": {
+              "expr": {
+                "kind": "cmp",
+                "op": "==",
+                "param": "layoutMode",
+                "rhs": ".includeHelp"
+              },
+              "kind": "not"
+            }
+          }
+        ],
+        "tags": [
+          "molecule",
+          "form"
+        ]
+      },
+      "usage": "Form field row: caption label, bordered value readout, optional helper line; use layoutMode .noHelp for dense tables.",
+      "usageByKey": {
+        "description": "Form field row: caption label, bordered value readout, optional helper line; use layoutMode .noHelp for dense tables."
+      },
+      "variants": [
+        {
+          "affectedFrames": [
+            "Box",
+            "Help",
+            "Lab",
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Help",
+              "prop": "content",
+              "value": null
+            },
+            {
+              "frameId": "Help",
+              "prop": "typeStyle",
+              "value": null
+            }
+          ],
+          "childHierarchy": {
+            "Box": [
+              "Val"
+            ],
+            "Root": [
+              "Lab",
+              "Box"
+            ]
+          },
+          "params": {
+            "layoutMode": "noHelp"
+          },
+          "structuralChange": true
+        }
+      ]
+    },
+    "MoleculeFillWidthHugHeightColumn": {
+      "childHierarchy": {
+        "Root": [
+          "RowFill",
+          "RowMixed"
+        ]
+      },
+      "childNodes": {
+        "RowFill": {
+          "id": "RowFill",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "primitive:atoms.color.rgb",
+            "direction": "row",
+            "height": "hug",
+            "justify": "spaceAround",
+            "width": "fill"
+          }
+        },
+        "RowMixed": {
+          "id": "RowMixed",
+          "kind": "layout",
+          "props": {
+            "alignSelf": "end",
+            "background": "primitive:atoms.color.rgba",
+            "direction": "row",
+            "gap": 4,
+            "height": "fill",
+            "padding": {
+              "bottom": 4,
+              "left": 4,
+              "right": 4,
+              "top": 4
+            },
+            "width": "hug"
+          }
+        }
+      },
+      "name": "MoleculeFillWidthHugHeightColumn",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "background": "semantic:atoms.color.sem.fromRgba",
+          "direction": "column",
+          "gap": "primitive:atoms.space.sm",
+          "height": "hug",
+          "padding": {
+            "bottom": 10,
+            "left": 16,
+            "right": 16,
+            "top": 10
+          },
+          "width": "fill"
+        }
+      }
+    },
+    "MoleculeFormColumnDemo": {
+      "childHierarchy": {
+        "Actions": [
+          "Cancel",
+          "Save"
+        ],
+        "Box": [
+          "Val"
+        ],
+        "Cancel": [
+          "L"
+        ],
+        "F0": [
+          "Lab",
+          "Box",
+          "Help"
+        ],
+        "F1": [
+          "Lab",
+          "Box",
+          "Help"
+        ],
+        "Root": [
+          "F0",
+          "F1",
+          "Actions"
+        ],
+        "Save": [
+          "L"
+        ]
+      },
+      "childNodes": {
+        "Actions": {
+          "id": "Actions",
+          "kind": "layout",
+          "props": {
+            "direction": "row",
+            "gap": "primitive:atoms.space.sm",
+            "justify": "end",
+            "padding": {
+              "bottom": 0,
+              "left": 0,
+              "right": 0,
+              "top": 8
+            }
+          }
+        },
+        "Box": {
+          "id": "Box",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "borderColor": "primitive:atoms.color.rgba",
+            "borderWidth": 1,
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "padding": {
+              "bottom": 10,
+              "left": 12,
+              "right": 12,
+              "top": 10
+            }
+          }
+        },
+        "Cancel": {
+          "id": "Cancel",
+          "instanceKwargs": {
+            "label": "Cancel",
+            "size": "sm",
+            "tone": "ghost"
+          },
+          "instanceOf": "MoleculeTextButton",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "primitive:atoms.color.rgb",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.xs",
+            "justify": "center",
+            "opacity": 0.15,
+            "padding": {
+              "bottom": 6,
+              "left": 10,
+              "right": 10,
+              "top": 6
+            },
+            "wrap": "nowrap"
+          }
+        },
+        "F0": {
+          "id": "F0",
+          "instanceKwargs": {
+            "helper": "Renaming updates the slug.",
+            "label": "Workspace",
+            "value": "Design"
+          },
+          "instanceOf": "MoleculeFieldBlock",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "direction": "column",
+            "gap": "primitive:atoms.space.xs",
+            "padding": {
+              "bottom": 8,
+              "left": 0,
+              "right": 0,
+              "top": 8
+            }
+          }
+        },
+        "F1": {
+          "id": "F1",
+          "instanceKwargs": {
+            "label": "Role",
+            "value": "Editor"
+          },
+          "instanceOf": "MoleculeFieldBlock",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "direction": "column",
+            "gap": "primitive:atoms.space.xs",
+            "padding": {
+              "bottom": 8,
+              "left": 0,
+              "right": 0,
+              "top": 8
+            }
+          }
+        },
+        "Help": {
+          "id": "Help",
+          "kind": "text",
+          "props": {
+            "content": "param:helper",
+            "typeStyle": "typeStyle:AtomMono"
+          }
+        },
+        "L": {
+          "id": "L",
+          "kind": "text",
+          "props": {
+            "color": "primitive:atoms.color.textOnBrand",
+            "content": "param:label",
+            "fontSize": 14,
+            "fontWeight": 600
+          }
+        },
+        "Lab": {
+          "id": "Lab",
+          "kind": "text",
+          "props": {
+            "content": "param:label",
+            "typeStyle": "typeStyle:AtomCaption"
+          }
+        },
+        "Save": {
+          "id": "Save",
+          "instanceKwargs": {
+            "label": "Save",
+            "size": "lg",
+            "tone": "primary"
+          },
+          "instanceOf": "MoleculeTextButton",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "primitive:atoms.color.brandPrimary",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.xs",
+            "justify": "center",
+            "padding": {
+              "bottom": 12,
+              "left": 18,
+              "right": 18,
+              "top": 12
+            },
+            "wrap": "nowrap"
+          }
+        },
+        "Val": {
+          "id": "Val",
+          "kind": "text",
+          "props": {
+            "content": "param:value",
+            "typeStyle": "typeStyle:AtomBody"
+          }
+        }
+      },
+      "name": "MoleculeFormColumnDemo",
+      "requiredComponents": [
+        "MoleculeFieldBlock",
+        "MoleculeTextButton"
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "background": "semantic:atoms.color.sem.fromRgba",
+          "direction": "column",
+          "gap": "primitive:atoms.space.md",
+          "height": "hug",
+          "padding": {
+            "bottom": 16,
+            "left": 16,
+            "right": 16,
+            "top": 16
+          },
+          "width": "fill"
+        }
+      }
+    },
+    "MoleculeHtmlLayerPreview": {
+      "childHierarchy": {
+        "CardBlur": [
+          "CardBlurT1",
+          "CardBlurT2"
+        ],
+        "CardRamp": [
+          "CardRampT1",
+          "CardRampT2"
+        ],
+        "CardStack": [
+          "CardStackT1",
+          "CardStackT2"
+        ],
+        "Root": [
+          "Hint",
+          "Row"
+        ],
+        "Row": [
+          "CardStack",
+          "CardBlur",
+          "CardRamp",
+          "TextLayers"
+        ]
+      },
+      "childNodes": {
+        "CardBlur": {
+          "id": "CardBlur",
+          "kind": "layout",
+          "props": {
+            "background": [
+              {
+                "blur": 6,
+                "kind": "blur"
+              },
+              "#f7f7f79e"
+            ],
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "column",
+            "foreground": [
+              "#d3d3d30f"
+            ],
+            "gap": "primitive:atoms.space.sm",
+            "height": "hug",
+            "padding": {
+              "bottom": 12,
+              "left": 12,
+              "right": 12,
+              "top": 12
+            },
+            "width": {
+              "flex": {
+                "min": 160,
+                "preferred": 200
+              }
+            }
+          }
+        },
+        "CardBlurT1": {
+          "id": "CardBlurT1",
+          "kind": "text",
+          "props": {
+            "color": "#222222",
+            "content": "Blur + frosted tint",
+            "fontSize": 13,
+            "fontWeight": 600
+          }
+        },
+        "CardBlurT2": {
+          "id": "CardBlurT2",
+          "kind": "text",
+          "props": {
+            "color": "#444444",
+            "content": "Expect backdrop-filter on the blur band.",
+            "fontSize": 11
+          }
+        },
+        "CardRamp": {
+          "id": "CardRamp",
+          "kind": "layout",
+          "props": {
+            "background": [
+              {
+                "direction": ".bottomToTop",
+                "kind": "ramp",
+                "stops": [
+                  {
+                    "color": "#FFFFFF",
+                    "kind": "gradientStop",
+                    "opacity": 1,
+                    "position": 0
+                  },
+                  {
+                    "color": "#000000",
+                    "kind": "gradientStop",
+                    "opacity": 0,
+                    "position": 1
+                  }
+                ]
+              },
+              "#0F172A35"
+            ],
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "column",
+            "gap": "primitive:atoms.space.sm",
+            "height": "hug",
+            "padding": {
+              "bottom": 12,
+              "left": 12,
+              "right": 12,
+              "top": 12
+            },
+            "width": {
+              "flex": {
+                "min": 160,
+                "preferred": 200
+              }
+            }
+          }
+        },
+        "CardRampT1": {
+          "id": "CardRampT1",
+          "kind": "text",
+          "props": {
+            "color": "#0F172A",
+            "content": "Ramp + wash",
+            "fontSize": 13,
+            "fontWeight": 600
+          }
+        },
+        "CardRampT2": {
+          "id": "CardRampT2",
+          "kind": "text",
+          "props": {
+            "color": "#1E293B",
+            "content": "Token ramp (atoms.ramp.fade) then a second layer.",
+            "fontSize": 11
+          }
+        },
+        "CardStack": {
+          "id": "CardStack",
+          "kind": "layout",
+          "props": {
+            "background": [
+              "#E0E7FF",
+              "#4338CA55"
+            ],
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "column",
+            "foreground": [
+              "#00000018"
+            ],
+            "gap": "primitive:atoms.space.sm",
+            "height": "hug",
+            "padding": {
+              "bottom": 12,
+              "left": 12,
+              "right": 12,
+              "top": 12
+            },
+            "width": {
+              "flex": {
+                "min": 160,
+                "preferred": 200
+              }
+            }
+          }
+        },
+        "CardStackT1": {
+          "id": "CardStackT1",
+          "kind": "text",
+          "props": {
+            "color": "#1E1B4B",
+            "content": "Two fills + fg tint",
+            "fontSize": 13,
+            "fontWeight": 600
+          }
+        },
+        "CardStackT2": {
+          "id": "CardStackT2",
+          "kind": "text",
+          "props": {
+            "color": "#312E81",
+            "content": "Under: base + indigo wash. Over: dark veil.",
+            "fontSize": 11
+          }
+        },
+        "Hint": {
+          "id": "Hint",
+          "kind": "text",
+          "props": {
+            "color": "#3F3F46",
+            "content": "HTML check: outer layouts use pdl-layout--layers, pdl-layer-band, backdrop-filter on blur; foreground tints are overlays (not inset box-shadow).",
+            "fontSize": 12,
+            "lineHeight": 1.45
+          }
+        },
+        "Row": {
+          "id": "Row",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "direction": "row",
+            "gap": "primitive:atoms.space.md",
+            "height": "hug",
+            "justify": "start",
+            "width": "fill",
+            "wrap": "wrap"
+          }
+        },
+        "TextLayers": {
+          "id": "TextLayers",
+          "kind": "text",
+          "props": {
+            "background": [
+              "#FECACA",
+              "#B91C1C40"
+            ],
+            "color": "#7F1D1D",
+            "content": "Text with layer bands",
+            "cornerRadius": 4,
+            "fontSize": 13,
+            "fontWeight": 600,
+            "foreground": [
+              "#00000012"
+            ],
+            "padding": {
+              "bottom": 6,
+              "left": 10,
+              "right": 10,
+              "top": 6
+            }
+          }
+        }
+      },
+      "name": "MoleculeHtmlLayerPreview",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "#E8E8ED",
+          "direction": "column",
+          "gap": "primitive:atoms.space.md",
+          "height": "hug",
+          "padding": {
+            "bottom": 16,
+            "left": 16,
+            "right": 16,
+            "top": 16
+          },
+          "width": "fill"
+        }
+      }
+    },
+    "MoleculeHugFillLabyrinth": {
+      "childHierarchy": {
+        "FlexMiddle": [
+          "Banner",
+          "StretchChild"
+        ],
+        "NarrowHug": [
+          "Top",
+          "Bottom"
+        ],
+        "Root": [
+          "NarrowHug",
+          "FlexMiddle",
+          "FixedIsland"
+        ]
+      },
+      "childNodes": {
+        "Banner": {
+          "id": "Banner",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "Flex middle",
+            "fontSize": 12
+          }
+        },
+        "Bottom": {
+          "id": "Bottom",
+          "kind": "layout",
+          "props": {
+            "background": "semantic:atoms.color.sem.fromRgba",
+            "direction": "row",
+            "height": "hug",
+            "justify": "end",
+            "width": "fill"
+          }
+        },
+        "FixedIsland": {
+          "id": "FixedIsland",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "alignSelf": "end",
+            "background": "semantic:atoms.color.sem.fromRgba",
+            "direction": "column",
+            "height": {
+              "flex": {
+                "max": 180,
+                "min": 60
+              }
+            },
+            "justify": "center",
+            "width": {
+              "fixed": 72
+            }
+          }
+        },
+        "FlexMiddle": {
+          "id": "FlexMiddle",
+          "kind": "layout",
+          "props": {
+            "alignSelf": "center",
+            "background": "primitive:atoms.color.rgb",
+            "direction": "column",
+            "gap": "primitive:atoms.space.xs",
+            "grow": 1,
+            "height": "hug",
+            "padding": {
+              "bottom": 8,
+              "left": 8,
+              "right": 8,
+              "top": 8
+            },
+            "shrink": 1,
+            "width": {
+              "flex": {
+                "max": 200,
+                "min": 40
+              }
+            }
+          }
+        },
+        "NarrowHug": {
+          "id": "NarrowHug",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "background": "primitive:atoms.color.rgba",
+            "direction": "column",
+            "gap": "primitive:atoms.space.xs",
+            "height": "fill",
+            "justify": "spaceBetween",
+            "padding": {
+              "bottom": 6,
+              "left": 6,
+              "right": 6,
+              "top": 6
+            },
+            "width": "hug"
+          }
+        },
+        "StretchChild": {
+          "id": "StretchChild",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "background": "primitive:atoms.color.rgba",
+            "direction": "column",
+            "height": {
+              "fixed": 48
+            },
+            "width": "fill"
+          }
+        },
+        "Top": {
+          "id": "Top",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgb",
+            "content": "Hug×Fill",
+            "fontSize": 11
+          }
+        }
+      },
+      "name": "MoleculeHugFillLabyrinth",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "background": "semantic:atoms.color.sem.fromRgb",
+          "direction": "row",
+          "gap": "primitive:atoms.space.sm",
+          "height": {
+            "fixed": 220
+          },
+          "justify": "start",
+          "padding": {
+            "bottom": 12,
+            "left": 12,
+            "right": 12,
+            "top": 12
+          },
+          "width": "fill",
+          "wrap": "nowrap"
+        }
+      }
+    },
+    "MoleculeIconModeGallery": {
+      "childHierarchy": {
+        "R0": [
+          "T"
+        ],
+        "R1": [
+          "Lead",
+          "T"
+        ],
+        "R2": [
+          "T",
+          "Chev"
+        ],
+        "R3": [
+          "Lead",
+          "T",
+          "Chev"
+        ],
+        "Root": [
+          "R0",
+          "R1",
+          "R2",
+          "R3"
+        ]
+      },
+      "childNodes": {
+        "Chev": {
+          "id": "Chev",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.chevron",
+            "size": 18
+          }
+        },
+        "Lead": {
+          "id": "Lead",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.star",
+            "size": 20
+          }
+        },
+        "R0": {
+          "id": "R0",
+          "instanceKwargs": {
+            "label": "Text only",
+            "mode": "textOnly"
+          },
+          "instanceOf": "MoleculeIconTextRow",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.sm",
+            "justify": "start",
+            "padding": {
+              "bottom": 10,
+              "left": 14,
+              "right": 14,
+              "top": 10
+            }
+          }
+        },
+        "R1": {
+          "id": "R1",
+          "instanceKwargs": {
+            "label": "Leading",
+            "mode": "leadingIcon"
+          },
+          "instanceOf": "MoleculeIconTextRow",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.sm",
+            "justify": "start",
+            "padding": {
+              "bottom": 10,
+              "left": 14,
+              "right": 14,
+              "top": 10
+            }
+          }
+        },
+        "R2": {
+          "id": "R2",
+          "instanceKwargs": {
+            "label": "Chevron",
+            "mode": "trailingChevron"
+          },
+          "instanceOf": "MoleculeIconTextRow",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.sm",
+            "justify": "start",
+            "padding": {
+              "bottom": 10,
+              "left": 14,
+              "right": 14,
+              "top": 10
+            }
+          }
+        },
+        "R3": {
+          "id": "R3",
+          "instanceKwargs": {
+            "label": "Both",
+            "mode": "both"
+          },
+          "instanceOf": "MoleculeIconTextRow",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.sm",
+            "justify": "start",
+            "padding": {
+              "bottom": 10,
+              "left": 14,
+              "right": 14,
+              "top": 10
+            }
+          }
+        },
+        "T": {
+          "id": "T",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "param:label",
+            "fontSize": 15,
+            "fontWeight": 600
+          }
+        }
+      },
+      "name": "MoleculeIconModeGallery",
+      "requiredComponents": [
+        "MoleculeIconTextRow"
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "semantic:atoms.color.sem.fromRgba",
+          "direction": "column",
+          "gap": "primitive:atoms.space.md",
+          "padding": {
+            "bottom": 16,
+            "left": 16,
+            "right": 16,
+            "top": 16
+          }
+        }
+      }
+    },
+    "MoleculeIconTextRow": {
+      "childHierarchy": {
+        "Root": [
+          "T"
+        ]
+      },
+      "childNodes": {
+        "Chev": {
+          "id": "Chev",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.chevron",
+            "size": 18
+          }
+        },
+        "Lead": {
+          "id": "Lead",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.star",
+            "size": 20
+          }
+        },
+        "T": {
+          "id": "T",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "param:label",
+            "fontSize": 15,
+            "fontWeight": 600
+          }
+        }
+      },
+      "defaultParams": {
+        "label": "Continue",
+        "mode": "textOnly"
+      },
+      "expose": [
+        "label",
+        "mode"
+      ],
+      "name": "MoleculeIconTextRow",
+      "params": [
+        {
+          "default": "Continue",
+          "name": "label",
+          "type": "String"
+        },
+        {
+          "default": "textOnly",
+          "name": "mode",
+          "type": "variant",
+          "variantTypeName": "MoleculeIconMode"
+        }
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "align": "center",
+          "background": "semantic:atoms.color.sem.fromRgb",
+          "cornerRadius": "primitive:atoms.radius.sm",
+          "direction": "row",
+          "gap": "primitive:atoms.space.sm",
+          "justify": "start",
+          "padding": {
+            "bottom": 10,
+            "left": 14,
+            "right": 14,
+            "top": 10
+          }
+        }
+      },
+      "variants": [
+        {
+          "affectedFrames": [
+            "Chev",
+            "Lead",
+            "Root",
+            "T"
+          ],
+          "childHierarchy": {
+            "Root": [
+              "Lead",
+              "T",
+              "Chev"
+            ]
+          },
+          "params": {
+            "mode": "both"
+          },
+          "structuralChange": true
+        },
+        {
+          "affectedFrames": [
+            "Lead",
+            "Root",
+            "T"
+          ],
+          "childHierarchy": {
+            "Root": [
+              "Lead",
+              "T"
+            ]
+          },
+          "params": {
+            "mode": "leadingIcon"
+          },
+          "structuralChange": true
+        },
+        {
+          "affectedFrames": [
+            "Chev",
+            "Root",
+            "T"
+          ],
+          "childHierarchy": {
+            "Root": [
+              "T",
+              "Chev"
+            ]
+          },
+          "params": {
+            "mode": "trailingChevron"
+          },
+          "structuralChange": true
+        }
+      ]
+    },
+    "MoleculeKindRichGallery": {
+      "childHierarchy": {
+        "A": [
+          "G",
+          "L"
+        ],
+        "B": [
+          "G",
+          "L"
+        ],
+        "C": [
+          "G",
+          "L"
+        ],
+        "Root": [
+          "A",
+          "B",
+          "C"
+        ]
+      },
+      "childNodes": {
+        "A": {
+          "id": "A",
+          "instanceKwargs": {
+            "kind": "primary"
+          },
+          "instanceOf": "MoleculeKindRichRow",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.sm",
+            "justify": "start",
+            "padding": {
+              "bottom": 10,
+              "left": 14,
+              "right": 14,
+              "top": 10
+            }
+          }
+        },
+        "B": {
+          "id": "B",
+          "instanceKwargs": {
+            "kind": "secondary"
+          },
+          "instanceOf": "MoleculeKindRichRow",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.sm",
+            "justify": "start",
+            "padding": {
+              "bottom": 10,
+              "left": 14,
+              "right": 14,
+              "top": 10
+            }
+          }
+        },
+        "C": {
+          "id": "C",
+          "instanceKwargs": {
+            "kind": "danger"
+          },
+          "instanceOf": "MoleculeKindRichRow",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.sm",
+            "justify": "start",
+            "padding": {
+              "bottom": 10,
+              "left": 14,
+              "right": 14,
+              "top": 10
+            }
+          }
+        },
+        "G": {
+          "id": "G",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "close",
+            "size": 22
+          }
+        },
+        "L": {
+          "id": "L",
+          "kind": "text",
+          "props": {
+            "content": "Permanently delete",
+            "typeStyle": "typeStyle:AtomTitle"
+          }
+        }
+      },
+      "name": "MoleculeKindRichGallery",
+      "requiredComponents": [
+        "MoleculeKindRichRow"
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "primitive:atoms.color.rgb",
+          "direction": "column",
+          "gap": "primitive:atoms.space.sm",
+          "padding": {
+            "bottom": 16,
+            "left": 16,
+            "right": 16,
+            "top": 16
+          }
+        }
+      }
+    },
+    "MoleculeKindRichRow": {
+      "childHierarchy": {
+        "Root": [
+          "G",
+          "L"
+        ]
+      },
+      "childNodes": {
+        "G": {
+          "id": "G",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.star",
+            "size": 22
+          }
+        },
+        "L": {
+          "id": "L",
+          "kind": "text",
+          "props": {
+            "content": "Save changes",
+            "typeStyle": "typeStyle:AtomCaption"
+          }
+        }
+      },
+      "defaultParams": {
+        "kind": "primary"
+      },
+      "expose": [
+        "kind"
+      ],
+      "name": "MoleculeKindRichRow",
+      "params": [
+        {
+          "default": "primary",
+          "name": "kind",
+          "type": "variant",
+          "variantTypeName": "MoleculeMatrixKind"
+        }
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "align": "center",
+          "background": "semantic:atoms.color.sem.fromRgb",
+          "cornerRadius": "primitive:atoms.radius.sm",
+          "direction": "row",
+          "gap": "primitive:atoms.space.sm",
+          "justify": "start",
+          "padding": {
+            "bottom": 10,
+            "left": 14,
+            "right": 14,
+            "top": 10
+          }
+        }
+      },
+      "variants": [
+        {
+          "affectedFrames": [
+            "G",
+            "L"
+          ],
+          "changes": [
+            {
+              "frameId": "G",
+              "prop": "icon",
+              "value": "close"
+            },
+            {
+              "frameId": "L",
+              "prop": "content",
+              "value": "Permanently delete"
+            },
+            {
+              "frameId": "L",
+              "prop": "typeStyle",
+              "value": "typeStyle:AtomTitle"
+            }
+          ],
+          "params": {
+            "kind": "danger"
+          }
+        },
+        {
+          "affectedFrames": [
+            "G",
+            "L"
+          ],
+          "changes": [
+            {
+              "frameId": "G",
+              "prop": "icon",
+              "value": "primitive:atoms.icon.chevron"
+            },
+            {
+              "frameId": "L",
+              "prop": "content",
+              "value": "Learn more about billing"
+            },
+            {
+              "frameId": "L",
+              "prop": "typeStyle",
+              "value": "typeStyle:AtomBody"
+            }
+          ],
+          "params": {
+            "kind": "secondary"
+          }
+        }
+      ]
+    },
+    "MoleculeLabelRowJustifySweep": {
+      "childHierarchy": {
+        "Root": [
+          "RowStart",
+          "RowBetween",
+          "RowEnd"
+        ],
+        "RowBetween": [
+          "A",
+          "B"
+        ],
+        "RowEnd": [
+          "LEnd"
+        ],
+        "RowStart": [
+          "LStart"
+        ]
+      },
+      "childNodes": {
+        "A": {
+          "id": "A",
+          "kind": "text",
+          "props": {
+            "color": "primitive:atoms.color.rgb",
+            "content": "A",
+            "fontSize": 12
+          }
+        },
+        "B": {
+          "id": "B",
+          "kind": "text",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "content": "B",
+            "fontSize": 12
+          }
+        },
+        "LEnd": {
+          "id": "LEnd",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "End",
+            "fontSize": 14
+          }
+        },
+        "LStart": {
+          "id": "LStart",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgb",
+            "content": "Start",
+            "fontSize": 14
+          }
+        },
+        "RowBetween": {
+          "id": "RowBetween",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "direction": "row",
+            "gap": "primitive:atoms.space.sm",
+            "justify": "spaceBetween"
+          }
+        },
+        "RowEnd": {
+          "id": "RowEnd",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "direction": "row",
+            "gap": "primitive:atoms.space.xs",
+            "justify": "end"
+          }
+        },
+        "RowStart": {
+          "id": "RowStart",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "direction": "row",
+            "gap": "primitive:atoms.space.sm",
+            "justify": "start"
+          }
+        }
+      },
+      "name": "MoleculeLabelRowJustifySweep",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "semantic:atoms.color.sem.fromRgba",
+          "direction": "column",
+          "gap": "primitive:atoms.space.md"
+        }
+      }
+    },
+    "MoleculeLabelStack": {
+      "childHierarchy": {
+        "Root": [
+          "A",
+          "B",
+          "C"
+        ]
+      },
+      "childNodes": {
+        "A": {
+          "id": "A",
+          "kind": "text",
+          "props": {
+            "content": "Caption",
+            "typeStyle": "typeStyle:AtomCaption"
+          }
+        },
+        "B": {
+          "id": "B",
+          "kind": "text",
+          "props": {
+            "content": "Title line",
+            "typeStyle": "typeStyle:AtomTitle"
+          }
+        },
+        "C": {
+          "id": "C",
+          "kind": "text",
+          "props": {
+            "content": "Muted supporting copy",
+            "typeStyle": "typeStyle:AtomBody"
+          }
+        }
+      },
+      "name": "MoleculeLabelStack",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "semantic:atoms.color.sem.fromRgb",
+          "direction": "column",
+          "gap": "primitive:atoms.space.sm",
+          "padding": {
+            "bottom": 16,
+            "left": 16,
+            "right": 16,
+            "top": 16
+          }
+        }
+      }
+    },
+    "MoleculeLayerInlineSandwich": {
+      "childHierarchy": {
+        "Root": [
+          "Left",
+          "Right"
+        ]
+      },
+      "childNodes": {
+        "Left": {
+          "id": "Left",
+          "kind": "layout",
+          "props": {
+            "background": [
+              "#EBEBEB",
+              "#d3d3d39e"
+            ],
+            "direction": "column",
+            "foreground": [
+              "#22222214"
+            ],
+            "height": "hug",
+            "padding": {
+              "bottom": 8,
+              "left": 8,
+              "right": 8,
+              "top": 8
+            },
+            "width": "fill"
+          }
+        },
+        "Right": {
+          "id": "Right",
+          "kind": "layout",
+          "props": {
+            "background": [
+              {
+                "blur": 6,
+                "kind": "blur"
+              },
+              "#f7f7f79e"
+            ],
+            "direction": "column",
+            "height": "fill",
+            "padding": {
+              "bottom": 10,
+              "left": 10,
+              "right": 10,
+              "top": 10
+            },
+            "width": "hug"
+          }
+        }
+      },
+      "name": "MoleculeLayerInlineSandwich",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "background": "semantic:atoms.color.sem.fromRgb",
+          "direction": "row",
+          "gap": "primitive:atoms.space.md",
+          "justify": "center",
+          "padding": {
+            "bottom": 12,
+            "left": 12,
+            "right": 12,
+            "top": 12
+          }
+        }
+      }
+    },
+    "MoleculeLayerTokenFlat": {
+      "name": "MoleculeLayerTokenFlat",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "semantic:atoms.bg.flat",
+          "direction": "column",
+          "foreground": [
+            "#ebebeb33"
+          ],
+          "padding": {
+            "bottom": 14,
+            "left": 14,
+            "right": 14,
+            "top": 14
+          }
+        }
+      }
+    },
+    "MoleculeLayeredPanel": {
+      "name": "MoleculeLayeredPanel",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "semantic:atoms.bg.blurCard",
+          "cornerRadius": "primitive:atoms.radius.sm",
+          "direction": "column",
+          "foreground": "semantic:atoms.fg.hoverTint",
+          "gap": "primitive:atoms.space.sm",
+          "height": "hug",
+          "padding": {
+            "bottom": 16,
+            "left": 16,
+            "right": 16,
+            "top": 16
+          },
+          "width": "fill"
+        }
+      }
+    },
+    "MoleculeMatrixButton": {
+      "childHierarchy": {
+        "Root": [
+          "L"
+        ]
+      },
+      "childNodes": {
+        "L": {
+          "id": "L",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "param:label",
+            "fontSize": 16,
+            "fontWeight": 600
+          }
+        }
+      },
+      "defaultParams": {
+        "kind": "primary",
+        "label": "Submit",
+        "size": "regular"
+      },
+      "expose": [
+        "label",
+        "kind",
+        "size"
+      ],
+      "name": "MoleculeMatrixButton",
+      "params": [
+        {
+          "default": "Submit",
+          "name": "label",
+          "type": "String"
+        },
+        {
+          "default": "primary",
+          "name": "kind",
+          "type": "variant",
+          "variantTypeName": "MoleculeMatrixKind"
+        },
+        {
+          "default": "regular",
+          "name": "size",
+          "type": "variant",
+          "variantTypeName": "MoleculeMatrixSize"
+        }
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "align": "center",
+          "background": "primitive:atoms.color.rgb",
+          "cornerRadius": "primitive:atoms.radius.mixed",
+          "direction": "row",
+          "justify": "center",
+          "padding": {
+            "bottom": 12,
+            "left": 20,
+            "right": 20,
+            "top": 12
+          },
+          "wrap": "nowrap"
+        }
+      },
+      "variants": [
+        {
+          "affectedFrames": [
+            "L",
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "L",
+              "prop": "fontSize",
+              "value": 12
+            },
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "primitive:atoms.color.rgba"
+            },
+            {
+              "frameId": "Root",
+              "prop": "padding",
+              "value": {
+                "bottom": 4,
+                "left": 8,
+                "right": 8,
+                "top": 4
+              }
+            }
+          ],
+          "params": {
+            "kind": "danger",
+            "size": "compact"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "semantic:atoms.color.sem.fromRgb"
+            },
+            {
+              "frameId": "Root",
+              "prop": "padding",
+              "value": {
+                "bottom": 10,
+                "left": 16,
+                "right": 16,
+                "top": 10
+              }
+            }
+          ],
+          "params": {
+            "kind": "danger",
+            "size": "regular"
+          }
+        },
+        {
+          "affectedFrames": [
+            "L",
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "L",
+              "prop": "fontSize",
+              "value": 12
+            },
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "semantic:atoms.color.sem.fromRgb"
+            },
+            {
+              "frameId": "Root",
+              "prop": "padding",
+              "value": {
+                "bottom": 5,
+                "left": 10,
+                "right": 10,
+                "top": 5
+              }
+            }
+          ],
+          "params": {
+            "kind": "primary",
+            "size": "compact"
+          }
+        },
+        {
+          "affectedFrames": [
+            "L",
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "L",
+              "prop": "fontSize",
+              "value": 12
+            },
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "semantic:atoms.color.sem.fromRgba"
+            },
+            {
+              "frameId": "Root",
+              "prop": "padding",
+              "value": {
+                "bottom": 4,
+                "left": 8,
+                "right": 8,
+                "top": 4
+              }
+            }
+          ],
+          "params": {
+            "kind": "secondary",
+            "size": "compact"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "primitive:atoms.color.rgba"
+            },
+            {
+              "frameId": "Root",
+              "prop": "padding",
+              "value": {
+                "bottom": 10,
+                "left": 16,
+                "right": 16,
+                "top": 10
+              }
+            }
+          ],
+          "params": {
+            "kind": "secondary",
+            "size": "regular"
+          }
+        }
+      ]
+    },
+    "MoleculeMatrixButtonGallery": {
+      "childHierarchy": {
+        "R0": [
+          "L"
+        ],
+        "R1": [
+          "L"
+        ],
+        "R2": [
+          "L"
+        ],
+        "R3": [
+          "L"
+        ],
+        "Root": [
+          "R0",
+          "R1",
+          "R2",
+          "R3"
+        ]
+      },
+      "childNodes": {
+        "L": {
+          "id": "L",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "param:label",
+            "fontSize": 16,
+            "fontWeight": 600
+          }
+        },
+        "R0": {
+          "id": "R0",
+          "instanceKwargs": {
+            "kind": "primary",
+            "label": "P compact",
+            "size": "compact"
+          },
+          "instanceOf": "MoleculeMatrixButton",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "cornerRadius": "primitive:atoms.radius.mixed",
+            "direction": "row",
+            "justify": "center",
+            "padding": {
+              "bottom": 5,
+              "left": 10,
+              "right": 10,
+              "top": 5
+            },
+            "wrap": "nowrap"
+          }
+        },
+        "R1": {
+          "id": "R1",
+          "instanceKwargs": {
+            "kind": "primary",
+            "label": "P regular",
+            "size": "regular"
+          },
+          "instanceOf": "MoleculeMatrixButton",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "primitive:atoms.color.rgb",
+            "cornerRadius": "primitive:atoms.radius.mixed",
+            "direction": "row",
+            "justify": "center",
+            "padding": {
+              "bottom": 12,
+              "left": 20,
+              "right": 20,
+              "top": 12
+            },
+            "wrap": "nowrap"
+          }
+        },
+        "R2": {
+          "id": "R2",
+          "instanceKwargs": {
+            "kind": "secondary",
+            "label": "S compact",
+            "size": "compact"
+          },
+          "instanceOf": "MoleculeMatrixButton",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgba",
+            "cornerRadius": "primitive:atoms.radius.mixed",
+            "direction": "row",
+            "justify": "center",
+            "padding": {
+              "bottom": 4,
+              "left": 8,
+              "right": 8,
+              "top": 4
+            },
+            "wrap": "nowrap"
+          }
+        },
+        "R3": {
+          "id": "R3",
+          "instanceKwargs": {
+            "kind": "danger",
+            "label": "D regular",
+            "size": "regular"
+          },
+          "instanceOf": "MoleculeMatrixButton",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "cornerRadius": "primitive:atoms.radius.mixed",
+            "direction": "row",
+            "justify": "center",
+            "padding": {
+              "bottom": 10,
+              "left": 16,
+              "right": 16,
+              "top": 10
+            },
+            "wrap": "nowrap"
+          }
+        }
+      },
+      "name": "MoleculeMatrixButtonGallery",
+      "requiredComponents": [
+        "MoleculeMatrixButton"
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "primitive:atoms.color.rgb",
+          "direction": "column",
+          "gap": "primitive:atoms.space.md",
+          "padding": {
+            "bottom": 16,
+            "left": 16,
+            "right": 16,
+            "top": 16
+          }
+        }
+      }
+    },
+    "MoleculeModalShell": {
+      "childHierarchy": {
+        "Cancel": [
+          "L"
+        ],
+        "Footer": [
+          "Cancel",
+          "Go"
+        ],
+        "Go": [
+          "L"
+        ],
+        "Panel": [
+          "Header",
+          "Copy",
+          "Footer"
+        ],
+        "Root": [
+          "Panel"
+        ]
+      },
+      "childNodes": {
+        "Cancel": {
+          "id": "Cancel",
+          "instanceKwargs": {
+            "label": "Cancel",
+            "size": "sm",
+            "tone": "ghost"
+          },
+          "instanceOf": "MoleculeTextButton",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "primitive:atoms.color.rgb",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.xs",
+            "justify": "center",
+            "opacity": 0.15,
+            "padding": {
+              "bottom": 6,
+              "left": 10,
+              "right": 10,
+              "top": 6
+            },
+            "wrap": "nowrap"
+          }
+        },
+        "Copy": {
+          "id": "Copy",
+          "kind": "text",
+          "props": {
+            "content": "param:body",
+            "typeStyle": "typeStyle:AtomBody"
+          }
+        },
+        "Footer": {
+          "id": "Footer",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "direction": "row",
+            "gap": "primitive:atoms.space.sm",
+            "justify": "end"
+          }
+        },
+        "Go": {
+          "id": "Go",
+          "instanceKwargs": {
+            "label": "Delete",
+            "size": "sm",
+            "tone": "primary"
+          },
+          "instanceOf": "MoleculeTextButton",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "primitive:atoms.color.brandPrimary",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.xs",
+            "justify": "center",
+            "padding": {
+              "bottom": 6,
+              "left": 10,
+              "right": 10,
+              "top": 6
+            },
+            "wrap": "nowrap"
+          }
+        },
+        "Header": {
+          "id": "Header",
+          "kind": "text",
+          "props": {
+            "content": "param:heading",
+            "typeStyle": "typeStyle:AtomTitle"
+          }
+        },
+        "L": {
+          "id": "L",
+          "kind": "text",
+          "props": {
+            "color": "primitive:atoms.color.textOnBrand",
+            "content": "param:label",
+            "fontSize": 14,
+            "fontWeight": 600
+          }
+        },
+        "Panel": {
+          "id": "Panel",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "cornerRadius": "primitive:atoms.radius.mixed",
+            "direction": "column",
+            "foreground": [
+              "#d3d3d30f"
+            ],
+            "gap": "primitive:atoms.space.md",
+            "padding": {
+              "bottom": 16,
+              "left": 16,
+              "right": 16,
+              "top": 16
+            },
+            "shadow": "primitive:atoms.shadow.hard",
+            "width": "hug"
+          }
+        }
+      },
+      "defaultParams": {
+        "body": "This cannot be undone.",
+        "cancelLabel": "Cancel",
+        "confirmLabel": "Delete",
+        "heading": "Confirm"
+      },
+      "expose": [
+        "heading",
+        "body",
+        "confirmLabel",
+        "cancelLabel"
+      ],
+      "name": "MoleculeModalShell",
+      "params": [
+        {
+          "default": "Confirm",
+          "name": "heading",
+          "type": "String"
+        },
+        {
+          "default": "This cannot be undone.",
+          "name": "body",
+          "type": "String"
+        },
+        {
+          "default": "Delete",
+          "name": "confirmLabel",
+          "type": "String"
+        },
+        {
+          "default": "Cancel",
+          "name": "cancelLabel",
+          "type": "String"
+        }
+      ],
+      "requiredComponents": [
+        "MoleculeTextButton"
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "align": "center",
+          "background": "semantic:atoms.color.scrimLiteral",
+          "direction": "column",
+          "height": "fill",
+          "justify": "center",
+          "padding": {
+            "bottom": 48,
+            "left": 24,
+            "right": 24,
+            "top": 48
+          },
+          "width": "fill"
+        }
+      }
+    },
+    "MoleculeNavListDemo": {
+      "childHierarchy": {
+        "R0": [
+          "Title",
+          "Trail"
+        ],
+        "R1": [
+          "Title",
+          "Trail"
+        ],
+        "R2": [
+          "Title",
+          "Trail"
+        ],
+        "Root": [
+          "R0",
+          "R1",
+          "R2"
+        ],
+        "Trail": [
+          "Meta",
+          "Chev"
+        ]
+      },
+      "childNodes": {
+        "Chev": {
+          "id": "Chev",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.chevron",
+            "size": 16
+          }
+        },
+        "Meta": {
+          "id": "Meta",
+          "kind": "text",
+          "props": {
+            "content": "param:meta",
+            "typeStyle": "typeStyle:AtomCaption"
+          }
+        },
+        "R0": {
+          "id": "R0",
+          "instanceKwargs": {
+            "density": "roomy",
+            "meta": "Pro",
+            "title": "Account"
+          },
+          "instanceOf": "MoleculeNavRow",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.sm",
+            "height": "hug",
+            "justify": "spaceBetween",
+            "padding": {
+              "bottom": 12,
+              "left": 14,
+              "right": 14,
+              "top": 12
+            },
+            "width": "fill"
+          }
+        },
+        "R1": {
+          "id": "R1",
+          "instanceKwargs": {
+            "density": "compact",
+            "title": "Privacy"
+          },
+          "instanceOf": "MoleculeNavRow",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.xs",
+            "height": "hug",
+            "justify": "spaceBetween",
+            "padding": {
+              "bottom": 6,
+              "left": 10,
+              "right": 10,
+              "top": 6
+            },
+            "width": "fill"
+          }
+        },
+        "R2": {
+          "id": "R2",
+          "instanceKwargs": {
+            "density": "compact",
+            "meta": "v1",
+            "title": "About"
+          },
+          "instanceOf": "MoleculeNavRow",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "gap": "primitive:atoms.space.xs",
+            "height": "hug",
+            "justify": "spaceBetween",
+            "padding": {
+              "bottom": 6,
+              "left": 10,
+              "right": 10,
+              "top": 6
+            },
+            "width": "fill"
+          }
+        },
+        "Title": {
+          "id": "Title",
+          "kind": "text",
+          "props": {
+            "content": "param:title",
+            "typeStyle": "typeStyle:AtomBody"
+          }
+        },
+        "Trail": {
+          "id": "Trail",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "direction": "row",
+            "gap": "primitive:atoms.space.xs"
+          }
+        }
+      },
+      "name": "MoleculeNavListDemo",
+      "requiredComponents": [
+        "MoleculeNavRow"
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "semantic:atoms.color.sem.fromRgba",
+          "direction": "column",
+          "gap": "primitive:atoms.space.xs",
+          "padding": {
+            "bottom": 12,
+            "left": 12,
+            "right": 12,
+            "top": 12
+          }
+        }
+      }
+    },
+    "MoleculeNavRow": {
+      "childHierarchy": {
+        "Root": [
+          "Title",
+          "Trail"
+        ],
+        "Trail": [
+          "Meta",
+          "Chev"
+        ]
+      },
+      "childNodes": {
+        "Chev": {
+          "id": "Chev",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.chevron",
+            "size": 16
+          }
+        },
+        "Meta": {
+          "id": "Meta",
+          "kind": "text",
+          "props": {
+            "content": "param:meta",
+            "typeStyle": "typeStyle:AtomCaption"
+          }
+        },
+        "Title": {
+          "id": "Title",
+          "kind": "text",
+          "props": {
+            "content": "param:title",
+            "typeStyle": "typeStyle:AtomBody"
+          }
+        },
+        "Trail": {
+          "id": "Trail",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "direction": "row",
+            "gap": "primitive:atoms.space.xs"
+          }
+        }
+      },
+      "defaultParams": {
+        "density": "roomy",
+        "title": "Settings"
+      },
+      "expose": [
+        "title",
+        "meta",
+        "density"
+      ],
+      "name": "MoleculeNavRow",
+      "params": [
+        {
+          "default": "Settings",
+          "name": "title",
+          "type": "String"
+        },
+        {
+          "name": "meta",
+          "type": "String"
+        },
+        {
+          "default": "roomy",
+          "name": "density",
+          "type": "variant",
+          "variantTypeName": "MoleculeListDensity"
+        }
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "align": "center",
+          "background": "semantic:atoms.color.sem.fromRgb",
+          "cornerRadius": "primitive:atoms.radius.sm",
+          "direction": "row",
+          "gap": "primitive:atoms.space.sm",
+          "height": "hug",
+          "justify": "spaceBetween",
+          "padding": {
+            "bottom": 12,
+            "left": 14,
+            "right": 14,
+            "top": 12
+          },
+          "width": "fill"
+        }
+      },
+      "variants": [
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "gap",
+              "value": "primitive:atoms.space.xs"
+            },
+            {
+              "frameId": "Root",
+              "prop": "padding",
+              "value": {
+                "bottom": 6,
+                "left": 10,
+                "right": 10,
+                "top": 6
+              }
+            }
+          ],
+          "params": {
+            "density": "compact"
+          }
+        }
+      ]
+    },
+    "MoleculeTextButton": {
+      "childHierarchy": {
+        "Root": [
+          "L"
+        ]
+      },
+      "childNodes": {
+        "L": {
+          "id": "L",
+          "kind": "text",
+          "props": {
+            "color": "primitive:atoms.color.textOnBrand",
+            "content": "param:label",
+            "fontSize": 14,
+            "fontWeight": 600
+          }
+        }
+      },
+      "defaultParams": {
+        "label": "Button",
+        "size": "sm",
+        "tone": "primary"
+      },
+      "expose": [
+        "label",
+        "tone",
+        "size"
+      ],
+      "fixtures": {
+        "Low-emphasis dismiss": {
+          "label": "Dismiss",
+          "size": "sm",
+          "tone": "ghost"
+        },
+        "Primary call to action": {
+          "label": "Continue",
+          "size": "lg",
+          "tone": "primary"
+        }
+      },
+      "interactions": [
+        {
+          "component": "MoleculeTextButton",
+          "handlers": [
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "tone",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".secondary"
+                  }
+                }
+              ],
+              "event": "hoverStart"
+            },
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "tone",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".primary"
+                  }
+                }
+              ],
+              "event": "hoverEnd"
+            }
+          ],
+          "name": "MoleculeTextButtonHoverPreview"
+        }
+      ],
+      "name": "MoleculeTextButton",
+      "params": [
+        {
+          "default": "Button",
+          "name": "label",
+          "type": "String"
+        },
+        {
+          "default": "primary",
+          "name": "tone",
+          "type": "variant",
+          "variantTypeName": "MoleculeBtnTone"
+        },
+        {
+          "default": "sm",
+          "name": "size",
+          "type": "variant",
+          "variantTypeName": "MoleculeBtnSize"
+        }
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "align": "center",
+          "background": "primitive:atoms.color.brandPrimary",
+          "cornerRadius": "primitive:atoms.radius.sm",
+          "direction": "row",
+          "gap": "primitive:atoms.space.xs",
+          "justify": "center",
+          "padding": {
+            "bottom": 6,
+            "left": 10,
+            "right": 10,
+            "top": 6
+          },
+          "wrap": "nowrap"
+        }
+      },
+      "rules": {
+        "rules": [
+          {
+            "description": null,
+            "query": {
+              "kind": "chain",
+              "nav": {
+                "axis": "self",
+                "kind": "nav"
+              },
+              "terminal": {
+                "kind": "exists"
+              }
+            },
+            "strength": "should",
+            "tier": "static"
+          }
+        ],
+        "tags": [
+          "molecule",
+          "button",
+          "cta"
+        ]
+      },
+      "usage": "Text-only pill control for primary actions, secondary actions, and low-emphasis links in molecule layouts.",
+      "usageByKey": {
+        "description": "Text-only pill control for primary actions, secondary actions, and low-emphasis links in molecule layouts."
+      },
+      "variants": [
+        {
+          "affectedFrames": [
+            "L",
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "L",
+              "prop": "color",
+              "value": "primitive:atoms.color.textPrimary"
+            },
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "primitive:atoms.color.rgb"
+            },
+            {
+              "frameId": "Root",
+              "prop": "opacity",
+              "value": 0.15
+            },
+            {
+              "frameId": "Root",
+              "prop": "padding",
+              "value": {
+                "bottom": 12,
+                "left": 18,
+                "right": 18,
+                "top": 12
+              }
+            }
+          ],
+          "params": {
+            "size": "lg",
+            "tone": "ghost"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "padding",
+              "value": {
+                "bottom": 12,
+                "left": 18,
+                "right": 18,
+                "top": 12
+              }
+            }
+          ],
+          "params": {
+            "size": "lg",
+            "tone": "primary"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "primitive:atoms.color.brandSecondary"
+            },
+            {
+              "frameId": "Root",
+              "prop": "padding",
+              "value": {
+                "bottom": 12,
+                "left": 18,
+                "right": 18,
+                "top": 12
+              }
+            }
+          ],
+          "params": {
+            "size": "lg",
+            "tone": "secondary"
+          }
+        },
+        {
+          "affectedFrames": [
+            "L",
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "L",
+              "prop": "color",
+              "value": "primitive:atoms.color.textPrimary"
+            },
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "primitive:atoms.color.rgb"
+            },
+            {
+              "frameId": "Root",
+              "prop": "opacity",
+              "value": 0.15
+            }
+          ],
+          "params": {
+            "size": "sm",
+            "tone": "ghost"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "primitive:atoms.color.brandSecondary"
+            }
+          ],
+          "params": {
+            "size": "sm",
+            "tone": "secondary"
+          }
+        }
+      ]
+    },
+    "MoleculeThreeColumnLabels": {
+      "childHierarchy": {
+        "Col1": [
+          "T1"
+        ],
+        "Col2": [
+          "T2"
+        ],
+        "Col3": [
+          "T3"
+        ],
+        "Root": [
+          "Col1",
+          "Col2",
+          "Col3"
+        ]
+      },
+      "childNodes": {
+        "Col1": {
+          "id": "Col1",
+          "kind": "layout",
+          "props": {
+            "align": "start",
+            "direction": "column",
+            "gap": 4
+          }
+        },
+        "Col2": {
+          "id": "Col2",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "direction": "column",
+            "gap": 4
+          }
+        },
+        "Col3": {
+          "id": "Col3",
+          "kind": "layout",
+          "props": {
+            "align": "end",
+            "direction": "column",
+            "gap": 4
+          }
+        },
+        "T1": {
+          "id": "T1",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgb",
+            "content": "Column 1",
+            "fontSize": 13
+          }
+        },
+        "T2": {
+          "id": "T2",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "Column 2",
+            "fontSize": 13
+          }
+        },
+        "T3": {
+          "id": "T3",
+          "kind": "text",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "content": "Column 3",
+            "fontSize": 13
+          }
+        }
+      },
+      "name": "MoleculeThreeColumnLabels",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "background": "primitive:atoms.color.rgb",
+          "direction": "row",
+          "gap": "primitive:atoms.space.md",
+          "justify": "stretch",
+          "padding": {
+            "bottom": 12,
+            "left": 12,
+            "right": 12,
+            "top": 12
+          },
+          "wrap": "nowrap"
+        }
+      }
+    }
+  },
+  "generatedAt": "2026-08-06T00:33:37.455Z",
+  "kind": "componentCatalogue",
+  "primitives": {
+    "atoms.blur.heavy": {
+      "definition": {
+        "kind": "number",
+        "value": 24
+      },
+      "name": "atoms.blur.heavy",
+      "tokenType": "Blur"
+    },
+    "atoms.blur.light": {
+      "definition": {
+        "kind": "number",
+        "value": 6
+      },
+      "name": "atoms.blur.light",
+      "tokenType": "Blur"
+    },
+    "atoms.color.brandPrimary": {
+      "definition": {
+        "kind": "hex",
+        "value": "#FF5A5F"
+      },
+      "name": "atoms.color.brandPrimary",
+      "tokenType": "Color"
+    },
+    "atoms.color.brandSecondary": {
+      "definition": {
+        "kind": "hex",
+        "value": "#00A699"
+      },
+      "name": "atoms.color.brandSecondary",
+      "tokenType": "Color"
+    },
+    "atoms.color.canvas": {
+      "definition": {
+        "kind": "hex",
+        "value": "#F7F7F7"
+      },
+      "name": "atoms.color.canvas",
+      "tokenType": "Color"
+    },
+    "atoms.color.elevated": {
+      "definition": {
+        "kind": "hex",
+        "value": "#EBEBEB"
+      },
+      "name": "atoms.color.elevated",
+      "tokenType": "Color"
+    },
+    "atoms.color.rgb": {
+      "definition": {
+        "kind": "hex",
+        "value": "#D3D3D3"
+      },
+      "name": "atoms.color.rgb",
+      "tokenType": "Color"
+    },
+    "atoms.color.rgba": {
+      "definition": {
+        "kind": "hex",
+        "value": "#222222"
+      },
+      "name": "atoms.color.rgba",
+      "tokenType": "Color"
+    },
+    "atoms.color.textMuted": {
+      "definition": {
+        "kind": "hex",
+        "value": "#717171"
+      },
+      "name": "atoms.color.textMuted",
+      "tokenType": "Color"
+    },
+    "atoms.color.textOnBrand": {
+      "definition": {
+        "kind": "hex",
+        "value": "#FFFFFF"
+      },
+      "name": "atoms.color.textOnBrand",
+      "tokenType": "Color"
+    },
+    "atoms.color.textPrimary": {
+      "definition": {
+        "kind": "hex",
+        "value": "#222222"
+      },
+      "name": "atoms.color.textPrimary",
+      "tokenType": "Color"
+    },
+    "atoms.font.mono": {
+      "definition": {
+        "kind": "string",
+        "value": "ui-monospace, monospace"
+      },
+      "name": "atoms.font.mono",
+      "tokenType": "FontFamily"
+    },
+    "atoms.font.ui": {
+      "definition": {
+        "kind": "string",
+        "value": "system-ui, sans-serif"
+      },
+      "name": "atoms.font.ui",
+      "tokenType": "FontFamily"
+    },
+    "atoms.icon.chevron": {
+      "definition": {
+        "kind": "string",
+        "value": "chevron-right"
+      },
+      "name": "atoms.icon.chevron",
+      "tokenType": "Icon"
+    },
+    "atoms.icon.star": {
+      "definition": {
+        "kind": "string",
+        "value": "star"
+      },
+      "name": "atoms.icon.star",
+      "tokenType": "Icon"
+    },
+    "atoms.media.hero": {
+      "definition": {
+        "kind": "string",
+        "value": "https://example.com/hero.png"
+      },
+      "name": "atoms.media.hero",
+      "tokenType": "MediaSource"
+    },
+    "atoms.opacity.full": {
+      "definition": {
+        "kind": "number",
+        "value": 1
+      },
+      "name": "atoms.opacity.full",
+      "tokenType": "Opacity"
+    },
+    "atoms.opacity.mid": {
+      "definition": {
+        "kind": "number",
+        "value": 0.62
+      },
+      "name": "atoms.opacity.mid",
+      "tokenType": "Opacity"
+    },
+    "atoms.radius.mixed": {
+      "definition": {
+        "bl": {
+          "kind": "number",
+          "value": 2
+        },
+        "br": {
+          "kind": "number",
+          "value": 2
+        },
+        "kind": "corner",
+        "tl": {
+          "kind": "number",
+          "value": 8
+        },
+        "tr": {
+          "kind": "number",
+          "value": 8
+        }
+      },
+      "name": "atoms.radius.mixed",
+      "tokenType": "Radius"
+    },
+    "atoms.radius.sm": {
+      "definition": {
+        "kind": "number",
+        "value": 4
+      },
+      "name": "atoms.radius.sm",
+      "tokenType": "Radius"
+    },
+    "atoms.ramp.fade": {
+      "definition": {
+        "direction": ".bottomToTop",
+        "kind": "rampInline",
+        "stops": [
+          {
+            "fields": {
+              "color": {
+                "kind": "hex",
+                "value": "#FFFFFF"
+              },
+              "opacity": {
+                "kind": "number",
+                "value": 1
+              },
+              "position": {
+                "kind": "number",
+                "value": 0
+              }
+            },
+            "kind": "gradientStop"
+          },
+          {
+            "fields": {
+              "color": {
+                "kind": "hex",
+                "value": "#000000"
+              },
+              "opacity": {
+                "kind": "number",
+                "value": 0
+              },
+              "position": {
+                "kind": "number",
+                "value": 1
+              }
+            },
+            "kind": "gradientStop"
+          }
+        ]
+      },
+      "name": "atoms.ramp.fade",
+      "tokenType": "Ramp"
+    },
+    "atoms.ratio.square": {
+      "definition": {
+        "kind": "number",
+        "value": 1
+      },
+      "name": "atoms.ratio.square",
+      "tokenType": "Ratio"
+    },
+    "atoms.ratio.video": {
+      "definition": {
+        "kind": "number",
+        "value": 1.777
+      },
+      "name": "atoms.ratio.video",
+      "tokenType": "Ratio"
+    },
+    "atoms.shadow.hard": {
+      "definition": {
+        "kind": "string",
+        "value": "0 1px 3px 0 rgba(0,0,0,0.35)"
+      },
+      "name": "atoms.shadow.hard",
+      "tokenType": "Shadow"
+    },
+    "atoms.shadow.soft": {
+      "definition": {
+        "kind": "string",
+        "value": "0 2px 8px rgba(0,0,0,0.12)"
+      },
+      "name": "atoms.shadow.soft",
+      "tokenType": "Shadow"
+    },
+    "atoms.space.md": {
+      "definition": {
+        "kind": "number",
+        "value": 16
+      },
+      "name": "atoms.space.md",
+      "tokenType": "Distance"
+    },
+    "atoms.space.sm": {
+      "definition": {
+        "kind": "number",
+        "value": 8
+      },
+      "name": "atoms.space.sm",
+      "tokenType": "Distance"
+    },
+    "atoms.space.xs": {
+      "definition": {
+        "kind": "number",
+        "value": 4
+      },
+      "name": "atoms.space.xs",
+      "tokenType": "Distance"
+    },
+    "atoms.type.size.body": {
+      "definition": {
+        "kind": "number",
+        "value": 16
+      },
+      "name": "atoms.type.size.body",
+      "tokenType": "Size"
+    },
+    "atoms.type.size.caption": {
+      "definition": {
+        "kind": "number",
+        "value": 12
+      },
+      "name": "atoms.type.size.caption",
+      "tokenType": "Size"
+    },
+    "atoms.type.size.title": {
+      "definition": {
+        "kind": "number",
+        "value": 22
+      },
+      "name": "atoms.type.size.title",
+      "tokenType": "Size"
+    },
+    "atoms.type.weight.bold": {
+      "definition": {
+        "kind": "number",
+        "value": 700
+      },
+      "name": "atoms.type.weight.bold",
+      "tokenType": "Weight"
+    },
+    "atoms.type.weight.medium": {
+      "definition": {
+        "kind": "number",
+        "value": 600
+      },
+      "name": "atoms.type.weight.medium",
+      "tokenType": "Weight"
+    },
+    "atoms.type.weight.regular": {
+      "definition": {
+        "kind": "number",
+        "value": 400
+      },
+      "name": "atoms.type.weight.regular",
+      "tokenType": "Weight"
+    },
+    "atoms.vibrancy.strong": {
+      "definition": {
+        "brightness": 0.95,
+        "kind": "vibrancyTuple",
+        "saturation": 1.2
+      },
+      "name": "atoms.vibrancy.strong",
+      "tokenType": "Vibrancy"
+    },
+    "atoms.vibrancy.subtle": {
+      "definition": {
+        "brightness": 1.02,
+        "kind": "vibrancyTuple",
+        "saturation": 1.05
+      },
+      "name": "atoms.vibrancy.subtle",
+      "tokenType": "Vibrancy"
+    }
+  },
+  "schemaVersion": "1.0.0-beta",
+  "semantics": {
+    "atoms.bg.blurCard": {
+      "definition": {
+        "items": [
+          {
+            "args": {
+              "blur": "primitive:atoms.blur.light"
+            },
+            "callee": "Blur",
+            "kind": "call"
+          },
+          {
+            "base": "semantic:atoms.color.sem.fromRgb",
+            "kind": "opacityOf",
+            "opacity": "primitive:atoms.opacity.mid"
+          }
+        ],
+        "kind": "array"
+      },
+      "name": "atoms.bg.blurCard",
+      "tokenType": "Background"
+    },
+    "atoms.bg.flat": {
+      "definition": {
+        "items": [
+          {
+            "kind": "hex",
+            "value": "#E5E7EB"
+          }
+        ],
+        "kind": "array"
+      },
+      "name": "atoms.bg.flat",
+      "tokenType": "Background"
+    },
+    "atoms.color.scrimLiteral": {
+      "definition": {
+        "base": "primitive:atoms.color.rgb",
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.25
+        }
+      },
+      "name": "atoms.color.scrimLiteral",
+      "tokenType": "Color"
+    },
+    "atoms.color.scrimRgba": {
+      "definition": {
+        "base": "primitive:atoms.color.rgba",
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.5
+        }
+      },
+      "name": "atoms.color.scrimRgba",
+      "tokenType": "Color"
+    },
+    "atoms.color.sem.fromRgb": {
+      "definition": "primitive:atoms.color.canvas",
+      "name": "atoms.color.sem.fromRgb",
+      "tokenType": "Color"
+    },
+    "atoms.color.sem.fromRgba": {
+      "definition": "primitive:atoms.color.elevated",
+      "name": "atoms.color.sem.fromRgba",
+      "tokenType": "Color"
+    },
+    "atoms.fg.hoverTint": {
+      "definition": {
+        "items": [
+          {
+            "base": "primitive:atoms.color.rgb",
+            "kind": "opacityOf",
+            "opacity": "primitive:atoms.opacity.mid"
+          }
+        ],
+        "kind": "array"
+      },
+      "name": "atoms.fg.hoverTint",
+      "tokenType": "Foreground"
+    },
+    "atoms.opacity.sem.full": {
+      "definition": "primitive:atoms.opacity.full",
+      "name": "atoms.opacity.sem.full",
+      "tokenType": "Opacity"
+    },
+    "atoms.opacity.sem.mid": {
+      "definition": "primitive:atoms.opacity.mid",
+      "name": "atoms.opacity.sem.mid",
+      "tokenType": "Opacity"
+    },
+    "atoms.radius.card": {
+      "definition": "primitive:atoms.radius.mixed",
+      "name": "atoms.radius.card",
+      "tokenType": "Radius"
+    },
+    "atoms.space.card.pad": {
+      "definition": "primitive:atoms.space.md",
+      "name": "atoms.space.card.pad",
+      "tokenType": "Distance"
+    }
+  },
+  "themes": {
+    "AtomsCool": {
+      "baseTheme": null,
+      "overrides": {
+        "atoms.color.sem.fromRgb": "primitive:atoms.color.rgb"
+      }
+    },
+    "AtomsDim": {
+      "baseTheme": null,
+      "overrides": {
+        "atoms.color.scrimLiteral": "semantic:atoms.color.sem.fromRgba"
+      }
+    },
+    "AtomsLooseRadius": {
+      "baseTheme": null,
+      "overrides": {
+        "atoms.radius.sm": {
+          "kind": "number",
+          "value": 12
+        }
+      }
+    },
+    "AtomsWarm": {
+      "baseTheme": null,
+      "overrides": {
+        "atoms.color.sem.fromRgb": "primitive:atoms.color.brandPrimary"
+      }
+    }
+  },
+  "typeStyles": {
+    "AtomBody": {
+      "name": "AtomBody",
+      "props": {
+        "color": "primitive:atoms.color.textPrimary",
+        "fontFamily": "primitive:atoms.font.ui",
+        "fontSize": "primitive:atoms.type.size.body",
+        "fontWeight": "primitive:atoms.type.weight.regular"
+      }
+    },
+    "AtomCaption": {
+      "name": "AtomCaption",
+      "props": {
+        "color": "primitive:atoms.color.textMuted",
+        "fontFamily": "primitive:atoms.font.ui",
+        "fontSize": "primitive:atoms.type.size.caption",
+        "fontWeight": "primitive:atoms.type.weight.medium"
+      }
+    },
+    "AtomMono": {
+      "name": "AtomMono",
+      "props": {
+        "color": "primitive:atoms.color.textPrimary",
+        "fontFamily": "primitive:atoms.font.mono",
+        "fontSize": "primitive:atoms.type.size.caption",
+        "fontWeight": "primitive:atoms.type.weight.regular"
+      }
+    },
+    "AtomTitle": {
+      "name": "AtomTitle",
+      "props": {
+        "color": "primitive:atoms.color.textPrimary",
+        "fontFamily": "primitive:atoms.font.ui",
+        "fontSize": "primitive:atoms.type.size.title",
+        "fontWeight": "primitive:atoms.type.weight.bold"
+      }
+    }
+  },
+  "variantTypes": {
+    "MoleculeBtnSize": {
+      "cases": [
+        "sm",
+        "lg"
+      ],
+      "name": "MoleculeBtnSize"
+    },
+    "MoleculeBtnTone": {
+      "cases": [
+        "primary",
+        "secondary",
+        "ghost"
+      ],
+      "name": "MoleculeBtnTone"
+    },
+    "MoleculeCardMedia": {
+      "cases": [
+        "withHero",
+        "textOnly"
+      ],
+      "name": "MoleculeCardMedia"
+    },
+    "MoleculeFieldBlockLayout": {
+      "cases": [
+        "includeHelp",
+        "noHelp"
+      ],
+      "name": "MoleculeFieldBlockLayout"
+    },
+    "MoleculeIconMode": {
+      "cases": [
+        "textOnly",
+        "leadingIcon",
+        "trailingChevron",
+        "both"
+      ],
+      "name": "MoleculeIconMode"
+    },
+    "MoleculeListDensity": {
+      "cases": [
+        "compact",
+        "roomy"
+      ],
+      "name": "MoleculeListDensity"
+    },
+    "MoleculeMatrixKind": {
+      "cases": [
+        "primary",
+        "secondary",
+        "danger"
+      ],
+      "name": "MoleculeMatrixKind"
+    },
+    "MoleculeMatrixSize": {
+      "cases": [
+        "compact",
+        "regular"
+      ],
+      "name": "MoleculeMatrixSize"
+    }
+  }
+}

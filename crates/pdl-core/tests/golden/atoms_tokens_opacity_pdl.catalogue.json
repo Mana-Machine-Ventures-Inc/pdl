@@ -1,0 +1,35 @@
+{
+  "generatedAt": "2026-08-06T00:33:36.667Z",
+  "kind": "componentCatalogue",
+  "primitives": {
+    "atoms.opacity.full": {
+      "definition": {
+        "kind": "number",
+        "value": 1
+      },
+      "name": "atoms.opacity.full",
+      "tokenType": "Opacity"
+    },
+    "atoms.opacity.mid": {
+      "definition": {
+        "kind": "number",
+        "value": 0.62
+      },
+      "name": "atoms.opacity.mid",
+      "tokenType": "Opacity"
+    }
+  },
+  "schemaVersion": "1.0.0-beta",
+  "semantics": {
+    "atoms.opacity.sem.full": {
+      "definition": "primitive:atoms.opacity.full",
+      "name": "atoms.opacity.sem.full",
+      "tokenType": "Opacity"
+    },
+    "atoms.opacity.sem.mid": {
+      "definition": "primitive:atoms.opacity.mid",
+      "name": "atoms.opacity.sem.mid",
+      "tokenType": "Opacity"
+    }
+  }
+}

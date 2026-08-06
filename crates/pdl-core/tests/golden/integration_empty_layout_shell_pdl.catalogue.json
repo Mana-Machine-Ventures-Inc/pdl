@@ -1,0 +1,155 @@
+{
+  "components": {
+    "DeepSlot": {
+      "name": "DeepSlot",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "semantic:local.atoms.color.sem.fromRgb",
+          "direction": "column",
+          "height": "fill",
+          "width": "fill"
+        }
+      }
+    },
+    "EmptyLayoutShell": {
+      "childHierarchy": {
+        "Root": [
+          "SlotOne"
+        ],
+        "SlotOne": [
+          "SlotTwo"
+        ],
+        "SlotTwo": [
+          "SlotThree"
+        ]
+      },
+      "childNodes": {
+        "DSlot": {
+          "id": "DSlot",
+          "instanceOf": "DeepSlot",
+          "kind": "layout",
+          "props": {
+            "background": "semantic:local.atoms.color.sem.fromRgb",
+            "direction": "column",
+            "height": "fill",
+            "width": "fill"
+          }
+        },
+        "SlotOne": {
+          "id": "SlotOne",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "background": "semantic:local.atoms.color.sem.fromRgb",
+            "direction": "column",
+            "height": "fill",
+            "width": "fill"
+          }
+        },
+        "SlotThree": {
+          "id": "SlotThree",
+          "kind": "layout",
+          "props": {
+            "direction": "column",
+            "height": "fill",
+            "width": "fill"
+          }
+        },
+        "SlotTwo": {
+          "id": "SlotTwo",
+          "kind": "layout",
+          "props": {
+            "align": "stretch",
+            "direction": "row",
+            "height": "fill",
+            "width": "fill"
+          }
+        }
+      },
+      "defaultParams": {
+        "embed": "flat"
+      },
+      "expose": [
+        "embed"
+      ],
+      "name": "EmptyLayoutShell",
+      "params": [
+        {
+          "default": "flat",
+          "name": "embed",
+          "type": "variant",
+          "variantTypeName": "EmptyLayoutEmbed"
+        }
+      ],
+      "requiredComponents": [
+        "DeepSlot"
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "direction": "column"
+        }
+      },
+      "variants": [
+        {
+          "affectedFrames": [
+            "DSlot",
+            "Root",
+            "SlotOne",
+            "SlotThree",
+            "SlotTwo"
+          ],
+          "childHierarchy": {
+            "Root": [
+              "SlotThree"
+            ],
+            "SlotOne": [
+              "DSlot"
+            ],
+            "SlotThree": [
+              "SlotTwo"
+            ],
+            "SlotTwo": [
+              "SlotOne"
+            ]
+          },
+          "params": {
+            "embed": "nested"
+          },
+          "structuralChange": true
+        }
+      ]
+    }
+  },
+  "generatedAt": "2026-08-06T00:33:37.124Z",
+  "kind": "componentCatalogue",
+  "primitives": {
+    "local.atoms.color.rgb": {
+      "definition": {
+        "kind": "hex",
+        "value": "#D4A574"
+      },
+      "name": "local.atoms.color.rgb",
+      "tokenType": "Color"
+    }
+  },
+  "schemaVersion": "1.0.0-beta",
+  "semantics": {
+    "local.atoms.color.sem.fromRgb": {
+      "definition": "primitive:local.atoms.color.rgb",
+      "name": "local.atoms.color.sem.fromRgb",
+      "tokenType": "Color"
+    }
+  },
+  "variantTypes": {
+    "EmptyLayoutEmbed": {
+      "cases": [
+        "flat",
+        "nested"
+      ],
+      "name": "EmptyLayoutEmbed"
+    }
+  }
+}

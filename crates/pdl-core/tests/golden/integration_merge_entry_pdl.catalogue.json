@@ -1,0 +1,15 @@
+{
+  "generatedAt": "2026-08-06T00:33:37.262Z",
+  "kind": "componentCatalogue",
+  "primitives": {
+    "color.merge.token": {
+      "definition": {
+        "kind": "hex",
+        "value": "#333333"
+      },
+      "name": "color.merge.token",
+      "tokenType": "Color"
+    }
+  },
+  "schemaVersion": "1.0.0-beta"
+}

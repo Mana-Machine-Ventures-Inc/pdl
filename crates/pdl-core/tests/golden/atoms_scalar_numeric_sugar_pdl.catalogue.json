@@ -1,0 +1,57 @@
+{
+  "components": {
+    "ScalarNumericSugar": {
+      "childHierarchy": {
+        "Root": [
+          "T"
+        ]
+      },
+      "childNodes": {
+        "T": {
+          "id": "T",
+          "kind": "text",
+          "props": {
+            "content": "Hi",
+            "padding": {
+              "bottom": 4,
+              "left": 4,
+              "right": 4,
+              "top": 4
+            },
+            "width": {
+              "fixed": 80
+            }
+          }
+        }
+      },
+      "name": "ScalarNumericSugar",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "direction": "column",
+          "height": {
+            "fixed": 100
+          },
+          "margin": {
+            "bottom": 8,
+            "left": 8,
+            "right": 8,
+            "top": 8
+          },
+          "padding": {
+            "bottom": 12,
+            "left": 12,
+            "right": 12,
+            "top": 12
+          },
+          "width": {
+            "fixed": 200
+          }
+        }
+      }
+    }
+  },
+  "generatedAt": "2026-08-06T00:33:36.300Z",
+  "kind": "componentCatalogue",
+  "schemaVersion": "1.0.0-beta"
+}

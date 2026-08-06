@@ -1,0 +1,74 @@
+{
+  "generatedAt": "2026-08-06T00:33:36.545Z",
+  "kind": "componentCatalogue",
+  "primitives": {
+    "atoms.radius.mixed": {
+      "definition": {
+        "bl": {
+          "kind": "number",
+          "value": 2
+        },
+        "br": {
+          "kind": "number",
+          "value": 2
+        },
+        "kind": "corner",
+        "tl": {
+          "kind": "number",
+          "value": 8
+        },
+        "tr": {
+          "kind": "number",
+          "value": 8
+        }
+      },
+      "name": "atoms.radius.mixed",
+      "tokenType": "Radius"
+    },
+    "atoms.radius.sm": {
+      "definition": {
+        "kind": "number",
+        "value": 4
+      },
+      "name": "atoms.radius.sm",
+      "tokenType": "Radius"
+    },
+    "atoms.space.md": {
+      "definition": {
+        "kind": "number",
+        "value": 16
+      },
+      "name": "atoms.space.md",
+      "tokenType": "Distance"
+    },
+    "atoms.space.sm": {
+      "definition": {
+        "kind": "number",
+        "value": 8
+      },
+      "name": "atoms.space.sm",
+      "tokenType": "Distance"
+    },
+    "atoms.space.xs": {
+      "definition": {
+        "kind": "number",
+        "value": 4
+      },
+      "name": "atoms.space.xs",
+      "tokenType": "Distance"
+    }
+  },
+  "schemaVersion": "1.0.0-beta",
+  "semantics": {
+    "atoms.radius.card": {
+      "definition": "primitive:atoms.radius.mixed",
+      "name": "atoms.radius.card",
+      "tokenType": "Radius"
+    },
+    "atoms.space.card.pad": {
+      "definition": "primitive:atoms.space.md",
+      "name": "atoms.space.card.pad",
+      "tokenType": "Distance"
+    }
+  }
+}

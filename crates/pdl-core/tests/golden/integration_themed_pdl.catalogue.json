@@ -1,0 +1,37 @@
+{
+  "components": {
+    "Box": {
+      "name": "Box",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "primitive:color.bg"
+        }
+      }
+    }
+  },
+  "generatedAt": "2026-08-06T00:33:37.376Z",
+  "kind": "componentCatalogue",
+  "primitives": {
+    "color.bg": {
+      "definition": {
+        "kind": "hex",
+        "value": "#FFFFFF"
+      },
+      "name": "color.bg",
+      "tokenType": "Color"
+    }
+  },
+  "schemaVersion": "1.0.0-beta",
+  "themes": {
+    "Dark": {
+      "baseTheme": null,
+      "overrides": {
+        "color.bg": {
+          "kind": "hex",
+          "value": "#000000"
+        }
+      }
+    }
+  }
+}

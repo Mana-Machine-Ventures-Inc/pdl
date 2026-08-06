@@ -1,0 +1,47 @@
+{
+  "generatedAt": "2026-08-06T00:33:36.586Z",
+  "kind": "componentCatalogue",
+  "primitives": {
+    "atoms.icon.chevron": {
+      "definition": {
+        "kind": "string",
+        "value": "chevron-right"
+      },
+      "name": "atoms.icon.chevron",
+      "tokenType": "Icon"
+    },
+    "atoms.icon.star": {
+      "definition": {
+        "kind": "string",
+        "value": "star"
+      },
+      "name": "atoms.icon.star",
+      "tokenType": "Icon"
+    },
+    "atoms.media.hero": {
+      "definition": {
+        "kind": "string",
+        "value": "https://example.com/hero.png"
+      },
+      "name": "atoms.media.hero",
+      "tokenType": "MediaSource"
+    },
+    "atoms.ratio.square": {
+      "definition": {
+        "kind": "number",
+        "value": 1
+      },
+      "name": "atoms.ratio.square",
+      "tokenType": "Ratio"
+    },
+    "atoms.ratio.video": {
+      "definition": {
+        "kind": "number",
+        "value": 1.777
+      },
+      "name": "atoms.ratio.video",
+      "tokenType": "Ratio"
+    }
+  },
+  "schemaVersion": "1.0.0-beta"
+}

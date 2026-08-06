@@ -1,0 +1,902 @@
+{
+  "components": {
+    "MoleculeMatrixButton": {
+      "childHierarchy": {
+        "Root": [
+          "L"
+        ]
+      },
+      "childNodes": {
+        "L": {
+          "id": "L",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "param:label",
+            "fontSize": 16,
+            "fontWeight": 600
+          }
+        }
+      },
+      "defaultParams": {
+        "kind": "primary",
+        "label": "Submit",
+        "size": "regular"
+      },
+      "expose": [
+        "label",
+        "kind",
+        "size"
+      ],
+      "name": "MoleculeMatrixButton",
+      "params": [
+        {
+          "default": "Submit",
+          "name": "label",
+          "type": "String"
+        },
+        {
+          "default": "primary",
+          "name": "kind",
+          "type": "variant",
+          "variantTypeName": "MoleculeMatrixKind"
+        },
+        {
+          "default": "regular",
+          "name": "size",
+          "type": "variant",
+          "variantTypeName": "MoleculeMatrixSize"
+        }
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "align": "center",
+          "background": "primitive:atoms.color.rgb",
+          "cornerRadius": "primitive:atoms.radius.mixed",
+          "direction": "row",
+          "justify": "center",
+          "padding": {
+            "bottom": 12,
+            "left": 20,
+            "right": 20,
+            "top": 12
+          },
+          "wrap": "nowrap"
+        }
+      },
+      "variants": [
+        {
+          "affectedFrames": [
+            "L",
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "L",
+              "prop": "fontSize",
+              "value": 12
+            },
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "primitive:atoms.color.rgba"
+            },
+            {
+              "frameId": "Root",
+              "prop": "padding",
+              "value": {
+                "bottom": 4,
+                "left": 8,
+                "right": 8,
+                "top": 4
+              }
+            }
+          ],
+          "params": {
+            "kind": "danger",
+            "size": "compact"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "semantic:atoms.color.sem.fromRgb"
+            },
+            {
+              "frameId": "Root",
+              "prop": "padding",
+              "value": {
+                "bottom": 10,
+                "left": 16,
+                "right": 16,
+                "top": 10
+              }
+            }
+          ],
+          "params": {
+            "kind": "danger",
+            "size": "regular"
+          }
+        },
+        {
+          "affectedFrames": [
+            "L",
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "L",
+              "prop": "fontSize",
+              "value": 12
+            },
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "semantic:atoms.color.sem.fromRgb"
+            },
+            {
+              "frameId": "Root",
+              "prop": "padding",
+              "value": {
+                "bottom": 5,
+                "left": 10,
+                "right": 10,
+                "top": 5
+              }
+            }
+          ],
+          "params": {
+            "kind": "primary",
+            "size": "compact"
+          }
+        },
+        {
+          "affectedFrames": [
+            "L",
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "L",
+              "prop": "fontSize",
+              "value": 12
+            },
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "semantic:atoms.color.sem.fromRgba"
+            },
+            {
+              "frameId": "Root",
+              "prop": "padding",
+              "value": {
+                "bottom": 4,
+                "left": 8,
+                "right": 8,
+                "top": 4
+              }
+            }
+          ],
+          "params": {
+            "kind": "secondary",
+            "size": "compact"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "primitive:atoms.color.rgba"
+            },
+            {
+              "frameId": "Root",
+              "prop": "padding",
+              "value": {
+                "bottom": 10,
+                "left": 16,
+                "right": 16,
+                "top": 10
+              }
+            }
+          ],
+          "params": {
+            "kind": "secondary",
+            "size": "regular"
+          }
+        }
+      ]
+    },
+    "MoleculeMatrixButtonGallery": {
+      "childHierarchy": {
+        "R0": [
+          "L"
+        ],
+        "R1": [
+          "L"
+        ],
+        "R2": [
+          "L"
+        ],
+        "R3": [
+          "L"
+        ],
+        "Root": [
+          "R0",
+          "R1",
+          "R2",
+          "R3"
+        ]
+      },
+      "childNodes": {
+        "L": {
+          "id": "L",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "param:label",
+            "fontSize": 16,
+            "fontWeight": 600
+          }
+        },
+        "R0": {
+          "id": "R0",
+          "instanceKwargs": {
+            "kind": "primary",
+            "label": "P compact",
+            "size": "compact"
+          },
+          "instanceOf": "MoleculeMatrixButton",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "cornerRadius": "primitive:atoms.radius.mixed",
+            "direction": "row",
+            "justify": "center",
+            "padding": {
+              "bottom": 5,
+              "left": 10,
+              "right": 10,
+              "top": 5
+            },
+            "wrap": "nowrap"
+          }
+        },
+        "R1": {
+          "id": "R1",
+          "instanceKwargs": {
+            "kind": "primary",
+            "label": "P regular",
+            "size": "regular"
+          },
+          "instanceOf": "MoleculeMatrixButton",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "primitive:atoms.color.rgb",
+            "cornerRadius": "primitive:atoms.radius.mixed",
+            "direction": "row",
+            "justify": "center",
+            "padding": {
+              "bottom": 12,
+              "left": 20,
+              "right": 20,
+              "top": 12
+            },
+            "wrap": "nowrap"
+          }
+        },
+        "R2": {
+          "id": "R2",
+          "instanceKwargs": {
+            "kind": "secondary",
+            "label": "S compact",
+            "size": "compact"
+          },
+          "instanceOf": "MoleculeMatrixButton",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgba",
+            "cornerRadius": "primitive:atoms.radius.mixed",
+            "direction": "row",
+            "justify": "center",
+            "padding": {
+              "bottom": 4,
+              "left": 8,
+              "right": 8,
+              "top": 4
+            },
+            "wrap": "nowrap"
+          }
+        },
+        "R3": {
+          "id": "R3",
+          "instanceKwargs": {
+            "kind": "danger",
+            "label": "D regular",
+            "size": "regular"
+          },
+          "instanceOf": "MoleculeMatrixButton",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "cornerRadius": "primitive:atoms.radius.mixed",
+            "direction": "row",
+            "justify": "center",
+            "padding": {
+              "bottom": 10,
+              "left": 16,
+              "right": 16,
+              "top": 10
+            },
+            "wrap": "nowrap"
+          }
+        }
+      },
+      "name": "MoleculeMatrixButtonGallery",
+      "requiredComponents": [
+        "MoleculeMatrixButton"
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "primitive:atoms.color.rgb",
+          "direction": "column",
+          "gap": "primitive:atoms.space.md",
+          "padding": {
+            "bottom": 16,
+            "left": 16,
+            "right": 16,
+            "top": 16
+          }
+        }
+      }
+    }
+  },
+  "generatedAt": "2026-08-06T00:33:37.685Z",
+  "kind": "componentCatalogue",
+  "primitives": {
+    "atoms.blur.heavy": {
+      "definition": {
+        "kind": "number",
+        "value": 24
+      },
+      "name": "atoms.blur.heavy",
+      "tokenType": "Blur"
+    },
+    "atoms.blur.light": {
+      "definition": {
+        "kind": "number",
+        "value": 6
+      },
+      "name": "atoms.blur.light",
+      "tokenType": "Blur"
+    },
+    "atoms.color.brandPrimary": {
+      "definition": {
+        "kind": "hex",
+        "value": "#FF5A5F"
+      },
+      "name": "atoms.color.brandPrimary",
+      "tokenType": "Color"
+    },
+    "atoms.color.brandSecondary": {
+      "definition": {
+        "kind": "hex",
+        "value": "#00A699"
+      },
+      "name": "atoms.color.brandSecondary",
+      "tokenType": "Color"
+    },
+    "atoms.color.canvas": {
+      "definition": {
+        "kind": "hex",
+        "value": "#F7F7F7"
+      },
+      "name": "atoms.color.canvas",
+      "tokenType": "Color"
+    },
+    "atoms.color.elevated": {
+      "definition": {
+        "kind": "hex",
+        "value": "#EBEBEB"
+      },
+      "name": "atoms.color.elevated",
+      "tokenType": "Color"
+    },
+    "atoms.color.rgb": {
+      "definition": {
+        "kind": "hex",
+        "value": "#D3D3D3"
+      },
+      "name": "atoms.color.rgb",
+      "tokenType": "Color"
+    },
+    "atoms.color.rgba": {
+      "definition": {
+        "kind": "hex",
+        "value": "#222222"
+      },
+      "name": "atoms.color.rgba",
+      "tokenType": "Color"
+    },
+    "atoms.color.textMuted": {
+      "definition": {
+        "kind": "hex",
+        "value": "#717171"
+      },
+      "name": "atoms.color.textMuted",
+      "tokenType": "Color"
+    },
+    "atoms.color.textOnBrand": {
+      "definition": {
+        "kind": "hex",
+        "value": "#FFFFFF"
+      },
+      "name": "atoms.color.textOnBrand",
+      "tokenType": "Color"
+    },
+    "atoms.color.textPrimary": {
+      "definition": {
+        "kind": "hex",
+        "value": "#222222"
+      },
+      "name": "atoms.color.textPrimary",
+      "tokenType": "Color"
+    },
+    "atoms.font.mono": {
+      "definition": {
+        "kind": "string",
+        "value": "ui-monospace, monospace"
+      },
+      "name": "atoms.font.mono",
+      "tokenType": "FontFamily"
+    },
+    "atoms.font.ui": {
+      "definition": {
+        "kind": "string",
+        "value": "system-ui, sans-serif"
+      },
+      "name": "atoms.font.ui",
+      "tokenType": "FontFamily"
+    },
+    "atoms.icon.chevron": {
+      "definition": {
+        "kind": "string",
+        "value": "chevron-right"
+      },
+      "name": "atoms.icon.chevron",
+      "tokenType": "Icon"
+    },
+    "atoms.icon.star": {
+      "definition": {
+        "kind": "string",
+        "value": "star"
+      },
+      "name": "atoms.icon.star",
+      "tokenType": "Icon"
+    },
+    "atoms.media.hero": {
+      "definition": {
+        "kind": "string",
+        "value": "https://example.com/hero.png"
+      },
+      "name": "atoms.media.hero",
+      "tokenType": "MediaSource"
+    },
+    "atoms.opacity.full": {
+      "definition": {
+        "kind": "number",
+        "value": 1
+      },
+      "name": "atoms.opacity.full",
+      "tokenType": "Opacity"
+    },
+    "atoms.opacity.mid": {
+      "definition": {
+        "kind": "number",
+        "value": 0.62
+      },
+      "name": "atoms.opacity.mid",
+      "tokenType": "Opacity"
+    },
+    "atoms.radius.mixed": {
+      "definition": {
+        "bl": {
+          "kind": "number",
+          "value": 2
+        },
+        "br": {
+          "kind": "number",
+          "value": 2
+        },
+        "kind": "corner",
+        "tl": {
+          "kind": "number",
+          "value": 8
+        },
+        "tr": {
+          "kind": "number",
+          "value": 8
+        }
+      },
+      "name": "atoms.radius.mixed",
+      "tokenType": "Radius"
+    },
+    "atoms.radius.sm": {
+      "definition": {
+        "kind": "number",
+        "value": 4
+      },
+      "name": "atoms.radius.sm",
+      "tokenType": "Radius"
+    },
+    "atoms.ramp.fade": {
+      "definition": {
+        "direction": ".bottomToTop",
+        "kind": "rampInline",
+        "stops": [
+          {
+            "fields": {
+              "color": {
+                "kind": "hex",
+                "value": "#FFFFFF"
+              },
+              "opacity": {
+                "kind": "number",
+                "value": 1
+              },
+              "position": {
+                "kind": "number",
+                "value": 0
+              }
+            },
+            "kind": "gradientStop"
+          },
+          {
+            "fields": {
+              "color": {
+                "kind": "hex",
+                "value": "#000000"
+              },
+              "opacity": {
+                "kind": "number",
+                "value": 0
+              },
+              "position": {
+                "kind": "number",
+                "value": 1
+              }
+            },
+            "kind": "gradientStop"
+          }
+        ]
+      },
+      "name": "atoms.ramp.fade",
+      "tokenType": "Ramp"
+    },
+    "atoms.ratio.square": {
+      "definition": {
+        "kind": "number",
+        "value": 1
+      },
+      "name": "atoms.ratio.square",
+      "tokenType": "Ratio"
+    },
+    "atoms.ratio.video": {
+      "definition": {
+        "kind": "number",
+        "value": 1.777
+      },
+      "name": "atoms.ratio.video",
+      "tokenType": "Ratio"
+    },
+    "atoms.shadow.hard": {
+      "definition": {
+        "kind": "string",
+        "value": "0 1px 3px 0 rgba(0,0,0,0.35)"
+      },
+      "name": "atoms.shadow.hard",
+      "tokenType": "Shadow"
+    },
+    "atoms.shadow.soft": {
+      "definition": {
+        "kind": "string",
+        "value": "0 2px 8px rgba(0,0,0,0.12)"
+      },
+      "name": "atoms.shadow.soft",
+      "tokenType": "Shadow"
+    },
+    "atoms.space.md": {
+      "definition": {
+        "kind": "number",
+        "value": 16
+      },
+      "name": "atoms.space.md",
+      "tokenType": "Distance"
+    },
+    "atoms.space.sm": {
+      "definition": {
+        "kind": "number",
+        "value": 8
+      },
+      "name": "atoms.space.sm",
+      "tokenType": "Distance"
+    },
+    "atoms.space.xs": {
+      "definition": {
+        "kind": "number",
+        "value": 4
+      },
+      "name": "atoms.space.xs",
+      "tokenType": "Distance"
+    },
+    "atoms.type.size.body": {
+      "definition": {
+        "kind": "number",
+        "value": 16
+      },
+      "name": "atoms.type.size.body",
+      "tokenType": "Size"
+    },
+    "atoms.type.size.caption": {
+      "definition": {
+        "kind": "number",
+        "value": 12
+      },
+      "name": "atoms.type.size.caption",
+      "tokenType": "Size"
+    },
+    "atoms.type.size.title": {
+      "definition": {
+        "kind": "number",
+        "value": 22
+      },
+      "name": "atoms.type.size.title",
+      "tokenType": "Size"
+    },
+    "atoms.type.weight.bold": {
+      "definition": {
+        "kind": "number",
+        "value": 700
+      },
+      "name": "atoms.type.weight.bold",
+      "tokenType": "Weight"
+    },
+    "atoms.type.weight.medium": {
+      "definition": {
+        "kind": "number",
+        "value": 600
+      },
+      "name": "atoms.type.weight.medium",
+      "tokenType": "Weight"
+    },
+    "atoms.type.weight.regular": {
+      "definition": {
+        "kind": "number",
+        "value": 400
+      },
+      "name": "atoms.type.weight.regular",
+      "tokenType": "Weight"
+    },
+    "atoms.vibrancy.strong": {
+      "definition": {
+        "brightness": 0.95,
+        "kind": "vibrancyTuple",
+        "saturation": 1.2
+      },
+      "name": "atoms.vibrancy.strong",
+      "tokenType": "Vibrancy"
+    },
+    "atoms.vibrancy.subtle": {
+      "definition": {
+        "brightness": 1.02,
+        "kind": "vibrancyTuple",
+        "saturation": 1.05
+      },
+      "name": "atoms.vibrancy.subtle",
+      "tokenType": "Vibrancy"
+    }
+  },
+  "schemaVersion": "1.0.0-beta",
+  "semantics": {
+    "atoms.bg.blurCard": {
+      "definition": {
+        "items": [
+          {
+            "args": {
+              "blur": "primitive:atoms.blur.light"
+            },
+            "callee": "Blur",
+            "kind": "call"
+          },
+          {
+            "base": "semantic:atoms.color.sem.fromRgb",
+            "kind": "opacityOf",
+            "opacity": "primitive:atoms.opacity.mid"
+          }
+        ],
+        "kind": "array"
+      },
+      "name": "atoms.bg.blurCard",
+      "tokenType": "Background"
+    },
+    "atoms.bg.flat": {
+      "definition": {
+        "items": [
+          {
+            "kind": "hex",
+            "value": "#E5E7EB"
+          }
+        ],
+        "kind": "array"
+      },
+      "name": "atoms.bg.flat",
+      "tokenType": "Background"
+    },
+    "atoms.color.scrimLiteral": {
+      "definition": {
+        "base": "primitive:atoms.color.rgb",
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.25
+        }
+      },
+      "name": "atoms.color.scrimLiteral",
+      "tokenType": "Color"
+    },
+    "atoms.color.scrimRgba": {
+      "definition": {
+        "base": "primitive:atoms.color.rgba",
+        "kind": "opacityOf",
+        "opacity": {
+          "kind": "number",
+          "value": 0.5
+        }
+      },
+      "name": "atoms.color.scrimRgba",
+      "tokenType": "Color"
+    },
+    "atoms.color.sem.fromRgb": {
+      "definition": "primitive:atoms.color.canvas",
+      "name": "atoms.color.sem.fromRgb",
+      "tokenType": "Color"
+    },
+    "atoms.color.sem.fromRgba": {
+      "definition": "primitive:atoms.color.elevated",
+      "name": "atoms.color.sem.fromRgba",
+      "tokenType": "Color"
+    },
+    "atoms.fg.hoverTint": {
+      "definition": {
+        "items": [
+          {
+            "base": "primitive:atoms.color.rgb",
+            "kind": "opacityOf",
+            "opacity": "primitive:atoms.opacity.mid"
+          }
+        ],
+        "kind": "array"
+      },
+      "name": "atoms.fg.hoverTint",
+      "tokenType": "Foreground"
+    },
+    "atoms.opacity.sem.full": {
+      "definition": "primitive:atoms.opacity.full",
+      "name": "atoms.opacity.sem.full",
+      "tokenType": "Opacity"
+    },
+    "atoms.opacity.sem.mid": {
+      "definition": "primitive:atoms.opacity.mid",
+      "name": "atoms.opacity.sem.mid",
+      "tokenType": "Opacity"
+    },
+    "atoms.radius.card": {
+      "definition": "primitive:atoms.radius.mixed",
+      "name": "atoms.radius.card",
+      "tokenType": "Radius"
+    },
+    "atoms.space.card.pad": {
+      "definition": "primitive:atoms.space.md",
+      "name": "atoms.space.card.pad",
+      "tokenType": "Distance"
+    }
+  },
+  "themes": {
+    "AtomsCool": {
+      "baseTheme": null,
+      "overrides": {
+        "atoms.color.sem.fromRgb": "primitive:atoms.color.rgb"
+      }
+    },
+    "AtomsDim": {
+      "baseTheme": null,
+      "overrides": {
+        "atoms.color.scrimLiteral": "semantic:atoms.color.sem.fromRgba"
+      }
+    },
+    "AtomsLooseRadius": {
+      "baseTheme": null,
+      "overrides": {
+        "atoms.radius.sm": {
+          "kind": "number",
+          "value": 12
+        }
+      }
+    },
+    "AtomsWarm": {
+      "baseTheme": null,
+      "overrides": {
+        "atoms.color.sem.fromRgb": "primitive:atoms.color.brandPrimary"
+      }
+    }
+  },
+  "typeStyles": {
+    "AtomBody": {
+      "name": "AtomBody",
+      "props": {
+        "color": "primitive:atoms.color.textPrimary",
+        "fontFamily": "primitive:atoms.font.ui",
+        "fontSize": "primitive:atoms.type.size.body",
+        "fontWeight": "primitive:atoms.type.weight.regular"
+      }
+    },
+    "AtomCaption": {
+      "name": "AtomCaption",
+      "props": {
+        "color": "primitive:atoms.color.textMuted",
+        "fontFamily": "primitive:atoms.font.ui",
+        "fontSize": "primitive:atoms.type.size.caption",
+        "fontWeight": "primitive:atoms.type.weight.medium"
+      }
+    },
+    "AtomMono": {
+      "name": "AtomMono",
+      "props": {
+        "color": "primitive:atoms.color.textPrimary",
+        "fontFamily": "primitive:atoms.font.mono",
+        "fontSize": "primitive:atoms.type.size.caption",
+        "fontWeight": "primitive:atoms.type.weight.regular"
+      }
+    },
+    "AtomTitle": {
+      "name": "AtomTitle",
+      "props": {
+        "color": "primitive:atoms.color.textPrimary",
+        "fontFamily": "primitive:atoms.font.ui",
+        "fontSize": "primitive:atoms.type.size.title",
+        "fontWeight": "primitive:atoms.type.weight.bold"
+      }
+    }
+  },
+  "variantTypes": {
+    "MoleculeMatrixKind": {
+      "cases": [
+        "primary",
+        "secondary",
+        "danger"
+      ],
+      "name": "MoleculeMatrixKind"
+    },
+    "MoleculeMatrixSize": {
+      "cases": [
+        "compact",
+        "regular"
+      ],
+      "name": "MoleculeMatrixSize"
+    }
+  }
+}
