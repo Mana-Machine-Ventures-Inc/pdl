@@ -2,13 +2,14 @@
 
 Rust **portable PDL core** (lex → parse → merge → validate → bake → catalogue / graph).
 
-**Status:** **A3** — load / validate / evaluate / resolve / **bake** / **catalogue** / **resolved-component** with byte-for-byte parity against the TS `bakeSystem`, `graphSystem`, and `graphComponent` goldens. TypeScript in `src/` remains the reference oracle.
+**Status:** **A4** — load / validate / evaluate / resolve / **bake** / **catalogue** / **resolved-component** with byte-for-byte parity against the TS goldens, plus the **`pdl`** Rust CLI (`crates/pdl-cli`). TypeScript in `src/` remains the reference oracle.
 
 ## Develop
 
 ```bash
 cargo test -p pdl-core
 cargo build -p pdl-core
+cargo run -q -p pdl-cli -- bakeSystem path/to/entry.pdl
 ```
 
 ```rust
@@ -54,5 +55,6 @@ Goldens (`tests/golden/`):
 
 ## Next
 
-- **A4** — `pdl` Rust CLI (`bake` first) + CI dual-run  
-- **B1+** — proposal language (protocols, `[T]`, emits, …)
+- **A5** — C ABI (later)  
+- **B1+** — proposal language (protocols, `[T]`, emits, …)  
+- Dual-run CI job comparing TS vs Rust CLI JSON (strip `generatedAt` / normalize paths)

@@ -1,0 +1,15 @@
+[package]
+name = "pdl-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PDL command-line toolchain (Rust). JSON bake/graph/catalogue/resolve; HTML remains on the TypeScript CLI."
+readme = "README.md"
+
+[[bin]]
+name = "pdl"
+path = "src/main.rs"
+
+[dependencies]
+pdl-core = { path = "../pdl-core" }
+serde_json = { version = "1", features = ["preserve_order"] }

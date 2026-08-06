@@ -23,7 +23,7 @@
 | **A1** | Lexer + parser + AST for *current* PDL | ✅ Parse non-error `test-fixtures/pdl/**/*.pdl` + golden entries |
 | **A2** | load / merge / validate / **bake** | ✅ `bakeSystem` byte-parity vs TS goldens (`crates/pdl-core/tests/golden/`) |
 | **A3** | Catalogue / graph subset needed by hosts | ✅ `graphSystem` + `graphComponent` byte-parity vs TS goldens (`crates/pdl-core/tests/golden/`) |
-| **A4** | `pdl` Rust CLI (`bake` first) | CI dual-run TS vs Rust |
+| **A4** | `pdl` Rust CLI (`bake` first) | ✅ `crates/pdl-cli` (`bake*` / `graph*` / `catalogue` / `resolve`); dual-run CI job still open |
 | **A5** | C ABI (later) | Swift/Kotlin can `bake` |
 
 Crate path: **`crates/pdl-core`**.
@@ -95,6 +95,8 @@ None from the A0 question set. Further grammar nits can be decided when writing 
 - [x] A1 lexer/parser *(parses non-error fixtures + golden entries)*  
 - [x] A2 bake goldens + parity *(53 TS bakeSystem goldens, byte match)*  
 - [x] A3 catalogue / graph *(53 TS `graphSystem` goldens + 4 `graphComponent` goldens, byte match)*  
+- [x] A4 Rust CLI (`crates/pdl-cli` / `pdl`) for bake/graph/catalogue/resolve  
+- [ ] Dual-run CI job (TS vs Rust JSON, volatiles normalized)  
 - [ ] First `full-spec` patch with B1  
 - [ ] Align published `schemaVersion` string to plain **`1.0.0`** when touching normative version prose (drop `-beta` framing; still unreleased)
 

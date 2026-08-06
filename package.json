@@ -19,6 +19,8 @@
     "catalogue": "tsc && node dist/cli.js catalogue",
     "manifest": "tsc && node dist/cli.js manifest",
     "playground": "npm run build --prefix playground && node playground/server/playground-server.mjs",
+    "build:rust": "cargo build -p pdl-cli",
+    "pdl:rust": "cargo run -q -p pdl-cli --",
     "test": "npm run build && vitest run",
     "test:watch": "vitest",
     "test:rust": "cargo test -p pdl-core"

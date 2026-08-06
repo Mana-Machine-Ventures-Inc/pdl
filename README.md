@@ -3,7 +3,7 @@
 Compilers for **PDL** (Programmatic Design Language) as described in **`docs/full-spec.md`**.
 
 - **TypeScript** (`src/`) — current reference CLI / oracle (`npm test`)  
-- **Rust** (`crates/pdl-core`) — portable core in progress (`cargo test -p pdl-core`); see **`docs/IMPLEMENTATION_PLAN.md`**
+- **Rust** (`crates/pdl-core`, `crates/pdl-cli`) — portable core + JSON CLI (`cargo test -p pdl-core`, `cargo run -q -p pdl-cli -- …`); see **`docs/IMPLEMENTATION_PLAN.md`**
 
 ## Commands
 
@@ -21,7 +21,8 @@ After `npm install`, use the npm scripts below (each runs **`tsc`** first so **`
 | `npm run catalogue --silent -- <entry.pdl> [--theme Name] [--out file.json]` | Same JSON shape as **graphSystem**, but allows **`--theme`** for **tree** resolution (`docs/full-spec.md` §16). |
 | `npm run resolve --silent -- <entry.pdl> <Component> [--tree-only] [--theme Name] [key=value …]` | Legacy: **`resolvedComponent`** (default) or bare **`CatalFrame`** with **`--tree-only`**. Prefer **graphComponent** / **bakeComponent** for new tooling. |
 
-`npm test` runs the Vitest suite. `npm run test:rust` runs `cargo test -p pdl-core`.
+`npm test` runs the Vitest suite. `npm run test:rust` runs `cargo test -p pdl-core`.  
+`npm run pdl:rust -- <cmd> …` runs the Rust `pdl` CLI (same bake/graph/catalogue/resolve shapes as the TS CLI).
 
 ## Test fixtures
 
