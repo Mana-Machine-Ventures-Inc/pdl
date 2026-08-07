@@ -75,17 +75,20 @@ const btnRender = $("btnRender");
 const status = $("status");
 const errorEl = $("error");
 const frame = $("frame");
-const componentWrap = $("componentWrap");
 const packWrap = $("packWrap");
 const packPath = $("packPath");
+const packSelect = $("packSelect");
+const packDesc = $("packDesc");
 const editorWorkspace = $("editorWorkspace");
-const editorField = $("editorField");
 const designMeta = $("designMeta");
 const outputPanelHtml = $("outputPanelHtml");
 const outputPanelDesign = $("outputPanelDesign");
 const renderConsole = $("renderConsole");
 const renderConsoleTitle = $("renderConsoleTitle");
 const renderConsoleBody = $("renderConsoleBody");
+
+/** @type {string | null} */
+let preferredComponent = "MoleculeButtonRowDemo";
 
 const editorTheme = EditorView.theme({
   "&": { height: "100%" },
@@ -488,7 +491,9 @@ function renderTabs() {
   for (const p of paths) {
     const b = document.createElement("button");
     b.type = "button";
-    b.textContent = p;
+    const short = p.includes("/") ? p.split("/").slice(-2).join("/") : p;
+    b.textContent = short;
+    b.title = p;
     if (p === activePath) b.classList.add("active");
     b.addEventListener("click", () => {
       syncEditorToFiles();
@@ -498,23 +503,25 @@ function renderTabs() {
     });
     fileTabs.append(b);
   }
-  const add = document.createElement("button");
-  add.type = "button";
-  add.textContent = "+ New file";
-  add.addEventListener("click", () => {
-    syncEditorToFiles();
-    let n = Object.keys(files).length + 1;
-    let name = `module${n}.pdl`;
-    while (files[name]) {
-      n += 1;
-      name = `module${n}.pdl`;
-    }
-    files[name] = "";
-    activePath = name;
-    setEditorText("");
-    renderTabs();
-  });
-  fileTabs.append(add);
+  if (!diskRootMode()) {
+    const add = document.createElement("button");
+    add.type = "button";
+    add.textContent = "+ New file";
+    add.addEventListener("click", () => {
+      syncEditorToFiles();
+      let n = Object.keys(files).length + 1;
+      let name = `module${n}.pdl`;
+      while (files[name]) {
+        n += 1;
+        name = `module${n}.pdl`;
+      }
+      files[name] = "";
+      activePath = name;
+      setEditorText("");
+      renderTabs();
+    });
+    fileTabs.append(add);
+  }
 }
 
 function mergeDroppedFiles(newMap) {
@@ -654,11 +661,88 @@ function scheduleDebouncedRender(delayMs = RENDER_DEBOUNCE_MS) {
   }, delayMs);
 }
 
+function fillComponentSelect(names) {
+  const prev = component.value;
+  component.replaceChildren();
+  for (const name of names ?? []) {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    component.append(opt);
+  }
+  const prefer = preferredComponent && names?.includes(preferredComponent) ? preferredComponent : null;
+  const pick = prefer || (names?.includes(prev) ? prev : null);
+  if (pick) component.value = pick;
+  else if (component.options.length > 0) component.selectedIndex = 0;
+}
+
+async function flushDiskWrites() {
+  if (!diskRootMode()) return;
+  syncEditorToFiles();
+  for (const [rel, content] of Object.entries(files)) {
+    if (!rel.endsWith(".pdl")) continue;
+    if (!rel.startsWith("test-fixtures/pdl/")) continue;
+    const res = await fetch("/api/write", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: rel, content }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || `Failed to write ${rel}`);
+  }
+}
+
+async function loadPack(packId) {
+  setStatus(`Loading pack ${packId}…`);
+  showError("");
+  const res = await fetch("/api/open-pack", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ packId }),
+  });
+  const data = await res.json();
+  if (!data.ok) {
+    showError(data.error || "Failed to open pack");
+    setStatus("");
+    return false;
+  }
+  const diskRadio = document.querySelector('input[name="workspace"][value="disk"]');
+  if (diskRadio) diskRadio.checked = true;
+  updateWorkspaceUi();
+  files = { ...(data.files ?? {}) };
+  entryPath.value = data.entry;
+  preferredComponent = data.defaultComponent ?? null;
+  packDesc.textContent = data.pack?.description ?? "";
+  activePath = data.entry;
+  if (files[activePath] === undefined) {
+    const keys = Object.keys(files).sort();
+    activePath = keys[0] ?? data.entry;
+  }
+  setEditorText(files[activePath] ?? "");
+  renderTabs();
+  if (await runAnalyze()) await runRender({ debounced: false });
+  return true;
+}
+
+async function initCatalog() {
+  const res = await fetch("/api/catalog");
+  const data = await res.json();
+  packSelect.replaceChildren();
+  for (const p of data.packs ?? []) {
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.textContent = p.label;
+    packSelect.append(opt);
+  }
+  packSelect.value = "molecules";
+}
+
 async function runAnalyze() {
   showError("");
   updateRenderConsole([]);
   setStatus("Analyzing…");
   try {
+    await flushDiskWrites();
     const res = await fetch("/api/load", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -675,14 +759,7 @@ async function runAnalyze() {
       completionSymbols = [];
       return false;
     }
-    component.replaceChildren();
-    for (const name of data.components ?? []) {
-      const opt = document.createElement("option");
-      opt.value = name;
-      opt.textContent = name;
-      component.append(opt);
-    }
-    if (component.options.length > 0) component.selectedIndex = 0;
+    fillComponentSelect(data.components ?? []);
     themeList.replaceChildren();
     for (const t of data.themes ?? []) {
       const o = document.createElement("option");
@@ -690,7 +767,7 @@ async function runAnalyze() {
       themeList.append(o);
     }
     setCompletionSymbolsFromAnalyze(data);
-    setStatus(`OK — ${data.components?.length ?? 0} components, ${data.themes?.length ?? 0} themes`);
+    setStatus(`OK — ${data.components?.length ?? 0} components · ${selectedEngine()}`);
     renderDesignSummary(data.designSummary);
     return true;
   } catch (e) {
@@ -714,6 +791,7 @@ async function runRender({ debounced = false } = {}) {
   }
   setStatus(debounced ? "Updating preview…" : "Rendering…");
   try {
+    await flushDiskWrites();
     const mode = selectedMode();
     let kv = {};
     if (mode === "component" && kvJson.value.trim()) {
@@ -764,11 +842,12 @@ async function runRender({ debounced = false } = {}) {
           stack: f.stack,
         })),
       );
-      setStatus(`Preview updated${eng}${ms} — ${failures.length} component(s) failed HTML render (see Render console)`);
+      setStatus(`Preview updated${eng}${ms} — ${failures.length} HTML issue(s)`);
     } else {
       updateRenderConsole([]);
       setStatus(`Preview updated${eng}${ms}`);
     }
+    if (data.components) fillComponentSelect(data.components);
     if (data.designSummary) {
       renderDesignSummary(data.designSummary);
       setCompletionSymbolsFromAnalyze(data);
@@ -793,27 +872,18 @@ function updateModeUi() {
   const mode = selectedMode();
   const system = mode === "system";
   const pack = mode === "pack";
-  componentWrap.style.opacity = system || pack ? "0.45" : "1";
   component.disabled = system || pack;
   kvJson.disabled = system || pack;
   packWrap.hidden = !pack;
   if (pack) {
-    const eng = selectedEngine();
-    if (eng !== "rust") {
-      const rustRadio = document.querySelector('input[name="engine"][value="rust"]');
-      if (rustRadio) rustRadio.checked = true;
-    }
+    const rustRadio = document.querySelector('input[name="engine"][value="rust"]');
+    if (rustRadio) rustRadio.checked = true;
   }
 }
 
 function updateWorkspaceUi() {
   const disk = diskRootMode();
   if (editorWorkspace) editorWorkspace.hidden = disk;
-  if (editorField) editorField.hidden = disk;
-  if (fileTabs) fileTabs.hidden = disk;
-  if (disk && (!entryPath.value || entryPath.value === "design.pdl")) {
-    entryPath.value = "test-fixtures/pdl/molecules/design.pdl";
-  }
 }
 
 document.querySelectorAll('input[name="mode"]').forEach((r) => {
@@ -835,6 +905,9 @@ document.querySelectorAll('input[name="workspace"]').forEach((r) => {
       if (ok) scheduleDebouncedRender(0);
     });
   });
+});
+packSelect.addEventListener("change", () => {
+  void loadPack(packSelect.value);
 });
 updateModeUi();
 updateWorkspaceUi();
@@ -860,5 +933,6 @@ mountEditor();
 renderTabs();
 
 void (async () => {
-  if (await runAnalyze()) await runRender({ debounced: false });
+  await initCatalog();
+  await loadPack("molecules");
 })();

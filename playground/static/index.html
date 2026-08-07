@@ -3,87 +3,90 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PDL playground</title>
+  <title>PDL Playground</title>
   <link rel="stylesheet" href="/playground.css" />
 </head>
 <body>
   <header class="top">
-    <h1>PDL playground</h1>
-    <p class="sub">Local preview — bake IR → HTML (same pipeline as <code>npm run preview</code>). Default bake engine is <strong>Rust</strong>. Debounced refresh ~500ms. Nothing leaves this machine.</p>
+    <div class="top-row">
+      <div>
+        <h1>PDL Playground</h1>
+        <p class="sub">
+          Language demo &amp; iterative lab (Phase P0). Not PDL Studio.
+          Compiler: <strong>Rust</strong> → bake IR → HTML host.
+          Eng disk-watch stress: <code>npm run preview</code>.
+        </p>
+      </div>
+      <div class="badge-stack" aria-label="Build badges">
+        <span class="badge badge-rust">Rust bake</span>
+        <span class="badge">HTML host</span>
+        <span class="badge badge-muted">Phase P0</span>
+      </div>
+    </div>
   </header>
 
   <main class="grid">
-    <section class="panel sources" aria-labelledby="src-label">
-      <h2 id="src-label">Source</h2>
-      <div class="field">
-        <span>Workspace</span>
-        <div class="row">
-          <label><input type="radio" name="workspace" value="editor" checked /> Editor (upload / paste)</label>
-          <label><input type="radio" name="workspace" value="disk" /> Disk root (repo fixtures)</label>
-        </div>
-      </div>
-      <div id="editorWorkspace">
-      <div
-        class="dropzone"
-        id="dropzone"
-        tabindex="0"
-        role="button"
-        aria-label="Drop .pdl files or a folder here"
-      >
-        <strong>Drop</strong> one or more <code>.pdl</code> files, or a folder (imports). Or use the file picker.
-        <div class="drop-actions">
-          <label class="btn secondary"><input type="file" id="filePick" accept=".pdl,text/plain" multiple hidden />Files</label>
-          <label class="btn secondary"><input type="file" id="dirPick" webkitdirectory hidden />Folder</label>
-        </div>
-      </div>
-      </div>
-
+    <section class="panel nav" aria-labelledby="nav-label">
+      <h2 id="nav-label">Pack</h2>
       <label class="field">
-        <span>Entry file</span>
-        <input type="text" id="entryPath" value="design.pdl" spellcheck="false" />
+        <span>Design pack</span>
+        <select id="packSelect"></select>
       </label>
-
-      <div class="file-tabs" id="fileTabs"></div>
-      <label class="field grow" id="editorField">
-        <span>Current file contents</span>
-        <div id="editorMount" class="editor-mount" aria-label="PDL source editor"></div>
-      </label>
-    </section>
-
-    <section class="panel controls" aria-labelledby="ctrl-label">
-      <h2 id="ctrl-label">Preview</h2>
-      <div class="field">
-        <span>Bake engine</span>
-        <div class="row">
-          <label><input type="radio" name="engine" value="rust" checked /> Rust</label>
-          <label><input type="radio" name="engine" value="ts" /> TypeScript oracle</label>
-        </div>
-      </div>
-      <div class="field">
-        <span>Mode</span>
-        <div class="row">
-          <label><input type="radio" name="mode" value="component" /> Single component</label>
-          <label><input type="radio" name="mode" value="system" checked /> All components</label>
-          <label><input type="radio" name="mode" value="pack" /> Pack (Rust)</label>
-        </div>
-      </div>
-      <label class="field" id="componentWrap">
+      <p class="pack-desc" id="packDesc"></p>
+      <label class="field">
         <span>Component</span>
         <select id="component"></select>
       </label>
-      <label class="field" id="packWrap" hidden>
-        <span>Pack JSON path</span>
-        <input type="text" id="packPath" spellcheck="false" placeholder="packs/modal_confirm.json" />
-      </label>
+      <div class="field">
+        <span>Mode</span>
+        <div class="row">
+          <label><input type="radio" name="mode" value="component" checked /> Component</label>
+          <label><input type="radio" name="mode" value="system" /> All</label>
+        </div>
+      </div>
       <label class="field">
         <span>Theme (optional)</span>
         <input type="text" id="theme" list="themeList" placeholder="Default" spellcheck="false" />
         <datalist id="themeList"></datalist>
       </label>
       <label class="field">
-        <span>Param overrides (JSON object, component mode only)</span>
+        <span>Param overrides (JSON)</span>
         <textarea id="kvJson" spellcheck="false" rows="3" placeholder='{ "label": "OK" }'></textarea>
       </label>
+      <details class="advanced">
+        <summary>Advanced</summary>
+        <div class="field">
+          <span>Bake engine</span>
+          <div class="row">
+            <label><input type="radio" name="engine" value="rust" checked /> Rust</label>
+            <label><input type="radio" name="engine" value="ts" /> TypeScript</label>
+          </div>
+        </div>
+        <div class="field">
+          <span>Workspace</span>
+          <div class="row">
+            <label><input type="radio" name="workspace" value="disk" checked /> Pack on disk</label>
+            <label><input type="radio" name="workspace" value="editor" /> Scratch upload</label>
+          </div>
+        </div>
+        <div id="editorWorkspace" hidden>
+          <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Drop .pdl files">
+            <strong>Drop</strong> <code>.pdl</code> files or a folder.
+            <div class="drop-actions">
+              <label class="btn secondary"><input type="file" id="filePick" accept=".pdl,text/plain" multiple hidden />Files</label>
+              <label class="btn secondary"><input type="file" id="dirPick" webkitdirectory hidden />Folder</label>
+            </div>
+          </div>
+          <label class="field">
+            <span>Entry (scratch)</span>
+            <input type="text" id="entryPath" value="design.pdl" spellcheck="false" />
+          </label>
+        </div>
+        <label class="field" id="packWrap" hidden>
+          <span>Pack JSON path</span>
+          <input type="text" id="packPath" spellcheck="false" placeholder="packs/modal_confirm.json" />
+        </label>
+      </details>
       <div class="actions">
         <button type="button" class="btn" id="btnAnalyze">Analyze</button>
         <button type="button" class="btn primary" id="btnRender">Render</button>
@@ -92,11 +95,20 @@
       <div class="error" id="error" hidden></div>
     </section>
 
+    <section class="panel sources" aria-labelledby="src-label">
+      <h2 id="src-label">PDL</h2>
+      <div class="file-tabs" id="fileTabs"></div>
+      <label class="field grow" id="editorField">
+        <span class="sr-only">Source</span>
+        <div id="editorMount" class="editor-mount" aria-label="PDL source editor"></div>
+      </label>
+    </section>
+
     <section class="panel preview-wrap" aria-labelledby="prev-label">
-      <h2 id="prev-label">Output</h2>
+      <h2 id="prev-label">Preview</h2>
       <div class="output-tabs" role="tablist" aria-label="Output view">
         <button type="button" class="output-tab active" role="tab" aria-selected="true" data-output-tab="html">HTML</button>
-        <button type="button" class="output-tab" role="tab" aria-selected="false" data-output-tab="design">Tokens &amp; design</button>
+        <button type="button" class="output-tab" role="tab" aria-selected="false" data-output-tab="design">Tokens</button>
       </div>
       <div id="outputPanelHtml" class="output-panel" role="tabpanel">
         <iframe id="frame" title="PDL HTML preview" sandbox="allow-same-origin"></iframe>

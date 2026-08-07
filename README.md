@@ -18,8 +18,8 @@ After `npm install`, use the npm scripts below (each runs **`tsc`** first so **`
 | `npm run manifest --silent -- <entry.pdl> [--out file.json]` | Thin **design manifest** JSON (`docs/full-spec.md` §17 §3). |
 | `npm run renderHtml --silent -- <entry.pdl> <Component> [--theme Name] [--out file.html] [key=value …]` | **Bake → HTML5** for one component; optional **`--system`** instead of a component name for a full-library gallery (`docs/full-spec.md` §9). |
 | `npm run renderHtmlFromBake --silent -- <baked.json> [--component Name] [--out file.html]` | **HTML5 from bake JSON** — use Rust (or TS) `bake*` / `bakePack` output without re-parsing `.pdl`. |
-| `npm run preview --silent -- <entry.pdl> <Component> [opts]` | **Live watch → Rust bake → HTML** with livereload (`scripts/preview-server.mjs`). Also `--system`, `--pack <json>`, `--engine rust\|ts`, `--watch-dir`. |
-| `npm run playground` | Optional browser editor (`playground/`) on the same bake → HTML pipeline (Rust default). |
+| `npm run preview --silent -- <entry.pdl> <Component> [opts]` | **Live watch → Rust bake → HTML** with livereload (`scripts/preview-server.mjs`). Eng stress harness — edit in your IDE. |
+| `npm run playground` | **PDL Playground** (Phase P0) — pack picker + editor + HTML preview (`playground/`). Demo/lab, not Studio. |
 | `npm run renderCatalogueHtml --silent -- <entry.pdl> [--theme Name] [--out file.html]` | **Catalogue + bake → HTML5** reference page (`src/renderCatalogueHtml.ts`). |
 | `npm run catalogue --silent -- <entry.pdl> [--theme Name] [--out file.json]` | Same JSON shape as **graphSystem**, but allows **`--theme`** for **tree** resolution (`docs/full-spec.md` §16). |
 | `npm run resolve --silent -- <entry.pdl> <Component> [--tree-only] [--theme Name] [key=value …]` | Legacy: **`resolvedComponent`** (default) or bare **`CatalFrame`** with **`--tree-only`**. Prefer **graphComponent** / **bakeComponent** for new tooling. |
@@ -50,7 +50,16 @@ npm run preview -- test-fixtures/pdl/molecules/design.pdl --system
 
 Artifacts: `.tmp/preview.bake.json`, `.tmp/preview.html`. Compare engines with `--engine ts`.
 
-Browser paste/explore UI (same pipeline): `npm run playground`.
+### PDL Playground (demo / language lab)
+
+In-browser **pack → edit PDL → Rust bake → HTML** loop for demonstrating the language. Not long-term DS maintenance (that’s future **PDL Studio**).
+
+```bash
+npm run playground
+# → http://127.0.0.1:3847  (Molecules + MoleculeButtonRowDemo by default)
+```
+
+See `playground/README.md` and `docs/PROPOSAL_PDL_PLAYGROUND.md`.
 
 ### End-to-end: Rust bake → HTML preview (one-shot)
 
@@ -77,8 +86,11 @@ Same pattern with `bakeSystem` / `bakeComponent` for non-protocol designs.
 
 ## Documentation
 
-- Normative language: **`docs/full-spec.md`** (§4a–§4e protocols / slots / packs / emits / `ForEach` (no `expose`; all params public))
-- Coverage & roadmap: **`docs/IMPLEMENTATION_PLAN.md`** (*Language & host coverage*)
-- Known spec/tooling gaps: `docs/SPEC_GAPS.md`
-- Portable core proposal: `docs/PROPOSAL_PORTABLE_CORE.md`
-- Slots / protocols / emits proposal: `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` (B1–B4 shipped Rust; B5 spec’d in §4e)
+- Normative language: **`docs/full-spec.md`**
+- Playground proposal: **`docs/PROPOSAL_PDL_PLAYGROUND.md`**
+- Quick preview (disk watch): **`docs/PROPOSAL_QUICK_PREVIEW.md`**
+- Portable core: **`docs/PROPOSAL_PORTABLE_CORE.md`**
+- Slots / protocols: **`docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md`**
+- Implementation / coverage: **`docs/IMPLEMENTATION_PLAN.md`**
+- Spec gaps: **`docs/SPEC_GAPS.md`**
+- VS Code TextMate grammar: **`editors/vscode-pdl/`**

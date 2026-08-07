@@ -3,11 +3,108 @@
  * Bake uses shared scripts/lib/bake-pipeline.mjs (Rust default; same IR as `npm run preview`).
  */
 import { createServer } from "node:http";
-import { readFileSync, mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import {
+  readFileSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+  mkdirSync,
+  existsSync,
+  readdirSync,
+  statSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve, extname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { bakeAndRender, resolveRepoPath } from "../../scripts/lib/bake-pipeline.mjs";
+
+/** Known packs for P0 Playground (demo / language lab). */
+const PACK_CATALOG = [
+  {
+    id: "molecules",
+    label: "Molecules (fixtures)",
+    entry: "test-fixtures/pdl/molecules/design.pdl",
+    defaultComponent: "MoleculeButtonRowDemo",
+    description: "Buttons, cards, forms — multi-instance demos",
+  },
+  {
+    id: "integration",
+    label: "Integration",
+    entry: "test-fixtures/pdl/integration/design.pdl",
+    defaultComponent: "MoleculeButtonRowDemo",
+    description: "Atoms + molecules + merge chain",
+  },
+  {
+    id: "protocols",
+    label: "Protocols",
+    entry: "test-fixtures/pdl/protocols/design.pdl",
+    defaultComponent: "FilterChip",
+    description: "Protocols, slots, emits (Rust)",
+  },
+  {
+    id: "atoms",
+    label: "Atoms",
+    entry: "test-fixtures/pdl/atoms/design.pdl",
+    defaultComponent: "AtomTextPlain",
+    description: "Token / typeStyle language surfaces",
+  },
+];
+
+function collectPdlFiles(dirAbs, repoRoot, out = {}) {
+  if (!existsSync(dirAbs)) return out;
+  for (const name of readdirSync(dirAbs)) {
+    if (name.startsWith(".")) continue;
+    const abs = join(dirAbs, name);
+    const st = statSync(abs);
+    if (st.isDirectory()) {
+      if (name === "errors" || name === "packs" || name === "node_modules") continue;
+      collectPdlFiles(abs, repoRoot, out);
+    } else if (extname(name) === ".pdl") {
+      const rel = relative(repoRoot, abs).replace(/\\/g, "/");
+      out[rel] = readFileSync(abs, "utf8");
+    }
+  }
+  return out;
+}
+
+function handleCatalog() {
+  return { ok: true, packs: PACK_CATALOG };
+}
+
+function handleOpenPack(packId) {
+  const pack = PACK_CATALOG.find((p) => p.id === packId);
+  if (!pack) throw new Error(`Unknown pack: ${packId}`);
+  const entryAbs = resolveRepoPath(REPO_ROOT, pack.entry);
+  assertUnderRepo(entryAbs);
+  const packDir = dirname(entryAbs);
+  const files = collectPdlFiles(packDir, REPO_ROOT);
+  if (Object.keys(files).length === 0) {
+    throw new Error(`No .pdl files under ${relative(REPO_ROOT, packDir)}`);
+  }
+  return {
+    ok: true,
+    pack,
+    entry: pack.entry,
+    defaultComponent: pack.defaultComponent,
+    files,
+  };
+}
+
+function handleWriteFile(body) {
+  const { path: rel, content } = body;
+  if (typeof rel !== "string" || !rel.trim()) throw new Error('Expected "path"');
+  if (typeof content !== "string") throw new Error('Expected "content" string');
+  const abs = resolveRepoPath(REPO_ROOT, rel);
+  assertUnderRepo(abs);
+  const underFixtures = relative(REPO_ROOT, abs).replace(/\\/g, "/").startsWith("test-fixtures/pdl/");
+  if (!underFixtures) {
+    throw new Error("Playground writes are limited to test-fixtures/pdl/");
+  }
+  if (extname(abs) !== ".pdl") throw new Error("Only .pdl files can be written");
+  mkdirSync(dirname(abs), { recursive: true });
+  writeFileSync(abs, content, "utf8");
+  return { ok: true, path: relative(REPO_ROOT, abs).replace(/\\/g, "/") };
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "..", "..");
@@ -372,8 +469,40 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
   const pathname = url.pathname;
 
+  if (req.method === "GET" && pathname === "/api/catalog") {
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify(handleCatalog()));
+    return;
+  }
+
   if (req.method === "GET") {
     serveStatic(pathname, res);
+    return;
+  }
+
+  if (req.method === "POST" && pathname === "/api/open-pack") {
+    try {
+      const body = await readJsonBody(req);
+      const out = handleOpenPack(body.packId ?? body.id);
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify(out));
+    } catch (e) {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ ok: false, error: formatErr(e) }));
+    }
+    return;
+  }
+
+  if (req.method === "POST" && pathname === "/api/write") {
+    try {
+      const body = await readJsonBody(req);
+      const out = handleWriteFile(body);
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify(out));
+    } catch (e) {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ ok: false, error: formatErr(e) }));
+    }
     return;
   }
 
@@ -440,7 +569,8 @@ function listenPlayground() {
   server.listen(first, HOST, () => {
     const bound = /** @type {import("node:net").AddressInfo} */ (server.address());
     const p = bound?.port ?? first;
-    console.log(`PDL playground at http://${HOST}:${p}`);
+    console.log(`PDL Playground at http://${HOST}:${p}`);
+    console.log(`  Phase P0 · Rust bake → HTML · packs via /api/catalog`);
     if (!strictPort && p !== DEFAULT_FIRST_PORT) {
       console.error(`(Using ${p} because ${DEFAULT_FIRST_PORT} was busy.)`);
     }

@@ -211,11 +211,13 @@ React Native note: **reuse `pdl-core`**, not the web Playground UI. A React **ho
 
 ## 9. Done when (Playground v1)
 
-- [ ] README describes Playground vs preview vs Studio in one short section.
-- [ ] App loads a pack, selects a component/fixture, edits PDL, shows HTML from **Rust** bake (or a clear error).
-- [ ] At least one multi-instance composition demo is reachable from the UI.
-- [ ] No React frame-host rewrite; no claim that Playground is for long-term DS maintenance.
-- [ ] `npm run preview` still documented as the disk-watch stress path.
+- [x] README describes Playground vs preview vs Studio in one short section. *(P0)*
+- [x] App loads a pack, selects a component/fixture, edits PDL, shows HTML from **Rust** bake (or a clear error). *(P0 skeleton)*
+- [x] At least one multi-instance composition demo is reachable from the UI. *(MoleculeButtonRowDemo default)*
+- [x] No React frame-host rewrite; no claim that Playground is for long-term DS maintenance.
+- [x] `npm run preview` still documented as the disk-watch stress path.
+- [ ] Fixtures chips + param knobs UX polish *(P1)*
+- [ ] `systems/*-lite` veracity packs *(P1)*
 
 ---
 

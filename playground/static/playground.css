@@ -20,6 +20,59 @@ body {
   background: #fff;
   border-bottom: 1px solid #ccd;
 }
+.top-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.badge-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #eef1f6;
+  color: #334;
+  border: 1px solid #ccd;
+}
+.badge-rust {
+  background: #fff4e5;
+  border-color: #f0c36d;
+  color: #6b4a00;
+}
+.badge-muted {
+  color: #667;
+  font-weight: 500;
+}
+.pack-desc {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #555;
+}
+.advanced {
+  font-size: 0.82rem;
+}
+.advanced summary {
+  cursor: pointer;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
 .top h1 {
   margin: 0 0 6px;
   font-size: 1.25rem;
@@ -34,7 +87,7 @@ body {
 .grid {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 280px 1fr;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1.1fr) minmax(0, 1.1fr);
   grid-template-rows: minmax(0, 1fr);
   gap: 12px;
   padding: 12px;
@@ -45,6 +98,9 @@ body {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto minmax(360px, 50vh);
   }
+}
+.panel.nav {
+  overflow: auto;
 }
 .panel {
   background: #fff;

@@ -1,61 +1,50 @@
-# PDL playground
+# PDL Playground
 
-Local-only preview: edit or drop `.pdl` files (or point at a **disk root** under the repo), pick bake engine / mode, and see HTML from the same bake → HTML pipeline as **`npm run preview`**.
+**Phase P0** demo / language lab: pick a fixture pack, edit `.pdl`, see **Rust bake → HTML**.
 
-Default bake engine is **Rust** (compiler under test). TypeScript oracle remains available for A/B. Pack mode uses Rust `bakePack`.
+This is **not** PDL Studio (future full authoring). It is **not** `npm run preview` (disk-watch eng harness).
+
+| Surface | Role |
+|---------|------|
+| **PDL Playground** (`npm run playground`) | In-browser pack + editor + HTML preview |
+| **`npm run preview`** | Edit in VS Code/Cursor; watch → bake → livereload |
+| **PDL Studio** (future) | Long-term DS maintenance product |
+
+Proposal: [`docs/PROPOSAL_PDL_PLAYGROUND.md`](../docs/PROPOSAL_PDL_PLAYGROUND.md).
 
 ## Prerequisites
-
-Build the compiler once from the repository root (the playground imports `../dist/*.js` and `scripts/lib/bake-pipeline.mjs`):
 
 ```bash
 cd /path/to/pdl
 npm install
 npm run build
-cargo build -p pdl-cli   # recommended so Rust bake is fast
-```
+cargo build -p pdl-cli
 
-Install playground UI dependencies (CodeMirror + Vite) once:
-
-```bash
 cd playground
 npm install
 npm run build
 ```
 
-The editor is bundled to **`static/playground-app.js`**. After changing `playground/src/`, run **`npm run build`** in this folder again (or use **`npm start`**, which runs **`prestart`** to build first).
-
 ## Run
 
-From the repository root:
+From repo root:
 
 ```bash
 npm run playground
 ```
 
-Or from this folder:
+Open the printed URL (default **http://127.0.0.1:3847**).
 
-```bash
-cd playground
-npm start
-```
+Defaults: **Molecules** pack · **MoleculeButtonRowDemo** · Rust · component mode.
 
-Open the URL printed in the terminal (default **http://127.0.0.1:3847**). If that port is busy, the server tries the next few ports automatically unless you set **`PLAYGROUND_PORT`**.
+## P0 layout
 
-For **on-disk fixtures with livereload** (Cursor edit loop), prefer the repo-root harness instead:
+1. **Pack** — catalog (`molecules`, `integration`, `protocols`, `atoms`) + component picker  
+2. **PDL** — CodeMirror editor (edits under `test-fixtures/pdl/` flush to disk before bake)  
+3. **Preview** — HTML iframe from shared `scripts/lib/bake-pipeline.mjs`
 
-```bash
-npm run preview -- test-fixtures/pdl/molecules/design.pdl MoleculeButtonRowDemo
-```
+## Notes
 
-## Features
-
-- **Editor** workspace: paste / drop `.pdl` (multi-file `import`) into a temp tree
-- **Disk root** workspace: bake a path under the repo (e.g. `test-fixtures/pdl/molecules/design.pdl`) without uploading
-- **Engine:** Rust (default) or TypeScript
-- **Modes:** single component, all components (`bakeSystem`), pack (`bakePack`, Rust only)
-- Debounced re-render ~500ms after typing; **Tokens & design** tab from TS `loadDesign`
-
-## Layout
-
-Everything for this tool lives under **`playground/`**. Shared bake/render lives in **`scripts/lib/bake-pipeline.mjs`** so preview and playground do not fork compile pipelines.
+- Pack mode / TS engine live under **Advanced**.  
+- Scratch upload workspace is still available under Advanced → Workspace.  
+- Rebuild UI after `playground/src/` changes: `cd playground && npm run build` (or `npm start` which builds first).
