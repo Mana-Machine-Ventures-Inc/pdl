@@ -1,6 +1,7 @@
 # Implementation plan — accepted proposals
 
 **Accepted:** `docs/PROPOSAL_PORTABLE_CORE.md`, `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` (2026-08-05)  
+**Proposed (review):** `docs/PROPOSAL_PDL_PLAYGROUND.md` (2026-08-07) — Playground demo shell vs `preview` stress harness vs future Studio  
 **Normative until shipped:** `docs/full-spec.md` (`1.0.0-beta`) remains binding for the **current** language. Proposal features land via **spec patches + goldens** per slice.
 
 ---
@@ -40,9 +41,24 @@ Implement **after A2** unless a spike is explicitly throwaway.
 | **B2** | `[T]` params, instance literals, expand in `children` | ✅ Rust + §4b; Modal slots |
 | **B3** | Injection pack validate + bake | ✅ `pack.rs` + `bakePack`/`validatePack` + soft-skip + §4c |
 | **B4** | `emits` / `emit` + inline `interaction` | ✅ Parse/merge/catalogue + FilterChip fixture + §4d; host dispatch later |
-| **B5** | Layout `on` capture + `ForEach` derived binds | LibrarySubnav |
-| **B6** | `ForEach` before/between/after | optional chrome |
+| **B4b** | Language cleanup (locked 2026-08-06) | ✅ Rust: reject `expose`; trailing `} emits { }`; `self` / `self.param`; param==param; E028/E029; catalogue `expose` = all params |
+| **B5** | Layout `on` capture + `ForEach` derived binds (Pattern A) | ✅ Rust parse + bake expand; layout `on` validated (host dispatch B7); `library_subnav.pdl` parses |
+| **B6** | `ForEach` before/between/after | Deferred chrome — grammar sketched under §4e; not first compiler slice |
 | **B7** | Host emit dispatch + prototype runtime stub | outside core language |
+
+---
+
+## Language & host coverage
+
+| Layer | Covered now | Not covered yet |
+|-------|-------------|-----------------|
+| Classic PDL → bake / catalogue (TS + Rust parity) | Tokens, themes, variants, components, `if`, companions | — |
+| Rust-first language | **B1–B4** (`protocol`, `[T]`, packs, `emits` / inline `interaction`) | TS oracle port of B1–B4 |
+| Normative grammar | §4a–§4e in `full-spec.md`; Rust B4b/B5 | **B6** chrome; TS oracle lag; B7 host dispatch |
+| HTML host (C1) | Static draw of bake IR; `npm run preview` / playground | Live interactions; emit dispatch (B7); motion runtime |
+| Native / prototype | — | C2 SwiftUI; C3 routes/stack; A5 C ABI |
+
+**Bake JSON** remains the stability boundary. HTML is a static C1 host: it draws whatever bake already flattened. `ForEach` / layout `on` become visible in HTML only after Rust expands them at bake (Phase 2 after §4e review).
 
 ---
 
@@ -51,8 +67,12 @@ Implement **after A2** unless a spike is explicitly throwaway.
 | Step | Deliverable |
 |------|-------------|
 | **C1** | Keep HTML emitter on bake JSON |
+| **C1a** | Live stress harness: disk watch → Rust bake → HTML (`npm run preview`); shared `scripts/lib/bake-pipeline.mjs` |
+| **C1b** | **PDL Playground** (proposed) — React demo shell: packs + editor + HTML preview; see `PROPOSAL_PDL_PLAYGROUND.md` |
 | **C2** | SwiftUI mapper spike on bake IR |
 | **C3** | Prototype env (routes / stack / data) after B4–B5 |
+
+**Fence:** `preview` = eng disk-watch loop; **Playground** = language demo / iterative testing; **Studio** (future) = full authoring — not Track C1b.
 
 ---
 
@@ -101,6 +121,8 @@ None from the A0 question set. Further grammar nits can be decided when writing 
 - [x] B2 `[T]` / instance literals / children expand (§4b; Rust-first)  
 - [x] B3 injection packs (`bakePack` / `validatePack`)  
 - [x] B4 emits + inline interaction (declare/fire; host dispatch later)  
+- [x] C1a live preview (`npm run preview` + playground Rust bake path)  
+- [x] B5 language formalized in `full-spec` §4e; Rust parse + ForEach bake expand shipped (B4b/B5)  
 - [ ] Align published `schemaVersion` string to plain **`1.0.0`** when touching normative version prose (drop `-beta` framing; still unreleased)
 
 Progress and intentional gaps also tracked in **`docs/SPEC_GAPS.md`**.

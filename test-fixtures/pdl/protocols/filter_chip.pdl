@@ -13,7 +13,7 @@ protocol SubnavItem {
   title = ""
   filter: FilterId = .all
   emits {
-    select(filter)
+    select(filter: FilterId)
   }
 }
 

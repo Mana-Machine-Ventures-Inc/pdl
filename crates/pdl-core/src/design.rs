@@ -193,7 +193,7 @@ fn merge_interaction(
 fn apply_extend(
     entry_path: &str,
     components: &IndexMap<String, ComponentDecl>,
-    expose: &mut IndexMap<String, Vec<String>>,
+    _expose: &mut IndexMap<String, Vec<String>>,
     usage: &mut IndexMap<String, UsageKeyMap>,
     fixtures: &mut IndexMap<String, IndexMap<String, FixtureExampleDecl>>,
     rules: &mut IndexMap<String, Vec<RulesStatement>>,
@@ -211,9 +211,6 @@ fn apply_extend(
     }
     for sec in &ext.sections {
         match sec {
-            ExtendSection::Expose { names } => {
-                expose.insert(c.clone(), names.clone());
-            }
             ExtendSection::Usage { props } => {
                 let u = usage.entry(c.clone()).or_default();
                 merge_usage_props(u, props);

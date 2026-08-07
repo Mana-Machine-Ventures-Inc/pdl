@@ -1,4 +1,4 @@
-// expose: public parameter surface (subset of params)
+// Formerly tested `expose` (removed). All params are public.
 
 import "tokens_color.pdl"
 import "tokens_distance_radius.pdl"
@@ -27,9 +27,4 @@ component AtomExposedCard(
   }
 
   children = [T, S]
-}
-
-expose AtomExposedCard {
-  title
-  subtitle
 }

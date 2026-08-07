@@ -150,7 +150,7 @@ component Button(
  C. Select scene / component + theme + params
  D. Resolve + bake → literal frame tree (IR)
  E. SwiftUI view runtime: IR → View tree
- F. Host: bind view-model ↔ expose params; mount on screen
+ F. Host: bind view-model ↔ component params; mount on screen
  G. (Optional) hot reload when .pdl changes arrive
 ```
 
@@ -267,7 +267,7 @@ struct PrototypeScreen: View {
 }
 ```
 
-- **`expose`** in PDL defines the public param contract the host must satisfy.
+- **Component params** in PDL define the inbound contract the host must satisfy (all params are public; `expose` removed). **`emits`** define outbound intents.
 - Networking and business logic stay in the host; PDL stays visual + interaction *skin*.
 
 Result: an **actual SwiftUI button** (native views), driven by the design system, not a WebView of the HTML studio.

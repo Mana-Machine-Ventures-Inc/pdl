@@ -1,11 +1,13 @@
 /**
  * Local PDL preview server — imports compiled toolchain from repo `dist/`.
+ * Bake uses shared scripts/lib/bake-pipeline.mjs (Rust default; same IR as `npm run preview`).
  */
 import { createServer } from "node:http";
 import { readFileSync, mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { bakeAndRender, resolveRepoPath } from "../../scripts/lib/bake-pipeline.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "..", "..");
@@ -193,12 +195,21 @@ function formatErr(err) {
 }
 
 async function handleLoad(body) {
-  const { files, entry } = body;
+  const { files, entry, diskRoot } = body;
   if (typeof entry !== "string" || !entry.trim()) {
-    throw new Error("Expected \"entry\" to be a relative path inside \"files\" (e.g. design.pdl)");
+    throw new Error('Expected "entry" path');
   }
-  assertSafeRelativePath(entry);
   const { loadDesign, serialiseValueExpr } = await toolchainPromise;
+
+  if (diskRoot === true) {
+    const entryAbs = resolveRepoPath(REPO_ROOT, entry);
+    assertUnderRepo(entryAbs);
+    const design = loadDesign(entryAbs);
+    const designSummary = buildDesignSummary(design, serialiseValueExpr, dirname(entryAbs));
+    return { ok: true, ...designMeta(design), designSummary };
+  }
+
+  assertSafeRelativePath(entry);
   const tmp = mkdtempSync(join(tmpdir(), "pdl-playground-"));
   try {
     writeWorkspace(tmp, files);
@@ -214,52 +225,118 @@ async function handleLoad(body) {
   }
 }
 
+/**
+ * Ensure a path stays under the repo (disk-root mode).
+ * @param {string} abs
+ */
+function assertUnderRepo(abs) {
+  const rel = relative(REPO_ROOT, abs);
+  if (rel.startsWith("..") || rel === "") {
+    throw new Error(`Path must be inside the repository: ${abs}`);
+  }
+}
+
 async function handleRender(body) {
-  const { files, entry, mode, component, theme, kv } = body;
-  if (mode !== "component" && mode !== "system") {
-    throw new Error('Expected "mode" to be "component" or "system"');
+  const { files, entry, mode, component, theme, kv, pack, engine: engineRaw, diskRoot } = body;
+  if (mode !== "component" && mode !== "system" && mode !== "pack") {
+    throw new Error('Expected "mode" to be "component", "system", or "pack"');
   }
   if (typeof entry !== "string" || !entry.trim()) {
-    throw new Error("Expected \"entry\" (relative path inside files)");
+    throw new Error('Expected "entry" path');
   }
-  assertSafeRelativePath(entry);
+  /** @type {'rust' | 'ts'} */
+  const engine = engineRaw === "ts" ? "ts" : "rust";
   if (mode === "component") {
     if (typeof component !== "string" || !component.trim()) {
       throw new Error('In "component" mode, expected non-empty "component" name');
+    }
+  }
+  if (mode === "pack") {
+    if (typeof pack !== "string" || !pack.trim()) {
+      throw new Error('In "pack" mode, expected non-empty "pack" path');
+    }
+    if (engine !== "rust") {
+      throw new Error('Pack mode requires engine "rust"');
     }
   }
   const kvObj =
     kv && typeof kv === "object" && !Array.isArray(kv)
       ? /** @type {Record<string, unknown>} */ (kv)
       : {};
-  const {
-    loadDesign,
-    buildBakedDesignComponent,
-    buildBakedDesignSystem,
-    renderBakedDesignToHtmlDocumentWithReport,
-    serialiseValueExpr,
-  } = await toolchainPromise;
-  const tmp = mkdtempSync(join(tmpdir(), "pdl-playground-"));
+  const { loadDesign, serialiseValueExpr } = await toolchainPromise;
+
+  const useDisk = diskRoot === true;
+  /** @type {string | undefined} */
+  let tmp;
   try {
-    writeWorkspace(tmp, files);
-    const entryAbs = resolve(tmp, entry);
+    /** @type {string} */
+    let entryAbs;
+    /** @type {string | undefined} */
+    let packAbs;
+    /** @type {string} */
+    let summaryRoot;
+
+    if (useDisk) {
+      entryAbs = resolveRepoPath(REPO_ROOT, entry);
+      assertUnderRepo(entryAbs);
+      if (mode === "pack") {
+        packAbs = resolveRepoPath(REPO_ROOT, pack);
+        assertUnderRepo(packAbs);
+      }
+      summaryRoot = dirname(entryAbs);
+    } else {
+      if (!files || typeof files !== "object") {
+        throw new Error('Expected JSON body with a "files" object (or diskRoot: true)');
+      }
+      assertSafeRelativePath(entry);
+      if (mode === "pack") assertSafeRelativePath(pack);
+      tmp = mkdtempSync(join(tmpdir(), "pdl-playground-"));
+      writeWorkspace(tmp, files);
+      entryAbs = resolve(tmp, entry);
+      if (mode === "pack") packAbs = resolve(tmp, pack);
+      summaryRoot = tmp;
+    }
+
     const design = loadDesign(entryAbs);
-    const designSummary = buildDesignSummary(design, serialiseValueExpr, tmp);
-    const baked =
-      mode === "system"
-        ? buildBakedDesignSystem(design, { theme: typeof theme === "string" ? theme : undefined })
-        : buildBakedDesignComponent(design, {
-            componentName: component,
-            theme: typeof theme === "string" ? theme : undefined,
-            paramOverrides: kvObj,
-          });
-    const { html, renderFailures } = renderBakedDesignToHtmlDocumentWithReport(baked, {
-      singleComponent: mode === "system" ? undefined : component,
+    const designSummary = buildDesignSummary(design, serialiseValueExpr, summaryRoot);
+    const bakeOutPath = join(REPO_ROOT, ".tmp", "playground.bake.json");
+    const result = await bakeAndRender({
+      repoRoot: REPO_ROOT,
+      entry: entryAbs,
+      engine,
+      mode,
+      component: typeof component === "string" ? component : undefined,
+      pack: packAbs,
+      theme: typeof theme === "string" ? theme : undefined,
+      paramOverrides: kvObj,
+      bakeOutPath,
       title: "PDL playground preview",
+      singleComponent:
+        mode === "component" && typeof component === "string"
+          ? component
+          : typeof body.singleComponent === "string"
+            ? body.singleComponent
+            : undefined,
     });
-    return { ok: true, html, renderFailures, designSummary, ...designMeta(design) };
+    if (!result.ok) {
+      return {
+        ok: false,
+        error: result.error ?? "Bake failed",
+        engine: result.engine,
+        durationMs: result.durationMs,
+      };
+    }
+    return {
+      ok: true,
+      html: result.html,
+      renderFailures: result.renderFailures,
+      designSummary,
+      engine: result.engine,
+      durationMs: result.durationMs,
+      ...designMeta(design),
+    };
   } finally {
-    rmSync(tmp, { recursive: true, force: true });
+    if (tmp) rmSync(tmp, { recursive: true, force: true });
   }
 }
 

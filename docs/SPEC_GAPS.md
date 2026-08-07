@@ -2,18 +2,36 @@
 
 This document records ambiguities between **`docs/full-spec.md`** and this repository’s reference TypeScript implementation (`src/`), plus intentional v1 limits.
 
-## Accepted proposals (not yet shipped)
+## Locked language decisions (2026-08-06)
+
+Documented in **`docs/full-spec.md`** banner + body:
+
+1. **`expose` removed** — all params public; **`emits`** is output API (inline / companion / protocol).
+2. **`self` / `self.param`** = enclosing component instance (rules-query `self` stays rules-scoped).
+3. **Selection Pattern A** — pass `selected: FilterId` SoT (`selected: self.currentFilter`); chip compares `selected == filter`.
+4. **`on` by enclosure** — ambient only in `interaction`; declared emits only in `layout` / `ForEach` (PDL-E028 / E029).
+
+Rust B4b/B5 parse+bake expand landed; TS oracle still has legacy `expose` and lacks protocols/emits/ForEach. Host emit dispatch remains B7.
+
+## Accepted proposals (status)
 
 | Proposal | Status | Notes |
 |----------|--------|--------|
 | [`PROPOSAL_PORTABLE_CORE.md`](./PROPOSAL_PORTABLE_CORE.md) | **Accepted** 2026-08-05 | Rust portable core; TS oracle until bake parity |
-| [`PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md`](./PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md) | **Accepted** 2026-08-05; **B1–B4 partial** in Rust | Protocols, `[T]`, packs, emits/inline interaction in `crates/pdl-core` + §4a–§4d; TS oracle not yet; layout `on` / ForEach / host dispatch still open |
+| [`PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md`](./PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md) | **Accepted** 2026-08-05 | **B1–B5** in Rust + §4a–§4e; B6 chrome deferred; B7 host dispatch open; TS oracle not yet for B1–B5 |
+| [`PROPOSAL_QUICK_PREVIEW.md`](./PROPOSAL_QUICK_PREVIEW.md) | **Proposed** | Disk-watch `preview` harness; amended by Playground proposal §7 |
+| [`PROPOSAL_PDL_PLAYGROUND.md`](./PROPOSAL_PDL_PLAYGROUND.md) | **Proposed** 2026-08-07 | React Playground (demo/lab) vs Studio; monorepo; HTML host + Rust bake |
 
-**Roadmap:** [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md). Crate: **`crates/pdl-core`**.
+**Coverage matrix:** [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) — *Language & host coverage*.  
+**Roadmap:** same file. Crate: **`crates/pdl-core`**.
 
-Until a feature is merged into **`full-spec.md`** with fixtures/goldens, tooling **must not** treat proposal syntax as normative.
+Until a feature is merged into **`full-spec.md`**, tooling **must not** treat proposal-only syntax as normative. **§4e** is implemented in **Rust** (`ForEach` bake expand + layout `on` validate); TypeScript oracle still lags.
 
 ---
+
+## EBNF catch-up (B1–B4 + B5)
+
+§21 formal grammar in **`docs/full-spec.md`** includes `protocol`, array/`[T]` params, instance literals, `emits`, inline `interaction`, `emit`, and B5 `ForEach` / layout `on`. Rust implements these; TS oracle lags.
 
 ## Lexer: frame kind keywords vs `icon` / `media` property names
 
@@ -46,12 +64,12 @@ Until a feature is merged into **`full-spec.md`** with fixtures/goldens, tooling
 - **CLI `modifiers`:** the catalogue’s **`primitives` / `semantics` / `themes` / `typeStyles`** graph is **not** modifier-aware; if **`buildComponentCatalogue`** is called with non-empty **`modifiers`**, **tree** resolution still uses **`buildResolvedTokenMap`** with those modifiers. Emitters that replay themes from JSON alone cannot reproduce modifier-specific trees unless they mirror that resolution path.
 - **Variant deltas:** only **single-parameter** axes are expanded automatically against the default instance. Combined variant rows (e.g. `emphasis` + `size` interaction) must be authored explicitly per **§16**; not generated yet.
 - **`$ref` in `children`:** structural variant entries in the spec use `{ "$ref": "Label" }` for reuse. The current diff emits full child trees; emitters can still consume them, but JSON may be larger than the spec’s examples.
-- **`expose`:** if no `expose` block exists for a component, the catalogue lists **all** parameter names as `expose` for ergonomics. The spec emphasises explicit `expose`; confirm product expectations.
+- **`expose` removed (language):** Rust rejects `expose` blocks. Catalogue may still emit transitional `expose: [all params]`. Prefer reading `params` / `emits`. TS oracle may still parse legacy `expose` until ported.
 - **`rules` tags:** only **top-level** `tags =` / `tags.add` inside `rules C { … }` feed **`components[C].rules.tags`** today; tag lines inside nested `rules if { … }` arms are not merged into that array (see TODO in **`src/catalogue.ts`**).
 
 ## Companion blocks (§11) and `rules` / queries (§12) — implemented
 
-**`expose`**, **`fixtures`**, **`usage`**, **`rules`**, **`extend`**, and **`interaction`** are parsed (**`src/parser.ts`**), merged into **`DesignDefinition`** (**`src/loadDesign.ts`**), validated (**`src/validateDesign.ts`**), and emitted on **Component Catalogue** component rows (**`src/catalogue.ts`**: **`fixtures`**, **`usage`** / **`usageByKey`**, flattened **`rules`**, **`interactions`**). **`pdl graphSystem`**, **`catalogue`**, and **`graphComponent`** / **`resolve`** surfaces include this metadata where applicable.
+**`fixtures`**, **`usage`**, **`rules`**, **`extend`**, and **`interaction`** are parsed in TS; Rust rejects **`expose`** (**`src/parser.ts`**), merged into **`DesignDefinition`** (**`src/loadDesign.ts`**), validated (**`src/validateDesign.ts`**), and emitted on **Component Catalogue** component rows (**`src/catalogue.ts`**: **`fixtures`**, **`usage`** / **`usageByKey`**, flattened **`rules`**, **`interactions`**). **`pdl graphSystem`**, **`catalogue`**, and **`graphComponent`** / **`resolve`** surfaces include this metadata where applicable.
 
 Later chapters (motion, layers, composite tokens, best practices) may still outpace the reference compiler in spots — see **`docs/full-spec.md`** (“Implementation parity”) and the gap notes below.
 

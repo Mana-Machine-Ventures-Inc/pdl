@@ -70,7 +70,7 @@ component MoleculeFormColumnDemo() layout {
     gap = atoms.space.sm
     padding = EdgeInsets(top: atoms.space.sm, right: 0, bottom: 0, left: 0)
 
-    let Cancel = MoleculeTextButton(label: "Cancel", tone: .ghost, size: .sm)
+    let Cancel = MoleculeTextButton(label: "Cancel", tone: .secondary, size: .sm)
     let Save = MoleculeTextButton(label: "Save", tone: .primary, size: .lg)
     children = [Cancel, Save]
   }

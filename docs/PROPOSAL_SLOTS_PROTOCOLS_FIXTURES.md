@@ -1,8 +1,8 @@
 # Proposal: Protocols, Slots, Expandable Lists, Emits & Dual Fixtures
 
-**Status:** accepted (2026-08-05) — not yet shipped in `full-spec` / compilers  
+**Status:** accepted (2026-08-05) — **B1–B4** shipped in Rust + normative §4a–§4d; **B5** normative in `docs/full-spec.md` §4e (**compiler impl pending**); **B6** chrome deferred; **B7** host dispatch open  
 **Depends on:** `docs/PROPOSAL_PORTABLE_CORE.md` (portable core, bake → native views)  
-**Related:** `docs/full-spec.md` §4 (params), §8 (interactions), §11 (fixtures / expose), §16 (catalogue / bake)  
+**Related:** `docs/full-spec.md` §4a–§4e, §8 (interactions), §11 (fixtures / usage / rules), §16 (catalogue / bake)  
 **Implementation:** `docs/IMPLEMENTATION_PLAN.md`
 
 ---
@@ -32,7 +32,7 @@ We need a content model that stays **PDL-authored and typed** for design-time tr
 | **Optional list chrome / binding** | `ForEach` when the parent needs chrome or **derived child params** |
 | **Layout as view body** | Structure **down** and local emit capture **up** live together in `layout` |
 | **`interaction` extends the component** | Inline or external; ambient host `on` → params / `emit`; attached per instance |
-| **Public contracts outside layout** | `expose` / `emits` / protocols define what **other parents** see |
+| **Public contracts** | All **params** inbound; **`emits`** / protocols outbound — no `expose` filter |
 | **Identity, not indexes** | Intents carry stable ids (`filter`, `episodeId`), not array positions |
 | **PDL remains SoT** | Visual structure and contracts live in `.pdl`; packs only supply instance data |
 | **Validate at the gate** | Unknown names / bad params fail inject or CI—not silent wrong UI |
@@ -54,7 +54,7 @@ A component has these surfaces:
 
 | Surface | Role | Analogy |
 |---------|------|---------|
-| **`expose` / `emits` / `protocol`** | What **parents** may pass in and hear out | Public API |
+| **`params` / `emits` / `protocol`** | What parents may pass in and hear out | Public API (all params; emits out) |
 | **`layout`** | How **this** component builds its child tree **and** wires those children’s intents | SwiftUI `body` |
 | **`interaction`** | How **this** component subscribes to **ambient host events** → param updates and/or `emit` | Event extension of the component |
 
@@ -67,7 +67,7 @@ on <signal> { … }   // within this scope, when this fires, do this
 | Signal kind | Produced by | Handled in | In `emits`? |
 |-------------|-------------|------------|-------------|
 | **Ambient / host events** | Runtime (`hoverStart`, `pressEnd`, `appear`, …) | That component’s **`interaction`** | No — not a public parent API |
-| **Declared emits** | Child (`emit select`) | Parent **`layout`** `on select` / prototype | Yes — catalogued contract |
+| **Declared emits** | Child (`emit select(filter)`) | Parent **`layout`** `on select(filter_id: FilterId)` / prototype | Yes — catalogued contract |
 
 Same consistency: *when this happens, run this.* Ambient events are like **secret/system inputs** every interactive component instance can receive; `interaction` is how the component **calls those methods**. Declared emits are the **public** upward channel.
 
@@ -75,7 +75,7 @@ Same consistency: *when this happens, run this.* Ambient events are like **secre
 
 `layout` already does more than spacing: it composes under variants, state, and fixture/pack inputs. It defines the **stack down** (`children`, expandable slots, `ForEach`) and the **stack back up**: capture **child emits** and assign local params.
 
-Sibling companions like `on LibrarySubnav { … }` are **not** preferred for child→parent wiring. Keep contracts (`expose` / `emits`) as companions; keep **composition + emit capture** in `layout`.
+Sibling companions like `on LibrarySubnav { … }` are **not** preferred for child→parent wiring. Keep **`emits`** as the output contract (inline or companion); keep **composition + emit capture** in `layout`.
 
 ### 3.3 `interaction` — component extension (inline or external)
 
@@ -85,21 +85,21 @@ Sibling companions like `on LibrarySubnav { … }` are **not** preferred for chi
 // Inline — attached to the component declaration
 component FilterChip(
   filter: FilterId = .all,
-  selected: Bool = false,
+  selected: FilterId = .all,
   interactionState: ChipState = .rest
 ) layout {
   if interactionState == .hovered { … }
-  if selected == true { … }
+  if selected == filter { … }
 } interaction {
   on hoverStart { interactionState = .hovered }
   on hoverEnd   { interactionState = .rest }
-  on pressEnd   { emit select }
+  on pressEnd   { emit select(filter) }
 }
 
 // External — same semantics (today’s shape, optionally named)
 interaction FilterChipTap for FilterChip {
   on hoverStart { interactionState = .hovered }
-  on pressEnd   { emit select }
+  on pressEnd   { emit select(filter) }
 }
 ```
 
@@ -119,8 +119,8 @@ When a parent mounts instances (`ForEach(chips)`, `children = [slots]`, `FilterC
 ```text
 Host hit-test → FilterChip instance
   → runs FilterChip.interaction (ambient ons)
-  → maybe emit select
-  → parent layout on select { … }
+  → maybe emit select(filter)
+  → parent layout on select(filter_id: FilterId) { … }
 ```
 
 | Node | Ambient `interaction`? |
@@ -133,8 +133,8 @@ Host hit-test → FilterChip instance
 So: every **interactive component instance** behaves as if it has that wrapper; the wrapper is **defined once on the type**, inherited at instantiate/bake—not authored per use in the parent’s layout.
 
 ```text
-Parents see:     expose, emits, protocol conformance
-This view body:  layout { children / ForEach / on select … }   // declared emits
+Parents see:     params (all), emits, protocol conformance
+This view body:  layout { children / ForEach / on select(…) }   // declared emits only
 This events:     interaction { on hoverStart …; emit select } // ambient → params/emit
 Instance:        layout tree + attached interaction dispatcher (if any) + emit outlet
 ```
@@ -148,23 +148,23 @@ protocol SubnavItem {
   title = ""
   filter: FilterId = .all
   emits {
-    select(filter)
+    select(filter: FilterId)
   }
 }
 
 component FilterChip <SubnavItem>(
-  selected: Bool = false,
+  selected: FilterId = .all,
   interactionState: ChipState = .rest
 ) layout {
   if interactionState == .hovered { … }
-  if selected == true { … }
+  if selected == filter { … }
 } interaction {
   on hoverStart { interactionState = .hovered }
   on hoverEnd   { interactionState = .rest }
-  on pressEnd   { emit select }
+  on pressEnd   { emit select(filter) }
 }
 
-emits FilterChip { select(filter) }   // may be inherited from protocol; see §8
+emits FilterChip { select(filter: FilterId) }   // may be inherited from protocol; see §8
 
 component LibrarySubnav(
   currentFilter: FilterId = .all,
@@ -175,9 +175,9 @@ component LibrarySubnav(
 ) layout {
   direction = .row
   ForEach(chips) {
-    selected = (currentFilter == filter)
-    on select { filter in
-      currentFilter = filter
+    selected: self.currentFilter
+    on select(filter_id: FilterId) {
+      currentFilter = filter_id
     }
   }
 }
@@ -246,7 +246,7 @@ protocol SubnavItem {
   title = ""
   filter: FilterId = .all
   emits {
-    select(filter)
+    select(filter: FilterId)
   }
 }
 ```
@@ -412,17 +412,17 @@ component LibrarySubnav(
   direction = .row
 
   ForEach(chips) {
-    selected = (currentFilter == filter)
+    selected: self.currentFilter
 
-    on select { filter in
-      currentFilter = filter
+    on select(filter_id: FilterId) {
+      currentFilter = filter_id
     }
   }
 }
 ```
 
-- `selected = (currentFilter == filter)` is **presentation binding** in the view body.  
-- Per-chip `selected: true` in fixtures remains valid as a **baked snapshot**; live prototypes prefer parent SoT + derive.  
+- **Pattern A:** `selected: self.currentFilter` passes the parent **FilterId** SoT (kwarg form; `self.` = enclosing component). The chip compares `selected == filter` locally.  
+- Fixtures may still snapshot a concrete `selected: .podcasts`; live prototypes prefer parent SoT + pass-through.  
 - Do **not** require general mutable instance variables or `selectedIndex` for v1.
 
 ### 7.4 v1 sequencing
@@ -441,7 +441,7 @@ Prefer the name **`emits`** (not `functions`): named **intents with param payloa
 
 ```pdl
 emits FilterChip {
-  select(filter)
+  select(filter: FilterId)
 }
 
 // or on the protocol — mixed types, one channel
@@ -449,7 +449,7 @@ protocol SubnavItem {
   title = ""
   filter: FilterId = .all
   emits {
-    select(filter)
+    select(filter: FilterId)
   }
 }
 ```
@@ -468,7 +468,7 @@ component FilterChip(…) layout {
 } interaction {
   on hoverStart { interactionState = .hovered }
   on hoverEnd   { interactionState = .rest }
-  on pressEnd   { emit select }
+  on pressEnd   { emit select(filter) }
 }
 ```
 
@@ -477,7 +477,7 @@ component FilterChip(…) layout {
 ```pdl
 interaction FilterChipTap for FilterChip {
   on hoverStart { interactionState = .hovered }
-  on pressEnd   { emit select }
+  on pressEnd   { emit select(filter) }
 }
 ```
 
@@ -486,10 +486,10 @@ interaction FilterChipTap for FilterChip {
 | Role | Subscribe to **ambient host events** → **param assignments** and/or **`emit`** |
 | Ambient vs public | `hoverStart` etc. are host-synthesized; not listed in `emits` |
 | Not responsible for | Drawing hover/press — that stays in `layout` `if` chains |
-| Promote | `on pressEnd { emit select }` turns ambient press into a **declared** intent |
-| Payload | `emit select` binds fields from instance params (`filter`) |
+| Promote | `on pressEnd { emit select(filter) }` turns ambient press into a **declared** intent |
+| Payload | Fire args type-check against `emits` / protocol `emits`; may include ids, `self`, or protocol-typed items |
 | Instances | Type’s `interaction` attaches automatically when the component is mounted |
-| Preview-only params | Prefer omitting `interactionState` from `expose` |
+| Studio knobs | Ordinary params (e.g. `interactionState`); hosts may ignore by convention — no `expose` |
 
 `on` in `interaction` and `on` in `layout` share syntax; they listen to **different signal namespaces** (ambient events vs declared emits). Parents never re-author the child’s ambient handlers at the call site.
 
@@ -497,9 +497,9 @@ interaction FilterChipTap for FilterChip {
 
 ```pdl
 ForEach(chips) {
-  selected = (currentFilter == filter)
-  on select { filter in
-    currentFilter = filter
+  selected: self.currentFilter
+  on select(filter_id: FilterId) {
+    currentFilter = filter_id
   }
 }
 ```
@@ -508,8 +508,8 @@ Equivalent list-hole form:
 
 ```pdl
 children = [chips]
-on chips.select { filter in
-  currentFilter = filter
+on chips.select(filter_id: FilterId) {
+  currentFilter = filter_id
 }
 ```
 
@@ -517,7 +517,7 @@ on chips.select { filter in
 |------|--------|
 | Where | Inside `layout`, next to the children / `ForEach` that introduce the emitters |
 | Who | Parent view registers interest; child has no parent pointer |
-| Payload | Stable ids / enums from child params |
+| Payload | Typed fields at capture: `on select(filter_id: FilterId)`; child may also emit `self` / protocol-typed items |
 | Unhandled | Bubble to page / **prototype runtime** |
 
 One handler per list channel is enough; avoid registering N identical per-item handlers unless needed.
@@ -531,7 +531,7 @@ One handler per list channel is enough; avoid registering N identical per-item h
 
 ```text
 emit select(filter)
-  → LibrarySubnav on select → currentFilter = filter → rebind selected
+  → LibrarySubnav on select(filter_id: FilterId) → currentFilter = filter_id → rebind selected
   → small redraw
 
 emit openEpisode(id)
@@ -721,7 +721,7 @@ emit openEpisode(id) → (no local handler)
 ## 15. Open questions
 
 1. ~~Single protocol slot (`content: ModalContent`) vs always `[T]`?~~ **Decided: both.**  
-2. Does conforming imply protocol params are in `expose` by default?  
+2. ~~Does conforming imply protocol params are in `expose` by default?~~ **Resolved:** `expose` removed; all params public.  
 3. Item identity field conventions (`id` vs domain keys like `filter` / `episodeId`).
 4. ~~Soft vs hard failure for bad pack items~~ **Decided: soft skip/placeholder with warning.**  
 5. Bake-always-expand vs repeat IR for live lists.  
@@ -739,11 +739,11 @@ emit openEpisode(id) → (no local handler)
 
 **Protocols** declare shared params and optional **emits**; **`component Name <Protocol>(…)`** opts in on the declaration.  
 **`[T]` params** are the content bus; they **expand in `children`**.  
-**`layout` is the view body**: stack down (children / ForEach) and stack up (local `on` capture of **declared emits**).  
+**`layout` is the view body**: stack down (children / ForEach) and stack up (local `on select(filter_id: FilterId)` capture of **declared emits** only — ambient `on` stays in `interaction`).  
 **`interaction` extends the component** (inline or external): **`on` ambient host events** → params / `emit`; attached to every mounted instance of that type.  
 **One `on` syntax**, two namespaces: ambient (secret/system) vs `emits` (public).  
-**`expose` / `emits`** are what other parents see—not where child wiring lives.  
-**`ForEach`** adds chrome and **derived bindings** (`selected = currentFilter == filter`); prefer **ids**, not indexes.  
+**`params` / `emits`** are what other parents see—not where child wiring lives. (`expose` removed.)  
+**`ForEach`** adds chrome and **derived bindings** (`selected: self.currentFilter` — Pattern A); prefer **ids**, not indexes.  
 **Dual fixtures:** strict PDL examples + JSON injection packs, one tree shape, catalogue-gated.  
 **Unhandled emits** go to a **prototype runtime** (navigation, data)—not deeper into PDL.
 

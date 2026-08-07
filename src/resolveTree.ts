@@ -165,6 +165,41 @@ function ensureFrame(frames: Map<string, MutableFrame>, id: string, kind: string
   return f;
 }
 
+/** Scope a nested let frame id under its owning `let Instance = Comp(...)` id. */
+function scopeNestedFrameId(instanceId: string, nestedId: string): string {
+  return `${instanceId}__${nestedId}`;
+}
+
+function rewriteNestedChildEntries(
+  entries: MutableFrame["childEntries"],
+  instanceId: string,
+  nestedIds: Set<string>,
+): MutableFrame["childEntries"] {
+  return entries.map((e) => {
+    if (e.kind === "frameRef" && nestedIds.has(e.id) && e.id !== instanceId) {
+      return { kind: "frameRef" as const, id: scopeNestedFrameId(instanceId, e.id) };
+    }
+    return e;
+  });
+}
+
+/** Merge a LetInstance's private frame map into the parent, renaming nested lets. */
+function hoistLetInstanceFrames(
+  parent: Map<string, MutableFrame>,
+  instanceId: string,
+  nested: Map<string, MutableFrame>,
+): void {
+  const nestedIds = new Set(nested.keys());
+  for (const [fid, frame] of nested) {
+    const rewritten: MutableFrame = {
+      ...frame,
+      childEntries: rewriteNestedChildEntries(frame.childEntries, instanceId, nestedIds),
+    };
+    if (fid === instanceId) parent.set(fid, rewritten);
+    else parent.set(scopeNestedFrameId(instanceId, fid), rewritten);
+  }
+}
+
 function processFrameItems(
   items: FrameBodyItem[],
   defaultTarget: string,
@@ -240,10 +275,17 @@ function processFrameItems(
           paramMeta: buildParamMeta(childComp),
           useStringPlaceholders: ctx.useStringPlaceholders,
         };
-        const inst = ensureFrame(frames, item.id, childComp.rootKind);
-        inst.instanceOf = item.component;
-        inst.instanceKwargs = kwExplicit;
-        processFrameItems(childComp.body, item.id, frames, subCtx);
+        // Isolate nested lets so sibling instances (Cancel vs Save) don't share `L`.
+        const nested = new Map<string, MutableFrame>();
+        nested.set(item.id, {
+          kind: childComp.rootKind,
+          props: {},
+          childEntries: [],
+          instanceOf: item.component,
+          instanceKwargs: kwExplicit,
+        });
+        processFrameItems(childComp.body, item.id, nested, subCtx);
+        hoistLetInstanceFrames(frames, item.id, nested);
         break;
       }
       case "if": {

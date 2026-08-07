@@ -7,11 +7,11 @@
           {
             "children": [
               {
-                "id": "T",
+                "id": "R0__T",
                 "kind": "text",
                 "props": {
                   "color": "#EBEBEB",
-                  "content": "Both",
+                  "content": "Text only",
                   "fontSize": 15,
                   "fontWeight": 600
                 }
@@ -42,7 +42,7 @@
           {
             "children": [
               {
-                "id": "Lead",
+                "id": "R1__Lead",
                 "kind": "icon",
                 "props": {
                   "color": "#222222",
@@ -51,11 +51,11 @@
                 }
               },
               {
-                "id": "T",
+                "id": "R1__T",
                 "kind": "text",
                 "props": {
                   "color": "#EBEBEB",
-                  "content": "Both",
+                  "content": "Leading",
                   "fontSize": 15,
                   "fontWeight": 600
                 }
@@ -86,17 +86,17 @@
           {
             "children": [
               {
-                "id": "T",
+                "id": "R2__T",
                 "kind": "text",
                 "props": {
                   "color": "#EBEBEB",
-                  "content": "Both",
+                  "content": "Chevron",
                   "fontSize": 15,
                   "fontWeight": 600
                 }
               },
               {
-                "id": "Chev",
+                "id": "R2__Chev",
                 "kind": "icon",
                 "props": {
                   "color": "#222222",
@@ -130,7 +130,7 @@
           {
             "children": [
               {
-                "id": "Lead",
+                "id": "R3__Lead",
                 "kind": "icon",
                 "props": {
                   "color": "#222222",
@@ -139,7 +139,7 @@
                 }
               },
               {
-                "id": "T",
+                "id": "R3__T",
                 "kind": "text",
                 "props": {
                   "color": "#EBEBEB",
@@ -149,7 +149,7 @@
                 }
               },
               {
-                "id": "Chev",
+                "id": "R3__Chev",
                 "kind": "icon",
                 "props": {
                   "color": "#222222",

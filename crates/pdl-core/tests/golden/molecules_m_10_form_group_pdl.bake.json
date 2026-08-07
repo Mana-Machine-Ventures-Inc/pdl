@@ -7,11 +7,11 @@
           {
             "children": [
               {
-                "id": "L",
+                "id": "A__L",
                 "kind": "text",
                 "props": {
-                  "color": "#222222",
-                  "content": "Ghost sm",
+                  "color": "#FFFFFF",
+                  "content": "Primary sm",
                   "fontSize": 14,
                   "fontWeight": 600
                 }
@@ -44,11 +44,11 @@
           {
             "children": [
               {
-                "id": "L",
+                "id": "B__L",
                 "kind": "text",
                 "props": {
-                  "color": "#222222",
-                  "content": "Ghost sm",
+                  "color": "#FFFFFF",
+                  "content": "Secondary lg",
                   "fontSize": 14,
                   "fontWeight": 600
                 }
@@ -81,7 +81,7 @@
           {
             "children": [
               {
-                "id": "L",
+                "id": "C__L",
                 "kind": "text",
                 "props": {
                   "color": "#222222",
@@ -120,7 +120,7 @@
         "id": "Root",
         "kind": "layout",
         "props": {
-          "align": "center",
+          "align": "start",
           "background": "#F7F7F7",
           "direction": "row",
           "gap": 8,
@@ -211,23 +211,23 @@
           {
             "children": [
               {
-                "id": "Lab",
+                "id": "F0__Lab",
                 "kind": "text",
                 "props": {
-                  "content": "Role"
+                  "content": "Workspace"
                 }
               },
               {
                 "children": [
                   {
-                    "id": "Val",
+                    "id": "F0__Val",
                     "kind": "text",
                     "props": {
-                      "content": "Editor"
+                      "content": "Design"
                     }
                   }
                 ],
-                "id": "Box",
+                "id": "F0__Box",
                 "kind": "layout",
                 "props": {
                   "align": "center",
@@ -245,10 +245,10 @@
                 }
               },
               {
-                "id": "Help",
+                "id": "F0__Help",
                 "kind": "text",
                 "props": {
-                  "content": ""
+                  "content": "Renaming updates the slug."
                 }
               }
             ],
@@ -275,7 +275,7 @@
           {
             "children": [
               {
-                "id": "Lab",
+                "id": "F1__Lab",
                 "kind": "text",
                 "props": {
                   "content": "Role"
@@ -284,14 +284,14 @@
               {
                 "children": [
                   {
-                    "id": "Val",
+                    "id": "F1__Val",
                     "kind": "text",
                     "props": {
                       "content": "Editor"
                     }
                   }
                 ],
-                "id": "Box",
+                "id": "F1__Box",
                 "kind": "layout",
                 "props": {
                   "align": "center",
@@ -309,7 +309,7 @@
                 }
               },
               {
-                "id": "Help",
+                "id": "F1__Help",
                 "kind": "text",
                 "props": {
                   "content": ""
@@ -340,11 +340,11 @@
               {
                 "children": [
                   {
-                    "id": "L",
+                    "id": "Cancel__L",
                     "kind": "text",
                     "props": {
                       "color": "#FFFFFF",
-                      "content": "Save",
+                      "content": "Cancel",
                       "fontSize": 14,
                       "fontWeight": 600
                     }
@@ -354,18 +354,17 @@
                 "instanceKwargs": {
                   "label": "Cancel",
                   "size": "sm",
-                  "tone": "ghost"
+                  "tone": "secondary"
                 },
                 "instanceOf": "MoleculeTextButton",
                 "kind": "layout",
                 "props": {
                   "align": "center",
-                  "background": "#D3D3D3",
+                  "background": "#00A699",
                   "cornerRadius": 4,
                   "direction": "row",
                   "gap": 4,
                   "justify": "center",
-                  "opacity": 0.15,
                   "padding": {
                     "bottom": 6,
                     "left": 10,
@@ -378,7 +377,7 @@
               {
                 "children": [
                   {
-                    "id": "L",
+                    "id": "Save__L",
                     "kind": "text",
                     "props": {
                       "color": "#FFFFFF",

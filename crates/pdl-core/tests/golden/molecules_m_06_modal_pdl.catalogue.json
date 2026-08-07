@@ -3,13 +3,13 @@
     "MoleculeButtonRowDemo": {
       "childHierarchy": {
         "A": [
-          "L"
+          "A__L"
         ],
         "B": [
-          "L"
+          "B__L"
         ],
         "C": [
-          "L"
+          "C__L"
         ],
         "Root": [
           "A",
@@ -43,6 +43,16 @@
             "wrap": "nowrap"
           }
         },
+        "A__L": {
+          "id": "A__L",
+          "kind": "text",
+          "props": {
+            "color": "primitive:atoms.color.textOnBrand",
+            "content": "param:label",
+            "fontSize": 14,
+            "fontWeight": 600
+          }
+        },
         "B": {
           "id": "B",
           "instanceKwargs": {
@@ -66,6 +76,16 @@
               "top": 12
             },
             "wrap": "nowrap"
+          }
+        },
+        "B__L": {
+          "id": "B__L",
+          "kind": "text",
+          "props": {
+            "color": "primitive:atoms.color.textOnBrand",
+            "content": "param:label",
+            "fontSize": 14,
+            "fontWeight": 600
           }
         },
         "C": {
@@ -94,8 +114,8 @@
             "wrap": "nowrap"
           }
         },
-        "L": {
-          "id": "L",
+        "C__L": {
+          "id": "C__L",
           "kind": "text",
           "props": {
             "color": "primitive:atoms.color.textPrimary",
@@ -112,7 +132,7 @@
       "root": {
         "kind": "layout",
         "props": {
-          "align": "center",
+          "align": "start",
           "background": "semantic:atoms.color.sem.fromRgb",
           "direction": "row",
           "gap": "primitive:atoms.space.sm",
@@ -130,14 +150,14 @@
     "MoleculeModalShell": {
       "childHierarchy": {
         "Cancel": [
-          "L"
+          "Cancel__L"
         ],
         "Footer": [
           "Cancel",
           "Go"
         ],
         "Go": [
-          "L"
+          "Go__L"
         ],
         "Panel": [
           "Header",
@@ -173,6 +193,16 @@
               "top": 6
             },
             "wrap": "nowrap"
+          }
+        },
+        "Cancel__L": {
+          "id": "Cancel__L",
+          "kind": "text",
+          "props": {
+            "color": "primitive:atoms.color.textPrimary",
+            "content": "param:label",
+            "fontSize": 14,
+            "fontWeight": 600
           }
         },
         "Copy": {
@@ -218,22 +248,22 @@
             "wrap": "nowrap"
           }
         },
-        "Header": {
-          "id": "Header",
-          "kind": "text",
-          "props": {
-            "content": "param:heading",
-            "typeStyle": "typeStyle:AtomTitle"
-          }
-        },
-        "L": {
-          "id": "L",
+        "Go__L": {
+          "id": "Go__L",
           "kind": "text",
           "props": {
             "color": "primitive:atoms.color.textOnBrand",
             "content": "param:label",
             "fontSize": 14,
             "fontWeight": 600
+          }
+        },
+        "Header": {
+          "id": "Header",
+          "kind": "text",
+          "props": {
+            "content": "param:heading",
+            "typeStyle": "typeStyle:AtomTitle"
           }
         },
         "Panel": {

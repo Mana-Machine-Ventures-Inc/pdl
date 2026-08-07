@@ -3,6 +3,8 @@
 > **Single-document reference.** This file consolidates the PDL developer specification (chapters 1–19) plus the formal specification additions (chapters 20–26) into one reviewable document. Navigation links between former chapter files have been removed; use your editor's heading search instead.
 >
 > **Repository path:** `docs/full-spec.md` (normative copy in this repo).
+>
+> **Locked language decisions (2026-08-06):** (1) **`expose` removed** — all component params are public; **`emits`** is the public output API. (2) **`self` / `self.param`** means the enclosing component instance (escape hatch for name collisions); bare `self` may be an emit payload. Rules-query `self` is rules-scoped only. (3) **Selection SoT** — pass `selected: FilterId` from parent (`selected: self.currentFilter`), not a Bool presentation bind. (4) **`on` by enclosure** — ambient events only in `interaction`; declared emit channels only in `layout` / `ForEach`.
 
 ---
 
@@ -17,13 +19,14 @@
 4b. [Array params & children expansion (B2)](#4b--array-params--children-expansion-b2)
 4c. [Injection packs (B3)](#4c--injection-packs-b3)
 4d. [Emits & inline interaction (B4)](#4d--emits--inline-interaction-b4)
+4e. [ForEach & layout emit capture (B5)](#4e--foreach--layout-emit-capture-b5)
 5. [Components, Frames, and Properties](#5-components-frames-and-properties)
 6. [Values and Expressions](#6-values-and-expressions)
 7. [Conditional Overrides, `let`, and Composition](#7-conditional-overrides-let-and-composition)
 8. [Interactions](#8-interactions)
 9. [Tooling, CLI, and Limits](#9-tooling-cli-and-limits)
 10. [Quick Reference (Syntax Cheat Sheet)](#10-quick-reference-syntax-cheat-sheet)
-11. [Companion Blocks: `expose`, `fixtures`, `usage`, `rules`, `extend`](#11-companion-blocks-expose-fixtures-usage-rules-extend)
+11. [Companion Blocks: `fixtures`, `usage`, `rules`, `extend`](#11-companion-blocks-fixtures-usage-rules-extend)
 12. [Rules Query Language](#12-rules-query-language)
 13. [Motion Tokens and Interaction Animation](#13-motion-tokens-and-interaction-animation)
 14. [Visual Layers: `background`, `foreground`, and Layer Constructors](#14-visual-layers-background-foreground-and-layer-constructors)
@@ -63,7 +66,7 @@
 - **Variants** (finite enums for props)  
 - **Conditional overrides** (`if` / `else if` / `else` inside frames)  
 - **Interactions** (event → parameter updates; preview and optional static hooks) (§8)  
-- **Companion metadata** — **`expose`**, **`fixtures`**, **`usage`**, **`rules`** (**`tags` / `tags.add` only inside `rules {}`**), **`extend`** (§12)  
+- **Companion metadata** — **`fixtures`**, **`usage`**, **`rules`** (**`tags` / `tags.add` only inside `rules {}`**), **`extend`** (§11)  
 
 A `.pdl` **module** is parsed into a **partial design definition**; the **entry file** and **`import` graph** merge into a single resolved design. The PDL toolchain can serialise this as a **Component Catalogue** — a plain JSON file with a **token graph** (**`primitives` / `semantics` / `themes` / `typeStyles`**: definitions and overrides use **`primitive:`** / **`semantic:`** pointer strings where bare token idents appear in source), **pre-resolved default and variant frame trees** (with the same markers on frame props), and **property deltas** between variant tuples — which emitters consume without parsing PDL or re-implementing merge (§16). Runtime literal values for a skin still come from walking that graph (or from **`bakedDesign`**, §16d).
 
@@ -84,7 +87,6 @@ A `.pdl` **module** is parsed into a **partial design definition**; the **entry 
 | **Component** | Parameters + **root frame** (`layout`, `text`, `icon`, `media`). |
 | **Frame** | Kind + properties + optional **children**. |
 | **`let` frame** | Nested named frame in a component. |
-| **`expose`** | Declared **public API** subset of parameters for tooling (§12). |
 | **Fixture (`example`)** | Named **parameter map** for preview/tests/codegen (§12). |
 | **Rule** | **Query + strength** constraint on resolved trees (§13). |
 | **Emitter / compiler target** | Consumer of resolved output (HTML, manifest, …) (§17). |
@@ -125,7 +127,7 @@ Every component declares one root kind: `component Name(…) layout { … }` (or
 4. **Components** — semantic tokens and variants; avoid ad-hoc literals except demos.  
 5. **Type styles** — shared typography.  
 6. **Materials** — composite **`Background`** / **`Foreground`** tokens for repeated stacks (§15).  
-7. **`expose` + `fixtures`** — contract and examples for systems that integrate PDL (§12).  
+7. **`emits` + `fixtures`** — output intents and examples for systems that integrate PDL (§4d / §11).  
 
 ---
 
@@ -195,7 +197,6 @@ These may appear in any **module** (entry or imported). Order **within** a file 
 | `protocol` | Shared param/emits contract for conforming components (§4a) |
 | `component` | UI definition |
 | `interaction` | Preview behavior (§8) |
-| **`expose`** | Public param surface (§12) |
 | **`fixtures`** | Example param instances (§12) |
 | **`usage`** | Human-readable guidance (§12) |
 | **`rules`** | Query constraints (§13) |
@@ -214,14 +215,13 @@ These may appear in any **module** (entry or imported). Order **within** a file 
 
 | Feature | Merge behavior |
 |---------|----------------|
-| `expose` | **Later file wins:** the last merged `expose Name { … }` or `extend Name { expose { … } }` **replaces** the entire exposed param list for `Name`. No union of lists. |
 | `fixtures` | Merge **by example label** (display string); later block with the same label **replaces** that example's body. |
 | `usage` | Per key: **`key =`** replaces; **`key +=`** appends with a **single space** separator. Unknown keys: **later file wins** per key. |
 | `rules` | **`tags =`** / **`tags.add`** **only** appear inside **`rules`** blocks (§13). **`tags = […]`** in a later file **replaces** the entire tags array for that component. **`Rule(…)`** lines: **append** to the rule list in merge order. Duplicate **`Rule`** lines (same strength and canonically equal serialized query) **MAY** be collapsed to one entry. |
 | `interaction` | **Append by interaction name:** each `interaction Name for Component { … }` block is appended to the `InteractionDef[]` array for that component in merge order. If two blocks share the **same interaction name** for the same component, the **later block replaces** the earlier one. Multiple uniquely-named blocks for the same component are all preserved. |
 | `extend` | Processed in merge order **after** the base `component` exists; each inner section follows the same rules as standalone blocks. **Entry file wins** over imported files for the same component + same fixture label / same `usage` key. |
 
-**Best practice:** comment the intended pipeline in the entry file: tokens → motion → typography → themes → components → **exposes/fixtures** (or co-locate companions next to components).
+**Best practice:** comment the intended pipeline in the entry file: tokens → motion → typography → themes → components → **fixtures** / **emits** (or co-locate companions next to components).
 
 ---
 
@@ -257,11 +257,11 @@ primitive color.brand: Color = #002fff
 | `typography.pdl` | `typeStyle` |
 | `themes.pdl` | `theme` blocks |
 | `variants.pdl` | Shared `variant` |
-| `*.pdl` features | `component`, `interaction`, **`expose`**, **`fixtures`**, **`usage`**, **`rules`** |
+| `*.pdl` features | `component`, `interaction`, **`emits`**, **`fixtures`**, **`usage`**, **`rules`** |
 | `app-extensions.pdl` | **`extend`** for library components |
 | `design.pdl` | `import` + `previewBackground` only |
 
-There is no `export` keyword: every merged top-level symbol is visible project-wide. **`expose`** narrows what **external** tools treat as the stable contract (§12).
+There is no `export` keyword: every merged top-level symbol is visible project-wide. **All component parameters are public**; **`emits`** is the public output API (§4d). There is no separate `expose` filter.
 
 ---
 
@@ -525,13 +525,13 @@ component ConfirmBody <ModalContent>() layout {
 | Catalogue | When present: root **`protocols`** map; component rows may include **`conformsTo`**. Params on the row are the **effective** list. |
 | Unknown `P` | `PDL-E006` at validate/load. |
 
-Array/slot params typed as a protocol (`[ModalContent]`) and injection packs are **not** in this slice (see Track B2–B3).
+Array/slot params typed as a protocol (`[ModalContent]`) are **§4b**. Injection packs are **§4c**. Layout `on` / `ForEach` are **§4e**.
 
 ---
 
 ## Component parameters
 
-Components declare a public API in parentheses after the name:
+Components declare their **parameters** (inbound public API — all of them) in parentheses after the name:
 
 ```pdl
 component StatusBanner(
@@ -599,7 +599,7 @@ component Modal(
 | Single slot | Non-array `content: ModalContent = UpsellBody()` also expands when referenced in `children` |
 | Catalogue | Param `type` is `{ "kind": "array", "element": "…" }` for `[T]` |
 
-Injection packs / soft-fail (B3) and `ForEach` chrome (B5–B6) are separate slices.
+Injection packs / soft-fail are **§4c**. `ForEach` / layout `on` are **§4e** (chrome `before`/`between`/`after` deferred as **B6** under §4e).
 
 ---
 
@@ -636,39 +636,290 @@ CLI: `pdl bakePack <entry.pdl> <pack.json>` · `pdl validatePack <entry.pdl> <pa
 
 **Status:** shipped in the **Rust** portable core (declare + fire; host dispatch is later). Proposal §8.
 
+**Contracts:** every component **parameter** is public inbound surface. **`emits`** is the public **output** API (intents parents may hear). There is **no** `expose` filter and no language-level private params — PDL is not a runtime privacy system.
+
+A component **declares** channels in any of these forms (effective emits = protocol ∪ own):
+
+1. **Inline** after the root frame (preferred when co-located): `component C(…) layout { … } emits { select(filter: FilterId) } interaction { … }`
+2. **Companion** top-level: `emits C { select(filter: FilterId) }`
+3. **Protocol** body: `protocol P { … emits { select(filter: FilterId) } }` — shared channels for mixed lists
+
+It **fires** them from `interaction` with `emit …`, and a **parent** **captures** them in `layout` / `ForEach` with `on …` (§4e). Component-to-component wiring is **params + `emits` only**.
+
+### Emit signatures and payload types
+
+An emit signature names a **channel** and zero or more **typed payload fields**. Types are **declared on the signature** (same style as component params) so callers and catalogue consumers know the object kind without inferring from other declarations.
+
 ```pdl
-protocol SubnavItem {
-  filter: FilterId = .all
-  emits { select(filter) }
-}
-
-component FilterChip <SubnavItem>(…) layout {
-  …
-} interaction {
-  on pressEnd { emit select(filter) }
-}
-
 emits FilterChip {
-  select(filter)
+  select(filter: FilterId)
 }
 ```
 
 | Rule | Intent |
 |------|--------|
-| `emits` / protocol `emits` | Public output API |
-| `emit name` / `emit name(args)` | Fire from interaction handlers |
-| Inline `} interaction { … }` | Synthetic name **`default`**; merges into component interactions |
-| Catalogue | `components[C].emits` = effective (protocol ∪ own) |
+| `select(filter: FilterId)` | Channel `select` carries one field, `filter`, of type **`FilterId`** |
+| Type required | Each payload field **MUST** include `: TypeName`. Allowed kinds: variants, primitives (`String`, …), **protocol** names, and **component** types. |
+| Fire site | `emit select(filter)` binds by **name** to a value in scope (typically the component param of the same name); the value **MUST** type-check against the declared payload type. Authors **MAY** pass `self` when the payload type is this component or a protocol it conforms to. |
+| Parent capture | `on …select(filter_id: FilterId) { … }` **re-declares** typed payload fields (same shape as the emit signature). Capture names are **handler locals** (need not match declaration names). Arity and types **MUST** match the effective emit signature by **position**. |
+| Catalogue | Effective emits record `{ name, args: [{ name, type }, …] }` |
+| Protocol | Same typed form on protocol `emits { … }`; mixed-list parents rely on that shared typed channel |
 
-Layout `on select` capture and `ForEach` bindings are **B5**.
+Bare `emit select` / `on select { … }` (no payload parens) is allowed only when the declared signature has **no** payload fields; if the signature lists `(filter: FilterId)`, fire sites **MUST** supply `emit select(…)` and parents **MUST** write `on select(…: …) { … }`.
+
+**Richer payloads** — ids/enums are the common case; a child may also emit a protocol-conforming item or itself:
+
+```pdl
+emits FeedRow {
+  open(item: FeedRow)          // concrete self
+  // or: open(item: FeedItem)  // protocol the row conforms to
+}
+
+// interaction:
+on pressEnd {
+  emit open(self)
+}
+
+// parent layout:
+on open(item: FeedRow) {
+  focused = item
+}
+```
+
+### Example A — component emits only (no protocol)
+
+One concrete chip type; the parent listens to that type’s channel.
+
+```pdl
+variant FilterId {
+  case all
+  case podcasts
+}
+
+component FilterChip(
+  title: String = "All",
+  filter: FilterId = .all,
+  selected: FilterId = .all
+) layout {
+  direction = .row
+  let Label: text = { content = title }
+  children = [Label]
+} emits {
+  select(filter: FilterId)
+} interaction {
+  on pressEnd {
+    emit select(filter)
+  }
+}
+
+// Parent: own SoT, mount chips, capture select (§4e layout `on`)
+// Pattern A — pass FilterId SoT into each chip’s `selected` param
+component FilterBar(
+  currentFilter: FilterId = .all
+) layout {
+  direction = .row
+
+  let All = FilterChip(
+    title: "All",
+    filter: .all,
+    selected: currentFilter
+  )
+  let Podcasts = FilterChip(
+    title: "Podcasts",
+    filter: .podcasts,
+    selected: currentFilter
+  )
+  children = [All, Podcasts]
+
+  on All.select(filter_id: FilterId) {
+    currentFilter = filter_id
+  }
+  on Podcasts.select(filter_id: FilterId) {
+    currentFilter = filter_id
+  }
+}
+```
+
+With a **list** of the same concrete type, prefer one capture next to the list (§4e):
+
+```pdl
+component FilterBar(
+  currentFilter: FilterId = .all,
+  chips: [FilterChip] = [
+    FilterChip(title: "All", filter: .all),
+    FilterChip(title: "Podcasts", filter: .podcasts)
+  ]
+) layout {
+  direction = .row
+  children = [chips]
+  on chips.select(filter_id: FilterId) {
+    currentFilter = filter_id
+  }
+}
+```
+
+### Example B — shared emits on a protocol (mixed list)
+
+When several concrete types appear in one list, put the **shared** channel on the protocol so the parent writes **`on select` once**. Each conformer still **fires** `emit select(…)`; a per-component `emits` block is optional if the protocol already declares the channel (effective emits = protocol ∪ own).
+
+```pdl
+protocol SubnavItem {
+  title = ""
+  filter: FilterId = .all
+  emits {
+    select(filter: FilterId)
+  }
+}
+
+component FilterChip <SubnavItem>(
+  selected: FilterId = .all
+) layout {
+  direction = .row
+  if selected == filter { /* selected chrome */ }
+  let Label: text = { content = title }
+  children = [Label]
+} interaction {
+  on pressEnd {
+    emit select(filter)
+  }
+}
+
+component IconFilterChip <SubnavItem>(
+  glyph: String = "•",
+  selected: FilterId = .all
+) layout {
+  direction = .row
+  if selected == filter { /* selected chrome */ }
+  let Mark: text = { content = glyph }
+  let Label: text = { content = title }
+  children = [Mark, Label]
+} interaction {
+  on pressEnd {
+    emit select(filter)
+  }
+}
+
+// Parent: polymorphic list; one select channel for every SubnavItem
+component LibrarySubnav(
+  currentFilter: FilterId = .all,
+  chips: [SubnavItem] = [
+    FilterChip(title: "All", filter: .all),
+    IconFilterChip(title: "Podcasts", filter: .podcasts, glyph: "🎧")
+  ]
+) layout {
+  direction = .row
+
+  ForEach(chips) {
+    selected: self.currentFilter
+    on select(filter_id: FilterId) {
+      currentFilter = filter_id
+    }
+  }
+}
+```
+
+(`ForEach` / Pattern A `selected` / layout `on` are **§4e**. Until B5 ships, the same parent intent is expressible with `children = [chips]` plus `on chips.select(filter_id: FilterId) { … }` once list capture is available.)
+
+| Rule | Intent |
+|------|--------|
+| `emits C { … }` | Component’s public **output** API (canonical home of emits) |
+| Payload fields | Declared as `name: Type` on the signature (not inferred) |
+| Protocol `emits { … }` | Optional shared channels for conformers / mixed lists (payloads typed from protocol params) |
+| `emit name` / `emit name(args)` | Fire a **declared** channel from `interaction` handlers |
+| Inline `} interaction { … }` | Synthetic name **`default`**; merges into component interactions |
+| Catalogue | `components[C].emits` = **effective** (protocol ∪ own), each channel with typed payloads |
+| Parent `on` | Captures declared emits in **layout** / `ForEach` only (§4e / §8), with an explicit typed payload list: `on select(name: Type) { … }` |
+| Inline `emits` | `} emits { … }` after the root frame merges into the component’s own emits (same effective set as companion `emits C`) |
+
+Host dispatch of **unhandled** emits (no layout `on`) is **B7** / prototype runtime (§8).
 
 ---
 
-## Public API surface (`expose`)
+## 4e — ForEach & layout emit capture (B5)
 
-Tooling and generated SDKs use **`expose`** to know which parameters form the **stable contract** for a component. Parameters omitted from `expose` may still exist for layout or preview-only state.
+**Status:** **normative**; **shipped in Rust** (`crates/pdl-core` — parse, validate E028/E029, bake-expand `ForEach` binds). TypeScript oracle still lags. Host emit dispatch is **B7**. Source: `test-fixtures/pdl/protocols/library_subnav.pdl` (parses; unimported from `design.pdl`).
 
-See §12. **Validation:** every name in `expose Component { … }` must appear in that component’s parameter list.
+`layout` is the **view body**: it stacks **down** (`children`, expandable slots, optional `ForEach`) and **up** (capture of **declared** child emits via `on`). Bare list mount does **not** require `ForEach` — `children = [slots]` remains enough (§4b).
+
+### When to use `ForEach`
+
+| Need | Use |
+|------|-----|
+| Just mount instances | `children = [slots]` (no `ForEach`) |
+| Derive child params from parent SoT | `ForEach` + binding (e.g. selection) |
+| Capture list emits next to composition | `on select` inside that `ForEach` / beside the list |
+| Dividers / before / after chrome | `ForEach` + `before` / `between` / `after` (**B6** — deferred; see below) |
+
+### Derived bindings + layout `on` (normative for B5)
+
+Parent owns **one** source of truth (SoT). Prefer **ids / enums**, not indexes.
+
+**Selection pattern A (canonical):** the child takes a SoT-typed param (e.g. `selected: FilterId`); the parent **passes the SoT** at each callsite / `ForEach` bind; the child compares locally (`selected == filter`) to draw selected state. Do **not** bind a Bool into a `FilterId` param.
+
+The `ForEach` body is a **repeated callsite** for each list element — same shape as `FilterChip(selected: …)`, not a free assignment block:
+
+```pdl
+component LibrarySubnav(
+  currentFilter: FilterId = .all,
+  chips: [SubnavItem] = [
+    FilterChip(title: "All", filter: .all),
+    FilterChip(title: "Podcasts", filter: .podcasts)
+  ]
+) layout {
+  direction = .row
+
+  ForEach(chips) {
+    selected: self.currentFilter
+
+    on select(filter_id: FilterId) {
+      currentFilter = filter_id
+    }
+  }
+}
+```
+
+`self.currentFilter` names the **enclosing component** param (escape hatch when item fields would shadow). Bare `currentFilter` is also legal here when it does not collide with an item field; prefer `self.` in `ForEach` for clarity.
+
+| Rule | Intent |
+|------|--------|
+| `ForEach(listParam) { … }` | View-body construct **inside** a `layout` (or nested layout frame body). `listParam` **MUST** name a component parameter whose type is `[T]` (array of instances) or a single slot expandable like §4b. |
+| Derived bind | **`itemParam: expr`** — kwargs form. **LHS** is always an **item** (element / protocol) param; **RHS** is an expression that type-checks against that param. |
+| RHS name lookup | Bare identifiers: **item fields first**, then **enclosing component params** (item shadows parent). **`self.param`** always means the enclosing component (§22.2). |
+| Layout `on` (primary) | `on select(filter_id: FilterId) { … }` next to the list / inside `ForEach` — **declared emit channels only** (§8). |
+| Layout `on` (sugar) | `on chips.select(filter_id: FilterId) { … }` beside `children = [chips]` — equivalent capture for that list’s emitters. |
+| Ambient ban | Ambient host events (`hoverStart`, `pressEnd`, …) in `layout` / `ForEach` are **PDL-E028**. |
+| Payload capture | Typed fields in parens (same grammar as emit-sig). Names are **handler locals**; arity+types **MUST** match by position. Assignments target **enclosing** component params. |
+| Unhandled | Emits with no layout `on` bubble to the **prototype / host** runtime (B7) — not a language error. |
+| Static bake | A conforming bake **MUST** expand `ForEach` into concrete instance subtrees and **apply** derived binds using the **current** parent param values (snapshot). Live rebind after emit is a **host** concern until B7. |
+
+### B6 — list chrome (deferred)
+
+Grammar is reserved; **first compiler slice need not implement** these arms:
+
+```pdl
+ForEach(slots) {
+  before { … }
+  between { … }
+  after { … }
+}
+```
+
+```text
+slots = [A, B, C]
+→ before + A + between + B + between + C + after
+```
+
+---
+
+## Public API surface
+
+| Surface | What it is |
+|---------|------------|
+| **Parameters** | All inbound; every name in `component C(…)` is public |
+| **`emits`** | All outbound intents parents / hosts may hear (§4d) |
+| **Protocols** | Shared param + optional emit contracts for conformers (§4a) |
+
+There is **no** `expose` keyword and no private-param syntax. Studio-only knobs (e.g. `interactionState`) are ordinary params; hosts may ignore them by convention.
 
 ---
 
@@ -1238,8 +1489,9 @@ if <param> == .case {
 
 ### What each assignment targets
 
-- **Bare `prop = value`** (no frame id) — updates the **frame whose `{ … }` contains this `if` block**. On the **root** `layout { … }`, that is the **root** frame (`self` internally). Inside **`let Message: text = { … }`**, that is **`Message`**.  
-- **`SomeFrameId.prop = value`** — updates **`SomeFrameId`**, which must be a **`let`** (or `self`) in the same component. Use this when an `if` at the **root** needs to tweak a **child** frame’s props without moving the whole `if` inside the child’s block.  
+- **Bare `prop = value`** (no frame id) — updates the **frame whose `{ … }` contains this `if` block**. On the **root** `layout { … }`, that is the **root** frame. Inside **`let Message: text = { … }`**, that is **`Message`**.  
+- **`SomeFrameId.prop = value`** — updates **`SomeFrameId`**, which must be a **`let`** frame id in the same component. Use this when an `if` at the **root** needs to tweak a **child** frame’s props without moving the whole `if` inside the child’s block.  
+- **`self` is not a frame id.** In layout/interaction expressions, `self` / `self.param` means the **enclosing component instance** (§22.2), not the root frame.  
 - **`SomeFrameId.children = [ … ]`** — allowed in overrides when the grammar permits; the right-hand side is a **child list** like a normal **`children`** assignment (§5 — **`children` array**).
 
 ### Root-level example
@@ -1434,6 +1686,8 @@ They are declared at **top level** and **name the component** they augment.
 
 ## Declaration
 
+Interactions may be declared **top-level** (`interaction Name for Component { … }`) or **inline** after a component’s root frame (`} interaction { … }` — synthetic name **`default`**; see §4d).
+
 ```pdl
 interaction MyBehavior for TargetComponent {
   on <eventName> {
@@ -1443,13 +1697,33 @@ interaction MyBehavior for TargetComponent {
 }
 ```
 
-- **`MyBehavior`** — interaction name (required by grammar).  
+- **`MyBehavior`** — interaction name (required by grammar for top-level forms).  
 - **`TargetComponent`** — must match a `component` name after merge.  
-- **`on`** blocks contain **assignments**, optional **`if` chains**, and optional **motion** clauses (§14).  
+- **`on`** blocks contain **assignments**, optional **`emit`**, optional **`if` chains**, and optional **motion** clauses (§14).  
 
 ---
 
-## Events (`on …`)
+## Two `on` namespaces (disambiguated by enclosure)
+
+One keyword, two lanes. **Enclosure decides** which lane is legal; violations are hard errors.
+
+| Namespace | Where legal | Listens to | Shape |
+|-----------|-------------|------------|--------|
+| **Ambient (host)** | `interaction` / inline `interaction` **only** | Host-synthesized pointer/focus/lifecycle events | `on pressEnd { … }` — may assign params and/or `emit` |
+| **Declared emit** | `layout` body / `ForEach` **only** (§4e) | Child **`emits`** channels | `on select(filter_id: FilterId) { … }` — typed payload locals; assign enclosing params |
+
+| Violation | Code |
+|-----------|------|
+| Ambient event name in `layout` / `ForEach` | **PDL-E028** `ambient-on-in-layout` |
+| Declared emit channel (or `list.channel`) in `interaction` | **PDL-E029** `declared-on-in-interaction` |
+
+**Primary capture form:** `on select(…)` next to the list / inside `ForEach`.  
+**Optional sugar:** `on chips.select(…)` beside `children = [chips]`.  
+Promote ambient → public intent with `emit select(…)` inside `interaction` (§4d). Do **not** invent a second keyword unless enclosure errors prove insufficient in practice.
+
+---
+
+## Events (`on …`) — ambient lane
 
 | Event | Typical use |
 |-------|-------------|
@@ -1495,10 +1769,10 @@ interactionState = .hovered
 toneVariant = .active
 ```
 
-- LHS: **public parameter** of the target component.
+- LHS: a **parameter** of the target component (all params are public).
 - RHS: type-checks against param type (variants use **`.case`**; `String` params take a quoted string).
 
-Optional `self.` prefix may be normalized away by the parser.
+**`self`:** in interaction/layout value positions, bare `self` is the **enclosing component instance** (valid emit payload when the signature accepts this component or a protocol it conforms to). **`self.param`** is that component’s parameter (optional on LHS: `self.interactionState = .hovered` ≡ `interactionState = .hovered`). This is **not** the rules-query `self` (§12).
 
 ---
 
@@ -1541,16 +1815,19 @@ Pair interactions with a **variant** (or other param) on the component; drive vi
 ## Preview vs static export
 
 - **Studio / iframe preview** should run **full** interaction + motion behavior when implemented.  
-- **Static HTML / studio hosts** — this repository’s **`npm`** scripts ship the **compiler CLI** only; there is no bundled **`html`** / **`preview`** script. Any static HTML or live preview must supply its own runtime if interactions are to run end-to-end.  
+- **Static HTML** (`renderHtml`, `npm run preview`) draws **bake snapshots** only — it does **not** run ambient handlers or layout `on` emit capture end-to-end (B7).  
+- Live rebind after `emit` requires a host runtime (B7 / C3).  
 - **`appear` / `dismiss`** may be **no-ops** in static export.  
 
 ---
 
 ## See also
 
+- §4d — `emits` / `emit` / inline interaction  
+- §4e — layout `on` / `ForEach`  
 - §14  
 - §16 — `applyInteractionEvent`  
-- `test-fixtures/pdl/06_interaction_states.pdl`, `design/m3/buttons.pdl`
+- `test-fixtures/pdl/06_interaction_states.pdl`, `test-fixtures/pdl/protocols/filter_chip.pdl`
 ---
 
 ## 9 — Tooling, CLI, and Limits
@@ -1567,6 +1844,9 @@ From project root (`package.json` scripts). Each script runs **`tsc`** then **`n
 | `npm run bakeComponent -- <entry.pdl> <Component>` | Print **`bakedDesign`** for one component (§16d); optional **`--theme`**, **`--out`**, **`param=value`**. |
 | `npm run renderHtml -- <entry.pdl> <Component>` | **Bake → HTML5**: reference preview document (§16d + HTML emitter); optional **`--theme`**, **`--out`**, **`param=value`**. |
 | `npm run renderHtml -- <entry.pdl> --system` | Same pipeline for **every** merged component (gallery layout). Optional **`--theme`**, **`--out`**. |
+| `npm run renderHtmlFromBake -- <baked.json>` | HTML from an existing **`bakedDesign`** JSON (Rust or TS bake); optional **`--component`**, **`--out`**. |
+| `npm run preview -- <entry.pdl> <Component>` | Live disk watch → bake → HTML livereload (`scripts/preview-server.mjs`); optional **`--system`**, **`--pack`**, **`--engine rust\|ts`**, **`--watch-dir`**. |
+| `npm run playground` | Optional browser editor (`playground/`) on the same bake → HTML pipeline (Rust bake default). |
 | `npm run renderCatalogueHtml -- <entry.pdl>` | **Catalogue + bake → HTML5**: primitives, semantics, themes, type styles, variant types, then default baked previews (`src/renderCatalogueHtml.ts`). Optional **`--theme`**, **`--out`**. |
 | `npm run manifest -- <entry.pdl>` | Print **design manifest** JSON (§17 §3) — thin registry; optional **`--out`**. |
 | `npm run catalogue -- <entry.pdl>` | Print **Component Catalogue** JSON (§16); optional **`--theme`** (same shape as **`graphSystem`**, but trees resolve under the chosen theme). |
@@ -1574,9 +1854,9 @@ From project root (`package.json` scripts). Each script runs **`tsc`** then **`n
 | `npm run build` | Compile TypeScript: **`tsc`** → **`dist/`** (required before **`node dist/cli.js`** unless you use an **`npm run graph*`** script, which runs **`tsc`** first). |
 | `npm test` | **`npm run build`** then **Vitest** (`tests/`, including JSON contract tests for catalogue / resolve / bake shapes). |
 
-**JSON on disk:** **`graphSystem`**, **`catalogue`**, **`graphComponent`**, **`resolve`**, **`bakeSystem`**, and **`bakeComponent`** write **`stableStringify(..., { omitEmpty: true })`** — compact rules in **§16a**. **`manifest`** uses **`stableStringify`** **without** **`omitEmpty`**. **`renderHtml`** writes **HTML** (not JSON): it runs **`buildBakedDesign*`** in-process then **`renderBakedDesignToHtmlDocument`** (`src/renderHtml.ts`). **`renderCatalogueHtml`** writes a **reference HTML** page from **`buildComponentCatalogue`** + **`buildBakedDesignSystem`** (`src/renderCatalogueHtml.ts`).
+**JSON on disk:** **`graphSystem`**, **`catalogue`**, **`graphComponent`**, **`resolve`**, **`bakeSystem`**, and **`bakeComponent`** write **`stableStringify(..., { omitEmpty: true })`** — compact rules in **§16a**. **`manifest`** uses **`stableStringify`** **without** **`omitEmpty`**. **`renderHtml`** writes **HTML** (not JSON): it runs **`buildBakedDesign*`** in-process then **`renderBakedDesignToHtmlDocument`** (`src/renderHtml.ts`), or loads bake JSON via **`--from-bake`**. **`renderCatalogueHtml`** writes a **reference HTML** page from **`buildComponentCatalogue`** + **`buildBakedDesignSystem`** (`src/renderCatalogueHtml.ts`).
 
-There is **no** **`vite`**, **`npm run html`**, **`npm run preview`**, or **`npm run web:dev`** in this package’s **`package.json`** today; add them only if a studio or static emitter is merged into the same repo.
+**Live preview:** **`npm run preview`** watches on-disk `.pdl` (and pack JSON), bakes with Rust by default, and serves HTML with SSE livereload — the C1 stress harness on bake IR. **`npm run playground`** is an optional in-browser editor on the same pipeline (`playground/`, Vite-bundled UI). Neither is a full Studio (multi-file IDE / inspector); that remains out of this package’s default surface.
 
 ---
 
@@ -1609,7 +1889,7 @@ There is **no** **`vite`**, **`npm run html`**, **`npm run preview`**, or **`npm
 
 ## Studio features (summary)
 
-This repository is the **compiler and JSON emitters** only; a **studio** (multi-file editor, iframe preview, inspector, theme matrix, …) is **not** part of the default **`package.json`** surface. If a studio exists elsewhere, it should consume **`loadDesign`**, **`buildComponentCatalogue`**, **`buildResolvedComponentDocument`**, or **`bakedDesign`** from this codebase or from emitted JSON.
+This repository is the **compiler and JSON emitters** plus thin **C1 HTML hosts** (`renderHtml`, **`npm run preview`**, optional **`npm run playground`**). A full **studio** (multi-file IDE, inspector, theme matrix, …) is **not** part of the default product surface. Hosts should consume **`loadDesign`**, **`buildComponentCatalogue`**, **`buildResolvedComponentDocument`**, or **`bakedDesign`** JSON from this codebase or from emitted artifacts.
 
 ---
 
@@ -1623,7 +1903,7 @@ This repository is the **compiler and JSON emitters** only; a **studio** (multi-
 
 ### Implementation parity (reference repo)
 
-Companion blocks (**`expose`**, **`fixtures`**, **`usage`**, **`rules`**, **`extend`**, **`interaction`**) and **`pdl manifest`** are implemented on the catalogue / resolve paths. The table below tracks **larger** areas where the prose may still describe more than the reference TypeScript guarantees in every tooling path:
+Companion blocks (**`fixtures`**, **`usage`**, **`rules`**, **`extend`**, **`interaction`**, **`emits`**) and **`pdl manifest`** are implemented on the catalogue / resolve paths. (**`expose` is removed from the language**; compilers may still emit a legacy `expose` array listing all params until the removal slice lands.) The table below tracks **larger** areas where the prose may still describe more than the reference TypeScript guarantees in every tooling path:
 
 | Area | Notes |
 |------|--------|
@@ -1671,11 +1951,17 @@ theme Name { … }
 typeStyle StyleName { prop = value … }
 variant V { case a case b }
 
-component C(params…) layout|text|icon|media { … }
+protocol P {
+  title = ""
+  emits { select(filter: FilterId) }
+}
+
+component C <P>(params…) layout|text|icon|media { … } interaction { on pressEnd { emit select(filter) } }
+
+emits C { select(filter: FilterId) }
 
 interaction I for Component { on event { … } }
 
-expose C { param1 param2 }
 
 fixtures C {
   example "Label" { param = value … }
@@ -1695,6 +1981,18 @@ rules C {
 extend C {
   fixtures { example "…" { … } }
   usage { description += "…" }
+}
+```
+
+Inside `layout` (see §4b / §4e):
+
+```txt
+children = [Header, slots]           // expand list/slot params
+ForEach(chips) {                     // §4e — Rust bake expands
+  selected: self.currentFilter         // Pattern A: pass FilterId SoT
+  on select(filter_id: FilterId) {     // typed payload locals (= emit-sig shape)
+    currentFilter = filter_id
+  }
 }
 ```
 
@@ -1844,25 +2142,24 @@ siblings.where(tag: "primary-action").count > 0
 the Table of Contents
 ---
 
-## 11 — Companion Blocks: `expose`, `fixtures`, `usage`, `rules`, `extend`
+## 11 — Companion Blocks: `fixtures`, `usage`, `rules`, `extend`
 
-Companion declarations are **top-level** blocks keyed by **component name**. The compiler merges them into the same logical **component record** as `component`, `interaction`, and (where applicable) metadata programs.
+Companion declarations are **top-level** blocks keyed by **component name**. The compiler merges them into the same logical **component record** as `component`, `interaction`, `emits`, and (where applicable) metadata programs.
 
 They exist so that:
 
-- **Tooling** can read a **stable public API** without scanning the full frame tree (`expose`).
 - **Preview and codegen** can use **named example parameter maps** (`fixtures`).
 - **Authors and LLMs** get human-readable guidance (`usage`).
-- **Linters and design QA** get machine-checkable constraints (`rules` — see §13).
+- **Linters and design QA** get machine-checkable constraints (`rules` — see §12).
 - **Consumers of libraries** can add project-local examples and docs without forking (`extend`).
+
+**Removed:** `expose`. All parameters are public; output contracts live in **`emits`** (§4d).
 
 ---
 
 ## 1. Top-level grammar (summary)
 
 ```txt
-expose <ComponentName> { <paramName> … }
-
 fixtures <ComponentName> {
   example "<label>" { <param> = <valueExpr> … }
   …
@@ -1881,7 +2178,6 @@ extend <ComponentName> {
   fixtures { … }
   usage { … }
   rules { … }
-  expose { … }
 }
 ```
 
@@ -1889,32 +2185,7 @@ extend <ComponentName> {
 
 ---
 
-## 2. `expose` — public API surface
-
-Declares which **component parameters** constitute the **contract** for external tools, runtime wrappers, and generated SDKs. Parameters not listed may still exist for internal layout (or preview-only params such as simulated interaction state); tooling **should not** treat them as required inputs for host apps unless explicitly documented elsewhere.
-
-```pdl
-expose Button {
-  query
-  emphasis
-  size
-}
-```
-
-### Normative rules
-
-1. Each name **must** match a parameter on `component Button(…)`.
-2. **Duplicates** in one `expose` block are invalid.
-3. **Convention:** omit preview-only parameters (e.g. `interactionState` used only for studio hover simulation) from `expose` so host apps do not surface them.
-4. If **no** `expose` block exists for a component, tooling may fall back to **all** declared parameters or require an explicit opt-in policy — product decision; the spec recommends **explicit `expose`** for design systems meant for external consumption.
-
-### Merge
-
-- **`expose`:** **Later file wins** — last merged block **replaces** the full list (§2). No union.
-
----
-
-## 3. `fixtures` — named example instances
+## 2. `fixtures` — named example instances
 
 **Fixtures** supply **parameter bindings** for preview, documentation, Storybook-like galleries, codegen snapshots, and unit tests.
 
@@ -1950,7 +2221,7 @@ fixtures ListItem {
 1. **`example "<label>"`** — `label` is a **display string** for UI and logs (not an identifier); duplicate labels in one component are **invalid**.
 2. Body lines are **`paramName = value`**. Fixture values must be concrete: **literals**, **token references**, and **variant case literals** (`.primary`) are valid. Parameter-referencing values are not allowed in fixture bodies — only concrete values that can be fully resolved at catalogue-generation time.
 3. Every **`paramName`** must exist on the target component and the value must be **type-compatible** with that param’s declared type.
-4. **Optional policy:** tooling may restrict fixture keys to the **`expose`** set only; the language allows any declared param unless a project linter enforces (4).
+4. Fixture keys may name **any** declared parameter on the component (all params are public).
 
 **Cross-defaults (v1):** Fixture bodies **must not** depend on another param’s **default** value unless that default is expressed as a **literal** or **token** visible in the fixture RHS; ordering of param-default evaluation across params is **undefined** for mutual references.
 
@@ -1964,7 +2235,7 @@ Preview and test runners may render **each fixture × each combination of varian
 
 ---
 
-## 4. `usage` — human-readable guidance
+## 3. `usage` — human-readable guidance
 
 ```pdl
 usage Button {
@@ -1990,7 +2261,7 @@ extend Button {
 
 ---
 
-## 5. `rules` — structural constraints
+## 4. `rules` — structural constraints
 
 See §13. **Tag strings** (**`tags =`**, **`tags.add`**) are **defined only** inside **`rules { … }`** — not on frames or elsewhere. Top-level:
 
@@ -2005,9 +2276,9 @@ rules Button {
 
 ---
 
-## 6. `extend` — augment imported components
+## 5. `extend` — augment imported components
 
-Allows a consuming project to attach **fixtures**, **usage**, **rules**, or **expose** refinements **without** copying the base `component` body.
+Allows a consuming project to attach **fixtures**, **usage**, or **rules** refinements **without** copying the base `component` body.
 
 ```pdl
 extend Button {
@@ -2023,8 +2294,7 @@ extend Button {
 ### Normative rules
 
 1. **`extend` target** must resolve to an existing **component** name after full merge. If the target component does not exist in the merged definition, the parser **MUST** emit an error. Forward declarations are **not** supported in v1 — import ordering must ensure the base `component` appears before any `extend` that targets it.
-2. Inner sections use the **same** grammar as standalone `fixtures` / `usage` / `rules` / `expose` bodies.
-3. **`expose` in `extend`:** After merge, **at most one** effective `expose` list exists (**later wins**, same as standalone `expose` in **§2**). To **narrow** API in a consuming project, the final `expose` in the merged graph must list only the subset; there is no separate “additive only” mode — authors **replace** the list in the last file that declares `expose` for that component. Additive **`expose += param`** is **not** in **v1**.
+2. Inner sections use the **same** grammar as standalone `fixtures` / `usage` / `rules` bodies.
 
 ### Merge order
 
@@ -2032,21 +2302,21 @@ Apply **`component`** definitions first, then **`extend`** from files in **merge
 
 ---
 
-## 7. Companion block inventory (per component)
+## 6. Companion block inventory (per component)
 
 | Block | Purpose |
 |--------|---------|
 | `component` | Visual structure, params, frames |
-| `interaction` | Preview-time behavior (§8) |
+| `emits` | Public output intents (§4d) — inline or companion |
+| `interaction` | Ambient host events → params / `emit` (§8) |
 | `fixtures` | Example param maps |
 | `usage` | Human-readable guidance |
-| `rules` | Query-based constraints (§13) |
-| `expose` | Public API subset for tooling |
+| `rules` | Query-based constraints (§12) |
 | `extend` | Library augmentation |
 
 ---
 
-## 8. See also
+## 7. See also
 
 - §4 — parameter typing
 - §6 — `valueExpr` in fixtures
@@ -2120,7 +2390,7 @@ Inside **`rules ComponentName { … }`**:
 **Effective tag set** for an instance of **`ComponentName`:** merged **`tags =`**, plus any **`tags.add`** from the arms that are **active** for the current evaluation context (fixture / preview params).
 
 **`where(tag: "foo")`:** Tag membership is **always** from **`rules`** only (definitions above). For evaluation, each **`ResolvedFrame`** **MUST** expose the **effective tag set** of its **`meta.sourceComponent`** instance (merged **`tags =`** plus active **`tags.add`** for that component). **`where(tag: "foo")`** keeps nodes where **`foo`** is in that set. **Navigators:**
-- **`self`** — the instance whose **`rules`** block is running.  
+- **`self`** — the instance whose **`rules`** block is running (**rules-scoped**; not the same as layout/interaction `self` / `self.param` in §22.2).  
 - **`children` / `siblings` / `descendants`** — match **embedded instance roots** (or **`self`**) whose **`sourceComponent`** rules tag set contains **`foo`** (e.g. **`children.where(tag: "tab-item")`** requires each counted child to be a **`TabItem`** instance whose **`rules TabItem`** includes **`tab-item`**).  
 - **`ancestors`** — match an ancestor **instance root** whose **own** **`rules`** tag set contains **`foo`** (e.g. **`ancestors.where(tag: "surface")`** on a nested **`Button`** succeeds if an enclosing **`Surface`** instance’s **`rules Surface`** includes **`surface`**).
 
@@ -2911,9 +3181,9 @@ In §5, **`background`** and **`foreground`** on `layout` / `text` / `media` eac
 1. **Symmetric events** — pair hover/press/focus start/end (§8).  
 2. **Keep handlers thin** — visuals live in component `if` chains; motion via **`animate`** (§14).  
 
-## `expose` and `fixtures`
+## `emits` and `fixtures`
 
-1. **`expose`** every param host apps must supply; omit preview-only params (§12).  
+1. Declare **`emits`** for every intent a parent or host should hear (§4d).  
 2. **Fixtures** — short labels, realistic strings, edge cases (long title, missing optional).  
 3. **Cap** variant × fixture grids in CI to avoid combinatorial explosion.  
 
@@ -2957,10 +3227,10 @@ PDL toolchains may emit more than one JSON artefact. They are **layered by purpo
 
 | Artefact | Role | Typical consumer |
 |----------|------|------------------|
-| **Component Catalogue** (this chapter, §2 onward) | **Full design-system graph** (same row shapes as **`resolvedComponent.system`**, untrimmed): **`primitives`**, **`semantics`**, **`themes`** (**`baseTheme`** + **`overrides`**, pointer RHSs), **`typeStyles`** (**`props`** use the same pointer rules as token **`definition`**s), **`variantTypes`**, per-component **`params`**, **`expose`**, **base** / **variant** trees, **`primitive:`** / **`semantic:`** markers on frames (§2.3). **`bakedDesign`** is the counterpart with **literal** trees only (§16d). Emitted by **`pdl graphSystem`** / **`pdl catalogue`** (§16c). | Code generators, bundlers, optional runtime loaders |
+| **Component Catalogue** (this chapter, §2 onward) | **Full design-system graph** (same row shapes as **`resolvedComponent.system`**, untrimmed): **`primitives`**, **`semantics`**, **`themes`** (**`baseTheme`** + **`overrides`**, pointer RHSs), **`typeStyles`** (**`props`** use the same pointer rules as token **`definition`**s), **`variantTypes`**, per-component **`params`**, **`emits`**, **base** / **variant** trees, **`primitive:`** / **`semantic:`** markers on frames (§2.3). (Transitional JSON may still include an **`expose`** array = all param names.) **`bakedDesign`** is the counterpart with **literal** trees only (§16d). Emitted by **`pdl graphSystem`** / **`pdl catalogue`** (§16c). | Code generators, bundlers, optional runtime loaders |
 | **`resolvedComponent`** (§16 §2.5, §16c) | **Scoped graph slice**: trimmed **`system`**, **`primaryComponent`**, and **`components`** containing the **primary** catalogue row **plus** transitive **`requiredComponents`** rows (same shapes as §2.2, minus **`defaultParams`**). **`pdl graphComponent`** / legacy **`pdl resolve`** (without **`--tree-only`**). | Scoped emitters, previews, documentation |
 | **`bakedDesign`** (§16d) | **Fully denormalised** trees only: **`components`** map of materialised **`root`** frames, literal **`props`**, no token or variant registries. **`pdl bakeSystem`** / **`pdl bakeComponent`**. | Quick draw-only consumers, static snapshots |
-| **Design manifest** (§17) | **Small registry**: entry path, module list, theme / variant / typeStyle **names**, per-component **`expose`** and param types — **no** resolved frame trees, **no** token value map. | CI, docs, package indexes, sanity checks |
+| **Design manifest** (§17) | **Small registry**: entry path, module list, theme / variant / typeStyle **names**, per-component param types — **no** resolved frame trees, **no** token value map. | CI, docs, package indexes, sanity checks |
 
 **Guidance:** use **graph** outputs (catalogue / **`resolvedComponent`**) when receivers should follow **`primitive:`** / **`semantic:`** (and the same pointer rules inside **`typeStyles.props`** and token **`definition`**s). Use **bake** when trees must be **fully literal** (no token graph, no variant catalogue). Inline **`SerialisedValueExpr`** fragments (§16b) appear only inside those graph payloads, not inside **`bakedDesign`**.
 
@@ -3135,7 +3405,7 @@ Each component is one object in the `components` array. The **default** presenta
     },
     { "name": "iconName", "type": "Icon", "default": "star" }
   ],
-  "expose": ["label", "emphasis", "iconVariant", "iconName"],
+  "emits": [],
   "usage": "Primary action button. Use one per surface.",
   "root": {
     "kind": "layout",
@@ -3173,7 +3443,7 @@ Each component is one object in the `components` array. The **default** presenta
 |-------|-------------|
 | `name` | Component name, unique within the catalogue. |
 | `params` | All declared parameters. **`type`** is the catalogue discriminator (`"variant"`, `String`, …). For **`type": "variant"`**, **`variantTypeName`** repeats the PDL **`variant`** type name (matches an entry in top-level **`variantTypes`**); allowed case ids appear **only** on that **`variantTypes`** row’s **`cases`** array (no leading dot). |
-| `expose` | The subset of params that form the public API (from `expose` blocks). |
+| `expose` | **Legacy / transitional:** when present in catalogue JSON, implementations **SHOULD** list **all** param names (the language no longer has an `expose` block). Prefer reading `params` directly. |
 | `usage` | Human-readable description from `usage` blocks. Empty string if not declared. |
 | `root` | **`{ "kind", "props" }`** for the component **root** frame at the **default** resolution (all variant params at defaults). **`kind`** is **`layout`**, **`text`**, **`icon`**, or **`media`**; **`props`** uses the same key/value rules as frame nodes (§2.3). This is **separate** from top-level catalogue fields (there is **no** row-level **`kind`** / **`props`**). |
 | `defaultParams` | String catalogue of **every** component parameter’s default binding (stable for emitters that previously read `base.params`). |
@@ -3303,7 +3573,7 @@ A typical emitter pass for a Kotlin / Compose target:
    - Walk the **`variants`** array → generate branches keyed by the full **`params`** tuple; apply **`changes`** to **`props`** on the indicated **`frameId`** (use **`"Root"`** with **`root`** for root prop deltas, or a **`childNodes`** id). When a variant supplies **`childHierarchy`**, use that map for the permutation’s visible wiring; otherwise reuse the component default **`childHierarchy`**.
    - Wire **`param:name`** strings to function parameters.
    - Replace **`primitive:`** / **`semantic:`** tree strings with values from your resolver for the target skin.
-3. **Use `expose`** to determine the public function signature (params not in `expose` may be internal or omitted).
+3. **Use `params`** (all of them) for the inbound function signature; use **`emits`** for the outbound intent signature.
 4. **Use `usage`** for KDoc / documentation comments when the catalogue carries usage metadata.
 
 The emitter does **not** need to parse PDL, evaluate **`if`** override chains, or re-walk the import graph. It **does** still interpret **`primitive:`** / **`semantic:`** markers using **`primitives` / `semantics` / `themes`** (or the trimmed **`system.*`** mirror on **`resolvedComponent`**).
@@ -3417,6 +3687,7 @@ The reference CLI emits **two graph-shaped JSON artefacts** (rich, reference-hea
 |---------|-----------|-------------|
 | **`pdl bakeSystem`** | `<entry.pdl>`, optional **`--theme`**, optional **`--out`** | One **`bakedDesign`** document (below) whose **`components`** map contains **every** merged component, each at **default parameter values**, resolved under the chosen theme (or default token map when **`--theme`** is omitted). |
 | **`pdl bakeComponent`** | `<entry.pdl>`, `<ComponentName>`, optional **`--theme`**, optional **`--out`**, optional **`param=value`** | Same **`bakedDesign`** shape with **exactly one** entry in **`components`**. **`param=value`** overrides variant and non-variant params (same parsing rules as **`pdl resolve`**). |
+| **`pdl bakePack`** (Rust) | `<entry.pdl>`, `<pack.json>`, optional **`--out`** | Same **`bakedDesign`** shape; params/slots from an injection pack (§4c); **`bakeProfile`** = **`injection-pack`**. |
 
 **Serialization:** **`bakeSystem`** and **`bakeComponent`** use the same **`stableStringify(..., { omitEmpty: true })`** rules as graph output — **§16a** (e.g. **`BakedFrame.children`** may be absent when there are no visible children).
 
@@ -3432,7 +3703,7 @@ The reference CLI emits **two graph-shaped JSON artefacts** (rich, reference-hea
 | **`provenance`** | object | **Audit only** — not a theme system for receivers. |
 | **`provenance.entryPath`** | string | Entry **`.pdl`** path used for the bake. |
 | **`provenance.bakedTheme`** | string \| **`null`** | Theme **name** passed to **`--theme`**, or **`null`** when omitted. |
-| **`provenance.bakeProfile`** | string | **`"system-defaults"`** (**`bakeSystem`**) or **`"component-explicit"`** (**`bakeComponent`**). |
+| **`provenance.bakeProfile`** | string | **`"system-defaults"`** (**`bakeSystem`**), **`"component-explicit"`** (**`bakeComponent`**), or **`"injection-pack"`** (**`bakePack`**, §4c). |
 | **`components`** | object | Map **component name** → **`BakedComponent`**. |
 
 **Normative:** Sibling keys such as **`primitives`**, **`semantics`**, **`themes`**, **`variantTypes`**, **`rules`**, **`fixtures`**, and **`interactions`** **must not** appear on **`bakedDesign`** (unless a future minor version explicitly extends this contract).
@@ -3501,7 +3772,7 @@ Each emitter **must** document:
 
 ## 3. Design manifest JSON (reference implementation, v1)
 
-The **design manifest** is intentionally **small**: it lists **what exists** in the merged design (paths, theme names, variant and typeStyle names, component headers and `expose`) so tools can introspect a library **without** loading the **Component Catalogue**.
+The **design manifest** is intentionally **small**: it lists **what exists** in the merged design (paths, theme names, variant and typeStyle names, component headers and params) so tools can introspect a library **without** loading the **Component Catalogue**.
 
 **CLI (reference):** `pdl manifest <entry.pdl> [--out file.json]` (see §9).
 
@@ -3522,8 +3793,7 @@ The **design manifest** is intentionally **small**: it lists **what exists** in 
     {
       "name": "Button",
       "rootKind": "layout",
-      "params": [{ "name": "label", "type": "String" }],
-      "expose": ["label"]
+      "params": [{ "name": "label", "type": "String" }]
     }
   ]
 }
@@ -3542,7 +3812,7 @@ The **design manifest** is intentionally **small**: it lists **what exists** in 
 | `themes` | string[] | Sorted **`theme`** names. |
 | `variants` | string[] | Sorted **`variant`** type names. |
 | `typeStyles` | string[] | Sorted **`typeStyle`** names. |
-| `components` | array | Sorted by **`name`**. Each entry: **`name`**, **`rootKind`**, **`params`** (`{ name, type }[]`), **`expose`** (from `expose { … }` or, when absent, all param names per catalogue ergonomics). **No** `kind` / `props` / `childNodes` / `children` / `variants` / **`tokens`** — use the **Component Catalogue** (§16) for those. |
+| `components` | array | Sorted by **`name`**. Each entry: **`name`**, **`rootKind`**, **`params`** (`{ name, type }[]`), and optionally a transitional **`expose`** array listing **all** param names (legacy field; prefer `params`). **No** `kind` / `props` / `childNodes` / `children` / `variants` / **`tokens`** — use the **Component Catalogue** (§16) for those. |
 
 **Evolution:** add optional fields in **minor** semver; breaking renames in **major**.
 
@@ -3556,7 +3826,7 @@ Earlier drafts of this chapter described a **heavier** manifest (resolved **`tok
 
 The **AI system prompt** slice is **not** a second source of truth. A practical pipeline:
 
-1. Emit the **thin design manifest** (§3) for **names**, **`expose`**, and param types.  
+1. Emit the **thin design manifest** (§3) for **names** and param types (and **`emits`** when present).  
 2. Pull **`usage`**, **`fixtures`**, **`rules`**, and **`interactions`** from the **Component Catalogue** JSON when you need prose or constraints beyond the manifest (they are emitted on **`components[name]`** rows today).  
 3. Run a **template** (or summarization) over that material.
 
@@ -3579,7 +3849,7 @@ Same verbs as **`src/cli.ts`** after **`npm run build`** (or use **`npm run grap
 | `renderHtml -- <entry.pdl> --system` | Same for **every** merged component (gallery). |
 | `renderCatalogueHtml -- <entry.pdl>` | **HTML5** catalogue page (tokens + baked previews). |
 
-There is **no** separate shorthand named `html`; use **`renderHtml`** or **`renderCatalogueHtml`** (see **Repository tools** in [§9](#9-tooling-cli-and-limits)). **`npm run playground`** serves the optional live editor (**`playground/`**).
+There is **no** separate shorthand named `html`; use **`renderHtml`**, **`renderHtmlFromBake`**, or **`renderCatalogueHtml`** (see **Repository tools** in [§9](#9-tooling-cli-and-limits)). **`npm run preview`** is the disk-watch live harness; **`npm run playground`** serves the optional browser editor (**`playground/`**).
 
 ---
 
@@ -3607,7 +3877,7 @@ This checklist orders work so a **greenfield implementation** (or a full port to
 ## Phase A — Surface syntax
 
 1. **Lexer** — comments `//`, strings, numbers, identifiers, punctuation (per §1, §11).  
-2. **Top-level declarations** — `import`, `previewBackground`, `primitive`, `semantic`, `theme`, `typeStyle`, `variant`, `component`, `interaction`, **`expose`**, **`fixtures`**, **`usage`**, **`rules`**, **`extend`** (§2, §12).  
+2. **Top-level declarations** — `import`, `previewBackground`, `primitive`, `semantic`, `theme`, `typeStyle`, `variant`, `component`, `interaction`, **`emits`**, **`fixtures`**, **`usage`**, **`rules`**, **`extend`** (§2, §11).  
 3. **Component grammar** — header params, root kind block, `let`, `children`, `if` chains (§4, §5, §7).
 
 **Acceptance:** parse golden `.pdl` files to AST without loss; unknown top-level → error.
@@ -3616,7 +3886,7 @@ This checklist orders work so a **greenfield implementation** (or a full port to
 
 ## Phase B — Semantic model
 
-4. **Maps** — tokens, themes, variants, typeStyles, components, interactions; companion maps for **expose**, **fixtures**, **usage**, **rules**, **extend merge** (§16, §12).  
+4. **Maps** — tokens, themes, variants, typeStyles, components, interactions, emits; companion maps for **fixtures**, **usage**, **rules**, **extend merge** (§16, §11).  
 5. **Value expressions** — literal / token ref / param ref; literals include sizing, insets, corners, **layer arrays**, **motion tuples** (§6, §15).  
 6. **Children** — frame id string, component instance, **`.spacer`** (§5).  
 7. **Conditions** — variant compare, `and`, `or` (§7).
@@ -3739,8 +4009,9 @@ This chapter lists **optional** follow-ups that are not required for conformance
 | Topic | Notes |
 |--------|--------|
 | **Formal EBNF / PEG grammar** | The grammar is defined in §21; a standalone `grammar.ebnf` file may be added as a convenience for parser-generator tooling. |
-| **Stable diagnostic codes** | Errors are described in prose; a **`PDL0001`**-style registry **may** be added for tooling. |
+| **Stable diagnostic codes** | Errors are described in prose (§24); keep codes aligned as compilers catch up (E028/E029, retired E015/W008). |
 | **JSON Schema files** | The Component Catalogue and Design Manifest shapes are defined in prose (§16, §17); **JSON Schema** files may be added as a machine-readable mirror for validators and editors. |
+| **Compiler lag (locked 2026-08-06)** | Spec removed `expose`, added inline `} emits { }`, `self.param`, Pattern A, `on` enclosure errors. Track **B4b** / **B5** in `docs/IMPLEMENTATION_PLAN.md` until Rust/TS match. |
 
 ---
 
@@ -3818,10 +4089,13 @@ A **leading dot** (`.`) followed by an identifier, e.g. `.row`, `.primary`, is a
 
 ```
 primitive  semantic  theme  typeStyle  variant  component
-interaction  expose  fixtures  usage  rules  extend
-import  previewBackground  let  if  else  on  for
+protocol  emits  emit  interaction  fixtures  usage  rules  extend
+import  previewBackground  let  if  else  on  for  ForEach
+before  between  after
 true  false  self
 ```
+
+`before` / `between` / `after` are reserved for **B6** list chrome inside `ForEach` (§4e). Layout emit capture uses typed parens (`on select(filter_id: FilterId) { … }`). **`expose` is not a keyword** (removed). **`self`** in layout/interaction means the enclosing component instance (§22.2); in `rules` queries it is the rules evaluation root (§12).
 
 ---
 
@@ -3889,7 +4163,7 @@ Hex color literals **MUST NOT** be wrapped in double quotes. A quoted string tha
 | `+=` | Append-assign (usage blocks) |
 | `&&` | Logical AND (conditions) |
 | `\|\|` | Logical OR (conditions) |
-| `>` `>=` `<` `<=` | Numeric comparisons (rules queries) |
+| `>` `>=` `<` `<=` | Numeric comparisons (rules queries); bare **`<` `>`** also delimit protocol conformance on `component C <P>` (§4a) |
 | `@` | Inline opacity operator |
 
 The lexer **MUST** distinguish `=` from `==` and `+=` by maximal-munch.
@@ -3924,9 +4198,10 @@ top-level-decl
     | theme-decl
     | type-style-decl
     | variant-decl
+    | protocol-decl
     | component-decl
+    | emits-decl
     | interaction-decl
-    | expose-decl
     | fixtures-decl
     | usage-decl
     | rules-decl
@@ -3988,11 +4263,42 @@ variant-decl
 
 ---
 
-### 21.5 Components
+### 21.5 Components, protocols, emits, ForEach
 
 ```ebnf
+protocol-decl
+  ::= 'protocol' IDENT '{' { protocol-body-item } '}' ;
+
+protocol-body-item
+  ::= protocol-param
+    | protocol-emits-block
+    ;
+
+protocol-param
+  ::= IDENT '=' default-value
+    | IDENT ':' type-name '=' default-value
+    ;
+
+protocol-emits-block
+  ::= 'emits' '{' { emit-sig } '}' ;
+
+emit-sig
+  ::= IDENT [ '(' [ emit-arg { ',' emit-arg } [ ',' ] ] ')' ]
+    ;
+
+emit-arg
+  ::= IDENT ':' type-name
+    ;
+
+emits-decl
+  ::= 'emits' IDENT '{' { emit-sig } '}' ;
+
 component-decl
-  ::= 'component' IDENT '(' [ param-list ] ')' frame-kind '{' { component-body-item } '}' ;
+  ::= 'component' IDENT [ '<' IDENT '>' ] '(' [ param-list ] ')' frame-kind
+      '{' { component-body-item } '}'
+      [ 'emits' '{' { emit-sig } '}' ]
+      [ 'interaction' '{' { on-handler } '}' ]
+    ;
 
 frame-kind
   ::= 'layout' | 'text' | 'icon' | 'media' ;
@@ -4001,15 +4307,26 @@ param-list
   ::= param-decl { ',' param-decl } [ ',' ] ;
 
 param-decl
-  ::= IDENT ':' IDENT '=' default-value ;
+  ::= IDENT ':' type-name '=' default-value ;
+
+type-name
+  ::= IDENT
+    | '[' IDENT ']'
+    ;
 
 default-value
-  ::= STRING | NUMBER | DOT_ENUM ;
+  ::= STRING | NUMBER | DOT_ENUM | HEX_COLOR
+    | component-instance
+    | '[' [ default-value { ',' default-value } [ ',' ] ] ']'
+    ;
 
 component-body-item
   ::= prop-assignment
     | let-decl
     | deferred-children-assignment
+    | children-assignment
+    | foreach-stmt
+    | layout-on-handler
     | if-chain
     ;
 
@@ -4027,7 +4344,38 @@ let-decl
 frame-body-item
   ::= prop-assignment
     | let-decl
+    | children-assignment
+    | foreach-stmt
+    | layout-on-handler
     | if-chain
+    ;
+
+foreach-stmt
+  ::= 'ForEach' '(' IDENT ')' '{' { foreach-body-item } '}' ;
+
+foreach-body-item
+  ::= derived-bind
+    | layout-on-handler
+    | foreach-chrome   (* B6 — deferred *)
+    ;
+
+derived-bind
+  ::= IDENT ':' value-expr ;   (* item param : expr — same shape as instance kwargs *)
+
+(* B6 deferred — compilers MAY reject until B6 ships *)
+foreach-chrome
+  ::= 'before' '{' { component-body-item } '}'
+    | 'between' '{' { component-body-item } '}'
+    | 'after' '{' { component-body-item } '}'
+    ;
+
+layout-on-handler
+  ::= 'on' emit-channel [ '(' [ emit-arg { ',' emit-arg } [ ',' ] ] ')' ] '{' { handler-statement } '}' ;
+    (* payload list reuses emit-arg — same shape as emit-sig; names are handler locals *)
+
+emit-channel
+  ::= IDENT
+    | IDENT '.' IDENT
     ;
 
 if-chain
@@ -4070,6 +4418,8 @@ kwarg
   ::= IDENT ':' value-expr ;
 ```
 
+> **Note:** `ForEach` / layout `on` (with optional typed payload list) are **normative grammar** (§4e). Rust implements them; other compilers **MAY** lag with a clear diagnostic. `foreach-chrome` is **B6**.
+
 ---
 
 ### 21.6 Conditions
@@ -4083,11 +4433,17 @@ condition
 condition-atom
   ::= IDENT '==' DOT_ENUM
     | IDENT '!=' DOT_ENUM
+    | IDENT '==' IDENT          (* e.g. selected == filter — same variant type *)
+    | IDENT '!=' IDENT
+    | 'self' '.' IDENT '==' DOT_ENUM
+    | 'self' '.' IDENT '!=' DOT_ENUM
+    | 'self' '.' IDENT '==' IDENT
+    | 'self' '.' IDENT '!=' IDENT
     | '(' condition ')'
     ;
 ```
 
-> **Note:** `&&` and `||` **MUST NOT** be mixed in a single condition expression without explicit parentheses. The parser **MUST** reject `a && b || c` as ambiguous; authors must write `(a && b) || c` or `a && (b || c)`.
+> **Note:** `&&` and `||` **MUST NOT** be mixed in a single condition expression without explicit parentheses. The parser **MUST** reject `a && b || c` as ambiguous; authors must write `(a && b) || c` or `a && (b || c)`. Param==param comparisons require compatible types (§23).
 
 ---
 
@@ -4108,6 +4464,7 @@ event-name
 
 handler-statement
   ::= param-assignment
+    | emit-statement
     | animate-statement
     | from-block
     | to-block
@@ -4115,8 +4472,14 @@ handler-statement
     | if-chain
     ;
 
+emit-statement
+  ::= 'emit' IDENT [ '(' [ value-expr { ',' value-expr } [ ',' ] ] ')' ]
+    ;
+
 param-assignment
-  ::= IDENT '=' value-expr ;
+  ::= IDENT '=' value-expr
+    | 'self' '.' IDENT '=' value-expr
+    ;
 
 animate-statement
   ::= 'animate' '=' value-expr ;
@@ -4141,8 +4504,6 @@ stagger-statement
 ### 21.8 Companion blocks
 
 ```ebnf
-expose-decl
-  ::= 'expose' IDENT '{' { IDENT } '}' ;
 
 fixtures-decl
   ::= 'fixtures' IDENT '{' { example-decl } '}' ;
@@ -4214,7 +4575,6 @@ extend-section
   ::= 'fixtures' '{' { example-decl } '}'
     | 'usage' '{' { usage-prop } '}'
     | 'rules' '{' { rules-statement } '}'
-    | 'expose' '{' { IDENT } '}'
     ;
 ```
 
@@ -4230,6 +4590,8 @@ value-expr
     | 'true'
     | 'false'
     | DOT_ENUM
+    | 'self'                      (* enclosing component instance *)
+    | 'self' '.' IDENT            (* enclosing component param *)
     | IDENT
     | sizing-literal
     | edge-insets-literal
@@ -4347,13 +4709,19 @@ A component named `Button` and a variant named `Button` **MAY** coexist — they
 
 ### 22.2 Within-component scoping
 
-Inside a `component` body, the following names are in scope:
+Inside a `component` body (and its `interaction` / layout `on` handlers), the following names are in scope:
 
 1. **Component parameters** — declared in the parameter list; accessible as bare identifiers in value positions.
-2. **Let-frame ids** — declared by `let FrameId: kind = { … }` or `let Name = ComponentInstance(…)`. Accessible as children references and as targets in `FrameId.prop` override assignments.
-3. **Global token names** — any token from the merged definition.
-4. **Global component names** — for use in `children` component instances.
-5. **Global variant case names** — used with the leading dot in conditions.
+2. **`self` / `self.param`** — **`self`** is the **enclosing component instance**. Bare `self` is a value (e.g. emit payload). **`self.param`** always names a parameter of that component (escape hatch when a nested scope shadows the bare name — especially inside `ForEach`). Optional on assignment LHS (`self.x =` ≡ `x =`).
+3. **Let-frame ids** — declared by `let FrameId: kind = { … }` or `let Name = ComponentInstance(…)`. Accessible as children references and as targets in `FrameId.prop` override assignments. **`self` is not a frame id.**
+4. **Global token names** — any token from the merged definition.
+5. **Global component names** — for use in `children` component instances.
+6. **Global variant case names** — used with the leading dot in conditions.
+7. **Handler locals** — layout `on select(name: Type)` payload names; rules-query binders are separate (§12).
+
+**`ForEach` item scope:** inside `ForEach(list) { … }`, bare identifiers resolve to **item fields first**, then enclosing component params. Use **`self.param`** for the enclosing component when needed (§4e).
+
+**Rules-query `self`:** inside `rules` / query expressions, `self` means the **evaluation root node** of that rules block (§12). That is a different namespace from component `self`.
 
 **Shadowing:** A parameter name **MUST NOT** shadow a token name. If a component declares `param title: String` and a token `title: Color` exists, the parser **MUST** emit **PDL-W001** (parameter shadows token). The parameter takes precedence inside the component body. Best practice: use distinct naming conventions (token paths use dots; params use camelCase) to avoid collisions.
 
@@ -4363,10 +4731,12 @@ Inside a `component` body, the following names are in scope:
 
 ### 22.3 Dotted identifier resolution
 
-A dotted identifier like `color.surface.primary` is resolved as follows:
+Resolution distinguishes **token paths**, **`self.param`**, and **frame property targets**:
 
-1. Look up the full string as a single token name in the merged token namespace. If found, it is a token reference.
-2. If not found, it is a **PDL-E007** error (unresolved reference). Dotted identifiers are **not** decomposed into separate segments for property access — there is no field-access operator in PDL.
+1. **`self.IDENT`** — member access on the enclosing component: `IDENT` **MUST** be a parameter of that component (or **PDL-E007**).
+2. **`FrameId.IDENT`** in override / assignment position — frame property target (§7); `FrameId` is a `let` id.
+3. **Other `a.b.c` forms** — look up the full string as a single **token** name in the merged token namespace. If found, it is a token reference. If not found, **PDL-E007**.
+4. There is **no** general field-access operator on arbitrary values in v1 — only `self.param`, frame-prop targets, and token paths.
 
 ---
 
@@ -4504,13 +4874,21 @@ Future additions must use codes not in this list. Codes are never reused after r
 | **PDL-E012** | `param-reference-in-fixture` | A fixture value body contains a `param`-kind reference (§23.6). |
 | **PDL-E013** | `circular-token-reference` | A token's RHS resolves to itself directly or through a chain. |
 | **PDL-E014** | `duplicate-fixture-label` | Two `example` blocks within the same `fixtures ComponentName { … }` have identical labels. |
-| **PDL-E015** | `expose-unknown-param` | An `expose` block names a parameter that does not exist on the target component. |
+| **PDL-E015** | *(retired)* | Formerly `expose-unknown-param`. **`expose` removed** from the language — do not emit. |
 | **PDL-E016** | `extend-unknown-target` | An `extend` block names a component that does not exist in the merged definition. |
 | **PDL-E017** | `quoted-hex-color` | A string literal is used where a `Color` value is expected and the string content matches the hex color pattern — hex colors must be unquoted. |
 | **PDL-E018** | `reserved-word-as-identifier` | A reserved word (§20.4) is used as a user-defined identifier. |
 | **PDL-E019** | `invalid-override-target` | An `if` branch assignment targets a frame id (`FrameId.prop`) that has not been declared with `let` earlier in the component body. |
 | **PDL-E020** | `missing-required-arg` | A constructor call (e.g. `EdgeInsets`, `GradientStop`, `Blur`) omits a required keyword argument. |
 | **PDL-E021** | `duplicate-let-frame-id` | Two **`let`** or **`letInstance`** frames in the same component reuse the same **`id`** (names must be unique across the whole component body, including all **`if`** branches and sibling nested frames). |
+| **PDL-E022** | `unknown-protocol` | A `component C <P>` or protocol-typed param references an undeclared protocol `P`. |
+| **PDL-E023** | `unknown-foreach-list` | `ForEach(name)` names a parameter that is not an expandable list/slot in the enclosing component (§4e). |
+| **PDL-E024** | `unknown-emit-channel` | Layout `on` or `emit` names a channel not in the effective `emits` set for the relevant component/protocol (§4d–§4e). |
+| **PDL-E025** | `invalid-foreach-binding` | A derived bind inside `ForEach` references an unknown parent/item field or fails type rules for the target child param (§4e). |
+| **PDL-E026** | `foreach-chrome-unimplemented` | `before` / `between` / `after` appears in `ForEach` before B6 is implemented (implementations **MAY** use this code while rejecting chrome). |
+| **PDL-E027** | `emit-payload-mismatch` | Layout `on channel(…)` arity or types do not match the effective emit signature by position, or a fire-site `emit` arg fails the declared payload type (§4d–§4e). |
+| **PDL-E028** | `ambient-on-in-layout` | An ambient host event (`hoverStart`, `pressEnd`, …) appears as `on` inside `layout` / `ForEach` (§8). |
+| **PDL-E029** | `declared-on-in-interaction` | A declared emit channel (`on select(…)` / `on chips.select(…)`) appears inside `interaction` (§8). |
 
 ---
 
@@ -4525,7 +4903,7 @@ Future additions must use codes not in this list. Codes are never reused after r
 | **PDL-W005** | `unknown-key-in-usage` | A `usage` block contains a key other than `description`. The key is preserved but has no normative behavior in v1. |
 | **PDL-W006** | `empty-component` | A component's root frame has no children and no content properties set. Likely a stub. |
 | **PDL-W007** | `unreachable-override-branch` | A branch in an `if` / `else if` / `else` chain can never be reached because an earlier branch covers all cases of the variant. |
-| **PDL-W008** | `interaction-targets-unexposed-param` | An interaction handler assigns a value to a parameter not listed in the `expose` block for that component. |
+| **PDL-W008** | *(retired)* | Formerly `interaction-targets-unexposed-param`. **`expose` removed** — do not emit. |
 
 ---
 
@@ -4634,7 +5012,7 @@ The following fixture files are **normative** — a conforming parser **MUST** a
 | `test-fixtures/pdl/05_icon_and_image_props.pdl` | `icon` and `media` frame kinds, all property types |
 | `test-fixtures/pdl/06_interaction_states.pdl` | `interaction` blocks, all event types, `animate` |
 | `test-fixtures/pdl/07_motion_and_layers.pdl` | `Transition` tokens, layer constructors, `from`/`to` |
-| `test-fixtures/pdl/08_companion_blocks.pdl` | `expose`, `fixtures`, `usage`, `rules`, `extend` |
+| `test-fixtures/pdl/08_companion_blocks.pdl` | `fixtures`, `usage`, `rules`, `extend` (legacy `expose` fixtures pending removal) |
 | `test-fixtures/pdl/09_error_cases/` | Directory of invalid PDL files; each **MUST** produce the specific `PDL-Exxx` code named in its filename |
 
 Test fixtures for error cases (in `09_error_cases/`) use the naming convention `PDL-E007-unresolved-reference.pdl` — the error code is part of the filename. A conforming parser **MUST** emit exactly that error code (though it may emit additional warnings).

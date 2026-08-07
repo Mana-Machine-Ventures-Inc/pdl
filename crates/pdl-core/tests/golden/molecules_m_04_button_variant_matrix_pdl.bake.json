@@ -51,12 +51,12 @@
           {
             "children": [
               {
-                "id": "L",
+                "id": "R0__L",
                 "kind": "text",
                 "props": {
                   "color": "#EBEBEB",
-                  "content": "D regular",
-                  "fontSize": 16,
+                  "content": "P compact",
+                  "fontSize": 12,
                   "fontWeight": 600
                 }
               }
@@ -92,11 +92,11 @@
           {
             "children": [
               {
-                "id": "L",
+                "id": "R1__L",
                 "kind": "text",
                 "props": {
                   "color": "#EBEBEB",
-                  "content": "D regular",
+                  "content": "P regular",
                   "fontSize": 16,
                   "fontWeight": 600
                 }
@@ -133,12 +133,12 @@
           {
             "children": [
               {
-                "id": "L",
+                "id": "R2__L",
                 "kind": "text",
                 "props": {
                   "color": "#EBEBEB",
-                  "content": "D regular",
-                  "fontSize": 16,
+                  "content": "S compact",
+                  "fontSize": 12,
                   "fontWeight": 600
                 }
               }
@@ -174,7 +174,7 @@
           {
             "children": [
               {
-                "id": "L",
+                "id": "R3__L",
                 "kind": "text",
                 "props": {
                   "color": "#EBEBEB",

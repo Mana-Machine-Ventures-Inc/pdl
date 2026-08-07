@@ -7,11 +7,11 @@
           {
             "children": [
               {
-                "id": "L",
+                "id": "A__L",
                 "kind": "text",
                 "props": {
-                  "color": "#222222",
-                  "content": "Ghost sm",
+                  "color": "#FFFFFF",
+                  "content": "Primary sm",
                   "fontSize": 14,
                   "fontWeight": 600
                 }
@@ -44,11 +44,11 @@
           {
             "children": [
               {
-                "id": "L",
+                "id": "B__L",
                 "kind": "text",
                 "props": {
-                  "color": "#222222",
-                  "content": "Ghost sm",
+                  "color": "#FFFFFF",
+                  "content": "Secondary lg",
                   "fontSize": 14,
                   "fontWeight": 600
                 }
@@ -81,7 +81,7 @@
           {
             "children": [
               {
-                "id": "L",
+                "id": "C__L",
                 "kind": "text",
                 "props": {
                   "color": "#222222",
@@ -120,7 +120,7 @@
         "id": "Root",
         "kind": "layout",
         "props": {
-          "align": "center",
+          "align": "start",
           "background": "#F7F7F7",
           "direction": "row",
           "gap": 8,
@@ -167,11 +167,11 @@
                   {
                     "children": [
                       {
-                        "id": "L",
+                        "id": "Cancel__L",
                         "kind": "text",
                         "props": {
-                          "color": "#FFFFFF",
-                          "content": "Delete",
+                          "color": "#222222",
+                          "content": "Cancel",
                           "fontSize": 14,
                           "fontWeight": 600
                         }
@@ -205,7 +205,7 @@
                   {
                     "children": [
                       {
-                        "id": "L",
+                        "id": "Go__L",
                         "kind": "text",
                         "props": {
                           "color": "#FFFFFF",

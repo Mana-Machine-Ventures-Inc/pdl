@@ -32,12 +32,23 @@ fn obj(entries: Vec<(&str, Value)>) -> Value {
 /// Serialise a condition expression (`cmp` / `and` / `or` / `not`).
 pub fn serialise_condition_expr(c: &ConditionExpr) -> Value {
     match c {
-        ConditionExpr::Cmp { param, op, rhs } => obj(vec![
-            ("kind", Value::String("cmp".to_string())),
-            ("param", Value::String(param.clone())),
-            ("op", Value::String(cmp_op_str(*op).to_string())),
-            ("rhs", Value::String(rhs.clone())),
-        ]),
+        ConditionExpr::Cmp {
+            param,
+            op,
+            rhs,
+            rhs_is_param,
+        } => {
+            let mut fields = vec![
+                ("kind", Value::String("cmp".to_string())),
+                ("param", Value::String(param.clone())),
+                ("op", Value::String(cmp_op_str(*op).to_string())),
+                ("rhs", Value::String(rhs.clone())),
+            ];
+            if *rhs_is_param {
+                fields.push(("rhsKind", Value::String("param".to_string())));
+            }
+            obj(fields)
+        }
         ConditionExpr::And { items } => obj(vec![
             ("kind", Value::String("and".to_string())),
             (
@@ -120,6 +131,11 @@ pub fn serialise_value_expr(e: &ValueExpr) -> Value {
         ]),
         ValueExpr::Ident { name } => obj(vec![
             ("kind", Value::String("ident".to_string())),
+            ("name", Value::String(name.clone())),
+        ]),
+        ValueExpr::SelfRef => obj(vec![("kind", Value::String("self".to_string()))]),
+        ValueExpr::SelfMember { name } => obj(vec![
+            ("kind", Value::String("selfMember".to_string())),
             ("name", Value::String(name.clone())),
         ]),
         ValueExpr::DotEnum { value } => obj(vec![
@@ -257,6 +273,11 @@ pub fn serialise_value_expr_with_token_refs(expr: &ValueExpr, design: &DesignDef
                 ("name", Value::String(name.clone())),
             ])
         }
+        ValueExpr::SelfMember { name } => {
+            // Same resolution as bare param idents for token-ref purposes.
+            serialise_value_expr_with_token_refs(&ValueExpr::Ident { name: name.clone() }, design)
+        }
+        ValueExpr::SelfRef => obj(vec![("kind", Value::String("self".to_string()))]),
         ValueExpr::Hex { .. }
         | ValueExpr::String { .. }
         | ValueExpr::Number { .. }
@@ -455,6 +476,8 @@ pub fn collect_declared_token_names_from_value_expr(
         | ValueExpr::Boolean { .. }
         | ValueExpr::DotEnum { .. }
         | ValueExpr::Condition { .. }
-        | ValueExpr::VibrancyTuple { .. } => {}
+        | ValueExpr::VibrancyTuple { .. }
+        | ValueExpr::SelfRef
+        | ValueExpr::SelfMember { .. } => {}
     }
 }

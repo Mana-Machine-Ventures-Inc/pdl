@@ -3,13 +3,13 @@
     "MoleculeButtonRowDemo": {
       "childHierarchy": {
         "A": [
-          "L"
+          "A__L"
         ],
         "B": [
-          "L"
+          "B__L"
         ],
         "C": [
-          "L"
+          "C__L"
         ],
         "Root": [
           "A",
@@ -43,6 +43,16 @@
             "wrap": "nowrap"
           }
         },
+        "A__L": {
+          "id": "A__L",
+          "kind": "text",
+          "props": {
+            "color": "primitive:atoms.color.textOnBrand",
+            "content": "param:label",
+            "fontSize": 14,
+            "fontWeight": 600
+          }
+        },
         "B": {
           "id": "B",
           "instanceKwargs": {
@@ -66,6 +76,16 @@
               "top": 12
             },
             "wrap": "nowrap"
+          }
+        },
+        "B__L": {
+          "id": "B__L",
+          "kind": "text",
+          "props": {
+            "color": "primitive:atoms.color.textOnBrand",
+            "content": "param:label",
+            "fontSize": 14,
+            "fontWeight": 600
           }
         },
         "C": {
@@ -94,8 +114,8 @@
             "wrap": "nowrap"
           }
         },
-        "L": {
-          "id": "L",
+        "C__L": {
+          "id": "C__L",
           "kind": "text",
           "props": {
             "color": "primitive:atoms.color.textPrimary",
@@ -112,7 +132,7 @@
       "root": {
         "kind": "layout",
         "props": {
-          "align": "center",
+          "align": "start",
           "background": "semantic:atoms.color.sem.fromRgb",
           "direction": "row",
           "gap": "primitive:atoms.space.sm",
@@ -274,21 +294,24 @@
           "Cancel",
           "Save"
         ],
-        "Box": [
-          "Val"
-        ],
         "Cancel": [
-          "L"
+          "Cancel__L"
         ],
         "F0": [
-          "Lab",
-          "Box",
-          "Help"
+          "F0__Lab",
+          "F0__Box",
+          "F0__Help"
+        ],
+        "F0__Box": [
+          "F0__Val"
         ],
         "F1": [
-          "Lab",
-          "Box",
-          "Help"
+          "F1__Lab",
+          "F1__Box",
+          "F1__Help"
+        ],
+        "F1__Box": [
+          "F1__Val"
         ],
         "Root": [
           "F0",
@@ -296,7 +319,7 @@
           "Actions"
         ],
         "Save": [
-          "L"
+          "Save__L"
         ]
       },
       "childNodes": {
@@ -315,41 +338,22 @@
             }
           }
         },
-        "Box": {
-          "id": "Box",
-          "kind": "layout",
-          "props": {
-            "align": "center",
-            "background": "semantic:atoms.color.sem.fromRgb",
-            "borderColor": "primitive:atoms.color.rgba",
-            "borderWidth": 1,
-            "cornerRadius": "primitive:atoms.radius.sm",
-            "direction": "row",
-            "padding": {
-              "bottom": 10,
-              "left": 12,
-              "right": 12,
-              "top": 10
-            }
-          }
-        },
         "Cancel": {
           "id": "Cancel",
           "instanceKwargs": {
             "label": "Cancel",
             "size": "sm",
-            "tone": "ghost"
+            "tone": "secondary"
           },
           "instanceOf": "MoleculeTextButton",
           "kind": "layout",
           "props": {
             "align": "center",
-            "background": "primitive:atoms.color.rgb",
+            "background": "primitive:atoms.color.brandSecondary",
             "cornerRadius": "primitive:atoms.radius.sm",
             "direction": "row",
             "gap": "primitive:atoms.space.xs",
             "justify": "center",
-            "opacity": 0.15,
             "padding": {
               "bottom": 6,
               "left": 10,
@@ -357,6 +361,16 @@
               "top": 6
             },
             "wrap": "nowrap"
+          }
+        },
+        "Cancel__L": {
+          "id": "Cancel__L",
+          "kind": "text",
+          "props": {
+            "color": "primitive:atoms.color.textOnBrand",
+            "content": "param:label",
+            "fontSize": 14,
+            "fontWeight": 600
           }
         },
         "F0": {
@@ -380,6 +394,48 @@
             }
           }
         },
+        "F0__Box": {
+          "id": "F0__Box",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "borderColor": "primitive:atoms.color.rgba",
+            "borderWidth": 1,
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "padding": {
+              "bottom": 10,
+              "left": 12,
+              "right": 12,
+              "top": 10
+            }
+          }
+        },
+        "F0__Help": {
+          "id": "F0__Help",
+          "kind": "text",
+          "props": {
+            "content": "param:helper",
+            "typeStyle": "typeStyle:AtomMono"
+          }
+        },
+        "F0__Lab": {
+          "id": "F0__Lab",
+          "kind": "text",
+          "props": {
+            "content": "param:label",
+            "typeStyle": "typeStyle:AtomCaption"
+          }
+        },
+        "F0__Val": {
+          "id": "F0__Val",
+          "kind": "text",
+          "props": {
+            "content": "param:value",
+            "typeStyle": "typeStyle:AtomBody"
+          }
+        },
         "F1": {
           "id": "F1",
           "instanceKwargs": {
@@ -400,30 +456,46 @@
             }
           }
         },
-        "Help": {
-          "id": "Help",
+        "F1__Box": {
+          "id": "F1__Box",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "semantic:atoms.color.sem.fromRgb",
+            "borderColor": "primitive:atoms.color.rgba",
+            "borderWidth": 1,
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "direction": "row",
+            "padding": {
+              "bottom": 10,
+              "left": 12,
+              "right": 12,
+              "top": 10
+            }
+          }
+        },
+        "F1__Help": {
+          "id": "F1__Help",
           "kind": "text",
           "props": {
             "content": "param:helper",
             "typeStyle": "typeStyle:AtomMono"
           }
         },
-        "L": {
-          "id": "L",
-          "kind": "text",
-          "props": {
-            "color": "primitive:atoms.color.textOnBrand",
-            "content": "param:label",
-            "fontSize": 14,
-            "fontWeight": 600
-          }
-        },
-        "Lab": {
-          "id": "Lab",
+        "F1__Lab": {
+          "id": "F1__Lab",
           "kind": "text",
           "props": {
             "content": "param:label",
             "typeStyle": "typeStyle:AtomCaption"
+          }
+        },
+        "F1__Val": {
+          "id": "F1__Val",
+          "kind": "text",
+          "props": {
+            "content": "param:value",
+            "typeStyle": "typeStyle:AtomBody"
           }
         },
         "Save": {
@@ -451,12 +523,14 @@
             "wrap": "nowrap"
           }
         },
-        "Val": {
-          "id": "Val",
+        "Save__L": {
+          "id": "Save__L",
           "kind": "text",
           "props": {
-            "content": "param:value",
-            "typeStyle": "typeStyle:AtomBody"
+            "color": "primitive:atoms.color.textOnBrand",
+            "content": "param:label",
+            "fontSize": 14,
+            "fontWeight": 600
           }
         }
       },

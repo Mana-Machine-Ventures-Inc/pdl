@@ -34,8 +34,11 @@ fn load_design_at(rel_path: &str) -> DesignDefinition {
 
 /// Data-driven catalogue parity: every `<key>|<rel path>` in `golden/manifest.txt`
 /// must serialise to exactly its committed `golden/<key>.catalogue.json`.
+///
+/// Set `UPDATE_GOLDENS=1` to rewrite mismatched catalogue goldens (preserving volatiles).
 #[test]
 fn catalogue_matches_ts_goldens() {
+    let update = std::env::var("UPDATE_GOLDENS").ok().as_deref() == Some("1");
     let manifest = fs::read_to_string(golden_dir().join("manifest.txt")).expect("manifest.txt");
     let mut checked = 0;
     let mut failures = Vec::new();
@@ -58,7 +61,11 @@ fn catalogue_matches_ts_goldens() {
             .unwrap_or_else(|e| panic!("{key} catalogue: {}", e.format()));
         let out = stable_stringify(&doc, StableStringifyOptions { omit_empty: true });
         if out != golden_text {
-            failures.push(key.to_string());
+            if update {
+                fs::write(&golden_path, &out).expect("write catalogue golden");
+            } else {
+                failures.push(key.to_string());
+            }
         }
         checked += 1;
     }

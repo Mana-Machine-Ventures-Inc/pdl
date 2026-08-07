@@ -3,16 +3,16 @@
     "MoleculeKindRichGallery": {
       "childHierarchy": {
         "A": [
-          "G",
-          "L"
+          "A__G",
+          "A__L"
         ],
         "B": [
-          "G",
-          "L"
+          "B__G",
+          "B__L"
         ],
         "C": [
-          "G",
-          "L"
+          "C__G",
+          "C__L"
         ],
         "Root": [
           "A",
@@ -43,6 +43,23 @@
             }
           }
         },
+        "A__G": {
+          "id": "A__G",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.star",
+            "size": 22
+          }
+        },
+        "A__L": {
+          "id": "A__L",
+          "kind": "text",
+          "props": {
+            "content": "Save changes",
+            "typeStyle": "typeStyle:AtomCaption"
+          }
+        },
         "B": {
           "id": "B",
           "instanceKwargs": {
@@ -63,6 +80,23 @@
               "right": 14,
               "top": 10
             }
+          }
+        },
+        "B__G": {
+          "id": "B__G",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.chevron",
+            "size": 22
+          }
+        },
+        "B__L": {
+          "id": "B__L",
+          "kind": "text",
+          "props": {
+            "content": "Learn more about billing",
+            "typeStyle": "typeStyle:AtomBody"
           }
         },
         "C": {
@@ -87,8 +121,8 @@
             }
           }
         },
-        "G": {
-          "id": "G",
+        "C__G": {
+          "id": "C__G",
           "kind": "icon",
           "props": {
             "color": "primitive:atoms.color.rgba",
@@ -96,8 +130,8 @@
             "size": 22
           }
         },
-        "L": {
-          "id": "L",
+        "C__L": {
+          "id": "C__L",
           "kind": "text",
           "props": {
             "content": "Permanently delete",
@@ -456,16 +490,16 @@
     "MoleculeMatrixButtonGallery": {
       "childHierarchy": {
         "R0": [
-          "L"
+          "R0__L"
         ],
         "R1": [
-          "L"
+          "R1__L"
         ],
         "R2": [
-          "L"
+          "R2__L"
         ],
         "R3": [
-          "L"
+          "R3__L"
         ],
         "Root": [
           "R0",
@@ -475,16 +509,6 @@
         ]
       },
       "childNodes": {
-        "L": {
-          "id": "L",
-          "kind": "text",
-          "props": {
-            "color": "semantic:atoms.color.sem.fromRgba",
-            "content": "param:label",
-            "fontSize": 16,
-            "fontWeight": 600
-          }
-        },
         "R0": {
           "id": "R0",
           "instanceKwargs": {
@@ -507,6 +531,16 @@
               "top": 5
             },
             "wrap": "nowrap"
+          }
+        },
+        "R0__L": {
+          "id": "R0__L",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "param:label",
+            "fontSize": 12,
+            "fontWeight": 600
           }
         },
         "R1": {
@@ -533,6 +567,16 @@
             "wrap": "nowrap"
           }
         },
+        "R1__L": {
+          "id": "R1__L",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "param:label",
+            "fontSize": 16,
+            "fontWeight": 600
+          }
+        },
         "R2": {
           "id": "R2",
           "instanceKwargs": {
@@ -557,6 +601,16 @@
             "wrap": "nowrap"
           }
         },
+        "R2__L": {
+          "id": "R2__L",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "param:label",
+            "fontSize": 12,
+            "fontWeight": 600
+          }
+        },
         "R3": {
           "id": "R3",
           "instanceKwargs": {
@@ -579,6 +633,16 @@
               "top": 10
             },
             "wrap": "nowrap"
+          }
+        },
+        "R3__L": {
+          "id": "R3__L",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "param:label",
+            "fontSize": 16,
+            "fontWeight": 600
           }
         }
       },

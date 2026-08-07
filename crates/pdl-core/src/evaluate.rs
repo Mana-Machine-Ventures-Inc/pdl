@@ -103,15 +103,27 @@ fn js_string(v: &Value) -> String {
 /// Evaluate a variant `if` condition against bound parameters (values without leading dot).
 pub fn evaluate_condition(c: &ConditionExpr, param_values: &ParamValues) -> bool {
     match c {
-        ConditionExpr::Cmp { param, op, rhs } => {
-            let rhs = strip_leading_dot(rhs);
-            let vs = match param_values.get(param) {
+        ConditionExpr::Cmp {
+            param,
+            op,
+            rhs,
+            rhs_is_param,
+        } => {
+            let left = match param_values.get(param) {
                 None => String::new(),
                 Some(v) => js_string(v),
             };
+            let right = if *rhs_is_param {
+                match param_values.get(rhs) {
+                    None => String::new(),
+                    Some(v) => js_string(v),
+                }
+            } else {
+                strip_leading_dot(rhs).to_string()
+            };
             match op {
-                CmpOp::Eq => vs == rhs,
-                CmpOp::Ne => vs != rhs,
+                CmpOp::Eq => left == right,
+                CmpOp::Ne => left != right,
             }
         }
         ConditionExpr::And { items } => items.iter().all(|x| evaluate_condition(x, param_values)),
@@ -144,6 +156,14 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
         }
         ValueExpr::DotEnum { value } => Ok(Value::String(strip_leading_dot(value).to_string())),
         ValueExpr::Ident { name } => evaluate_ident(name, ev),
+        ValueExpr::SelfMember { name } => evaluate_ident(name, ev),
+        ValueExpr::SelfRef => Err(PdlError::new(
+            "PDL-E001",
+            "`self` as a value is only valid as an emit payload (not in bake trees)",
+            Some(ev.design.entry_path.clone()),
+            None,
+            None,
+        )),
         ValueExpr::OpacityOf { base, opacity } => {
             let base_v = evaluate_value(base, ev)?;
             let op_v = evaluate_value(opacity, ev)?;

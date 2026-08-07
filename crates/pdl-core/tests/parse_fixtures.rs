@@ -112,7 +112,7 @@ protocol ModalContent {
   title = "Modal Title"
   subtitle: String = ""
   emits {
-    select(filter)
+    select(filter: FilterId)
   }
 }
 
@@ -210,7 +210,7 @@ fn parses_emits_and_inline_interaction() {
 variant FilterId { case all }
 protocol SubnavItem {
   filter: FilterId = .all
-  emits { select(filter) }
+  emits { select(filter: FilterId) }
 }
 component FilterChip <SubnavItem>() layout {
   children = []
@@ -218,7 +218,7 @@ component FilterChip <SubnavItem>() layout {
   on pressEnd { emit select(filter) }
 }
 emits FilterChip {
-  select(filter)
+  select(filter: FilterId)
 }
 "#;
     let m = parse_module_source(src, "chip.pdl").unwrap();
@@ -226,6 +226,8 @@ emits FilterChip {
         pdl_core::ast::TopLevelDecl::Variant(_) => "variant",
         pdl_core::ast::TopLevelDecl::Protocol(p) => {
             assert_eq!(p.emits[0].name, "select");
+            assert_eq!(p.emits[0].args[0].name, "filter");
+            assert_eq!(p.emits[0].args[0].type_name, "FilterId");
             "protocol"
         }
         pdl_core::ast::TopLevelDecl::Component(_) => "component",
@@ -256,5 +258,144 @@ fn loads_filter_chip_with_effective_emits() {
     let emits = effective_emits(&design, chip);
     assert_eq!(emits.len(), 1);
     assert_eq!(emits[0].name, "select");
+    assert_eq!(emits[0].args[0].name, "filter");
+    assert_eq!(emits[0].args[0].type_name, "FilterId");
     assert!(design.interactions.get("FilterChip").unwrap().contains_key("default"));
+}
+
+#[test]
+fn parses_trailing_inline_emits_before_interaction() {
+    let src = r#"
+variant FilterId { case all }
+component Chip(filter: FilterId = .all) layout {
+  children = []
+} emits {
+  select(filter: FilterId)
+} interaction {
+  on pressEnd { emit select(filter) }
+}
+"#;
+    let m = parse_module_source(src, "inline_emits.pdl").unwrap();
+    let kinds: Vec<_> = m
+        .declarations
+        .iter()
+        .map(|d| match d {
+            pdl_core::ast::TopLevelDecl::Variant(_) => "variant",
+            pdl_core::ast::TopLevelDecl::Component(_) => "component",
+            pdl_core::ast::TopLevelDecl::Emits(e) => {
+                assert_eq!(e.component, "Chip");
+                assert_eq!(e.emits[0].name, "select");
+                "emits"
+            }
+            pdl_core::ast::TopLevelDecl::Interaction(i) => {
+                assert_eq!(i.name, "default");
+                "interaction"
+            }
+            _ => "other",
+        })
+        .collect();
+    assert_eq!(
+        kinds,
+        vec!["variant", "component", "emits", "interaction"]
+    );
+}
+
+#[test]
+fn parses_foreach_self_member_and_layout_on() {
+    let src = r#"
+variant FilterId { case all case podcasts }
+component Chip(
+  filter: FilterId = .all,
+  selected: FilterId = .all
+) layout {
+  if selected == filter { }
+  children = []
+}
+component Bar(
+  currentFilter: FilterId = .all,
+  chips: [Chip] = [Chip(filter: .all), Chip(filter: .podcasts)]
+) layout {
+  ForEach(chips) {
+    selected: self.currentFilter
+    on select(filter_id: FilterId) {
+      currentFilter = filter_id
+    }
+  }
+}
+"#;
+    let m = parse_module_source(src, "foreach.pdl").unwrap();
+    let bar = m
+        .declarations
+        .iter()
+        .find_map(|d| match d {
+            pdl_core::ast::TopLevelDecl::Component(c) if c.name == "Bar" => Some(c),
+            _ => None,
+        })
+        .expect("Bar");
+    match &bar.body[0] {
+        pdl_core::ast::FrameBodyItem::ForEach {
+            list,
+            binds,
+            handlers,
+        } => {
+            assert_eq!(list, "chips");
+            assert!(matches!(
+                binds.get("selected"),
+                Some(pdl_core::ast::ValueExpr::SelfMember { name }) if name == "currentFilter"
+            ));
+            assert_eq!(handlers.len(), 1);
+            assert_eq!(handlers[0].channel, "select");
+            assert_eq!(handlers[0].payload[0].name, "filter_id");
+            assert_eq!(handlers[0].body[0].param, "currentFilter");
+        }
+        other => panic!("expected ForEach, got {other:?}"),
+    }
+}
+
+#[test]
+fn rejects_expose_keyword() {
+    let src = r#"
+component C() layout { children = [] }
+expose C { }
+"#;
+    let err = parse_module_source(src, "expose.pdl").unwrap_err();
+    assert_eq!(err.code, "PDL-E001");
+    assert!(err.message.contains("expose"));
+}
+
+#[test]
+fn bakes_foreach_with_selected_bind() {
+    use pdl_core::bake::build_baked_design_component;
+    use pdl_core::design::load_design;
+    use serde_json::Map;
+
+    let path = repo_root().join("test-fixtures/pdl/protocols/library_subnav.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load library_subnav");
+    let doc = build_baked_design_component(
+        &design,
+        "LibrarySubnavForEach",
+        None,
+        &Map::new(),
+        None,
+    )
+    .expect("bake LibrarySubnavForEach");
+    let children = doc["components"]["LibrarySubnavForEach"]["root"]["children"]
+        .as_array()
+        .expect("children");
+    assert_eq!(children.len(), 2, "ForEach should expand two chip instances");
+    let titles: Vec<&str> = children
+        .iter()
+        .map(|ch| {
+            let kwargs = ch["instanceKwargs"].as_object().expect("instanceKwargs");
+            assert!(
+                kwargs.contains_key("selected"),
+                "derived bind selected should be applied: {kwargs:?}"
+            );
+            // Slot/ForEach mount path (fresh resolve tree) must keep nested Label text.
+            ch["children"][0]["props"]["content"]
+                .as_str()
+                .expect("chip Label content")
+        })
+        .collect();
+    assert_eq!(titles, ["All", "Podcasts"]);
 }

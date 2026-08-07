@@ -9,12 +9,20 @@
 <body>
   <header class="top">
     <h1>PDL playground</h1>
-    <p class="sub">Local preview — runs the same load → bake → HTML path as the CLI. Defaults to all components; preview refreshes after you pause typing (~500ms). Nothing is sent off this machine.</p>
+    <p class="sub">Local preview — bake IR → HTML (same pipeline as <code>npm run preview</code>). Default bake engine is <strong>Rust</strong>. Debounced refresh ~500ms. Nothing leaves this machine.</p>
   </header>
 
   <main class="grid">
     <section class="panel sources" aria-labelledby="src-label">
       <h2 id="src-label">Source</h2>
+      <div class="field">
+        <span>Workspace</span>
+        <div class="row">
+          <label><input type="radio" name="workspace" value="editor" checked /> Editor (upload / paste)</label>
+          <label><input type="radio" name="workspace" value="disk" /> Disk root (repo fixtures)</label>
+        </div>
+      </div>
+      <div id="editorWorkspace">
       <div
         class="dropzone"
         id="dropzone"
@@ -28,14 +36,15 @@
           <label class="btn secondary"><input type="file" id="dirPick" webkitdirectory hidden />Folder</label>
         </div>
       </div>
+      </div>
 
       <label class="field">
-        <span>Entry file (path inside workspace)</span>
+        <span>Entry file</span>
         <input type="text" id="entryPath" value="design.pdl" spellcheck="false" />
       </label>
 
       <div class="file-tabs" id="fileTabs"></div>
-      <label class="field grow">
+      <label class="field grow" id="editorField">
         <span>Current file contents</span>
         <div id="editorMount" class="editor-mount" aria-label="PDL source editor"></div>
       </label>
@@ -44,15 +53,27 @@
     <section class="panel controls" aria-labelledby="ctrl-label">
       <h2 id="ctrl-label">Preview</h2>
       <div class="field">
+        <span>Bake engine</span>
+        <div class="row">
+          <label><input type="radio" name="engine" value="rust" checked /> Rust</label>
+          <label><input type="radio" name="engine" value="ts" /> TypeScript oracle</label>
+        </div>
+      </div>
+      <div class="field">
         <span>Mode</span>
         <div class="row">
           <label><input type="radio" name="mode" value="component" /> Single component</label>
           <label><input type="radio" name="mode" value="system" checked /> All components</label>
+          <label><input type="radio" name="mode" value="pack" /> Pack (Rust)</label>
         </div>
       </div>
       <label class="field" id="componentWrap">
         <span>Component</span>
         <select id="component"></select>
+      </label>
+      <label class="field" id="packWrap" hidden>
+        <span>Pack JSON path</span>
+        <input type="text" id="packPath" spellcheck="false" placeholder="packs/modal_confirm.json" />
       </label>
       <label class="field">
         <span>Theme (optional)</span>

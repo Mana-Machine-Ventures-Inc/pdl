@@ -7,11 +7,11 @@
           {
             "children": [
               {
-                "id": "L",
+                "id": "A__L",
                 "kind": "text",
                 "props": {
-                  "color": "#222222",
-                  "content": "Ghost sm",
+                  "color": "#FFFFFF",
+                  "content": "Primary sm",
                   "fontSize": 14,
                   "fontWeight": 600
                 }
@@ -44,11 +44,11 @@
           {
             "children": [
               {
-                "id": "L",
+                "id": "B__L",
                 "kind": "text",
                 "props": {
-                  "color": "#222222",
-                  "content": "Ghost sm",
+                  "color": "#FFFFFF",
+                  "content": "Secondary lg",
                   "fontSize": 14,
                   "fontWeight": 600
                 }
@@ -81,7 +81,7 @@
           {
             "children": [
               {
-                "id": "L",
+                "id": "C__L",
                 "kind": "text",
                 "props": {
                   "color": "#222222",
@@ -120,7 +120,7 @@
         "id": "Root",
         "kind": "layout",
         "props": {
-          "align": "center",
+          "align": "start",
           "background": "#F7F7F7",
           "direction": "row",
           "gap": 8,
@@ -179,7 +179,7 @@
               {
                 "children": [
                   {
-                    "id": "L",
+                    "id": "Primary__L",
                     "kind": "text",
                     "props": {
                       "color": "#FFFFFF",
@@ -216,7 +216,7 @@
               {
                 "children": [
                   {
-                    "id": "T",
+                    "id": "Secondary__T",
                     "kind": "text",
                     "props": {
                       "color": "#EBEBEB",
@@ -226,7 +226,7 @@
                     }
                   },
                   {
-                    "id": "Chev",
+                    "id": "Secondary__Chev",
                     "kind": "icon",
                     "props": {
                       "color": "#222222",
@@ -309,7 +309,7 @@
           {
             "children": [
               {
-                "id": "Hero",
+                "id": "C1__Hero",
                 "kind": "media",
                 "props": {
                   "aspectRatio": 1.777,
@@ -324,17 +324,17 @@
                 }
               },
               {
-                "id": "Title",
+                "id": "C1__Title",
                 "kind": "text",
                 "props": {
-                  "content": "No media"
+                  "content": "With media"
                 }
               },
               {
-                "id": "Sub",
+                "id": "C1__Sub",
                 "kind": "text",
                 "props": {
-                  "content": "Text only shell"
+                  "content": "Default"
                 }
               },
               {
@@ -342,7 +342,7 @@
                   {
                     "children": [
                       {
-                        "id": "L",
+                        "id": "C1__Primary__L",
                         "kind": "text",
                         "props": {
                           "color": "#FFFFFF",
@@ -352,7 +352,7 @@
                         }
                       }
                     ],
-                    "id": "Primary",
+                    "id": "C1__Primary",
                     "instanceKwargs": {
                       "label": "Open",
                       "size": "sm",
@@ -379,7 +379,7 @@
                   {
                     "children": [
                       {
-                        "id": "T",
+                        "id": "C1__Secondary__T",
                         "kind": "text",
                         "props": {
                           "color": "#EBEBEB",
@@ -389,7 +389,7 @@
                         }
                       },
                       {
-                        "id": "Chev",
+                        "id": "C1__Secondary__Chev",
                         "kind": "icon",
                         "props": {
                           "color": "#222222",
@@ -398,7 +398,7 @@
                         }
                       }
                     ],
-                    "id": "Secondary",
+                    "id": "C1__Secondary",
                     "instanceKwargs": {
                       "label": "Share",
                       "mode": "trailingChevron"
@@ -421,7 +421,7 @@
                     }
                   }
                 ],
-                "id": "Actions",
+                "id": "C1__Actions",
                 "kind": "layout",
                 "props": {
                   "align": "center",
@@ -472,14 +472,14 @@
           {
             "children": [
               {
-                "id": "Title",
+                "id": "C2__Title",
                 "kind": "text",
                 "props": {
                   "content": "No media"
                 }
               },
               {
-                "id": "Sub",
+                "id": "C2__Sub",
                 "kind": "text",
                 "props": {
                   "content": "Text only shell"
@@ -490,7 +490,7 @@
                   {
                     "children": [
                       {
-                        "id": "L",
+                        "id": "C2__Primary__L",
                         "kind": "text",
                         "props": {
                           "color": "#FFFFFF",
@@ -500,7 +500,7 @@
                         }
                       }
                     ],
-                    "id": "Primary",
+                    "id": "C2__Primary",
                     "instanceKwargs": {
                       "label": "Open",
                       "size": "sm",
@@ -527,7 +527,7 @@
                   {
                     "children": [
                       {
-                        "id": "T",
+                        "id": "C2__Secondary__T",
                         "kind": "text",
                         "props": {
                           "color": "#EBEBEB",
@@ -537,7 +537,7 @@
                         }
                       },
                       {
-                        "id": "Chev",
+                        "id": "C2__Secondary__Chev",
                         "kind": "icon",
                         "props": {
                           "color": "#222222",
@@ -546,7 +546,7 @@
                         }
                       }
                     ],
-                    "id": "Secondary",
+                    "id": "C2__Secondary",
                     "instanceKwargs": {
                       "label": "Share",
                       "mode": "trailingChevron"
@@ -569,7 +569,7 @@
                     }
                   }
                 ],
-                "id": "Actions",
+                "id": "C2__Actions",
                 "kind": "layout",
                 "props": {
                   "align": "center",
@@ -642,11 +642,11 @@
           {
             "children": [
               {
-                "id": "T",
+                "id": "R0__T",
                 "kind": "text",
                 "props": {
                   "color": "#EBEBEB",
-                  "content": "Both",
+                  "content": "Text only",
                   "fontSize": 15,
                   "fontWeight": 600
                 }
@@ -677,7 +677,7 @@
           {
             "children": [
               {
-                "id": "Lead",
+                "id": "R1__Lead",
                 "kind": "icon",
                 "props": {
                   "color": "#222222",
@@ -686,11 +686,11 @@
                 }
               },
               {
-                "id": "T",
+                "id": "R1__T",
                 "kind": "text",
                 "props": {
                   "color": "#EBEBEB",
-                  "content": "Both",
+                  "content": "Leading",
                   "fontSize": 15,
                   "fontWeight": 600
                 }
@@ -721,17 +721,17 @@
           {
             "children": [
               {
-                "id": "T",
+                "id": "R2__T",
                 "kind": "text",
                 "props": {
                   "color": "#EBEBEB",
-                  "content": "Both",
+                  "content": "Chevron",
                   "fontSize": 15,
                   "fontWeight": 600
                 }
               },
               {
-                "id": "Chev",
+                "id": "R2__Chev",
                 "kind": "icon",
                 "props": {
                   "color": "#222222",
@@ -765,7 +765,7 @@
           {
             "children": [
               {
-                "id": "Lead",
+                "id": "R3__Lead",
                 "kind": "icon",
                 "props": {
                   "color": "#222222",
@@ -774,7 +774,7 @@
                 }
               },
               {
-                "id": "T",
+                "id": "R3__T",
                 "kind": "text",
                 "props": {
                   "color": "#EBEBEB",
@@ -784,7 +784,7 @@
                 }
               },
               {
-                "id": "Chev",
+                "id": "R3__Chev",
                 "kind": "icon",
                 "props": {
                   "color": "#222222",

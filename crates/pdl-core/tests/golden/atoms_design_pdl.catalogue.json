@@ -89,7 +89,8 @@
       },
       "expose": [
         "title",
-        "subtitle"
+        "subtitle",
+        "showBorder"
       ],
       "name": "AtomExposedCard",
       "params": [
@@ -714,7 +715,7 @@
     "AtomNestedWrapper": {
       "childHierarchy": {
         "Inner": [
-          "T"
+          "Inner__T"
         ],
         "Root": [
           "Inner"
@@ -731,8 +732,8 @@
             "gap": "primitive:atoms.space.sm"
           }
         },
-        "T": {
-          "id": "T",
+        "Inner__T": {
+          "id": "Inner__T",
           "kind": "text",
           "props": {
             "color": "primitive:atoms.color.rgba",

@@ -19,4 +19,5 @@ describe("resolveComponentTree nested children", () => {
     expect(box.children[0]!.kind).toBe("text");
     expect(box.children[0]!.id).toBe("Val");
   });
+
 });

@@ -1,0 +1,30 @@
+{
+  "name": "pdl",
+  "displayName": "PDL",
+  "description": "Syntax highlighting for Programmatic Design Language (.pdl)",
+  "version": "0.1.0",
+  "publisher": "veritinymachines",
+  "private": true,
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Programming Languages"],
+  "keywords": ["pdl", "design system", "programmatic design language"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "pdl",
+        "aliases": ["PDL", "Programmatic Design Language"],
+        "extensions": [".pdl"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "pdl",
+        "scopeName": "source.pdl",
+        "path": "./syntaxes/pdl.tmLanguage.json"
+      }
+    ]
+  }
+}

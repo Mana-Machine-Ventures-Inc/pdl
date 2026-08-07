@@ -58,7 +58,7 @@ component MoleculeTextButton(
 component MoleculeButtonRowDemo() layout {
   direction = .row
   justify = .start
-  align = .center
+  align = .start
   wrap = .wrap
   gap = atoms.space.sm
   padding = EdgeInsets(x: 16, y: 16)

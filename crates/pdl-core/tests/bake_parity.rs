@@ -40,8 +40,11 @@ fn golden_volatiles(golden: &Value) -> (String, String) {
 
 /// Data-driven parity: every `<key>|<rel path>` entry in `golden/manifest.txt` must
 /// bake to exactly its committed `golden/<key>.bake.json` (the TS oracle output).
+///
+/// Set `UPDATE_GOLDENS=1` to rewrite mismatched bake goldens (preserving volatiles).
 #[test]
 fn bake_system_matches_ts_goldens() {
+    let update = std::env::var("UPDATE_GOLDENS").ok().as_deref() == Some("1");
     let manifest = fs::read_to_string(golden_dir().join("manifest.txt")).expect("manifest.txt");
     let mut checked = 0;
     let mut failures = Vec::new();
@@ -51,8 +54,8 @@ fn bake_system_matches_ts_goldens() {
             continue;
         }
         let (key, rel_path) = line.split_once('|').expect("manifest line key|path");
-        let golden_text = fs::read_to_string(golden_dir().join(format!("{key}.bake.json")))
-            .unwrap_or_else(|_| panic!("golden for {key}"));
+        let golden_path = golden_dir().join(format!("{key}.bake.json"));
+        let golden_text = fs::read_to_string(&golden_path).unwrap_or_else(|_| panic!("golden for {key}"));
         let golden: Value = serde_json::from_str(&golden_text).expect("parse golden");
         let (generated_at, entry_path) = golden_volatiles(&golden);
 
@@ -61,7 +64,11 @@ fn bake_system_matches_ts_goldens() {
             .unwrap_or_else(|e| panic!("{key} bake: {}", e.format()));
         let out = stable_stringify(&doc, StableStringifyOptions { omit_empty: true });
         if out != golden_text {
-            failures.push(key.to_string());
+            if update {
+                fs::write(&golden_path, &out).expect("write bake golden");
+            } else {
+                failures.push(key.to_string());
+            }
         }
         checked += 1;
     }

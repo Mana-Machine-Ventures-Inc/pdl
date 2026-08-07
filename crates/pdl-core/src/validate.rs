@@ -42,7 +42,12 @@ fn validate_condition_expr(
         ConditionExpr::Not { expr } => {
             validate_condition_expr(design, expr, param_by_name, component_name)
         }
-        ConditionExpr::Cmp { param, rhs, .. } => {
+        ConditionExpr::Cmp {
+            param,
+            rhs,
+            rhs_is_param,
+            ..
+        } => {
             let type_name = param_by_name.get(param).ok_or_else(|| {
                 err(
                     "PDL-E007",
@@ -63,6 +68,29 @@ fn validate_condition_expr(
                     design,
                 )
             })?;
+            if *rhs_is_param {
+                let rhs_ty = param_by_name.get(rhs).ok_or_else(|| {
+                    err(
+                        "PDL-E007",
+                        format!(
+                            "Unknown parameter `{}` on RHS of condition (component {})",
+                            rhs, component_name
+                        ),
+                        design,
+                    )
+                })?;
+                if rhs_ty != type_name {
+                    return Err(err(
+                        "PDL-E010",
+                        format!(
+                            "Condition compares incompatible parameter types `{}` ({}) and `{}` ({})",
+                            param, type_name, rhs, rhs_ty
+                        ),
+                        design,
+                    ));
+                }
+                return Ok(());
+            }
             let rhs_stripped = strip_leading_dot(rhs);
             if !vdecl.cases.iter().any(|c| c == rhs_stripped) {
                 let expected = vdecl
@@ -234,6 +262,53 @@ fn validate_hidden_in_body(
     Ok(())
 }
 
+fn ambient_event(name: &str) -> bool {
+    matches!(
+        name,
+        "hoverStart"
+            | "hoverEnd"
+            | "pressStart"
+            | "pressEnd"
+            | "pressCancel"
+            | "focusStart"
+            | "focusEnd"
+            | "activate"
+            | "appear"
+            | "dismiss"
+    )
+}
+
+fn validate_layout_on_handler(
+    design: &DesignDefinition,
+    handler: &LayoutOnHandler,
+    param_by_name: &HashMap<String, String>,
+    component_name: &str,
+) -> Result<(), PdlError> {
+    if ambient_event(&handler.channel) {
+        return Err(err(
+            "PDL-E028",
+            format!(
+                "Ambient host event `on {}` is not allowed in layout (component {}); use `interaction` (§8)",
+                handler.channel, component_name
+            ),
+            design,
+        ));
+    }
+    for a in &handler.body {
+        if !param_by_name.contains_key(&a.param) {
+            return Err(err(
+                "PDL-E007",
+                format!(
+                    "Unknown parameter `{}` in layout `on` (component {})",
+                    a.param, component_name
+                ),
+                design,
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn validate_if_conditions_in_body(
     design: &DesignDefinition,
     items: &[FrameBodyItem],
@@ -263,6 +338,28 @@ fn validate_if_conditions_in_body(
             }
             FrameBodyItem::Let { body, .. } => {
                 validate_if_conditions_in_body(design, body, param_by_name, component_name)?;
+            }
+            FrameBodyItem::ForEach {
+                list,
+                handlers,
+                ..
+            } => {
+                if !param_by_name.contains_key(list) {
+                    return Err(err(
+                        "PDL-E023",
+                        format!(
+                            "ForEach(`{}`): unknown list/slot parameter (component {})",
+                            list, component_name
+                        ),
+                        design,
+                    ));
+                }
+                for h in handlers {
+                    validate_layout_on_handler(design, h, param_by_name, component_name)?;
+                }
+            }
+            FrameBodyItem::LayoutOn { handler } => {
+                validate_layout_on_handler(design, handler, param_by_name, component_name)?;
             }
             _ => {}
         }
@@ -423,6 +520,16 @@ fn validate_interactions_for_component(
     let param_by_name = param_by_name_map(design, c)?;
     for decl in m.values() {
         for h in &decl.handlers {
+            if !ambient_event(&h.event) {
+                return Err(err(
+                    "PDL-E029",
+                    format!(
+                        "Declared emit channel `on {}` is not allowed in interaction (component {}); capture emits in layout (§8)",
+                        h.event, component_name
+                    ),
+                    design,
+                ));
+            }
             validate_interaction_body(design, &h.body, &param_by_name, component_name)?;
         }
     }

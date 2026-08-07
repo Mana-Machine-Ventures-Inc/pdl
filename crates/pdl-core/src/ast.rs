@@ -20,6 +20,9 @@ pub enum ConditionExpr {
         param: String,
         op: CmpOp,
         rhs: String,
+        /// When true, `rhs` is another parameter name (`selected == filter`).
+        /// When false, `rhs` is a variant case (`.all`).
+        rhs_is_param: bool,
     },
     And {
         items: Vec<ConditionExpr>,
@@ -82,6 +85,12 @@ pub enum ValueExpr {
         expr: ConditionExpr,
     },
     Ident {
+        name: String,
+    },
+    /// Bare `self` — enclosing component instance (emit payload).
+    SelfRef,
+    /// `self.param` — enclosing component parameter (escape hatch / qualifier).
+    SelfMember {
         name: String,
     },
     DotEnum {
@@ -154,6 +163,11 @@ pub enum ChildEntry {
         component: String,
         kwargs: IndexMap<String, ValueExpr>,
     },
+    /// Expand `list` param instances with derived kwargs (from `ForEach`).
+    ForEach {
+        list: String,
+        binds: IndexMap<String, ValueExpr>,
+    },
 }
 
 /// Target of a `children = [...]` assignment.
@@ -191,6 +205,32 @@ pub enum FrameBodyItem {
     If {
         chain: IfChain,
     },
+    /// `ForEach(listParam) { selected: self.currentFilter …; on select(…) { … } }`
+    ForEach {
+        list: String,
+        binds: IndexMap<String, ValueExpr>,
+        handlers: Vec<LayoutOnHandler>,
+    },
+    /// Layout emit capture: `on select(filter_id: FilterId) { … }` or `on chips.select(…) { … }`
+    LayoutOn {
+        handler: LayoutOnHandler,
+    },
+}
+
+/// Parent-layout capture of a child emit channel (§4e / §8).
+#[derive(Debug, Clone, PartialEq)]
+pub struct LayoutOnHandler {
+    /// Optional list/param qualifier (`chips` in `on chips.select`).
+    pub qualifier: Option<String>,
+    pub channel: String,
+    pub payload: Vec<EmitArgDecl>,
+    pub body: Vec<LayoutOnAssign>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LayoutOnAssign {
+    pub param: String,
+    pub value: ValueExpr,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -226,11 +266,18 @@ pub struct ComponentDecl {
     pub body: Vec<FrameBodyItem>,
 }
 
-/// Shared emit channel declared on a `protocol` (`select(filter)`).
+/// One typed payload field on an emit signature (`filter: FilterId`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct EmitArgDecl {
+    pub name: String,
+    pub type_name: String,
+}
+
+/// Shared emit channel declared on a `protocol` or `emits C` (`select(filter: FilterId)`).
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProtocolEmitDecl {
     pub name: String,
-    pub args: Vec<String>,
+    pub args: Vec<EmitArgDecl>,
 }
 
 /// `protocol Name { … }` — shared params (+ optional emits). B1 language slice.
@@ -454,7 +501,6 @@ pub enum ExtendSection {
     Fixtures { examples: Vec<FixtureExampleDecl> },
     Usage { props: Vec<UsageProp> },
     Rules { statements: Vec<RulesStatement> },
-    Expose { names: Vec<String> },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -507,7 +553,7 @@ pub struct InteractionDecl {
     pub handlers: Vec<InteractionHandler>,
 }
 
-/// Top-level `emits Component { select(filter) … }`.
+/// Top-level `emits Component { select(filter: FilterId) … }`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct EmitsDecl {
     pub component: String,

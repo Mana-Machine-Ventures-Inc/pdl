@@ -7,19 +7,19 @@
           {
             "children": [
               {
-                "id": "G",
+                "id": "A__G",
                 "kind": "icon",
                 "props": {
                   "color": "#222222",
-                  "icon": "close",
+                  "icon": "star",
                   "size": 22
                 }
               },
               {
-                "id": "L",
+                "id": "A__L",
                 "kind": "text",
                 "props": {
-                  "content": "Permanently delete"
+                  "content": "Save changes"
                 }
               }
             ],
@@ -47,19 +47,19 @@
           {
             "children": [
               {
-                "id": "G",
+                "id": "B__G",
                 "kind": "icon",
                 "props": {
                   "color": "#222222",
-                  "icon": "close",
+                  "icon": "chevron-right",
                   "size": 22
                 }
               },
               {
-                "id": "L",
+                "id": "B__L",
                 "kind": "text",
                 "props": {
-                  "content": "Permanently delete"
+                  "content": "Learn more about billing"
                 }
               }
             ],
@@ -87,7 +87,7 @@
           {
             "children": [
               {
-                "id": "G",
+                "id": "C__G",
                 "kind": "icon",
                 "props": {
                   "color": "#222222",
@@ -96,7 +96,7 @@
                 }
               },
               {
-                "id": "L",
+                "id": "C__L",
                 "kind": "text",
                 "props": {
                   "content": "Permanently delete"
@@ -235,12 +235,12 @@
           {
             "children": [
               {
-                "id": "L",
+                "id": "R0__L",
                 "kind": "text",
                 "props": {
                   "color": "#EBEBEB",
-                  "content": "D regular",
-                  "fontSize": 16,
+                  "content": "P compact",
+                  "fontSize": 12,
                   "fontWeight": 600
                 }
               }
@@ -276,11 +276,11 @@
           {
             "children": [
               {
-                "id": "L",
+                "id": "R1__L",
                 "kind": "text",
                 "props": {
                   "color": "#EBEBEB",
-                  "content": "D regular",
+                  "content": "P regular",
                   "fontSize": 16,
                   "fontWeight": 600
                 }
@@ -317,12 +317,12 @@
           {
             "children": [
               {
-                "id": "L",
+                "id": "R2__L",
                 "kind": "text",
                 "props": {
                   "color": "#EBEBEB",
-                  "content": "D regular",
-                  "fontSize": 16,
+                  "content": "S compact",
+                  "fontSize": 12,
                   "fontWeight": 600
                 }
               }
@@ -358,7 +358,7 @@
           {
             "children": [
               {
-                "id": "L",
+                "id": "R3__L",
                 "kind": "text",
                 "props": {
                   "color": "#EBEBEB",

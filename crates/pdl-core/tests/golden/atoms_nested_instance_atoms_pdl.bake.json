@@ -7,7 +7,7 @@
           {
             "children": [
               {
-                "id": "T",
+                "id": "Inner__T",
                 "kind": "text",
                 "props": {
                   "color": "#222222",

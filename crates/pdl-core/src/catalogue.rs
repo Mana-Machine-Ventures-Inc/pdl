@@ -921,14 +921,11 @@ pub fn build_catalogue_component_row(
 
     let required_components = collect_required_component_names(design, &c.name);
 
-    // expose
-    let expose_arr: Vec<Value> = match design.expose.get(&c.name) {
-        Some(names) => names.iter().map(|n| Value::String(n.clone())).collect(),
-        None => effective_params(design, c)?
-            .into_iter()
-            .map(|p| Value::String(p.name))
-            .collect(),
-    };
+    // Legacy transitional field: always all params (`expose` keyword removed).
+    let expose_arr: Vec<Value> = effective_params(design, c)?
+        .into_iter()
+        .map(|p| Value::String(p.name))
+        .collect();
 
     let root = obj(vec![
         ("kind", Value::String(base_tree.kind.clone())),
@@ -1016,7 +1013,15 @@ pub fn build_catalogue_component_row(
                             (
                                 "args",
                                 Value::Array(
-                                    e.args.into_iter().map(Value::String).collect(),
+                                    e.args
+                                        .into_iter()
+                                        .map(|a| {
+                                            obj(vec![
+                                                ("name", Value::String(a.name)),
+                                                ("type", Value::String(a.type_name)),
+                                            ])
+                                        })
+                                        .collect(),
                                 ),
                             ),
                         ])
@@ -1152,7 +1157,15 @@ pub fn build_component_catalogue(
                             (
                                 "args",
                                 Value::Array(
-                                    e.args.iter().map(|a| Value::String(a.clone())).collect(),
+                                    e.args
+                                        .iter()
+                                        .map(|a| {
+                                            obj(vec![
+                                                ("name", Value::String(a.name.clone())),
+                                                ("type", Value::String(a.type_name.clone())),
+                                            ])
+                                        })
+                                        .collect(),
                                 ),
                             ),
                         ])

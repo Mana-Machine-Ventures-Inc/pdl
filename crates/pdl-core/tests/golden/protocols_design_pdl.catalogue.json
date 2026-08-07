@@ -71,7 +71,10 @@
       "emits": [
         {
           "args": [
-            "filter"
+            {
+              "name": "filter",
+              "type": "FilterId"
+            }
           ],
           "name": "select"
         }
@@ -422,7 +425,10 @@
       "emits": [
         {
           "args": [
-            "filter"
+            {
+              "name": "filter",
+              "type": "FilterId"
+            }
           ],
           "name": "select"
         }

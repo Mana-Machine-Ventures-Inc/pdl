@@ -1,0 +1,250 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "PDL",
+  "scopeName": "source.pdl",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#colors" },
+    { "include": "#numbers" },
+    { "include": "#dot-enum" },
+    { "include": "#declarations" },
+    { "include": "#keywords" },
+    { "include": "#types-and-ctors" },
+    { "include": "#root-kinds" },
+    { "include": "#special-idents" },
+    { "include": "#operators" },
+    { "include": "#punctuation" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.pdl",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.pdl",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.pdl",
+          "match": "\\\\(n|t|r|\\\\|\"|u\\{[0-9A-Fa-f]+\\})"
+        },
+        {
+          "name": "invalid.illegal.unrecognized-string-escape.pdl",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "colors": {
+      "patterns": [
+        {
+          "name": "constant.other.color.rgb-value.pdl",
+          "match": "#[0-9A-Fa-f]{8}\\b|#[0-9A-Fa-f]{6}\\b|#[0-9A-Fa-f]{3}\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.pdl",
+          "match": "\\b(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?\\b"
+        }
+      ]
+    },
+    "dot-enum": {
+      "patterns": [
+        {
+          "name": "constant.language.enum.pdl",
+          "match": "\\.[A-Za-z_][A-Za-z0-9_]*"
+        }
+      ]
+    },
+    "declarations": {
+      "patterns": [
+        {
+          "name": "meta.import.pdl",
+          "begin": "\\b(import)\\b",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.import.pdl" }
+          },
+          "end": "$",
+          "patterns": [
+            { "include": "#strings" },
+            { "include": "#comments" }
+          ]
+        },
+        {
+          "match": "\\b(primitive|semantic)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s*(:)",
+          "captures": {
+            "1": { "name": "keyword.declaration.token.pdl" },
+            "2": { "name": "entity.name.variable.token.pdl" },
+            "3": { "name": "punctuation.separator.type.pdl" }
+          }
+        },
+        {
+          "match": "\\b(typeStyle|variant|protocol|theme)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
+          "captures": {
+            "1": { "name": "keyword.declaration.pdl" },
+            "2": { "name": "entity.name.type.pdl" }
+          }
+        },
+        {
+          "match": "\\b(component)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
+          "captures": {
+            "1": { "name": "keyword.declaration.component.pdl" },
+            "2": { "name": "entity.name.type.component.pdl" }
+          }
+        },
+        {
+          "match": "\\b(interaction|fixtures|usage|rules|extend)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
+          "captures": {
+            "1": { "name": "keyword.declaration.companion.pdl" },
+            "2": { "name": "entity.name.type.pdl" }
+          }
+        },
+        {
+          "match": "\\b(let)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
+          "captures": {
+            "1": { "name": "keyword.declaration.let.pdl" },
+            "2": { "name": "entity.name.variable.frame.pdl" }
+          }
+        },
+        {
+          "match": "\\b(case)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
+          "captures": {
+            "1": { "name": "keyword.declaration.case.pdl" },
+            "2": { "name": "entity.name.constant.case.pdl" }
+          }
+        },
+        {
+          "match": "\\b(example)\\s+",
+          "captures": {
+            "1": { "name": "keyword.declaration.example.pdl" }
+          }
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.conditional.pdl",
+          "match": "\\b(?:if|else)\\b"
+        },
+        {
+          "name": "keyword.control.flow.pdl",
+          "match": "\\b(?:on|for|where|from|to|animate|stagger|staggerFrom)\\b"
+        },
+        {
+          "name": "keyword.declaration.pdl",
+          "match": "\\b(?:import|previewBackground|primitive|semantic|theme|typeStyle|variant|protocol|component|interaction|expose|fixtures|usage|rules|extend|emits|emit|let|case|example|Rule|description|tags)\\b"
+        },
+        {
+          "name": "keyword.other.pdl",
+          "match": "\\b(?:children|hidden|spacer)\\b"
+        },
+        {
+          "name": "constant.language.boolean.pdl",
+          "match": "\\b(?:true|false)\\b"
+        }
+      ]
+    },
+    "types-and-ctors": {
+      "patterns": [
+        {
+          "name": "support.type.pdl",
+          "match": "\\b(?:Color|Opacity|Distance|Radius|Shadow|Icon|MediaSource|Ratio|FontFamily|Size|Weight|Sizing|Duration|Easing|Transition|String|Number|Bool|Boolean)\\b"
+        },
+        {
+          "name": "support.function.constructor.pdl",
+          "match": "\\b(?:EdgeInsets|Corner|GradientStop|Ramp|Blur|Media|Vibrancy|Background|Foreground|Color|Transition)\\b"
+        }
+      ]
+    },
+    "root-kinds": {
+      "patterns": [
+        {
+          "comment": "Component root kind after ) or nested let kind annotation",
+          "match": "(?<=\\)|:)\\s*\\b(layout|text|icon|media)\\b",
+          "captures": {
+            "1": { "name": "storage.type.frame-kind.pdl" }
+          }
+        },
+        {
+          "match": "\\b(layout|text|icon|media)\\s*(?=\\{)",
+          "captures": {
+            "1": { "name": "storage.type.frame-kind.pdl" }
+          }
+        }
+      ]
+    },
+    "special-idents": {
+      "patterns": [
+        {
+          "name": "variable.language.self.pdl",
+          "match": "\\bself\\b"
+        },
+        {
+          "name": "support.function.builtin.pdl",
+          "match": "\\bForEach\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.comparison.pdl",
+          "match": "==|!="
+        },
+        {
+          "name": "keyword.operator.assignment.pdl",
+          "match": "="
+        },
+        {
+          "name": "keyword.operator.opacity.pdl",
+          "match": "@"
+        },
+        {
+          "name": "keyword.operator.logical.pdl",
+          "match": "\\b(?:and|or)\\b"
+        },
+        {
+          "name": "keyword.operator.relational.pdl",
+          "match": "<=|>=|<|>"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.separator.comma.pdl",
+          "match": ","
+        },
+        {
+          "name": "punctuation.separator.colon.pdl",
+          "match": ":"
+        },
+        {
+          "name": "punctuation.accessor.pdl",
+          "match": "\\."
+        },
+        {
+          "name": "punctuation.section.parens.pdl",
+          "match": "[()]"
+        },
+        {
+          "name": "punctuation.section.brackets.pdl",
+          "match": "[\\[\\]]"
+        },
+        {
+          "name": "punctuation.section.braces.pdl",
+          "match": "[{}]"
+        }
+      ]
+    }
+  }
+}

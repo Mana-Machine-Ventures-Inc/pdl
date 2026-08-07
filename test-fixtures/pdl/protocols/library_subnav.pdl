@@ -1,0 +1,70 @@
+// §4e (B5) — ForEach + layout `on` + derived binds.
+// ILLUSTRATIVE ONLY: not imported by design.pdl. Compilers do not parse this
+// until the B5 Rust slice. See docs/full-spec.md §4e.
+//
+// FilterChip / SubnavItem / FilterId are defined in filter_chip.pdl for the
+// shipped B1–B4 path; this file restates a minimal LibrarySubnav that uses
+// ForEach (the shipped LibrarySubnav uses children = [chips] only).
+
+variant FilterId {
+  case all
+  case podcasts
+}
+
+variant ChipInteraction {
+  case rest
+  case hovered
+}
+
+protocol SubnavItem {
+  title = ""
+  filter: FilterId = .all
+  emits {
+    select(filter: FilterId)
+  }
+}
+
+component FilterChip <SubnavItem>(
+  selected: FilterId = .all,
+  interactionState: ChipInteraction = .rest
+) layout {
+  direction = .row
+  // Pattern A: draw selected when SoT matches this chip's filter
+  if selected == filter {
+    // e.g. stronger label weight / fill — illustrative
+  }
+  let Label: text = {
+    content = title
+  }
+  children = [Label]
+} emits {
+  select(filter: FilterId)
+} interaction {
+  on hoverStart {
+    interactionState = .hovered
+  }
+  on hoverEnd {
+    interactionState = .rest
+  }
+  on pressEnd {
+    emit select(filter)
+  }
+}
+
+component LibrarySubnavForEach(
+  currentFilter: FilterId = .all,
+  chips: [SubnavItem] = [
+    FilterChip(title: "All", filter: .all),
+    FilterChip(title: "Podcasts", filter: .podcasts)
+  ]
+) layout {
+  direction = .row
+
+  ForEach(chips) {
+    selected: self.currentFilter
+
+    on select(filter_id: FilterId) {
+      currentFilter = filter_id
+    }
+  }
+}

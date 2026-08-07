@@ -76,6 +76,10 @@ const status = $("status");
 const errorEl = $("error");
 const frame = $("frame");
 const componentWrap = $("componentWrap");
+const packWrap = $("packWrap");
+const packPath = $("packPath");
+const editorWorkspace = $("editorWorkspace");
+const editorField = $("editorField");
 const designMeta = $("designMeta");
 const outputPanelHtml = $("outputPanelHtml");
 const outputPanelDesign = $("outputPanelDesign");
@@ -609,11 +613,26 @@ dirPick.addEventListener("change", async () => {
   dirPick.value = "";
 });
 
+function diskRootMode() {
+  return document.querySelector('input[name="workspace"]:checked')?.value === "disk";
+}
+
+function selectedEngine() {
+  return document.querySelector('input[name="engine"]:checked')?.value === "ts" ? "ts" : "rust";
+}
+
+function selectedMode() {
+  return document.querySelector('input[name="mode"]:checked')?.value ?? "system";
+}
+
 function getBodyBase() {
   syncEditorToFiles();
+  const disk = diskRootMode();
   return {
-    files,
-    entry: entryPath.value.trim() || "design.pdl",
+    files: disk ? undefined : files,
+    entry: entryPath.value.trim() || (disk ? "test-fixtures/pdl/molecules/design.pdl" : "design.pdl"),
+    diskRoot: disk || undefined,
+    engine: selectedEngine(),
   };
 }
 
@@ -695,10 +714,7 @@ async function runRender({ debounced = false } = {}) {
   }
   setStatus(debounced ? "Updating preview…" : "Rendering…");
   try {
-    const mode =
-      document.querySelector('input[name="mode"]:checked')?.value === "system"
-        ? "system"
-        : "component";
+    const mode = selectedMode();
     let kv = {};
     if (mode === "component" && kvJson.value.trim()) {
       kv = JSON.parse(kvJson.value);
@@ -713,6 +729,7 @@ async function runRender({ debounced = false } = {}) {
       component: component.value,
       theme: theme || undefined,
       kv: mode === "component" ? kv : undefined,
+      pack: mode === "pack" ? packPath.value.trim() : undefined,
     };
     const res = await fetch("/api/render", {
       method: "POST",
@@ -736,6 +753,8 @@ async function runRender({ debounced = false } = {}) {
     }
     frame.srcdoc = data.html;
     const failures = Array.isArray(data.renderFailures) ? data.renderFailures : [];
+    const eng = data.engine ? ` · ${data.engine}` : "";
+    const ms = data.durationMs != null ? ` · ${data.durationMs}ms` : "";
     if (failures.length > 0) {
       updateRenderConsole(
         failures.map((f) => ({
@@ -745,10 +764,10 @@ async function runRender({ debounced = false } = {}) {
           stack: f.stack,
         })),
       );
-      setStatus(`Preview updated — ${failures.length} component(s) failed HTML render (see Render console)`);
+      setStatus(`Preview updated${eng}${ms} — ${failures.length} component(s) failed HTML render (see Render console)`);
     } else {
       updateRenderConsole([]);
-      setStatus("Preview updated");
+      setStatus(`Preview updated${eng}${ms}`);
     }
     if (data.designSummary) {
       renderDesignSummary(data.designSummary);
@@ -771,11 +790,30 @@ async function runRender({ debounced = false } = {}) {
 }
 
 function updateModeUi() {
-  const mode = document.querySelector('input[name="mode"]:checked')?.value;
+  const mode = selectedMode();
   const system = mode === "system";
-  componentWrap.style.opacity = system ? "0.45" : "1";
-  component.disabled = system;
-  kvJson.disabled = system;
+  const pack = mode === "pack";
+  componentWrap.style.opacity = system || pack ? "0.45" : "1";
+  component.disabled = system || pack;
+  kvJson.disabled = system || pack;
+  packWrap.hidden = !pack;
+  if (pack) {
+    const eng = selectedEngine();
+    if (eng !== "rust") {
+      const rustRadio = document.querySelector('input[name="engine"][value="rust"]');
+      if (rustRadio) rustRadio.checked = true;
+    }
+  }
+}
+
+function updateWorkspaceUi() {
+  const disk = diskRootMode();
+  if (editorWorkspace) editorWorkspace.hidden = disk;
+  if (editorField) editorField.hidden = disk;
+  if (fileTabs) fileTabs.hidden = disk;
+  if (disk && (!entryPath.value || entryPath.value === "design.pdl")) {
+    entryPath.value = "test-fixtures/pdl/molecules/design.pdl";
+  }
 }
 
 document.querySelectorAll('input[name="mode"]').forEach((r) => {
@@ -784,12 +822,28 @@ document.querySelectorAll('input[name="mode"]').forEach((r) => {
     scheduleDebouncedRender(0);
   });
 });
+document.querySelectorAll('input[name="engine"]').forEach((r) => {
+  r.addEventListener("change", () => {
+    updateModeUi();
+    scheduleDebouncedRender(0);
+  });
+});
+document.querySelectorAll('input[name="workspace"]').forEach((r) => {
+  r.addEventListener("change", () => {
+    updateWorkspaceUi();
+    void runAnalyze().then((ok) => {
+      if (ok) scheduleDebouncedRender(0);
+    });
+  });
+});
 updateModeUi();
+updateWorkspaceUi();
 
 component.addEventListener("change", () => scheduleDebouncedRender(0));
 themeInput.addEventListener("input", () => scheduleDebouncedRender());
 kvJson.addEventListener("input", () => scheduleDebouncedRender());
 entryPath.addEventListener("input", () => scheduleDebouncedRender());
+packPath.addEventListener("input", () => scheduleDebouncedRender());
 
 btnAnalyze.addEventListener("click", () => void runAnalyze());
 

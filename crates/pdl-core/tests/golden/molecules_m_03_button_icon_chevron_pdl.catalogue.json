@@ -3,20 +3,20 @@
     "MoleculeIconModeGallery": {
       "childHierarchy": {
         "R0": [
-          "T"
+          "R0__T"
         ],
         "R1": [
-          "Lead",
-          "T"
+          "R1__Lead",
+          "R1__T"
         ],
         "R2": [
-          "T",
-          "Chev"
+          "R2__T",
+          "R2__Chev"
         ],
         "R3": [
-          "Lead",
-          "T",
-          "Chev"
+          "R3__Lead",
+          "R3__T",
+          "R3__Chev"
         ],
         "Root": [
           "R0",
@@ -26,24 +26,6 @@
         ]
       },
       "childNodes": {
-        "Chev": {
-          "id": "Chev",
-          "kind": "icon",
-          "props": {
-            "color": "primitive:atoms.color.rgba",
-            "icon": "primitive:atoms.icon.chevron",
-            "size": 18
-          }
-        },
-        "Lead": {
-          "id": "Lead",
-          "kind": "icon",
-          "props": {
-            "color": "primitive:atoms.color.rgba",
-            "icon": "primitive:atoms.icon.star",
-            "size": 20
-          }
-        },
         "R0": {
           "id": "R0",
           "instanceKwargs": {
@@ -65,6 +47,16 @@
               "right": 14,
               "top": 10
             }
+          }
+        },
+        "R0__T": {
+          "id": "R0__T",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "param:label",
+            "fontSize": 15,
+            "fontWeight": 600
           }
         },
         "R1": {
@@ -90,6 +82,25 @@
             }
           }
         },
+        "R1__Lead": {
+          "id": "R1__Lead",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.star",
+            "size": 20
+          }
+        },
+        "R1__T": {
+          "id": "R1__T",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "param:label",
+            "fontSize": 15,
+            "fontWeight": 600
+          }
+        },
         "R2": {
           "id": "R2",
           "instanceKwargs": {
@@ -111,6 +122,25 @@
               "right": 14,
               "top": 10
             }
+          }
+        },
+        "R2__Chev": {
+          "id": "R2__Chev",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.chevron",
+            "size": 18
+          }
+        },
+        "R2__T": {
+          "id": "R2__T",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "param:label",
+            "fontSize": 15,
+            "fontWeight": 600
           }
         },
         "R3": {
@@ -136,8 +166,26 @@
             }
           }
         },
-        "T": {
-          "id": "T",
+        "R3__Chev": {
+          "id": "R3__Chev",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.chevron",
+            "size": 18
+          }
+        },
+        "R3__Lead": {
+          "id": "R3__Lead",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.star",
+            "size": 20
+          }
+        },
+        "R3__T": {
+          "id": "R3__T",
           "kind": "text",
           "props": {
             "color": "semantic:atoms.color.sem.fromRgba",

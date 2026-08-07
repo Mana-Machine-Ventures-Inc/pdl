@@ -67,6 +67,10 @@ impl Parser {
             if let TopLevelDecl::Component(ref c) = decl {
                 let name = c.name.clone();
                 declarations.push(decl);
+                // Trailing `} emits { … }` then optional `} interaction { … }`.
+                if self.is(TokenKind::Emits) && self.peek_ahead_kind(1) == TokenKind::LBrace {
+                    declarations.push(TopLevelDecl::Emits(self.parse_inline_emits(name.clone())?));
+                }
                 // Inline form is `interaction { … }` (brace immediately).
                 // External `interaction Name for Component { … }` stays a top-level decl.
                 if self.is(TokenKind::Interaction)
@@ -100,7 +104,10 @@ impl Parser {
             TokenKind::Variant => Ok(TopLevelDecl::Variant(self.parse_variant()?)),
             TokenKind::Protocol => Ok(TopLevelDecl::Protocol(self.parse_protocol()?)),
             TokenKind::Component => Ok(TopLevelDecl::Component(self.parse_component()?)),
-            TokenKind::Expose => Ok(TopLevelDecl::Expose(self.parse_expose()?)),
+            TokenKind::Expose => Err(self.err_code(
+                "PDL-E001",
+                "`expose` was removed from PDL; all component parameters are public (use `emits` for output)",
+            )),
             TokenKind::Interaction => Ok(TopLevelDecl::Interaction(self.parse_interaction()?)),
             TokenKind::Emits => Ok(TopLevelDecl::Emits(self.parse_emits_decl()?)),
             TokenKind::Fixtures => Ok(TopLevelDecl::Fixtures(self.parse_fixtures()?)),
@@ -272,18 +279,6 @@ impl Parser {
         Ok(VariantDecl { name, cases })
     }
 
-    fn parse_expose(&mut self) -> Result<ExposeDecl, PdlError> {
-        self.consume(TokenKind::Expose)?;
-        let component = self.consume(TokenKind::Ident)?.value;
-        self.consume(TokenKind::LBrace)?;
-        let mut names: Vec<String> = Vec::new();
-        while !self.is(TokenKind::RBrace) {
-            names.push(self.consume(TokenKind::Ident)?.value);
-        }
-        self.consume(TokenKind::RBrace)?;
-        Ok(ExposeDecl { component, names })
-    }
-
     fn parse_interaction(&mut self) -> Result<InteractionDecl, PdlError> {
         self.consume(TokenKind::Interaction)?;
         let name = self.consume(TokenKind::Ident)?.value;
@@ -297,6 +292,15 @@ impl Parser {
             component,
             handlers,
         })
+    }
+
+    /// Inline trailing block: `emits { select(filter: FilterId) … }` after a component.
+    fn parse_inline_emits(&mut self, component: String) -> Result<EmitsDecl, PdlError> {
+        self.consume(TokenKind::Emits)?;
+        self.consume(TokenKind::LBrace)?;
+        let emits = self.parse_emits_list_body()?;
+        self.consume(TokenKind::RBrace)?;
+        Ok(EmitsDecl { component, emits })
     }
 
     /// Inline trailing block: `interaction { on … { … } }` (name = `default`).
@@ -333,7 +337,13 @@ impl Parser {
             let mut args = Vec::new();
             if !self.is(TokenKind::RParen) {
                 loop {
-                    args.push(self.consume(TokenKind::Ident)?.value);
+                    let arg_name = self.consume(TokenKind::Ident)?.value;
+                    self.consume(TokenKind::Colon)?;
+                    let type_name = self.parse_type_name_for_emit()?;
+                    args.push(EmitArgDecl {
+                        name: arg_name,
+                        type_name,
+                    });
                     if self.is(TokenKind::RParen) {
                         break;
                     }
@@ -344,6 +354,18 @@ impl Parser {
             emits.push(ProtocolEmitDecl { name, args });
         }
         Ok(emits)
+    }
+
+    /// Type name in an emit signature: `Ident` or `[Ident]`.
+    fn parse_type_name_for_emit(&mut self) -> Result<String, PdlError> {
+        if self.is(TokenKind::LBracket) {
+            self.advance();
+            let inner = self.consume(TokenKind::Ident)?.value;
+            self.consume(TokenKind::RBracket)?;
+            Ok(format!("[{inner}]"))
+        } else {
+            Ok(self.consume(TokenKind::Ident)?.value)
+        }
     }
 
     fn parse_emits_decl(&mut self) -> Result<EmitsDecl, PdlError> {
@@ -380,7 +402,18 @@ impl Parser {
                     self.advance();
                     if !self.is(TokenKind::RParen) {
                         loop {
-                            args.push(self.consume(TokenKind::Ident)?.value);
+                            if self.is(TokenKind::SelfKw) {
+                                self.advance();
+                                if self.is(TokenKind::Dot) {
+                                    self.advance();
+                                    let m = self.consume(TokenKind::Ident)?.value;
+                                    args.push(format!("self.{m}"));
+                                } else {
+                                    args.push("self".to_string());
+                                }
+                            } else {
+                                args.push(self.consume(TokenKind::Ident)?.value);
+                            }
                             if self.is(TokenKind::RParen) {
                                 break;
                             }
@@ -401,7 +434,13 @@ impl Parser {
                     "from/to/stagger in interaction handlers are not implemented yet",
                 ));
             }
-            let param = self.consume(TokenKind::Ident)?.value;
+            let param = if self.is(TokenKind::SelfKw) {
+                self.advance();
+                self.consume(TokenKind::Dot)?;
+                self.consume(TokenKind::Ident)?.value
+            } else {
+                self.consume(TokenKind::Ident)?.value
+            };
             self.consume(TokenKind::Eq)?;
             items.push(InteractionHandlerItem::Assign {
                 param,
@@ -864,17 +903,6 @@ impl Parser {
                 sections.push(ExtendSection::Rules { statements });
                 continue;
             }
-            if self.is(TokenKind::Expose) {
-                self.advance();
-                self.consume(TokenKind::LBrace)?;
-                let mut names: Vec<String> = Vec::new();
-                while !self.is(TokenKind::RBrace) {
-                    names.push(self.consume(TokenKind::Ident)?.value);
-                }
-                self.consume(TokenKind::RBrace)?;
-                sections.push(ExtendSection::Expose { names });
-                continue;
-            }
             return Err(self.err(format!(
                 "Unexpected extend section {:?}",
                 self.peek().kind
@@ -1059,10 +1087,20 @@ impl Parser {
                 chain: self.parse_if_chain()?,
             });
         }
+        if self.is(TokenKind::On) {
+            return Ok(FrameBodyItem::LayoutOn {
+                handler: self.parse_layout_on_handler()?,
+            });
+        }
 
         let id = self.peek().clone();
         if id.kind == TokenKind::Ident {
             let name = id.value;
+            // ForEach(list) { … }
+            if name == "ForEach" && self.peek_ahead_kind(1) == TokenKind::LParen {
+                self.advance();
+                return self.parse_foreach();
+            }
             self.advance();
             if self.is(TokenKind::Dot) {
                 self.consume(TokenKind::Dot)?;
@@ -1109,6 +1147,85 @@ impl Parser {
             "Unexpected token in frame body: {:?}",
             self.peek().kind
         )))
+    }
+
+    fn parse_foreach(&mut self) -> Result<FrameBodyItem, PdlError> {
+        self.consume(TokenKind::LParen)?;
+        let list = self.consume(TokenKind::Ident)?.value;
+        self.consume(TokenKind::RParen)?;
+        self.consume(TokenKind::LBrace)?;
+        let mut binds = indexmap::IndexMap::new();
+        let mut handlers = Vec::new();
+        while !self.is(TokenKind::RBrace) {
+            if self.is(TokenKind::On) {
+                handlers.push(self.parse_layout_on_handler()?);
+                continue;
+            }
+            // derived bind: itemParam: expr
+            let param = self.consume(TokenKind::Ident)?.value;
+            self.consume(TokenKind::Colon)?;
+            let value = self.parse_value_expr()?;
+            binds.insert(param, value);
+        }
+        self.consume(TokenKind::RBrace)?;
+        Ok(FrameBodyItem::ForEach {
+            list,
+            binds,
+            handlers,
+        })
+    }
+
+    fn parse_layout_on_handler(&mut self) -> Result<LayoutOnHandler, PdlError> {
+        self.consume(TokenKind::On)?;
+        let first = self.consume(TokenKind::Ident)?.value;
+        let (qualifier, channel) = if self.is(TokenKind::Dot) {
+            self.advance();
+            let ch = self.consume(TokenKind::Ident)?.value;
+            (Some(first), ch)
+        } else {
+            (None, first)
+        };
+        let mut payload = Vec::new();
+        if self.is(TokenKind::LParen) {
+            self.advance();
+            if !self.is(TokenKind::RParen) {
+                loop {
+                    let arg_name = self.consume(TokenKind::Ident)?.value;
+                    self.consume(TokenKind::Colon)?;
+                    let type_name = self.parse_type_name_for_emit()?;
+                    payload.push(EmitArgDecl {
+                        name: arg_name,
+                        type_name,
+                    });
+                    if self.is(TokenKind::RParen) {
+                        break;
+                    }
+                    self.consume(TokenKind::Comma)?;
+                }
+            }
+            self.consume(TokenKind::RParen)?;
+        }
+        self.consume(TokenKind::LBrace)?;
+        let mut body = Vec::new();
+        while !self.is(TokenKind::RBrace) {
+            let param = if self.is(TokenKind::SelfKw) {
+                self.advance();
+                self.consume(TokenKind::Dot)?;
+                self.consume(TokenKind::Ident)?.value
+            } else {
+                self.consume(TokenKind::Ident)?.value
+            };
+            self.consume(TokenKind::Eq)?;
+            let value = self.parse_value_expr()?;
+            body.push(LayoutOnAssign { param, value });
+        }
+        self.consume(TokenKind::RBrace)?;
+        Ok(LayoutOnHandler {
+            qualifier,
+            channel,
+            payload,
+            body,
+        })
     }
 
     fn parse_let(&mut self) -> Result<FrameBodyItem, PdlError> {
@@ -1301,7 +1418,14 @@ impl Parser {
             self.consume(TokenKind::RParen)?;
             return Ok(inner);
         }
-        let param = self.consume(TokenKind::Ident)?.value;
+        // `self.param` or bare `param`
+        let param = if self.is(TokenKind::SelfKw) {
+            self.advance();
+            self.consume(TokenKind::Dot)?;
+            self.consume(TokenKind::Ident)?.value
+        } else {
+            self.consume(TokenKind::Ident)?.value
+        };
         let op = if self.is(TokenKind::EqEq) {
             self.advance();
             CmpOp::Eq
@@ -1311,8 +1435,35 @@ impl Parser {
         } else {
             return Err(self.err("Expected == or != in condition"));
         };
-        let rhs = self.consume(TokenKind::DotEnum)?.value;
-        Ok(ConditionExpr::Cmp { param, op, rhs })
+        if self.is(TokenKind::DotEnum) {
+            let rhs = self.advance().value;
+            Ok(ConditionExpr::Cmp {
+                param,
+                op,
+                rhs,
+                rhs_is_param: false,
+            })
+        } else if self.is(TokenKind::Ident) {
+            let rhs = self.advance().value;
+            Ok(ConditionExpr::Cmp {
+                param,
+                op,
+                rhs,
+                rhs_is_param: true,
+            })
+        } else if self.is(TokenKind::SelfKw) {
+            self.advance();
+            self.consume(TokenKind::Dot)?;
+            let rhs = self.consume(TokenKind::Ident)?.value;
+            Ok(ConditionExpr::Cmp {
+                param,
+                op,
+                rhs,
+                rhs_is_param: true,
+            })
+        } else {
+            Err(self.err("Expected variant case (.case) or parameter name in condition"))
+        }
     }
 
     pub fn parse_value_expr(&mut self) -> Result<ValueExpr, PdlError> {
@@ -1408,6 +1559,15 @@ impl Parser {
                     return self.parse_ident_call(name);
                 }
                 return Ok(ValueExpr::Ident { name });
+            }
+            TokenKind::SelfKw => {
+                self.advance();
+                if self.is(TokenKind::Dot) {
+                    self.advance();
+                    let name = self.consume(TokenKind::Ident)?.value;
+                    return Ok(ValueExpr::SelfMember { name });
+                }
+                return Ok(ValueExpr::SelfRef);
             }
             _ => {}
         }
@@ -1709,15 +1869,19 @@ impl Parser {
         Ok(t)
     }
 
-    fn err(&self, msg: impl Into<String>) -> PdlError {
+    fn err_code(&self, code: &str, msg: impl Into<String>) -> PdlError {
         let t = self.peek();
         PdlError::new(
-            "PDL-E001",
+            code,
             msg,
             Some(self.file_path.clone()),
             Some(t.line),
             Some(t.column),
         )
+    }
+
+    fn err(&self, msg: impl Into<String>) -> PdlError {
+        self.err_code("PDL-E001", msg)
     }
 
     /// `Number(...)` semantics: parse as f64, yielding NaN on malformed input

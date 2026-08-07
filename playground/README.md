@@ -1,15 +1,18 @@
 # PDL playground
 
-Local-only preview server: paste or drop `.pdl` files (including multi-file designs with `import`), pick a component and theme, and see the same HTML the `pdl renderHtml` CLI would emit.
+Local-only preview: edit or drop `.pdl` files (or point at a **disk root** under the repo), pick bake engine / mode, and see HTML from the same bake → HTML pipeline as **`npm run preview`**.
+
+Default bake engine is **Rust** (compiler under test). TypeScript oracle remains available for A/B. Pack mode uses Rust `bakePack`.
 
 ## Prerequisites
 
-Build the compiler once from the repository root (the playground imports `../dist/*.js`):
+Build the compiler once from the repository root (the playground imports `../dist/*.js` and `scripts/lib/bake-pipeline.mjs`):
 
 ```bash
 cd /path/to/pdl
 npm install
 npm run build
+cargo build -p pdl-cli   # recommended so Rust bake is fast
 ```
 
 Install playground UI dependencies (CodeMirror + Vite) once:
@@ -24,13 +27,11 @@ The editor is bundled to **`static/playground-app.js`**. After changing `playgro
 
 ## Run
 
-From the repository root (after `npm run build` for the compiler and **`npm install` + `npm run build` in `playground/`** at least once):
+From the repository root:
 
 ```bash
 npm run playground
 ```
-
-(`npm run playground` runs the playground Vite build, then starts the server.)
 
 Or from this folder:
 
@@ -39,14 +40,22 @@ cd playground
 npm start
 ```
 
-Open the URL printed in the terminal (default **http://127.0.0.1:3847**). If that port is busy, the server tries the next few ports automatically unless you set **`PLAYGROUND_PORT`** (then that exact port is used and you get a clear error if it is taken).
+Open the URL printed in the terminal (default **http://127.0.0.1:3847**). If that port is busy, the server tries the next few ports automatically unless you set **`PLAYGROUND_PORT`**.
 
-The **Tokens & design** tab lists merged **primitives**, **semantics**, **themes** (with overrides), **variants**, **type styles**, and **module** paths — the same structures loaded from your `.pdl` workspace before bake.
+For **on-disk fixtures with livereload** (Cursor edit loop), prefer the repo-root harness instead:
+
+```bash
+npm run preview -- test-fixtures/pdl/molecules/design.pdl MoleculeButtonRowDemo
+```
+
+## Features
+
+- **Editor** workspace: paste / drop `.pdl` (multi-file `import`) into a temp tree
+- **Disk root** workspace: bake a path under the repo (e.g. `test-fixtures/pdl/molecules/design.pdl`) without uploading
+- **Engine:** Rust (default) or TypeScript
+- **Modes:** single component, all components (`bakeSystem`), pack (`bakePack`, Rust only)
+- Debounced re-render ~500ms after typing; **Tokens & design** tab from TS `loadDesign`
 
 ## Layout
 
-Everything for this tool lives under **`playground/`** (`server/`, `static/`, `src/` for the bundled editor UI, this README) so the core repo `src/` tree stays focused on the language and CLI.
-
-The source panel uses **CodeMirror 6** (line numbers, history, bracket matching, Tab indent, Ctrl+Space completion). Completions mix PDL keywords (including **`Corner`**, **`EdgeInsets`**, and common labelled-arg names like **`tl`**, **`x`**, **`top`**, …) with symbols from the last successful **Analyze** or **Render** (components, primitives, semantics, themes, variant names and case labels, type styles). On lines like **`cornerRadius =`**, **`padding =`**, **`width =`**, …, context-aware options appear at the top (snippet inserts for **`Corner(…)`** / **`EdgeInsets(…)`**, sizing literals, and boosted token names where names match).
-
-On first load, **`design.pdl`** is pre-filled with a few **color primitives**, one **semantic**, and a **`Button`** component (layout + text label). The playground **analyzes and renders automatically**, defaults to **All components** preview mode, and **re-renders ~500ms after you stop typing** in the editor (theme / param JSON use the same debounce). Use **Render** for an immediate refresh without waiting for the pause.
+Everything for this tool lives under **`playground/`**. Shared bake/render lives in **`scripts/lib/bake-pipeline.mjs`** so preview and playground do not fork compile pipelines.
