@@ -10,7 +10,8 @@ Not PDL Studio. Not `npm run preview` (disk-watch eng harness).
 | **`npm run preview`** | Edit on disk; watch → bake → livereload |
 | **PDL Studio** (future) | Long-term DS maintenance product |
 
-Proposal: [`docs/PROPOSAL_PDL_PLAYGROUND.md`](../docs/PROPOSAL_PDL_PLAYGROUND.md).
+Proposal: [`docs/PROPOSAL_PDL_PLAYGROUND.md`](../docs/PROPOSAL_PDL_PLAYGROUND.md).  
+Overview: [`docs/PLAYGROUND_OVERVIEW.md`](../docs/PLAYGROUND_OVERVIEW.md).
 
 ## Run
 

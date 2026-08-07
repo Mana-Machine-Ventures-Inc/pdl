@@ -1,7 +1,7 @@
 # Implementation plan — accepted proposals
 
 **Accepted:** `docs/PROPOSAL_PORTABLE_CORE.md`, `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` (2026-08-05)  
-**Shipped:** `docs/PROPOSAL_PDL_PLAYGROUND.md` — Playground demo shell (P0–P2) vs `preview` stress harness vs future Studio  
+**Shipped:** `docs/PROPOSAL_PDL_PLAYGROUND.md` / `docs/PLAYGROUND_OVERVIEW.md` — Playground demo shell (P0–P5) vs `preview` stress harness vs future Studio  
 **Normative until shipped:** `docs/full-spec.md` (`1.0.0-beta`) remains binding for the **current** language. Proposal features land via **spec patches + goldens** per slice.
 
 ---

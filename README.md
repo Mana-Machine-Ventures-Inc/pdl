@@ -19,7 +19,7 @@ After `npm install`, use the npm scripts below (each runs **`tsc`** first so **`
 | `npm run renderHtml --silent -- <entry.pdl> <Component> [--theme Name] [--out file.html] [key=value …]` | **Bake → HTML5** for one component; optional **`--system`** instead of a component name for a full-library gallery (`docs/full-spec.md` §9). |
 | `npm run renderHtmlFromBake --silent -- <baked.json> [--component Name] [--out file.html]` | **HTML5 from bake JSON** — use Rust (or TS) `bake*` / `bakePack` output without re-parsing `.pdl`. |
 | `npm run preview --silent -- <entry.pdl> <Component> [opts]` | **Live watch → Rust bake → HTML** with livereload (`scripts/preview-server.mjs`). Eng stress harness — edit in your IDE. |
-| `npm run playground` | **PDL Playground** (Phase P0) — pack picker + editor + HTML preview (`playground/`). Demo/lab, not Studio. |
+| `npm run playground` | **PDL Playground** (P0–P5) — file canvas + editor + HTML preview (`playground/`). Demo/lab, not Studio. |
 | `npm run renderCatalogueHtml --silent -- <entry.pdl> [--theme Name] [--out file.html]` | **Catalogue + bake → HTML5** reference page (`src/renderCatalogueHtml.ts`). |
 | `npm run catalogue --silent -- <entry.pdl> [--theme Name] [--out file.json]` | Same JSON shape as **graphSystem**, but allows **`--theme`** for **tree** resolution (`docs/full-spec.md` §16). |
 | `npm run resolve --silent -- <entry.pdl> <Component> [--tree-only] [--theme Name] [key=value …]` | Legacy: **`resolvedComponent`** (default) or bare **`CatalFrame`** with **`--tree-only`**. Prefer **graphComponent** / **bakeComponent** for new tooling. |
@@ -59,7 +59,7 @@ npm run playground
 # → http://127.0.0.1:3847  (Molecules + MoleculeButtonRowDemo by default)
 ```
 
-See `playground/README.md` and `docs/PROPOSAL_PDL_PLAYGROUND.md`.
+See `playground/README.md`, `docs/PLAYGROUND_OVERVIEW.md`, and `docs/PROPOSAL_PDL_PLAYGROUND.md`.
 
 ### End-to-end: Rust bake → HTML preview (one-shot)
 
@@ -88,6 +88,7 @@ Same pattern with `bakeSystem` / `bakeComponent` for non-protocol designs.
 ## Documentation
 
 - Normative language: **`docs/full-spec.md`**
+- Playground overview: **`docs/PLAYGROUND_OVERVIEW.md`**
 - Playground proposal: **`docs/PROPOSAL_PDL_PLAYGROUND.md`**
 - Quick preview (disk watch): **`docs/PROPOSAL_QUICK_PREVIEW.md`**
 - Portable core: **`docs/PROPOSAL_PORTABLE_CORE.md`**

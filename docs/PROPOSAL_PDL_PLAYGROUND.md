@@ -1,6 +1,7 @@
 # Proposal: PDL Playground (demo & language lab)
 
-**Status:** accepted — P0–P2 shipped (2026-08-07)  
+**Status:** accepted — P0–P5 shipped (2026-08-07)  
+**Overview:** [`docs/PLAYGROUND_OVERVIEW.md`](./PLAYGROUND_OVERVIEW.md)  
 **Related:** `docs/manifesto.md`, `docs/PROPOSAL_PORTABLE_CORE.md`, `docs/PROPOSAL_QUICK_PREVIEW.md`, `docs/IMPLEMENTATION_PLAN.md` (C1 / C1a), `playground/`, `scripts/lib/bake-pipeline.mjs`, `crates/pdl-wasm`, `.cursor/skills/pdl-from-design-system/`  
 **Amends:** `PROPOSAL_QUICK_PREVIEW.md` §4 (playground policy) — quick preview remains the **disk-watch stress harness**; this proposal defines a separate **Playground** product surface  
 **Non-goals:** PDL Studio (full authoring product), Figma parity, React-as-host frame mapper (v1), marketplace distribution
