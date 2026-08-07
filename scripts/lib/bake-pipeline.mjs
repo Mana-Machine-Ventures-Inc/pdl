@@ -26,7 +26,10 @@ import { pathToFileURL } from "node:url";
  * @property {string[]} [componentNames] Limit HTML gallery to these names
  * @property {boolean} [interactiveHost] Inject hover/press host script
  * @property {Record<string, unknown>} [interactionsByComponent]
+ * @property {Record<string, unknown>} [emitCapturesByComponent]
  * @property {Record<string, Record<string, unknown>>} [stateTrees] Extra state bakes per component
+ * @property {Record<string, unknown>} [paramControlsByComponent]
+ * @property {Record<string, Record<string, unknown>>} [componentOverrides] Per-component bake param overrides
  */
 
 /**
@@ -67,6 +70,11 @@ function kvArgs(overrides) {
   const out = [];
   for (const [k, v] of Object.entries(overrides ?? {})) {
     if (v === undefined || v === null) continue;
+    // CLI param overrides are scalar `key=value` only. Arrays/objects (e.g. a
+    // component's `chips: [SubnavItem]` list) can't be represented and would
+    // stringify to "[object Object]", corrupting the bake — skip them so
+    // scalar overrides (like currentFilter) still apply against defaults.
+    if (typeof v === "object") continue;
     out.push(`${k}=${String(v)}`);
   }
   return out;
@@ -212,13 +220,56 @@ export async function bakeAndRender(req) {
       bakedDoc = { ...src, components: filtered };
     }
 
+    // Apply per-component param overrides (Playground knobs / in-preview controls).
+    const overrides = req.componentOverrides;
+    if (
+      overrides &&
+      typeof overrides === "object" &&
+      bakedDoc &&
+      typeof bakedDoc === "object"
+    ) {
+      const doc = /** @type {{ components: Record<string, unknown> }} */ (bakedDoc);
+      for (const [compName, ov] of Object.entries(overrides)) {
+        if (!ov || typeof ov !== "object" || Object.keys(ov).length === 0) continue;
+        const outPath = join(
+          dirname(bakePath),
+          `override-${compName.replace(/[^\w.-]+/g, "_")}.bake.json`,
+        );
+        const one = await bakeAndRender({
+          repoRoot: req.repoRoot,
+          entry: req.entry,
+          engine,
+          mode: "component",
+          component: compName,
+          theme: req.theme,
+          paramOverrides: /** @type {Record<string, unknown>} */ (ov),
+          bakeOutPath: outPath,
+          title: "override",
+          singleComponent: compName,
+          interactiveHost: false,
+        });
+        if (one.ok && one.baked) {
+          const tree =
+            /** @type {{ components?: Record<string, unknown> }} */ (one.baked).components?.[
+              compName
+            ];
+          if (tree) {
+            doc.components = { ...doc.components, [compName]: tree };
+          }
+        }
+      }
+      bakedDoc = doc;
+    }
+
     const { html, renderFailures } = ts.renderBakedDesignToHtmlDocumentWithReport(bakedDoc, {
       singleComponent: single,
       componentNames: req.componentNames,
       title: req.title ?? "PDL preview",
       interactiveHost: req.interactiveHost === true,
       interactionsByComponent: req.interactionsByComponent,
+      emitCapturesByComponent: req.emitCapturesByComponent,
       stateTrees: req.stateTrees,
+      paramControlsByComponent: req.paramControlsByComponent,
     });
 
     return {

@@ -1,6 +1,7 @@
 import "c_button.pdl"
 import "c_field.pdl"
 import "c_chip.pdl"
+import "demos.pdl"
 
 fixtures AbnButton {
   example "Primary large" {
@@ -17,6 +18,18 @@ fixtures AbnButton {
     label = "Not now"
     tone = .ghost
     size = .sm
+  }
+  example "Hovered" {
+    label = "Reserve"
+    tone = .primary
+    size = .lg
+    interactionState = .hovered
+  }
+  example "Pressed" {
+    label = "Reserve"
+    tone = .primary
+    size = .lg
+    interactionState = .pressed
   }
 }
 
@@ -44,19 +57,24 @@ fixtures AbnChip {
   }
 }
 
-usage AbnButton {
-  description = "Airbnb-lite text button — primary coral, secondary teal, ghost neutral."
-}
-
-interaction AbnButtonHover for AbnButton {
-  on hoverStart {
-    interactionState = .hovered
-  }
-  on hoverEnd {
+fixtures AbnPointerLab {
+  example "Rest" {
     interactionState = .rest
   }
-  on pressEnd {
+  example "Hovered" {
+    interactionState = .hovered
   }
+  example "Pressed" {
+    interactionState = .pressed
+  }
+}
+
+usage AbnButton {
+  description = "Airbnb-lite text button — primary coral, secondary teal, ghost neutral. Inline interaction drives rest → hovered → pressed."
+}
+
+usage AbnPointerLab {
+  description = "Interactive pointer-cycle lab — inline interaction { } handlers applied by the HTML preview host."
 }
 
 usage AbnField {

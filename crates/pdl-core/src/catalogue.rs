@@ -212,6 +212,70 @@ fn serialise_interaction_decl(decl: &InteractionDecl) -> Value {
     ])
 }
 
+fn serialise_layout_on_handler(handler: &LayoutOnHandler, default_qualifier: Option<&str>) -> Value {
+    let payload: Vec<Value> = handler
+        .payload
+        .iter()
+        .map(|a| {
+            obj(vec![
+                ("name", Value::String(a.name.clone())),
+                ("type", Value::String(a.type_name.clone())),
+            ])
+        })
+        .collect();
+    let body: Vec<Value> = handler
+        .body
+        .iter()
+        .map(|a| {
+            obj(vec![
+                ("kind", Value::String("assign".to_string())),
+                ("param", Value::String(a.param.clone())),
+                ("value", serialise_value_expr(&a.value)),
+            ])
+        })
+        .collect();
+    let qualifier = handler
+        .qualifier
+        .clone()
+        .or_else(|| default_qualifier.map(|s| s.to_string()));
+    let mut entries = vec![
+        ("channel", Value::String(handler.channel.clone())),
+        ("payload", Value::Array(payload)),
+        ("body", Value::Array(body)),
+    ];
+    if let Some(q) = qualifier {
+        entries.insert(0, ("qualifier", Value::String(q)));
+    }
+    obj(entries)
+}
+
+fn collect_emit_captures_from_body(items: &[FrameBodyItem], out: &mut Vec<Value>) {
+    for item in items {
+        match item {
+            FrameBodyItem::ForEach {
+                list, handlers, ..
+            } => {
+                for h in handlers {
+                    out.push(serialise_layout_on_handler(h, Some(list.as_str())));
+                }
+            }
+            FrameBodyItem::LayoutOn { handler } => {
+                out.push(serialise_layout_on_handler(handler, None));
+            }
+            FrameBodyItem::Let { body, .. } => collect_emit_captures_from_body(body, out),
+            FrameBodyItem::If { chain } => {
+                for br in &chain.branches {
+                    collect_emit_captures_from_body(&br.body, out);
+                }
+                if let Some(else_body) = &chain.else_body {
+                    collect_emit_captures_from_body(else_body, out);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 // ---- frame / registry helpers ----------------------------------------------
 
 /// Single-frame shell for the `childNodes` registry (no nested children).
@@ -999,6 +1063,11 @@ pub fn build_catalogue_component_row(
     }
     if let Some(i) = interactions_out {
         out.insert("interactions".to_string(), i);
+    }
+    let mut emit_captures: Vec<Value> = Vec::new();
+    collect_emit_captures_from_body(&c.body, &mut emit_captures);
+    if !emit_captures.is_empty() {
+        out.insert("emitCaptures".to_string(), Value::Array(emit_captures));
     }
     let emits = effective_emits(design, c);
     if !emits.is_empty() {

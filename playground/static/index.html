@@ -40,18 +40,13 @@
         <div class="chip-row" id="fixtureChips" role="list"></div>
         <p class="hint" id="fixtureHint">Fixtures for the primary component in the active file.</p>
       </div>
-      <div class="field" id="paramField">
-        <span>Params</span>
-        <div id="paramKnobs" class="param-knobs"></div>
-      </div>
       <div class="field">
         <span>Variants (preview)</span>
         <div class="row">
           <label><input type="radio" name="variantView" value="single" checked /> Single</label>
           <label><input type="radio" name="variantView" value="grid" /> Grid</label>
-          <label><input type="radio" name="variantView" value="pick" /> Pick</label>
         </div>
-        <p class="hint">Grid shows variant combinations; Pick uses param knobs.</p>
+        <p class="hint">Single uses in-preview param controls; Grid shows variant combinations.</p>
       </div>
       <label class="field">
         <span>Theme (optional)</span>
@@ -109,6 +104,12 @@
       <h2 id="src-label">PDL</h2>
       <div class="file-tabs" id="fileTabs"></div>
       <div class="editor-toolbar">
+        <label class="add-prop">
+          <span>Insert template</span>
+          <select id="insertTemplate" aria-label="Insert PDL template">
+            <option value="">— stub patterns —</option>
+          </select>
+        </label>
         <label class="add-prop">
           <span>Add property</span>
           <select id="addProperty" aria-label="Insert PDL property">

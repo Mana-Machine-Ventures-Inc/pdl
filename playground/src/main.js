@@ -10,6 +10,7 @@ import {
 } from "./add-property.js";
 import { resolveCanvasTarget } from "./file-canvas.js";
 import { pdlCompletionSource as buildPdlCompletionSource } from "./pdl-completions.js";
+import { formatTemplateInsert, PDL_TEMPLATES } from "./pdl-templates.js";
 import { loadWasmBake, virtualizeSources } from "./wasm-bake.js";
 
 /** Default workspace: a few tokens + one component for quick Analyze / Render. */
@@ -88,7 +89,6 @@ const packSelect = $("packSelect");
 const packDesc = $("packDesc");
 const fixtureChips = $("fixtureChips");
 const fixtureHint = $("fixtureHint");
-const paramKnobs = $("paramKnobs");
 const editorWorkspace = $("editorWorkspace");
 const designMeta = $("designMeta");
 const outputPanelHtml = $("outputPanelHtml");
@@ -99,9 +99,10 @@ const renderConsoleBody = $("renderConsoleBody");
 const canvasHint = $("canvasHint");
 const addProperty = $("addProperty");
 const addPropertyKind = $("addPropertyKind");
+const insertTemplate = $("insertTemplate");
 
 /** @type {string | null} */
-let preferredComponent = "AbnFormActionsDemo";
+let preferredComponent = "AbnPointerLab";
 
 /** Primary component for fixtures/params (from active file canvas). */
 let primaryComponent = "";
@@ -112,6 +113,9 @@ let fixturesByComponent = {};
 let componentParams = {};
 /** @type {Record<string, string[]>} */
 let variantCases = {};
+/** Per-component scalar param overrides (never shared across gallery sections). */
+/** @type {Record<string, Record<string, unknown>>} */
+let kvByComponent = {};
 /** @type {string | null} */
 let activeFixtureLabel = null;
 /** @type {boolean} */
@@ -200,6 +204,116 @@ function writeKvObject(obj) {
   syncingKnobs = false;
 }
 
+/** True when a string is a JSON array/object (e.g. mis-typed list params). */
+function isJsonStructureString(v) {
+  if (typeof v !== "string") return false;
+  const t = v.trim();
+  if (!(t.startsWith("[") || t.startsWith("{"))) return false;
+  try {
+    const parsed = JSON.parse(t);
+    return parsed !== null && typeof parsed === "object";
+  } catch {
+    return false;
+  }
+}
+
+/** Drop arrays/objects — CLI overrides are scalar `key=value` only. */
+function scalarKv(obj) {
+  /** @type {Record<string, unknown>} */
+  const out = {};
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return out;
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== null && typeof v === "object") continue;
+    // Enrichment sometimes stringifies instance lists (chips) as type String.
+    if (isJsonStructureString(v)) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
+/**
+ * Keep only keys declared on `compName` (and still scalar).
+ * Unknown keys must never enter another component's bakedParams.
+ * @param {string} compName
+ * @param {Record<string, unknown>} kv
+ */
+function filterKvToDeclaredParams(compName, kv) {
+  const declared = componentParams[compName];
+  const scalars = scalarKv(kv);
+  if (!declared?.length) return scalars;
+  const allowed = new Set(declared.map((p) => p.name).filter(Boolean));
+  /** @type {Record<string, unknown>} */
+  const out = {};
+  for (const [k, v] of Object.entries(scalars)) {
+    if (allowed.has(k)) out[k] = v;
+  }
+  return out;
+}
+
+/**
+ * Component that owns the KV textarea / override bag for this render.
+ * Prefer interaction/pack choice over canvas-first (file declaration order).
+ * @param {string[]} names
+ * @param {string} [canvasPrimary]
+ */
+function overrideOwner(names, canvasPrimary) {
+  if (preferredComponent && names.includes(preferredComponent)) return preferredComponent;
+  if (primaryComponent && names.includes(primaryComponent)) return primaryComponent;
+  if (component.value && names.includes(component.value)) return component.value;
+  if (canvasPrimary && names.includes(canvasPrimary)) return canvasPrimary;
+  return names[0] ?? "";
+}
+
+/** @param {string} owner */
+function syncKvTextareaFromOwner(owner) {
+  if (!owner) {
+    writeKvObject({});
+    return;
+  }
+  writeKvObject(kvByComponent[owner] ?? {});
+}
+
+/**
+ * Persist textarea edits into the owner's bag (filtered).
+ * @param {string} owner
+ */
+function commitKvTextareaToOwner(owner) {
+  if (!owner) return;
+  const filtered = filterKvToDeclaredParams(owner, readKvObject());
+  if (Object.keys(filtered).length) kvByComponent[owner] = filtered;
+  else delete kvByComponent[owner];
+}
+
+/**
+ * @param {string} owner
+ * @param {Record<string, unknown>} params
+ */
+function setKvForComponent(owner, params) {
+  if (!owner) return;
+  const filtered = filterKvToDeclaredParams(owner, params);
+  if (Object.keys(filtered).length) kvByComponent[owner] = filtered;
+  else delete kvByComponent[owner];
+  if (owner === primaryComponent || owner === preferredComponent || owner === component.value) {
+    syncKvTextareaFromOwner(owner);
+  }
+}
+
+/**
+ * @param {string[]} names
+ * @returns {Record<string, Record<string, unknown>>}
+ */
+function buildComponentOverrides(names) {
+  /** @type {Record<string, Record<string, unknown>>} */
+  const out = {};
+  for (const name of names) {
+    const bag = kvByComponent[name];
+    if (!bag) continue;
+    const filtered = filterKvToDeclaredParams(name, bag);
+    if (Object.keys(filtered).length) out[name] = filtered;
+  }
+  return out;
+}
+
 function renderFixtureChips() {
   fixtureChips.replaceChildren();
   const name = primaryComponent || component.value;
@@ -221,100 +335,17 @@ function renderFixtureChips() {
     b.setAttribute("role", "listitem");
     b.addEventListener("click", () => {
       activeFixtureLabel = label;
-      writeKvObject({ ...examples[label] });
+      const owner = name || primaryComponent || component.value;
+      setKvForComponent(owner, { ...examples[label] });
       renderFixtureChips();
-      renderParamKnobs();
       scheduleDebouncedRender(0);
     });
     fixtureChips.append(b);
   }
 }
 
-function renderParamKnobs() {
-  paramKnobs.replaceChildren();
-  const name = primaryComponent || component.value;
-  const variantView = selectedVariantView();
-  const params = componentParams[name] ?? [];
-  if (params.length === 0) {
-    const p = document.createElement("p");
-    p.className = "hint";
-    p.textContent = name ? "No params." : "No primary component in this file.";
-    paramKnobs.append(p);
-    return;
-  }
-  let current = {};
-  try {
-    current = readKvObject();
-  } catch {
-    current = {};
-  }
-  const filtered =
-    variantView === "pick"
-      ? params.filter((p) => (variantCases[p.typeName] ?? []).length > 0)
-      : params;
-  if (filtered.length === 0) {
-    const p = document.createElement("p");
-    p.className = "hint";
-    p.textContent = "No variant params to pick.";
-    paramKnobs.append(p);
-    return;
-  }
-  for (const p of filtered) {
-    const row = document.createElement("div");
-    row.className = "param-row";
-    const lab = document.createElement("label");
-    lab.textContent = `${p.name} (${p.typeName})`;
-    lab.htmlFor = `param-${p.name}`;
-    row.append(lab);
-    const cases = variantCases[p.typeName];
-    const value = current[p.name] !== undefined ? current[p.name] : p.default;
-    if (cases && cases.length > 0) {
-      const sel = document.createElement("select");
-      sel.id = `param-${p.name}`;
-      for (const c of cases) {
-        const opt = document.createElement("option");
-        opt.value = c;
-        opt.textContent = `.${c}`;
-        sel.append(opt);
-      }
-      sel.value = String(value ?? cases[0]);
-      sel.addEventListener("change", () => {
-        activeFixtureLabel = null;
-        const next = { ...readKvObjectSafe(), [p.name]: sel.value };
-        writeKvObject(next);
-        renderFixtureChips();
-        scheduleDebouncedRender(0);
-      });
-      row.append(sel);
-    } else {
-      const input = document.createElement("input");
-      input.type = "text";
-      input.id = `param-${p.name}`;
-      input.value = value == null ? "" : String(value);
-      input.addEventListener("input", () => {
-        activeFixtureLabel = null;
-        const next = { ...readKvObjectSafe(), [p.name]: input.value };
-        writeKvObject(next);
-        renderFixtureChips();
-        scheduleDebouncedRender();
-      });
-      row.append(input);
-    }
-    paramKnobs.append(row);
-  }
-}
-
-function readKvObjectSafe() {
-  try {
-    return readKvObject();
-  } catch {
-    return {};
-  }
-}
-
 function refreshControlsUi() {
   renderFixtureChips();
-  renderParamKnobs();
 }
 
 function getEditorText() {
@@ -681,6 +712,7 @@ function renderTabs() {
     b.addEventListener("click", () => {
       syncEditorToFiles();
       activePath = p;
+      primaryComponent = "";
       setEditorText(files[activePath] ?? "");
       renderTabs();
       refreshCanvasHint();
@@ -822,11 +854,22 @@ function selectedVariantView() {
 function refreshCanvasHint() {
   syncEditorToFiles();
   lastCanvas = resolveCanvasTarget(activePath, files);
-  primaryComponent = lastCanvas.primaryComponent ?? "";
+  const names = lastCanvas.componentNames ?? [];
+  if (primaryComponent && names.includes(primaryComponent)) {
+    // keep current primary (e.g. chosen via in-preview param controls)
+  } else if (preferredComponent && names.includes(preferredComponent)) {
+    // Pack default / last interaction wins over file declaration order (comps[0]).
+    primaryComponent = preferredComponent;
+  } else {
+    primaryComponent = lastCanvas.primaryComponent ?? "";
+  }
   if (primaryComponent) {
     component.value = primaryComponent;
-    preferredComponent = primaryComponent;
+    if (!preferredComponent || !names.includes(preferredComponent)) {
+      preferredComponent = primaryComponent;
+    }
   }
+  syncKvTextareaFromOwner(overrideOwner(names, lastCanvas.primaryComponent));
   if (canvasHint) {
     if (lastCanvas.kind === "components") {
       canvasHint.textContent = `Canvas: ${lastCanvas.componentNames.join(", ")} (from ${activePath.split("/").pop()})`;
@@ -888,12 +931,72 @@ function refreshAddPropertyMenu() {
   if ([...addProperty.options].some((o) => o.value === prev)) addProperty.value = prev;
 }
 
+function populateInsertTemplateMenu() {
+  if (!insertTemplate) return;
+  insertTemplate.replaceChildren();
+  const ph = document.createElement("option");
+  ph.value = "";
+  ph.textContent = "— stub patterns —";
+  insertTemplate.append(ph);
+  for (const t of PDL_TEMPLATES) {
+    const opt = document.createElement("option");
+    opt.value = t.id;
+    opt.textContent = t.label;
+    insertTemplate.append(opt);
+  }
+}
+
+/**
+ * @param {string} templateId
+ */
+function insertPdlTemplate(templateId) {
+  if (!editorView || !templateId) return;
+  const tmpl = PDL_TEMPLATES.find((t) => t.id === templateId);
+  if (!tmpl) return;
+  const pos = editorView.state.selection.main.head;
+  const doc = editorView.state.doc.toString();
+  const { from, to, insert } = formatTemplateInsert(doc, pos, tmpl.snippet);
+  /** @type {{ anchor: number, head?: number }} */
+  let selection = { anchor: from + insert.length };
+  if (tmpl.select) {
+    const idx = insert.indexOf(tmpl.select);
+    if (idx >= 0) {
+      selection = {
+        anchor: from + idx,
+        head: from + idx + tmpl.select.length,
+      };
+    }
+  }
+  editorView.dispatch({
+    changes: { from, to, insert },
+    selection,
+    scrollIntoView: true,
+  });
+  editorView.focus();
+  files[activePath] = editorView.state.doc.toString();
+  refreshCanvasHint();
+  scheduleDebouncedRender();
+}
+
+/**
+ * Bake/analyze entry: in disk packs, use the open file so partial modules
+ * (e.g. companion_extend_entry.pdl) resolve their own components — not only pack design.pdl.
+ */
+function bakeEntryPath() {
+  const disk = diskRootMode();
+  if (disk && activePath && activePath.endsWith(".pdl")) return activePath;
+  return (
+    entryPath.value.trim() ||
+    (disk ? "test-fixtures/pdl/molecules/design.pdl" : "design.pdl")
+  );
+}
+
 function getBodyBase() {
   syncEditorToFiles();
   const disk = diskRootMode();
   return {
     files: disk ? undefined : files,
-    entry: entryPath.value.trim() || (disk ? "test-fixtures/pdl/molecules/design.pdl" : "design.pdl"),
+    entry: bakeEntryPath(),
     diskRoot: disk || undefined,
     engine: selectedEngine(),
   };
@@ -968,6 +1071,10 @@ async function loadPack(packId) {
   files = { ...(data.files ?? {}) };
   entryPath.value = data.entry;
   preferredComponent = data.defaultComponent ?? null;
+  primaryComponent = data.defaultComponent ?? "";
+  kvByComponent = {};
+  activeFixtureLabel = null;
+  writeKvObject({});
   packDesc.textContent = data.pack?.description ?? "";
   activePath = data.entry;
   if (files[activePath] === undefined) {
@@ -1053,13 +1160,6 @@ async function runRender({ debounced = false } = {}) {
     refreshCanvasHint();
     const canvas = lastCanvas ?? resolveCanvasTarget(activePath, files);
     const variantView = selectedVariantView();
-    let kv = {};
-    if (kvJson.value.trim()) {
-      kv = JSON.parse(kvJson.value);
-      if (kv === null || typeof kv !== "object" || Array.isArray(kv)) {
-        throw new Error("Param overrides must be a JSON object");
-      }
-    }
     const theme = themeInput.value.trim();
     const eng = selectedEngine();
 
@@ -1077,7 +1177,12 @@ async function runRender({ debounced = false } = {}) {
     }
 
     const names = canvas.componentNames;
-    const primary = canvas.primaryComponent || names[0];
+    const canvasPrimary = canvas.primaryComponent || names[0];
+    const owner = overrideOwner(names, canvasPrimary);
+    // Persist any textarea edits into the owner's bag before baking.
+    commitKvTextareaToOwner(owner);
+    const componentOverrides = buildComponentOverrides(names);
+    const kv = componentOverrides[owner] ?? {};
 
     if (eng === "wasm") {
       syncEditorToFiles();
@@ -1087,15 +1192,15 @@ async function runRender({ debounced = false } = {}) {
           "WASM bake unavailable — run ./scripts/build-pdl-wasm.sh and rebuild playground",
         );
       }
-      const entry = entryPath.value.trim();
+      const entry = bakeEntryPath();
       const { filesJson, entry: virtEntry } = virtualizeSources(files, entry);
       const t0 = performance.now();
       const bakeJson =
-        names.length === 1 || variantView === "pick"
+        names.length === 1
           ? wasm.bake_component_sources(
               filesJson,
               virtEntry,
-              primary,
+              owner || canvasPrimary,
               theme || undefined,
               JSON.stringify(kv),
             )
@@ -1114,7 +1219,7 @@ async function runRender({ debounced = false } = {}) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bake,
-          component: names.length === 1 ? primary : undefined,
+          component: names.length === 1 ? owner || canvasPrimary : undefined,
         }),
       });
       const data = await res.json();
@@ -1138,16 +1243,21 @@ async function runRender({ debounced = false } = {}) {
       kv,
     };
 
-    if (variantView === "grid" && primary) {
+    if (variantView === "grid" && (owner || canvasPrimary)) {
       body.mode = "component";
-      body.component = primary;
+      body.component = owner || canvasPrimary;
       body.variantMatrix = true;
-    } else if (variantView === "pick" || names.length === 1) {
+    } else if (names.length === 1) {
       body.mode = "component";
-      body.component = primary;
+      body.component = owner || canvasPrimary;
     } else {
       body.mode = "system";
       body.componentNames = names;
+      // Per-component bags — never splat one kv onto canvas-first (FilterChip).
+      if (Object.keys(componentOverrides).length > 0) {
+        body.componentOverrides = componentOverrides;
+      }
+      if (owner) body.component = owner;
     }
 
     const res = await fetch("/api/render", {
@@ -1248,6 +1358,13 @@ themeInput.addEventListener("input", () => scheduleDebouncedRender());
 kvJson.addEventListener("input", () => {
   if (syncingKnobs) return;
   activeFixtureLabel = null;
+  const names = lastCanvas?.componentNames ?? [];
+  const owner = overrideOwner(names, lastCanvas?.primaryComponent);
+  try {
+    commitKvTextareaToOwner(owner);
+  } catch {
+    // Incomplete JSON while typing — wait for the next keystroke / render.
+  }
   refreshControlsUi();
   scheduleDebouncedRender();
 });
@@ -1272,11 +1389,54 @@ addProperty?.addEventListener("change", () => {
   scheduleDebouncedRender();
 });
 
+insertTemplate?.addEventListener("change", () => {
+  if (!insertTemplate.value) return;
+  insertPdlTemplate(insertTemplate.value);
+  insertTemplate.value = "";
+});
+
 window.addEventListener("message", (ev) => {
   const data = ev.data;
-  if (!data || data.type !== "pdl-interaction") return;
-  if (data.event === "pressEnd") {
-    setStatus(`Emit · ${data.component} · pressEnd`);
+  if (!data || typeof data !== "object") return;
+  if (data.type === "pdl-resize" && typeof data.height === "number") {
+    const h = Math.max(120, Math.min(Math.ceil(data.height) + 4, 12000));
+    frame.style.height = `${h}px`;
+    return;
+  }
+  if (data.type === "pdl-param" && data.component && data.kv && typeof data.kv === "object") {
+    primaryComponent = String(data.component);
+    preferredComponent = primaryComponent;
+    if ([...component.options].some((o) => o.value === primaryComponent)) {
+      component.value = primaryComponent;
+    }
+    setKvForComponent(primaryComponent, /** @type {Record<string, unknown>} */ (data.kv));
+    scheduleDebouncedRender(0);
+    return;
+  }
+  if (data.type === "pdl-interaction") {
+    const evName = typeof data.event === "string" ? data.event : "";
+    const comp = typeof data.component === "string" ? data.component : "";
+    if (evName) {
+      const emitBit =
+        Array.isArray(data.emits) && data.emits.length
+          ? ` · emit ${data.emits.map((e) => e?.name).filter(Boolean).join(",")}`
+          : "";
+      const childBit = data.childComponent ? ` ← ${data.childComponent}` : "";
+      setStatus(`Interaction · ${comp}${childBit} · ${evName}${emitBit}`);
+    }
+    if (data.params && typeof data.params === "object" && !Array.isArray(data.params)) {
+      primaryComponent = comp || primaryComponent;
+      preferredComponent = primaryComponent;
+      // Own the bag under the emitting/capturing component only (e.g. LibrarySubnav),
+      // filtered to its declared scalar params — never FilterChip / canvas-first.
+      setKvForComponent(primaryComponent, /** @type {Record<string, unknown>} */ (data.params));
+      activeFixtureLabel = null;
+      refreshControlsUi();
+      // Rebake when emit capture changed parent SoT (or no local state-tree swap).
+      if (data.previewHandled !== true && data.changed) {
+        scheduleDebouncedRender(0);
+      }
+    }
   }
 });
 
@@ -1294,6 +1454,8 @@ renderDesignSummary(null);
 mountEditor();
 renderTabs();
 refreshControlsUi();
+populateInsertTemplateMenu();
+refreshAddPropertyMenu();
 
 void (async () => {
   editorView?.dom.addEventListener("keyup", () => refreshAddPropertyMenu());

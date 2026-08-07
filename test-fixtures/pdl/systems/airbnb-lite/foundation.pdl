@@ -9,6 +9,12 @@ primitive abn.color.textMuted: Color = #717171
 primitive abn.color.onBrand: Color = #FFFFFF
 primitive abn.color.border: Color = #DDDDDD
 primitive abn.color.ghostFill: Color = #EBEBEB
+primitive abn.color.brandHover: Color = #E0484D
+primitive abn.color.brandPressed: Color = #C73C41
+primitive abn.color.brandSecondaryHover: Color = #008F84
+primitive abn.color.brandSecondaryPressed: Color = #007A71
+primitive abn.color.ghostHover: Color = #DDDDDD
+primitive abn.color.ghostPressed: Color = #D0D0D0
 
 primitive abn.space.xs: Number = 4
 primitive abn.space.sm: Number = 8

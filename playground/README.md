@@ -32,8 +32,10 @@ npm run playground
 
 ## Interaction (P4)
 
-- Components with `interactionState` (rest/hovered) dual-bake; iframe swaps on hover.
-- Click posts `pressEnd` to the parent status line (`allow-scripts` sandbox).
+- Components with catalogue `interaction` handlers: HTML host applies `on hoverStart|pressStart|…` assigns (mirrors `applyInteractionEvent`), then swaps pre-baked `interactionState` trees when available.
+- Host posts `pdl-interaction` with `{ event, params, emits, previewHandled }` so Playground syncs knobs from real handler results.
+- Airbnb-lite opens on **`AbnPointerLab`** (inline `interaction { }`) for a full pointer-cycle demo.
+- Protocols opens on **`LibrarySubnav`**: nested FilterChip `emit select` → parent `ForEach` `on select` rebinds `currentFilter` → rebake (Pattern A).
 
 ## Variants (P5)
 

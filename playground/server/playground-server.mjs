@@ -16,7 +16,8 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve, extname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { bakeAndRender, resolveRepoPath } from "../../scripts/lib/bake-pipeline.mjs";
+import { spawnSync } from "node:child_process";
+import { bakeAndRender, resolveRepoPath, rustPdlArgs } from "../../scripts/lib/bake-pipeline.mjs";
 
 /** Known packs for PDL Playground. */
 const PACK_CATALOG = [
@@ -24,7 +25,7 @@ const PACK_CATALOG = [
     id: "airbnb-lite",
     label: "Airbnb-lite",
     entry: "test-fixtures/pdl/systems/airbnb-lite/design.pdl",
-    defaultComponent: "AbnFormActionsDemo",
+    defaultComponent: "AbnPointerLab",
     description: "Flagship veracity pack — coral/teal, Cancel/Save scoping demo",
   },
   {
@@ -45,8 +46,8 @@ const PACK_CATALOG = [
     id: "protocols",
     label: "Protocols",
     entry: "test-fixtures/pdl/protocols/design.pdl",
-    defaultComponent: "FilterChip",
-    description: "Protocols, slots, emits (Rust)",
+    defaultComponent: "LibrarySubnav",
+    description: "Protocols, slots, emits + ForEach on select (Rust)",
   },
   {
     id: "atoms",
@@ -386,25 +387,122 @@ function formatErr(err) {
   return err instanceof Error ? err.message : String(err);
 }
 
-async function handleLoad(body) {
-  const { files, entry, diskRoot } = body;
-  if (typeof entry !== "string" || !entry.trim()) {
-    throw new Error('Expected "entry" path');
+/**
+ * Enrich payload from Rust `pdl catalogue` when TS loadDesign cannot parse
+ * Rust-first syntax (protocols, trailing interaction, …).
+ * @param {string} entryAbs
+ */
+function enrichFromRustCatalogue(entryAbs) {
+  const outPath = join(REPO_ROOT, ".tmp", "playground.catalogue.json");
+  mkdirSync(dirname(outPath), { recursive: true });
+  const bin = rustPdlArgs(REPO_ROOT);
+  /** @type {string[]} */
+  const args =
+    bin.length === 1
+      ? ["catalogue", entryAbs, "--out", outPath]
+      : [...bin.slice(1), "catalogue", entryAbs, "--out", outPath];
+  const cmd = bin[0];
+  const r = spawnSync(cmd, args, {
+    cwd: REPO_ROOT,
+    encoding: "utf8",
+    maxBuffer: 32 * 1024 * 1024,
+  });
+  if (r.status !== 0) {
+    const detail = ((r.stderr || "") + (r.stdout || "")).trim();
+    throw new Error(detail || `Rust catalogue failed (exit ${r.status})`);
   }
+  const cat = JSON.parse(readFileSync(outPath, "utf8"));
+  const components = Object.keys(cat.components ?? {}).sort();
+  /** @type {Record<string, string[]>} */
+  const variantCases = {};
+  for (const [name, v] of Object.entries(cat.variantTypes ?? {})) {
+    variantCases[name] = Array.isArray(v?.cases) ? [...v.cases] : [];
+  }
+  /** @type {Record<string, Array<{ name: string; typeName: string; default: unknown }>>} */
+  const componentParams = {};
+  /** @type {Record<string, unknown>} */
+  const interactionsByComponent = {};
+  /** @type {Record<string, unknown>} */
+  const emitCapturesByComponent = {};
+  for (const [name, c] of Object.entries(cat.components ?? {})) {
+    componentParams[name] = (c.params ?? []).map((p) => {
+      const typeName =
+        (typeof p.variantTypeName === "string" && p.variantTypeName) ||
+        (typeof p.type === "string" ? p.type : "String");
+      return {
+        name: p.name,
+        typeName,
+        default: c.defaultParams?.[p.name] ?? p.default ?? null,
+      };
+    });
+    if (Array.isArray(c.interactions) && c.interactions.length) {
+      interactionsByComponent[name] = c.interactions;
+    }
+    if (Array.isArray(c.emitCaptures) && c.emitCaptures.length) {
+      emitCapturesByComponent[name] = c.emitCaptures;
+    }
+  }
+  return {
+    ok: true,
+    components,
+    themes: [],
+    designSummary: {
+      previewBackground: null,
+      modulePaths: [entryAbs],
+      primitives: [],
+      semantics: [],
+      themeDefinitions: [],
+      variants: Object.entries(variantCases).map(([name, cases]) => ({ name, cases })),
+      typeStyles: [],
+    },
+    fixturesByComponent: {},
+    componentParams,
+    variantCases,
+    interactionsByComponent,
+    emitCapturesByComponent,
+    loader: "rust-catalogue",
+  };
+}
+
+/**
+ * Prefer TS loadDesign (fixtures / design summary); fall back to Rust catalogue
+ * for packs that use Rust-first grammar.
+ * @param {string} entryAbs
+ * @param {string} summaryRoot
+ */
+async function enrichDesignAt(entryAbs, summaryRoot) {
   const { loadDesign, serialiseValueExpr, evaluateValue, buildResolvedTokenMap } =
     await toolchainPromise;
-
-  if (diskRoot === true) {
-    const entryAbs = resolveRepoPath(REPO_ROOT, entry);
-    assertUnderRepo(entryAbs);
+  try {
     const design = loadDesign(entryAbs);
     return enrichLoadPayload(
       design,
       serialiseValueExpr,
       evaluateValue,
       buildResolvedTokenMap,
-      dirname(entryAbs),
+      summaryRoot,
     );
+  } catch (err) {
+    try {
+      return enrichFromRustCatalogue(entryAbs);
+    } catch (rustErr) {
+      const tsMsg = formatErr(err);
+      const rustMsg = formatErr(rustErr);
+      throw new Error(`${tsMsg}\n(Rust catalogue also failed: ${rustMsg})`);
+    }
+  }
+}
+
+async function handleLoad(body) {
+  const { files, entry, diskRoot } = body;
+  if (typeof entry !== "string" || !entry.trim()) {
+    throw new Error('Expected "entry" path');
+  }
+
+  if (diskRoot === true) {
+    const entryAbs = resolveRepoPath(REPO_ROOT, entry);
+    assertUnderRepo(entryAbs);
+    return enrichDesignAt(entryAbs, dirname(entryAbs));
   }
 
   assertSafeRelativePath(entry);
@@ -415,14 +513,7 @@ async function handleLoad(body) {
     if (relative(tmp, entryAbs).startsWith("..")) {
       throw new Error("Invalid entry path");
     }
-    const design = loadDesign(entryAbs);
-    return enrichLoadPayload(
-      design,
-      serialiseValueExpr,
-      evaluateValue,
-      buildResolvedTokenMap,
-      tmp,
-    );
+    return enrichDesignAt(entryAbs, tmp);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -437,6 +528,59 @@ function assertUnderRepo(abs) {
   if (rel.startsWith("..") || rel === "") {
     throw new Error(`Path must be inside the repository: ${abs}`);
   }
+}
+
+/**
+ * @param {Record<string, unknown>} enriched
+ * @param {string[]} names
+ * @param {Record<string, Record<string, unknown>>} [kvByComponent]
+ *   Per-component scalar overrides. A single shared bag must not be applied to
+ *   every gallery section (that leaked LibrarySubnav.currentFilter onto FilterChip).
+ */
+function buildParamControlsByComponent(enriched, names, kvByComponent) {
+  /** @type {Record<string, Array<{ name: string; typeName: string; value: string; cases?: string[] }>>} */
+  const out = {};
+  const byComp =
+    kvByComponent && typeof kvByComponent === "object" && !Array.isArray(kvByComponent)
+      ? kvByComponent
+      : {};
+  for (const name of names) {
+    const params = enriched.componentParams?.[name] ?? [];
+    const kv =
+      byComp[name] && typeof byComp[name] === "object" && !Array.isArray(byComp[name])
+        ? /** @type {Record<string, unknown>} */ (byComp[name])
+        : {};
+    /** @type {Array<{ name: string; typeName: string; value: string; cases?: string[] }>} */
+    const controls = [];
+    for (const p of params) {
+      if (!p?.name || p.name === "interactionState") continue;
+      const typeName = typeof p.typeName === "string" ? p.typeName : "";
+      if (!typeName || typeName === "object") continue;
+      const cases = enriched.variantCases?.[typeName];
+      const raw = kv[p.name] !== undefined ? kv[p.name] : p.default;
+      if (raw !== null && typeof raw === "object") continue;
+      // Skip instance-list params that enrichment stringified as JSON (e.g. chips).
+      if (typeof raw === "string") {
+        const t = raw.trim();
+        if (t.startsWith("[") || t.startsWith("{")) {
+          try {
+            const parsed = JSON.parse(t);
+            if (parsed !== null && typeof parsed === "object") continue;
+          } catch {
+            /* keep as plain string control */
+          }
+        }
+      }
+      controls.push({
+        name: p.name,
+        typeName,
+        value: raw == null ? "" : String(raw),
+        cases: cases?.length ? [...cases] : undefined,
+      });
+    }
+    if (controls.length) out[name] = controls;
+  }
+  return out;
 }
 
 async function handleRender(body) {
@@ -482,8 +626,6 @@ async function handleRender(body) {
     ? namesRaw.map(String).filter(Boolean)
     : undefined;
   const wantInteractive = interactiveRaw !== false;
-  const { loadDesign, serialiseValueExpr, evaluateValue, buildResolvedTokenMap } =
-    await toolchainPromise;
 
   const useDisk = diskRoot === true;
   /** @type {string | undefined} */
@@ -517,14 +659,8 @@ async function handleRender(body) {
       summaryRoot = tmp;
     }
 
-    const design = loadDesign(entryAbs);
-    const enriched = enrichLoadPayload(
-      design,
-      serialiseValueExpr,
-      evaluateValue,
-      buildResolvedTokenMap,
-      summaryRoot,
-    );
+    // TS loadDesign for fixtures/summary; Rust catalogue when grammar is Rust-first (protocol, …).
+    const enriched = await enrichDesignAt(entryAbs, summaryRoot);
     const bakeOutPath = join(REPO_ROOT, ".tmp", "playground.bake.json");
 
     // Phase 5: variant matrix — bake each combo as a labeled gallery entry
@@ -616,6 +752,32 @@ async function handleRender(body) {
       };
     }
 
+    /** @type {Record<string, Record<string, unknown>> | undefined} */
+    let componentOverrides;
+    if (body.componentOverrides && typeof body.componentOverrides === "object") {
+      componentOverrides = /** @type {Record<string, Record<string, unknown>>} */ (
+        body.componentOverrides
+      );
+    } else if (
+      mode === "system" &&
+      typeof component === "string" &&
+      component.trim() &&
+      Object.keys(kvObj).length > 0
+    ) {
+      componentOverrides = { [component]: kvObj };
+    } else if (
+      mode === "component" &&
+      typeof component === "string" &&
+      Object.keys(kvObj).length > 0
+    ) {
+      componentOverrides = { [component]: kvObj };
+    }
+
+    const componentParamOverrides =
+      mode === "component" && typeof component === "string"
+        ? componentOverrides?.[component] ?? kvObj
+        : {};
+
     const result = await bakeAndRender({
       repoRoot: REPO_ROOT,
       entry: entryAbs,
@@ -624,7 +786,7 @@ async function handleRender(body) {
       component: typeof component === "string" ? component : undefined,
       pack: packAbs,
       theme: typeof theme === "string" ? theme : undefined,
-      paramOverrides: kvObj,
+      paramOverrides: componentParamOverrides,
       bakeOutPath,
       title: "PDL Playground preview",
       singleComponent:
@@ -636,6 +798,7 @@ async function handleRender(body) {
       componentNames,
       interactiveHost: wantInteractive && mode !== "pack",
       interactionsByComponent: enriched.interactionsByComponent,
+      componentOverrides: mode === "system" ? componentOverrides : undefined,
     });
     if (!result.ok) {
       return {
@@ -646,70 +809,91 @@ async function handleRender(body) {
       };
     }
 
-    // Phase 4: dual-bake hovered trees when interactionState param exists
+    const previewNames =
+      componentNames?.length > 0
+        ? componentNames
+        : mode === "component" && component
+          ? [component]
+          : Object.keys(/** @type {{ components: object }} */ (result.baked)?.components ?? {});
+
+    const paramControlsByComponent = buildParamControlsByComponent(
+      enriched,
+      previewNames,
+      componentOverrides ?? {},
+    );
+
+    // Phase 4: bake non-rest interactionState trees (hovered, pressed, …) for host swaps
     /** @type {Record<string, Record<string, unknown>>} */
     const stateTrees = {};
     if (wantInteractive && result.baked && mode !== "pack") {
-      const names =
-        componentNames?.length > 0
-          ? componentNames
-          : mode === "component" && component
-            ? [component]
-            : Object.keys(/** @type {{ components: object }} */ (result.baked).components ?? {});
-      for (const name of names) {
+      for (const name of previewNames) {
         const params = enriched.componentParams?.[name] ?? [];
-        const hasHover = params.some((p) => {
-          if (p.name !== "interactionState") return false;
-          const cases = enriched.variantCases?.[p.typeName] ?? [];
-          return cases.includes("hovered");
-        });
-        if (!hasHover) continue;
-        const hoverOut = join(REPO_ROOT, ".tmp", `playground-hover-${name}.bake.json`);
-        const hoverBake = await bakeAndRender({
-          repoRoot: REPO_ROOT,
-          entry: entryAbs,
-          engine,
-          mode: "component",
-          component: name,
-          theme: typeof theme === "string" ? theme : undefined,
-          paramOverrides: { ...kvObj, interactionState: "hovered" },
-          bakeOutPath: hoverOut,
-          title: "hover",
-          singleComponent: name,
-          interactiveHost: false,
-        });
-        if (hoverBake.ok && hoverBake.baked) {
-          const tree =
-            /** @type {{ components?: Record<string, unknown> }} */ (hoverBake.baked).components?.[
-              name
-            ];
-          if (tree) stateTrees[name] = { hovered: tree };
+        const stateParam = params.find((p) => p.name === "interactionState");
+        if (!stateParam) continue;
+        const cases = enriched.variantCases?.[stateParam.typeName] ?? [];
+        const extraStates = cases.filter((c) => c && c !== "rest");
+        if (!extraStates.length) continue;
+        const baseOv =
+          componentOverrides?.[name] && typeof componentOverrides[name] === "object"
+            ? componentOverrides[name]
+            : /** @type {Record<string, unknown>} */ ({});
+        /** @type {Record<string, unknown>} */
+        const treesForComp = {};
+        for (const stateName of extraStates) {
+          const outPath = join(
+            REPO_ROOT,
+            ".tmp",
+            `playground-state-${name}-${stateName}.bake.json`,
+          );
+          const stateBake = await bakeAndRender({
+            repoRoot: REPO_ROOT,
+            entry: entryAbs,
+            engine,
+            mode: "component",
+            component: name,
+            theme: typeof theme === "string" ? theme : undefined,
+            paramOverrides: { ...baseOv, interactionState: stateName },
+            bakeOutPath: outPath,
+            title: stateName,
+            singleComponent: name,
+            interactiveHost: false,
+          });
+          if (stateBake.ok && stateBake.baked) {
+            const tree =
+              /** @type {{ components?: Record<string, unknown> }} */ (stateBake.baked)
+                .components?.[name];
+            if (tree) treesForComp[stateName] = tree;
+          }
         }
+        if (Object.keys(treesForComp).length) stateTrees[name] = treesForComp;
       }
     }
 
     let html = result.html;
-    if (Object.keys(stateTrees).length > 0 && result.baked) {
+    {
       const { renderBakedDesignToHtmlDocumentWithReport } = await toolchainPromise;
       const rerender = renderBakedDesignToHtmlDocumentWithReport(result.baked, {
         title: "PDL Playground preview",
         componentNames,
         singleComponent:
           mode === "component" && typeof component === "string" ? component : undefined,
-        interactiveHost: true,
+        interactiveHost: wantInteractive && mode !== "pack",
         interactionsByComponent: enriched.interactionsByComponent,
-        stateTrees,
+        emitCapturesByComponent: enriched.emitCapturesByComponent,
+        stateTrees: Object.keys(stateTrees).length ? stateTrees : undefined,
+        paramControlsByComponent,
       });
       html = rerender.html;
+      return {
+        ...enriched,
+        html,
+        renderFailures: rerender.renderFailures?.length
+          ? rerender.renderFailures
+          : result.renderFailures,
+        engine: result.engine,
+        durationMs: result.durationMs,
+      };
     }
-
-    return {
-      ...enriched,
-      html,
-      renderFailures: result.renderFailures,
-      engine: result.engine,
-      durationMs: result.durationMs,
-    };
   } finally {
     if (tmp) rmSync(tmp, { recursive: true, force: true });
   }

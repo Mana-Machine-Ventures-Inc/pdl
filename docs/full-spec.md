@@ -837,7 +837,7 @@ Host dispatch of **unhandled** emits (no layout `on`) is **B7** / prototype runt
 
 ## 4e — ForEach & layout emit capture (B5)
 
-**Status:** **normative**; **shipped in Rust** (`crates/pdl-core` — parse, validate E028/E029, bake-expand `ForEach` binds). TypeScript oracle still lags. Host emit dispatch is **B7**. Source: `test-fixtures/pdl/protocols/library_subnav.pdl` (parses; unimported from `design.pdl`).
+**Status:** **normative**; **shipped in Rust** (`crates/pdl-core` — parse, validate E028/E029, bake-expand `ForEach` binds, catalogue `emitCaptures`). TypeScript oracle still lags. Host emit dispatch is **B7** (Playground HTML host applies captures + rebakes). Source: `test-fixtures/pdl/protocols/filter_chip.pdl` (`LibrarySubnav`).
 
 `layout` is the **view body**: it stacks **down** (`children`, expandable slots, optional `ForEach`) and **up** (capture of **declared** child emits via `on`). Bare list mount does **not** require `ForEach` — `children = [slots]` remains enough (§4b).
 

@@ -67,3 +67,142 @@ component AbnFieldStackDemo() layout {
 
   children = [Chips, F0, F1]
 }
+
+// Self-contained pointer lab: rest → hover → press → release.
+// Preview host dual-bakes interactionState trees and swaps on pointer events.
+variant AbnPointerPhase {
+  case rest
+  case hovered
+  case pressed
+}
+
+component AbnPointerLab(
+  interactionState: AbnPointerPhase = .rest
+) layout {
+  direction = .column
+  align = .stretch
+  gap = abn.space.md
+  padding = EdgeInsets(x: abn.space.lg, y: abn.space.lg)
+  width = .fill
+  background = abn.color.page
+
+  let Title: text = {
+    content = "Pointer cycle lab"
+    style = AbnTitle
+    color = abn.color.text
+  }
+
+  let Hint: text = {
+    content = "Hover the target, press and hold, then release. Leave the canvas to cancel."
+    style = AbnBody
+    color = abn.color.textMuted
+  }
+
+  let Target: layout = {
+    direction = .column
+    align = .center
+    justify = .center
+    gap = abn.space.xs
+    cornerRadius = abn.radius.pill
+    padding = EdgeInsets(x: 28, y: 16)
+    width = .hug
+    background = abn.color.brand
+
+    if interactionState == .hovered {
+      background = abn.color.brandHover
+    } else if interactionState == .pressed {
+      background = abn.color.brandPressed
+      padding = EdgeInsets(x: 26, y: 14)
+    }
+
+    let PhaseLabel: text = {
+      content = "Rest"
+      color = abn.color.onBrand
+      fontSize = 17
+      fontWeight = 700
+
+      if interactionState == .hovered {
+        content = "Hovered"
+      } else if interactionState == .pressed {
+        content = "Pressed"
+      }
+    }
+
+    let EventHint: text = {
+      content = "waiting · no pointer"
+      color = abn.color.onBrand
+      fontSize = 12
+      fontWeight = 500
+      opacity = 0.92
+
+      if interactionState == .hovered {
+        content = "hoverStart → interactionState = .hovered"
+      } else if interactionState == .pressed {
+        content = "pressStart → interactionState = .pressed"
+      }
+    }
+
+    children = [PhaseLabel, EventHint]
+  }
+
+  let Legend: layout = {
+    direction = .column
+    align = .stretch
+    gap = abn.space.xs
+    padding = EdgeInsets(x: abn.space.md, y: abn.space.md)
+    background = abn.color.elevated
+    cornerRadius = abn.radius.sm
+    borderWidth = 1
+    borderColor = abn.color.border
+
+    let L0: text = {
+      content = "rest — default bake"
+      style = AbnCaption
+      color = abn.color.textMuted
+    }
+    let L1: text = {
+      content = "hovered — mouseenter / pressEnd while over target"
+      style = AbnCaption
+      color = abn.color.textMuted
+    }
+    let L2: text = {
+      content = "pressed — mousedown (pressStart); leave cancels"
+      style = AbnCaption
+      color = abn.color.textMuted
+    }
+    children = [L0, L1, L2]
+  }
+
+  let Status: text = {
+    content = "phase: rest"
+    style = AbnBody
+    color = abn.color.text
+    fontWeight = 600
+
+    if interactionState == .hovered {
+      content = "phase: hovered"
+      color = abn.color.brandHover
+    } else if interactionState == .pressed {
+      content = "phase: pressed"
+      color = abn.color.brandPressed
+    }
+  }
+
+  children = [Title, Hint, Target, Legend, Status]
+} interaction {
+  on hoverStart {
+    interactionState = .hovered
+  }
+  on hoverEnd {
+    interactionState = .rest
+  }
+  on pressStart {
+    interactionState = .pressed
+  }
+  on pressEnd {
+    interactionState = .hovered
+  }
+  on pressCancel {
+    interactionState = .rest
+  }
+}

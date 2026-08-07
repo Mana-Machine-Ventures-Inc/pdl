@@ -1,4 +1,4 @@
-// B4: emits + emit + inline interaction (FilterChip-style).
+// B4–B5: emits + emit + ForEach layout `on` (FilterChip → LibrarySubnav).
 variant FilterId {
   case all
   case podcasts
@@ -29,8 +29,11 @@ component FilterChip <SubnavItem>(
   cornerRadius = 999
   borderWidth = 1
 
-  if interactionState == .hovered {
+  if selected == filter {
     background = #222222
+    borderColor = #222222
+  } else if interactionState == .hovered {
+    background = #E8E8EC
     borderColor = #222222
   } else {
     background = #F2F2F4
@@ -42,7 +45,7 @@ component FilterChip <SubnavItem>(
     fontSize = 13
     fontWeight = 600
 
-    if interactionState == .hovered {
+    if selected == filter {
       color = #FFFFFF
     } else {
       color = #111111
@@ -70,5 +73,15 @@ component LibrarySubnav(
   ]
 ) layout {
   direction = .row
-  children = [chips]
+  align = .center
+  gap = 8
+  padding = EdgeInsets(x: 12, y: 12)
+
+  ForEach(chips) {
+    selected: self.currentFilter
+
+    on select(filter_id: FilterId) {
+      currentFilter = filter_id
+    }
+  }
 }

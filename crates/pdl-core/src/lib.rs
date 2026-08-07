@@ -10,6 +10,7 @@ pub mod design;
 pub mod error;
 pub mod evaluate;
 pub mod graph_serialize;
+pub mod interaction;
 pub mod lexer;
 pub mod pack;
 pub mod parser;
@@ -25,6 +26,9 @@ pub use design::{
     SourceMap,
 };
 pub use error::PdlError;
+pub use interaction::{
+    apply_emit_capture, apply_interaction_event, find_emit_capture, ApplyInteractionResult,
+};
 pub use pack::{
     bake_injection_pack, load_injection_pack_file, validate_injection_pack, PackBakeResult,
     PackValidation, PackWarning,

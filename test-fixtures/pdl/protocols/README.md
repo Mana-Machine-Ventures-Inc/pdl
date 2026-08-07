@@ -1,11 +1,11 @@
-# Protocol / slots fixtures
+# Protocols pack (Rust B1–B5)
 
-| File | Role |
-|------|------|
-| `design.pdl` | Entry — imports modal + FilterChip (B1–B4; **parsed** by Rust) |
-| `modal_content.pdl` | Protocol + Modal slots |
-| `filter_chip.pdl` | Emits + inline interaction; `LibrarySubnav` via `children = [chips]` |
-| `library_subnav.pdl` | **§4e** `ForEach` + layout `on` + Pattern A — parses in Rust; **not imported** by `design.pdl` (bake/catalogue of this file is optional) |
-| `packs/` | Injection pack JSON for `bakePack` |
+FilterChip → LibrarySubnav demonstrates the full emit path:
 
-See `docs/full-spec.md` §4a–§4e and `docs/IMPLEMENTATION_PLAN.md`.
+1. Child `interaction { on pressEnd { emit select(filter) } }`
+2. Parent `ForEach(chips) { selected: self.currentFilter; on select(filter_id: FilterId) { currentFilter = filter_id } }`
+3. Playground HTML host applies the emit capture and rebakes with the new `currentFilter`
+
+Entry: `design.pdl` (imports `filter_chip.pdl` + `modal_content.pdl`).
+
+`library_subnav.pdl` remains an alternate ForEach-only sketch (not imported).

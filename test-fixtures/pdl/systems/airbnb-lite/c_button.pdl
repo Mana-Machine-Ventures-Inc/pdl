@@ -14,6 +14,7 @@ variant AbnBtnSize {
 variant AbnBtnInteraction {
   case rest
   case hovered
+  case pressed
 }
 
 component AbnButton(
@@ -44,7 +45,23 @@ component AbnButton(
   }
 
   if interactionState == .hovered {
-    opacity = 0.88
+    if tone == .primary {
+      background = abn.color.brandHover
+    } else if tone == .secondary {
+      background = abn.color.brandSecondaryHover
+    } else {
+      background = abn.color.ghostHover
+    }
+    opacity = 1
+  } else if interactionState == .pressed {
+    if tone == .primary {
+      background = abn.color.brandPressed
+    } else if tone == .secondary {
+      background = abn.color.brandSecondaryPressed
+    } else {
+      background = abn.color.ghostPressed
+    }
+    opacity = 1
   } else {
     opacity = 1
   }
@@ -62,4 +79,20 @@ component AbnButton(
   }
 
   children = [L]
+} interaction {
+  on hoverStart {
+    interactionState = .hovered
+  }
+  on hoverEnd {
+    interactionState = .rest
+  }
+  on pressStart {
+    interactionState = .pressed
+  }
+  on pressEnd {
+    interactionState = .hovered
+  }
+  on pressCancel {
+    interactionState = .rest
+  }
 }
