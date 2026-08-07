@@ -12,15 +12,15 @@
       <div>
         <h1>PDL Playground</h1>
         <p class="sub">
-          Language demo &amp; iterative lab (Phase P0). Not PDL Studio.
-          Compiler: <strong>Rust</strong> → bake IR → HTML host.
+          Language demo &amp; iterative lab (Phase P2). Not PDL Studio.
+          Compiler: <strong>Rust</strong> (CLI or WASM) → bake IR → HTML host.
           Eng disk-watch stress: <code>npm run preview</code>.
         </p>
       </div>
       <div class="badge-stack" aria-label="Build badges">
         <span class="badge badge-rust">Rust bake</span>
         <span class="badge">HTML host</span>
-        <span class="badge badge-muted">Phase P1</span>
+        <span class="badge badge-muted">Phase P2</span>
       </div>
     </div>
   </header>
@@ -46,6 +46,16 @@
         <span>Params</span>
         <div id="paramKnobs" class="param-knobs"></div>
       </div>
+      <div class="field" id="composeField">
+        <span>Compose (writes PDL)</span>
+        <div class="compose-palette" id="composePalette" role="list">
+          <button type="button" class="btn secondary compose-add" data-compose="AbnButton" title="Add AbnButton">+ Button</button>
+          <button type="button" class="btn secondary compose-add" data-compose="AbnChip" title="Add AbnChip">+ Chip</button>
+          <button type="button" class="btn secondary compose-add" data-compose="AbnField" title="Add AbnField">+ Field</button>
+          <button type="button" class="btn secondary" id="composeClear" title="Clear compose canvas">Clear</button>
+        </div>
+        <p class="hint" id="composeHint">Adds instances to <code>compose.pdl</code> (Airbnb-lite). Selects PlaygroundCompose.</p>
+      </div>
       <div class="field">
         <span>Mode</span>
         <div class="row">
@@ -67,7 +77,8 @@
         <div class="field">
           <span>Bake engine</span>
           <div class="row">
-            <label><input type="radio" name="engine" value="rust" checked /> Rust</label>
+            <label><input type="radio" name="engine" value="rust" checked /> Rust CLI</label>
+            <label><input type="radio" name="engine" value="wasm" /> Rust WASM</label>
             <label><input type="radio" name="engine" value="ts" /> TypeScript</label>
           </div>
         </div>

@@ -1,7 +1,7 @@
 # Proposal: PDL Playground (demo & language lab)
 
-**Status:** proposed (2026-08-07)  
-**Related:** `docs/manifesto.md`, `docs/PROPOSAL_PORTABLE_CORE.md`, `docs/PROPOSAL_QUICK_PREVIEW.md`, `docs/IMPLEMENTATION_PLAN.md` (C1 / C1a), `playground/`, `scripts/lib/bake-pipeline.mjs`, `.cursor/skills/pdl-from-design-system/`  
+**Status:** accepted — P0–P2 shipped (2026-08-07)  
+**Related:** `docs/manifesto.md`, `docs/PROPOSAL_PORTABLE_CORE.md`, `docs/PROPOSAL_QUICK_PREVIEW.md`, `docs/IMPLEMENTATION_PLAN.md` (C1 / C1a), `playground/`, `scripts/lib/bake-pipeline.mjs`, `crates/pdl-wasm`, `.cursor/skills/pdl-from-design-system/`  
 **Amends:** `PROPOSAL_QUICK_PREVIEW.md` §4 (playground policy) — quick preview remains the **disk-watch stress harness**; this proposal defines a separate **Playground** product surface  
 **Non-goals:** PDL Studio (full authoring product), Figma parity, React-as-host frame mapper (v1), marketplace distribution
 
@@ -198,9 +198,9 @@ React Native note: **reuse `pdl-core`**, not the web Playground UI. A React **ho
 
 ### Phase P2 — Portable demo
 
-- WASM bake path (optional flag).
-- Optional spatial compose that **writes PDL**.
-- Coverage matrices + CI bake of packs.
+- [x] WASM bake path (optional flag).
+- [x] Optional spatial compose that **writes PDL**.
+- [x] Coverage matrices + CI bake of packs.
 
 ### Phase S — Studio (out of scope here)
 
@@ -218,6 +218,7 @@ React Native note: **reuse `pdl-core`**, not the web Playground UI. A React **ho
 - [x] `npm run preview` still documented as the disk-watch stress path.
 - [x] Fixtures chips + param knobs UX polish *(P1)*
 - [x] `systems/*-lite` veracity packs *(P1 — Airbnb-lite)*
+- [x] Optional WASM bake + compose → PDL + CI pack bake *(P2)*
 
 ---
 

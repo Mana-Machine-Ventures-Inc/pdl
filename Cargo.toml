@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/pdl-core", "crates/pdl-cli"]
+members = ["crates/pdl-core", "crates/pdl-cli", "crates/pdl-wasm"]
 
 [workspace.package]
 edition = "2021"

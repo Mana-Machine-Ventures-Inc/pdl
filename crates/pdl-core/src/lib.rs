@@ -20,7 +20,10 @@ pub mod stable_json;
 pub mod validate;
 
 pub use catalogue::{build_catalogue_component_row, build_component_catalogue};
-pub use design::{effective_emits, effective_params, load_design, DesignDefinition};
+pub use design::{
+    effective_emits, effective_params, load_design, load_design_from_sources, DesignDefinition,
+    SourceMap,
+};
 pub use error::PdlError;
 pub use pack::{
     bake_injection_pack, load_injection_pack_file, validate_injection_pack, PackBakeResult,

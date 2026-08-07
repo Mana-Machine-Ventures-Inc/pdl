@@ -3,7 +3,9 @@ import { indentWithTab } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { basicSetup } from "codemirror";
+import { generateComposePdl, nextComposeItem } from "./compose-pdl.js";
 import { pdlCompletionSource as buildPdlCompletionSource } from "./pdl-completions.js";
+import { loadWasmBake, virtualizeSources } from "./wasm-bake.js";
 
 /** Default workspace: a few tokens + one component for quick Analyze / Render. */
 const START_DESIGN_PDL = `// Starter design — tokens + a simple labeled control for playground previews.
@@ -103,6 +105,14 @@ let variantCases = {};
 let activeFixtureLabel = null;
 /** @type {boolean} */
 let syncingKnobs = false;
+
+/** @type {Array<{ kind: string; id: string }>} */
+let composeItems = [];
+/** @type {number} */
+let composeSeq = 0;
+
+const composeHint = document.getElementById("composeHint");
+const composeClear = document.getElementById("composeClear");
 
 const editorTheme = EditorView.theme({
   "&": { height: "100%" },
@@ -780,8 +790,60 @@ function diskRootMode() {
 }
 
 function selectedEngine() {
-  return document.querySelector('input[name="engine"]:checked')?.value === "ts" ? "ts" : "rust";
+  const v = document.querySelector('input[name="engine"]:checked')?.value;
+  if (v === "ts" || v === "wasm") return v;
+  return "rust";
 }
+
+function composeRelPath() {
+  const entry = entryPath.value.trim();
+  if (!entry.includes("/")) return "compose.pdl";
+  return entry.replace(/[^/]+$/, "compose.pdl");
+}
+
+function applyComposeToFiles() {
+  const rel = composeRelPath();
+  const text = generateComposePdl(composeItems);
+  files[rel] = text;
+  if (activePath === rel && editorView) {
+    setEditorText(text);
+  } else {
+    renderTabs();
+  }
+  if (composeHint) {
+    composeHint.textContent =
+      composeItems.length === 0
+        ? "Adds instances to compose.pdl (Airbnb-lite). Selects PlaygroundCompose."
+        : `${composeItems.length} instance(s) in compose.pdl → PlaygroundCompose`;
+  }
+}
+
+function addComposeItem(kind) {
+  composeSeq += 1;
+  composeItems.push(nextComposeItem(kind, composeSeq));
+  applyComposeToFiles();
+  preferredComponent = "PlaygroundCompose";
+  if ([...component.options].some((o) => o.value === "PlaygroundCompose")) {
+    component.value = "PlaygroundCompose";
+  }
+  const modeComp = document.querySelector('input[name="mode"][value="component"]');
+  if (modeComp) modeComp.checked = true;
+  updateModeUi();
+  scheduleDebouncedRender(0);
+}
+
+document.querySelectorAll(".compose-add").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const kind = btn.getAttribute("data-compose");
+    if (kind) addComposeItem(kind);
+  });
+});
+composeClear?.addEventListener("click", () => {
+  composeItems = [];
+  composeSeq = 0;
+  applyComposeToFiles();
+  scheduleDebouncedRender(0);
+});
 
 function selectedMode() {
   return document.querySelector('input[name="mode"]:checked')?.value ?? "system";
@@ -867,6 +929,8 @@ async function loadPack(packId) {
   files = { ...(data.files ?? {}) };
   entryPath.value = data.entry;
   preferredComponent = data.defaultComponent ?? null;
+  composeItems = [];
+  composeSeq = 0;
   packDesc.textContent = data.pack?.description ?? "";
   activePath = data.entry;
   if (files[activePath] === undefined) {
@@ -958,6 +1022,58 @@ async function runRender({ debounced = false } = {}) {
       }
     }
     const theme = themeInput.value.trim();
+    const eng = selectedEngine();
+
+    if (eng === "wasm") {
+      if (mode === "pack") {
+        throw new Error('Pack mode requires engine "rust" (CLI)');
+      }
+      syncEditorToFiles();
+      const wasm = await loadWasmBake();
+      if (!wasm) {
+        throw new Error(
+          "WASM bake unavailable — run ./scripts/build-pdl-wasm.sh and rebuild playground",
+        );
+      }
+      const entry = entryPath.value.trim();
+      const { filesJson, entry: virtEntry } = virtualizeSources(files, entry);
+      const t0 = performance.now();
+      let bakeJson;
+      if (mode === "system") {
+        bakeJson = wasm.bake_system_sources(filesJson, virtEntry, theme || undefined);
+      } else {
+        bakeJson = wasm.bake_component_sources(
+          filesJson,
+          virtEntry,
+          component.value,
+          theme || undefined,
+          JSON.stringify(kv),
+        );
+      }
+      const bakeMs = Math.round(performance.now() - t0);
+      const res = await fetch("/api/render-from-bake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bake: JSON.parse(bakeJson),
+          component: mode === "component" ? component.value : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (id !== latestRenderId) return;
+      if (!data.ok) {
+        showError(data.error || "WASM HTML render failed");
+        updateRenderConsole([{ phase: "WASM → HTML", message: data.error || "failed" }]);
+        frame.removeAttribute("srcdoc");
+        setStatus("");
+        return;
+      }
+      frame.srcdoc = data.html;
+      updateRenderConsole([]);
+      setStatus(`Preview updated · wasm · bake ${bakeMs}ms`);
+      return;
+    }
+
     const body = {
       ...getBodyBase(),
       mode,
@@ -988,7 +1104,7 @@ async function runRender({ debounced = false } = {}) {
     }
     frame.srcdoc = data.html;
     const failures = Array.isArray(data.renderFailures) ? data.renderFailures : [];
-    const eng = data.engine ? ` · ${data.engine}` : "";
+    const engLabel = data.engine ? ` · ${data.engine}` : "";
     const ms = data.durationMs != null ? ` · ${data.durationMs}ms` : "";
     if (failures.length > 0) {
       updateRenderConsole(
@@ -999,10 +1115,10 @@ async function runRender({ debounced = false } = {}) {
           stack: f.stack,
         })),
       );
-      setStatus(`Preview updated${eng}${ms} — ${failures.length} HTML issue(s)`);
+      setStatus(`Preview updated${engLabel}${ms} — ${failures.length} HTML issue(s)`);
     } else {
       updateRenderConsole([]);
-      setStatus(`Preview updated${eng}${ms}`);
+      setStatus(`Preview updated${engLabel}${ms}`);
     }
     if (data.components) fillComponentSelect(data.components);
     if (data.fixturesByComponent || data.componentParams) {

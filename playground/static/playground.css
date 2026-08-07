@@ -91,6 +91,15 @@ body {
   border-color: #38f;
   font-weight: 600;
 }
+.compose-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.compose-palette .btn {
+  font-size: 0.75rem;
+  padding: 4px 8px;
+}
 .param-knobs {
   display: flex;
   flex-direction: column;

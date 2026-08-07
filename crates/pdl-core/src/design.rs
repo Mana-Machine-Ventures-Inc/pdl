@@ -226,12 +226,35 @@ fn apply_extend(
     Ok(())
 }
 
-fn collect_modules(
+/// In-memory `.pdl` sources keyed by absolute (or virtual-absolute) path.
+/// Used by WASM / playground without touching the host filesystem.
+pub type SourceMap = IndexMap<String, String>;
+
+fn normalize_source_key(p: &str) -> String {
+    path_to_string(&resolve_path(p)).replace('\\', "/")
+}
+
+fn lookup_source<'a>(sources: &'a SourceMap, abs: &str) -> Option<&'a str> {
+    let key = normalize_source_key(abs);
+    if let Some(s) = sources.get(&key) {
+        return Some(s.as_str());
+    }
+    // Tolerate callers who keyed the map with unresolved / mixed separators.
+    for (k, v) in sources {
+        if normalize_source_key(k) == key {
+            return Some(v.as_str());
+        }
+    }
+    None
+}
+
+fn collect_modules_with(
     entry_path: &str,
     visiting: &mut HashSet<String>,
     ordered: &mut Vec<ModuleAst>,
+    read: &mut dyn FnMut(&str) -> Result<String, PdlError>,
 ) -> Result<(), PdlError> {
-    let abs = path_to_string(&resolve_path(entry_path));
+    let abs = normalize_source_key(entry_path);
     if visiting.contains(&abs) {
         return Err(PdlError::new(
             "PDL-E002",
@@ -242,15 +265,7 @@ fn collect_modules(
         ));
     }
     visiting.insert(abs.clone());
-    let source = std::fs::read_to_string(&abs).map_err(|e| {
-        PdlError::new(
-            "PDL-E000",
-            format!("Failed to read {}: {}", abs, e),
-            Some(abs.clone()),
-            None,
-            None,
-        )
-    })?;
+    let source = read(&abs)?;
     let module = parse_module_source(&source, &abs)?;
     let dir = resolve_path(&abs)
         .parent()
@@ -258,13 +273,54 @@ fn collect_modules(
         .unwrap_or_else(|| PathBuf::from("/"));
     for decl in &module.declarations {
         if let Some(imp) = is_import(decl) {
-            let next = path_to_string(&dir.join(&imp.path));
-            collect_modules(&next, visiting, ordered)?;
+            let next = normalize_source_key(&path_to_string(&dir.join(&imp.path)));
+            collect_modules_with(&next, visiting, ordered, read)?;
         }
     }
     visiting.remove(&abs);
     ordered.push(module);
     Ok(())
+}
+
+fn collect_modules(
+    entry_path: &str,
+    visiting: &mut HashSet<String>,
+    ordered: &mut Vec<ModuleAst>,
+) -> Result<(), PdlError> {
+    let mut read = |abs: &str| {
+        std::fs::read_to_string(abs).map_err(|e| {
+            PdlError::new(
+                "PDL-E000",
+                format!("Failed to read {}: {}", abs, e),
+                Some(abs.to_string()),
+                None,
+                None,
+            )
+        })
+    };
+    collect_modules_with(entry_path, visiting, ordered, &mut read)
+}
+
+fn collect_modules_from_map(
+    entry_path: &str,
+    sources: &SourceMap,
+    visiting: &mut HashSet<String>,
+    ordered: &mut Vec<ModuleAst>,
+) -> Result<(), PdlError> {
+    let mut read = |abs: &str| {
+        lookup_source(sources, abs)
+            .map(|s| s.to_string())
+            .ok_or_else(|| {
+                PdlError::new(
+                    "PDL-E000",
+                    format!("Missing source for {}", abs),
+                    Some(abs.to_string()),
+                    None,
+                    None,
+                )
+            })
+    };
+    collect_modules_with(entry_path, visiting, ordered, &mut read)
 }
 
 fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefinition, PdlError> {
@@ -372,6 +428,21 @@ pub fn load_design(entry_path: &str) -> Result<DesignDefinition, PdlError> {
     let mut ordered = Vec::new();
     let mut visiting = HashSet::new();
     collect_modules(entry_path, &mut visiting, &mut ordered)?;
+    let design = merge_design(entry_path, dedupe_modules_in_merge_order(ordered))?;
+    validate_merged_design(&design)?;
+    Ok(design)
+}
+
+/// Load from an in-memory map (WASM / portable hosts). Keys are absolute or
+/// virtual-absolute paths; `entry_path` must resolve to one of them after
+/// the same lexical normalization as filesystem loads.
+pub fn load_design_from_sources(
+    entry_path: &str,
+    sources: &SourceMap,
+) -> Result<DesignDefinition, PdlError> {
+    let mut ordered = Vec::new();
+    let mut visiting = HashSet::new();
+    collect_modules_from_map(entry_path, sources, &mut visiting, &mut ordered)?;
     let design = merge_design(entry_path, dedupe_modules_in_merge_order(ordered))?;
     validate_merged_design(&design)?;
     Ok(design)

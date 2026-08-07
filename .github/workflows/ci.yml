@@ -23,8 +23,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
       - run: cargo test -p pdl-core
       - run: cargo build -p pdl-cli
+      - run: cargo build -p pdl-wasm --release --target wasm32-unknown-unknown
+
+  systems-packs:
+    runs-on: ubuntu-latest
+    needs: [rust]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test -p pdl-core --test systems_packs
+      - run: cargo build -p pdl-cli
+      - name: Bake airbnb-lite pack
+        run: |
+          ./target/debug/pdl bakeSystem test-fixtures/pdl/systems/airbnb-lite/design.pdl --out /tmp/airbnb-lite.bake.json
+          ./target/debug/pdl bakeComponent test-fixtures/pdl/systems/airbnb-lite/design.pdl PlaygroundCompose --out /tmp/compose.bake.json
+          test -s /tmp/airbnb-lite.bake.json
+          test -s /tmp/compose.bake.json
 
   dual-run:
     runs-on: ubuntu-latest

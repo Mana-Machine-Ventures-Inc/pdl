@@ -1,7 +1,7 @@
 # Implementation plan — accepted proposals
 
 **Accepted:** `docs/PROPOSAL_PORTABLE_CORE.md`, `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` (2026-08-05)  
-**Proposed (review):** `docs/PROPOSAL_PDL_PLAYGROUND.md` (2026-08-07) — Playground demo shell vs `preview` stress harness vs future Studio  
+**Shipped:** `docs/PROPOSAL_PDL_PLAYGROUND.md` — Playground demo shell (P0–P2) vs `preview` stress harness vs future Studio  
 **Normative until shipped:** `docs/full-spec.md` (`1.0.0-beta`) remains binding for the **current** language. Proposal features land via **spec patches + goldens** per slice.
 
 ---
@@ -68,7 +68,7 @@ Implement **after A2** unless a spike is explicitly throwaway.
 |------|-------------|
 | **C1** | Keep HTML emitter on bake JSON |
 | **C1a** | Live stress harness: disk watch → Rust bake → HTML (`npm run preview`); shared `scripts/lib/bake-pipeline.mjs` |
-| **C1b** | **PDL Playground** (proposed) — React demo shell: packs + editor + HTML preview; see `PROPOSAL_PDL_PLAYGROUND.md` |
+| **C1b** | **PDL Playground** — packs + editor + HTML; WASM bake + compose (P2); see `PROPOSAL_PDL_PLAYGROUND.md` |
 | **C2** | SwiftUI mapper spike on bake IR |
 | **C3** | Prototype env (routes / stack / data) after B4–B5 |
 

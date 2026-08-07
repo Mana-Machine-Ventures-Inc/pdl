@@ -532,6 +532,28 @@ async function handleRender(body) {
   }
 }
 
+async function handleRenderFromBake(body) {
+  const bake = body?.bake;
+  if (!bake || typeof bake !== "object") {
+    throw new Error('Expected "bake" object (bakedDesign JSON)');
+  }
+  const { renderBakedDesignToHtmlDocumentWithReport } = await toolchainPromise;
+  const component =
+    typeof body.component === "string" && body.component.trim()
+      ? body.component.trim()
+      : undefined;
+  const { html, renderFailures } = renderBakedDesignToHtmlDocumentWithReport(bake, {
+    title: "PDL Playground preview (WASM bake)",
+    singleComponent: component,
+  });
+  return {
+    ok: true,
+    html,
+    renderFailures,
+    engine: "wasm",
+  };
+}
+
 function serveStatic(pathname, res) {
   const safe = pathname === "/" ? "index.html" : pathname.replace(/^\//, "");
   const filePath = resolve(STATIC_DIR, safe);
@@ -551,7 +573,9 @@ function serveStatic(pathname, res) {
           ? "text/javascript; charset=utf-8"
           : ext === "css"
             ? "text/css; charset=utf-8"
-            : "application/octet-stream";
+            : ext === "wasm"
+              ? "application/wasm"
+              : "application/octet-stream";
     res.writeHead(200, { "Content-Type": ct, "Cache-Control": "no-store" });
     res.end(buf);
   } catch {
@@ -627,6 +651,19 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "POST" && pathname === "/api/render-from-bake") {
+    try {
+      const body = await readJsonBody(req);
+      const out = await handleRenderFromBake(body);
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify(out));
+    } catch (e) {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ ok: false, error: formatErr(e) }));
+    }
+    return;
+  }
+
   res.writeHead(404);
   res.end();
 });
@@ -665,7 +702,7 @@ function listenPlayground() {
     const bound = /** @type {import("node:net").AddressInfo} */ (server.address());
     const p = bound?.port ?? first;
     console.log(`PDL Playground at http://${HOST}:${p}`);
-    console.log(`  Phase P1 · Rust bake → HTML · Airbnb-lite + fixtures`);
+    console.log(`  Phase P2 · Rust CLI/WASM bake → HTML · compose + packs`);
     if (!strictPort && p !== DEFAULT_FIRST_PORT) {
       console.error(`(Using ${p} because ${DEFAULT_FIRST_PORT} was busy.)`);
     }
