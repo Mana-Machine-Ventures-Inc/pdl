@@ -24,6 +24,10 @@ pub enum ConditionExpr {
         /// When false, `rhs` is a variant case (`.all`).
         rhs_is_param: bool,
     },
+    /// Bare parameter as a boolean (`if selected { … }`).
+    Truthy {
+        param: String,
+    },
     And {
         items: Vec<ConditionExpr>,
     },

@@ -126,6 +126,14 @@ pub fn evaluate_condition(c: &ConditionExpr, param_values: &ParamValues) -> bool
                 CmpOp::Ne => left != right,
             }
         }
+        ConditionExpr::Truthy { param } => match param_values.get(param) {
+            Some(Value::Bool(b)) => *b,
+            Some(v) => {
+                let s = js_string(v);
+                s == "true" || s == "1"
+            }
+            None => false,
+        },
         ConditionExpr::And { items } => items.iter().all(|x| evaluate_condition(x, param_values)),
         ConditionExpr::Or { items } => items.iter().any(|x| evaluate_condition(x, param_values)),
         ConditionExpr::Not { expr } => !evaluate_condition(expr, param_values),

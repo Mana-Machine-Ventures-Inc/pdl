@@ -43,8 +43,16 @@ fn strip_dot(s: &str) -> &str {
 // ---- condition helpers -----------------------------------------------------
 
 fn negate_condition(c: &ConditionExpr) -> ConditionExpr {
-    ConditionExpr::Not {
-        expr: Box::new(c.clone()),
+    match c {
+        ConditionExpr::Truthy { param } => ConditionExpr::Cmp {
+            param: param.clone(),
+            op: crate::ast::CmpOp::Eq,
+            rhs: "false".to_string(),
+            rhs_is_param: false,
+        },
+        other => ConditionExpr::Not {
+            expr: Box::new(other.clone()),
+        },
     }
 }
 

@@ -685,7 +685,18 @@ function textInlineStyle(props: Record<string, unknown>): string {
   return mergeInlineStyles(display, textOwnStyle(props));
 }
 
-type FrameRenderOpts = { stackChild: boolean; stackIndex: number };
+type FrameRenderOpts = {
+  stackChild: boolean;
+  stackIndex: number;
+  /** When true, omit data-pdl-instance-* (used for inst-state inner bodies). */
+  omitInstanceAttrs?: boolean;
+};
+
+type InstanceRenderCtx = {
+  nextKey: number;
+  /** Prebaked non-rest trees keyed by instance key (`i0`, …) then state name. */
+  stateTrees: Record<string, Record<string, BakedComponentJson>>;
+};
 
 function iconFrameStyle(props: Record<string, unknown>, opts: FrameRenderOpts): string {
   const sz = finiteNum(props.size) ?? 24;
@@ -701,19 +712,38 @@ function mediaFrameStyle(props: Record<string, unknown>, opts: FrameRenderOpts):
   return ob ? mergeInlineStyles(box, "max-width:100%", ob) : mergeInlineStyles(box, "max-width:100%");
 }
 
-function renderFrame(frame: BakedFrame, opts: FrameRenderOpts = { stackChild: false, stackIndex: 0 }): string {
+function renderFrame(
+  frame: BakedFrame,
+  opts: FrameRenderOpts = { stackChild: false, stackIndex: 0 },
+  instCtx?: InstanceRenderCtx,
+): string {
   const { id, kind } = frame;
   // omitEmpty bake JSON may drop empty `props: {}` / `children: []`.
   const props = (frame.props ?? {}) as Record<string, unknown>;
   const kids = frame.children ?? [];
   const dataId = ` data-pdl-id="${escapeAttr(id)}"`;
-  const inst =
-    frame.instanceOf !== undefined ? ` data-pdl-instance-of="${escapeAttr(frame.instanceOf)}"` : "";
+  const wantInst = frame.instanceOf !== undefined && !opts.omitInstanceAttrs;
+  const inst = wantInst ? ` data-pdl-instance-of="${escapeAttr(frame.instanceOf!)}"` : "";
   const kwargsAttr =
-    frame.instanceOf !== undefined && frame.instanceKwargs
+    wantInst && frame.instanceKwargs
       ? ` data-pdl-instance-kwargs="${escapeAttr(JSON.stringify(frame.instanceKwargs))}"`
       : "";
   const instAttrs = `${inst}${kwargsAttr}`;
+
+  // Nested interactive instances: wrap with per-kwargs state fragments for local swap.
+  if (wantInst && instCtx && frame.instanceOf) {
+    const key = `i${instCtx.nextKey++}`;
+    const extra = instCtx.stateTrees[key];
+    if (extra && Object.keys(extra).length > 0) {
+      const restInner = renderFrame(frame, { ...opts, omitInstanceAttrs: true }, instCtx);
+      let blocks = `<div class="pdl-inst-state" data-pdl-state="rest">${restInner}</div>`;
+      for (const [stateName, stateComp] of Object.entries(extra)) {
+        const frag = renderFrame(stateComp.root, { stackChild: false, stackIndex: 0 });
+        blocks += `<div class="pdl-inst-state" data-pdl-state="${escapeAttr(stateName)}" hidden>${frag}</div>`;
+      }
+      return `<div class="pdl-instance"${inst}${kwargsAttr} data-pdl-instance-key="${escapeAttr(key)}">${blocks}</div>`;
+    }
+  }
 
   if (kind === "layout") {
     const isStack = props.direction === "stack";
@@ -735,7 +765,7 @@ function renderFrame(frame: BakedFrame, opts: FrameRenderOpts = { stackChild: fa
       const under = renderLayerBandHtml(flattenLayerOps(props.background), 0);
       const over = renderLayerBandHtml(flattenLayerOps(props.foreground), 2);
       const innerKids = kids
-        .map((ch, i) => renderFrame(ch, { stackChild: isStack, stackIndex: i }))
+        .map((ch, i) => renderFrame(ch, { stackChild: isStack, stackIndex: i }, instCtx))
         .join("");
       const inner = `<div class="pdl-layout__content" style="${escapeStyleAttr(innerStyle)}">${innerKids}</div>`;
       return `<div class="pdl-frame pdl-layout pdl-layout--layers"${dataId}${instAttrs} style="${escapeStyleAttr(style)}">${under}${inner}${over}</div>`;
@@ -745,7 +775,7 @@ function renderFrame(frame: BakedFrame, opts: FrameRenderOpts = { stackChild: fa
       isStack ? "position:relative" : "",
     );
     const inner = kids
-      .map((ch, i) => renderFrame(ch, { stackChild: isStack, stackIndex: i }))
+      .map((ch, i) => renderFrame(ch, { stackChild: isStack, stackIndex: i }, instCtx))
       .join("");
     return `<div class="pdl-frame pdl-layout"${dataId}${instAttrs} style="${escapeStyleAttr(style)}">${inner}</div>`;
   }
@@ -805,12 +835,12 @@ function renderFrame(frame: BakedFrame, opts: FrameRenderOpts = { stackChild: fa
   }
 
   const fallbackStyle = frameBoxStyle(props, kind, opts);
-  const inner = kids.map((ch, i) => renderFrame(ch, { stackChild: false, stackIndex: i })).join("");
+  const inner = kids.map((ch, i) => renderFrame(ch, { stackChild: false, stackIndex: i }, instCtx)).join("");
   return `<div class="pdl-frame pdl-unknown" data-pdl-kind="${escapeAttr(kind)}"${dataId}${instAttrs} style="${escapeStyleAttr(fallbackStyle)}">${inner}</div>`;
 }
 
-function renderComponentBody(comp: BakedComponentJson): string {
-  return renderFrame(comp.root, { stackChild: false, stackIndex: 0 });
+function renderComponentBody(comp: BakedComponentJson, instCtx?: InstanceRenderCtx): string {
+  return renderFrame(comp.root, { stackChild: false, stackIndex: 0 }, instCtx);
 }
 
 const BASE_CSS = `
@@ -821,7 +851,37 @@ body { margin: 0; padding: 16px; background: #f6f6f6; color: #111; }
 .pdl-meta { font-size: 0.85rem; color: #444; margin-bottom: 20px; }
 .pdl-gallery { display: flex; flex-direction: column; gap: 16px; }
 .pdl-preview { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 12px 14px; }
-.pdl-preview-title { font-size: 0.9rem; font-weight: 600; margin: 0 0 8px; }
+.pdl-preview-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin: 0 0 8px;
+}
+.pdl-preview-title { font-size: 0.9rem; font-weight: 600; margin: 0; }
+.pdl-instance { display: block; }
+.pdl-inst-state[hidden] { display: none !important; }
+.pdl-source-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #0b57d0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.pdl-source-link:hover { color: #0842a0; }
+.pdl-source-link:focus-visible {
+  outline: 2px solid #0b57d0;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
 .pdl-preview-params {
   font-size: 0.72rem;
   color: #778;
@@ -940,6 +1000,24 @@ export type PreviewParamControl = {
   cases?: string[];
 };
 
+function renderSourceFileLink(
+  componentName: string,
+  source?: { path: string; line: number },
+): string {
+  const basen =
+    source?.path && typeof source.path === "string"
+      ? source.path.replace(/^.*\//, "")
+      : "";
+  const label =
+    basen && source?.line
+      ? `${basen}:${source.line}`
+      : "Source file";
+  const title = source?.path
+    ? `${source.path}:${source.line}`
+    : `Open ${componentName} definition in the editor`;
+  return `<button type="button" class="pdl-source-link" data-pdl-open-source="${escapeAttr(componentName)}" title="${escapeAttr(title)}">${escapeHtml(label)}</button>`;
+}
+
 function renderParamBar(
   componentName: string,
   controls: PreviewParamControl[] | undefined,
@@ -949,10 +1027,12 @@ function renderParamBar(
     .map((c) => {
       const id = `pdl-param-${escapeAttr(componentName)}-${escapeAttr(c.name)}`;
       if (c.cases && c.cases.length > 0) {
+        const boolLike = c.typeName === "Boolean" || c.typeName === "Bool";
         const opts = c.cases
           .map((cas) => {
             const sel = String(c.value) === cas ? " selected" : "";
-            return `<option value="${escapeAttr(cas)}"${sel}>.${escapeHtml(cas)}</option>`;
+            const label = boolLike ? cas : `.${cas}`;
+            return `<option value="${escapeAttr(cas)}"${sel}>${escapeHtml(label)}</option>`;
           })
           .join("");
         return `<label for="${id}">${escapeHtml(c.name)}<select id="${id}" data-param="${escapeAttr(c.name)}">${opts}</select></label>`;
@@ -987,6 +1067,13 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     emitCapturesByComponent?: Record<string, unknown>;
     /** Per-component param controls rendered in the preview (Playground). */
     paramControlsByComponent?: Record<string, PreviewParamControl[]>;
+    /** Declaration sites for "Source file" links (`path` + 1-based `line`). */
+    componentSourcesByComponent?: Record<string, { path: string; line: number }>;
+    /**
+     * Per nested-instance interaction state trees (hovered/pressed/…), keyed by
+     * document order (`i0`, `i1`, …) matching `[data-pdl-instance-key]`.
+     */
+    instanceStateTrees?: Record<string, Record<string, BakedComponentJson>>;
   } = {},
 ): { html: string; renderFailures: ComponentRenderFailure[] } {
   const title =
@@ -1003,13 +1090,16 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     list = allNames;
   }
   const renderFailures: ComponentRenderFailure[] = [];
+  const instCtx: InstanceRenderCtx | undefined = opts.instanceStateTrees
+    ? { nextKey: 0, stateTrees: opts.instanceStateTrees }
+    : undefined;
 
   const sections = list
     .map((name) => {
       const comp = doc.components[name]!;
       const paramsJson = escapeHtml(JSON.stringify(comp.bakedParams ?? {}));
       try {
-        const body = renderBakedComponentToHtmlFragment(comp);
+        const body = `<div class="pdl-canvas">${renderComponentBody(comp, instCtx)}</div>`;
         const stateExtra = opts.stateTrees?.[name];
         let stateBlocks = "";
         if (stateExtra) {
@@ -1030,7 +1120,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         const hasInteraction = opts.interactiveHost && (hasOwnIx || hasCaptures);
         const interactiveAttr = hasInteraction ? ` data-pdl-interactive="1"` : "";
         const paramBar = renderParamBar(name, opts.paramControlsByComponent?.[name]);
-        return `<section class="pdl-preview" data-pdl-component="${escapeAttr(name)}"${interactiveAttr}><h2 class="pdl-preview-title">${escapeHtml(name)}</h2>${paramBar}<p class="pdl-preview-params mono">${paramsJson}</p>${restWrap}</section>`;
+        const sourceLink = renderSourceFileLink(name, opts.componentSourcesByComponent?.[name]);
+        return `<section class="pdl-preview" data-pdl-component="${escapeAttr(name)}"${interactiveAttr}><div class="pdl-preview-head"><h2 class="pdl-preview-title">${escapeHtml(name)}</h2>${sourceLink}</div>${paramBar}<p class="pdl-preview-params mono">${paramsJson}</p>${restWrap}</section>`;
       } catch (err) {
         const message = formatThrownMessage(err);
         const stack = formatThrownStack(err);
@@ -1039,7 +1130,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           stack !== undefined
             ? `<details style="margin-top:8px"><summary style="cursor:pointer;font-size:0.82rem">Stack trace</summary><pre class="pdl-render-error-stack">${escapeHtml(stack)}</pre></details>`
             : "";
-        return `<section class="pdl-preview pdl-preview--render-error" data-pdl-component="${escapeAttr(name)}"><span class="pdl-render-error-badge">HTML render failed</span><h2 class="pdl-preview-title">${escapeHtml(name)}</h2><p class="pdl-preview-params">${paramsJson}</p><pre class="pdl-render-error-msg">${escapeHtml(message)}</pre>${stackBlock}</section>`;
+        const sourceLink = renderSourceFileLink(name, opts.componentSourcesByComponent?.[name]);
+        return `<section class="pdl-preview pdl-preview--render-error" data-pdl-component="${escapeAttr(name)}"><span class="pdl-render-error-badge">HTML render failed</span><div class="pdl-preview-head"><h2 class="pdl-preview-title">${escapeHtml(name)}</h2>${sourceLink}</div><p class="pdl-preview-params">${paramsJson}</p><pre class="pdl-render-error-msg">${escapeHtml(message)}</pre>${stackBlock}</section>`;
       }
     })
     .join("\n");
@@ -1241,6 +1333,17 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           var childLive = Object.assign({}, childParams);
           var down = false;
           node.style.cursor = 'pointer';
+          function showInstState(state) {
+            var nodes = node.querySelectorAll(':scope > .pdl-inst-state');
+            if (!nodes.length) return false;
+            var found = false;
+            nodes.forEach(function(n){
+              var match = n.getAttribute('data-pdl-state') === state;
+              n.hidden = !match;
+              if (match) found = true;
+            });
+            return found;
+          }
           function childDispatch(event) {
             if (!childBy[event]) return;
             var result = applyEvent(childLive, childDecls, event);
@@ -1254,6 +1357,11 @@ export function renderBakedDesignToHtmlDocumentWithReport(
                 needRebake = true;
               }
             });
+            // Local chrome swap for nested interactionState (hover/press).
+            // Rebake cannot restore ephemeral child interactionState — parent SoT only.
+            var stateKey = childLive.interactionState != null ? String(childLive.interactionState) : 'rest';
+            var localHandled = showInstState(stateKey);
+            if (!localHandled && stateKey === 'rest') localHandled = showInstState('rest');
             postMsg({
               type: 'pdl-interaction',
               component: name,
@@ -1344,6 +1452,17 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       el.addEventListener('keydown', function(ev){
         if (ev.key === 'Enter') emitParams();
       });
+    });
+  });
+  document.querySelectorAll('[data-pdl-open-source]').forEach(function(btn){
+    btn.addEventListener('click', function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+      var component = btn.getAttribute('data-pdl-open-source');
+      if (!component) return;
+      try {
+        parent.postMessage({ type: 'pdl-open-source', component: component }, '*');
+      } catch (e) {}
     });
   });
   postHeight();

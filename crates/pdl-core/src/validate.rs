@@ -42,6 +42,29 @@ fn validate_condition_expr(
         ConditionExpr::Not { expr } => {
             validate_condition_expr(design, expr, param_by_name, component_name)
         }
+        ConditionExpr::Truthy { param } => {
+            let type_name = param_by_name.get(param).ok_or_else(|| {
+                err(
+                    "PDL-E007",
+                    format!(
+                        "Unknown parameter `{}` in `if` condition (component {})",
+                        param, component_name
+                    ),
+                    design,
+                )
+            })?;
+            if type_name != "Boolean" && type_name != "Bool" {
+                return Err(err(
+                    "PDL-E010",
+                    format!(
+                        "Bare `if {}` requires a Boolean parameter (got type {}); use `{} == …` for variants",
+                        param, type_name, param
+                    ),
+                    design,
+                ));
+            }
+            Ok(())
+        }
         ConditionExpr::Cmp {
             param,
             rhs,
@@ -58,6 +81,44 @@ fn validate_condition_expr(
                     design,
                 )
             })?;
+            // Boolean compare: `selected == true` / `selected == .true`
+            if type_name == "Boolean" || type_name == "Bool" {
+                if *rhs_is_param {
+                    let rhs_ty = param_by_name.get(rhs).ok_or_else(|| {
+                        err(
+                            "PDL-E007",
+                            format!(
+                                "Unknown parameter `{}` on RHS of condition (component {})",
+                                rhs, component_name
+                            ),
+                            design,
+                        )
+                    })?;
+                    if rhs_ty != type_name {
+                        return Err(err(
+                            "PDL-E010",
+                            format!(
+                                "Condition compares incompatible parameter types `{}` ({}) and `{}` ({})",
+                                param, type_name, rhs, rhs_ty
+                            ),
+                            design,
+                        ));
+                    }
+                    return Ok(());
+                }
+                let rhs_stripped = strip_leading_dot(rhs);
+                if rhs_stripped == "true" || rhs_stripped == "false" {
+                    return Ok(());
+                }
+                return Err(err(
+                    "PDL-E010",
+                    format!(
+                        "Boolean condition on `{}` expected `true` / `false` (or `.true` / `.false`)",
+                        param
+                    ),
+                    design,
+                ));
+            }
             let vdecl = design.variants.get(type_name).ok_or_else(|| {
                 err(
                     "PDL-E010",

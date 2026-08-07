@@ -1161,7 +1161,7 @@ impl Parser {
                 handlers.push(self.parse_layout_on_handler()?);
                 continue;
             }
-            // derived bind: itemParam: expr
+            // derived bind: itemParam: expr (value or condition)
             let param = self.consume(TokenKind::Ident)?.value;
             self.consume(TokenKind::Colon)?;
             let value = self.parse_value_expr()?;
@@ -1173,6 +1173,26 @@ impl Parser {
             binds,
             handlers,
         })
+    }
+
+    /// `ident` / `self.ident` followed by `==` / `!=` (comparison bind / if-cond).
+    fn looks_like_condition_start(&self) -> bool {
+        let k0 = self.peek().kind;
+        if k0 == TokenKind::SelfKw {
+            if self.peek_ahead_kind(1) != TokenKind::Dot {
+                return false;
+            }
+            if self.peek_ahead_kind(2) != TokenKind::Ident {
+                return false;
+            }
+            let op = self.peek_ahead_kind(3);
+            return op == TokenKind::EqEq || op == TokenKind::Ne;
+        }
+        if k0 == TokenKind::Ident {
+            let op = self.peek_ahead_kind(1);
+            return op == TokenKind::EqEq || op == TokenKind::Ne;
+        }
+        false
     }
 
     fn parse_layout_on_handler(&mut self) -> Result<LayoutOnHandler, PdlError> {
@@ -1433,7 +1453,8 @@ impl Parser {
             self.advance();
             CmpOp::Ne
         } else {
-            return Err(self.err("Expected == or != in condition"));
+            // Bare boolean param: `if selected { … }`
+            return Ok(ConditionExpr::Truthy { param });
         };
         if self.is(TokenKind::DotEnum) {
             let rhs = self.advance().value;
@@ -1461,12 +1482,27 @@ impl Parser {
                 rhs,
                 rhs_is_param: true,
             })
+        } else if self.is(TokenKind::True) || self.is(TokenKind::False) {
+            let rhs = self.advance().value;
+            Ok(ConditionExpr::Cmp {
+                param,
+                op,
+                rhs,
+                rhs_is_param: false,
+            })
         } else {
-            Err(self.err("Expected variant case (.case) or parameter name in condition"))
+            Err(self.err("Expected variant case (.case), boolean, or parameter name in condition"))
         }
     }
 
     pub fn parse_value_expr(&mut self) -> Result<ValueExpr, PdlError> {
+        // Comparison as a value (ForEach binds / kwargs): `self.currentFilter == filter`
+        if self.looks_like_condition_start() {
+            let start = self.index;
+            let expr = self.parse_cond_or()?;
+            self.assert_no_mixed_and_or(start, self.index)?;
+            return Ok(ValueExpr::Condition { expr });
+        }
         let lhs = self.parse_primary_value()?;
         if self.is(TokenKind::At) {
             self.advance();

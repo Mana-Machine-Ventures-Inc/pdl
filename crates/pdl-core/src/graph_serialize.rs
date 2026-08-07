@@ -49,6 +49,10 @@ pub fn serialise_condition_expr(c: &ConditionExpr) -> Value {
             }
             obj(fields)
         }
+        ConditionExpr::Truthy { param } => obj(vec![
+            ("kind", Value::String("truthy".to_string())),
+            ("param", Value::String(param.clone())),
+        ]),
         ConditionExpr::And { items } => obj(vec![
             ("kind", Value::String("and".to_string())),
             (

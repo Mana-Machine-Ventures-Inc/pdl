@@ -1,12 +1,16 @@
 // B4–B5: emits + emit + ForEach layout `on` (FilterChip → LibrarySubnav).
+// Pattern A: parent owns FilterId SoT; ForEach derives Bool `selected` per chip.
 variant FilterId {
   case all
   case podcasts
+  case episodes
+  case hosts
 }
 
 variant ChipInteraction {
   case rest
   case hovered
+  case click
 }
 
 protocol SubnavItem {
@@ -18,7 +22,7 @@ protocol SubnavItem {
 }
 
 component FilterChip <SubnavItem>(
-  selected: FilterId = .all,
+  selected: Boolean = false,
   interactionState: ChipInteraction = .rest
 ) layout {
   direction = .row
@@ -29,12 +33,15 @@ component FilterChip <SubnavItem>(
   cornerRadius = 999
   borderWidth = 1
 
-  if selected == filter {
+  if selected {
     background = #222222
     borderColor = #222222
   } else if interactionState == .hovered {
-    background = #E8E8EC
+    background = #FFFFFF
     borderColor = #222222
+  } else if interactionState == .click {
+    background = #444444
+    borderColor = #222222 @ 0.0
   } else {
     background = #F2F2F4
     borderColor = #D0D0D5
@@ -45,7 +52,7 @@ component FilterChip <SubnavItem>(
     fontSize = 13
     fontWeight = 600
 
-    if selected == filter {
+    if selected {
       color = #FFFFFF
     } else {
       color = #111111
@@ -60,7 +67,11 @@ component FilterChip <SubnavItem>(
   on hoverEnd {
     interactionState = .rest
   }
+  on pressStart {
+    interactionState = .click
+  }
   on pressEnd {
+    interactionState = .rest
     emit select(filter)
   }
 }
@@ -69,7 +80,9 @@ component LibrarySubnav(
   currentFilter: FilterId = .all,
   chips: [SubnavItem] = [
     FilterChip(title: "All", filter: .all),
-    FilterChip(title: "Podcasts", filter: .podcasts)
+    FilterChip(title: "Podcasts", filter: .podcasts),
+    FilterChip(title: "Episodes", filter: .episodes),
+    FilterChip(title: "Hosts", filter: .hosts)
   ]
 ) layout {
   direction = .row
@@ -78,7 +91,7 @@ component LibrarySubnav(
   padding = EdgeInsets(x: 12, y: 12)
 
   ForEach(chips) {
-    selected: self.currentFilter
+    selected: self.currentFilter == filter
 
     on select(filter_id: FilterId) {
       currentFilter = filter_id

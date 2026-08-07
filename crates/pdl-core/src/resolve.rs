@@ -928,13 +928,18 @@ fn materialize(
                             ))
                         }
                     };
+                    // §4e: bare idents → item fields first, then enclosing params.
+                    let mut bind_scope = param_values.clone();
+                    for (k, v) in &kw_overrides {
+                        bind_scope.insert(k.clone(), v.clone());
+                    }
                     for (k, expr) in binds {
                         let mut visiting = HashSet::new();
                         let mut ev = Eval {
                             design,
                             tokens,
                             visiting: &mut visiting,
-                            param_values: Some(param_values),
+                            param_values: Some(&bind_scope),
                             param_meta: Some(param_meta),
                             use_string_placeholders: false,
                         };

@@ -306,9 +306,9 @@ fn parses_foreach_self_member_and_layout_on() {
 variant FilterId { case all case podcasts }
 component Chip(
   filter: FilterId = .all,
-  selected: FilterId = .all
+  selected: Boolean = false
 ) layout {
-  if selected == filter { }
+  if selected { }
   children = []
 }
 component Bar(
@@ -316,7 +316,7 @@ component Bar(
   chips: [Chip] = [Chip(filter: .all), Chip(filter: .podcasts)]
 ) layout {
   ForEach(chips) {
-    selected: self.currentFilter
+    selected: self.currentFilter == filter
     on select(filter_id: FilterId) {
       currentFilter = filter_id
     }
@@ -339,10 +339,23 @@ component Bar(
             handlers,
         } => {
             assert_eq!(list, "chips");
-            assert!(matches!(
-                binds.get("selected"),
-                Some(pdl_core::ast::ValueExpr::SelfMember { name }) if name == "currentFilter"
-            ));
+            assert!(
+                matches!(
+                    binds.get("selected"),
+                    Some(pdl_core::ast::ValueExpr::Condition { expr })
+                        if matches!(
+                            expr,
+                            pdl_core::ast::ConditionExpr::Cmp {
+                                param,
+                                rhs,
+                                rhs_is_param: true,
+                                ..
+                            } if param == "currentFilter" && rhs == "filter"
+                        )
+                ),
+                "expected selected: self.currentFilter == filter, got {:?}",
+                binds.get("selected")
+            );
             assert_eq!(handlers.len(), 1);
             assert_eq!(handlers[0].channel, "select");
             assert_eq!(handlers[0].payload[0].name, "filter_id");
@@ -367,35 +380,38 @@ expose C { }
 fn bakes_foreach_with_selected_bind() {
     use pdl_core::bake::build_baked_design_component;
     use pdl_core::design::load_design;
-    use serde_json::Map;
+    use serde_json::{json, Map};
 
-    let path = repo_root().join("test-fixtures/pdl/protocols/library_subnav.pdl");
-    let design = load_design(path.to_str().unwrap()).expect("load library_subnav");
+    let path = repo_root().join("test-fixtures/pdl/protocols/design.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load protocols design");
+    let mut overrides = Map::new();
+    overrides.insert("currentFilter".into(), json!("podcasts"));
     let doc = build_baked_design_component(
         &design,
-        "LibrarySubnavForEach",
+        "LibrarySubnav",
         None,
-        &Map::new(),
+        &overrides,
         None,
     )
-    .expect("bake LibrarySubnavForEach");
-    let children = doc["components"]["LibrarySubnavForEach"]["root"]["children"]
+    .expect("bake LibrarySubnav");
+    let children = doc["components"]["LibrarySubnav"]["root"]["children"]
         .as_array()
         .expect("children");
-    assert_eq!(children.len(), 2, "ForEach should expand two chip instances");
-    let titles: Vec<&str> = children
-        .iter()
-        .map(|ch| {
-            let kwargs = ch["instanceKwargs"].as_object().expect("instanceKwargs");
-            assert!(
-                kwargs.contains_key("selected"),
-                "derived bind selected should be applied: {kwargs:?}"
-            );
-            // Slot/ForEach mount path (fresh resolve tree) must keep nested Label text.
-            ch["children"][0]["props"]["content"]
-                .as_str()
-                .expect("chip Label content")
-        })
-        .collect();
-    assert_eq!(titles, ["All", "Podcasts"]);
+    assert_eq!(children.len(), 4, "ForEach should expand four chip instances");
+    let mut selected_by_title = Map::new();
+    for ch in children {
+        let kwargs = ch["instanceKwargs"].as_object().expect("instanceKwargs");
+        let title = kwargs
+            .get("title")
+            .and_then(|v| v.as_str())
+            .expect("title");
+        let selected = kwargs.get("selected").cloned().expect("selected bind");
+        selected_by_title.insert(title.to_string(), selected);
+        // Nested Label still present
+        assert!(ch["children"][0]["props"]["content"].is_string());
+    }
+    assert_eq!(selected_by_title.get("All"), Some(&json!(false)));
+    assert_eq!(selected_by_title.get("Podcasts"), Some(&json!(true)));
+    assert_eq!(selected_by_title.get("Episodes"), Some(&json!(false)));
+    assert_eq!(selected_by_title.get("Hosts"), Some(&json!(false)));
 }

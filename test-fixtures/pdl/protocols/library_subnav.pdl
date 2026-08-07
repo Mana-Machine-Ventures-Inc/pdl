@@ -1,14 +1,11 @@
-// §4e (B5) — ForEach + layout `on` + derived binds.
-// ILLUSTRATIVE ONLY: not imported by design.pdl. Compilers do not parse this
-// until the B5 Rust slice. See docs/full-spec.md §4e.
-//
-// FilterChip / SubnavItem / FilterId are defined in filter_chip.pdl for the
-// shipped B1–B4 path; this file restates a minimal LibrarySubnav that uses
-// ForEach (the shipped LibrarySubnav uses children = [chips] only).
+// §4e (B5) — ForEach + layout `on` + derived Bool binds (illustrative sketch).
+// Canonical shipped copy lives in filter_chip.pdl (imported by design.pdl).
 
 variant FilterId {
   case all
   case podcasts
+  case episodes
+  case hosts
 }
 
 variant ChipInteraction {
@@ -25,20 +22,17 @@ protocol SubnavItem {
 }
 
 component FilterChip <SubnavItem>(
-  selected: FilterId = .all,
+  selected: Boolean = false,
   interactionState: ChipInteraction = .rest
 ) layout {
   direction = .row
-  // Pattern A: draw selected when SoT matches this chip's filter
-  if selected == filter {
-    // e.g. stronger label weight / fill — illustrative
+  if selected {
+    // selected chrome
   }
   let Label: text = {
     content = title
   }
   children = [Label]
-} emits {
-  select(filter: FilterId)
 } interaction {
   on hoverStart {
     interactionState = .hovered
@@ -55,13 +49,15 @@ component LibrarySubnavForEach(
   currentFilter: FilterId = .all,
   chips: [SubnavItem] = [
     FilterChip(title: "All", filter: .all),
-    FilterChip(title: "Podcasts", filter: .podcasts)
+    FilterChip(title: "Podcasts", filter: .podcasts),
+    FilterChip(title: "Episodes", filter: .episodes),
+    FilterChip(title: "Hosts", filter: .hosts)
   ]
 ) layout {
   direction = .row
 
   ForEach(chips) {
-    selected: self.currentFilter
+    selected: self.currentFilter == filter
 
     on select(filter_id: FilterId) {
       currentFilter = filter_id

@@ -4,7 +4,7 @@
 >
 > **Repository path:** `docs/full-spec.md` (normative copy in this repo).
 >
-> **Locked language decisions (2026-08-06):** (1) **`expose` removed** — all component params are public; **`emits`** is the public output API. (2) **`self` / `self.param`** means the enclosing component instance (escape hatch for name collisions); bare `self` may be an emit payload. Rules-query `self` is rules-scoped only. (3) **Selection SoT** — pass `selected: FilterId` from parent (`selected: self.currentFilter`), not a Bool presentation bind. (4) **`on` by enclosure** — ambient events only in `interaction`; declared emit channels only in `layout` / `ForEach`.
+> **Locked language decisions (2026-08-06; selection revised 2026-08-07):** (1) **`expose` removed** — all component params are public; **`emits`** is the public output API. (2) **`self` / `self.param`** means the enclosing component instance (escape hatch for name collisions); bare `self` may be an emit payload. Rules-query `self` is rules-scoped only. (3) **Selection SoT** — parent owns an id/enum SoT (e.g. `currentFilter: FilterId`); ForEach / callsite **derives** a Bool presentation param (`selected: self.currentFilter == filter`); the child draws with `if selected`. (4) **`on` by enclosure** — ambient events only in `interaction`; declared emit channels only in `layout` / `ForEach`.
 
 ---
 
@@ -699,9 +699,10 @@ variant FilterId {
 component FilterChip(
   title: String = "All",
   filter: FilterId = .all,
-  selected: FilterId = .all
+  selected: Boolean = false
 ) layout {
   direction = .row
+  if selected { /* selected chrome */ }
   let Label: text = { content = title }
   children = [Label]
 } emits {
@@ -713,7 +714,7 @@ component FilterChip(
 }
 
 // Parent: own SoT, mount chips, capture select (§4e layout `on`)
-// Pattern A — pass FilterId SoT into each chip’s `selected` param
+// Pattern A — derive Bool `selected` from SoT vs each chip’s identity
 component FilterBar(
   currentFilter: FilterId = .all
 ) layout {
@@ -722,12 +723,12 @@ component FilterBar(
   let All = FilterChip(
     title: "All",
     filter: .all,
-    selected: currentFilter
+    selected: currentFilter == .all
   )
   let Podcasts = FilterChip(
     title: "Podcasts",
     filter: .podcasts,
-    selected: currentFilter
+    selected: currentFilter == .podcasts
   )
   children = [All, Podcasts]
 
@@ -772,10 +773,10 @@ protocol SubnavItem {
 }
 
 component FilterChip <SubnavItem>(
-  selected: FilterId = .all
+  selected: Boolean = false
 ) layout {
   direction = .row
-  if selected == filter { /* selected chrome */ }
+  if selected { /* selected chrome */ }
   let Label: text = { content = title }
   children = [Label]
 } interaction {
@@ -786,10 +787,10 @@ component FilterChip <SubnavItem>(
 
 component IconFilterChip <SubnavItem>(
   glyph: String = "•",
-  selected: FilterId = .all
+  selected: Boolean = false
 ) layout {
   direction = .row
-  if selected == filter { /* selected chrome */ }
+  if selected { /* selected chrome */ }
   let Mark: text = { content = glyph }
   let Label: text = { content = title }
   children = [Mark, Label]
@@ -810,7 +811,7 @@ component LibrarySubnav(
   direction = .row
 
   ForEach(chips) {
-    selected: self.currentFilter
+    selected: self.currentFilter == filter
     on select(filter_id: FilterId) {
       currentFilter = filter_id
     }
@@ -818,7 +819,7 @@ component LibrarySubnav(
 }
 ```
 
-(`ForEach` / Pattern A `selected` / layout `on` are **§4e**. Until B5 ships, the same parent intent is expressible with `children = [chips]` plus `on chips.select(filter_id: FilterId) { … }` once list capture is available.)
+(`ForEach` / Pattern A Bool `selected` / layout `on` are **§4e**.)
 
 | Rule | Intent |
 |------|--------|
@@ -854,7 +855,7 @@ Host dispatch of **unhandled** emits (no layout `on`) is **B7** / prototype runt
 
 Parent owns **one** source of truth (SoT). Prefer **ids / enums**, not indexes.
 
-**Selection pattern A (canonical):** the child takes a SoT-typed param (e.g. `selected: FilterId`); the parent **passes the SoT** at each callsite / `ForEach` bind; the child compares locally (`selected == filter`) to draw selected state. Do **not** bind a Bool into a `FilterId` param.
+**Selection pattern A (canonical):** the parent owns an id/enum SoT (e.g. `currentFilter: FilterId`). Each child keeps its **identity** (`filter`) and takes a **Bool presentation** param (`selected: Boolean`). The parent **derives** that bool at each callsite / `ForEach` bind (`selected: self.currentFilter == filter`); the child draws with `if selected`.
 
 The `ForEach` body is a **repeated callsite** for each list element — same shape as `FilterChip(selected: …)`, not a free assignment block:
 
@@ -869,7 +870,7 @@ component LibrarySubnav(
   direction = .row
 
   ForEach(chips) {
-    selected: self.currentFilter
+    selected: self.currentFilter == filter
 
     on select(filter_id: FilterId) {
       currentFilter = filter_id
@@ -878,12 +879,12 @@ component LibrarySubnav(
 }
 ```
 
-`self.currentFilter` names the **enclosing component** param (escape hatch when item fields would shadow). Bare `currentFilter` is also legal here when it does not collide with an item field; prefer `self.` in `ForEach` for clarity.
+`self.currentFilter` names the **enclosing component** param (escape hatch when item fields would shadow). Bare identifiers on the RHS resolve **item fields first**, then enclosing params — so `filter` is the chip’s identity. Prefer `self.` for the parent SoT in `ForEach`.
 
 | Rule | Intent |
 |------|--------|
 | `ForEach(listParam) { … }` | View-body construct **inside** a `layout` (or nested layout frame body). `listParam` **MUST** name a component parameter whose type is `[T]` (array of instances) or a single slot expandable like §4b. |
-| Derived bind | **`itemParam: expr`** — kwargs form. **LHS** is always an **item** (element / protocol) param; **RHS** is an expression that type-checks against that param. |
+| Derived bind | **`itemParam: expr`** — kwargs form. **LHS** is always an **item** (element / protocol) param; **RHS** is a value or condition expression that type-checks against that param (e.g. Bool from `self.currentFilter == filter`). |
 | RHS name lookup | Bare identifiers: **item fields first**, then **enclosing component params** (item shadows parent). **`self.param`** always means the enclosing component (§22.2). |
 | Layout `on` (primary) | `on select(filter_id: FilterId) { … }` next to the list / inside `ForEach` — **declared emit channels only** (§8). |
 | Layout `on` (sugar) | `on chips.select(filter_id: FilterId) { … }` beside `children = [chips]` — equivalent capture for that list’s emitters. |

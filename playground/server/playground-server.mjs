@@ -556,7 +556,10 @@ function buildParamControlsByComponent(enriched, names, kvByComponent) {
       if (!p?.name || p.name === "interactionState") continue;
       const typeName = typeof p.typeName === "string" ? p.typeName : "";
       if (!typeName || typeName === "object") continue;
-      const cases = enriched.variantCases?.[typeName];
+      const cases =
+        typeName === "Boolean" || typeName === "Bool"
+          ? ["true", "false"]
+          : enriched.variantCases?.[typeName];
       const raw = kv[p.name] !== undefined ? kv[p.name] : p.default;
       if (raw !== null && typeof raw === "object") continue;
       // Skip instance-list params that enrichment stringified as JSON (e.g. chips).
@@ -581,6 +584,101 @@ function buildParamControlsByComponent(enriched, names, kvByComponent) {
     if (controls.length) out[name] = controls;
   }
   return out;
+}
+
+
+/**
+ * Walk baked frames in render order; collect mounted instances that declare interactionState.
+ * @param {unknown} frame
+ * @param {Array<{ component: string, kwargs: Record<string, unknown> }>} out
+ */
+function collectMountedInstances(frame, out) {
+  if (!frame || typeof frame !== "object") return;
+  const f = /** @type {{ instanceOf?: string, instanceKwargs?: Record<string, unknown>, children?: unknown[] }} */ (
+    frame
+  );
+  if (typeof f.instanceOf === "string" && f.instanceOf) {
+    out.push({
+      component: f.instanceOf,
+      kwargs:
+        f.instanceKwargs && typeof f.instanceKwargs === "object" && !Array.isArray(f.instanceKwargs)
+          ? { ...f.instanceKwargs }
+          : {},
+    });
+  }
+  if (Array.isArray(f.children)) {
+    for (const ch of f.children) collectMountedInstances(ch, out);
+  }
+}
+
+/**
+ * Bake hovered/pressed/… trees for each nested instance (keyed i0, i1, …).
+ * Needed because child interactionState is ephemeral — parent rebake always resets it to rest.
+ * @param {object} args
+ */
+async function bakeInstanceInteractionStates({
+  baked,
+  previewNames,
+  enriched,
+  entryAbs,
+  engine,
+  theme,
+}) {
+  /** @type {Record<string, Record<string, unknown>>} */
+  const instanceStateTrees = {};
+  if (!baked?.components) return instanceStateTrees;
+
+  /** @type {Array<{ component: string, kwargs: Record<string, unknown> }>} */
+  const instances = [];
+  for (const name of previewNames) {
+    const root = baked.components[name]?.root;
+    if (root) collectMountedInstances(root, instances);
+  }
+
+  let idx = 0;
+  for (const inst of instances) {
+    const key = `i${idx++}`;
+    const params = enriched.componentParams?.[inst.component] ?? [];
+    const stateParam = params.find((p) => p.name === "interactionState");
+    if (!stateParam) continue;
+    const cases = enriched.variantCases?.[stateParam.typeName] ?? [];
+    const extraStates = cases.filter((c) => c && c !== "rest");
+    if (!extraStates.length) continue;
+
+    /** @type {Record<string, unknown>} */
+    const trees = {};
+    // Drop interactionState from kwargs so the override wins cleanly.
+    const { interactionState: _ignore, ...baseKw } = inst.kwargs;
+    for (const stateName of extraStates) {
+      const outPath = join(
+        REPO_ROOT,
+        ".tmp",
+        `playground-inst-${inst.component}-${key}-${stateName}.bake.json`,
+      );
+      const stateBake = await bakeAndRender({
+        repoRoot: REPO_ROOT,
+        entry: entryAbs,
+        engine,
+        mode: "component",
+        component: inst.component,
+        theme: typeof theme === "string" ? theme : undefined,
+        paramOverrides: { ...baseKw, interactionState: stateName },
+        bakeOutPath: outPath,
+        title: `${inst.component}-${stateName}`,
+        singleComponent: inst.component,
+        interactiveHost: false,
+      });
+      if (stateBake.ok && stateBake.baked) {
+        const tree =
+          /** @type {{ components?: Record<string, unknown> }} */ (stateBake.baked).components?.[
+            inst.component
+          ];
+        if (tree) trees[stateName] = tree;
+      }
+    }
+    if (Object.keys(trees).length) instanceStateTrees[key] = trees;
+  }
+  return instanceStateTrees;
 }
 
 async function handleRender(body) {
@@ -869,9 +967,25 @@ async function handleRender(body) {
       }
     }
 
+    const instanceStateTrees =
+      wantInteractive && result.baked && mode !== "pack"
+        ? await bakeInstanceInteractionStates({
+            baked: result.baked,
+            previewNames,
+            enriched,
+            entryAbs,
+            engine,
+            theme,
+          })
+        : {};
+
     let html = result.html;
     {
       const { renderBakedDesignToHtmlDocumentWithReport } = await toolchainPromise;
+      const componentSourcesByComponent =
+        body.componentSources && typeof body.componentSources === "object"
+          ? body.componentSources
+          : undefined;
       const rerender = renderBakedDesignToHtmlDocumentWithReport(result.baked, {
         title: "PDL Playground preview",
         componentNames,
@@ -881,7 +995,10 @@ async function handleRender(body) {
         interactionsByComponent: enriched.interactionsByComponent,
         emitCapturesByComponent: enriched.emitCapturesByComponent,
         stateTrees: Object.keys(stateTrees).length ? stateTrees : undefined,
+        instanceStateTrees:
+          Object.keys(instanceStateTrees).length > 0 ? instanceStateTrees : undefined,
         paramControlsByComponent,
+        componentSourcesByComponent,
       });
       html = rerender.html;
       return {

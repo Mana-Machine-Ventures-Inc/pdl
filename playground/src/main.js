@@ -699,6 +699,89 @@ function syncEditorToFiles() {
   files[activePath] = getEditorText();
 }
 
+/** @param {string} s */
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Locate `component Name` (optional `<Protocol>`) in workspace sources.
+ * @param {string} componentName
+ * @returns {{ path: string, line: number } | null}
+ */
+function findComponentSource(componentName) {
+  if (!componentName) return null;
+  const re = new RegExp(`^\\s*component\\s+${escapeRegExp(componentName)}\\b`);
+  const paths = Object.keys(files).filter((p) => p.endsWith(".pdl")).sort();
+  // Prefer the active file when it declares the component.
+  const ordered = paths.includes(activePath)
+    ? [activePath, ...paths.filter((p) => p !== activePath)]
+    : paths;
+  for (const path of ordered) {
+    const content = files[path] ?? "";
+    const lines = content.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      if (re.test(lines[i] ?? "")) {
+        return { path, line: i + 1 };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * @param {string[]} names
+ * @returns {Record<string, { path: string, line: number }>}
+ */
+function buildComponentSources(names) {
+  /** @type {Record<string, { path: string, line: number }>} */
+  const out = {};
+  for (const name of names) {
+    const loc = findComponentSource(name);
+    if (loc) out[name] = loc;
+  }
+  return out;
+}
+
+/**
+ * Switch to the declaring file and scroll the editor to the component header.
+ * @param {string} componentName
+ */
+function openComponentSource(componentName) {
+  syncEditorToFiles();
+  const loc = findComponentSource(componentName);
+  if (!loc) {
+    setStatus(`Source not found for ${componentName}`);
+    return;
+  }
+  const switched = loc.path !== activePath;
+  if (switched) {
+    activePath = loc.path;
+    setEditorText(files[activePath] ?? "");
+    renderTabs();
+    // Keep preview focused on this component; don't clobber pack preference.
+    preferredComponent = componentName;
+    primaryComponent = componentName;
+    if ([...component.options].some((o) => o.value === componentName)) {
+      component.value = componentName;
+    }
+    refreshCanvasHint();
+  }
+  if (!editorView) return;
+  const doc = editorView.state.doc;
+  const lineNo = Math.min(Math.max(1, loc.line), doc.lines);
+  const line = doc.line(lineNo);
+  editorView.dispatch({
+    selection: { anchor: line.from, head: Math.min(line.to, line.from + line.text.length) },
+    effects: EditorView.scrollIntoView(line.from, { y: "center" }),
+  });
+  editorView.focus();
+  const short = loc.path.includes("/") ? loc.path.split("/").slice(-2).join("/") : loc.path;
+  setStatus(`Source · ${componentName} · ${short}:${loc.line}`);
+  // Switching files changes the canvas entry — refresh preview once.
+  if (switched) scheduleDebouncedRender(0);
+}
+
 function renderTabs() {
   fileTabs.replaceChildren();
   const paths = Object.keys(files).sort();
@@ -1241,6 +1324,7 @@ async function runRender({ debounced = false } = {}) {
       theme: theme || undefined,
       interactiveHost: true,
       kv,
+      componentSources: buildComponentSources(names),
     };
 
     if (variantView === "grid" && (owner || canvasPrimary)) {
@@ -1401,6 +1485,10 @@ window.addEventListener("message", (ev) => {
   if (data.type === "pdl-resize" && typeof data.height === "number") {
     const h = Math.max(120, Math.min(Math.ceil(data.height) + 4, 12000));
     frame.style.height = `${h}px`;
+    return;
+  }
+  if (data.type === "pdl-open-source" && typeof data.component === "string" && data.component) {
+    openComponentSource(data.component);
     return;
   }
   if (data.type === "pdl-param" && data.component && data.kv && typeof data.kv === "object") {
