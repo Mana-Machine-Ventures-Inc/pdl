@@ -22,9 +22,33 @@ component FilterChip <SubnavItem>(
   interactionState: ChipInteraction = .rest
 ) layout {
   direction = .row
+  align = .center
+  justify = .center
+  gap = 6
+  padding = EdgeInsets(x: 12, y: 8)
+  cornerRadius = 999
+  borderWidth = 1
+
+  if interactionState == .hovered {
+    background = #222222
+    borderColor = #222222
+  } else {
+    background = #F2F2F4
+    borderColor = #D0D0D5
+  }
+
   let Label: text = {
     content = title
+    fontSize = 13
+    fontWeight = 600
+
+    if interactionState == .hovered {
+      color = #FFFFFF
+    } else {
+      color = #111111
+    }
   }
+
   children = [Label]
 } interaction {
   on hoverStart {

@@ -40,14 +40,30 @@
             "id": "Label",
             "kind": "text",
             "props": {
-              "content": ""
+              "color": "#111111",
+              "content": "",
+              "fontSize": 13,
+              "fontWeight": 600
             }
           }
         ],
         "id": "Root",
         "kind": "layout",
         "props": {
-          "direction": "row"
+          "align": "center",
+          "background": "#F2F2F4",
+          "borderColor": "#D0D0D5",
+          "borderWidth": 1,
+          "cornerRadius": 999,
+          "direction": "row",
+          "gap": 6,
+          "justify": "center",
+          "padding": {
+            "bottom": 8,
+            "left": 12,
+            "right": 12,
+            "top": 8
+          }
         }
       },
       "rootKind": "layout"
@@ -81,7 +97,10 @@
                 "id": "Label",
                 "kind": "text",
                 "props": {
-                  "content": "All"
+                  "color": "#111111",
+                  "content": "All",
+                  "fontSize": 13,
+                  "fontWeight": 600
                 }
               }
             ],
@@ -93,7 +112,20 @@
             "instanceOf": "FilterChip",
             "kind": "layout",
             "props": {
-              "direction": "row"
+              "align": "center",
+              "background": "#F2F2F4",
+              "borderColor": "#D0D0D5",
+              "borderWidth": 1,
+              "cornerRadius": 999,
+              "direction": "row",
+              "gap": 6,
+              "justify": "center",
+              "padding": {
+                "bottom": 8,
+                "left": 12,
+                "right": 12,
+                "top": 8
+              }
             }
           },
           {
@@ -102,7 +134,10 @@
                 "id": "Label",
                 "kind": "text",
                 "props": {
-                  "content": "Podcasts"
+                  "color": "#111111",
+                  "content": "Podcasts",
+                  "fontSize": 13,
+                  "fontWeight": 600
                 }
               }
             ],
@@ -114,7 +149,20 @@
             "instanceOf": "FilterChip",
             "kind": "layout",
             "props": {
-              "direction": "row"
+              "align": "center",
+              "background": "#F2F2F4",
+              "borderColor": "#D0D0D5",
+              "borderWidth": 1,
+              "cornerRadius": 999,
+              "direction": "row",
+              "gap": 6,
+              "justify": "center",
+              "padding": {
+                "bottom": 8,
+                "left": 12,
+                "right": 12,
+                "top": 8
+              }
             }
           }
         ],

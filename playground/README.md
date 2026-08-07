@@ -1,48 +1,41 @@
 # PDL Playground
 
-**Phase P2** demo / language lab: veracity packs, fixtures, param knobs, **compose → PDL**, **Rust CLI or WASM bake → HTML**.
+**Phase P3–P5** demo lab: **file-selected canvas**, teaching **Add property**, **hover/press** host, **variant grid/pick**.
 
-This is **not** PDL Studio (future full authoring). It is **not** `npm run preview` (disk-watch eng harness).
+Not PDL Studio. Not `npm run preview` (disk-watch eng harness).
 
 | Surface | Role |
 |---------|------|
-| **PDL Playground** (`npm run playground`) | Pack + fixtures + editor + HTML preview |
-| **`npm run preview`** | Edit in VS Code/Cursor; watch → bake → livereload |
+| **PDL Playground** (`npm run playground`) | Pack + file tabs + editor + HTML preview |
+| **`npm run preview`** | Edit on disk; watch → bake → livereload |
 | **PDL Studio** (future) | Long-term DS maintenance product |
 
 Proposal: [`docs/PROPOSAL_PDL_PLAYGROUND.md`](../docs/PROPOSAL_PDL_PLAYGROUND.md).
 
-## Prerequisites
-
-```bash
-cd /path/to/pdl
-npm install && npm run build
-cargo build -p pdl-cli
-./scripts/build-pdl-wasm.sh   # optional; enables Advanced → Rust WASM
-cd playground && npm install && npm run build
-```
-
 ## Run
 
 ```bash
+npm install && npm run build
+cargo build -p pdl-cli
+cd playground && npm install && npm run build
 npm run playground
 ```
 
-Defaults: **Airbnb-lite** · **AbnFormActionsDemo** · Rust CLI · component mode.
+## Canvas model (P3)
 
-## Packs
+- The **active file tab** fills the preview.
+- Components declared in that file are baked (gallery).
+- Import-only files (e.g. `design.pdl`) expand imports and show those components.
+- Token-only files show a token list preview.
+- **Add property** inserts layout/text/icon snippets at the cursor (kind-aware).
 
-| Pack | Entry |
-|------|--------|
-| **Airbnb-lite** | `test-fixtures/pdl/systems/airbnb-lite/` |
-| Molecules / Integration / Protocols / Atoms | existing fixtures |
+## Interaction (P4)
 
-## P2 features
+- Components with `interactionState` (rest/hovered) dual-bake; iframe swaps on hover.
+- Click posts `pressEnd` to the parent status line (`allow-scripts` sandbox).
 
-- **WASM bake** (Advanced → Rust WASM): browser `pdl-wasm` → bake JSON → `/api/render-from-bake` HTML
-- **Compose**: + Button / Chip / Field rewrites `compose.pdl` (`PlaygroundCompose`)
-- **CI**: `systems_packs` tests + bake of airbnb-lite
+## Variants (P5)
 
-## P1 features (still)
-
-- Fixture example chips, param knobs, pack-aware completions, multi-line errors
+- **Single** — defaults / param knobs / fixtures.
+- **Grid** — cartesian product of variant params (capped at 16).
+- **Pick** — knobs for variant-typed params only.

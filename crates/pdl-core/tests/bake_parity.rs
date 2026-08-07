@@ -133,5 +133,9 @@ fn protocols_design_bake_golden() {
     let design = load_pinned("test-fixtures/pdl/protocols/design.pdl", &entry_path);
     let doc = build_baked_design_system(&design, None, Some(generated_at)).unwrap();
     let out = stable_stringify(&doc, StableStringifyOptions { omit_empty: true });
+    if std::env::var("UPDATE_GOLDENS").ok().as_deref() == Some("1") {
+        fs::write(golden_dir().join("protocols_design_pdl.bake.json"), &out).unwrap();
+        return;
+    }
     assert_eq!(out, golden_text, "protocols bake golden mismatch");
 }

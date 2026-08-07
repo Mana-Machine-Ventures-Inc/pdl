@@ -48,6 +48,17 @@ usage AbnButton {
   description = "Airbnb-lite text button — primary coral, secondary teal, ghost neutral."
 }
 
+interaction AbnButtonHover for AbnButton {
+  on hoverStart {
+    interactionState = .hovered
+  }
+  on hoverEnd {
+    interactionState = .rest
+  }
+  on pressEnd {
+  }
+}
+
 usage AbnField {
   description = "Labeled field with value row and optional helper."
 }

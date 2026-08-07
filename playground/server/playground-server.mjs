@@ -355,11 +355,27 @@ function enrichLoadPayload(design, serialiseValueExpr, evaluateValue, buildResol
   const tokenMap = buildResolvedTokenMap(design);
   const designSummary = buildDesignSummary(design, serialiseValueExpr, workspaceRoot);
   const controls = buildFixturesAndParams(design, evaluateValue, tokenMap);
+  /** @type {Record<string, unknown>} */
+  const interactionsByComponent = {};
+  for (const [compName, imap] of design.interactions.entries()) {
+    const list = [];
+    for (const [, decl] of imap.entries()) {
+      list.push({
+        name: decl.name,
+        handlers: (decl.handlers ?? []).map((h) => ({
+          event: h.event,
+          body: h.body,
+        })),
+      });
+    }
+    if (list.length) interactionsByComponent[compName] = list;
+  }
   return {
     ok: true,
     ...designMeta(design),
     designSummary,
     ...controls,
+    interactionsByComponent,
   };
 }
 
@@ -424,10 +440,21 @@ function assertUnderRepo(abs) {
 }
 
 async function handleRender(body) {
-  const { files, entry, mode, component, theme, kv, pack, engine: engineRaw, diskRoot } = body;
-  if (mode !== "component" && mode !== "system" && mode !== "pack") {
-    throw new Error('Expected "mode" to be "component", "system", or "pack"');
-  }
+  const {
+    files,
+    entry,
+    mode: modeRaw,
+    component,
+    theme,
+    kv,
+    pack,
+    engine: engineRaw,
+    diskRoot,
+    componentNames: namesRaw,
+    variantMatrix,
+    interactiveHost: interactiveRaw,
+  } = body;
+  const mode = modeRaw === "component" || modeRaw === "pack" ? modeRaw : "system";
   if (typeof entry !== "string" || !entry.trim()) {
     throw new Error('Expected "entry" path');
   }
@@ -450,6 +477,11 @@ async function handleRender(body) {
     kv && typeof kv === "object" && !Array.isArray(kv)
       ? /** @type {Record<string, unknown>} */ (kv)
       : {};
+  /** @type {string[] | undefined} */
+  const componentNames = Array.isArray(namesRaw)
+    ? namesRaw.map(String).filter(Boolean)
+    : undefined;
+  const wantInteractive = interactiveRaw !== false;
   const { loadDesign, serialiseValueExpr, evaluateValue, buildResolvedTokenMap } =
     await toolchainPromise;
 
@@ -494,6 +526,96 @@ async function handleRender(body) {
       summaryRoot,
     );
     const bakeOutPath = join(REPO_ROOT, ".tmp", "playground.bake.json");
+
+    // Phase 5: variant matrix — bake each combo as a labeled gallery entry
+    if (variantMatrix === true && typeof component === "string" && component.trim()) {
+      const params = enriched.componentParams?.[component] ?? [];
+      const axes = [];
+      for (const p of params) {
+        const cases = enriched.variantCases?.[p.typeName];
+        if (cases?.length) axes.push({ name: p.name, cases: [...cases] });
+      }
+      /** @type {Array<{ labels: Record<string, string>, kv: Record<string, string> }>} */
+      let combos = [{ labels: {}, kv: {} }];
+      for (const axis of axes) {
+        /** @type {typeof combos} */
+        const next = [];
+        for (const prev of combos) {
+          for (const c of axis.cases) {
+            next.push({
+              labels: { ...prev.labels, [axis.name]: c },
+              kv: { ...prev.kv, [axis.name]: c },
+            });
+            if (next.length >= 16) break;
+          }
+          if (next.length >= 16) break;
+        }
+        combos = next;
+        if (combos.length >= 16) break;
+      }
+      /** @type {Record<string, unknown>} */
+      const mergedComponents = {};
+      let lastEngine = engine;
+      let duration = 0;
+      for (const combo of combos) {
+        const label =
+          Object.keys(combo.labels).length === 0
+            ? component
+            : `${component} · ${Object.entries(combo.labels)
+                .map(([k, v]) => `${k}=.${v}`)
+                .join(", ")}`;
+        const outPath = join(REPO_ROOT, ".tmp", `playground-var-${Object.keys(mergedComponents).length}.bake.json`);
+        const result = await bakeAndRender({
+          repoRoot: REPO_ROOT,
+          entry: entryAbs,
+          engine,
+          mode: "component",
+          component,
+          theme: typeof theme === "string" ? theme : undefined,
+          paramOverrides: { ...kvObj, ...combo.kv },
+          bakeOutPath: outPath,
+          title: "PDL Playground · variants",
+          singleComponent: component,
+        });
+        duration += result.durationMs ?? 0;
+        lastEngine = result.engine;
+        if (!result.ok) {
+          return {
+            ok: false,
+            error: result.error ?? `Variant bake failed for ${label}`,
+            engine: result.engine,
+            durationMs: duration,
+          };
+        }
+        const baked = /** @type {{ components?: Record<string, unknown> }} */ (result.baked);
+        const tree = baked?.components?.[component];
+        if (tree) mergedComponents[label] = tree;
+      }
+      const synthetic = {
+        schemaVersion: "1.0.0-beta",
+        generatedAt: "1970-01-01T00:00:00.000Z",
+        provenance: {
+          entryPath: entryAbs,
+          bakedTheme: theme ?? null,
+          bakeProfile: "variant-matrix",
+        },
+        components: mergedComponents,
+      };
+      const { renderBakedDesignToHtmlDocumentWithReport } = await toolchainPromise;
+      const { html, renderFailures } = renderBakedDesignToHtmlDocumentWithReport(synthetic, {
+        title: `Variants — ${component}`,
+        componentNames: Object.keys(mergedComponents),
+      });
+      return {
+        ...enriched,
+        html,
+        renderFailures,
+        engine: lastEngine,
+        durationMs: duration,
+        variantCount: Object.keys(mergedComponents).length,
+      };
+    }
+
     const result = await bakeAndRender({
       repoRoot: REPO_ROOT,
       entry: entryAbs,
@@ -511,6 +633,9 @@ async function handleRender(body) {
           : typeof body.singleComponent === "string"
             ? body.singleComponent
             : undefined,
+      componentNames,
+      interactiveHost: wantInteractive && mode !== "pack",
+      interactionsByComponent: enriched.interactionsByComponent,
     });
     if (!result.ok) {
       return {
@@ -520,9 +645,67 @@ async function handleRender(body) {
         durationMs: result.durationMs,
       };
     }
+
+    // Phase 4: dual-bake hovered trees when interactionState param exists
+    /** @type {Record<string, Record<string, unknown>>} */
+    const stateTrees = {};
+    if (wantInteractive && result.baked && mode !== "pack") {
+      const names =
+        componentNames?.length > 0
+          ? componentNames
+          : mode === "component" && component
+            ? [component]
+            : Object.keys(/** @type {{ components: object }} */ (result.baked).components ?? {});
+      for (const name of names) {
+        const params = enriched.componentParams?.[name] ?? [];
+        const hasHover = params.some((p) => {
+          if (p.name !== "interactionState") return false;
+          const cases = enriched.variantCases?.[p.typeName] ?? [];
+          return cases.includes("hovered");
+        });
+        if (!hasHover) continue;
+        const hoverOut = join(REPO_ROOT, ".tmp", `playground-hover-${name}.bake.json`);
+        const hoverBake = await bakeAndRender({
+          repoRoot: REPO_ROOT,
+          entry: entryAbs,
+          engine,
+          mode: "component",
+          component: name,
+          theme: typeof theme === "string" ? theme : undefined,
+          paramOverrides: { ...kvObj, interactionState: "hovered" },
+          bakeOutPath: hoverOut,
+          title: "hover",
+          singleComponent: name,
+          interactiveHost: false,
+        });
+        if (hoverBake.ok && hoverBake.baked) {
+          const tree =
+            /** @type {{ components?: Record<string, unknown> }} */ (hoverBake.baked).components?.[
+              name
+            ];
+          if (tree) stateTrees[name] = { hovered: tree };
+        }
+      }
+    }
+
+    let html = result.html;
+    if (Object.keys(stateTrees).length > 0 && result.baked) {
+      const { renderBakedDesignToHtmlDocumentWithReport } = await toolchainPromise;
+      const rerender = renderBakedDesignToHtmlDocumentWithReport(result.baked, {
+        title: "PDL Playground preview",
+        componentNames,
+        singleComponent:
+          mode === "component" && typeof component === "string" ? component : undefined,
+        interactiveHost: true,
+        interactionsByComponent: enriched.interactionsByComponent,
+        stateTrees,
+      });
+      html = rerender.html;
+    }
+
     return {
       ...enriched,
-      html: result.html,
+      html,
       renderFailures: result.renderFailures,
       engine: result.engine,
       durationMs: result.durationMs,
@@ -702,7 +885,7 @@ function listenPlayground() {
     const bound = /** @type {import("node:net").AddressInfo} */ (server.address());
     const p = bound?.port ?? first;
     console.log(`PDL Playground at http://${HOST}:${p}`);
-    console.log(`  Phase P2 · Rust CLI/WASM bake → HTML · compose + packs`);
+    console.log(`  Phase P5 · file canvas · interactive host · variant grid`);
     if (!strictPort && p !== DEFAULT_FIRST_PORT) {
       console.error(`(Using ${p} because ${DEFAULT_FIRST_PORT} was busy.)`);
     }

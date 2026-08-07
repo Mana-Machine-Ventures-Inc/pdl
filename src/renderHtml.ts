@@ -898,14 +898,35 @@ function formatThrownStack(err: unknown): string | undefined {
  */
 export function renderBakedDesignToHtmlDocumentWithReport(
   doc: BakedDesignDocument,
-  opts: { title?: string; singleComponent?: string } = {},
+  opts: {
+    title?: string;
+    singleComponent?: string;
+    /** Limit gallery to these component names (order preserved). */
+    componentNames?: string[];
+    /** Enable hover/press host script (Phase 4). */
+    interactiveHost?: boolean;
+    /**
+     * Extra bake trees per component for interaction states other than default.
+     * e.g. `{ FilterChip: { hovered: <bakedComponentJson> } }`
+     */
+    stateTrees?: Record<string, Record<string, BakedComponentJson>>;
+    /** Emit catalogue slice for host (assign/emit handlers). */
+    interactionsByComponent?: Record<string, unknown>;
+  } = {},
 ): { html: string; renderFailures: ComponentRenderFailure[] } {
   const title =
     opts.title ??
     `PDL preview — ${doc.provenance.entryPath.replace(/^.*\//, "")} — ${new Date(doc.generatedAt).toISOString().slice(0, 10)}`;
-  const names = Object.keys(doc.components).sort();
+  const allNames = Object.keys(doc.components).sort();
   const focus = opts.singleComponent;
-  const list = focus ? (doc.components[focus] ? [focus] : []) : names;
+  let list: string[];
+  if (focus) {
+    list = doc.components[focus] ? [focus] : [];
+  } else if (opts.componentNames && opts.componentNames.length > 0) {
+    list = opts.componentNames.filter((n) => doc.components[n]);
+  } else {
+    list = allNames;
+  }
   const renderFailures: ComponentRenderFailure[] = [];
 
   const sections = list
@@ -914,7 +935,19 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       const paramsJson = escapeHtml(JSON.stringify(comp.bakedParams ?? {}));
       try {
         const body = renderBakedComponentToHtmlFragment(comp);
-        return `<section class="pdl-preview" data-pdl-component="${escapeAttr(name)}"><h2 class="pdl-preview-title">${escapeHtml(name)}</h2><p class="pdl-preview-params">${paramsJson}</p>${body}</section>`;
+        const stateExtra = opts.stateTrees?.[name];
+        let stateBlocks = "";
+        if (stateExtra) {
+          for (const [stateName, stateComp] of Object.entries(stateExtra)) {
+            const frag = renderBakedComponentToHtmlFragment(stateComp);
+            stateBlocks += `<div class="pdl-state" data-pdl-state="${escapeAttr(stateName)}" hidden>${frag}</div>`;
+          }
+        }
+        const restWrap = stateBlocks
+          ? `<div class="pdl-state" data-pdl-state="rest">${body}</div>${stateBlocks}`
+          : body;
+        const interactiveAttr = opts.interactiveHost ? ` data-pdl-interactive="1"` : "";
+        return `<section class="pdl-preview" data-pdl-component="${escapeAttr(name)}"${interactiveAttr}><h2 class="pdl-preview-title">${escapeHtml(name)}</h2><p class="pdl-preview-params">${paramsJson}</p>${restWrap}</section>`;
       } catch (err) {
         const message = formatThrownMessage(err);
         const stack = formatThrownStack(err);
@@ -930,20 +963,57 @@ export function renderBakedDesignToHtmlDocumentWithReport(
 
   const meta = `entry: ${escapeHtml(doc.provenance.entryPath)} · theme: ${escapeHtml(String(doc.provenance.bakedTheme ?? "default"))} · profile: ${escapeHtml(doc.provenance.bakeProfile)}`;
 
+  const interactionsJson = escapeHtml(JSON.stringify(opts.interactionsByComponent ?? {}));
+  const hostScript = opts.interactiveHost
+    ? `<script>
+(function(){
+  var interactions = ${JSON.stringify(opts.interactionsByComponent ?? {})};
+  function showState(section, state) {
+    var nodes = section.querySelectorAll(':scope > .pdl-state');
+    if (!nodes.length) return;
+    nodes.forEach(function(n){
+      n.hidden = n.getAttribute('data-pdl-state') !== state;
+    });
+  }
+  document.querySelectorAll('section.pdl-preview[data-pdl-interactive]').forEach(function(section){
+    var name = section.getAttribute('data-pdl-component');
+    section.addEventListener('mouseenter', function(){
+      showState(section, 'hovered');
+      try { parent.postMessage({ type: 'pdl-interaction', component: name, event: 'hoverStart' }, '*'); } catch (e) {}
+    });
+    section.addEventListener('mouseleave', function(){
+      showState(section, 'rest');
+      try { parent.postMessage({ type: 'pdl-interaction', component: name, event: 'hoverEnd' }, '*'); } catch (e) {}
+    });
+    section.addEventListener('click', function(){
+      try { parent.postMessage({ type: 'pdl-interaction', component: name, event: 'pressEnd', interactions: interactions[name] }, '*'); } catch (e) {}
+    });
+    section.style.cursor = 'pointer';
+  });
+})();
+</script>`
+    : "";
+
+  void interactionsJson;
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
-<style>${BASE_CSS}</style>
+<style>${BASE_CSS}
+.pdl-gallery.pdl-variant-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+.pdl-state[hidden] { display: none !important; }
+</style>
 </head>
 <body>
 <h1 class="pdl-doc-title">${escapeHtml(title)}</h1>
 <p class="pdl-meta">${meta}</p>
-<div class="pdl-gallery">
+<div class="pdl-gallery${opts.componentNames && opts.componentNames.length > 1 ? "" : ""}">
 ${sections}
 </div>
+${hostScript}
 </body>
 </html>
 `;

@@ -23,6 +23,10 @@ import { pathToFileURL } from "node:url";
  * @property {string} [bakeOutPath] Write bake JSON here (default: <repo>/.tmp/preview.bake.json)
  * @property {string} [title] HTML document title
  * @property {string} [singleComponent] Limit HTML to one component name
+ * @property {string[]} [componentNames] Limit HTML gallery to these names
+ * @property {boolean} [interactiveHost] Inject hover/press host script
+ * @property {Record<string, unknown>} [interactionsByComponent]
+ * @property {Record<string, Record<string, unknown>>} [stateTrees] Extra state bakes per component
  */
 
 /**
@@ -189,16 +193,39 @@ export async function bakeAndRender(req) {
     const single =
       req.singleComponent ??
       (req.mode === "component" && req.component ? req.component : undefined);
-    const { html, renderFailures } = ts.renderBakedDesignToHtmlDocumentWithReport(baked, {
+
+    /** @type {unknown} */
+    let bakedDoc = baked;
+    if (
+      Array.isArray(req.componentNames) &&
+      req.componentNames.length > 0 &&
+      baked &&
+      typeof baked === "object" &&
+      /** @type {{ components?: Record<string, unknown> }} */ (baked).components
+    ) {
+      const src = /** @type {{ components: Record<string, unknown> }} */ (baked);
+      /** @type {Record<string, unknown>} */
+      const filtered = {};
+      for (const n of req.componentNames) {
+        if (src.components[n]) filtered[n] = src.components[n];
+      }
+      bakedDoc = { ...src, components: filtered };
+    }
+
+    const { html, renderFailures } = ts.renderBakedDesignToHtmlDocumentWithReport(bakedDoc, {
       singleComponent: single,
+      componentNames: req.componentNames,
       title: req.title ?? "PDL preview",
+      interactiveHost: req.interactiveHost === true,
+      interactionsByComponent: req.interactionsByComponent,
+      stateTrees: req.stateTrees,
     });
 
     return {
       ok: true,
       engine,
       mode: req.mode,
-      baked,
+      baked: bakedDoc,
       bakePath,
       html,
       renderFailures,

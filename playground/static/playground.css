@@ -91,6 +91,27 @@ body {
   border-color: #38f;
   font-weight: 600;
 }
+.editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 0 0 8px;
+}
+.add-prop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+.add-prop select {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  border: 1px solid #ccd;
+  border-radius: 6px;
+  min-width: 180px;
+}
 .compose-palette {
   display: flex;
   flex-wrap: wrap;

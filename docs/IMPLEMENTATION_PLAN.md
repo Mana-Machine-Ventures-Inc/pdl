@@ -68,7 +68,7 @@ Implement **after A2** unless a spike is explicitly throwaway.
 |------|-------------|
 | **C1** | Keep HTML emitter on bake JSON |
 | **C1a** | Live stress harness: disk watch → Rust bake → HTML (`npm run preview`); shared `scripts/lib/bake-pipeline.mjs` |
-| **C1b** | **PDL Playground** — packs + editor + HTML; WASM bake + compose (P2); see `PROPOSAL_PDL_PLAYGROUND.md` |
+| **C1b** | **PDL Playground** — file canvas + interactive HTML + variant grid (P3–P5); see `PROPOSAL_PDL_PLAYGROUND.md` |
 | **C2** | SwiftUI mapper spike on bake IR |
 | **C3** | Prototype env (routes / stack / data) after B4–B5 |
 

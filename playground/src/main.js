@@ -3,7 +3,12 @@ import { indentWithTab } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { basicSetup } from "codemirror";
-import { generateComposePdl, nextComposeItem } from "./compose-pdl.js";
+import {
+  formatPropertyInsert,
+  inferFrameKindAt,
+  PROPERTIES_BY_KIND,
+} from "./add-property.js";
+import { resolveCanvasTarget } from "./file-canvas.js";
 import { pdlCompletionSource as buildPdlCompletionSource } from "./pdl-completions.js";
 import { loadWasmBake, virtualizeSources } from "./wasm-bake.js";
 
@@ -91,9 +96,15 @@ const outputPanelDesign = $("outputPanelDesign");
 const renderConsole = $("renderConsole");
 const renderConsoleTitle = $("renderConsoleTitle");
 const renderConsoleBody = $("renderConsoleBody");
+const canvasHint = $("canvasHint");
+const addProperty = $("addProperty");
+const addPropertyKind = $("addPropertyKind");
 
 /** @type {string | null} */
 let preferredComponent = "AbnFormActionsDemo";
+
+/** Primary component for fixtures/params (from active file canvas). */
+let primaryComponent = "";
 
 /** @type {Record<string, Record<string, Record<string, unknown>>>} */
 let fixturesByComponent = {};
@@ -106,13 +117,8 @@ let activeFixtureLabel = null;
 /** @type {boolean} */
 let syncingKnobs = false;
 
-/** @type {Array<{ kind: string; id: string }>} */
-let composeItems = [];
-/** @type {number} */
-let composeSeq = 0;
-
-const composeHint = document.getElementById("composeHint");
-const composeClear = document.getElementById("composeClear");
+/** @type {ReturnType<typeof resolveCanvasTarget> | null} */
+let lastCanvas = null;
 
 const editorTheme = EditorView.theme({
   "&": { height: "100%" },
@@ -196,14 +202,14 @@ function writeKvObject(obj) {
 
 function renderFixtureChips() {
   fixtureChips.replaceChildren();
-  const name = component.value;
+  const name = primaryComponent || component.value;
   const examples = fixturesByComponent[name] ?? {};
   const labels = Object.keys(examples).sort();
   if (labels.length === 0) {
     fixtureHint.hidden = false;
     fixtureHint.textContent = name
       ? `No fixtures for ${name}.`
-      : "Select a component with fixtures to apply examples.";
+      : "Open a file that declares a component with fixtures.";
     return;
   }
   fixtureHint.hidden = true;
@@ -226,12 +232,13 @@ function renderFixtureChips() {
 
 function renderParamKnobs() {
   paramKnobs.replaceChildren();
-  const name = component.value;
+  const name = primaryComponent || component.value;
+  const variantView = selectedVariantView();
   const params = componentParams[name] ?? [];
-  if (params.length === 0 || selectedMode() !== "component") {
+  if (params.length === 0) {
     const p = document.createElement("p");
     p.className = "hint";
-    p.textContent = selectedMode() !== "component" ? "Params apply in component mode." : "No params.";
+    p.textContent = name ? "No params." : "No primary component in this file.";
     paramKnobs.append(p);
     return;
   }
@@ -241,7 +248,18 @@ function renderParamKnobs() {
   } catch {
     current = {};
   }
-  for (const p of params) {
+  const filtered =
+    variantView === "pick"
+      ? params.filter((p) => (variantCases[p.typeName] ?? []).length > 0)
+      : params;
+  if (filtered.length === 0) {
+    const p = document.createElement("p");
+    p.className = "hint";
+    p.textContent = "No variant params to pick.";
+    paramKnobs.append(p);
+    return;
+  }
+  for (const p of filtered) {
     const row = document.createElement("div");
     row.className = "param-row";
     const lab = document.createElement("label");
@@ -665,6 +683,8 @@ function renderTabs() {
       activePath = p;
       setEditorText(files[activePath] ?? "");
       renderTabs();
+      refreshCanvasHint();
+      scheduleDebouncedRender(0);
     });
     fileTabs.append(b);
   }
@@ -795,58 +815,77 @@ function selectedEngine() {
   return "rust";
 }
 
-function composeRelPath() {
-  const entry = entryPath.value.trim();
-  if (!entry.includes("/")) return "compose.pdl";
-  return entry.replace(/[^/]+$/, "compose.pdl");
+function selectedVariantView() {
+  return document.querySelector('input[name="variantView"]:checked')?.value ?? "single";
 }
 
-function applyComposeToFiles() {
-  const rel = composeRelPath();
-  const text = generateComposePdl(composeItems);
-  files[rel] = text;
-  if (activePath === rel && editorView) {
-    setEditorText(text);
-  } else {
-    renderTabs();
+function refreshCanvasHint() {
+  syncEditorToFiles();
+  lastCanvas = resolveCanvasTarget(activePath, files);
+  primaryComponent = lastCanvas.primaryComponent ?? "";
+  if (primaryComponent) {
+    component.value = primaryComponent;
+    preferredComponent = primaryComponent;
   }
-  if (composeHint) {
-    composeHint.textContent =
-      composeItems.length === 0
-        ? "Adds instances to compose.pdl (Airbnb-lite). Selects PlaygroundCompose."
-        : `${composeItems.length} instance(s) in compose.pdl → PlaygroundCompose`;
+  if (canvasHint) {
+    if (lastCanvas.kind === "components") {
+      canvasHint.textContent = `Canvas: ${lastCanvas.componentNames.join(", ")} (from ${activePath.split("/").pop()})`;
+    } else if (lastCanvas.kind === "tokens") {
+      const n =
+        lastCanvas.tokens.primitives.length +
+        lastCanvas.tokens.semantics.length +
+        lastCanvas.tokens.themes.length +
+        lastCanvas.tokens.variants.length +
+        lastCanvas.tokens.typeStyles.length;
+      canvasHint.textContent = `Canvas: ${n} token/theme/variant decl(s) in this file (and imports).`;
+    } else {
+      canvasHint.textContent = "Canvas: nothing to preview in this file.";
+    }
   }
+  refreshAddPropertyMenu();
+  refreshControlsUi();
 }
 
-function addComposeItem(kind) {
-  composeSeq += 1;
-  composeItems.push(nextComposeItem(kind, composeSeq));
-  applyComposeToFiles();
-  preferredComponent = "PlaygroundCompose";
-  if ([...component.options].some((o) => o.value === "PlaygroundCompose")) {
-    component.value = "PlaygroundCompose";
-  }
-  const modeComp = document.querySelector('input[name="mode"][value="component"]');
-  if (modeComp) modeComp.checked = true;
-  updateModeUi();
-  scheduleDebouncedRender(0);
+function tokensPreviewHtml(tokens) {
+  const row = (title, items) => {
+    if (!items.length) return "";
+    return `<h2>${title}</h2><ul>${items.map((x) => `<li><code>${x}</code></li>`).join("")}</ul>`;
+  };
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  body{font:14px/1.45 ui-sans-serif,system-ui;padding:24px;background:#f6f7f9;color:#222}
+  h1{font-size:1.1rem} h2{font-size:0.95rem;margin-top:1.2rem}
+  code{font-family:ui-monospace,Menlo,monospace;font-size:0.85rem}
+  ul{padding-left:1.2rem}
+  </style></head><body>
+  <h1>Tokens — ${activePath.split("/").pop()}</h1>
+  ${row("Primitives", tokens.primitives)}
+  ${row("Semantics", tokens.semantics)}
+  ${row("Themes", tokens.themes)}
+  ${row("Variants", tokens.variants)}
+  ${row("Type styles", tokens.typeStyles)}
+  </body></html>`;
 }
 
-document.querySelectorAll(".compose-add").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const kind = btn.getAttribute("data-compose");
-    if (kind) addComposeItem(kind);
-  });
-});
-composeClear?.addEventListener("click", () => {
-  composeItems = [];
-  composeSeq = 0;
-  applyComposeToFiles();
-  scheduleDebouncedRender(0);
-});
-
-function selectedMode() {
-  return document.querySelector('input[name="mode"]:checked')?.value ?? "system";
+function refreshAddPropertyMenu() {
+  if (!addProperty || !editorView) return;
+  const pos = editorView.state.selection.main.head;
+  const kind = inferFrameKindAt(editorView.state.doc.toString(), pos);
+  if (addPropertyKind) addPropertyKind.textContent = `Kind: ${kind}`;
+  const props = PROPERTIES_BY_KIND[kind] ?? PROPERTIES_BY_KIND.unknown;
+  const prev = addProperty.value;
+  addProperty.replaceChildren();
+  const ph = document.createElement("option");
+  ph.value = "";
+  ph.textContent = "— insert into editor —";
+  addProperty.append(ph);
+  for (const p of props) {
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.textContent = p.label;
+    opt.dataset.snippet = p.snippet;
+    addProperty.append(opt);
+  }
+  if ([...addProperty.options].some((o) => o.value === prev)) addProperty.value = prev;
 }
 
 function getBodyBase() {
@@ -929,8 +968,6 @@ async function loadPack(packId) {
   files = { ...(data.files ?? {}) };
   entryPath.value = data.entry;
   preferredComponent = data.defaultComponent ?? null;
-  composeItems = [];
-  composeSeq = 0;
   packDesc.textContent = data.pack?.description ?? "";
   activePath = data.entry;
   if (files[activePath] === undefined) {
@@ -987,7 +1024,7 @@ async function runAnalyze() {
     }
     storeControlsFromData(data);
     setCompletionSymbolsFromAnalyze(data);
-    refreshControlsUi();
+    refreshCanvasHint();
     setStatus(`OK — ${data.components?.length ?? 0} components · ${selectedEngine()}`);
     renderDesignSummary(data.designSummary);
     return true;
@@ -1013,9 +1050,11 @@ async function runRender({ debounced = false } = {}) {
   setStatus(debounced ? "Updating preview…" : "Rendering…");
   try {
     await flushDiskWrites();
-    const mode = selectedMode();
+    refreshCanvasHint();
+    const canvas = lastCanvas ?? resolveCanvasTarget(activePath, files);
+    const variantView = selectedVariantView();
     let kv = {};
-    if (mode === "component" && kvJson.value.trim()) {
+    if (kvJson.value.trim()) {
       kv = JSON.parse(kvJson.value);
       if (kv === null || typeof kv !== "object" || Array.isArray(kv)) {
         throw new Error("Param overrides must be a JSON object");
@@ -1024,10 +1063,23 @@ async function runRender({ debounced = false } = {}) {
     const theme = themeInput.value.trim();
     const eng = selectedEngine();
 
+    if (canvas.kind === "tokens") {
+      if (id !== latestRenderId) return;
+      frame.srcdoc = tokensPreviewHtml(canvas.tokens);
+      setStatus("Preview updated · tokens");
+      return;
+    }
+    if (canvas.kind === "empty" || canvas.componentNames.length === 0) {
+      if (id !== latestRenderId) return;
+      frame.srcdoc = `<!DOCTYPE html><html><body style="font:14px system-ui;padding:24px;color:#556">Nothing to preview in <code>${activePath}</code>.</body></html>`;
+      setStatus("Empty canvas");
+      return;
+    }
+
+    const names = canvas.componentNames;
+    const primary = canvas.primaryComponent || names[0];
+
     if (eng === "wasm") {
-      if (mode === "pack") {
-        throw new Error('Pack mode requires engine "rust" (CLI)');
-      }
       syncEditorToFiles();
       const wasm = await loadWasmBake();
       if (!wasm) {
@@ -1038,50 +1090,66 @@ async function runRender({ debounced = false } = {}) {
       const entry = entryPath.value.trim();
       const { filesJson, entry: virtEntry } = virtualizeSources(files, entry);
       const t0 = performance.now();
-      let bakeJson;
-      if (mode === "system") {
-        bakeJson = wasm.bake_system_sources(filesJson, virtEntry, theme || undefined);
-      } else {
-        bakeJson = wasm.bake_component_sources(
-          filesJson,
-          virtEntry,
-          component.value,
-          theme || undefined,
-          JSON.stringify(kv),
-        );
-      }
+      const bakeJson =
+        names.length === 1 || variantView === "pick"
+          ? wasm.bake_component_sources(
+              filesJson,
+              virtEntry,
+              primary,
+              theme || undefined,
+              JSON.stringify(kv),
+            )
+          : wasm.bake_system_sources(filesJson, virtEntry, theme || undefined);
       const bakeMs = Math.round(performance.now() - t0);
+      const bake = JSON.parse(bakeJson);
+      if (names.length > 1 && bake.components) {
+        const filtered = {};
+        for (const n of names) {
+          if (bake.components[n]) filtered[n] = bake.components[n];
+        }
+        bake.components = filtered;
+      }
       const res = await fetch("/api/render-from-bake", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          bake: JSON.parse(bakeJson),
-          component: mode === "component" ? component.value : undefined,
+          bake,
+          component: names.length === 1 ? primary : undefined,
         }),
       });
       const data = await res.json();
       if (id !== latestRenderId) return;
       if (!data.ok) {
         showError(data.error || "WASM HTML render failed");
-        updateRenderConsole([{ phase: "WASM → HTML", message: data.error || "failed" }]);
         frame.removeAttribute("srcdoc");
         setStatus("");
         return;
       }
       frame.srcdoc = data.html;
-      updateRenderConsole([]);
       setStatus(`Preview updated · wasm · bake ${bakeMs}ms`);
       return;
     }
 
+    /** @type {Record<string, unknown>} */
     const body = {
       ...getBodyBase(),
-      mode,
-      component: component.value,
       theme: theme || undefined,
-      kv: mode === "component" ? kv : undefined,
-      pack: mode === "pack" ? packPath.value.trim() : undefined,
+      interactiveHost: true,
+      kv,
     };
+
+    if (variantView === "grid" && primary) {
+      body.mode = "component";
+      body.component = primary;
+      body.variantMatrix = true;
+    } else if (variantView === "pick" || names.length === 1) {
+      body.mode = "component";
+      body.component = primary;
+    } else {
+      body.mode = "system";
+      body.componentNames = names;
+    }
+
     const res = await fetch("/api/render", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1092,12 +1160,7 @@ async function runRender({ debounced = false } = {}) {
     if (!data.ok) {
       const errMsg = data.error || "Render failed";
       showError(errMsg);
-      updateRenderConsole([
-        {
-          phase: "Bake or render (server)",
-          message: errMsg,
-        },
-      ]);
+      updateRenderConsole([{ phase: "Bake or render (server)", message: errMsg }]);
       frame.removeAttribute("srcdoc");
       setStatus("");
       return;
@@ -1106,6 +1169,7 @@ async function runRender({ debounced = false } = {}) {
     const failures = Array.isArray(data.renderFailures) ? data.renderFailures : [];
     const engLabel = data.engine ? ` · ${data.engine}` : "";
     const ms = data.durationMs != null ? ` · ${data.durationMs}ms` : "";
+    const varN = data.variantCount != null ? ` · ${data.variantCount} variants` : "";
     if (failures.length > 0) {
       updateRenderConsole(
         failures.map((f) => ({
@@ -1115,16 +1179,16 @@ async function runRender({ debounced = false } = {}) {
           stack: f.stack,
         })),
       );
-      setStatus(`Preview updated${engLabel}${ms} — ${failures.length} HTML issue(s)`);
+      setStatus(`Preview updated${engLabel}${ms}${varN} — ${failures.length} HTML issue(s)`);
     } else {
       updateRenderConsole([]);
-      setStatus(`Preview updated${engLabel}${ms}`);
+      setStatus(`Preview updated${engLabel}${ms}${varN}`);
     }
     if (data.components) fillComponentSelect(data.components);
     if (data.fixturesByComponent || data.componentParams) {
       storeControlsFromData(data);
       setCompletionSymbolsFromAnalyze(data);
-      refreshControlsUi();
+      refreshCanvasHint();
     }
     if (data.designSummary) {
       renderDesignSummary(data.designSummary);
@@ -1147,16 +1211,7 @@ async function runRender({ debounced = false } = {}) {
 }
 
 function updateModeUi() {
-  const mode = selectedMode();
-  const system = mode === "system";
-  const pack = mode === "pack";
-  component.disabled = system || pack;
-  kvJson.disabled = system || pack;
-  packWrap.hidden = !pack;
-  if (pack) {
-    const rustRadio = document.querySelector('input[name="engine"][value="rust"]');
-    if (rustRadio) rustRadio.checked = true;
-  }
+  if (packWrap) packWrap.hidden = true;
 }
 
 function updateWorkspaceUi() {
@@ -1164,15 +1219,14 @@ function updateWorkspaceUi() {
   if (editorWorkspace) editorWorkspace.hidden = disk;
 }
 
-document.querySelectorAll('input[name="mode"]').forEach((r) => {
+document.querySelectorAll('input[name="variantView"]').forEach((r) => {
   r.addEventListener("change", () => {
-    updateModeUi();
+    refreshControlsUi();
     scheduleDebouncedRender(0);
   });
 });
 document.querySelectorAll('input[name="engine"]').forEach((r) => {
   r.addEventListener("change", () => {
-    updateModeUi();
     scheduleDebouncedRender(0);
   });
 });
@@ -1190,11 +1244,6 @@ packSelect.addEventListener("change", () => {
 updateModeUi();
 updateWorkspaceUi();
 
-component.addEventListener("change", () => {
-  activeFixtureLabel = null;
-  refreshControlsUi();
-  scheduleDebouncedRender(0);
-});
 themeInput.addEventListener("input", () => scheduleDebouncedRender());
 kvJson.addEventListener("input", () => {
   if (syncingKnobs) return;
@@ -1204,6 +1253,32 @@ kvJson.addEventListener("input", () => {
 });
 entryPath.addEventListener("input", () => scheduleDebouncedRender());
 packPath.addEventListener("input", () => scheduleDebouncedRender());
+
+addProperty?.addEventListener("change", () => {
+  if (!editorView || !addProperty.value) return;
+  const opt = addProperty.selectedOptions[0];
+  const snippet = opt?.dataset?.snippet;
+  if (!snippet) return;
+  const pos = editorView.state.selection.main.head;
+  const doc = editorView.state.doc.toString();
+  const { from, to, insert } = formatPropertyInsert(doc, pos, snippet);
+  editorView.dispatch({
+    changes: { from, to, insert },
+    selection: { anchor: from + insert.length },
+  });
+  addProperty.value = "";
+  files[activePath] = editorView.state.doc.toString();
+  refreshAddPropertyMenu();
+  scheduleDebouncedRender();
+});
+
+window.addEventListener("message", (ev) => {
+  const data = ev.data;
+  if (!data || data.type !== "pdl-interaction") return;
+  if (data.event === "pressEnd") {
+    setStatus(`Emit · ${data.component} · pressEnd`);
+  }
+});
 
 btnAnalyze.addEventListener("click", () => void runAnalyze());
 
@@ -1221,6 +1296,8 @@ renderTabs();
 refreshControlsUi();
 
 void (async () => {
+  editorView?.dom.addEventListener("keyup", () => refreshAddPropertyMenu());
+  editorView?.dom.addEventListener("click", () => refreshAddPropertyMenu());
   await initCatalog();
   await loadPack("airbnb-lite");
 })();

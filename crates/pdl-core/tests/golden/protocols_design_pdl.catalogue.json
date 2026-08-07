@@ -58,7 +58,10 @@
           "id": "Label",
           "kind": "text",
           "props": {
-            "content": "param:title"
+            "color": "#111111",
+            "content": "param:title",
+            "fontSize": 13,
+            "fontWeight": 600
           }
         }
       },
@@ -159,9 +162,136 @@
       "root": {
         "kind": "layout",
         "props": {
-          "direction": "row"
+          "align": "center",
+          "background": "#F2F2F4",
+          "borderColor": "#D0D0D5",
+          "borderWidth": 1,
+          "cornerRadius": 999,
+          "direction": "row",
+          "gap": 6,
+          "justify": "center",
+          "padding": {
+            "bottom": 8,
+            "left": 12,
+            "right": 12,
+            "top": 8
+          }
         }
-      }
+      },
+      "variants": [
+        {
+          "affectedFrames": [
+            "Label",
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Label",
+              "prop": "color",
+              "value": "#FFFFFF"
+            },
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "#222222"
+            },
+            {
+              "frameId": "Root",
+              "prop": "borderColor",
+              "value": "#222222"
+            }
+          ],
+          "params": {
+            "filter": "all",
+            "interactionState": "hovered",
+            "selected": "all"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Label",
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Label",
+              "prop": "color",
+              "value": "#FFFFFF"
+            },
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "#222222"
+            },
+            {
+              "frameId": "Root",
+              "prop": "borderColor",
+              "value": "#222222"
+            }
+          ],
+          "params": {
+            "filter": "all",
+            "interactionState": "hovered",
+            "selected": "podcasts"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Label",
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Label",
+              "prop": "color",
+              "value": "#FFFFFF"
+            },
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "#222222"
+            },
+            {
+              "frameId": "Root",
+              "prop": "borderColor",
+              "value": "#222222"
+            }
+          ],
+          "params": {
+            "filter": "podcasts",
+            "interactionState": "hovered",
+            "selected": "all"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Label",
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Label",
+              "prop": "color",
+              "value": "#FFFFFF"
+            },
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "#222222"
+            },
+            {
+              "frameId": "Root",
+              "prop": "borderColor",
+              "value": "#222222"
+            }
+          ],
+          "params": {
+            "filter": "podcasts",
+            "interactionState": "hovered",
+            "selected": "podcasts"
+          }
+        }
+      ]
     },
     "LibrarySubnav": {
       "childHierarchy": {
@@ -181,7 +311,10 @@
           "id": "Label",
           "kind": "text",
           "props": {
-            "content": "param:title"
+            "color": "#111111",
+            "content": "param:title",
+            "fontSize": 13,
+            "fontWeight": 600
           }
         },
         "Root_FilterChip_0": {
@@ -193,7 +326,20 @@
           "instanceOf": "FilterChip",
           "kind": "layout",
           "props": {
-            "direction": "row"
+            "align": "center",
+            "background": "#F2F2F4",
+            "borderColor": "#D0D0D5",
+            "borderWidth": 1,
+            "cornerRadius": 999,
+            "direction": "row",
+            "gap": 6,
+            "justify": "center",
+            "padding": {
+              "bottom": 8,
+              "left": 12,
+              "right": 12,
+              "top": 8
+            }
           }
         },
         "Root_FilterChip_1": {
@@ -205,7 +351,20 @@
           "instanceOf": "FilterChip",
           "kind": "layout",
           "props": {
-            "direction": "row"
+            "align": "center",
+            "background": "#F2F2F4",
+            "borderColor": "#D0D0D5",
+            "borderWidth": 1,
+            "cornerRadius": 999,
+            "direction": "row",
+            "gap": 6,
+            "justify": "center",
+            "padding": {
+              "bottom": 8,
+              "left": 12,
+              "right": 12,
+              "top": 8
+            }
           }
         }
       },

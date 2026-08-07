@@ -14,7 +14,8 @@
 | Text field block | Ported | `AbnField` |
 | Chip / filter pill | Ported | `AbnChip` |
 | Multi-instance demos | Ported | Button row + Cancel/Save + field stack |
-| Spatial compose scratch | Ported | `PlaygroundCompose` / `compose.pdl` (Playground P2) |
+| Spatial compose scratch | Removed (P3) | File canvas replaces Compose UI |
+| Interactive hover/press | Ported | `AbnButton` + `interactionState` |
 | Fixtures | Ported | Button + Field examples |
 | Protocols / ForEach / emits | Deferred | Use `protocols/` fixtures |
 | Motion / interaction runtime | Deferred | Needs B7 host |
@@ -30,7 +31,6 @@
 | `AbnButtonRowDemo` | Sibling buttons (distinct labels) |
 | `AbnFormActionsDemo` | Cancel + Save (scoping proof) |
 | `AbnFieldStackDemo` | Two fields stacked |
-| `PlaygroundCompose` | Spatial compose canvas (UI-generated) |
 
 ## Bake
 
@@ -38,7 +38,6 @@
 cargo build -p pdl-cli
 ./target/debug/pdl bakeSystem test-fixtures/pdl/systems/airbnb-lite/design.pdl --out /tmp/airbnb-lite.bake.json
 ./target/debug/pdl bakeComponent test-fixtures/pdl/systems/airbnb-lite/design.pdl AbnFormActionsDemo --out /tmp/abn-actions.bake.json
-./target/debug/pdl bakeComponent test-fixtures/pdl/systems/airbnb-lite/design.pdl PlaygroundCompose --out /tmp/compose.bake.json
 ```
 
-Playground: pack **Airbnb-lite** (default). Phase P2: Compose palette + optional WASM engine.
+Playground: pack **Airbnb-lite**. File tabs drive the canvas (P3); hover on `AbnButton` (P4); variant Grid/Pick (P5).

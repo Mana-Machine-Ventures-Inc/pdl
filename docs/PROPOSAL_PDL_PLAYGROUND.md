@@ -199,13 +199,28 @@ React Native note: **reuse `pdl-core`**, not the web Playground UI. A React **ho
 ### Phase P2 — Portable demo
 
 - [x] WASM bake path (optional flag).
-- [x] Optional spatial compose that **writes PDL**.
+- [x] Optional spatial compose that **writes PDL**. *(removed in P3 — file canvas replaces)*
 - [x] Coverage matrices + CI bake of packs.
+
+### Phase P3 — File canvas + teaching edits
+
+- [x] Active `.pdl` tab drives the preview (components in file, or import closure).
+- [x] Remove left-rail component picker; remove Compose palette.
+- [x] **Add property** dropdown (layout / text / icon / media snippets).
+
+### Phase P4 — Interactive / emit path
+
+- [x] Hover/press host in HTML iframe (dual-bake `interactionState`, `postMessage` on press).
+- [x] Demo on Airbnb-lite `AbnButton` (+ protocols `FilterChip` visual hover for Rust packs).
+
+### Phase P5 — Variant preview
+
+- [x] Preview **Single / Grid / Pick** for variant-typed params (grid ≤ 16 combos).
 
 ### Phase S — Studio (out of scope here)
 
 - Authoring-first UX, governance, possibly native shell / separate repo.
-- May absorb Playground patterns; must not block P0–P2.
+- May absorb Playground patterns; must not block P0–P5.
 
 ---
 
@@ -219,6 +234,9 @@ React Native note: **reuse `pdl-core`**, not the web Playground UI. A React **ho
 - [x] Fixtures chips + param knobs UX polish *(P1)*
 - [x] `systems/*-lite` veracity packs *(P1 — Airbnb-lite)*
 - [x] Optional WASM bake + compose → PDL + CI pack bake *(P2)*
+- [x] File-selected canvas; Add property; no Compose / component picker *(P3)*
+- [x] Hover/press interactive HTML host *(P4)*
+- [x] Variant Single / Grid / Pick in preview *(P5)*
 
 ---
 

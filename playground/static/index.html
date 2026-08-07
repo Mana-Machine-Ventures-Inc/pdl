@@ -12,15 +12,15 @@
       <div>
         <h1>PDL Playground</h1>
         <p class="sub">
-          Language demo &amp; iterative lab (Phase P2). Not PDL Studio.
-          Compiler: <strong>Rust</strong> (CLI or WASM) → bake IR → HTML host.
-          Eng disk-watch stress: <code>npm run preview</code>.
+          File canvas lab (Phase P3–P5). Not PDL Studio.
+          Selected <code>.pdl</code> fills the preview. Compiler: <strong>Rust</strong> → bake → HTML.
+          Eng stress: <code>npm run preview</code>.
         </p>
       </div>
       <div class="badge-stack" aria-label="Build badges">
         <span class="badge badge-rust">Rust bake</span>
         <span class="badge">HTML host</span>
-        <span class="badge badge-muted">Phase P2</span>
+        <span class="badge badge-muted">Phase P5</span>
       </div>
     </div>
   </header>
@@ -33,35 +33,25 @@
         <select id="packSelect"></select>
       </label>
       <p class="pack-desc" id="packDesc"></p>
-      <label class="field">
-        <span>Component</span>
-        <select id="component"></select>
-      </label>
+      <p class="hint" id="canvasHint">Select a file tab — its components (or imports) fill the canvas.</p>
+
       <div class="field" id="fixtureField">
         <span>Fixtures</span>
         <div class="chip-row" id="fixtureChips" role="list"></div>
-        <p class="hint" id="fixtureHint">Select a component with fixtures to apply examples.</p>
+        <p class="hint" id="fixtureHint">Fixtures for the primary component in the active file.</p>
       </div>
       <div class="field" id="paramField">
         <span>Params</span>
         <div id="paramKnobs" class="param-knobs"></div>
       </div>
-      <div class="field" id="composeField">
-        <span>Compose (writes PDL)</span>
-        <div class="compose-palette" id="composePalette" role="list">
-          <button type="button" class="btn secondary compose-add" data-compose="AbnButton" title="Add AbnButton">+ Button</button>
-          <button type="button" class="btn secondary compose-add" data-compose="AbnChip" title="Add AbnChip">+ Chip</button>
-          <button type="button" class="btn secondary compose-add" data-compose="AbnField" title="Add AbnField">+ Field</button>
-          <button type="button" class="btn secondary" id="composeClear" title="Clear compose canvas">Clear</button>
-        </div>
-        <p class="hint" id="composeHint">Adds instances to <code>compose.pdl</code> (Airbnb-lite). Selects PlaygroundCompose.</p>
-      </div>
       <div class="field">
-        <span>Mode</span>
+        <span>Variants (preview)</span>
         <div class="row">
-          <label><input type="radio" name="mode" value="component" checked /> Component</label>
-          <label><input type="radio" name="mode" value="system" /> All</label>
+          <label><input type="radio" name="variantView" value="single" checked /> Single</label>
+          <label><input type="radio" name="variantView" value="grid" /> Grid</label>
+          <label><input type="radio" name="variantView" value="pick" /> Pick</label>
         </div>
+        <p class="hint">Grid shows variant combinations; Pick uses param knobs.</p>
       </div>
       <label class="field">
         <span>Theme (optional)</span>
@@ -69,7 +59,7 @@
         <datalist id="themeList"></datalist>
       </label>
       <details class="advanced">
-        <summary>Advanced (JSON overrides)</summary>
+        <summary>Advanced</summary>
         <label class="field">
           <span>Param overrides (JSON)</span>
           <textarea id="kvJson" spellcheck="false" rows="3" placeholder='{ "label": "OK" }'></textarea>
@@ -118,6 +108,15 @@
     <section class="panel sources" aria-labelledby="src-label">
       <h2 id="src-label">PDL</h2>
       <div class="file-tabs" id="fileTabs"></div>
+      <div class="editor-toolbar">
+        <label class="add-prop">
+          <span>Add property</span>
+          <select id="addProperty" aria-label="Insert PDL property">
+            <option value="">— insert into editor —</option>
+          </select>
+        </label>
+        <span class="hint" id="addPropertyKind">Kind: …</span>
+      </div>
       <label class="field grow" id="editorField">
         <span class="sr-only">Source</span>
         <div id="editorMount" class="editor-mount" aria-label="PDL source editor"></div>
@@ -131,7 +130,7 @@
         <button type="button" class="output-tab" role="tab" aria-selected="false" data-output-tab="design">Tokens</button>
       </div>
       <div id="outputPanelHtml" class="output-panel" role="tabpanel">
-        <iframe id="frame" title="PDL HTML preview" sandbox="allow-same-origin"></iframe>
+        <iframe id="frame" title="PDL HTML preview" sandbox="allow-same-origin allow-scripts"></iframe>
         <details class="render-console" id="renderConsole" hidden>
           <summary class="render-console-summary">
             <span id="renderConsoleTitle">Render console</span>
@@ -144,6 +143,9 @@
       </div>
     </section>
   </main>
+
+  <!-- Hidden select kept for script compatibility during migration -->
+  <select id="component" hidden aria-hidden="true"></select>
 
   <script type="module" src="/playground-app.js"></script>
 </body>

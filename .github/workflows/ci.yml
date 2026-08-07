@@ -40,9 +40,9 @@ jobs:
       - name: Bake airbnb-lite pack
         run: |
           ./target/debug/pdl bakeSystem test-fixtures/pdl/systems/airbnb-lite/design.pdl --out /tmp/airbnb-lite.bake.json
-          ./target/debug/pdl bakeComponent test-fixtures/pdl/systems/airbnb-lite/design.pdl PlaygroundCompose --out /tmp/compose.bake.json
+          ./target/debug/pdl bakeComponent test-fixtures/pdl/systems/airbnb-lite/design.pdl AbnFormActionsDemo --out /tmp/abn-actions.bake.json
           test -s /tmp/airbnb-lite.bake.json
-          test -s /tmp/compose.bake.json
+          test -s /tmp/abn-actions.bake.json
 
   dual-run:
     runs-on: ubuntu-latest

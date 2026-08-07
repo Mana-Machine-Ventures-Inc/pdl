@@ -146,5 +146,13 @@ fn protocols_design_catalogue_golden() {
     let design = load_design_at("test-fixtures/pdl/protocols/design.pdl");
     let doc = build_component_catalogue(&design, None, &[], Some(generated_at)).unwrap();
     let out = stable_stringify(&doc, StableStringifyOptions { omit_empty: true });
+    if std::env::var("UPDATE_GOLDENS").ok().as_deref() == Some("1") {
+        fs::write(
+            golden_dir().join("protocols_design_pdl.catalogue.json"),
+            &out,
+        )
+        .unwrap();
+        return;
+    }
     assert_eq!(out, golden_text, "protocols catalogue golden mismatch");
 }

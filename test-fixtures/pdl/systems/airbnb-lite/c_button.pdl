@@ -11,10 +11,16 @@ variant AbnBtnSize {
   case lg
 }
 
+variant AbnBtnInteraction {
+  case rest
+  case hovered
+}
+
 component AbnButton(
   label: String = "Button",
   tone: AbnBtnTone = .primary,
-  size: AbnBtnSize = .sm
+  size: AbnBtnSize = .sm,
+  interactionState: AbnBtnInteraction = .rest
 ) layout {
   direction = .row
   justify = .center
@@ -37,9 +43,15 @@ component AbnButton(
     padding = EdgeInsets(x: 22, y: 14)
   }
 
+  if interactionState == .hovered {
+    opacity = 0.88
+  } else {
+    opacity = 1
+  }
+
   let L: text = {
     content = label
-    fontSize = 14
+    fontSize = 15
     fontWeight = 600
 
     if tone == .ghost {
