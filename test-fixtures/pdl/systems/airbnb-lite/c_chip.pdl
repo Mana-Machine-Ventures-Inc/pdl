@@ -1,0 +1,40 @@
+import "foundation.pdl"
+
+variant AbnChipState {
+  case idle
+  case selected
+}
+
+component AbnChip(
+  title: String = "All",
+  state: AbnChipState = .idle
+) layout {
+  direction = .row
+  align = .center
+  justify = .center
+  padding = EdgeInsets(x: 12, y: 8)
+  cornerRadius = abn.radius.pill
+  borderWidth = 1
+
+  if state == .selected {
+    background = abn.color.text
+    borderColor = abn.color.text
+  } else {
+    background = abn.color.surface
+    borderColor = abn.color.border
+  }
+
+  let T: text = {
+    content = title
+    style = AbnCaption
+    fontWeight = 600
+
+    if state == .selected {
+      color = abn.color.onBrand
+    } else {
+      color = abn.color.text
+    }
+  }
+
+  children = [T]
+}

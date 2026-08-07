@@ -1,0 +1,53 @@
+import "foundation.pdl"
+
+variant AbnBtnTone {
+  case primary
+  case secondary
+  case ghost
+}
+
+variant AbnBtnSize {
+  case sm
+  case lg
+}
+
+component AbnButton(
+  label: String = "Button",
+  tone: AbnBtnTone = .primary,
+  size: AbnBtnSize = .sm
+) layout {
+  direction = .row
+  justify = .center
+  align = .center
+  wrap = .nowrap
+  gap = abn.space.xs
+  cornerRadius = abn.radius.pill
+
+  if tone == .primary {
+    background = abn.color.brand
+  } else if tone == .secondary {
+    background = abn.color.brandSecondary
+  } else {
+    background = abn.color.ghostFill
+  }
+
+  if size == .sm {
+    padding = EdgeInsets(x: 14, y: 8)
+  } else {
+    padding = EdgeInsets(x: 22, y: 14)
+  }
+
+  let L: text = {
+    content = label
+    fontSize = 14
+    fontWeight = 600
+
+    if tone == .ghost {
+      color = abn.color.text
+    } else {
+      color = abn.color.onBrand
+    }
+  }
+
+  children = [L]
+}

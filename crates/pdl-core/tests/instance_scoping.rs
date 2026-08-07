@@ -273,6 +273,18 @@ fn catalogue_registry_keeps_scoped_ids_for_sibling_instances() {
 }
 
 #[test]
+fn airbnb_lite_form_actions_keep_distinct_labels() {
+    let design = load_fixture("test-fixtures/pdl/systems/airbnb-lite/design.pdl");
+    let doc = bake_component(&design, "AbnFormActionsDemo");
+    let root = root_of(&doc, "AbnFormActionsDemo");
+    assert_unique_frame_ids(root, "AbnFormActionsDemo");
+    assert_instance_labels_reach_nested_text(root, "AbnFormActionsDemo");
+    let actions = child_by_id(root, "Actions");
+    assert_eq!(child_by_id(actions, "Cancel")["children"][0]["props"]["content"], "Cancel");
+    assert_eq!(child_by_id(actions, "Save")["children"][0]["props"]["content"], "Save");
+}
+
+#[test]
 fn catalogue_button_row_scopes_nested_label_frames() {
     let design = load_fixture("test-fixtures/pdl/molecules/m_02_buttons_basic.pdl");
     let cat = build_component_catalogue(&design, None, &[], Some("1970-01-01T00:00:00.000Z".into()))

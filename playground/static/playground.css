@@ -63,15 +63,56 @@ body {
   font-weight: 500;
   margin-bottom: 8px;
 }
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  border: 0;
+.hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #778;
+}
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  font: inherit;
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #ccd;
+  background: #f4f6f9;
+  cursor: pointer;
+  color: #223;
+}
+.chip:hover {
+  border-color: #38f;
+}
+.chip.active {
+  background: #e8f0ff;
+  border-color: #38f;
+  font-weight: 600;
+}
+.param-knobs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.param-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.param-row label {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #556;
+}
+.param-row input,
+.param-row select {
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 6px 8px;
+  border: 1px solid #ccd;
+  border-radius: 6px;
 }
 .top h1 {
   margin: 0 0 6px;
@@ -234,10 +275,10 @@ select {
   min-height: 1.2em;
 }
 .error {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   color: #a00;
   white-space: pre-wrap;
-  font-family: ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   padding: 8px;
   background: #fee;
   border-radius: 6px;

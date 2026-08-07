@@ -18,8 +18,15 @@ import { dirname, join, relative, resolve, extname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { bakeAndRender, resolveRepoPath } from "../../scripts/lib/bake-pipeline.mjs";
 
-/** Known packs for P0 Playground (demo / language lab). */
+/** Known packs for PDL Playground. */
 const PACK_CATALOG = [
+  {
+    id: "airbnb-lite",
+    label: "Airbnb-lite",
+    entry: "test-fixtures/pdl/systems/airbnb-lite/design.pdl",
+    defaultComponent: "AbnFormActionsDemo",
+    description: "Flagship veracity pack — coral/teal, Cancel/Save scoping demo",
+  },
   {
     id: "molecules",
     label: "Molecules (fixtures)",
@@ -132,7 +139,15 @@ const toolchainPromise = loadToolchain().then(async (m) => {
   const bake = await import(pathToFileURL(join(DIST, "bakeDesign.js")).href);
   const render = await import(pathToFileURL(join(DIST, "renderHtml.js")).href);
   const graph = await import(pathToFileURL(join(DIST, "graph.js")).href);
-  return { loadDesign: m.loadDesign, ...bake, ...render, serialiseValueExpr: graph.serialiseValueExpr };
+  const evaluate = await import(pathToFileURL(join(DIST, "evaluate.js")).href);
+  return {
+    loadDesign: m.loadDesign,
+    ...bake,
+    ...render,
+    serialiseValueExpr: graph.serialiseValueExpr,
+    evaluateValue: evaluate.evaluateValue,
+    buildResolvedTokenMap: evaluate.buildResolvedTokenMap,
+  };
 });
 
 /** Reject paths that escape the temp workspace. */
@@ -211,6 +226,58 @@ function designMeta(design) {
 }
 
 /**
+ * Evaluated fixtures + param schemas for Playground controls.
+ * @param {unknown} design
+ * @param {(e: unknown, ctx: object) => unknown} evaluateValue
+ * @param {Map<string, unknown>} tokenMap
+ */
+function buildFixturesAndParams(design, evaluateValue, tokenMap) {
+  /** @type {Record<string, Record<string, Record<string, unknown>>>} */
+  const fixturesByComponent = {};
+  for (const [compName, fxMap] of design.fixtures.entries()) {
+    /** @type {Record<string, Record<string, unknown>>} */
+    const examples = {};
+    for (const [label, ex] of fxMap.entries()) {
+      /** @type {Record<string, unknown>} */
+      const params = {};
+      for (const b of ex.bindings) {
+        params[b.name] = evaluateValue(b.value, {
+          design,
+          tokens: tokenMap,
+          visiting: new Set(),
+          paramValues: {},
+          paramMeta: new Map(),
+        });
+      }
+      examples[label] = params;
+    }
+    fixturesByComponent[compName] = examples;
+  }
+
+  /** @type {Record<string, Array<{ name: string; typeName: string; default: unknown }>>} */
+  const componentParams = {};
+  /** @type {Record<string, string[]>} */
+  const variantCases = {};
+  for (const [vName, v] of design.variants.entries()) {
+    variantCases[vName] = [...v.cases];
+  }
+  for (const [compName, c] of design.components.entries()) {
+    componentParams[compName] = (c.params ?? []).map((p) => ({
+      name: p.name,
+      typeName: p.typeName,
+      default: evaluateValue(p.defaultValue, {
+        design,
+        tokens: tokenMap,
+        visiting: new Set(),
+        paramValues: {},
+        paramMeta: new Map(),
+      }),
+    }));
+  }
+  return { fixturesByComponent, componentParams, variantCases };
+}
+
+/**
  * JSON-friendly view of primitives, semantics, themes, variants, type styles (for playground UI).
  * @param {unknown} design - DesignDefinition from loadDesign
  * @param {(e: unknown) => unknown} serialiseValueExpr
@@ -284,6 +351,18 @@ function buildDesignSummary(design, serialiseValueExpr, workspaceRoot) {
   };
 }
 
+function enrichLoadPayload(design, serialiseValueExpr, evaluateValue, buildResolvedTokenMap, workspaceRoot) {
+  const tokenMap = buildResolvedTokenMap(design);
+  const designSummary = buildDesignSummary(design, serialiseValueExpr, workspaceRoot);
+  const controls = buildFixturesAndParams(design, evaluateValue, tokenMap);
+  return {
+    ok: true,
+    ...designMeta(design),
+    designSummary,
+    ...controls,
+  };
+}
+
 function formatErr(err) {
   if (err && typeof err.format === "function") {
     return err.format();
@@ -296,14 +375,20 @@ async function handleLoad(body) {
   if (typeof entry !== "string" || !entry.trim()) {
     throw new Error('Expected "entry" path');
   }
-  const { loadDesign, serialiseValueExpr } = await toolchainPromise;
+  const { loadDesign, serialiseValueExpr, evaluateValue, buildResolvedTokenMap } =
+    await toolchainPromise;
 
   if (diskRoot === true) {
     const entryAbs = resolveRepoPath(REPO_ROOT, entry);
     assertUnderRepo(entryAbs);
     const design = loadDesign(entryAbs);
-    const designSummary = buildDesignSummary(design, serialiseValueExpr, dirname(entryAbs));
-    return { ok: true, ...designMeta(design), designSummary };
+    return enrichLoadPayload(
+      design,
+      serialiseValueExpr,
+      evaluateValue,
+      buildResolvedTokenMap,
+      dirname(entryAbs),
+    );
   }
 
   assertSafeRelativePath(entry);
@@ -315,8 +400,13 @@ async function handleLoad(body) {
       throw new Error("Invalid entry path");
     }
     const design = loadDesign(entryAbs);
-    const designSummary = buildDesignSummary(design, serialiseValueExpr, tmp);
-    return { ok: true, ...designMeta(design), designSummary };
+    return enrichLoadPayload(
+      design,
+      serialiseValueExpr,
+      evaluateValue,
+      buildResolvedTokenMap,
+      tmp,
+    );
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -360,7 +450,8 @@ async function handleRender(body) {
     kv && typeof kv === "object" && !Array.isArray(kv)
       ? /** @type {Record<string, unknown>} */ (kv)
       : {};
-  const { loadDesign, serialiseValueExpr } = await toolchainPromise;
+  const { loadDesign, serialiseValueExpr, evaluateValue, buildResolvedTokenMap } =
+    await toolchainPromise;
 
   const useDisk = diskRoot === true;
   /** @type {string | undefined} */
@@ -395,7 +486,13 @@ async function handleRender(body) {
     }
 
     const design = loadDesign(entryAbs);
-    const designSummary = buildDesignSummary(design, serialiseValueExpr, summaryRoot);
+    const enriched = enrichLoadPayload(
+      design,
+      serialiseValueExpr,
+      evaluateValue,
+      buildResolvedTokenMap,
+      summaryRoot,
+    );
     const bakeOutPath = join(REPO_ROOT, ".tmp", "playground.bake.json");
     const result = await bakeAndRender({
       repoRoot: REPO_ROOT,
@@ -407,7 +504,7 @@ async function handleRender(body) {
       theme: typeof theme === "string" ? theme : undefined,
       paramOverrides: kvObj,
       bakeOutPath,
-      title: "PDL playground preview",
+      title: "PDL Playground preview",
       singleComponent:
         mode === "component" && typeof component === "string"
           ? component
@@ -424,13 +521,11 @@ async function handleRender(body) {
       };
     }
     return {
-      ok: true,
+      ...enriched,
       html: result.html,
       renderFailures: result.renderFailures,
-      designSummary,
       engine: result.engine,
       durationMs: result.durationMs,
-      ...designMeta(design),
     };
   } finally {
     if (tmp) rmSync(tmp, { recursive: true, force: true });
@@ -570,7 +665,7 @@ function listenPlayground() {
     const bound = /** @type {import("node:net").AddressInfo} */ (server.address());
     const p = bound?.port ?? first;
     console.log(`PDL Playground at http://${HOST}:${p}`);
-    console.log(`  Phase P0 · Rust bake → HTML · packs via /api/catalog`);
+    console.log(`  Phase P1 · Rust bake → HTML · Airbnb-lite + fixtures`);
     if (!strictPort && p !== DEFAULT_FIRST_PORT) {
       console.error(`(Using ${p} because ${DEFAULT_FIRST_PORT} was busy.)`);
     }

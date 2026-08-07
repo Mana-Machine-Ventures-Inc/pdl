@@ -79,6 +79,9 @@ const packWrap = $("packWrap");
 const packPath = $("packPath");
 const packSelect = $("packSelect");
 const packDesc = $("packDesc");
+const fixtureChips = $("fixtureChips");
+const fixtureHint = $("fixtureHint");
+const paramKnobs = $("paramKnobs");
 const editorWorkspace = $("editorWorkspace");
 const designMeta = $("designMeta");
 const outputPanelHtml = $("outputPanelHtml");
@@ -88,7 +91,18 @@ const renderConsoleTitle = $("renderConsoleTitle");
 const renderConsoleBody = $("renderConsoleBody");
 
 /** @type {string | null} */
-let preferredComponent = "MoleculeButtonRowDemo";
+let preferredComponent = "AbnFormActionsDemo";
+
+/** @type {Record<string, Record<string, Record<string, unknown>>>} */
+let fixturesByComponent = {};
+/** @type {Record<string, Array<{ name: string; typeName: string; default: unknown }>>} */
+let componentParams = {};
+/** @type {Record<string, string[]>} */
+let variantCases = {};
+/** @type {string | null} */
+let activeFixtureLabel = null;
+/** @type {boolean} */
+let syncingKnobs = false;
 
 const editorTheme = EditorView.theme({
   "&": { height: "100%" },
@@ -125,6 +139,7 @@ function setCompletionSymbolsFromAnalyze(data) {
     for (const v of ds.variants ?? []) {
       if (v?.name) s.add(String(v.name));
       for (const c of v.cases ?? []) {
+        if (c) s.add(`.${c}`);
         if (c) s.add(String(c));
       }
     }
@@ -132,7 +147,146 @@ function setCompletionSymbolsFromAnalyze(data) {
       if (ts?.name) s.add(String(ts.name));
     }
   }
+  for (const [comp, params] of Object.entries(data.componentParams ?? {})) {
+    s.add(comp);
+    for (const p of params) {
+      if (p?.name) s.add(String(p.name));
+    }
+  }
+  for (const cases of Object.values(data.variantCases ?? {})) {
+    for (const c of cases) {
+      s.add(`.${c}`);
+      s.add(String(c));
+    }
+  }
   completionSymbols = [...s].sort((a, b) => a.localeCompare(b));
+}
+
+function storeControlsFromData(data) {
+  fixturesByComponent = data.fixturesByComponent ?? {};
+  componentParams = data.componentParams ?? {};
+  variantCases = data.variantCases ?? {};
+}
+
+function readKvObject() {
+  const raw = kvJson.value.trim();
+  if (!raw) return {};
+  const v = JSON.parse(raw);
+  if (v === null || typeof v !== "object" || Array.isArray(v)) {
+    throw new Error("Param overrides must be a JSON object");
+  }
+  return /** @type {Record<string, unknown>} */ (v);
+}
+
+function writeKvObject(obj) {
+  syncingKnobs = true;
+  kvJson.value = Object.keys(obj).length ? JSON.stringify(obj, null, 2) : "";
+  syncingKnobs = false;
+}
+
+function renderFixtureChips() {
+  fixtureChips.replaceChildren();
+  const name = component.value;
+  const examples = fixturesByComponent[name] ?? {};
+  const labels = Object.keys(examples).sort();
+  if (labels.length === 0) {
+    fixtureHint.hidden = false;
+    fixtureHint.textContent = name
+      ? `No fixtures for ${name}.`
+      : "Select a component with fixtures to apply examples.";
+    return;
+  }
+  fixtureHint.hidden = true;
+  for (const label of labels) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip" + (label === activeFixtureLabel ? " active" : "");
+    b.textContent = label;
+    b.setAttribute("role", "listitem");
+    b.addEventListener("click", () => {
+      activeFixtureLabel = label;
+      writeKvObject({ ...examples[label] });
+      renderFixtureChips();
+      renderParamKnobs();
+      scheduleDebouncedRender(0);
+    });
+    fixtureChips.append(b);
+  }
+}
+
+function renderParamKnobs() {
+  paramKnobs.replaceChildren();
+  const name = component.value;
+  const params = componentParams[name] ?? [];
+  if (params.length === 0 || selectedMode() !== "component") {
+    const p = document.createElement("p");
+    p.className = "hint";
+    p.textContent = selectedMode() !== "component" ? "Params apply in component mode." : "No params.";
+    paramKnobs.append(p);
+    return;
+  }
+  let current = {};
+  try {
+    current = readKvObject();
+  } catch {
+    current = {};
+  }
+  for (const p of params) {
+    const row = document.createElement("div");
+    row.className = "param-row";
+    const lab = document.createElement("label");
+    lab.textContent = `${p.name} (${p.typeName})`;
+    lab.htmlFor = `param-${p.name}`;
+    row.append(lab);
+    const cases = variantCases[p.typeName];
+    const value = current[p.name] !== undefined ? current[p.name] : p.default;
+    if (cases && cases.length > 0) {
+      const sel = document.createElement("select");
+      sel.id = `param-${p.name}`;
+      for (const c of cases) {
+        const opt = document.createElement("option");
+        opt.value = c;
+        opt.textContent = `.${c}`;
+        sel.append(opt);
+      }
+      sel.value = String(value ?? cases[0]);
+      sel.addEventListener("change", () => {
+        activeFixtureLabel = null;
+        const next = { ...readKvObjectSafe(), [p.name]: sel.value };
+        writeKvObject(next);
+        renderFixtureChips();
+        scheduleDebouncedRender(0);
+      });
+      row.append(sel);
+    } else {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.id = `param-${p.name}`;
+      input.value = value == null ? "" : String(value);
+      input.addEventListener("input", () => {
+        activeFixtureLabel = null;
+        const next = { ...readKvObjectSafe(), [p.name]: input.value };
+        writeKvObject(next);
+        renderFixtureChips();
+        scheduleDebouncedRender();
+      });
+      row.append(input);
+    }
+    paramKnobs.append(row);
+  }
+}
+
+function readKvObjectSafe() {
+  try {
+    return readKvObject();
+  } catch {
+    return {};
+  }
+}
+
+function refreshControlsUi() {
+  renderFixtureChips();
+  renderParamKnobs();
 }
 
 function getEditorText() {
@@ -179,7 +333,8 @@ function showError(msg) {
     return;
   }
   errorEl.hidden = false;
-  errorEl.textContent = msg;
+  // Prefer multi-line compiler messages (code / path / line when present).
+  errorEl.textContent = String(msg).trim();
 }
 
 /**
@@ -734,7 +889,7 @@ async function initCatalog() {
     opt.textContent = p.label;
     packSelect.append(opt);
   }
-  packSelect.value = "molecules";
+  packSelect.value = "airbnb-lite";
 }
 
 async function runAnalyze() {
@@ -766,7 +921,9 @@ async function runAnalyze() {
       o.value = t;
       themeList.append(o);
     }
+    storeControlsFromData(data);
     setCompletionSymbolsFromAnalyze(data);
+    refreshControlsUi();
     setStatus(`OK — ${data.components?.length ?? 0} components · ${selectedEngine()}`);
     renderDesignSummary(data.designSummary);
     return true;
@@ -848,6 +1005,11 @@ async function runRender({ debounced = false } = {}) {
       setStatus(`Preview updated${eng}${ms}`);
     }
     if (data.components) fillComponentSelect(data.components);
+    if (data.fixturesByComponent || data.componentParams) {
+      storeControlsFromData(data);
+      setCompletionSymbolsFromAnalyze(data);
+      refreshControlsUi();
+    }
     if (data.designSummary) {
       renderDesignSummary(data.designSummary);
       setCompletionSymbolsFromAnalyze(data);
@@ -912,9 +1074,18 @@ packSelect.addEventListener("change", () => {
 updateModeUi();
 updateWorkspaceUi();
 
-component.addEventListener("change", () => scheduleDebouncedRender(0));
+component.addEventListener("change", () => {
+  activeFixtureLabel = null;
+  refreshControlsUi();
+  scheduleDebouncedRender(0);
+});
 themeInput.addEventListener("input", () => scheduleDebouncedRender());
-kvJson.addEventListener("input", () => scheduleDebouncedRender());
+kvJson.addEventListener("input", () => {
+  if (syncingKnobs) return;
+  activeFixtureLabel = null;
+  refreshControlsUi();
+  scheduleDebouncedRender();
+});
 entryPath.addEventListener("input", () => scheduleDebouncedRender());
 packPath.addEventListener("input", () => scheduleDebouncedRender());
 
@@ -931,8 +1102,9 @@ btnRender.addEventListener("click", () => {
 renderDesignSummary(null);
 mountEditor();
 renderTabs();
+refreshControlsUi();
 
 void (async () => {
   await initCatalog();
-  await loadPack("molecules");
+  await loadPack("airbnb-lite");
 })();

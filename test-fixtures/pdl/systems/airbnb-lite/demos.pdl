@@ -1,0 +1,69 @@
+import "foundation.pdl"
+import "c_button.pdl"
+import "c_field.pdl"
+import "c_chip.pdl"
+
+component AbnButtonRowDemo() layout {
+  direction = .row
+  justify = .start
+  align = .start
+  wrap = .wrap
+  gap = abn.space.sm
+  padding = EdgeInsets(x: abn.space.md, y: abn.space.md)
+  background = abn.color.page
+
+  let A = AbnButton(label: "Primary", tone: .primary, size: .sm)
+  let B = AbnButton(label: "Secondary", tone: .secondary, size: .lg)
+  let C = AbnButton(label: "Ghost", tone: .ghost, size: .sm)
+  children = [A, B, C]
+}
+
+component AbnFormActionsDemo() layout {
+  direction = .column
+  align = .stretch
+  gap = abn.space.md
+  padding = EdgeInsets(x: abn.space.md, y: abn.space.md)
+  background = abn.color.page
+
+  let Title: text = {
+    content = "Confirm booking"
+    style = AbnTitle
+    color = abn.color.text
+  }
+
+  let Actions: layout = {
+    direction = .row
+    justify = .end
+    gap = abn.space.sm
+
+    let Cancel = AbnButton(label: "Cancel", tone: .ghost, size: .sm)
+    let Save = AbnButton(label: "Save", tone: .primary, size: .lg)
+    children = [Cancel, Save]
+  }
+
+  children = [Title, Actions]
+}
+
+component AbnFieldStackDemo() layout {
+  direction = .column
+  align = .stretch
+  gap = abn.space.sm
+  padding = EdgeInsets(x: abn.space.md, y: abn.space.md)
+  width = .fill
+  background = abn.color.page
+
+  let F0 = AbnField(label: "Workspace", value: "Design", helper: "Renaming updates the slug.")
+  let F1 = AbnField(label: "Role", value: "Editor", helper: "")
+  let Chips: layout = {
+    direction = .row
+    gap = abn.space.sm
+    wrap = .wrap
+
+    let All = AbnChip(title: "All", state: .selected)
+    let Stays = AbnChip(title: "Stays", state: .idle)
+    let Experiences = AbnChip(title: "Experiences", state: .idle)
+    children = [All, Stays, Experiences]
+  }
+
+  children = [Chips, F0, F1]
+}

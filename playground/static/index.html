@@ -20,7 +20,7 @@
       <div class="badge-stack" aria-label="Build badges">
         <span class="badge badge-rust">Rust bake</span>
         <span class="badge">HTML host</span>
-        <span class="badge badge-muted">Phase P0</span>
+        <span class="badge badge-muted">Phase P1</span>
       </div>
     </div>
   </header>
@@ -37,6 +37,15 @@
         <span>Component</span>
         <select id="component"></select>
       </label>
+      <div class="field" id="fixtureField">
+        <span>Fixtures</span>
+        <div class="chip-row" id="fixtureChips" role="list"></div>
+        <p class="hint" id="fixtureHint">Select a component with fixtures to apply examples.</p>
+      </div>
+      <div class="field" id="paramField">
+        <span>Params</span>
+        <div id="paramKnobs" class="param-knobs"></div>
+      </div>
       <div class="field">
         <span>Mode</span>
         <div class="row">
@@ -49,12 +58,12 @@
         <input type="text" id="theme" list="themeList" placeholder="Default" spellcheck="false" />
         <datalist id="themeList"></datalist>
       </label>
-      <label class="field">
-        <span>Param overrides (JSON)</span>
-        <textarea id="kvJson" spellcheck="false" rows="3" placeholder='{ "label": "OK" }'></textarea>
-      </label>
       <details class="advanced">
-        <summary>Advanced</summary>
+        <summary>Advanced (JSON overrides)</summary>
+        <label class="field">
+          <span>Param overrides (JSON)</span>
+          <textarea id="kvJson" spellcheck="false" rows="3" placeholder='{ "label": "OK" }'></textarea>
+        </label>
         <div class="field">
           <span>Bake engine</span>
           <div class="row">

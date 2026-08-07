@@ -1,0 +1,52 @@
+// Airbnb-lite foundation — coral / teal / warm neutrals (inspired by, not affiliated with, Airbnb).
+
+primitive abn.color.canvas: Color = #F7F7F7
+primitive abn.color.elevated: Color = #FFFFFF
+primitive abn.color.brand: Color = #FF5A5F
+primitive abn.color.brandSecondary: Color = #00A699
+primitive abn.color.text: Color = #222222
+primitive abn.color.textMuted: Color = #717171
+primitive abn.color.onBrand: Color = #FFFFFF
+primitive abn.color.border: Color = #DDDDDD
+primitive abn.color.ghostFill: Color = #EBEBEB
+
+primitive abn.space.xs: Number = 4
+primitive abn.space.sm: Number = 8
+primitive abn.space.md: Number = 16
+primitive abn.space.lg: Number = 24
+
+primitive abn.radius.sm: Number = 8
+primitive abn.radius.pill: Number = 24
+
+semantic abn.color.surface: Color = abn.color.elevated
+semantic abn.color.page: Color = abn.color.canvas
+
+typeStyle AbnTitle {
+  fontFamily = "Circular"
+  fontSize = 22
+  fontWeight = 700
+  lineHeight = 1.25
+}
+
+typeStyle AbnBody {
+  fontFamily = "Circular"
+  fontSize = 14
+  fontWeight = 400
+  lineHeight = 1.4
+}
+
+typeStyle AbnCaption {
+  fontFamily = "Circular"
+  fontSize = 12
+  fontWeight = 500
+  lineHeight = 1.35
+}
+
+theme AbnDark {
+  abn.color.canvas = #1A1A1A
+  abn.color.elevated = #2B2B2B
+  abn.color.text = #F7F7F7
+  abn.color.textMuted = #B0B0B0
+  abn.color.border = #3D3D3D
+  abn.color.ghostFill = #3A3A3A
+}

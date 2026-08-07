@@ -191,10 +191,10 @@ React Native note: **reuse `pdl-core`**, not the web Playground UI. A React **ho
 
 ### Phase P1 — Veracity + controls
 
-- `systems/*-lite` packs (at least one flagship).
-- Fixtures + param overrides.
-- Pack-aware completions (thin).
-- Error UX polish.
+- [x] `systems/airbnb-lite` flagship pack
+- [x] Fixtures + param override knobs (bake overrides)
+- [x] Pack-aware completions (thin)
+- [x] Error UX polish (monospace multi-line)
 
 ### Phase P2 — Portable demo
 
@@ -216,8 +216,8 @@ React Native note: **reuse `pdl-core`**, not the web Playground UI. A React **ho
 - [x] At least one multi-instance composition demo is reachable from the UI. *(MoleculeButtonRowDemo default)*
 - [x] No React frame-host rewrite; no claim that Playground is for long-term DS maintenance.
 - [x] `npm run preview` still documented as the disk-watch stress path.
-- [ ] Fixtures chips + param knobs UX polish *(P1)*
-- [ ] `systems/*-lite` veracity packs *(P1)*
+- [x] Fixtures chips + param knobs UX polish *(P1)*
+- [x] `systems/*-lite` veracity packs *(P1 — Airbnb-lite)*
 
 ---
 

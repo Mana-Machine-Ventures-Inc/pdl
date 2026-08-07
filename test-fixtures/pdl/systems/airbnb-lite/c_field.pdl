@@ -1,0 +1,44 @@
+import "foundation.pdl"
+
+component AbnField(
+  label: String = "Email",
+  value: String = "you@example.com",
+  helper: String = "We never share your address."
+) layout {
+  direction = .column
+  align = .stretch
+  gap = abn.space.xs
+  padding = EdgeInsets(x: 0, y: abn.space.sm)
+
+  let Lab: text = {
+    content = label
+    style = AbnCaption
+    color = abn.color.textMuted
+  }
+
+  let Box: layout = {
+    direction = .row
+    align = .center
+    padding = EdgeInsets(x: 12, y: 12)
+    cornerRadius = abn.radius.sm
+    borderWidth = 1
+    borderColor = abn.color.border
+    background = abn.color.surface
+
+    let Val: text = {
+      content = value
+      style = AbnBody
+      color = abn.color.text
+    }
+
+    children = [Val]
+  }
+
+  let Help: text = {
+    content = helper
+    style = AbnCaption
+    color = abn.color.textMuted
+  }
+
+  children = [Lab, Box, Help]
+}

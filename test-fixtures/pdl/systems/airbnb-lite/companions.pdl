@@ -1,0 +1,53 @@
+import "c_button.pdl"
+import "c_field.pdl"
+import "c_chip.pdl"
+
+fixtures AbnButton {
+  example "Primary large" {
+    label = "Reserve"
+    tone = .primary
+    size = .lg
+  }
+  example "Secondary small" {
+    label = "Message host"
+    tone = .secondary
+    size = .sm
+  }
+  example "Ghost dismiss" {
+    label = "Not now"
+    tone = .ghost
+    size = .sm
+  }
+}
+
+fixtures AbnField {
+  example "Email" {
+    label = "Email"
+    value = "guest@airbnb.com"
+    helper = "Confirmation goes here."
+  }
+  example "Phone" {
+    label = "Phone"
+    value = "+1 415 555 0132"
+    helper = ""
+  }
+}
+
+fixtures AbnChip {
+  example "Selected" {
+    title = "Homes"
+    state = .selected
+  }
+  example "Idle" {
+    title = "Experiences"
+    state = .idle
+  }
+}
+
+usage AbnButton {
+  description = "Airbnb-lite text button — primary coral, secondary teal, ghost neutral."
+}
+
+usage AbnField {
+  description = "Labeled field with value row and optional helper."
+}
