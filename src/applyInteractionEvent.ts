@@ -54,6 +54,12 @@ export function evaluateSerialisedCondition(cond: unknown, params: ParamMap): bo
       if (c.op === "!=") return ls !== rs;
       return ls === rs;
     }
+    case "truthy": {
+      const v = params[String(c.param)];
+      if (typeof v === "boolean") return v;
+      const s = v === undefined || v === null ? "" : String(v);
+      return s === "true" || s === "1";
+    }
     case "and":
       return ((c.items as unknown[]) ?? []).every((x) => evaluateSerialisedCondition(x, params));
     case "or":
@@ -129,7 +135,7 @@ function runHandlerBody(
       emits.push({ name: item.name, args: Array.isArray(item.args) ? item.args.map(String) : [] });
       continue;
     }
-    if (item.kind === "animate") {
+    if (item.kind === "animate" || item.kind === "hostVerb") {
       continue;
     }
     if (item.kind === "if" && item.chain) {

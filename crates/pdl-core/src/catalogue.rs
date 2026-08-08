@@ -163,6 +163,14 @@ fn serialise_interaction_handler_item(item: &InteractionHandlerItem) -> Value {
                 Value::Array(args.iter().map(|a| Value::String(a.clone())).collect()),
             ),
         ]),
+        InteractionHandlerItem::HostVerb { name, args } => obj(vec![
+            ("kind", Value::String("hostVerb".to_string())),
+            ("name", Value::String(name.clone())),
+            (
+                "args",
+                Value::Array(args.iter().map(|a| Value::String(a.clone())).collect()),
+            ),
+        ]),
         InteractionHandlerItem::If { chain } => obj(vec![
             ("kind", Value::String("if".to_string())),
             ("chain", serialise_interaction_if_chain(chain)),
@@ -1057,6 +1065,13 @@ pub fn build_catalogue_component_row(
     if let Some(proto) = &c.conforms_to {
         out.insert("conformsTo".to_string(), Value::String(proto.clone()));
     }
+    let host_protos = crate::design::effective_host_protocols(design, c).unwrap_or_default();
+    if !host_protos.is_empty() {
+        out.insert(
+            "hostProtocols".to_string(),
+            Value::Array(host_protos.into_iter().map(Value::String).collect()),
+        );
+    }
     out.insert("params".to_string(), catalogue_params(design, c, tokens)?);
     out.insert("expose".to_string(), Value::Array(expose_arr));
     out.insert("usage".to_string(), Value::String(usage_str));
@@ -1184,9 +1199,28 @@ pub fn build_component_catalogue(
     doc.insert("themes".to_string(), layers.themes);
     doc.insert("typeStyles".to_string(), layers.type_styles);
     doc.insert("variantTypes".to_string(), Value::Object(variant_types));
-    if !design.protocols.is_empty() {
+    // Prelude host protocols are always in the design map for validation, but only
+    // appear in the catalogue when referenced (conformsTo / requires).
+    let protocols_for_catalogue: Vec<&crate::ast::ProtocolDecl> = design
+        .protocols
+        .values()
+        .filter(|p| {
+            if !crate::design::is_host_protocol_prelude(&p.name) {
+                return true;
+            }
+            let referenced = design
+                .components
+                .values()
+                .any(|c| c.conforms_to.as_deref() == Some(p.name.as_str()))
+                || design.protocols.values().any(|other| {
+                    other.requires.iter().any(|r| r == &p.name)
+                });
+            referenced
+        })
+        .collect();
+    if !protocols_for_catalogue.is_empty() {
         let mut protocols = Map::new();
-        for p in design.protocols.values() {
+        for p in &protocols_for_catalogue {
             let params: Vec<Value> = p
                 .params
                 .iter()
@@ -1223,6 +1257,22 @@ pub fn build_component_catalogue(
                 .collect();
             let mut row = Map::new();
             row.insert("name".to_string(), Value::String(p.name.clone()));
+            let role = match p.role {
+                crate::ast::ProtocolRole::Host => "host",
+                crate::ast::ProtocolRole::Api => "api",
+            };
+            let subject = match p.role {
+                crate::ast::ProtocolRole::Host => "host",
+                crate::ast::ProtocolRole::Api => "component",
+            };
+            row.insert("role".to_string(), Value::String(role.to_string()));
+            row.insert("subject".to_string(), Value::String(subject.to_string()));
+            if !p.requires.is_empty() {
+                row.insert(
+                    "requires".to_string(),
+                    Value::Array(p.requires.iter().cloned().map(Value::String).collect()),
+                );
+            }
             row.insert("params".to_string(), Value::Array(params));
             if !p.emits.is_empty() {
                 let emits: Vec<Value> = p
@@ -1253,6 +1303,17 @@ pub fn build_component_catalogue(
             protocols.insert(p.name.clone(), Value::Object(row));
         }
         doc.insert("protocols".to_string(), Value::Object(protocols));
+        let mut roles = Map::new();
+        for p in &protocols_for_catalogue {
+            let role = match p.role {
+                crate::ast::ProtocolRole::Host => "host",
+                crate::ast::ProtocolRole::Api => "api",
+            };
+            roles.insert(p.name.clone(), Value::String(role.to_string()));
+        }
+        if !roles.is_empty() {
+            doc.insert("protocolRoles".to_string(), Value::Object(roles));
+        }
     }
     doc.insert("components".to_string(), Value::Object(components));
 

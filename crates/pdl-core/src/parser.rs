@@ -62,23 +62,23 @@ impl Parser {
         let mut declarations: Vec<TopLevelDecl> = Vec::new();
         while !self.is(TokenKind::Eof) {
             let decl = self.parse_top_level()?;
-            // Inline `} interaction { … }` is attached after a component via a
-            // follow-up `interaction` keyword (synthetic name `default`).
-            if let TopLevelDecl::Component(ref c) = decl {
+            if let TopLevelDecl::Component(mut c) = decl {
                 let name = c.name.clone();
-                declarations.push(decl);
-                // Trailing `} emits { … }` then optional `} interaction { … }`.
-                if self.is(TokenKind::Emits) && self.peek_ahead_kind(1) == TokenKind::LBrace {
-                    declarations.push(TopLevelDecl::Emits(self.parse_inline_emits(name.clone())?));
+                let host_handlers = extract_host_handlers(&mut c.body);
+                declarations.push(TopLevelDecl::Component(c));
+                if !host_handlers.is_empty() {
+                    declarations.push(TopLevelDecl::Interaction(InteractionDecl {
+                        name: "default".to_string(),
+                        component: name.clone(),
+                        handlers: host_handlers,
+                    }));
                 }
-                // Inline form is `interaction { … }` (brace immediately).
-                // External `interaction Name for Component { … }` stays a top-level decl.
-                if self.is(TokenKind::Interaction)
-                    && self.peek_ahead_kind(1) == TokenKind::LBrace
-                {
-                    declarations.push(TopLevelDecl::Interaction(
-                        self.parse_inline_interaction(name)?,
-                    ));
+                // Trailing `} emits { … }` after the component.
+                if self.is(TokenKind::Emits) && self.peek_ahead_kind(1) == TokenKind::LBrace {
+                    declarations.push(TopLevelDecl::Emits(self.parse_inline_emits(name)?));
+                }
+                if self.is(TokenKind::Interaction) {
+                    return Err(self.err_interaction_removed());
                 }
             } else {
                 declarations.push(decl);
@@ -108,7 +108,7 @@ impl Parser {
                 "PDL-E001",
                 "`expose` was removed from PDL; all component parameters are public (use `emits` for output)",
             )),
-            TokenKind::Interaction => Ok(TopLevelDecl::Interaction(self.parse_interaction()?)),
+            TokenKind::Interaction => Err(self.err_interaction_removed()),
             TokenKind::Emits => Ok(TopLevelDecl::Emits(self.parse_emits_decl()?)),
             TokenKind::Fixtures => Ok(TopLevelDecl::Fixtures(self.parse_fixtures()?)),
             TokenKind::Usage => Ok(TopLevelDecl::Usage(self.parse_usage()?)),
@@ -279,19 +279,12 @@ impl Parser {
         Ok(VariantDecl { name, cases })
     }
 
-    fn parse_interaction(&mut self) -> Result<InteractionDecl, PdlError> {
-        self.consume(TokenKind::Interaction)?;
-        let name = self.consume(TokenKind::Ident)?.value;
-        self.consume(TokenKind::For)?;
-        let component = self.consume(TokenKind::Ident)?.value;
-        self.consume(TokenKind::LBrace)?;
-        let handlers = self.parse_interaction_handlers_block()?;
-        self.consume(TokenKind::RBrace)?;
-        Ok(InteractionDecl {
-            name,
-            component,
-            handlers,
-        })
+    fn err_interaction_removed(&self) -> PdlError {
+        self.err_code(
+            "PDL-E001",
+            "`interaction` blocks were removed; wire host channels with \
+             `[self.]<channel> = { … }` in the component kind body (§4a′ / §8)",
+        )
     }
 
     /// Inline trailing block: `emits { select(filter: FilterId) … }` after a component.
@@ -301,32 +294,6 @@ impl Parser {
         let emits = self.parse_emits_list_body()?;
         self.consume(TokenKind::RBrace)?;
         Ok(EmitsDecl { component, emits })
-    }
-
-    /// Inline trailing block: `interaction { on … { … } }` (name = `default`).
-    fn parse_inline_interaction(&mut self, component: String) -> Result<InteractionDecl, PdlError> {
-        self.consume(TokenKind::Interaction)?;
-        self.consume(TokenKind::LBrace)?;
-        let handlers = self.parse_interaction_handlers_block()?;
-        self.consume(TokenKind::RBrace)?;
-        Ok(InteractionDecl {
-            name: "default".to_string(),
-            component,
-            handlers,
-        })
-    }
-
-    fn parse_interaction_handlers_block(&mut self) -> Result<Vec<InteractionHandler>, PdlError> {
-        let mut handlers: Vec<InteractionHandler> = Vec::new();
-        while !self.is(TokenKind::RBrace) {
-            self.consume(TokenKind::On)?;
-            let event = self.consume(TokenKind::Ident)?.value;
-            self.consume(TokenKind::LBrace)?;
-            let body = self.parse_interaction_handler_body()?;
-            self.consume(TokenKind::RBrace)?;
-            handlers.push(InteractionHandler { event, body });
-        }
-        Ok(handlers)
     }
 
     fn parse_emits_list_body(&mut self) -> Result<Vec<ProtocolEmitDecl>, PdlError> {
@@ -441,6 +408,37 @@ impl Parser {
             } else {
                 self.consume(TokenKind::Ident)?.value
             };
+            // Host verb: `beginEditing(value)` / `cancelEditing()`
+            if self.is(TokenKind::LParen) {
+                self.advance();
+                let mut args = Vec::new();
+                if !self.is(TokenKind::RParen) {
+                    loop {
+                        if self.is(TokenKind::SelfKw) {
+                            self.advance();
+                            if self.is(TokenKind::Dot) {
+                                self.advance();
+                                let m = self.consume(TokenKind::Ident)?.value;
+                                args.push(format!("self.{m}"));
+                            } else {
+                                args.push("self".to_string());
+                            }
+                        } else {
+                            args.push(self.consume(TokenKind::Ident)?.value);
+                        }
+                        if self.is(TokenKind::RParen) {
+                            break;
+                        }
+                        self.consume(TokenKind::Comma)?;
+                    }
+                }
+                self.consume(TokenKind::RParen)?;
+                items.push(InteractionHandlerItem::HostVerb {
+                    name: param,
+                    args,
+                });
+                continue;
+            }
             self.consume(TokenKind::Eq)?;
             items.push(InteractionHandlerItem::Assign {
                 param,
@@ -982,19 +980,77 @@ impl Parser {
     fn parse_protocol(&mut self) -> Result<ProtocolDecl, PdlError> {
         self.consume(TokenKind::Protocol)?;
         let name = self.consume(TokenKind::Ident)?.value;
+        // API protocols: `protocol Name: component { … }`
+        // Host protocols: `protocol Name { host }` (no `: component`)
+        let mut component_subject = false;
+        if self.is(TokenKind::Colon) {
+            self.advance();
+            if !self.is(TokenKind::Component) {
+                return Err(self.err(format!(
+                    "Protocol `{name}` subject must be `component` \
+                     (write `protocol {name}: component {{ … }}`); \
+                     frame kinds are declared on conforming components (§4a)"
+                )));
+            }
+            self.advance();
+            component_subject = true;
+        }
         self.consume(TokenKind::LBrace)?;
         let mut params: Vec<ComponentParam> = Vec::new();
         let mut emits: Vec<ProtocolEmitDecl> = Vec::new();
+        let mut requires: Vec<String> = Vec::new();
+        let mut role = ProtocolRole::Api;
         while !self.is(TokenKind::RBrace) {
             if self.is(TokenKind::Emits) {
                 emits = self.parse_protocol_emits_block()?;
                 continue;
             }
+            if self.is(TokenKind::Requires) {
+                self.advance();
+                let dep = self.consume(TokenKind::Ident)?.value;
+                if requires.iter().any(|r| r == &dep) {
+                    return Err(self.err(format!(
+                        "Protocol `{name}` lists `requires {dep}` more than once"
+                    )));
+                }
+                requires.push(dep);
+                continue;
+            }
+            if self.is(TokenKind::Host) {
+                self.advance();
+                role = ProtocolRole::Host;
+                continue;
+            }
             params.push(self.parse_protocol_param()?);
         }
         self.consume(TokenKind::RBrace)?;
+        if role == ProtocolRole::Host {
+            if component_subject {
+                return Err(self.err(format!(
+                    "Host protocol `{name}` must not declare `: component` \
+                     (write `protocol {name} {{ host }}`)"
+                )));
+            }
+            if !params.is_empty() {
+                return Err(self.err(format!(
+                    "Host protocol `{name}` cannot declare params (host powers use ambient channels / verbs)"
+                )));
+            }
+            if !emits.is_empty() {
+                return Err(self.err(format!(
+                    "Host protocol `{name}` cannot declare `emits` (use API protocols for child→parent intents)"
+                )));
+            }
+        } else if !component_subject {
+            return Err(self.err(format!(
+                "API protocol `{name}` must declare subject `component` \
+                 (write `protocol {name}: component {{ … }}`; host protocols use `{{ host }}`)"
+            )));
+        }
         Ok(ProtocolDecl {
             name,
+            role,
+            requires,
             params,
             emits,
         })
@@ -1088,9 +1144,24 @@ impl Parser {
             });
         }
         if self.is(TokenKind::On) {
-            return Ok(FrameBodyItem::LayoutOn {
-                handler: self.parse_layout_on_handler()?,
-            });
+            return Err(self.err(
+                "Layout `on` is not allowed; capture declared emits with \
+                 `channel(…) = { … }` or `qualifier.channel(…) = { … }` (§4e). \
+                 Host inbound uses `[self.]<channel> = { … }` in the kind body (§4a′ / §8)."
+                    .to_string(),
+            ));
+        }
+
+        // Host inbound: `self.pressEnd = { … }` (`self.` optional / clarifying)
+        if self.is(TokenKind::SelfKw) {
+            self.advance();
+            self.consume(TokenKind::Dot)?;
+            let event = self.consume(TokenKind::Ident)?.value;
+            self.consume(TokenKind::Eq)?;
+            self.consume(TokenKind::LBrace)?;
+            let body = self.parse_interaction_handler_body()?;
+            self.consume(TokenKind::RBrace)?;
+            return Ok(FrameBodyItem::HostHandler { event, body });
         }
 
         let id = self.peek().clone();
@@ -1101,13 +1172,32 @@ impl Parser {
                 self.advance();
                 return self.parse_foreach();
             }
+            if self.looks_like_emit_capture_assign() {
+                return Ok(FrameBodyItem::LayoutOn {
+                    handler: self.parse_emit_capture_handler()?,
+                });
+            }
+            // Bare host inbound: `pressEnd = { … }` (same as `self.pressEnd = { … }`)
+            if self.peek_ahead_kind(1) == TokenKind::Eq
+                && self.peek_ahead_kind(2) == TokenKind::LBrace
+            {
+                self.advance();
+                self.consume(TokenKind::Eq)?;
+                self.consume(TokenKind::LBrace)?;
+                let body = self.parse_interaction_handler_body()?;
+                self.consume(TokenKind::RBrace)?;
+                return Ok(FrameBodyItem::HostHandler {
+                    event: name,
+                    body,
+                });
+            }
             self.advance();
             if self.is(TokenKind::Dot) {
                 self.consume(TokenKind::Dot)?;
                 let field = self.consume(TokenKind::Ident)?.value;
                 if field == "children" {
                     self.consume(TokenKind::Eq)?;
-                    let entries = self.parse_children_list()?;
+                    let entries = self.parse_children_rhs()?;
                     return Ok(FrameBodyItem::Children {
                         target: ChildrenTarget::Let { let_id: name },
                         entries,
@@ -1128,7 +1218,7 @@ impl Parser {
             if self.is(TokenKind::Eq) {
                 self.advance();
                 if name == "children" {
-                    let entries = self.parse_children_list()?;
+                    let entries = self.parse_children_rhs()?;
                     return Ok(FrameBodyItem::Children {
                         target: ChildrenTarget::Root,
                         entries,
@@ -1154,25 +1244,103 @@ impl Parser {
         let list = self.consume(TokenKind::Ident)?.value;
         self.consume(TokenKind::RParen)?;
         self.consume(TokenKind::LBrace)?;
+        // Required binder: `ForEach(chips) { chip in … }`
+        let item = self.consume(TokenKind::Ident)?.value;
+        if !self.is(TokenKind::In) {
+            return Err(self.err(format!(
+                "ForEach(`{list}`) requires an item binder: \
+                 `ForEach({list}) {{ <name> in … }}` (§4e)"
+            )));
+        }
+        self.advance(); // `in`
         let mut binds = indexmap::IndexMap::new();
         let mut handlers = Vec::new();
         while !self.is(TokenKind::RBrace) {
             if self.is(TokenKind::On) {
-                handlers.push(self.parse_layout_on_handler()?);
+                return Err(self.err(format!(
+                    "Layout `on` is not allowed inside ForEach; use \
+                     `{item}.channel(…) = {{ … }}` for declared emit capture (§4e)."
+                )));
+            }
+            if self.looks_like_emit_capture_assign() {
+                let mut handler = self.parse_emit_capture_handler()?;
+                match handler.qualifier.as_deref() {
+                    Some(q) if q == item => {
+                        // Binder-qualified capture → catalogue uses the list name.
+                        handler.qualifier = None;
+                    }
+                    Some(q) => {
+                        return Err(self.err(format!(
+                            "ForEach(`{list}`) emit capture qualifier `{q}` must be the \
+                             item binder `{item}` (write `{item}.{}(…) = {{ … }}`)",
+                            handler.channel
+                        )));
+                    }
+                    None => {
+                        return Err(self.err(format!(
+                            "ForEach(`{list}`) emit capture must be binder-qualified: \
+                             `{item}.{}(…) = {{ … }}` (§4e)",
+                            handler.channel
+                        )));
+                    }
+                }
+                handlers.push(handler);
                 continue;
             }
-            // derived bind: itemParam: expr (value or condition)
+            // Item override: `item.field = expr`
+            let qual = self.consume(TokenKind::Ident)?.value;
+            if qual != item {
+                return Err(self.err(format!(
+                    "ForEach(`{list}`) body must qualify overrides with binder `{item}` \
+                     (got `{qual}`); write `{item}.… = …`"
+                )));
+            }
+            self.consume(TokenKind::Dot)?;
             let param = self.consume(TokenKind::Ident)?.value;
-            self.consume(TokenKind::Colon)?;
+            self.consume(TokenKind::Eq)?;
             let value = self.parse_value_expr()?;
             binds.insert(param, value);
         }
         self.consume(TokenKind::RBrace)?;
         Ok(FrameBodyItem::ForEach {
             list,
+            item,
             binds,
             handlers,
         })
+    }
+
+    /// Emit capture: `channel(…) = {` / `qual.channel(…) = {` — parentheses required
+    /// so bare `pressEnd = { … }` can mean host inbound (§4a′).
+    fn looks_like_emit_capture_assign(&self) -> bool {
+        if self.peek().kind != TokenKind::Ident {
+            return false;
+        }
+        let mut i = 1usize;
+        if self.peek_ahead_kind(i) == TokenKind::Dot {
+            if self.peek_ahead_kind(i + 1) != TokenKind::Ident {
+                return false;
+            }
+            i += 2;
+        }
+        if self.peek_ahead_kind(i) != TokenKind::LParen {
+            return false;
+        }
+        i += 1;
+        let mut depth = 1i32;
+        while depth > 0 {
+            let k = self.peek_ahead_kind(i);
+            if k == TokenKind::Eof {
+                return false;
+            }
+            if k == TokenKind::LParen {
+                depth += 1;
+            } else if k == TokenKind::RParen {
+                depth -= 1;
+            }
+            i += 1;
+        }
+        self.peek_ahead_kind(i) == TokenKind::Eq && self.peek_ahead_kind(i + 1) == TokenKind::LBrace
     }
 
     /// `ident` / `self.ident` followed by `==` / `!=` (comparison bind / if-cond).
@@ -1195,8 +1363,8 @@ impl Parser {
         false
     }
 
-    fn parse_layout_on_handler(&mut self) -> Result<LayoutOnHandler, PdlError> {
-        self.consume(TokenKind::On)?;
+    /// `select(…) = { … }` / `Field.change(…) = { … }` / ForEach `chip.select(…) = { … }`
+    fn parse_emit_capture_handler(&mut self) -> Result<LayoutOnHandler, PdlError> {
         let first = self.consume(TokenKind::Ident)?.value;
         let (qualifier, channel) = if self.is(TokenKind::Dot) {
             self.advance();
@@ -1225,6 +1393,7 @@ impl Parser {
             }
             self.consume(TokenKind::RParen)?;
         }
+        self.consume(TokenKind::Eq)?;
         self.consume(TokenKind::LBrace)?;
         let mut body = Vec::new();
         while !self.is(TokenKind::RBrace) {
@@ -1801,6 +1970,15 @@ impl Parser {
         Ok(args)
     }
 
+    /// `children = […]` or bare `children = chips` (§4b / §4e sugar).
+    fn parse_children_rhs(&mut self) -> Result<Vec<ChildEntry>, PdlError> {
+        if self.is(TokenKind::Ident) && self.peek_ahead_kind(1) != TokenKind::LParen {
+            let id = self.consume(TokenKind::Ident)?.value;
+            return Ok(vec![ChildEntry::FrameRef { id }]);
+        }
+        self.parse_children_list()
+    }
+
     fn parse_children_list(&mut self) -> Result<Vec<ChildEntry>, PdlError> {
         self.consume(TokenKind::LBracket)?;
         let mut out: Vec<ChildEntry> = Vec::new();
@@ -1965,6 +2143,22 @@ fn is_kw_call_start(kind: TokenKind) -> bool {
             | TokenKind::Media
             | TokenKind::Vibrancy
     )
+}
+
+/// Lift `self.<channel> = { … }` items out of a kind body into interaction handlers.
+fn extract_host_handlers(body: &mut Vec<FrameBodyItem>) -> Vec<InteractionHandler> {
+    let mut handlers = Vec::new();
+    let mut rest = Vec::new();
+    for item in std::mem::take(body) {
+        match item {
+            FrameBodyItem::HostHandler { event, body } => {
+                handlers.push(InteractionHandler { event, body });
+            }
+            other => rest.push(other),
+        }
+    }
+    *body = rest;
+    handlers
 }
 
 pub fn parse_module_source(source: &str, path: &str) -> Result<ModuleAst, PdlError> {

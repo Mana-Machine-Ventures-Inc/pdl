@@ -202,6 +202,7 @@
           }
         }
       },
+      "conformsTo": "PointerInput",
       "defaultParams": {
         "helper": "We never share your address.",
         "label": "Email",
@@ -213,6 +214,43 @@
         "value",
         "helper",
         "layoutMode"
+      ],
+      "hostProtocols": [
+        "PointerInput"
+      ],
+      "interactions": [
+        {
+          "component": "MoleculeFieldBlock",
+          "handlers": [
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "layoutMode",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".noHelp"
+                  }
+                }
+              ],
+              "event": "hoverStart"
+            },
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "layoutMode",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".includeHelp"
+                  }
+                }
+              ],
+              "event": "hoverEnd"
+            }
+          ],
+          "name": "default"
+        }
       ],
       "name": "MoleculeFieldBlock",
       "params": [
@@ -303,7 +341,7 @@
           "F0__Help"
         ],
         "F0__Box": [
-          "F0__Val"
+          "F0__Box__Val"
         ],
         "F1": [
           "F1__Lab",
@@ -311,7 +349,7 @@
           "F1__Help"
         ],
         "F1__Box": [
-          "F1__Val"
+          "F1__Box__Val"
         ],
         "Root": [
           "F0",
@@ -412,6 +450,14 @@
             }
           }
         },
+        "F0__Box__Val": {
+          "id": "F0__Box__Val",
+          "kind": "text",
+          "props": {
+            "content": "param:value",
+            "typeStyle": "typeStyle:AtomBody"
+          }
+        },
         "F0__Help": {
           "id": "F0__Help",
           "kind": "text",
@@ -426,14 +472,6 @@
           "props": {
             "content": "param:label",
             "typeStyle": "typeStyle:AtomCaption"
-          }
-        },
-        "F0__Val": {
-          "id": "F0__Val",
-          "kind": "text",
-          "props": {
-            "content": "param:value",
-            "typeStyle": "typeStyle:AtomBody"
           }
         },
         "F1": {
@@ -474,6 +512,14 @@
             }
           }
         },
+        "F1__Box__Val": {
+          "id": "F1__Box__Val",
+          "kind": "text",
+          "props": {
+            "content": "param:value",
+            "typeStyle": "typeStyle:AtomBody"
+          }
+        },
         "F1__Help": {
           "id": "F1__Help",
           "kind": "text",
@@ -488,14 +534,6 @@
           "props": {
             "content": "param:label",
             "typeStyle": "typeStyle:AtomCaption"
-          }
-        },
-        "F1__Val": {
-          "id": "F1__Val",
-          "kind": "text",
-          "props": {
-            "content": "param:value",
-            "typeStyle": "typeStyle:AtomBody"
           }
         },
         "Save": {
@@ -575,6 +613,7 @@
           }
         }
       },
+      "conformsTo": "PointerInput",
       "defaultParams": {
         "label": "Button",
         "size": "sm",
@@ -584,6 +623,43 @@
         "label",
         "tone",
         "size"
+      ],
+      "hostProtocols": [
+        "PointerInput"
+      ],
+      "interactions": [
+        {
+          "component": "MoleculeTextButton",
+          "handlers": [
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "tone",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".secondary"
+                  }
+                }
+              ],
+              "event": "hoverStart"
+            },
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "tone",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".primary"
+                  }
+                }
+              ],
+              "event": "hoverEnd"
+            }
+          ],
+          "name": "default"
+        }
       ],
       "name": "MoleculeTextButton",
       "params": [
@@ -1097,6 +1173,16 @@
       },
       "name": "atoms.vibrancy.subtle",
       "tokenType": "Vibrancy"
+    }
+  },
+  "protocolRoles": {
+    "PointerInput": "host"
+  },
+  "protocols": {
+    "PointerInput": {
+      "name": "PointerInput",
+      "role": "host",
+      "subject": "host"
     }
   },
   "schemaVersion": "1.0.0-beta",

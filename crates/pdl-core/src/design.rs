@@ -17,6 +17,34 @@ use crate::validate::validate_merged_design;
 /// Merged `usage` values per key (v1: typically `description`).
 pub type UsageKeyMap = IndexMap<String, String>;
 
+/// Well-known host protocols always in scope (language prelude — not imported).
+/// Documented in `docs/full-spec.md` §4a host matrix; hosts must implement these.
+pub const HOST_PROTOCOL_PRELUDE: &[&str] = &["PointerInput", "EditableText"];
+
+/// Whether `name` is a prelude host protocol.
+pub fn is_host_protocol_prelude(name: &str) -> bool {
+    HOST_PROTOCOL_PRELUDE.iter().any(|n| *n == name)
+}
+
+fn host_protocol_prelude_decl(name: &str) -> ProtocolDecl {
+    ProtocolDecl {
+        name: name.to_string(),
+        role: ProtocolRole::Host,
+        requires: Vec::new(),
+        params: Vec::new(),
+        emits: Vec::new(),
+    }
+}
+
+/// Ensure prelude host protocols exist in the merged map (pack decls win if already present).
+pub fn inject_host_protocol_prelude(protocols: &mut IndexMap<String, ProtocolDecl>) {
+    for &name in HOST_PROTOCOL_PRELUDE {
+        protocols
+            .entry(name.to_string())
+            .or_insert_with(|| host_protocol_prelude_decl(name));
+    }
+}
+
 /// Fully merged design (import closure + entry), pre-resolution.
 #[derive(Debug, Clone)]
 pub struct DesignDefinition {
@@ -38,6 +66,64 @@ pub struct DesignDefinition {
     pub interactions: IndexMap<String, IndexMap<String, InteractionDecl>>,
     /// Declared public emits per component (`emits C { … }` + protocol inheritance at catalogue time).
     pub emits: IndexMap<String, Vec<ProtocolEmitDecl>>,
+}
+
+/// Collect host protocols implied by conforming to `proto_name` (transitive `requires`).
+pub fn host_protocols_for_protocol(
+    design: &DesignDefinition,
+    proto_name: &str,
+) -> Result<Vec<String>, PdlError> {
+    let mut out = Vec::new();
+    let mut visiting = HashSet::new();
+    collect_host_protocols(design, proto_name, &mut out, &mut visiting)?;
+    Ok(out)
+}
+
+fn collect_host_protocols(
+    design: &DesignDefinition,
+    proto_name: &str,
+    out: &mut Vec<String>,
+    visiting: &mut HashSet<String>,
+) -> Result<(), PdlError> {
+    if !visiting.insert(proto_name.to_string()) {
+        return Err(PdlError::new(
+            "PDL-E006",
+            format!("Protocol `requires` cycle involving `{proto_name}`"),
+            Some(design.entry_path.clone()),
+            None,
+            None,
+        ));
+    }
+    let Some(p) = design.protocols.get(proto_name) else {
+        return Err(PdlError::new(
+            "PDL-E022",
+            format!("Unknown protocol `{proto_name}`"),
+            Some(design.entry_path.clone()),
+            None,
+            None,
+        ));
+    };
+    if p.role == ProtocolRole::Host {
+        if !out.iter().any(|n| n == proto_name) {
+            out.push(proto_name.to_string());
+        }
+    }
+    for dep in &p.requires {
+        collect_host_protocols(design, dep, out, visiting)?;
+    }
+    visiting.remove(proto_name);
+    Ok(())
+}
+
+/// Effective host protocols for a component (direct `<Host>` or via API `requires`).
+pub fn effective_host_protocols(
+    design: &DesignDefinition,
+    c: &ComponentDecl,
+) -> Result<Vec<String>, PdlError> {
+    let Some(proto) = &c.conforms_to else {
+        return Ok(Vec::new());
+    };
+    host_protocols_for_protocol(design, proto)
 }
 
 /// Effective emits for a component: protocol emits ∪ component-owned emits
@@ -402,6 +488,8 @@ fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefin
             }
         }
     }
+
+    inject_host_protocol_prelude(&mut protocols);
 
     Ok(DesignDefinition {
         entry_path: resolved_entry,

@@ -9,7 +9,7 @@ variant MoleculeCardMedia {
   case textOnly
 }
 
-component MoleculeCardArticle(
+component MoleculeCardArticle <PointerInput>(
   title: String = "Article",
   subtitle: String = "Supporting line",
   layoutMode: MoleculeCardMedia = .withHero
@@ -62,6 +62,13 @@ component MoleculeCardArticle(
     children = [Hero, Title, Sub, Actions]
   } else {
     children = [Title, Sub, Actions]
+  }
+
+  self.hoverStart = {
+    layoutMode = .textOnly
+  }
+  self.hoverEnd = {
+    layoutMode = .withHero
   }
 }
 

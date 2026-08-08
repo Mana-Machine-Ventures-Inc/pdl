@@ -66,6 +66,12 @@ export function evaluateCondition(c: ConditionExpr, paramValues: Record<string, 
       if (c.op === "==") return vs === rhs;
       return vs !== rhs;
     }
+    case "truthy": {
+      const v = paramValues[c.param];
+      if (typeof v === "boolean") return v;
+      const s = v === undefined ? "" : String(v);
+      return s === "true" || s === "1";
+    }
     case "and":
       return c.items.every((x) => evaluateCondition(x, paramValues));
     case "or":
@@ -193,6 +199,13 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
     }
     case "array":
       return expr.items.map((i) => evaluateValue(i, opts));
+    case "instance": {
+      const kwargs: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(expr.kwargs)) {
+        kwargs[k] = evaluateValue(v, opts);
+      }
+      return { kind: "instance", component: expr.component, kwargs };
+    }
     case "transition":
       return {
         duration: evaluateValue(expr.duration, opts),

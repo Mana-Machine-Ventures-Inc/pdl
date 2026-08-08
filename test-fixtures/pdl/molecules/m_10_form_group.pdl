@@ -8,7 +8,7 @@ variant MoleculeFieldBlockLayout {
   case noHelp
 }
 
-component MoleculeFieldBlock(
+component MoleculeFieldBlock <PointerInput>(
   label: String = "Email",
   value: String = "you@example.com",
   helper: String = "We never share your address.",
@@ -50,6 +50,13 @@ component MoleculeFieldBlock(
     children = [Lab, Box, Help]
   } else {
     children = [Lab, Box]
+  }
+
+  self.hoverStart = {
+    layoutMode = .noHelp
+  }
+  self.hoverEnd = {
+    layoutMode = .includeHelp
   }
 }
 

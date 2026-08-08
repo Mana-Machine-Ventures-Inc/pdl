@@ -220,7 +220,7 @@
               {
                 "children": [
                   {
-                    "id": "F0__Val",
+                    "id": "F0__Box__Val",
                     "kind": "text",
                     "props": {
                       "content": "Design"
@@ -284,7 +284,7 @@
               {
                 "children": [
                   {
-                    "id": "F1__Val",
+                    "id": "F1__Box__Val",
                     "kind": "text",
                     "props": {
                       "content": "Editor"

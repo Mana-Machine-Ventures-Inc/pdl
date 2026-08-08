@@ -1,5 +1,6 @@
 // B4–B5: emits + emit + ForEach layout `on` (FilterChip → LibrarySubnav).
 // Pattern A: parent owns FilterId SoT; ForEach derives Bool `selected` per chip.
+
 variant FilterId {
   case all
   case podcasts
@@ -13,7 +14,8 @@ variant ChipInteraction {
   case click
 }
 
-protocol SubnavItem {
+protocol SubnavItem: component {
+  requires PointerInput
   title = ""
   filter: FilterId = .all
   emits {
@@ -60,17 +62,17 @@ component FilterChip <SubnavItem>(
   }
 
   children = [Label]
-} interaction {
-  on hoverStart {
+
+  self.hoverStart = {
     interactionState = .hovered
   }
-  on hoverEnd {
+  self.hoverEnd = {
     interactionState = .rest
   }
-  on pressStart {
+  self.pressStart = {
     interactionState = .click
   }
-  on pressEnd {
+  self.pressEnd = {
     interactionState = .rest
     emit select(filter)
   }
@@ -90,11 +92,13 @@ component LibrarySubnav(
   gap = 8
   padding = EdgeInsets(x: 12, y: 12)
 
-  ForEach(chips) {
-    selected: self.currentFilter == filter
+  ForEach(chips) { chip in
+    chip.selected = self.currentFilter == filter
 
-    on select(filter_id: FilterId) {
+    chip.select(filter_id: FilterId) = {
       currentFilter = filter_id
     }
   }
+
+  children = chips
 }

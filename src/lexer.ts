@@ -11,6 +11,11 @@ export type TokenKind =
   | "theme"
   | "typeStyle"
   | "variant"
+  | "protocol"
+  | "requires"
+  | "host"
+  | "emits"
+  | "emit"
   | "component"
   | "interaction"
   | "expose"
@@ -23,6 +28,7 @@ export type TokenKind =
   | "else"
   | "on"
   | "for"
+  | "in"
   | "true"
   | "false"
   | "self"
@@ -103,6 +109,13 @@ const KEYWORDS = new Map<string, TokenKind>([
   ["theme", "theme"],
   ["typeStyle", "typeStyle"],
   ["variant", "variant"],
+  /** Surface alias for `variant` (same parse product); may diverge later. */
+  ["enum", "variant"],
+  ["protocol", "protocol"],
+  ["requires", "requires"],
+  ["host", "host"],
+  ["emits", "emits"],
+  ["emit", "emit"],
   ["component", "component"],
   ["interaction", "interaction"],
   ["expose", "expose"],
@@ -115,6 +128,7 @@ const KEYWORDS = new Map<string, TokenKind>([
   ["else", "else"],
   ["on", "on"],
   ["for", "for"],
+  ["in", "in"],
   ["true", "true"],
   ["false", "false"],
   ["self", "self"],
@@ -210,6 +224,27 @@ export function tokenize(source: string, filePath = "<input>"): Token[] {
       bump(2);
       while (i < source.length && source[i] !== "\n" && source[i] !== "\r") {
         bump(1);
+      }
+      continue;
+    }
+
+    if (c === "/" && source[i + 1] === "*") {
+      bump(2);
+      let closed = false;
+      while (i < source.length) {
+        if (source[i] === "*" && source[i + 1] === "/") {
+          bump(2);
+          closed = true;
+          break;
+        }
+        bump(1);
+      }
+      if (!closed) {
+        throw new PdlError("PDL-E001", "Unterminated block comment (expected `*/`)", {
+          path: filePath,
+          line: startLine,
+          column: startCol,
+        });
       }
       continue;
     }

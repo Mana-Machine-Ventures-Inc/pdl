@@ -32,7 +32,15 @@
         <span>Design pack</span>
         <select id="packSelect"></select>
       </label>
+      <div class="row pack-draft-row">
+        <button type="button" class="btn secondary" id="btnReloadPack" title="Discard browser draft and reload this pack from disk">
+          Reload from disk
+        </button>
+      </div>
       <p class="pack-desc" id="packDesc"></p>
+      <p class="hint" id="draftHint" hidden>
+        Browser draft restored — edits autosave here so a reload won’t lose them.
+      </p>
       <p class="hint" id="canvasHint">Select a file tab — its components (or imports) fill the canvas.</p>
 
       <div class="field" id="fixtureField">

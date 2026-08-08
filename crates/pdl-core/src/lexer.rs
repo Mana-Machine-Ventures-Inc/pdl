@@ -12,6 +12,10 @@ pub enum TokenKind {
     TypeStyle,
     Variant,
     Protocol,
+    /// `requires PointerInput` inside a protocol body.
+    Requires,
+    /// Bare `host` marker inside a protocol body (`protocol PointerInput { host }`).
+    Host,
     Component,
     Interaction,
     Expose,
@@ -26,6 +30,8 @@ pub enum TokenKind {
     Else,
     On,
     For,
+    /// `ForEach(list) { item in … }` binder introducer.
+    In,
     True,
     False,
     SelfKw,
@@ -108,8 +114,11 @@ fn keyword(raw: &str) -> Option<TokenKind> {
         "semantic" => TokenKind::Semantic,
         "theme" => TokenKind::Theme,
         "typeStyle" => TokenKind::TypeStyle,
-        "variant" => TokenKind::Variant,
+        // `enum` is a surface alias for `variant` (same AST / IR); may diverge later.
+        "variant" | "enum" => TokenKind::Variant,
         "protocol" => TokenKind::Protocol,
+        "requires" => TokenKind::Requires,
+        "host" => TokenKind::Host,
         "component" => TokenKind::Component,
         "interaction" => TokenKind::Interaction,
         "expose" => TokenKind::Expose,
@@ -124,6 +133,7 @@ fn keyword(raw: &str) -> Option<TokenKind> {
         "else" => TokenKind::Else,
         "on" => TokenKind::On,
         "for" => TokenKind::For,
+        "in" => TokenKind::In,
         "true" => TokenKind::True,
         "false" => TokenKind::False,
         "self" => TokenKind::SelfKw,
@@ -239,6 +249,29 @@ pub fn tokenize(source: &str, file_path: &str) -> Result<Vec<Token>, PdlError> {
             bump(2, &mut i, &mut line, &mut column, &chars);
             while i < chars.len() && chars[i] != '\n' && chars[i] != '\r' {
                 bump(1, &mut i, &mut line, &mut column, &chars);
+            }
+            continue;
+        }
+
+        if c == '/' && chars.get(i + 1).copied() == Some('*') {
+            bump(2, &mut i, &mut line, &mut column, &chars);
+            let mut closed = false;
+            while i < chars.len() {
+                if chars[i] == '*' && chars.get(i + 1).copied() == Some('/') {
+                    bump(2, &mut i, &mut line, &mut column, &chars);
+                    closed = true;
+                    break;
+                }
+                bump(1, &mut i, &mut line, &mut column, &chars);
+            }
+            if !closed {
+                return Err(err(
+                    "PDL-E001",
+                    "Unterminated block comment (expected `*/`)".to_string(),
+                    file_path,
+                    start_line,
+                    start_col,
+                ));
             }
             continue;
         }
@@ -533,6 +566,31 @@ pub fn tokenize(source: &str, file_path: &str) -> Result<Vec<Token>, PdlError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn skips_block_comments() {
+        let toks = tokenize(
+            r#"
+/*
+  ForEach(chips) { chip in
+    chip.title = "A"
+  }
+  */
+primitive color.black: Color = #000000
+"#,
+            "t.pdl",
+        )
+        .unwrap();
+        assert_eq!(toks[0].kind, TokenKind::Primitive);
+        assert!(!toks.iter().any(|t| t.value == "ForEach" || t.value == "chip"));
+    }
+
+    #[test]
+    fn rejects_unterminated_block_comment() {
+        let err = tokenize("/* still open\nprimitive x: Color = #000", "t.pdl").unwrap_err();
+        assert_eq!(err.code, "PDL-E001");
+        assert!(err.message.contains("Unterminated block comment"));
+    }
 
     #[test]
     fn tokenizes_primitive_line() {

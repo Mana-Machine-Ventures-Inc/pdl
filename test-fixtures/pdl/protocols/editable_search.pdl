@@ -1,0 +1,60 @@
+// EditableText host protocol demo — text kind + string bind + host verbs.
+// (v1 conditions do not compare String empties; placeholder is a separate idle content.)
+
+protocol FormField: component {
+  requires EditableText
+  requires PointerInput
+  value: String = ""
+  placeholder: String = ""
+  emits {
+    change(value: String)
+  }
+}
+
+component SearchField <FormField> (
+  value: String = "",
+  placeholder: String = "Search",
+  editing: Boolean = false
+) text {
+  editable = value
+  content = placeholder
+  fontSize = 15
+  color = #111111
+
+  if editing {
+    content = value
+    borderColor = #0066FF
+    borderWidth = 1
+  }
+
+  self.pressEnd = {
+    if editing {
+      // already editing — host owns the session
+    } else {
+      editing = true
+      beginEditing(value)
+    }
+  }
+  self.keyboardDismissed = {
+    editing = false
+    emit change(value)
+  }
+  self.keyboardCancelled = {
+    editing = false
+    cancelEditing()
+  }
+}
+
+component SearchBar(query: String = "") layout {
+  direction = .row
+  align = .center
+  gap = 8
+  padding = 12
+
+  let Field = SearchField(value: query)
+  children = [Field]
+
+  Field.change(value: String) = {
+    query = value
+  }
+}

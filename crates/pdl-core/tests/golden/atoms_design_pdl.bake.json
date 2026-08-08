@@ -961,6 +961,7 @@
     }
   },
   "generatedAt": "2026-08-05T23:45:16.506Z",
+  "previewBackground": "#F7F7F7",
   "provenance": {
     "bakeProfile": "system-defaults",
     "bakedTheme": null,

@@ -110,10 +110,17 @@ function serialiseInteractionHandlerItem(item: InteractionHandlerItem): unknown 
       return { kind: "assign", param: item.param, value: serialiseValueExpr(item.value) };
     case "animate":
       return { kind: "animate", value: serialiseValueExpr(item.value) };
+    case "emit":
+      return { kind: "emit", name: item.name, args: item.args };
+    case "hostVerb":
+      return { kind: "hostVerb", name: item.name, args: item.args };
     case "if":
       return { kind: "if", chain: serialiseInteractionIfChain(item.chain) };
-    default:
+    default: {
+      const _x: never = item;
+      void _x;
       return { kind: "unknown" };
+    }
   }
 }
 

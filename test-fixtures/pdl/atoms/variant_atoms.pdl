@@ -1,8 +1,15 @@
-// User-defined variant types (finite enums)
+// User-defined variant / enum types (finite closed sets; `enum` ≡ `variant`)
 
 variant AtomsAxis {
   case horizontal
   case vertical
+}
+
+// Surface alias — same IR as `variant`
+enum AtomsPhase {
+  case rest
+  case hovered
+  case pressed
 }
 
 variant AtomsSize {

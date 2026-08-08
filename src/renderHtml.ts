@@ -53,7 +53,8 @@ function flexJustifyContent(justify: unknown): string | undefined {
     spaceBetween: "space-between",
     spaceAround: "space-around",
     spaceEvenly: "space-evenly",
-    stretch: "flex-start",
+    // CSS Align supports stretch on flex containers in modern engines.
+    stretch: "stretch",
   };
   return m[justify];
 }
@@ -97,11 +98,38 @@ function firstColorFromFill(value: unknown): string | undefined {
   return undefined;
 }
 
+type VibrancyFilter = { saturate: number; brightness: number };
+
 type LayerOp =
   | { kind: "solid"; color: string }
   | { kind: "gradient"; css: string }
-  | { kind: "image"; url: string; objectFit?: string; opacity?: number }
-  | { kind: "blur"; px: number };
+  | {
+      kind: "image";
+      url: string;
+      objectFit?: string;
+      objectPosition?: string;
+      opacity?: number;
+    }
+  | { kind: "blur"; px: number; vibrancy?: VibrancyFilter }
+  | { kind: "vibrancy"; vibrancy: VibrancyFilter };
+
+function vibrancyFromValue(v: unknown): VibrancyFilter | undefined {
+  if (v === null || typeof v !== "object" || Array.isArray(v)) return undefined;
+  const o = v as Record<string, unknown>;
+  // Nested `{ kind: "vibrancy", vibrancy: { saturation, brightness } }` or bare tuple object.
+  const inner =
+    o.kind === "vibrancy" && o.vibrancy !== null && typeof o.vibrancy === "object"
+      ? (o.vibrancy as Record<string, unknown>)
+      : o;
+  const sat = finiteNum(inner.saturation);
+  const bri = finiteNum(inner.brightness);
+  if (sat === undefined && bri === undefined) return undefined;
+  return { saturate: sat ?? 1, brightness: bri ?? 1 };
+}
+
+function vibrancyBackdropFilter(v: VibrancyFilter): string {
+  return `saturate(${String(v.saturate)}) brightness(${String(v.brightness)})`;
+}
 
 function dotEnumValue(v: unknown): string | undefined {
   if (typeof v === "string") return v;
@@ -214,6 +242,24 @@ function backgroundSizeFromContentMode(mode: unknown): string | undefined {
   return m[mode];
 }
 
+/** Maps baked `objectPosition` enum to CSS `object-position` / `background-position`. */
+function objectPositionCss(pos: unknown): string | undefined {
+  const raw = typeof pos === "string" ? pos : dotEnumValue(pos);
+  if (!raw) return undefined;
+  const m: Record<string, string> = {
+    center: "center",
+    top: "top",
+    bottom: "bottom",
+    left: "left",
+    right: "right",
+    topLeft: "top left",
+    topRight: "top right",
+    bottomLeft: "bottom left",
+    bottomRight: "bottom right",
+  };
+  return m[raw];
+}
+
 function flattenLayerOps(fill: unknown): LayerOp[] {
   const out: LayerOp[] = [];
 
@@ -234,7 +280,15 @@ function flattenLayerOps(fill: unknown): LayerOp[] {
     const k = o.kind;
     if (k === "blur") {
       const px = finiteNum(o.blur);
-      if (px !== undefined && px > 0) out.push({ kind: "blur", px });
+      if (px !== undefined && px > 0) {
+        const vib = vibrancyFromValue(o.vibrancy);
+        out.push({ kind: "blur", px, ...(vib ? { vibrancy: vib } : {}) });
+      }
+      return;
+    }
+    if (k === "vibrancy") {
+      const vib = vibrancyFromValue(o);
+      if (vib) out.push({ kind: "vibrancy", vibrancy: vib });
       return;
     }
     if (k === "ramp") {
@@ -246,17 +300,19 @@ function flattenLayerOps(fill: unknown): LayerOp[] {
       const src = typeof o.source === "string" ? o.source : "";
       if (src.length > 0 && isResolvableImageUrl(src)) {
         const objectFit = backgroundSizeFromContentMode(o.contentMode) ?? "cover";
+        const objectPosition = objectPositionCss(o.objectPosition);
         const opacity = finiteNum(o.opacity);
         out.push({
           kind: "image",
           url: src,
           objectFit,
+          ...(objectPosition ? { objectPosition } : {}),
           ...(opacity !== undefined ? { opacity } : {}),
         });
       }
       return;
     }
-    if (k === "gradientStop" || k === "vibrancy") return;
+    if (k === "gradientStop") return;
   };
 
   walk(fill);
@@ -287,11 +343,12 @@ function renderLayerOpDiv(op: LayerOp, index: number): string {
   }
   if (op.kind === "image") {
     const fit = op.objectFit ?? "cover";
+    const pos = op.objectPosition ?? "center";
     const parts = [
       ...base,
       "background-color:transparent",
       `background-image:url(${JSON.stringify(op.url)})`,
-      "background-position:center",
+      `background-position:${pos}`,
       "background-repeat:no-repeat",
       `background-size:${fit}`,
     ];
@@ -301,12 +358,24 @@ function renderLayerOpDiv(op: LayerOp, index: number): string {
     return `<div style="${escapeStyleAttr(parts.join(";"))}"></div>`;
   }
   if (op.kind === "blur") {
-    const px = op.px;
+    const parts = [`blur(${String(op.px)}px)`];
+    if (op.vibrancy) parts.push(vibrancyBackdropFilter(op.vibrancy));
+    const filter = parts.join(" ");
     const st = [
       ...base,
       "background:transparent",
-      `backdrop-filter:blur(${String(px)}px)`,
-      `-webkit-backdrop-filter:blur(${String(px)}px)`,
+      `backdrop-filter:${filter}`,
+      `-webkit-backdrop-filter:${filter}`,
+    ].join(";");
+    return `<div style="${escapeStyleAttr(st)}"></div>`;
+  }
+  if (op.kind === "vibrancy") {
+    const filter = vibrancyBackdropFilter(op.vibrancy);
+    const st = [
+      ...base,
+      "background:transparent",
+      `backdrop-filter:${filter}`,
+      `-webkit-backdrop-filter:${filter}`,
     ].join(";");
     return `<div style="${escapeStyleAttr(st)}"></div>`;
   }
@@ -336,8 +405,12 @@ function backgroundCssDecl(props: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
-/** Drop shadow only (foreground tints render in the overlay band). */
+/** Drop shadow only when not combining with inside border (see {@link combinedBoxShadowCss}). */
 function dropShadowCss(props: Record<string, unknown>): string | undefined {
+  const posRaw = props.borderPosition;
+  const pos =
+    typeof posRaw === "string" ? posRaw : (dotEnumValue(posRaw) ?? "outside");
+  if (pos === "inside") return combinedBoxShadowCss(props);
   if (typeof props.shadow === "string" && props.shadow.trim().length > 0) {
     return `box-shadow:${props.shadow.trim()}`;
   }
@@ -357,13 +430,39 @@ function overflowCss(overflow: unknown): string | undefined {
   return v ? `overflow:${v}` : undefined;
 }
 
-function borderCss(props: Record<string, unknown>): string | undefined {
+/**
+ * Border paint. `borderPosition = outside` (default) → CSS border.
+ * `inside` → inset box-shadow ring (does not grow the layout box).
+ * Returns style fragments (may include both border:none and box-shadow).
+ */
+function borderDecls(props: Record<string, unknown>): string[] {
   const w = finiteNum(props.borderWidth);
   const c = props.borderColor;
-  if (w !== undefined && w > 0 && typeof c === "string" && c.length > 0) {
-    return `border:${w}px solid ${c}`;
+  if (w === undefined || w <= 0 || typeof c !== "string" || c.length === 0) return [];
+  const posRaw = props.borderPosition;
+  const pos =
+    typeof posRaw === "string" ? posRaw : (dotEnumValue(posRaw) ?? "outside");
+  if (pos === "inside") {
+    return [`box-shadow:inset 0 0 0 ${String(w)}px ${c}`];
   }
-  return undefined;
+  return [`border:${w}px solid ${c}`];
+}
+
+/** Merge drop shadow + optional inside-border inset shadow into one box-shadow. */
+function combinedBoxShadowCss(props: Record<string, unknown>): string | undefined {
+  const parts: string[] = [];
+  const drop = typeof props.shadow === "string" ? props.shadow.trim() : "";
+  if (drop) parts.push(drop);
+  const w = finiteNum(props.borderWidth);
+  const c = props.borderColor;
+  const posRaw = props.borderPosition;
+  const pos =
+    typeof posRaw === "string" ? posRaw : (dotEnumValue(posRaw) ?? "outside");
+  if (pos === "inside" && w !== undefined && w > 0 && typeof c === "string" && c.length > 0) {
+    parts.push(`inset 0 0 0 ${String(w)}px ${c}`);
+  }
+  if (parts.length === 0) return undefined;
+  return `box-shadow:${parts.join(", ")}`;
 }
 
 function gridPlaceItems(align: unknown, justify: unknown): string {
@@ -374,14 +473,16 @@ function gridPlaceItems(align: unknown, justify: unknown): string {
     end: "end",
     baseline: "baseline",
   };
+  // Stack cells overlap in one grid area — space* cannot distribute siblings.
+  // Map them to start so content anchors predictably (not stretch/center confusion).
   const jMap: Record<string, string> = {
     center: "center",
     start: "start",
     end: "end",
     stretch: "stretch",
-    spaceBetween: "stretch",
-    spaceAround: "center",
-    spaceEvenly: "center",
+    spaceBetween: "start",
+    spaceAround: "start",
+    spaceEvenly: "start",
   };
   const a = typeof align === "string" && aMap[align] ? aMap[align]! : "start";
   const j = typeof justify === "string" && jMap[justify] ? jMap[justify]! : "start";
@@ -531,6 +632,8 @@ function boxMetricsStyle(
   if (mar) parts.push(`margin:${mar}`);
   parts.push(...sizingAxisDecls(props, "width"));
   parts.push(...sizingAxisDecls(props, "height"));
+  const ar = finiteNum(props.aspectRatio);
+  if (ar !== undefined && ar > 0) parts.push(`aspect-ratio:${String(ar)}`);
   const rad = cornerRadiusToCss(props.cornerRadius);
   if (rad) parts.push(rad);
   if (typeof props.opacity === "number" && Number.isFinite(props.opacity)) {
@@ -542,8 +645,13 @@ function boxMetricsStyle(
   }
   const sh = dropShadowCss(props);
   if (sh) parts.push(sh);
-  const bd = borderCss(props);
-  if (bd) parts.push(bd);
+  const posRaw = props.borderPosition;
+  const pos =
+    typeof posRaw === "string" ? posRaw : (dotEnumValue(posRaw) ?? "outside");
+  // Inside border is folded into box-shadow via dropShadowCss/combinedBoxShadowCss.
+  if (pos !== "inside") {
+    for (const bd of borderDecls(props)) parts.push(bd);
+  }
   const ov = overflowCss(props.overflow);
   if (ov) parts.push(ov);
   return parts.join(";");
@@ -584,7 +692,8 @@ function layoutFlexGridStyle(props: Record<string, unknown>): string {
 }
 
 function layoutContainerStyle(props: Record<string, unknown>): string {
-  return mergeInlineStyles(layoutFlexGridStyle(props), boxMetricsStyle(props));
+  // Absolute-positioned children resolve against this padding box.
+  return mergeInlineStyles(layoutFlexGridStyle(props), boxMetricsStyle(props), "position:relative");
 }
 
 /** Per-frame box: container / leaf metrics + flex-item / stack-cell positioning. */
@@ -616,9 +725,13 @@ function frameBoxStyle(
   return mergeInlineStyles(layoutContainerStyle(props), item, stack);
 }
 
-/** Typography, spacing, sizing, alignment, overflow (no fill layers or shadow). */
+/**
+ * Typography + in-box alignment.
+ * Spec: `justify` = main (horizontal) → text-align; `align` = cross (vertical) →
+ * flex column `justify-content` so a lone text root with fixed height centers/end-aligns.
+ */
 function textGlyphAndFlowStyle(props: Record<string, unknown>): string {
-  const parts: string[] = ["min-width:0"];
+  const parts: string[] = ["min-width:0", "width:100%", "box-sizing:border-box"];
   if (typeof props.color === "string") parts.push(`color:${props.color}`);
   if (typeof props.fontSize === "number") parts.push(`font-size:${props.fontSize}px`);
   if (typeof props.fontWeight === "number") parts.push(`font-weight:${String(props.fontWeight)}`);
@@ -635,8 +748,6 @@ function textGlyphAndFlowStyle(props: Record<string, unknown>): string {
   }
   const ta = textAlignFromJustify(props.justify);
   if (ta) parts.push(ta);
-  const ai = flexAlignItems(props.align);
-  if (ai) parts.push(`align-self:${ai}`);
   const ov = overflowCss(props.overflow);
   if (ov) parts.push(ov);
   const lc = finiteNum(props.lineClamp);
@@ -648,6 +759,18 @@ function textGlyphAndFlowStyle(props: Record<string, unknown>): string {
   if (props.textOverflow === "ellipsis") {
     parts.push("text-overflow:ellipsis");
   }
+  return parts.join(";");
+}
+
+function textBoxAlignStyle(props: Record<string, unknown>): string {
+  const parts: string[] = ["display:flex", "flex-direction:column"];
+  const a = typeof props.align === "string" ? props.align : undefined;
+  const jc: Record<string, string> = {
+    start: "flex-start",
+    center: "center",
+    end: "flex-end",
+  };
+  if (a && jc[a]) parts.push(`justify-content:${jc[a]}`);
   return parts.join(";");
 }
 
@@ -668,7 +791,7 @@ function textMetricsShellStyle(props: Record<string, unknown>): string {
   return parts.join(";");
 }
 
-/** Text typography / box (no `display` — caller sets display for clamp vs block). */
+/** Text typography / box (no outer display — caller sets clamp vs flex align shell). */
 function textOwnStyle(props: Record<string, unknown>): string {
   return mergeInlineStyles(
     textGlyphAndFlowStyle(props),
@@ -680,9 +803,11 @@ function textOwnStyle(props: Record<string, unknown>): string {
 
 function textInlineStyle(props: Record<string, unknown>): string {
   const lc = finiteNum(props.lineClamp);
-  const display =
-    lc !== undefined && lc > 0 ? "display:-webkit-box" : "display:block";
-  return mergeInlineStyles(display, textOwnStyle(props));
+  if (lc !== undefined && lc > 0) {
+    // -webkit-box path for line clamp (incompatible with flex align shell).
+    return mergeInlineStyles("display:-webkit-box", textOwnStyle(props));
+  }
+  return mergeInlineStyles(textBoxAlignStyle(props), textOwnStyle(props));
 }
 
 type FrameRenderOpts = {
@@ -702,14 +827,27 @@ function iconFrameStyle(props: Record<string, unknown>, opts: FrameRenderOpts): 
   const sz = finiteNum(props.size) ?? 24;
   const col = typeof props.color === "string" && props.color.length > 0 ? props.color : "#94a3b8";
   const box = frameBoxStyle(props, "icon", opts);
-  const iconBox = `width:${sz}px;height:${sz}px;background-color:${col};flex-shrink:0`;
+  const iconBox = [
+    `width:${sz}px`,
+    `height:${sz}px`,
+    `background-color:${col}`,
+    "flex-shrink:0",
+    "display:flex",
+    "align-items:center",
+    "justify-content:center",
+    "overflow:hidden",
+  ].join(";");
   return mergeInlineStyles(box, iconBox);
 }
 
 function mediaFrameStyle(props: Record<string, unknown>, opts: FrameRenderOpts): string {
   const box = frameBoxStyle(props, "media", opts);
   const ob = objectFitFromContentMode(props.contentMode);
-  return ob ? mergeInlineStyles(box, "max-width:100%", ob) : mergeInlineStyles(box, "max-width:100%");
+  const op = objectPositionCss(props.objectPosition);
+  const parts = [box, "max-width:100%", "display:block"];
+  if (ob) parts.push(ob);
+  if (op) parts.push(`object-position:${op}`);
+  return mergeInlineStyles(...parts);
 }
 
 function renderFrame(
@@ -782,18 +920,41 @@ function renderFrame(
 
   if (kind === "text") {
     const content = typeof props.content === "string" ? props.content : "";
+    const editableBind =
+      typeof props.editable === "string"
+        ? props.editable
+        : props.editable === true
+          ? "value"
+          : undefined;
+    if (editableBind) {
+      const style = mergeInlineStyles(
+        textInlineStyle(props),
+        ...flexItemDecls(props),
+        ...(opts.stackChild ? stackCellDecls(opts.stackIndex) : []),
+        "border:none",
+        "outline:none",
+        "background:transparent",
+        "font:inherit",
+        "color:inherit",
+        "width:100%",
+        "box-sizing:border-box",
+      );
+      return `<input class="pdl-frame pdl-text pdl-text--editable" type="text"${dataId}${instAttrs} data-pdl-editable="${escapeAttr(editableBind)}" value="${escapeAttr(content)}" style="${escapeStyleAttr(style)}" />`;
+    }
     if (textLayerBandsActive(props)) {
+      const lc = finiteNum(props.lineClamp);
+      const shellDisplay =
+        lc !== undefined && lc > 0 ? "display:inline-block" : textBoxAlignStyle(props);
       const wrapStyle = mergeInlineStyles(
         textMetricsShellStyle(props),
         dropShadowCss(props),
-        "display:inline-block",
+        shellDisplay,
         "position:relative",
         "vertical-align:top",
         "min-width:0",
         mergeInlineStyles(...flexItemDecls(props)),
         ...(opts.stackChild ? stackCellDecls(opts.stackIndex) : []),
       );
-      const lc = finiteNum(props.lineClamp);
       const display =
         lc !== undefined && lc > 0 ? "display:-webkit-box" : "display:block";
       const innerStyle = mergeInlineStyles(display, textGlyphAndFlowStyle(props), "position:relative", "z-index:1");
@@ -820,7 +981,10 @@ function renderFrame(
   if (kind === "icon") {
     const style = iconFrameStyle(props, opts);
     const label = typeof props.icon === "string" ? props.icon : id;
-    return `<div class="pdl-frame pdl-icon"${dataId}${instAttrs} style="${escapeStyleAttr(style)}" role="img" aria-label="${escapeAttr(label)}"></div>`;
+    const sz = finiteNum(props.size) ?? 24;
+    const fontPx = Math.max(8, Math.min(11, Math.round(sz * 0.28)));
+    const caption = `<span class="pdl-icon__name" style="color:#fff;font-size:${fontPx}px;font-weight:600;line-height:1.1;text-align:center;padding:1px;text-shadow:0 0 2px rgba(0,0,0,0.55);word-break:break-all">${escapeHtml(label)}</span>`;
+    return `<div class="pdl-frame pdl-icon"${dataId}${instAttrs} style="${escapeStyleAttr(style)}" role="img" aria-label="${escapeAttr(label)}">${caption}</div>`;
   }
 
   if (kind === "media") {
@@ -828,6 +992,23 @@ function renderFrame(
     const label = typeof props.label === "string" ? props.label : id;
     const style = mediaFrameStyle(props, opts);
     const isRasterUrl = /^https?:\/\//i.test(src) || src.startsWith("/") || src.startsWith("./");
+    const layered = layoutLayerBandsActive(props);
+    if (layered) {
+      const wrapStyle = mergeInlineStyles(
+        boxMetricsStyle(props, { omitBackground: true }),
+        ...flexItemDecls(props),
+        ...(opts.stackChild ? stackCellDecls(opts.stackIndex) : []),
+        "position:relative",
+        "overflow:hidden",
+        "max-width:100%",
+      );
+      const under = renderLayerBandHtml(flattenLayerOps(props.background), 0);
+      const over = renderLayerBandHtml(flattenLayerOps(props.foreground), 2);
+      const mediaInner = isRasterUrl && src.length > 0
+        ? `<img class="pdl-media__img" src="${escapeAttr(src)}" alt="${escapeAttr(label)}" style="${escapeStyleAttr(mergeInlineStyles("position:relative", "z-index:1", "width:100%", "height:100%", "display:block", objectFitFromContentMode(props.contentMode), objectPositionCss(props.objectPosition) ? `object-position:${objectPositionCss(props.objectPosition)}` : undefined))}" />`
+        : `<div class="pdl-media__placeholder" style="position:relative;z-index:1;width:100%;height:100%;min-height:24px" role="img" aria-label="${escapeAttr(label)}"></div>`;
+      return `<div class="pdl-frame pdl-media pdl-media--layers"${dataId}${instAttrs} style="${escapeStyleAttr(wrapStyle)}">${under}${mediaInner}${over}</div>`;
+    }
     if (isRasterUrl && src.length > 0) {
       return `<img class="pdl-frame pdl-media"${dataId}${instAttrs} src="${escapeAttr(src)}" alt="${escapeAttr(label)}" style="${escapeStyleAttr(style)}" />`;
     }
@@ -846,7 +1027,7 @@ function renderComponentBody(comp: BakedComponentJson, instCtx?: InstanceRenderC
 const BASE_CSS = `
 :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
 *, *::before, *::after { box-sizing: border-box; }
-body { margin: 0; padding: 16px; background: #f6f6f6; color: #111; }
+body { margin: 0; padding: 16px; background: var(--pdl-preview-background, #f6f6f6); color: #111; }
 .pdl-doc-title { font-size: 1.1rem; margin: 0 0 12px; }
 .pdl-meta { font-size: 0.85rem; color: #444; margin-bottom: 20px; }
 .pdl-gallery { display: flex; flex-direction: column; gap: 16px; }
@@ -1074,11 +1255,27 @@ export function renderBakedDesignToHtmlDocumentWithReport(
      * document order (`i0`, `i1`, …) matching `[data-pdl-instance-key]`.
      */
     instanceStateTrees?: Record<string, Record<string, BakedComponentJson>>;
+    /**
+     * Resolved CSS color for document chrome (`previewBackground` token).
+     * Falls back to `doc.previewBackground` when set by bake.
+     */
+    previewBackground?: string;
   } = {},
 ): { html: string; renderFailures: ComponentRenderFailure[] } {
   const title =
     opts.title ??
     `PDL preview — ${doc.provenance.entryPath.replace(/^.*\//, "")} — ${new Date(doc.generatedAt).toISOString().slice(0, 10)}`;
+  const previewBgRaw =
+    (typeof opts.previewBackground === "string" && opts.previewBackground.trim()) ||
+    (typeof doc.previewBackground === "string" && doc.previewBackground.trim()) ||
+    "";
+  const previewBg =
+    /^#[0-9A-Fa-f]{3,8}$/.test(previewBgRaw) || /^rgba?\([^)]+\)$/i.test(previewBgRaw)
+      ? previewBgRaw
+      : "";
+  const previewBgDecl = previewBg
+    ? `:root { --pdl-preview-background: ${previewBg}; }`
+    : "";
   const allNames = Object.keys(doc.components).sort();
   const focus = opts.singleComponent;
   let list: string[];
@@ -1433,6 +1630,31 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         }
         if (canvas) canvas.style.cursor = 'pointer';
       }
+      // EditableText host: bind <input data-pdl-editable> → param; blur/Enter → keyboardDismissed; Esc → cancelled.
+      section.querySelectorAll('input.pdl-text--editable[data-pdl-editable]').forEach(function(input){
+        var bind = input.getAttribute('data-pdl-editable');
+        input.addEventListener('mousedown', function(ev){ ev.stopPropagation(); });
+        input.addEventListener('click', function(ev){
+          ev.stopPropagation();
+          if (byEvent.pressEnd) dispatchSelf('pressEnd');
+          try { input.focus(); } catch (e) {}
+        });
+        input.addEventListener('blur', function(){
+          if (bind) {
+            liveParams[bind] = input.value;
+            writeParams(section, liveParams);
+          }
+          if (byEvent.keyboardDismissed) dispatchSelf('keyboardDismissed');
+        });
+        input.addEventListener('keydown', function(ev){
+          if (ev.key === 'Escape') {
+            if (byEvent.keyboardCancelled) dispatchSelf('keyboardCancelled');
+            try { input.blur(); } catch (e) {}
+          } else if (ev.key === 'Enter') {
+            try { input.blur(); } catch (e) {}
+          }
+        });
+      });
     });
   }
   document.querySelectorAll('.pdl-param-bar').forEach(function(bar){
@@ -1480,6 +1702,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
 <style>${BASE_CSS}
+${previewBgDecl}
 .pdl-gallery.pdl-variant-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
 .pdl-state[hidden] { display: none !important; }
 </style>

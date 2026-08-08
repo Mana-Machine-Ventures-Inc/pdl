@@ -66,6 +66,8 @@ fn airbnb_lite_bakes_from_source_map() {
         .replace('\\', "/");
     let mut sources = SourceMap::new();
     collect_pdl_sources(&pack_dir, &mut sources);
+    // Packs may import shared host protocols outside the pack directory.
+    collect_pdl_sources(&repo_root().join("test-fixtures/pdl/stdlib"), &mut sources);
     assert!(sources.len() >= 5, "expected pack modules, got {}", sources.len());
     let design = load_design_from_sources(&entry, &sources)
         .unwrap_or_else(|e| panic!("{}", e.format()));

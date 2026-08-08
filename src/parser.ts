@@ -12,7 +12,6 @@ import type {
   FrameBodyItem,
   IfChain,
   ImportDecl,
-  InteractionDecl,
   InteractionHandlerItem,
   InteractionIfChain,
   ModuleAst,
@@ -41,6 +40,8 @@ export class Parser {
   private readonly tokens: Token[];
   private index = 0;
   private readonly filePath: string;
+  /** Host handlers collected while parsing the current component kind body. */
+  private pendingHostHandlers: { event: string; body: InteractionHandlerItem[] }[] = [];
 
   constructor(tokens: Token[], filePath: string) {
     this.tokens = tokens;
@@ -50,7 +51,30 @@ export class Parser {
   parseModule(): ModuleAst {
     const declarations: TopLevelDecl[] = [];
     while (!this.is("EOF")) {
-      declarations.push(this.parseTopLevel());
+      const decl = this.parseTopLevel();
+      if (decl.kind === "component") {
+        const name = decl.name;
+        const hostHandlers = this.pendingHostHandlers;
+        this.pendingHostHandlers = [];
+        declarations.push(decl);
+        if (hostHandlers.length > 0) {
+          declarations.push({
+            kind: "interaction",
+            name: "default",
+            component: name,
+            handlers: hostHandlers,
+          });
+        }
+        // Trailing `} emits { … }` (skipped in TS oracle).
+        if (this.is("emits") && this.peekAheadKind(1) === "{") {
+          this.skipInlineEmitsBlock();
+        }
+        if (this.is("interaction")) {
+          throw this.errInteractionRemoved();
+        }
+      } else {
+        declarations.push(decl);
+      }
     }
     return { kind: "module", path: this.filePath, declarations };
   }
@@ -72,12 +96,14 @@ export class Parser {
         return this.parseTypeStyle();
       case "variant":
         return this.parseVariant();
+      case "protocol":
+        return this.parseProtocol();
       case "component":
         return this.parseComponent();
       case "expose":
         return this.parseExpose();
       case "interaction":
-        return this.parseInteraction();
+        throw this.errInteractionRemoved();
       case "fixtures":
         return this.parseFixtures();
       case "usage":
@@ -271,23 +297,22 @@ export class Parser {
     return { kind: "expose", component, names };
   }
 
-  private parseInteraction(): InteractionDecl {
-    this.consume("interaction");
-    const name = this.consume("IDENT").value;
-    this.consume("for");
-    const component = this.consume("IDENT").value;
+  /** Skim trailing `emits { … }` after a component (oracle does not keep EmitsDecl yet). */
+  private skipInlineEmitsBlock(): void {
+    this.consume("emits");
     this.consume("{");
-    const handlers: { event: string; body: InteractionHandlerItem[] }[] = [];
-    while (!this.is("}")) {
-      this.consume("on");
-      const event = this.consume("IDENT").value;
-      this.consume("{");
-      const body = this.parseInteractionHandlerBody();
-      this.consume("}");
-      handlers.push({ event, body });
+    let depth = 1;
+    while (depth > 0 && !this.is("EOF")) {
+      if (this.is("{")) depth += 1;
+      else if (this.is("}")) depth -= 1;
+      this.advance();
     }
-    this.consume("}");
-    return { kind: "interaction", name, component, handlers };
+  }
+
+  private errInteractionRemoved(): PdlError {
+    return this.err(
+      "`interaction` blocks were removed; wire host channels with `[self.]<channel> = { … }` in the component kind body (§4a′ / §8)",
+    );
   }
 
   private parseInteractionHandlerBody(): InteractionHandlerItem[] {
@@ -303,10 +328,70 @@ export class Parser {
         items.push({ kind: "animate", value: this.parseValueExpr() });
         continue;
       }
+      if (this.is("emit")) {
+        this.advance();
+        const name = this.consume("IDENT").value;
+        const args: string[] = [];
+        if (this.is("(")) {
+          this.advance();
+          if (!this.is(")")) {
+            while (true) {
+              if (this.is("self")) {
+                this.advance();
+                if (this.is(".")) {
+                  this.advance();
+                  args.push(`self.${this.consume("IDENT").value}`);
+                } else {
+                  args.push("self");
+                }
+              } else {
+                args.push(this.consume("IDENT").value);
+              }
+              if (this.is(")")) break;
+              this.consume(",");
+            }
+          }
+          this.consume(")");
+        }
+        items.push({ kind: "emit", name, args });
+        continue;
+      }
       if (this.is("from") || this.is("to") || this.is("stagger") || this.is("staggerFrom")) {
         throw this.err("from/to/stagger in interaction handlers are not implemented yet");
       }
-      const param = this.consume("IDENT").value;
+      let param: string;
+      if (this.is("self")) {
+        this.advance();
+        this.consume(".");
+        param = this.consume("IDENT").value;
+      } else {
+        param = this.consume("IDENT").value;
+      }
+      // Host verb: `beginEditing(value)` / `cancelEditing()`
+      if (this.is("(")) {
+        this.advance();
+        const args: string[] = [];
+        if (!this.is(")")) {
+          while (true) {
+            if (this.is("self")) {
+              this.advance();
+              if (this.is(".")) {
+                this.advance();
+                args.push(`self.${this.consume("IDENT").value}`);
+              } else {
+                args.push("self");
+              }
+            } else {
+              args.push(this.consume("IDENT").value);
+            }
+            if (this.is(")")) break;
+            this.consume(",");
+          }
+        }
+        this.consume(")");
+        items.push({ kind: "hostVerb", name: param, args });
+        continue;
+      }
       this.consume("=");
       items.push({ kind: "assign", param, value: this.parseValueExpr() });
     }
@@ -701,19 +786,106 @@ export class Parser {
     return { kind: "extend", component, sections };
   }
 
+  /** `protocol Name: component { … }` or `protocol Name { host }` — body skim for load parity. */
+  private parseProtocol(): import("./ast.js").ProtocolDecl {
+    this.consume("protocol");
+    const name = this.consume("IDENT").value;
+    let componentSubject = false;
+    if (this.is(":")) {
+      this.advance();
+      if (!this.is("component")) {
+        throw this.err(
+          `Protocol \`${name}\` subject must be \`component\` (write \`protocol ${name}: component { … }\`)`,
+        );
+      }
+      this.advance();
+      componentSubject = true;
+    }
+    this.consume("{");
+    let role: "api" | "host" = "api";
+    const requires: string[] = [];
+    while (!this.is("}")) {
+      if (this.is("host")) {
+        this.advance();
+        role = "host";
+        continue;
+      }
+      if (this.is("requires")) {
+        this.advance();
+        requires.push(this.consume("IDENT").value);
+        continue;
+      }
+      if (this.is("emits")) {
+        this.advance();
+        this.consume("{");
+        while (!this.is("}")) {
+          this.advance(); // skim emit signatures
+        }
+        this.consume("}");
+        continue;
+      }
+      // param: name [: Type] = value
+      this.consume("IDENT");
+      if (this.is(":")) {
+        this.advance();
+        if (this.is("[")) {
+          this.advance();
+          this.consume("IDENT");
+          this.consume("]");
+        } else {
+          this.consumeParamTypeName();
+        }
+      }
+      this.consume("=");
+      this.parseValueExpr();
+    }
+    this.consume("}");
+    if (role === "host" && componentSubject) {
+      throw this.err(
+        `Host protocol \`${name}\` must not declare \`: component\` (write \`protocol ${name} { host }\`)`,
+      );
+    }
+    if (role === "api" && !componentSubject) {
+      throw this.err(
+        `API protocol \`${name}\` must declare subject \`component\` (write \`protocol ${name}: component { … }\`)`,
+      );
+    }
+    return { kind: "protocol", name, role, requires };
+  }
+
   private parseComponent(): ComponentDecl {
     this.consume("component");
     const name = this.consume("IDENT").value;
+    let conformsTo: string | undefined;
+    if (this.is("<")) {
+      this.advance();
+      conformsTo = this.consume("IDENT").value;
+      this.consume(">");
+    }
     this.consume("(");
     const params: ComponentParam[] = [];
     if (!this.is(")")) {
       while (true) {
         const pname = this.consume("IDENT").value;
         this.consume(":");
-        const typeName = this.consumeParamTypeName();
+        let isArray = false;
+        let typeName: string;
+        if (this.is("[")) {
+          this.advance();
+          typeName = this.consumeParamTypeName();
+          this.consume("]");
+          isArray = true;
+        } else {
+          typeName = this.consumeParamTypeName();
+        }
         this.consume("=");
         const default_ = this.parseValueExpr();
-        params.push({ name: pname, typeName, defaultValue: default_ });
+        params.push({
+          name: pname,
+          typeName,
+          ...(isArray ? { isArray: true } : {}),
+          defaultValue: default_,
+        });
         if (this.is(")")) break;
         this.consume(",");
       }
@@ -724,34 +896,148 @@ export class Parser {
       throw this.err(`Expected layout|text|icon|media root kind, got ${rkTok.kind}`);
     }
     const rootKind = this.advance().value as ComponentDecl["rootKind"];
+    this.pendingHostHandlers = [];
     this.consume("{");
     const body = this.parseFrameBodyUntilClose();
     this.consume("}");
-    return { kind: "component", name, params, rootKind, body };
+    return {
+      kind: "component",
+      name,
+      ...(conformsTo ? { conformsTo } : {}),
+      params,
+      rootKind,
+      body,
+    };
   }
 
   private parseFrameBodyUntilClose(): FrameBodyItem[] {
     const items: FrameBodyItem[] = [];
     while (!this.is("}")) {
-      items.push(this.parseFrameBodyItem());
+      const item = this.parseFrameBodyItem();
+      if (item) items.push(item);
     }
     return items;
   }
 
-  private parseFrameBodyItem(): FrameBodyItem {
+  /** Skip a `{ … }` block already positioned at `{`, consuming the matching `}`. */
+  private skipBraceBlock(): void {
+    this.consume("{");
+    let depth = 1;
+    while (depth > 0 && !this.is("EOF")) {
+      if (this.is("{")) depth += 1;
+      else if (this.is("}")) depth -= 1;
+      this.advance();
+    }
+  }
+
+  /**
+   * Skim Rust-first layout forms the TS oracle does not expand yet:
+   * `ForEach(…) { … }` and emit capture `channel(…) = { … }` / legacy `on channel(…) { … }`.
+   */
+  private skipForEachOrEmitCapture(): boolean {
+    if (this.is("on")) {
+      this.advance();
+      this.consume("IDENT");
+      if (this.is(".")) {
+        this.advance();
+        this.consume("IDENT");
+      }
+      if (this.is("(")) {
+        this.advance();
+        while (!this.is(")") && !this.is("EOF")) this.advance();
+        this.consume(")");
+      }
+      if (this.is("=")) this.advance();
+      this.skipBraceBlock();
+      return true;
+    }
+    const id = this.peek();
+    if (id.kind === "IDENT" && id.value === "ForEach") {
+      this.advance();
+      this.consume("(");
+      while (!this.is(")") && !this.is("EOF")) this.advance();
+      this.consume(")");
+      this.skipBraceBlock();
+      return true;
+    }
+    if (this.looksLikeEmitCaptureAssign()) {
+      this.advance(); // channel or qualifier
+      if (this.is(".")) {
+        this.advance();
+        this.consume("IDENT");
+      }
+      if (this.is("(")) {
+        this.advance();
+        while (!this.is(")") && !this.is("EOF")) this.advance();
+        this.consume(")");
+      }
+      this.consume("=");
+      this.skipBraceBlock();
+      return true;
+    }
+    return false;
+  }
+
+  /** Emit capture requires `(…)` so bare `pressEnd = { … }` means host inbound. */
+  private looksLikeEmitCaptureAssign(): boolean {
+    if (this.peek().kind !== "IDENT") return false;
+    let i = 1;
+    const kindAt = (n: number) => this.peekAheadKind(n);
+    if (kindAt(i) === ".") {
+      if (kindAt(i + 1) !== "IDENT") return false;
+      i += 2;
+    }
+    if (kindAt(i) !== "(") return false;
+    i += 1;
+    let depth = 1;
+    while (depth > 0) {
+      const k = kindAt(i);
+      if (k === "EOF") return false;
+      if (k === "(") depth += 1;
+      else if (k === ")") depth -= 1;
+      i += 1;
+    }
+    return kindAt(i) === "=" && kindAt(i + 1) === "{";
+  }
+
+  private parseFrameBodyItem(): FrameBodyItem | null {
+    if (this.skipForEachOrEmitCapture()) return null;
     if (this.is("let")) return this.parseLet();
     if (this.is("if")) return { kind: "if", chain: this.parseIfChain() };
+
+    // Host inbound: `[self.]pressEnd = { … }` → lifted to InteractionDecl after component.
+    if (this.is("self")) {
+      this.advance();
+      this.consume(".");
+      const event = this.consume("IDENT").value;
+      this.consume("=");
+      this.consume("{");
+      const body = this.parseInteractionHandlerBody();
+      this.consume("}");
+      this.pendingHostHandlers.push({ event, body });
+      return null;
+    }
 
     const id = this.peek();
     if (id.kind === "IDENT") {
       const name = id.value;
+      // Bare host inbound: `pressEnd = { … }` (same as `self.pressEnd = { … }`)
+      if (this.peekAheadKind(1) === "=" && this.peekAheadKind(2) === "{") {
+        this.advance();
+        this.consume("=");
+        this.consume("{");
+        const body = this.parseInteractionHandlerBody();
+        this.consume("}");
+        this.pendingHostHandlers.push({ event: name, body });
+        return null;
+      }
       this.advance();
       if (this.is(".")) {
         this.consume(".");
         const field = this.consume("IDENT").value;
         if (field === "children") {
           this.consume("=");
-          const entries = this.parseChildrenList();
+          const entries = this.parseChildrenRhs();
           return { kind: "children", target: { letId: name }, entries };
         }
         this.consume("=");
@@ -761,7 +1047,7 @@ export class Parser {
       if (this.is("=")) {
         this.advance();
         if (name === "children") {
-          return { kind: "children", target: "root", entries: this.parseChildrenList() };
+          return { kind: "children", target: "root", entries: this.parseChildrenRhs() };
         }
         const value = name === "hidden" ? this.parseHiddenRhs() : this.parseValueExpr();
         return { kind: "prop", name, value };
@@ -906,7 +1192,14 @@ export class Parser {
       this.consume(")");
       return inner;
     }
-    const param = this.consume("IDENT").value;
+    let param: string;
+    if (this.is("self")) {
+      this.advance();
+      this.consume(".");
+      param = this.consume("IDENT").value;
+    } else {
+      param = this.consume("IDENT").value;
+    }
     let op: "==" | "!=";
     if (this.is("==")) {
       op = "==";
@@ -914,9 +1207,20 @@ export class Parser {
     } else if (this.is("!=")) {
       op = "!=";
       this.advance();
-    } else throw this.err("Expected == or != in condition");
-    const rhs = this.consume("DOT_ENUM").value;
-    return { kind: "cmp", param, op, rhs };
+    } else {
+      // Bare boolean param: `if selected { … }`
+      return { kind: "truthy", param };
+    }
+    if (this.is("DOT_ENUM")) {
+      return { kind: "cmp", param, op, rhs: this.advance().value };
+    }
+    if (this.is("true") || this.is("false")) {
+      return { kind: "cmp", param, op, rhs: this.advance().value };
+    }
+    if (this.is("IDENT")) {
+      return { kind: "cmp", param, op, rhs: this.advance().value };
+    }
+    throw this.err("Expected == or != RHS in condition");
   }
 
   parseValueExpr(): ValueExpr {
@@ -1104,7 +1408,10 @@ export class Parser {
       this.consume(")");
       return { kind: "call", callee: name, args };
     }
-    throw this.err(`Unknown call ${name}`);
+    // Component instance literal: `UpsellBody()` / `ConfirmBody(title: "…")`
+    const kwargs = this.parseKwArgs();
+    this.consume(")");
+    return { kind: "instance", component: name, kwargs };
   }
 
   private parseLabelledArgs(): Record<string, ValueExpr> {
@@ -1133,6 +1440,15 @@ export class Parser {
       this.consume(",");
     }
     return args;
+  }
+
+  /** `children = […]` or bare `children = chips` (§4b / §4e sugar). */
+  private parseChildrenRhs(): ChildEntry[] {
+    if (this.is("IDENT") && this.peekAheadKind(1) !== "(") {
+      const id = this.consume("IDENT").value;
+      return [{ kind: "frameRef", id }];
+    }
+    return this.parseChildrenList();
   }
 
   private parseChildrenList(): ChildEntry[] {

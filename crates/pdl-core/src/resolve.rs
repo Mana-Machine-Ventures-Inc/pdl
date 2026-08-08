@@ -97,48 +97,84 @@ struct MutableFrame {
     instance_kwargs: Option<Map<String, Value>>,
 }
 
-/// Scope a nested let frame id under its owning `let Instance = Comp(...)` id.
-/// Without this, sibling instances share frame ids like `L` / `Lab` and clobber each other.
-fn scope_nested_frame_id(instance_id: &str, nested_id: &str) -> String {
-    format!("{instance_id}__{nested_id}")
+/// Slot / ForEach overlays collected while walking a component body (do not mount).
+#[derive(Default)]
+struct SlotResolveCtx {
+    /// `simple.title = …` / `simple.content = …` — classified at mount by concrete component.
+    slot_overrides: HashMap<String, IndexMap<String, Value>>,
+    /// `ForEach(chips) { chip in chip.selected = … }` binds applied when `children` expands `chips`.
+    foreach_binds: HashMap<String, IndexMap<String, ValueExpr>>,
 }
 
-fn rewrite_nested_child_entries(
-    entries: Vec<ChildEntry>,
-    instance_id: &str,
-    nested_ids: &HashSet<String>,
-) -> Vec<ChildEntry> {
-    entries
+fn component_param_names(
+    design: &DesignDefinition,
+    component: &str,
+) -> Result<HashSet<String>, PdlError> {
+    let c = design.components.get(component).ok_or_else(|| {
+        PdlError::new(
+            "PDL-E006",
+            format!("Unknown component `{component}`"),
+            Some(design.entry_path.clone()),
+            None,
+            None,
+        )
+    })?;
+    Ok(effective_params(design, c)?
         .into_iter()
-        .map(|e| match e {
-            ChildEntry::FrameRef { id }
-                if nested_ids.contains(&id) && id != instance_id =>
-            {
-                ChildEntry::FrameRef {
-                    id: scope_nested_frame_id(instance_id, &id),
-                }
-            }
-            other => other,
-        })
-        .collect()
+        .map(|p| p.name)
+        .collect())
 }
 
-/// Merge a LetInstance's private frame map into the parent, renaming nested lets.
-fn hoist_let_instance_frames(
-    parent: &mut HashMap<String, MutableFrame>,
-    instance_id: &str,
-    nested: HashMap<String, MutableFrame>,
-) {
-    let nested_ids: HashSet<String> = nested.keys().cloned().collect();
-    for (fid, mut frame) in nested {
-        frame.child_entries =
-            rewrite_nested_child_entries(frame.child_entries, instance_id, &nested_ids);
-        if fid == instance_id {
-            parent.insert(fid, frame);
+/// Split dotted / ForEach overrides into kwargs vs instance-root frame props.
+fn split_instance_overrides(
+    design: &DesignDefinition,
+    component: &str,
+    overrides: &IndexMap<String, Value>,
+) -> Result<(Map<String, Value>, Map<String, Value>), PdlError> {
+    let param_names = component_param_names(design, component)?;
+    let mut kwargs = Map::new();
+    let mut frame_props = Map::new();
+    for (k, v) in overrides {
+        if param_names.contains(k) {
+            kwargs.insert(k.clone(), v.clone());
         } else {
-            parent.insert(scope_nested_frame_id(instance_id, &fid), frame);
+            frame_props.insert(
+                k.clone(),
+                coerce_frame_prop_value(k, v.clone(), &design.entry_path)?,
+            );
         }
     }
+    Ok((kwargs, frame_props))
+}
+
+fn apply_root_frame_overrides(frame: &mut CatalFrame, props: Map<String, Value>) {
+    for (k, v) in props {
+        frame.props.insert(k, v);
+    }
+}
+
+/// Insert a fully resolved CatalFrame tree into the mutable frame map (letInstance path).
+fn insert_catal_tree(frames: &mut HashMap<String, MutableFrame>, catal: &CatalFrame, id: &str) {
+    let mut child_entries = Vec::new();
+    for (i, ch) in catal.children.iter().enumerate() {
+        let cid = if ch.id.is_empty() {
+            format!("{id}__c{i}")
+        } else {
+            format!("{id}__{}", ch.id)
+        };
+        insert_catal_tree(frames, ch, &cid);
+        child_entries.push(ChildEntry::FrameRef { id: cid });
+    }
+    frames.insert(
+        id.to_string(),
+        MutableFrame {
+            kind: catal.kind.clone(),
+            props: catal.props.clone(),
+            child_entries,
+            instance_of: catal.instance_of.clone(),
+            instance_kwargs: catal.instance_kwargs.clone(),
+        },
+    );
 }
 
 fn root_kind_str(k: RootKind) -> &'static str {
@@ -409,6 +445,7 @@ fn process_frame_items(
     tokens: &mut Tokens,
     param_values: &ParamValues,
     param_meta: &ParamMeta,
+    slot_ctx: &mut SlotResolveCtx,
     opts: ResolveOptions,
 ) -> Result<(), PdlError> {
     let root_kind = frames
@@ -453,6 +490,27 @@ fn process_frame_items(
                 }
             }
             FrameBodyItem::FrameProp { frame, name, value } => {
+                // Slot / list param: `simple.content = …` — never invent a phantom frame.
+                if let Some(meta) = param_meta.get(frame) {
+                    if meta.is_array {
+                        return Err(PdlError::new(
+                            "PDL-E034",
+                            format!(
+                                "Cannot override `{frame}.{name}` on array slot `{frame}`; use `ForEach({frame}) {{ item in item.{name} = … }}` and `children = [{frame}]`"
+                            ),
+                            Some(entry_path.clone()),
+                            None,
+                            None,
+                        ));
+                    }
+                    let pv = eval_prop(value, design, tokens, param_values, param_meta, opts)?;
+                    slot_ctx
+                        .slot_overrides
+                        .entry(frame.clone())
+                        .or_default()
+                        .insert(name.clone(), pv);
+                    continue;
+                }
                 let kind = frame_kind_or_layout(frames, frame);
                 ensure_frame(frames, frame, &kind);
                 if name == "hidden" {
@@ -494,6 +552,7 @@ fn process_frame_items(
                     tokens,
                     param_values,
                     param_meta,
+                    slot_ctx,
                     opts,
                 )?;
             }
@@ -502,16 +561,15 @@ fn process_frame_items(
                 component,
                 kwargs,
             } => {
-                let child_comp = design.components.get(component).cloned().ok_or_else(|| {
-                    PdlError::new(
+                if design.components.get(component).is_none() {
+                    return Err(PdlError::new(
                         "PDL-E006",
                         format!("Unknown component {component} in let instance"),
                         Some(entry_path.clone()),
                         None,
                         None,
-                    )
-                })?;
-                let mut base_pv = resolve_default_param_values(design, tokens, &child_comp)?;
+                    ));
+                }
                 let mut kw_explicit = Map::new();
                 for (k, expr) in kwargs {
                     let mut visiting = HashSet::new();
@@ -523,35 +581,15 @@ fn process_frame_items(
                         param_meta: Some(param_meta),
                         use_string_placeholders: false,
                     };
-                    let evaluated = evaluate_value(expr, &mut ev)?;
-                    base_pv.insert(k.clone(), evaluated.clone());
-                    kw_explicit.insert(k.clone(), evaluated);
+                    kw_explicit.insert(k.clone(), evaluate_value(expr, &mut ev)?);
                 }
-                let sub_meta = build_param_meta(design, &child_comp)?;
-                // Resolve the instance in an isolated frame map so nested `let L` ids
-                // from sibling instances (e.g. Cancel vs Save) do not collide.
-                let mut nested: HashMap<String, MutableFrame> = HashMap::new();
-                nested.insert(
-                    id.clone(),
-                    MutableFrame {
-                        kind: root_kind_str(child_comp.root_kind).to_string(),
-                        props: Map::new(),
-                        child_entries: Vec::new(),
-                        instance_of: Some(component.clone()),
-                        instance_kwargs: Some(kw_explicit),
-                    },
-                );
-                process_frame_items(
-                    &child_comp.body,
-                    id,
-                    &mut nested,
-                    design,
-                    tokens,
-                    &base_pv,
-                    &sub_meta,
-                    opts,
-                )?;
-                hoist_let_instance_frames(frames, id, nested);
+                // Full nested resolve so the child's slot dotted overrides / ForEach
+                // expand against the child's own param_meta (not the parent's).
+                let mut sub =
+                    resolve_component_tree(design, component, tokens, &kw_explicit, opts)?;
+                sub.instance_of = Some(component.clone());
+                sub.instance_kwargs = Some(kw_explicit);
+                insert_catal_tree(frames, &sub, id);
             }
             FrameBodyItem::If { chain } => {
                 let extra = pick_if_body(chain, param_values);
@@ -563,29 +601,28 @@ fn process_frame_items(
                     tokens,
                     param_values,
                     param_meta,
+                    slot_ctx,
                     opts,
                 )?;
             }
             FrameBodyItem::ForEach {
                 list,
+                item: _,
                 binds,
                 handlers: _,
             } => {
-                // Mount list instances as children of the enclosing frame (bake expand).
-                let tid = default_target.to_string();
-                let kind = frame_kind_or_layout(frames, &tid);
-                ensure_frame(frames, &tid, &kind);
-                frames
-                    .get_mut(&tid)
-                    .unwrap()
-                    .child_entries
-                    .push(ChildEntry::ForEach {
-                        list: list.clone(),
-                        binds: binds.clone(),
-                    });
+                // Binds / handlers only — mount happens via `children = [list]`.
+                slot_ctx
+                    .foreach_binds
+                    .entry(list.clone())
+                    .or_default()
+                    .extend(binds.iter().map(|(k, v)| (k.clone(), v.clone())));
             }
             FrameBodyItem::LayoutOn { .. } => {
                 // Emit capture is host/runtime metadata; static bake ignores it.
+            }
+            FrameBodyItem::HostHandler { .. } => {
+                // Lifted to InteractionDecl at parse; ignore if any remain.
             }
         }
     }
@@ -629,6 +666,7 @@ pub fn resolve_component_tree(
             instance_kwargs: None,
         },
     );
+    let mut slot_ctx = SlotResolveCtx::default();
     process_frame_items(
         &c.body,
         "Root",
@@ -637,6 +675,7 @@ pub fn resolve_component_tree(
         tokens,
         &param_values,
         &param_meta,
+        &mut slot_ctx,
         options,
     )?;
     materialize(
@@ -646,6 +685,7 @@ pub fn resolve_component_tree(
         tokens,
         &param_values,
         &param_meta,
+        &slot_ctx,
         &mut HashSet::new(),
         options,
     )
@@ -681,16 +721,24 @@ fn mount_instance(
     Ok(sub)
 }
 
+/// Expand slot / list instances from `children = […]`, applying slot + ForEach overlays.
 fn expand_slot_items(
     parent_id: &str,
+    slot_name: &str,
     items: &[Value],
     design: &DesignDefinition,
     tokens: &mut Tokens,
+    param_values: &ParamValues,
+    param_meta: &ParamMeta,
+    slot_ctx: &SlotResolveCtx,
     visiting_inst: &mut HashSet<String>,
     options: ResolveOptions,
     si: &mut usize,
     children: &mut Vec<CatalFrame>,
 ) -> Result<(), PdlError> {
+    let foreach_binds = slot_ctx.foreach_binds.get(slot_name);
+    let slot_dotted = slot_ctx.slot_overrides.get(slot_name);
+
     for item in items {
         let obj = item.as_object().ok_or_else(|| {
             PdlError::new(
@@ -713,7 +761,7 @@ fn expand_slot_items(
                     None,
                 )
             })?;
-        let kw_overrides = match obj.get("params") {
+        let mut base_params = match obj.get("params") {
             Some(Value::Object(m)) => m.clone(),
             None => Map::new(),
             Some(_) => {
@@ -726,16 +774,51 @@ fn expand_slot_items(
                 ))
             }
         };
-        children.push(mount_instance(
+
+        // Collect evaluated overrides (ForEach binds + single-slot dotted).
+        let mut overlay: IndexMap<String, Value> = IndexMap::new();
+        if let Some(binds) = foreach_binds {
+            // §4e: bare idents → item fields first, then enclosing params.
+            let mut bind_scope = param_values.clone();
+            for (k, v) in &base_params {
+                bind_scope.insert(k.clone(), v.clone());
+            }
+            for (k, expr) in binds {
+                let mut visiting = HashSet::new();
+                let mut ev = Eval {
+                    design,
+                    tokens,
+                    visiting: &mut visiting,
+                    param_values: Some(&bind_scope),
+                    param_meta: Some(param_meta),
+                    use_string_placeholders: false,
+                };
+                overlay.insert(k.clone(), evaluate_value(expr, &mut ev)?);
+            }
+        }
+        if let Some(dotted) = slot_dotted {
+            for (k, v) in dotted {
+                overlay.insert(k.clone(), v.clone());
+            }
+        }
+
+        let (extra_kwargs, frame_props) = split_instance_overrides(design, component, &overlay)?;
+        for (k, v) in extra_kwargs {
+            base_params.insert(k, v);
+        }
+
+        let mut mounted = mount_instance(
             parent_id,
             component,
-            kw_overrides,
+            base_params,
             design,
             tokens,
             visiting_inst,
             options,
             si,
-        )?);
+        )?;
+        apply_root_frame_overrides(&mut mounted, frame_props);
+        children.push(mounted);
     }
     Ok(())
 }
@@ -747,6 +830,7 @@ fn materialize(
     tokens: &mut Tokens,
     param_values: &ParamValues,
     param_meta: &ParamMeta,
+    slot_ctx: &SlotResolveCtx,
     visiting_inst: &mut HashSet<String>,
     options: ResolveOptions,
 ) -> Result<CatalFrame, PdlError> {
@@ -777,6 +861,7 @@ fn materialize(
                         tokens,
                         param_values,
                         param_meta,
+                        slot_ctx,
                         visiting_inst,
                         options,
                     )?);
@@ -803,21 +888,28 @@ fn materialize(
                         })?;
                         expand_slot_items(
                             id,
+                            cid,
                             items,
                             design,
                             tokens,
+                            param_values,
+                            param_meta,
+                            slot_ctx,
                             visiting_inst,
                             options,
                             &mut si,
                             &mut children,
                         )?;
                     } else {
-                        // Single protocol/component slot: one instance object.
                         expand_slot_items(
                             id,
+                            cid,
                             std::slice::from_ref(val),
                             design,
                             tokens,
+                            param_values,
+                            param_meta,
+                            slot_ctx,
                             visiting_inst,
                             options,
                             &mut si,
@@ -859,103 +951,8 @@ fn materialize(
                     &mut si,
                 )?);
             }
-            ChildEntry::ForEach { list, binds } => {
-                let meta = param_meta.get(list).ok_or_else(|| {
-                    PdlError::new(
-                        "PDL-E023",
-                        format!("ForEach({list}): unknown list/slot parameter"),
-                        Some(design.entry_path.clone()),
-                        None,
-                        None,
-                    )
-                })?;
-                let val = param_values.get(list).ok_or_else(|| {
-                    PdlError::new(
-                        "PDL-E023",
-                        format!("ForEach({list}): missing list value"),
-                        Some(design.entry_path.clone()),
-                        None,
-                        None,
-                    )
-                })?;
-                let items: Vec<Value> = if meta.is_array {
-                    val.as_array()
-                        .ok_or_else(|| {
-                            PdlError::new(
-                                "PDL-E010",
-                                format!("ForEach({list}): expected array value"),
-                                Some(design.entry_path.clone()),
-                                None,
-                                None,
-                            )
-                        })?
-                        .clone()
-                } else {
-                    vec![val.clone()]
-                };
-                for item in &items {
-                    let obj = item.as_object().ok_or_else(|| {
-                        PdlError::new(
-                            "PDL-E010",
-                            "ForEach items must be instance objects `{ component, params }`",
-                            Some(design.entry_path.clone()),
-                            None,
-                            None,
-                        )
-                    })?;
-                    let component = obj
-                        .get("component")
-                        .and_then(|v| v.as_str())
-                        .ok_or_else(|| {
-                            PdlError::new(
-                                "PDL-E010",
-                                "ForEach instance missing `component`",
-                                Some(design.entry_path.clone()),
-                                None,
-                                None,
-                            )
-                        })?;
-                    let mut kw_overrides = match obj.get("params") {
-                        Some(Value::Object(m)) => m.clone(),
-                        None => Map::new(),
-                        Some(_) => {
-                            return Err(PdlError::new(
-                                "PDL-E010",
-                                "ForEach instance `params` must be an object",
-                                Some(design.entry_path.clone()),
-                                None,
-                                None,
-                            ))
-                        }
-                    };
-                    // §4e: bare idents → item fields first, then enclosing params.
-                    let mut bind_scope = param_values.clone();
-                    for (k, v) in &kw_overrides {
-                        bind_scope.insert(k.clone(), v.clone());
-                    }
-                    for (k, expr) in binds {
-                        let mut visiting = HashSet::new();
-                        let mut ev = Eval {
-                            design,
-                            tokens,
-                            visiting: &mut visiting,
-                            param_values: Some(&bind_scope),
-                            param_meta: Some(param_meta),
-                            use_string_placeholders: false,
-                        };
-                        kw_overrides.insert(k.clone(), evaluate_value(expr, &mut ev)?);
-                    }
-                    children.push(mount_instance(
-                        id,
-                        component,
-                        kw_overrides,
-                        design,
-                        tokens,
-                        visiting_inst,
-                        options,
-                        &mut si,
-                    )?);
-                }
+            ChildEntry::ForEach { .. } => {
+                // Legacy IR path — ForEach no longer auto-mounts; ignore if present.
             }
         }
     }

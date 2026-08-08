@@ -1,5 +1,4 @@
 import "foundation.pdl"
-
 variant AbnBtnTone {
   case primary
   case secondary
@@ -17,11 +16,18 @@ variant AbnBtnInteraction {
   case pressed
 }
 
-component AbnButton(
+component SimpleChip(
+  title: String = "All"
+) text {
+  content = title
+}
+
+component AbnButton (
   label: String = "Button",
   tone: AbnBtnTone = .primary,
   size: AbnBtnSize = .sm,
-  interactionState: AbnBtnInteraction = .rest
+  interactionState: AbnBtnInteraction = .rest,
+  simple:SimpleChip = SimpleChip(title: "Simple Chippy")
 ) layout {
   direction = .row
   justify = .center
@@ -78,21 +84,8 @@ component AbnButton(
     }
   }
 
-  children = [L]
-} interaction {
-  on hoverStart {
-    interactionState = .hovered
-  }
-  on hoverEnd {
-    interactionState = .rest
-  }
-  on pressStart {
-    interactionState = .pressed
-  }
-  on pressEnd {
-    interactionState = .hovered
-  }
-  on pressCancel {
-    interactionState = .rest
-  }
+  simple.content = "Override content"
+  simple.padding = 50
+
+  children = [L, simple]
 }

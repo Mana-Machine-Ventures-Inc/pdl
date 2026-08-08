@@ -7,24 +7,24 @@
           "R0__Trail"
         ],
         "R0__Trail": [
-          "R0__Meta",
-          "R0__Chev"
+          "R0__Trail__Meta",
+          "R0__Trail__Chev"
         ],
         "R1": [
           "R1__Title",
           "R1__Trail"
         ],
         "R1__Trail": [
-          "R1__Meta",
-          "R1__Chev"
+          "R1__Trail__Meta",
+          "R1__Trail__Chev"
         ],
         "R2": [
           "R2__Title",
           "R2__Trail"
         ],
         "R2__Trail": [
-          "R2__Meta",
-          "R2__Chev"
+          "R2__Trail__Meta",
+          "R2__Trail__Chev"
         ],
         "Root": [
           "R0",
@@ -59,23 +59,6 @@
             "width": "fill"
           }
         },
-        "R0__Chev": {
-          "id": "R0__Chev",
-          "kind": "icon",
-          "props": {
-            "color": "primitive:atoms.color.rgba",
-            "icon": "primitive:atoms.icon.chevron",
-            "size": 16
-          }
-        },
-        "R0__Meta": {
-          "id": "R0__Meta",
-          "kind": "text",
-          "props": {
-            "content": "param:meta",
-            "typeStyle": "typeStyle:AtomCaption"
-          }
-        },
         "R0__Title": {
           "id": "R0__Title",
           "kind": "text",
@@ -91,6 +74,23 @@
             "align": "center",
             "direction": "row",
             "gap": "primitive:atoms.space.xs"
+          }
+        },
+        "R0__Trail__Chev": {
+          "id": "R0__Trail__Chev",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.chevron",
+            "size": 16
+          }
+        },
+        "R0__Trail__Meta": {
+          "id": "R0__Trail__Meta",
+          "kind": "text",
+          "props": {
+            "content": "param:meta",
+            "typeStyle": "typeStyle:AtomCaption"
           }
         },
         "R1": {
@@ -118,23 +118,6 @@
             "width": "fill"
           }
         },
-        "R1__Chev": {
-          "id": "R1__Chev",
-          "kind": "icon",
-          "props": {
-            "color": "primitive:atoms.color.rgba",
-            "icon": "primitive:atoms.icon.chevron",
-            "size": 16
-          }
-        },
-        "R1__Meta": {
-          "id": "R1__Meta",
-          "kind": "text",
-          "props": {
-            "content": "param:meta",
-            "typeStyle": "typeStyle:AtomCaption"
-          }
-        },
         "R1__Title": {
           "id": "R1__Title",
           "kind": "text",
@@ -150,6 +133,23 @@
             "align": "center",
             "direction": "row",
             "gap": "primitive:atoms.space.xs"
+          }
+        },
+        "R1__Trail__Chev": {
+          "id": "R1__Trail__Chev",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.chevron",
+            "size": 16
+          }
+        },
+        "R1__Trail__Meta": {
+          "id": "R1__Trail__Meta",
+          "kind": "text",
+          "props": {
+            "content": "param:meta",
+            "typeStyle": "typeStyle:AtomCaption"
           }
         },
         "R2": {
@@ -178,23 +178,6 @@
             "width": "fill"
           }
         },
-        "R2__Chev": {
-          "id": "R2__Chev",
-          "kind": "icon",
-          "props": {
-            "color": "primitive:atoms.color.rgba",
-            "icon": "primitive:atoms.icon.chevron",
-            "size": 16
-          }
-        },
-        "R2__Meta": {
-          "id": "R2__Meta",
-          "kind": "text",
-          "props": {
-            "content": "param:meta",
-            "typeStyle": "typeStyle:AtomCaption"
-          }
-        },
         "R2__Title": {
           "id": "R2__Title",
           "kind": "text",
@@ -210,6 +193,23 @@
             "align": "center",
             "direction": "row",
             "gap": "primitive:atoms.space.xs"
+          }
+        },
+        "R2__Trail__Chev": {
+          "id": "R2__Trail__Chev",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.chevron",
+            "size": 16
+          }
+        },
+        "R2__Trail__Meta": {
+          "id": "R2__Trail__Meta",
+          "kind": "text",
+          "props": {
+            "content": "param:meta",
+            "typeStyle": "typeStyle:AtomCaption"
           }
         }
       },

@@ -59,6 +59,9 @@ fn run_body(
             InteractionHandlerItem::Emit { name, args } => {
                 emits.push((name.clone(), args.clone()));
             }
+            InteractionHandlerItem::HostVerb { .. } => {
+                // Host verbs are executed by the preview/app runtime, not the bake IR.
+            }
             InteractionHandlerItem::Animate { .. } => {}
             InteractionHandlerItem::If { chain } => {
                 if run_if_chain(chain, params, emits) {
@@ -315,6 +318,6 @@ mod tests {
                 assert_eq!(handlers[0].channel, "select");
             }
         }
-        assert!(n > 0, "expected ForEach on select handlers in AST, got {n}");
+        assert!(n > 0, "expected ForEach select handlers in AST, got {n}");
     }
 }

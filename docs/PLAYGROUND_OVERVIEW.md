@@ -3,7 +3,8 @@
 **Status:** shipped through Phase P5 (2026-08-07)  
 **Run:** `npm run playground`  
 **Proposal:** [`PROPOSAL_PDL_PLAYGROUND.md`](./PROPOSAL_PDL_PLAYGROUND.md)  
-**How-to:** [`playground/README.md`](../playground/README.md)
+**How-to:** [`playground/README.md`](../playground/README.md)  
+**Coverage walk:** [`PLAYGROUND_COVERAGE_CHECKLIST.md`](./PLAYGROUND_COVERAGE_CHECKLIST.md)
 
 ---
 
@@ -84,12 +85,14 @@ Pack (.pdl files)
 ## How to use (short)
 
 1. `npm run build && cargo build -p pdl-cli && npm run playground`
-2. Default pack: **Airbnb-lite**
+2. Default pack: **Airbnb-lite** (or a **browser draft** if you reloaded mid-session)
 3. Click file tabs (`c_button.pdl`, `demos.pdl`, `foundation.pdl`, …) — preview follows the file
 4. Hover `AbnButton` for press/hover feedback; try **Variants → Grid**
 5. Use **Add property** to insert layout/text snippets while learning PDL
 
-Optional: Advanced → **Rust WASM** after `npm run build:wasm`.
+Edits autosave to a **browser draft** (`localStorage`, ~14 days) so a page reload restores your working files and knobs. **Reload from disk** (or switching packs) discards that draft and reloads the pack from `test-fixtures/`. With **Pack on disk**, Analyze/Render also flushes `.pdl` writes under `test-fixtures/pdl/`.
+
+Optional: Advanced → **Rust WASM** after `npm run build:wasm`. Disk workspace WASM bake uses **`/api/disk-sources`** so the import closure matches Rust (in-memory tabs alone are not enough).
 
 ---
 
@@ -99,3 +102,5 @@ Optional: Advanced → **Rust WASM** after `npm run build:wasm`.
 2. **HTML is the v1 host** — React/shell UI, not a second frame renderer.  
 3. **SoT stays `.pdl`** — knobs may override bake params; teaching inserts write into source.  
 4. **Don’t blur into Studio** — no governance, multiplayer, or Figma parity here.
+
+**Language note:** `enum` and `variant` are the same closed-set construct in v1 (bake → HTML is keyword-agnostic). Prefer `enum` for interaction/domain state and `variant` for design-axis combinators.

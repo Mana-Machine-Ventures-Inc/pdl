@@ -25,6 +25,7 @@
       },
       "conformsTo": "ModalContent",
       "defaultParams": {
+        "subtitle": "Subtitle",
         "title": "Modal Title"
       },
       "expose": [
@@ -39,12 +40,16 @@
           "type": "String"
         },
         {
+          "default": "Subtitle",
           "name": "subtitle",
           "type": "String"
         }
       ],
       "root": {
-        "kind": "layout"
+        "kind": "layout",
+        "props": {
+          "direction": "column"
+        }
       }
     },
     "FilterChip": {
@@ -69,7 +74,7 @@
       "defaultParams": {
         "filter": "all",
         "interactionState": "rest",
-        "selected": "all"
+        "selected": "false"
       },
       "emits": [
         {
@@ -87,6 +92,9 @@
         "filter",
         "selected",
         "interactionState"
+      ],
+      "hostProtocols": [
+        "PointerInput"
       ],
       "interactions": [
         {
@@ -121,6 +129,27 @@
             {
               "body": [
                 {
+                  "kind": "assign",
+                  "param": "interactionState",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".click"
+                  }
+                }
+              ],
+              "event": "pressStart"
+            },
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "interactionState",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".rest"
+                  }
+                },
+                {
                   "args": [
                     "filter"
                   ],
@@ -147,10 +176,9 @@
           "variantTypeName": "FilterId"
         },
         {
-          "default": "all",
+          "default": false,
           "name": "selected",
-          "type": "variant",
-          "variantTypeName": "FilterId"
+          "type": "Boolean"
         },
         {
           "default": "rest",
@@ -181,19 +209,34 @@
       "variants": [
         {
           "affectedFrames": [
-            "Label",
             "Root"
           ],
           "changes": [
             {
-              "frameId": "Label",
-              "prop": "color",
-              "value": "#FFFFFF"
+              "frameId": "Root",
+              "prop": "background",
+              "value": "#444444"
             },
             {
               "frameId": "Root",
+              "prop": "borderColor",
+              "value": "#22222200"
+            }
+          ],
+          "params": {
+            "filter": "all",
+            "interactionState": "click"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
               "prop": "background",
-              "value": "#222222"
+              "value": "#FFFFFF"
             },
             {
               "frameId": "Root",
@@ -203,25 +246,39 @@
           ],
           "params": {
             "filter": "all",
-            "interactionState": "hovered",
-            "selected": "all"
+            "interactionState": "hovered"
           }
         },
         {
           "affectedFrames": [
-            "Label",
             "Root"
           ],
           "changes": [
             {
-              "frameId": "Label",
-              "prop": "color",
-              "value": "#FFFFFF"
+              "frameId": "Root",
+              "prop": "background",
+              "value": "#444444"
             },
             {
               "frameId": "Root",
+              "prop": "borderColor",
+              "value": "#22222200"
+            }
+          ],
+          "params": {
+            "filter": "episodes",
+            "interactionState": "click"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
               "prop": "background",
-              "value": "#222222"
+              "value": "#FFFFFF"
             },
             {
               "frameId": "Root",
@@ -230,26 +287,82 @@
             }
           ],
           "params": {
-            "filter": "all",
-            "interactionState": "hovered",
-            "selected": "podcasts"
+            "filter": "episodes",
+            "interactionState": "hovered"
           }
         },
         {
           "affectedFrames": [
-            "Label",
             "Root"
           ],
           "changes": [
             {
-              "frameId": "Label",
-              "prop": "color",
+              "frameId": "Root",
+              "prop": "background",
+              "value": "#444444"
+            },
+            {
+              "frameId": "Root",
+              "prop": "borderColor",
+              "value": "#22222200"
+            }
+          ],
+          "params": {
+            "filter": "hosts",
+            "interactionState": "click"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "background",
               "value": "#FFFFFF"
             },
             {
               "frameId": "Root",
-              "prop": "background",
+              "prop": "borderColor",
               "value": "#222222"
+            }
+          ],
+          "params": {
+            "filter": "hosts",
+            "interactionState": "hovered"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "#444444"
+            },
+            {
+              "frameId": "Root",
+              "prop": "borderColor",
+              "value": "#22222200"
+            }
+          ],
+          "params": {
+            "filter": "podcasts",
+            "interactionState": "click"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Root"
+          ],
+          "changes": [
+            {
+              "frameId": "Root",
+              "prop": "background",
+              "value": "#FFFFFF"
             },
             {
               "frameId": "Root",
@@ -259,36 +372,7 @@
           ],
           "params": {
             "filter": "podcasts",
-            "interactionState": "hovered",
-            "selected": "all"
-          }
-        },
-        {
-          "affectedFrames": [
-            "Label",
-            "Root"
-          ],
-          "changes": [
-            {
-              "frameId": "Label",
-              "prop": "color",
-              "value": "#FFFFFF"
-            },
-            {
-              "frameId": "Root",
-              "prop": "background",
-              "value": "#222222"
-            },
-            {
-              "frameId": "Root",
-              "prop": "borderColor",
-              "value": "#222222"
-            }
-          ],
-          "params": {
-            "filter": "podcasts",
-            "interactionState": "hovered",
-            "selected": "podcasts"
+            "interactionState": "hovered"
           }
         }
       ]
@@ -297,12 +381,20 @@
       "childHierarchy": {
         "Root": [
           "Root_FilterChip_0",
-          "Root_FilterChip_1"
+          "Root_FilterChip_1",
+          "Root_FilterChip_2",
+          "Root_FilterChip_3"
         ],
         "Root_FilterChip_0": [
           "Label"
         ],
         "Root_FilterChip_1": [
+          "Label"
+        ],
+        "Root_FilterChip_2": [
+          "Label"
+        ],
+        "Root_FilterChip_3": [
           "Label"
         ]
       },
@@ -311,7 +403,7 @@
           "id": "Label",
           "kind": "text",
           "props": {
-            "color": "#111111",
+            "color": "#FFFFFF",
             "content": "param:title",
             "fontSize": 13,
             "fontWeight": 600
@@ -321,7 +413,34 @@
           "id": "Root_FilterChip_0",
           "instanceKwargs": {
             "filter": "all",
+            "selected": true,
             "title": "All"
+          },
+          "instanceOf": "FilterChip",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "#222222",
+            "borderColor": "#222222",
+            "borderWidth": 1,
+            "cornerRadius": 999,
+            "direction": "row",
+            "gap": 6,
+            "justify": "center",
+            "padding": {
+              "bottom": 8,
+              "left": 12,
+              "right": 12,
+              "top": 8
+            }
+          }
+        },
+        "Root_FilterChip_1": {
+          "id": "Root_FilterChip_1",
+          "instanceKwargs": {
+            "filter": "podcasts",
+            "selected": false,
+            "title": "Podcasts"
           },
           "instanceOf": "FilterChip",
           "kind": "layout",
@@ -342,11 +461,38 @@
             }
           }
         },
-        "Root_FilterChip_1": {
-          "id": "Root_FilterChip_1",
+        "Root_FilterChip_2": {
+          "id": "Root_FilterChip_2",
           "instanceKwargs": {
-            "filter": "podcasts",
-            "title": "Podcasts"
+            "filter": "episodes",
+            "selected": false,
+            "title": "Episodes"
+          },
+          "instanceOf": "FilterChip",
+          "kind": "layout",
+          "props": {
+            "align": "center",
+            "background": "#F2F2F4",
+            "borderColor": "#D0D0D5",
+            "borderWidth": 1,
+            "cornerRadius": 999,
+            "direction": "row",
+            "gap": 6,
+            "justify": "center",
+            "padding": {
+              "bottom": 8,
+              "left": 12,
+              "right": 12,
+              "top": 8
+            }
+          }
+        },
+        "Root_FilterChip_3": {
+          "id": "Root_FilterChip_3",
+          "instanceKwargs": {
+            "filter": "hosts",
+            "selected": false,
+            "title": "Hosts"
           },
           "instanceOf": "FilterChip",
           "kind": "layout",
@@ -369,9 +515,31 @@
         }
       },
       "defaultParams": {
-        "chips": "[{\"component\":\"FilterChip\",\"params\":{\"title\":\"All\",\"filter\":\"all\"}},{\"component\":\"FilterChip\",\"params\":{\"title\":\"Podcasts\",\"filter\":\"podcasts\"}}]",
+        "chips": "[{\"component\":\"FilterChip\",\"params\":{\"title\":\"All\",\"filter\":\"all\"}},{\"component\":\"FilterChip\",\"params\":{\"title\":\"Podcasts\",\"filter\":\"podcasts\"}},{\"component\":\"FilterChip\",\"params\":{\"title\":\"Episodes\",\"filter\":\"episodes\"}},{\"component\":\"FilterChip\",\"params\":{\"title\":\"Hosts\",\"filter\":\"hosts\"}}]",
         "currentFilter": "all"
       },
+      "emitCaptures": [
+        {
+          "body": [
+            {
+              "kind": "assign",
+              "param": "currentFilter",
+              "value": {
+                "kind": "ident",
+                "name": "filter_id"
+              }
+            }
+          ],
+          "channel": "select",
+          "payload": [
+            {
+              "name": "filter_id",
+              "type": "FilterId"
+            }
+          ],
+          "qualifier": "chips"
+        }
+      ],
       "expose": [
         "currentFilter",
         "chips"
@@ -399,6 +567,20 @@
                 "filter": "podcasts",
                 "title": "Podcasts"
               }
+            },
+            {
+              "component": "FilterChip",
+              "params": {
+                "filter": "episodes",
+                "title": "Episodes"
+              }
+            },
+            {
+              "component": "FilterChip",
+              "params": {
+                "filter": "hosts",
+                "title": "Hosts"
+              }
             }
           ],
           "name": "chips",
@@ -411,15 +593,177 @@
       "root": {
         "kind": "layout",
         "props": {
-          "direction": "row"
+          "align": "center",
+          "direction": "row",
+          "gap": 8,
+          "padding": {
+            "bottom": 12,
+            "left": 12,
+            "right": 12,
+            "top": 12
+          }
         }
-      }
+      },
+      "variants": [
+        {
+          "affectedFrames": [
+            "Root_FilterChip_0",
+            "Root_FilterChip_2"
+          ],
+          "changes": [
+            {
+              "frameId": "Root_FilterChip_0",
+              "prop": "background",
+              "value": "#F2F2F4"
+            },
+            {
+              "frameId": "Root_FilterChip_0",
+              "prop": "borderColor",
+              "value": "#D0D0D5"
+            },
+            {
+              "frameId": "Root_FilterChip_0",
+              "prop": "instanceKwargs",
+              "value": {
+                "filter": "all",
+                "selected": false,
+                "title": "All"
+              }
+            },
+            {
+              "frameId": "Root_FilterChip_2",
+              "prop": "background",
+              "value": "#222222"
+            },
+            {
+              "frameId": "Root_FilterChip_2",
+              "prop": "borderColor",
+              "value": "#222222"
+            },
+            {
+              "frameId": "Root_FilterChip_2",
+              "prop": "instanceKwargs",
+              "value": {
+                "filter": "episodes",
+                "selected": true,
+                "title": "Episodes"
+              }
+            }
+          ],
+          "params": {
+            "currentFilter": "episodes"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Root_FilterChip_0",
+            "Root_FilterChip_3"
+          ],
+          "changes": [
+            {
+              "frameId": "Root_FilterChip_0",
+              "prop": "background",
+              "value": "#F2F2F4"
+            },
+            {
+              "frameId": "Root_FilterChip_0",
+              "prop": "borderColor",
+              "value": "#D0D0D5"
+            },
+            {
+              "frameId": "Root_FilterChip_0",
+              "prop": "instanceKwargs",
+              "value": {
+                "filter": "all",
+                "selected": false,
+                "title": "All"
+              }
+            },
+            {
+              "frameId": "Root_FilterChip_3",
+              "prop": "background",
+              "value": "#222222"
+            },
+            {
+              "frameId": "Root_FilterChip_3",
+              "prop": "borderColor",
+              "value": "#222222"
+            },
+            {
+              "frameId": "Root_FilterChip_3",
+              "prop": "instanceKwargs",
+              "value": {
+                "filter": "hosts",
+                "selected": true,
+                "title": "Hosts"
+              }
+            }
+          ],
+          "params": {
+            "currentFilter": "hosts"
+          }
+        },
+        {
+          "affectedFrames": [
+            "Root_FilterChip_0",
+            "Root_FilterChip_1"
+          ],
+          "changes": [
+            {
+              "frameId": "Root_FilterChip_0",
+              "prop": "background",
+              "value": "#F2F2F4"
+            },
+            {
+              "frameId": "Root_FilterChip_0",
+              "prop": "borderColor",
+              "value": "#D0D0D5"
+            },
+            {
+              "frameId": "Root_FilterChip_0",
+              "prop": "instanceKwargs",
+              "value": {
+                "filter": "all",
+                "selected": false,
+                "title": "All"
+              }
+            },
+            {
+              "frameId": "Root_FilterChip_1",
+              "prop": "background",
+              "value": "#222222"
+            },
+            {
+              "frameId": "Root_FilterChip_1",
+              "prop": "borderColor",
+              "value": "#222222"
+            },
+            {
+              "frameId": "Root_FilterChip_1",
+              "prop": "instanceKwargs",
+              "value": {
+                "filter": "podcasts",
+                "selected": true,
+                "title": "Podcasts"
+              }
+            }
+          ],
+          "params": {
+            "currentFilter": "podcasts"
+          }
+        }
+      ]
     },
     "Modal": {
       "childHierarchy": {
         "Root": [
           "Header",
-          "Root_UpsellBody_0"
+          "Root_UpsellBody_0",
+          "Root_ConfirmBody_1"
+        ],
+        "Root_ConfirmBody_1": [
+          "Title",
+          "Sub"
         ],
         "Root_UpsellBody_0": [
           "Title",
@@ -432,7 +776,15 @@
           "id": "Cta",
           "kind": "text",
           "props": {
-            "content": "param:cta"
+            "background": "#009999",
+            "content": "param:cta",
+            "fontSize": 32,
+            "padding": {
+              "bottom": 12,
+              "left": 0,
+              "right": 0,
+              "top": 12
+            }
           }
         },
         "Header": {
@@ -442,10 +794,21 @@
             "content": "param:chromeTitle"
           }
         },
+        "Root_ConfirmBody_1": {
+          "id": "Root_ConfirmBody_1",
+          "instanceOf": "ConfirmBody",
+          "kind": "layout",
+          "props": {
+            "direction": "column"
+          }
+        },
         "Root_UpsellBody_0": {
           "id": "Root_UpsellBody_0",
           "instanceOf": "UpsellBody",
-          "kind": "layout"
+          "kind": "layout",
+          "props": {
+            "direction": "column"
+          }
         },
         "Sub": {
           "id": "Sub",
@@ -464,7 +827,7 @@
       },
       "defaultParams": {
         "chromeTitle": "Dialog",
-        "slots": "[{\"component\":\"UpsellBody\",\"params\":{}}]"
+        "slots": "[{\"component\":\"UpsellBody\",\"params\":{}},{\"component\":\"ConfirmBody\",\"params\":{}}]"
       },
       "expose": [
         "chromeTitle",
@@ -481,6 +844,9 @@
           "default": [
             {
               "component": "UpsellBody"
+            },
+            {
+              "component": "ConfirmBody"
             }
           ],
           "name": "slots",
@@ -491,7 +857,213 @@
         }
       ],
       "root": {
-        "kind": "layout"
+        "kind": "layout",
+        "props": {
+          "direction": "column",
+          "gap": 12
+        }
+      }
+    },
+    "SearchBar": {
+      "childHierarchy": {
+        "Root": [
+          "Field"
+        ]
+      },
+      "childNodes": {
+        "Field": {
+          "id": "Field",
+          "instanceOf": "SearchField",
+          "kind": "text",
+          "props": {
+            "color": "#111111",
+            "content": "param:placeholder",
+            "editable": "param:value",
+            "fontSize": 15
+          }
+        }
+      },
+      "emitCaptures": [
+        {
+          "body": [
+            {
+              "kind": "assign",
+              "param": "query",
+              "value": {
+                "kind": "ident",
+                "name": "value"
+              }
+            }
+          ],
+          "channel": "change",
+          "payload": [
+            {
+              "name": "value",
+              "type": "String"
+            }
+          ],
+          "qualifier": "Field"
+        }
+      ],
+      "expose": [
+        "query"
+      ],
+      "name": "SearchBar",
+      "params": [
+        {
+          "name": "query",
+          "type": "String"
+        }
+      ],
+      "requiredComponents": [
+        "SearchField"
+      ],
+      "root": {
+        "kind": "layout",
+        "props": {
+          "align": "center",
+          "direction": "row",
+          "gap": 8,
+          "padding": {
+            "bottom": 12,
+            "left": 12,
+            "right": 12,
+            "top": 12
+          }
+        }
+      }
+    },
+    "SearchField": {
+      "conformsTo": "FormField",
+      "defaultParams": {
+        "editing": "false",
+        "placeholder": "Search"
+      },
+      "emits": [
+        {
+          "args": [
+            {
+              "name": "value",
+              "type": "String"
+            }
+          ],
+          "name": "change"
+        }
+      ],
+      "expose": [
+        "value",
+        "placeholder",
+        "editing"
+      ],
+      "hostProtocols": [
+        "EditableText",
+        "PointerInput"
+      ],
+      "interactions": [
+        {
+          "component": "SearchField",
+          "handlers": [
+            {
+              "body": [
+                {
+                  "chain": {
+                    "branches": [
+                      {
+                        "condition": {
+                          "kind": "truthy",
+                          "param": "editing"
+                        }
+                      }
+                    ],
+                    "elseBody": [
+                      {
+                        "kind": "assign",
+                        "param": "editing",
+                        "value": {
+                          "kind": "boolean",
+                          "value": true
+                        }
+                      },
+                      {
+                        "args": [
+                          "value"
+                        ],
+                        "kind": "hostVerb",
+                        "name": "beginEditing"
+                      }
+                    ]
+                  },
+                  "kind": "if"
+                }
+              ],
+              "event": "pressEnd"
+            },
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "editing",
+                  "value": {
+                    "kind": "boolean",
+                    "value": false
+                  }
+                },
+                {
+                  "args": [
+                    "value"
+                  ],
+                  "kind": "emit",
+                  "name": "change"
+                }
+              ],
+              "event": "keyboardDismissed"
+            },
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "editing",
+                  "value": {
+                    "kind": "boolean",
+                    "value": false
+                  }
+                },
+                {
+                  "kind": "hostVerb",
+                  "name": "cancelEditing"
+                }
+              ],
+              "event": "keyboardCancelled"
+            }
+          ],
+          "name": "default"
+        }
+      ],
+      "name": "SearchField",
+      "params": [
+        {
+          "name": "value",
+          "type": "String"
+        },
+        {
+          "default": "Search",
+          "name": "placeholder",
+          "type": "String"
+        },
+        {
+          "default": false,
+          "name": "editing",
+          "type": "Boolean"
+        }
+      ],
+      "root": {
+        "kind": "text",
+        "props": {
+          "color": "#111111",
+          "content": "param:placeholder",
+          "editable": "param:value",
+          "fontSize": 15
+        }
       }
     },
     "UpsellBody": {
@@ -507,7 +1079,15 @@
           "id": "Cta",
           "kind": "text",
           "props": {
-            "content": "param:cta"
+            "background": "#009999",
+            "content": "param:cta",
+            "fontSize": 32,
+            "padding": {
+              "bottom": 12,
+              "left": 0,
+              "right": 0,
+              "top": 12
+            }
           }
         },
         "Sub": {
@@ -528,6 +1108,7 @@
       "conformsTo": "ModalContent",
       "defaultParams": {
         "cta": "Upgrade",
+        "subtitle": "Subtitle",
         "title": "Modal Title"
       },
       "expose": [
@@ -543,6 +1124,7 @@
           "type": "String"
         },
         {
+          "default": "Subtitle",
           "name": "subtitle",
           "type": "String"
         },
@@ -553,13 +1135,64 @@
         }
       ],
       "root": {
-        "kind": "layout"
+        "kind": "layout",
+        "props": {
+          "direction": "column"
+        }
       }
     }
   },
   "generatedAt": "2026-08-06T00:00:00.000Z",
   "kind": "componentCatalogue",
+  "protocolRoles": {
+    "EditableText": "host",
+    "FormField": "api",
+    "ModalContent": "api",
+    "PointerInput": "host",
+    "SubnavItem": "api"
+  },
   "protocols": {
+    "EditableText": {
+      "name": "EditableText",
+      "role": "host",
+      "subject": "host"
+    },
+    "FormField": {
+      "emits": [
+        {
+          "args": [
+            {
+              "name": "value",
+              "type": "String"
+            }
+          ],
+          "name": "change"
+        }
+      ],
+      "name": "FormField",
+      "params": [
+        {
+          "default": {
+            "kind": "string"
+          },
+          "name": "value",
+          "type": "String"
+        },
+        {
+          "default": {
+            "kind": "string"
+          },
+          "name": "placeholder",
+          "type": "String"
+        }
+      ],
+      "requires": [
+        "EditableText",
+        "PointerInput"
+      ],
+      "role": "api",
+      "subject": "component"
+    },
     "ModalContent": {
       "name": "ModalContent",
       "params": [
@@ -573,12 +1206,20 @@
         },
         {
           "default": {
-            "kind": "string"
+            "kind": "string",
+            "value": "Subtitle"
           },
           "name": "subtitle",
           "type": "String"
         }
-      ]
+      ],
+      "role": "api",
+      "subject": "component"
+    },
+    "PointerInput": {
+      "name": "PointerInput",
+      "role": "host",
+      "subject": "host"
     },
     "SubnavItem": {
       "emits": [
@@ -610,7 +1251,12 @@
           "type": "variant",
           "variantTypeName": "FilterId"
         }
-      ]
+      ],
+      "requires": [
+        "PointerInput"
+      ],
+      "role": "api",
+      "subject": "component"
     }
   },
   "schemaVersion": "1.0.0-beta",
@@ -618,14 +1264,17 @@
     "ChipInteraction": {
       "cases": [
         "rest",
-        "hovered"
+        "hovered",
+        "click"
       ],
       "name": "ChipInteraction"
     },
     "FilterId": {
       "cases": [
         "all",
-        "podcasts"
+        "podcasts",
+        "episodes",
+        "hosts"
       ],
       "name": "FilterId"
     }

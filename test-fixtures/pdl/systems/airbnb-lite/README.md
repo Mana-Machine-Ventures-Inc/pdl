@@ -15,7 +15,7 @@
 | Chip / filter pill | Ported | `AbnChip` |
 | Multi-instance demos | Ported | Button row + Cancel/Save + field stack |
 | Pointer cycle lab | Ported | `AbnPointerLab` — hover + press host demo |
-| Interactive hover/press | Ported | Inline `interaction { }` on `AbnButton` / `AbnPointerLab`; host applies handlers |
+| Interactive hover/press | Ported | `self.<channel> = { … }` on `AbnPointerLab`; host applies handlers |
 | Fixtures | Ported | Button / Field / Chip / PointerLab |
 | Protocols / ForEach / emits | Deferred | Use `protocols/` fixtures |
 | Motion / transition runtime | Deferred | Needs B7 host |

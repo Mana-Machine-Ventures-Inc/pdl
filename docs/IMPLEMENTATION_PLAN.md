@@ -42,7 +42,7 @@ Implement **after A2** unless a spike is explicitly throwaway.
 | **B3** | Injection pack validate + bake | ✅ `pack.rs` + `bakePack`/`validatePack` + soft-skip + §4c |
 | **B4** | `emits` / `emit` + inline `interaction` | ✅ Parse/merge/catalogue + FilterChip fixture + §4d; host dispatch later |
 | **B4b** | Language cleanup (locked 2026-08-06) | ✅ Rust: reject `expose`; trailing `} emits { }`; `self` / `self.param`; param==param; E028/E029; catalogue `expose` = all params |
-| **B5** | Layout `on` capture + `ForEach` derived binds (Pattern A) | ✅ Rust parse + bake expand; layout `on` validated (host dispatch B7); `library_subnav.pdl` parses |
+| **B5** | Emit handler assignment + `ForEach` derived binds (Pattern A) | ✅ Rust parse + bake expand; emit capture validated (host dispatch B7); `library_subnav.pdl` parses |
 | **B6** | `ForEach` before/between/after | Deferred chrome — grammar sketched under §4e; not first compiler slice |
 | **B7** | Host emit dispatch + prototype runtime stub | outside core language |
 
@@ -58,7 +58,7 @@ Implement **after A2** unless a spike is explicitly throwaway.
 | HTML host (C1) | Static draw of bake IR; `npm run preview` / playground | Live interactions; emit dispatch (B7); motion runtime |
 | Native / prototype | — | C2 SwiftUI; C3 routes/stack; A5 C ABI |
 
-**Bake JSON** remains the stability boundary. HTML is a static C1 host: it draws whatever bake already flattened. `ForEach` / layout `on` become visible in HTML only after Rust expands them at bake (Phase 2 after §4e review).
+**Bake JSON** remains the stability boundary. HTML is a static C1 host: it draws whatever bake already flattened. `ForEach` / emit capture become visible in HTML only after Rust expands them at bake (Phase 2 after §4e review). Host prelude stubs: **`full-spec` §4a′**.
 
 ---
 

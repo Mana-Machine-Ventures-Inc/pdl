@@ -1,4 +1,5 @@
-// Usage, fixtures, rules, and interactions for shared molecule components.
+// Usage, fixtures, and rules for shared molecule components.
+// Host inbound handlers live on the components themselves (`self.<channel> = { … }`).
 // Import only after the underlying components exist (via m_05 / m_10, which pull in buttons).
 
 import "m_05_card.pdl"
@@ -27,15 +28,6 @@ rules MoleculeTextButton {
   tags = ["molecule", "button"]
   tags.add("cta")
   Rule(.should, self.exists)
-}
-
-interaction MoleculeTextButtonHoverPreview for MoleculeTextButton {
-  on hoverStart {
-    tone = .secondary
-  }
-  on hoverEnd {
-    tone = .primary
-  }
 }
 
 // --- MoleculeCardArticle ---
@@ -67,15 +59,6 @@ rules MoleculeCardArticle {
   }
 }
 
-interaction MoleculeCardArticleLayoutPeek for MoleculeCardArticle {
-  on hoverStart {
-    layoutMode = .textOnly
-  }
-  on hoverEnd {
-    layoutMode = .withHero
-  }
-}
-
 // --- MoleculeFieldBlock ---
 
 usage MoleculeFieldBlock {
@@ -103,14 +86,5 @@ rules MoleculeFieldBlock {
     Rule(.should, descendants.exists)
   } else {
     Rule(.may, self.exists)
-  }
-}
-
-interaction MoleculeFieldBlockLayoutPeek for MoleculeFieldBlock {
-  on hoverStart {
-    layoutMode = .noHelp
-  }
-  on hoverEnd {
-    layoutMode = .includeHelp
   }
 }

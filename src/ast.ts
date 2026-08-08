@@ -4,6 +4,8 @@
 
 export type ConditionExpr =
   | { kind: "cmp"; param: string; op: "==" | "!="; rhs: string }
+  /** Bare Boolean param: `if selected { … }` / `if editing { … }` (Rust `Truthy`). */
+  | { kind: "truthy"; param: string }
   | { kind: "and"; items: ConditionExpr[] }
   | { kind: "or"; items: ConditionExpr[] }
   /** Synthesised when flattening `rules` `else` / prior-branch negations (not a PDL `if` atom). */
@@ -22,6 +24,7 @@ export type ValueExpr =
   | { kind: "edgeInsets"; variant: "xy" | "trbl"; fields: Record<string, ValueExpr> }
   | { kind: "corner"; tl: ValueExpr; tr: ValueExpr; br: ValueExpr; bl: ValueExpr }
   | { kind: "array"; items: ValueExpr[] }
+  | { kind: "instance"; component: string; kwargs: Record<string, ValueExpr> }
   | { kind: "transition"; duration: ValueExpr; easing: ValueExpr; delay?: ValueExpr }
   | { kind: "vibrancyTuple"; saturation: number; brightness: number }
   | { kind: "rampInline"; direction: string; stops: ValueExpr[] }
@@ -32,6 +35,8 @@ export type ValueExpr =
 export type ComponentParam = {
   name: string;
   typeName: string;
+  /** `slots: [ModalContent] = …` */
+  isArray?: boolean;
   defaultValue: ValueExpr;
 };
 
@@ -56,9 +61,19 @@ export type IfChain = {
 export type ComponentDecl = {
   kind: "component";
   name: string;
+  /** Optional protocol conformance (`component C <P>`). Rust validates host roles. */
+  conformsTo?: string;
   params: ComponentParam[];
   rootKind: "layout" | "text" | "icon" | "media";
   body: FrameBodyItem[];
+};
+
+/** Minimal protocol AST for import/load; host-role validation is Rust-first. */
+export type ProtocolDecl = {
+  kind: "protocol";
+  name: string;
+  role: "api" | "host";
+  requires: string[];
 };
 
 export type PrimitiveDecl = {
@@ -167,6 +182,8 @@ export type InteractionIfChain = {
 export type InteractionHandlerItem =
   | { kind: "assign"; param: string; value: ValueExpr }
   | { kind: "animate"; value: ValueExpr }
+  | { kind: "emit"; name: string; args: string[] }
+  | { kind: "hostVerb"; name: string; args: string[] }
   | { kind: "if"; chain: InteractionIfChain };
 
 export type InteractionDecl = {
@@ -184,6 +201,7 @@ export type TopLevelDecl =
   | ThemeDecl
   | TypeStyleDecl
   | VariantDecl
+  | ProtocolDecl
   | ComponentDecl
   | ExposeDecl
   | UsageDecl

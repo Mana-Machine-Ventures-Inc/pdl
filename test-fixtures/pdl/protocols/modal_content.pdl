@@ -1,12 +1,14 @@
 // B1+B2: protocols, [T] slots, instance literals, children expansion.
-protocol ModalContent {
+protocol ModalContent: component {
   title = "Modal Title"
-  subtitle = ""
+  subtitle = "Subtitle" // Can be ignored
 }
 
 component UpsellBody <ModalContent>(
   cta: String = "Upgrade"
 ) layout {
+  direction = .column
+  
   let Title: text = {
     content = title
   }
@@ -15,14 +17,20 @@ component UpsellBody <ModalContent>(
   }
   let Cta: text = {
     content = cta
+    fontSize = 32
+    background = #009999
+    padding = EdgeInsets(x: 0, y: 12)
   }
   children = [Title, Sub, Cta]
 }
 
 component ConfirmBody <ModalContent>() layout {
+  direction = .column
+  
   let Title: text = {
     content = title
   }
+  
   let Sub: text = {
     content = subtitle
   }
@@ -31,8 +39,12 @@ component ConfirmBody <ModalContent>() layout {
 
 component Modal(
   chromeTitle: String = "Dialog",
-  slots: [ModalContent] = [UpsellBody()]
+  slots: [ModalContent] = [UpsellBody(), ConfirmBody()]
 ) layout {
+  
+  direction = .column
+  gap = 12
+  
   let Header: text = {
     content = chromeTitle
   }

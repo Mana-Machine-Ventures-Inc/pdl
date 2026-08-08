@@ -22,8 +22,9 @@ pub mod validate;
 
 pub use catalogue::{build_catalogue_component_row, build_component_catalogue};
 pub use design::{
-    effective_emits, effective_params, load_design, load_design_from_sources, DesignDefinition,
-    SourceMap,
+    effective_emits, effective_host_protocols, effective_params, host_protocols_for_protocol,
+    inject_host_protocol_prelude, is_host_protocol_prelude, load_design, load_design_from_sources,
+    DesignDefinition, SourceMap, HOST_PROTOCOL_PRELUDE,
 };
 pub use error::PdlError;
 pub use interaction::{

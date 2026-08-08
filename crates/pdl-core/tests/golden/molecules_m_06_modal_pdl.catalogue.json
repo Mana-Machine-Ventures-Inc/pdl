@@ -363,6 +363,7 @@
           }
         }
       },
+      "conformsTo": "PointerInput",
       "defaultParams": {
         "label": "Button",
         "size": "sm",
@@ -372,6 +373,43 @@
         "label",
         "tone",
         "size"
+      ],
+      "hostProtocols": [
+        "PointerInput"
+      ],
+      "interactions": [
+        {
+          "component": "MoleculeTextButton",
+          "handlers": [
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "tone",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".secondary"
+                  }
+                }
+              ],
+              "event": "hoverStart"
+            },
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "tone",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".primary"
+                  }
+                }
+              ],
+              "event": "hoverEnd"
+            }
+          ],
+          "name": "default"
+        }
       ],
       "name": "MoleculeTextButton",
       "params": [
@@ -885,6 +923,16 @@
       },
       "name": "atoms.vibrancy.subtle",
       "tokenType": "Vibrancy"
+    }
+  },
+  "protocolRoles": {
+    "PointerInput": "host"
+  },
+  "protocols": {
+    "PointerInput": {
+      "name": "PointerInput",
+      "role": "host",
+      "subject": "host"
     }
   },
   "schemaVersion": "1.0.0-beta",

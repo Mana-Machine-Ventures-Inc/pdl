@@ -1,4 +1,4 @@
-// §4e (B5) — ForEach + layout `on` + derived Bool binds (illustrative sketch).
+// §4e (B5) — ForEach binder sketch (illustrative).
 // Canonical shipped copy lives in filter_chip.pdl (imported by design.pdl).
 
 variant FilterId {
@@ -13,7 +13,8 @@ variant ChipInteraction {
   case hovered
 }
 
-protocol SubnavItem {
+protocol SubnavItem: component {
+  requires PointerInput
   title = ""
   filter: FilterId = .all
   emits {
@@ -33,14 +34,14 @@ component FilterChip <SubnavItem>(
     content = title
   }
   children = [Label]
-} interaction {
-  on hoverStart {
+
+  self.hoverStart = {
     interactionState = .hovered
   }
-  on hoverEnd {
+  self.hoverEnd = {
     interactionState = .rest
   }
-  on pressEnd {
+  self.pressEnd = {
     emit select(filter)
   }
 }
@@ -49,18 +50,21 @@ component LibrarySubnavForEach(
   currentFilter: FilterId = .all,
   chips: [SubnavItem] = [
     FilterChip(title: "All", filter: .all),
-    FilterChip(title: "Podcasts", filter: .podcasts),
-    FilterChip(title: "Episodes", filter: .episodes),
-    FilterChip(title: "Hosts", filter: .hosts)
+    FilterChip(title: "Podcasts", filter: .podcasts)
   ]
 ) layout {
   direction = .row
+  gap = 24
 
-  ForEach(chips) {
-    selected: self.currentFilter == filter
-
-    on select(filter_id: FilterId) {
-      currentFilter = filter_id
-    }
+  /*
+  ForEach(chips) { chip in
+    chip.title = "A"
+    chip.selected = self.currentFilter == filter
   }
+  */
+
+  let first = FilterChip(title: "First", filter: .all)
+  let last = FilterChip(title: "Last", filter: .all)
+
+  children = [first, chips, last, chips]
 }

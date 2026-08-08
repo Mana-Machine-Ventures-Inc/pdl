@@ -1,13 +1,12 @@
 // usage, fixtures, rules, interaction (full-spec §8, §11)
 
 import "../atoms/typestyle_atoms.pdl"
-
 variant CompanionTone {
   case neutral
   case accent
 }
 
-component CompanionBlock(tone: CompanionTone = .neutral) layout {
+component CompanionBlock <PointerInput>(tone: CompanionTone = .neutral) layout {
   direction = .row
 
   let L: text = {
@@ -16,13 +15,11 @@ component CompanionBlock(tone: CompanionTone = .neutral) layout {
   }
 
   children = [L]
-}
 
-interaction CompanionHover for CompanionBlock {
-  on hoverStart {
+  self.hoverStart = {
     tone = .accent
   }
-  on hoverEnd {
+  self.hoverEnd = {
     tone = .neutral
   }
 }

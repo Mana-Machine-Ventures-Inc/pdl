@@ -2,6 +2,7 @@
   "components": {
     "ConfirmBody": {
       "bakedParams": {
+        "subtitle": "Subtitle",
         "title": "Modal Title"
       },
       "name": "ConfirmBody",
@@ -18,12 +19,15 @@
             "id": "Sub",
             "kind": "text",
             "props": {
-              "content": ""
+              "content": "Subtitle"
             }
           }
         ],
         "id": "Root",
-        "kind": "layout"
+        "kind": "layout",
+        "props": {
+          "direction": "column"
+        }
       },
       "rootKind": "layout"
     },
@@ -31,7 +35,7 @@
       "bakedParams": {
         "filter": "all",
         "interactionState": "rest",
-        "selected": "all"
+        "selected": false
       },
       "name": "FilterChip",
       "root": {
@@ -84,6 +88,20 @@
               "filter": "podcasts",
               "title": "Podcasts"
             }
+          },
+          {
+            "component": "FilterChip",
+            "params": {
+              "filter": "episodes",
+              "title": "Episodes"
+            }
+          },
+          {
+            "component": "FilterChip",
+            "params": {
+              "filter": "hosts",
+              "title": "Hosts"
+            }
           }
         ],
         "currentFilter": "all"
@@ -97,7 +115,7 @@
                 "id": "Label",
                 "kind": "text",
                 "props": {
-                  "color": "#111111",
+                  "color": "#FFFFFF",
                   "content": "All",
                   "fontSize": 13,
                   "fontWeight": 600
@@ -107,14 +125,15 @@
             "id": "Root_FilterChip_0",
             "instanceKwargs": {
               "filter": "all",
+              "selected": true,
               "title": "All"
             },
             "instanceOf": "FilterChip",
             "kind": "layout",
             "props": {
               "align": "center",
-              "background": "#F2F2F4",
-              "borderColor": "#D0D0D5",
+              "background": "#222222",
+              "borderColor": "#222222",
               "borderWidth": 1,
               "cornerRadius": 999,
               "direction": "row",
@@ -144,7 +163,84 @@
             "id": "Root_FilterChip_1",
             "instanceKwargs": {
               "filter": "podcasts",
+              "selected": false,
               "title": "Podcasts"
+            },
+            "instanceOf": "FilterChip",
+            "kind": "layout",
+            "props": {
+              "align": "center",
+              "background": "#F2F2F4",
+              "borderColor": "#D0D0D5",
+              "borderWidth": 1,
+              "cornerRadius": 999,
+              "direction": "row",
+              "gap": 6,
+              "justify": "center",
+              "padding": {
+                "bottom": 8,
+                "left": 12,
+                "right": 12,
+                "top": 8
+              }
+            }
+          },
+          {
+            "children": [
+              {
+                "id": "Label",
+                "kind": "text",
+                "props": {
+                  "color": "#111111",
+                  "content": "Episodes",
+                  "fontSize": 13,
+                  "fontWeight": 600
+                }
+              }
+            ],
+            "id": "Root_FilterChip_2",
+            "instanceKwargs": {
+              "filter": "episodes",
+              "selected": false,
+              "title": "Episodes"
+            },
+            "instanceOf": "FilterChip",
+            "kind": "layout",
+            "props": {
+              "align": "center",
+              "background": "#F2F2F4",
+              "borderColor": "#D0D0D5",
+              "borderWidth": 1,
+              "cornerRadius": 999,
+              "direction": "row",
+              "gap": 6,
+              "justify": "center",
+              "padding": {
+                "bottom": 8,
+                "left": 12,
+                "right": 12,
+                "top": 8
+              }
+            }
+          },
+          {
+            "children": [
+              {
+                "id": "Label",
+                "kind": "text",
+                "props": {
+                  "color": "#111111",
+                  "content": "Hosts",
+                  "fontSize": 13,
+                  "fontWeight": 600
+                }
+              }
+            ],
+            "id": "Root_FilterChip_3",
+            "instanceKwargs": {
+              "filter": "hosts",
+              "selected": false,
+              "title": "Hosts"
             },
             "instanceOf": "FilterChip",
             "kind": "layout",
@@ -169,7 +265,15 @@
         "id": "Root",
         "kind": "layout",
         "props": {
-          "direction": "row"
+          "align": "center",
+          "direction": "row",
+          "gap": 8,
+          "padding": {
+            "bottom": 12,
+            "left": 12,
+            "right": 12,
+            "top": 12
+          }
         }
       },
       "rootKind": "layout"
@@ -180,6 +284,9 @@
         "slots": [
           {
             "component": "UpsellBody"
+          },
+          {
+            "component": "ConfirmBody"
           }
         ]
       },
@@ -206,30 +313,120 @@
                 "id": "Sub",
                 "kind": "text",
                 "props": {
-                  "content": ""
+                  "content": "Subtitle"
                 }
               },
               {
                 "id": "Cta",
                 "kind": "text",
                 "props": {
-                  "content": "Upgrade"
+                  "background": "#009999",
+                  "content": "Upgrade",
+                  "fontSize": 32,
+                  "padding": {
+                    "bottom": 12,
+                    "left": 0,
+                    "right": 0,
+                    "top": 12
+                  }
                 }
               }
             ],
             "id": "Root_UpsellBody_0",
             "instanceOf": "UpsellBody",
-            "kind": "layout"
+            "kind": "layout",
+            "props": {
+              "direction": "column"
+            }
+          },
+          {
+            "children": [
+              {
+                "id": "Title",
+                "kind": "text",
+                "props": {
+                  "content": "Modal Title"
+                }
+              },
+              {
+                "id": "Sub",
+                "kind": "text",
+                "props": {
+                  "content": "Subtitle"
+                }
+              }
+            ],
+            "id": "Root_ConfirmBody_1",
+            "instanceOf": "ConfirmBody",
+            "kind": "layout",
+            "props": {
+              "direction": "column"
+            }
           }
         ],
         "id": "Root",
-        "kind": "layout"
+        "kind": "layout",
+        "props": {
+          "direction": "column",
+          "gap": 12
+        }
       },
       "rootKind": "layout"
+    },
+    "SearchBar": {
+      "name": "SearchBar",
+      "root": {
+        "children": [
+          {
+            "id": "Field",
+            "instanceOf": "SearchField",
+            "kind": "text",
+            "props": {
+              "color": "#111111",
+              "content": "Search",
+              "editable": "",
+              "fontSize": 15
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "center",
+          "direction": "row",
+          "gap": 8,
+          "padding": {
+            "bottom": 12,
+            "left": 12,
+            "right": 12,
+            "top": 12
+          }
+        }
+      },
+      "rootKind": "layout"
+    },
+    "SearchField": {
+      "bakedParams": {
+        "editing": false,
+        "placeholder": "Search"
+      },
+      "name": "SearchField",
+      "root": {
+        "id": "Root",
+        "kind": "text",
+        "props": {
+          "color": "#111111",
+          "content": "Search",
+          "editable": "",
+          "fontSize": 15
+        }
+      },
+      "rootKind": "text"
     },
     "UpsellBody": {
       "bakedParams": {
         "cta": "Upgrade",
+        "subtitle": "Subtitle",
         "title": "Modal Title"
       },
       "name": "UpsellBody",
@@ -246,19 +443,30 @@
             "id": "Sub",
             "kind": "text",
             "props": {
-              "content": ""
+              "content": "Subtitle"
             }
           },
           {
             "id": "Cta",
             "kind": "text",
             "props": {
-              "content": "Upgrade"
+              "background": "#009999",
+              "content": "Upgrade",
+              "fontSize": 32,
+              "padding": {
+                "bottom": 12,
+                "left": 0,
+                "right": 0,
+                "top": 12
+              }
             }
           }
         ],
         "id": "Root",
-        "kind": "layout"
+        "kind": "layout",
+        "props": {
+          "direction": "column"
+        }
       },
       "rootKind": "layout"
     }

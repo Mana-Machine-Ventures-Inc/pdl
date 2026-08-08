@@ -342,7 +342,7 @@
                   {
                     "children": [
                       {
-                        "id": "C1__Primary__L",
+                        "id": "C1__Actions__Primary__Primary__L",
                         "kind": "text",
                         "props": {
                           "color": "#FFFFFF",
@@ -352,7 +352,7 @@
                         }
                       }
                     ],
-                    "id": "C1__Primary",
+                    "id": "C1__Actions__Primary",
                     "instanceKwargs": {
                       "label": "Open",
                       "size": "sm",
@@ -379,7 +379,7 @@
                   {
                     "children": [
                       {
-                        "id": "C1__Secondary__T",
+                        "id": "C1__Actions__Secondary__Secondary__T",
                         "kind": "text",
                         "props": {
                           "color": "#EBEBEB",
@@ -389,7 +389,7 @@
                         }
                       },
                       {
-                        "id": "C1__Secondary__Chev",
+                        "id": "C1__Actions__Secondary__Secondary__Chev",
                         "kind": "icon",
                         "props": {
                           "color": "#222222",
@@ -398,7 +398,7 @@
                         }
                       }
                     ],
-                    "id": "C1__Secondary",
+                    "id": "C1__Actions__Secondary",
                     "instanceKwargs": {
                       "label": "Share",
                       "mode": "trailingChevron"
@@ -490,7 +490,7 @@
                   {
                     "children": [
                       {
-                        "id": "C2__Primary__L",
+                        "id": "C2__Actions__Primary__Primary__L",
                         "kind": "text",
                         "props": {
                           "color": "#FFFFFF",
@@ -500,7 +500,7 @@
                         }
                       }
                     ],
-                    "id": "C2__Primary",
+                    "id": "C2__Actions__Primary",
                     "instanceKwargs": {
                       "label": "Open",
                       "size": "sm",
@@ -527,7 +527,7 @@
                   {
                     "children": [
                       {
-                        "id": "C2__Secondary__T",
+                        "id": "C2__Actions__Secondary__Secondary__T",
                         "kind": "text",
                         "props": {
                           "color": "#EBEBEB",
@@ -537,7 +537,7 @@
                         }
                       },
                       {
-                        "id": "C2__Secondary__Chev",
+                        "id": "C2__Actions__Secondary__Secondary__Chev",
                         "kind": "icon",
                         "props": {
                           "color": "#222222",
@@ -546,7 +546,7 @@
                         }
                       }
                     ],
-                    "id": "C2__Secondary",
+                    "id": "C2__Actions__Secondary",
                     "instanceKwargs": {
                       "label": "Share",
                       "mode": "trailingChevron"
@@ -719,7 +719,7 @@
               {
                 "children": [
                   {
-                    "id": "F0__Val",
+                    "id": "F0__Box__Val",
                     "kind": "text",
                     "props": {
                       "content": "Design"
@@ -783,7 +783,7 @@
               {
                 "children": [
                   {
-                    "id": "F1__Val",
+                    "id": "F1__Box__Val",
                     "kind": "text",
                     "props": {
                       "content": "Editor"

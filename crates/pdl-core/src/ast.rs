@@ -209,22 +209,29 @@ pub enum FrameBodyItem {
     If {
         chain: IfChain,
     },
-    /// `ForEach(listParam) { selected: self.currentFilter …; on select(…) { … } }`
+    /// `ForEach(listParam) { item in item.selected = …; item.select(…) = { … } }`
     ForEach {
         list: String,
+        /// Required binder for the current element (`chip` in `chip in`).
+        item: String,
         binds: IndexMap<String, ValueExpr>,
         handlers: Vec<LayoutOnHandler>,
     },
-    /// Layout emit capture: `on select(filter_id: FilterId) { … }` or `on chips.select(…) { … }`
+    /// Layout emit capture: `Field.change(…) = { … }` (let/slot) — not list params (§4e).
     LayoutOn {
         handler: LayoutOnHandler,
     },
+    /// Host inbound: `self.pressEnd = { … }` — lifted to `InteractionDecl` after parse (§4a′ / §8).
+    HostHandler {
+        event: String,
+        body: Vec<InteractionHandlerItem>,
+    },
 }
 
-/// Parent-layout capture of a child emit channel (§4e / §8).
+/// Parent-layout capture of a child emit channel (§4e / §8) — handler assignment.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LayoutOnHandler {
-    /// Optional list/param qualifier (`chips` in `on chips.select`).
+    /// Optional let/slot qualifier (`Field` in `Field.change`). List params are **PDL-E036**.
     pub qualifier: Option<String>,
     pub channel: String,
     pub payload: Vec<EmitArgDecl>,
@@ -284,10 +291,22 @@ pub struct ProtocolEmitDecl {
     pub args: Vec<EmitArgDecl>,
 }
 
-/// `protocol Name { … }` — shared params (+ optional emits). B1 language slice.
+/// Protocol role: in-tree API/structure vs host runtime powers (§4a / capabilities proposal).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProtocolRole {
+    /// Shared params + `emits` for slots / mixed lists (default).
+    Api,
+    /// Ambient channels + host verbs for Playground / app runtime.
+    Host,
+}
+
+/// `protocol Name { … }` — API contract and/or host runtime power.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProtocolDecl {
     pub name: String,
+    pub role: ProtocolRole,
+    /// Host (or other) protocols this API protocol pulls in (`requires PointerInput`).
+    pub requires: Vec<String>,
     pub params: Vec<ComponentParam>,
     pub emits: Vec<ProtocolEmitDecl>,
 }
@@ -536,6 +555,11 @@ pub enum InteractionHandlerItem {
     },
     /// Fire a declared intent: `emit select` / `emit select(filter)`.
     Emit {
+        name: String,
+        args: Vec<String>,
+    },
+    /// Host verb: `beginEditing(value)` / `cancelEditing()` (EditableText).
+    HostVerb {
         name: String,
         args: Vec<String>,
     },

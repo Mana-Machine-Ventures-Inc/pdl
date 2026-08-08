@@ -336,31 +336,64 @@ fn ambient_event(name: &str) -> bool {
             | "activate"
             | "appear"
             | "dismiss"
+            | "keyboardDismissed"
+            | "keyboardCancelled"
     )
+}
+
+/// Host protocol that must cover this ambient event (PointerInput / EditableText).
+fn host_protocol_for_ambient(event: &str) -> Option<&'static str> {
+    match event {
+        "hoverStart" | "hoverEnd" | "pressStart" | "pressEnd" | "pressCancel"
+        | "focusStart" | "focusEnd" | "activate" | "appear" | "dismiss" => Some("PointerInput"),
+        "keyboardDismissed" | "keyboardCancelled" => Some("EditableText"),
+        _ => None,
+    }
+}
+
+fn host_protocol_for_verb(name: &str) -> Option<&'static str> {
+    match name {
+        "beginEditing" | "cancelEditing" | "commitEditing" => Some("EditableText"),
+        _ => None,
+    }
 }
 
 fn validate_layout_on_handler(
     design: &DesignDefinition,
     handler: &LayoutOnHandler,
     param_by_name: &HashMap<String, String>,
+    array_params: &HashSet<String>,
     component_name: &str,
 ) -> Result<(), PdlError> {
     if ambient_event(&handler.channel) {
         return Err(err(
             "PDL-E028",
             format!(
-                "Ambient host event `on {}` is not allowed in layout (component {}); use `interaction` (§8)",
-                handler.channel, component_name
+                "Ambient host event `{}` is not allowed as a layout emit capture (component {}); use `[self.]{} = {{ … }}` in the kind body (§4a′ / §8)",
+                handler.channel, component_name, handler.channel
             ),
             design,
         ));
+    }
+    if let Some(q) = &handler.qualifier {
+        if array_params.contains(q) {
+            return Err(err(
+                "PDL-E036",
+                format!(
+                    "Cannot capture list emits as `{q}.{}(…) = {{ … }}` (component {component_name}); \
+                     use `ForEach({q}) {{ item in item.{}(…) = {{ … }} }}` (§4e)",
+                    handler.channel, handler.channel
+                ),
+                design,
+            ));
+        }
     }
     for a in &handler.body {
         if !param_by_name.contains_key(&a.param) {
             return Err(err(
                 "PDL-E007",
                 format!(
-                    "Unknown parameter `{}` in layout `on` (component {})",
+                    "Unknown parameter `{}` in layout emit capture (component {})",
                     a.param, component_name
                 ),
                 design,
@@ -374,6 +407,7 @@ fn validate_if_conditions_in_body(
     design: &DesignDefinition,
     items: &[FrameBodyItem],
     param_by_name: &HashMap<String, String>,
+    array_params: &HashSet<String>,
     component_name: &str,
 ) -> Result<(), PdlError> {
     for item in items {
@@ -385,6 +419,7 @@ fn validate_if_conditions_in_body(
                         design,
                         &br.body,
                         param_by_name,
+                        array_params,
                         component_name,
                     )?;
                 }
@@ -393,12 +428,30 @@ fn validate_if_conditions_in_body(
                         design,
                         else_body,
                         param_by_name,
+                        array_params,
                         component_name,
                     )?;
                 }
             }
             FrameBodyItem::Let { body, .. } => {
-                validate_if_conditions_in_body(design, body, param_by_name, component_name)?;
+                validate_if_conditions_in_body(
+                    design,
+                    body,
+                    param_by_name,
+                    array_params,
+                    component_name,
+                )?;
+            }
+            FrameBodyItem::FrameProp { frame, name, .. } => {
+                if array_params.contains(frame) {
+                    return Err(err(
+                        "PDL-E034",
+                        format!(
+                            "Cannot override `{frame}.{name}` on array slot `{frame}` (component {component_name}); use `ForEach({frame}) {{ item in item.{name} = … }}` and `children = [{frame}]`"
+                        ),
+                        design,
+                    ));
+                }
             }
             FrameBodyItem::ForEach {
                 list,
@@ -416,13 +469,81 @@ fn validate_if_conditions_in_body(
                     ));
                 }
                 for h in handlers {
-                    validate_layout_on_handler(design, h, param_by_name, component_name)?;
+                    validate_layout_on_handler(
+                        design,
+                        h,
+                        param_by_name,
+                        array_params,
+                        component_name,
+                    )?;
                 }
             }
             FrameBodyItem::LayoutOn { handler } => {
-                validate_layout_on_handler(design, handler, param_by_name, component_name)?;
+                validate_layout_on_handler(
+                    design,
+                    handler,
+                    param_by_name,
+                    array_params,
+                    component_name,
+                )?;
             }
             _ => {}
+        }
+    }
+    Ok(())
+}
+
+/// Collect `ForEach(list)` names and `children = […]` FrameRef ids in a body.
+fn collect_foreach_and_children_mounts(
+    items: &[FrameBodyItem],
+    foreach_lists: &mut HashSet<String>,
+    children_refs: &mut HashSet<String>,
+) {
+    for item in items {
+        match item {
+            FrameBodyItem::ForEach { list, .. } => {
+                foreach_lists.insert(list.clone());
+            }
+            FrameBodyItem::Children { entries, .. } => {
+                for e in entries {
+                    if let ChildEntry::FrameRef { id } = e {
+                        children_refs.insert(id.clone());
+                    }
+                }
+            }
+            FrameBodyItem::If { chain } => {
+                for br in &chain.branches {
+                    collect_foreach_and_children_mounts(&br.body, foreach_lists, children_refs);
+                }
+                if let Some(else_body) = &chain.else_body {
+                    collect_foreach_and_children_mounts(else_body, foreach_lists, children_refs);
+                }
+            }
+            FrameBodyItem::Let { body, .. } => {
+                collect_foreach_and_children_mounts(body, foreach_lists, children_refs);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn validate_foreach_mounts(
+    design: &DesignDefinition,
+    c: &ComponentDecl,
+) -> Result<(), PdlError> {
+    let mut foreach_lists = HashSet::new();
+    let mut children_refs = HashSet::new();
+    collect_foreach_and_children_mounts(&c.body, &mut foreach_lists, &mut children_refs);
+    for list in foreach_lists {
+        if !children_refs.contains(&list) {
+            return Err(err(
+                "PDL-E035",
+                format!(
+                    "ForEach(`{list}`) does not mount the list; add `children = {list}` or `children = […, {list}, …]` (component {})",
+                    c.name
+                ),
+                design,
+            ));
         }
     }
     Ok(())
@@ -545,6 +666,29 @@ fn validate_interaction_body(
                     ));
                 }
             }
+            InteractionHandlerItem::HostVerb { name, args } => {
+                if host_protocol_for_verb(name).is_none() {
+                    return Err(err(
+                        "PDL-E033",
+                        format!(
+                            "Unknown host verb `{name}` in interaction (component {component_name}); expected beginEditing / cancelEditing / commitEditing"
+                        ),
+                        design,
+                    ));
+                }
+                for a in args {
+                    let base = a.strip_prefix("self.").unwrap_or(a.as_str());
+                    if base != "self" && !param_by_name.contains_key(base) {
+                        return Err(err(
+                            "PDL-E007",
+                            format!(
+                                "Unknown parameter `{a}` in host verb `{name}` (component {component_name})"
+                            ),
+                            design,
+                        ));
+                    }
+                }
+            }
             InteractionHandlerItem::If { chain } => {
                 for br in &chain.branches {
                     validate_condition_expr(design, &br.condition, param_by_name, component_name)?;
@@ -555,6 +699,157 @@ fn validate_interaction_body(
                 }
             }
             _ => {}
+        }
+    }
+    Ok(())
+}
+
+fn collect_needed_host_protocols_from_body(
+    items: &[InteractionHandlerItem],
+    needed: &mut HashSet<&'static str>,
+) {
+    for it in items {
+        match it {
+            InteractionHandlerItem::HostVerb { name, .. } => {
+                if let Some(p) = host_protocol_for_verb(name) {
+                    needed.insert(p);
+                }
+            }
+            InteractionHandlerItem::If { chain } => {
+                for br in &chain.branches {
+                    collect_needed_host_protocols_from_body(&br.body, needed);
+                }
+                if let Some(else_body) = &chain.else_body {
+                    collect_needed_host_protocols_from_body(else_body, needed);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Host handlers (`self.<channel> = { … }`) require an explicit host protocol.
+fn validate_host_protocol_coverage(
+    design: &DesignDefinition,
+    component_name: &str,
+) -> Result<(), PdlError> {
+    let Some(m) = design.interactions.get(component_name) else {
+        return Ok(());
+    };
+    let mut needed: HashSet<&'static str> = HashSet::new();
+    let mut any_handler = false;
+    for decl in m.values() {
+        for h in &decl.handlers {
+            any_handler = true;
+            if let Some(p) = host_protocol_for_ambient(&h.event) {
+                needed.insert(p);
+            }
+            collect_needed_host_protocols_from_body(&h.body, &mut needed);
+        }
+    }
+    if !any_handler {
+        return Ok(());
+    }
+    // Pointer interactions are the common case; ensure PointerInput when any ambient pointer event.
+    if needed.is_empty() {
+        needed.insert("PointerInput");
+    }
+    let c = design.components.get(component_name).unwrap();
+    let hosts = crate::design::effective_host_protocols(design, c)?;
+    for need in &needed {
+        if !hosts.iter().any(|h| h == need) {
+            return Err(err(
+                "PDL-E030",
+                format!(
+                    "Component `{component_name}` has host handlers (`self.<channel> = {{ … }}`) that require host protocol `{need}`, but does not conform to `{need}` (use `component {component_name} <{need}>` or an API protocol with `requires {need}`)"
+                ),
+                design,
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_host_protocol_not_slot_type(
+    design: &DesignDefinition,
+    c: &ComponentDecl,
+) -> Result<(), PdlError> {
+    let params = crate::design::effective_params(design, c)?;
+    for p in params {
+        let type_name = p.type_name.trim_start_matches('[').trim_end_matches(']');
+        if let Some(proto) = design.protocols.get(type_name) {
+            if proto.role == crate::ast::ProtocolRole::Host {
+                return Err(err(
+                    "PDL-E031",
+                    format!(
+                        "Host protocol `{type_name}` cannot be used as a param/slot type on component `{}` (host protocols are runtime powers, not compositional content)",
+                        c.name
+                    ),
+                    design,
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Prelude host names may be re-stated as `protocol X { host }` for docs, but must
+/// not be redefined as API protocols or given params / emits / requires.
+fn validate_host_protocol_prelude(design: &DesignDefinition) -> Result<(), PdlError> {
+    for &name in crate::design::HOST_PROTOCOL_PRELUDE {
+        let Some(p) = design.protocols.get(name) else {
+            continue;
+        };
+        if p.role != crate::ast::ProtocolRole::Host
+            || !p.params.is_empty()
+            || !p.emits.is_empty()
+            || !p.requires.is_empty()
+        {
+            return Err(err(
+                "PDL-E032",
+                format!(
+                    "Prelude host protocol `{name}` cannot be redefined (keep `protocol {name} {{ host }}` or omit — it is always in scope)"
+                ),
+                design,
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_protocol_requires(design: &DesignDefinition) -> Result<(), PdlError> {
+    for p in design.protocols.values() {
+        if p.role == crate::ast::ProtocolRole::Host && !p.requires.is_empty() {
+            return Err(err(
+                "PDL-E032",
+                format!(
+                    "Host protocol `{}` cannot use `requires` (compose host powers on API protocols instead)",
+                    p.name
+                ),
+                design,
+            ));
+        }
+        for dep in &p.requires {
+            let Some(target) = design.protocols.get(dep) else {
+                return Err(err(
+                    "PDL-E022",
+                    format!(
+                        "Protocol `{}` requires unknown protocol `{dep}`",
+                        p.name
+                    ),
+                    design,
+                ));
+            };
+            if target.role != crate::ast::ProtocolRole::Host {
+                return Err(err(
+                    "PDL-E032",
+                    format!(
+                        "Protocol `{}` requires `{dep}`, but `{dep}` is not a host protocol (mark with `host` in the protocol body)",
+                        p.name
+                    ),
+                    design,
+                ));
+            }
         }
     }
     Ok(())
@@ -585,8 +880,8 @@ fn validate_interactions_for_component(
                 return Err(err(
                     "PDL-E029",
                     format!(
-                        "Declared emit channel `on {}` is not allowed in interaction (component {}); capture emits in layout (§8)",
-                        h.event, component_name
+                        "Declared emit channel `{}` is not a host inbound channel (component {}); capture it with layout handler assignment `{}(…) = {{ … }}` (§4e / §8)",
+                        h.event, component_name, h.event
                     ),
                     design,
                 ));
@@ -594,6 +889,7 @@ fn validate_interactions_for_component(
             validate_interaction_body(design, &h.body, &param_by_name, component_name)?;
         }
     }
+    validate_host_protocol_coverage(design, component_name)?;
     Ok(())
 }
 
@@ -635,6 +931,8 @@ fn validate_rules_for_component(
 /// Semantic checks on the merged design (after parse + import merge).
 pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError> {
     validate_companion_symbols(design)?;
+    validate_host_protocol_prelude(design)?;
+    validate_protocol_requires(design)?;
     for c in design.components.values() {
         if let Some(proto) = &c.conforms_to {
             if !design.protocols.contains_key(proto) {
@@ -648,10 +946,23 @@ pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError>
                 ));
             }
         }
+        validate_host_protocol_not_slot_type(design, c)?;
         let mut seen = HashSet::new();
         collect_unique_frame_ids_from_body(&c.body, &mut seen, &c.name, design)?;
         let param_by_name = param_by_name_map(design, c)?;
-        validate_if_conditions_in_body(design, &c.body, &param_by_name, &c.name)?;
+        let array_params: HashSet<String> = effective_params(design, c)?
+            .into_iter()
+            .filter(|p| p.is_array)
+            .map(|p| p.name)
+            .collect();
+        validate_if_conditions_in_body(
+            design,
+            &c.body,
+            &param_by_name,
+            &array_params,
+            &c.name,
+        )?;
+        validate_foreach_mounts(design, c)?;
         let let_kinds = collect_let_frame_kinds(&c.body);
         validate_hidden_in_body(
             design,

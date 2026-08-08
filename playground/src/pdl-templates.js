@@ -18,12 +18,13 @@ export const PDL_TEMPLATES = [
     id: "button",
     label: "Component · Button",
     select: "Button",
-    snippet: `variant InteractionState {
+    snippet: `enum InteractionState {
   case rest
   case hovered
+  case pressed
 }
 
-component Button(
+component Button <PointerInput>(
   label: String = "Button",
   interactionState: InteractionState = .rest
 ) layout {
@@ -39,6 +40,8 @@ component Button(
 
   if interactionState == .hovered {
     opacity = 0.88
+  } else if interactionState == .pressed {
+    opacity = 0.75
   } else {
     opacity = 1
   }
@@ -65,6 +68,69 @@ component Button(
   on hoverEnd {
     interactionState = .rest
   }
+}
+`,
+  },
+  {
+    id: "search-field",
+    label: "Component · SearchField (EditableText)",
+    select: "SearchField",
+    snippet: `protocol FormField {
+  requires EditableText
+  requires PointerInput
+  value: String = ""
+  placeholder: String = ""
+  emits { change(value: String) }
+}
+
+component SearchField <FormField>(
+  value: String = "",
+  placeholder: String = "Search",
+  editing: Boolean = false
+) text {
+  editable = value
+  content = placeholder
+  fontSize = 15
+  color = #111111
+  if editing {
+    content = value
+    borderColor = #0066FF
+    borderWidth = 1
+  }
+
+  self.pressEnd = {
+    if editing {
+    } else {
+      editing = true
+      beginEditing(value)
+    }
+  }
+  self.keyboardDismissed = {
+    editing = false
+    emit change(value)
+  }
+  self.keyboardCancelled = {
+    editing = false
+    cancelEditing()
+  }
+}
+`,
+  },
+  {
+    id: "host-pointer",
+    label: "Component · PointerInput opt-in",
+    select: "PointerTarget",
+    snippet: `// PointerInput is a language prelude — no import / no protocol decl needed.
+component PointerTarget <PointerInput>(
+  interactionState: String = "rest"
+) layout {
+  width = 120
+  height = 40
+  background = #EEEEEE
+  children = []
+
+  self.hoverStart = { interactionState = "hovered" }
+  self.hoverEnd = { interactionState = "rest" }
 }
 `,
   },
@@ -151,6 +217,17 @@ component Button(
   case neutral
   case accent
   case danger
+}
+`,
+  },
+  {
+    id: "enum",
+    label: "Enum · InteractionState",
+    select: "InteractionState",
+    snippet: `enum InteractionState {
+  case rest
+  case hovered
+  case pressed
 }
 `,
   },

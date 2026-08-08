@@ -22,6 +22,14 @@ cd playground && npm install && npm run build
 npm run playground
 ```
 
+## Session drafts
+
+Edits autosave in the browser (`localStorage`) so a reload restores files, entry, pack, and param knobs. Use **Reload from disk** to discard the draft and reopen the selected pack. Switching packs also reloads from disk.
+
+## WASM bake (disk workspace)
+
+Rust bake reads the repo import closure from disk. **WASM** only sees an in-memory map, so in disk mode the Playground calls **`POST /api/disk-sources`** to load that closure (then overlays editor edits) before baking. Rebuild WASM after language changes: `npm run build:wasm`.
+
 ## Canvas model (P3)
 
 - The **active file tab** fills the preview.
@@ -34,8 +42,8 @@ npm run playground
 
 - Components with catalogue `interaction` handlers: HTML host applies `on hoverStart|pressStart|…` assigns (mirrors `applyInteractionEvent`), then swaps pre-baked `interactionState` trees when available.
 - Host posts `pdl-interaction` with `{ event, params, emits, previewHandled }` so Playground syncs knobs from real handler results.
-- Airbnb-lite opens on **`AbnPointerLab`** (inline `interaction { }`) for a full pointer-cycle demo.
-- Protocols opens on **`LibrarySubnav`**: nested FilterChip `emit select` → parent `ForEach` `on select` rebinds `currentFilter` → rebake (Pattern A).
+- Airbnb-lite opens on **`AbnPointerLab`** (`self.<channel> = { … }` host handlers) for a full pointer-cycle demo.
+- Protocols opens on **`LibrarySubnav`**: nested FilterChip `emit select` → parent `ForEach(chips) { chip in chip.select(…) = { … } }` rebinds `currentFilter` → rebake (Pattern A).
 
 ## Variants (P5)
 

@@ -6,6 +6,8 @@ export function serialiseConditionExpr(c: ConditionExpr): unknown {
   switch (c.kind) {
     case "cmp":
       return { kind: "cmp", param: c.param, op: c.op, rhs: c.rhs };
+    case "truthy":
+      return { kind: "truthy", param: c.param };
     case "and":
       return { kind: "and", items: c.items.map(serialiseConditionExpr) };
     case "or":
@@ -49,6 +51,14 @@ export function serialiseValueExpr(e: ValueExpr): unknown {
       };
     case "array":
       return { kind: "array", items: e.items.map(serialiseValueExpr) };
+    case "instance":
+      return {
+        kind: "instance",
+        component: e.component,
+        kwargs: Object.fromEntries(
+          Object.entries(e.kwargs).map(([k, v]) => [k, serialiseValueExpr(v)]),
+        ),
+      };
     case "transition":
       return {
         kind: "transition",
@@ -125,6 +135,17 @@ export function serialiseValueExprWithTokenRefs(expr: ValueExpr, design: DesignD
       };
     case "array":
       return { kind: "array", items: expr.items.map((it) => serialiseValueExprWithTokenRefs(it, design)) };
+    case "instance":
+      return {
+        kind: "instance",
+        component: expr.component,
+        kwargs: Object.fromEntries(
+          Object.entries(expr.kwargs).map(([k, v]) => [
+            k,
+            serialiseValueExprWithTokenRefs(v, design),
+          ]),
+        ),
+      };
     case "transition":
       return {
         kind: "transition",

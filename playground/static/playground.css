@@ -58,6 +58,12 @@ body {
   font-size: 0.8rem;
   color: #555;
 }
+.pack-draft-row {
+  margin: 6px 0 8px;
+}
+#draftHint {
+  color: #3d5a40;
+}
 .advanced {
   font-size: 0.82rem;
 }

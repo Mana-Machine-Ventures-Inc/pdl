@@ -46,11 +46,18 @@
               "title": "Delete project?"
             },
             "instanceOf": "ConfirmBody",
-            "kind": "layout"
+            "kind": "layout",
+            "props": {
+              "direction": "column"
+            }
           }
         ],
         "id": "Root",
-        "kind": "layout"
+        "kind": "layout",
+        "props": {
+          "direction": "column",
+          "gap": 12
+        }
       },
       "rootKind": "layout"
     }

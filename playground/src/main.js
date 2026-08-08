@@ -56,8 +56,18 @@ let editorView = null;
 /** Auto-refresh preview this many ms after the last editor change. */
 const RENDER_DEBOUNCE_MS = 500;
 
+/** Browser draft — survives reload; not a Studio project store. */
+const DRAFT_STORAGE_KEY = "pdl-playground-draft-v1";
+/** Drop drafts older than this (ms). */
+const DRAFT_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+const DRAFT_SAVE_DEBOUNCE_MS = 400;
+
 /** @type {ReturnType<typeof setTimeout> | null} */
 let renderDebounceTimer = null;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let draftSaveTimer = null;
+/** Skip autosave while applying a restored draft / pack load. */
+let suppressDraftSave = false;
 
 /** Incremented on each render attempt; stale HTTP responses are ignored. */
 let latestRenderId = 0;
@@ -87,6 +97,8 @@ const packWrap = $("packWrap");
 const packPath = $("packPath");
 const packSelect = $("packSelect");
 const packDesc = $("packDesc");
+const btnReloadPack = $("btnReloadPack");
+const draftHint = $("draftHint");
 const fixtureChips = $("fixtureChips");
 const fixtureHint = $("fixtureHint");
 const editorWorkspace = $("editorWorkspace");
@@ -373,6 +385,7 @@ function mountEditor() {
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             files[activePath] = getEditorText();
+            scheduleDraftSave();
             scheduleDebouncedRender();
           }
         }),
@@ -712,7 +725,7 @@ function escapeRegExp(s) {
 function findComponentSource(componentName) {
   if (!componentName) return null;
   const re = new RegExp(`^\\s*component\\s+${escapeRegExp(componentName)}\\b`);
-  const paths = Object.keys(files).filter((p) => p.endsWith(".pdl")).sort();
+  const paths = sortedFilePaths(Object.keys(files).filter((p) => p.endsWith(".pdl")));
   // Prefer the active file when it declares the component.
   const ordered = paths.includes(activePath)
     ? [activePath, ...paths.filter((p) => p !== activePath)]
@@ -782,9 +795,30 @@ function openComponentSource(componentName) {
   if (switched) scheduleDebouncedRender(0);
 }
 
+/** Basename of a workspace path (`a/b/design.pdl` → `design.pdl`). */
+function fileBasename(path) {
+  const norm = String(path).replace(/\\/g, "/");
+  const i = norm.lastIndexOf("/");
+  return i >= 0 ? norm.slice(i + 1) : norm;
+}
+
+/**
+ * Workspace file order for tabs / pickers: `design.pdl` first, then A–Z.
+ * @param {Iterable<string>} [paths]
+ * @returns {string[]}
+ */
+function sortedFilePaths(paths = Object.keys(files)) {
+  return [...paths].sort((a, b) => {
+    const aDesign = fileBasename(a) === "design.pdl" ? 0 : 1;
+    const bDesign = fileBasename(b) === "design.pdl" ? 0 : 1;
+    if (aDesign !== bDesign) return aDesign - bDesign;
+    return a.localeCompare(b);
+  });
+}
+
 function renderTabs() {
   fileTabs.replaceChildren();
-  const paths = Object.keys(files).sort();
+  const paths = sortedFilePaths();
   for (const p of paths) {
     const b = document.createElement("button");
     b.type = "button";
@@ -799,6 +833,7 @@ function renderTabs() {
       setEditorText(files[activePath] ?? "");
       renderTabs();
       refreshCanvasHint();
+      scheduleDraftSave();
       scheduleDebouncedRender(0);
     });
     fileTabs.append(b);
@@ -827,12 +862,13 @@ function renderTabs() {
 function mergeDroppedFiles(newMap) {
   syncEditorToFiles();
   files = { ...files, ...newMap };
-  const paths = Object.keys(files).sort();
+  const paths = sortedFilePaths();
   const pdl = paths.filter((p) => p.endsWith(".pdl"));
+  const designPath = pdl.find((p) => fileBasename(p) === "design.pdl");
   if (pdl.length === 1) {
     entryPath.value = pdl[0];
-  } else if (pdl.includes("design.pdl")) {
-    entryPath.value = "design.pdl";
+  } else if (designPath) {
+    entryPath.value = designPath;
   } else if (pdl.length > 0) {
     entryPath.value = pdl[0];
   }
@@ -922,6 +958,141 @@ dirPick.addEventListener("change", async () => {
 
 function diskRootMode() {
   return document.querySelector('input[name="workspace"]:checked')?.value === "disk";
+}
+
+function workspaceModeValue() {
+  return diskRootMode() ? "disk" : "editor";
+}
+
+function setWorkspaceMode(mode) {
+  const v = mode === "editor" ? "editor" : "disk";
+  const radio = document.querySelector(`input[name="workspace"][value="${v}"]`);
+  if (radio) radio.checked = true;
+  updateWorkspaceUi();
+}
+
+function setEngineValue(eng) {
+  const v = eng === "ts" || eng === "wasm" ? eng : "rust";
+  const radio = document.querySelector(`input[name="engine"][value="${v}"]`);
+  if (radio) radio.checked = true;
+}
+
+/**
+ * @returns {object | null}
+ */
+function readDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) return null;
+    const draft = JSON.parse(raw);
+    if (!draft || typeof draft !== "object" || draft.v !== 1) return null;
+    if (typeof draft.savedAt !== "number" || Date.now() - draft.savedAt > DRAFT_TTL_MS) {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      return null;
+    }
+    if (!draft.files || typeof draft.files !== "object") return null;
+    return draft;
+  } catch {
+    return null;
+  }
+}
+
+function clearDraft() {
+  try {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+  if (draftHint) draftHint.hidden = true;
+}
+
+function saveDraftNow() {
+  if (suppressDraftSave) return;
+  try {
+    syncEditorToFiles();
+    const names = lastCanvas?.componentNames ?? [];
+    const owner = overrideOwner(names, lastCanvas?.primaryComponent);
+    if (owner) {
+      try {
+        commitKvTextareaToOwner(owner);
+      } catch {
+        /* incomplete JSON while typing */
+      }
+    }
+    const payload = {
+      v: 1,
+      savedAt: Date.now(),
+      packId: packSelect.value || null,
+      packDesc: packDesc.textContent || "",
+      workspace: workspaceModeValue(),
+      engine: selectedEngine(),
+      entry: entryPath.value || "",
+      activePath,
+      files: { ...files },
+      preferredComponent,
+      primaryComponent,
+      kvByComponent: { ...kvByComponent },
+      theme: themeInput.value || "",
+      variantView: selectedVariantView(),
+    };
+    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
+  } catch (err) {
+    console.warn("[playground] draft save failed", err);
+  }
+}
+
+function scheduleDraftSave() {
+  if (suppressDraftSave) return;
+  if (draftSaveTimer) clearTimeout(draftSaveTimer);
+  draftSaveTimer = setTimeout(() => {
+    draftSaveTimer = null;
+    saveDraftNow();
+  }, DRAFT_SAVE_DEBOUNCE_MS);
+}
+
+/**
+ * @param {object} draft
+ */
+async function restoreDraft(draft) {
+  suppressDraftSave = true;
+  try {
+    if (draft.packId && [...packSelect.options].some((o) => o.value === draft.packId)) {
+      packSelect.value = draft.packId;
+    }
+    packDesc.textContent = typeof draft.packDesc === "string" ? draft.packDesc : "";
+    setWorkspaceMode(draft.workspace === "editor" ? "editor" : "disk");
+    setEngineValue(draft.engine);
+    const vv = draft.variantView === "grid" ? "grid" : "single";
+    const vvRadio = document.querySelector(`input[name="variantView"][value="${vv}"]`);
+    if (vvRadio) vvRadio.checked = true;
+    files = { ...(draft.files ?? {}) };
+    entryPath.value = typeof draft.entry === "string" && draft.entry ? draft.entry : sortedFilePaths()[0] ?? "design.pdl";
+    activePath =
+      typeof draft.activePath === "string" && files[draft.activePath] !== undefined
+        ? draft.activePath
+        : entryPath.value in files
+          ? entryPath.value
+          : sortedFilePaths()[0] ?? entryPath.value;
+    preferredComponent = typeof draft.preferredComponent === "string" ? draft.preferredComponent : null;
+    primaryComponent = typeof draft.primaryComponent === "string" ? draft.primaryComponent : "";
+    kvByComponent =
+      draft.kvByComponent && typeof draft.kvByComponent === "object" && !Array.isArray(draft.kvByComponent)
+        ? { ...draft.kvByComponent }
+        : {};
+    activeFixtureLabel = null;
+    themeInput.value = typeof draft.theme === "string" ? draft.theme : "";
+    writeKvObject({});
+    setEditorText(files[activePath] ?? "");
+    renderTabs();
+    refreshCanvasHint();
+    syncKvTextareaFromOwner(overrideOwner(lastCanvas?.componentNames ?? [], lastCanvas?.primaryComponent));
+    if (draftHint) draftHint.hidden = false;
+    setStatus("Restored browser draft");
+    if (await runAnalyze()) await runRender({ debounced: false });
+  } finally {
+    suppressDraftSave = false;
+    saveDraftNow();
+  }
 }
 
 function selectedEngine() {
@@ -1074,6 +1245,29 @@ function bakeEntryPath() {
   );
 }
 
+/**
+ * Sources for WASM bake. Repo fixture entries load the import closure from disk
+ * (same graph Rust uses); in-memory editor edits overlay those sources.
+ * Blank-canvas paths (`design.pdl`, etc.) use the editor map only.
+ * @param {string} entry
+ * @returns {Promise<Record<string, string>>}
+ */
+async function sourcesForWasmBake(entry) {
+  syncEditorToFiles();
+  const repoEntry = entry.replace(/\\/g, "/").startsWith("test-fixtures/pdl/");
+  if (!repoEntry) return { ...files };
+  const res = await fetch("/api/disk-sources", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ entry }),
+  });
+  const data = await res.json();
+  if (!data.ok) {
+    throw new Error(data.error || "Failed to load disk sources for WASM bake");
+  }
+  return { ...(data.files ?? {}), ...files };
+}
+
 function getBodyBase() {
   syncEditorToFiles();
   const disk = diskRootMode();
@@ -1134,40 +1328,48 @@ async function flushDiskWrites() {
   }
 }
 
-async function loadPack(packId) {
+async function loadPack(packId, { fromDisk = false } = {}) {
   setStatus(`Loading pack ${packId}…`);
   showError("");
-  const res = await fetch("/api/open-pack", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ packId }),
-  });
-  const data = await res.json();
-  if (!data.ok) {
-    showError(data.error || "Failed to open pack");
-    setStatus("");
-    return false;
+  suppressDraftSave = true;
+  try {
+    const res = await fetch("/api/open-pack", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ packId }),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      showError(data.error || "Failed to open pack");
+      setStatus("");
+      return false;
+    }
+    if (fromDisk) clearDraft();
+    const diskRadio = document.querySelector('input[name="workspace"][value="disk"]');
+    if (diskRadio) diskRadio.checked = true;
+    updateWorkspaceUi();
+    files = { ...(data.files ?? {}) };
+    entryPath.value = data.entry;
+    preferredComponent = data.defaultComponent ?? null;
+    primaryComponent = data.defaultComponent ?? "";
+    kvByComponent = {};
+    activeFixtureLabel = null;
+    writeKvObject({});
+    packDesc.textContent = data.pack?.description ?? "";
+    activePath = data.entry;
+    if (files[activePath] === undefined) {
+      const keys = sortedFilePaths();
+      activePath = keys[0] ?? data.entry;
+    }
+    setEditorText(files[activePath] ?? "");
+    renderTabs();
+    if (draftHint) draftHint.hidden = true;
+    if (await runAnalyze()) await runRender({ debounced: false });
+    return true;
+  } finally {
+    suppressDraftSave = false;
+    saveDraftNow();
   }
-  const diskRadio = document.querySelector('input[name="workspace"][value="disk"]');
-  if (diskRadio) diskRadio.checked = true;
-  updateWorkspaceUi();
-  files = { ...(data.files ?? {}) };
-  entryPath.value = data.entry;
-  preferredComponent = data.defaultComponent ?? null;
-  primaryComponent = data.defaultComponent ?? "";
-  kvByComponent = {};
-  activeFixtureLabel = null;
-  writeKvObject({});
-  packDesc.textContent = data.pack?.description ?? "";
-  activePath = data.entry;
-  if (files[activePath] === undefined) {
-    const keys = Object.keys(files).sort();
-    activePath = keys[0] ?? data.entry;
-  }
-  setEditorText(files[activePath] ?? "");
-  renderTabs();
-  if (await runAnalyze()) await runRender({ debounced: false });
-  return true;
 }
 
 async function initCatalog() {
@@ -1276,7 +1478,10 @@ async function runRender({ debounced = false } = {}) {
         );
       }
       const entry = bakeEntryPath();
-      const { filesJson, entry: virtEntry } = virtualizeSources(files, entry);
+      // Disk mode: Rust reads the real FS import closure; WASM only sees `files`.
+      // Refresh closure from disk (editor overlays win) so sibling imports resolve.
+      const sourceFiles = await sourcesForWasmBake(entry);
+      const { filesJson, entry: virtEntry } = virtualizeSources(sourceFiles, entry);
       const t0 = performance.now();
       const bakeJson =
         names.length === 1
@@ -1433,12 +1638,23 @@ document.querySelectorAll('input[name="workspace"]').forEach((r) => {
   });
 });
 packSelect.addEventListener("change", () => {
-  void loadPack(packSelect.value);
+  // Switching packs intentionally drops the browser draft for a clean disk load.
+  void loadPack(packSelect.value, { fromDisk: true });
+});
+btnReloadPack.addEventListener("click", () => {
+  const id = packSelect.value || "airbnb-lite";
+  void loadPack(id, { fromDisk: true });
+});
+window.addEventListener("beforeunload", () => {
+  saveDraftNow();
 });
 updateModeUi();
 updateWorkspaceUi();
 
-themeInput.addEventListener("input", () => scheduleDebouncedRender());
+themeInput.addEventListener("input", () => {
+  scheduleDraftSave();
+  scheduleDebouncedRender();
+});
 kvJson.addEventListener("input", () => {
   if (syncingKnobs) return;
   activeFixtureLabel = null;
@@ -1450,9 +1666,13 @@ kvJson.addEventListener("input", () => {
     // Incomplete JSON while typing — wait for the next keystroke / render.
   }
   refreshControlsUi();
+  scheduleDraftSave();
   scheduleDebouncedRender();
 });
-entryPath.addEventListener("input", () => scheduleDebouncedRender());
+entryPath.addEventListener("input", () => {
+  scheduleDraftSave();
+  scheduleDebouncedRender();
+});
 packPath.addEventListener("input", () => scheduleDebouncedRender());
 
 addProperty?.addEventListener("change", () => {
@@ -1549,5 +1769,10 @@ void (async () => {
   editorView?.dom.addEventListener("keyup", () => refreshAddPropertyMenu());
   editorView?.dom.addEventListener("click", () => refreshAddPropertyMenu());
   await initCatalog();
-  await loadPack("airbnb-lite");
+  const draft = readDraft();
+  if (draft) {
+    await restoreDraft(draft);
+  } else {
+    await loadPack("airbnb-lite");
+  }
 })();

@@ -47,7 +47,7 @@ const PACK_CATALOG = [
     label: "Protocols",
     entry: "test-fixtures/pdl/protocols/design.pdl",
     defaultComponent: "LibrarySubnav",
-    description: "Protocols, slots, emits + ForEach on select (Rust)",
+    description: "Protocols, slots, emits + ForEach select handler (Rust)",
   },
   {
     id: "atoms",
@@ -73,6 +73,51 @@ function collectPdlFiles(dirAbs, repoRoot, out = {}) {
     }
   }
   return out;
+}
+
+/**
+ * Walk `import "…"` edges from an entry (same closure Rust disk bake uses).
+ * Used by WASM bake so cross-directory imports (e.g. integration → atoms) resolve
+ * even when the in-browser `files` map is incomplete.
+ * @param {string} entryAbs
+ * @param {string} repoRoot
+ * @param {Record<string, string>} [out]
+ * @param {Set<string>} [visiting]
+ */
+function collectImportClosure(entryAbs, repoRoot, out = {}, visiting = new Set()) {
+  const abs = resolve(entryAbs);
+  assertUnderRepo(abs);
+  if (!existsSync(abs) || extname(abs) !== ".pdl") {
+    throw new Error(`Not a .pdl file: ${relative(repoRoot, abs)}`);
+  }
+  const rel = relative(repoRoot, abs).replace(/\\/g, "/");
+  if (out[rel] !== undefined) return out;
+  if (visiting.has(rel)) {
+    // Cycle — leave detection to the compiler.
+    return out;
+  }
+  visiting.add(rel);
+  const source = readFileSync(abs, "utf8");
+  out[rel] = source;
+  for (const m of source.matchAll(/^\s*import\s+"([^"]+)"/gm)) {
+    const nextAbs = resolve(dirname(abs), m[1]);
+    collectImportClosure(nextAbs, repoRoot, out, visiting);
+  }
+  visiting.delete(rel);
+  return out;
+}
+
+/**
+ * @param {{ entry?: string }} body
+ */
+function handleDiskSources(body) {
+  const entry = typeof body?.entry === "string" ? body.entry.trim() : "";
+  if (!entry) throw new Error('Expected "entry" path');
+  assertSafeRelativePath(entry);
+  const entryAbs = resolveRepoPath(REPO_ROOT, entry);
+  assertUnderRepo(entryAbs);
+  const files = collectImportClosure(entryAbs, REPO_ROOT);
+  return { ok: true, entry, files };
 }
 
 function handleCatalog() {
@@ -1087,6 +1132,19 @@ const server = createServer(async (req, res) => {
     try {
       const body = await readJsonBody(req);
       const out = handleOpenPack(body.packId ?? body.id);
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify(out));
+    } catch (e) {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ ok: false, error: formatErr(e) }));
+    }
+    return;
+  }
+
+  if (req.method === "POST" && pathname === "/api/disk-sources") {
+    try {
+      const body = await readJsonBody(req);
+      const out = handleDiskSources(body);
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
       res.end(JSON.stringify(out));
     } catch (e) {

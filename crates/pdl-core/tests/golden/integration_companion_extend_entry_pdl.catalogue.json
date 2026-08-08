@@ -16,6 +16,7 @@
           }
         }
       },
+      "conformsTo": "PointerInput",
       "defaultParams": {
         "tone": "neutral"
       },
@@ -30,6 +31,9 @@
           "tone": "neutral"
         }
       },
+      "hostProtocols": [
+        "PointerInput"
+      ],
       "interactions": [
         {
           "component": "CompanionBlock",
@@ -61,7 +65,7 @@
               "event": "hoverEnd"
             }
           ],
-          "name": "CompanionHover"
+          "name": "default"
         }
       ],
       "name": "CompanionBlock",
@@ -245,6 +249,16 @@
       },
       "name": "atoms.type.weight.regular",
       "tokenType": "Weight"
+    }
+  },
+  "protocolRoles": {
+    "PointerInput": "host"
+  },
+  "protocols": {
+    "PointerInput": {
+      "name": "PointerInput",
+      "role": "host",
+      "subject": "host"
     }
   },
   "schemaVersion": "1.0.0-beta",

@@ -98,8 +98,8 @@ describe("renderHtml", () => {
     };
     const html = renderBakedDesignToHtmlDocument(doc, { singleComponent: "Button" });
     expect(html).toContain("#FF5A5F");
-    expect(html).toContain("width: 100%");
-    expect(html).toContain("height: 400pt");
+    expect(html).toContain("width:100%");
+    expect(html).toContain("height:100%");
     expect(html).toContain("align-items: flex-start");
   });
 
@@ -281,6 +281,141 @@ describe("renderHtml", () => {
     const frag = renderBakedComponentToHtmlFragment(doc.components.B!);
     expect(frag).toContain("border:2px solid #112233");
     expect(frag).toContain("box-shadow:0 2px 4px rgba(0,0,0,0.2)");
+  });
+
+  it("maps inside borderPosition to inset box-shadow", () => {
+    const frag = renderBakedComponentToHtmlFragment({
+      name: "In",
+      rootKind: "layout",
+      bakedParams: {},
+      root: {
+        id: "Root",
+        kind: "layout",
+        props: {
+          direction: "column",
+          borderWidth: 3,
+          borderColor: "#ff0000",
+          borderPosition: "inside",
+          shadow: "0 1px 2px rgba(0,0,0,0.2)",
+        },
+        children: [],
+      },
+    });
+    expect(frag).toContain("inset 0 0 0 3px #ff0000");
+    expect(frag).toContain("0 1px 2px rgba(0,0,0,0.2)");
+    expect(frag).not.toContain("border:3px solid");
+  });
+
+  it("maps media aspectRatio and objectPosition", () => {
+    const frag = renderBakedComponentToHtmlFragment({
+      name: "M",
+      rootKind: "media",
+      bakedParams: {},
+      root: {
+        id: "Root",
+        kind: "media",
+        props: {
+          source: "https://example.com/a.jpg",
+          width: { fixed: 240 },
+          aspectRatio: 1.5,
+          contentMode: "cover",
+          objectPosition: "topLeft",
+        },
+        children: [],
+      },
+    });
+    expect(frag).toContain("aspect-ratio:1.5");
+    expect(frag).toContain("object-fit:cover");
+    expect(frag).toContain("object-position:top left");
+  });
+
+  it("vertically aligns text via align on a fixed-height text root", () => {
+    const frag = renderBakedComponentToHtmlFragment({
+      name: "T",
+      rootKind: "text",
+      bakedParams: {},
+      root: {
+        id: "Root",
+        kind: "text",
+        props: {
+          content: "Hi",
+          width: { fixed: 200 },
+          height: { fixed: 80 },
+          align: "center",
+          justify: "end",
+        },
+        children: [],
+      },
+    });
+    expect(frag).toContain("justify-content:center");
+    expect(frag).toContain("text-align:end");
+  });
+
+  it("applies previewBackground to the document chrome", () => {
+    const doc = {
+      schemaKind: "bakedDesign" as const,
+      schemaVersion: "1.0.0-beta",
+      generatedAt: "2026-01-01T00:00:00.000Z",
+      provenance: {
+        entryPath: "/x.pdl",
+        bakedTheme: null,
+        bakeProfile: "component-explicit" as const,
+      },
+      previewBackground: "#112233",
+      components: {
+        X: {
+          name: "X",
+          rootKind: "layout",
+          bakedParams: {},
+          root: {
+            id: "Root",
+            kind: "layout",
+            props: { direction: "column" },
+            children: [],
+          },
+        },
+      },
+    };
+    const html = renderBakedDesignToHtmlDocument(doc, { singleComponent: "X" });
+    expect(html).toContain("--pdl-preview-background: #112233");
+  });
+
+  it("renders vibrancy as backdrop-filter saturate/brightness", () => {
+    const frag = renderBakedComponentToHtmlFragment({
+      name: "V",
+      rootKind: "layout",
+      bakedParams: {},
+      root: {
+        id: "Root",
+        kind: "layout",
+        props: {
+          direction: "column",
+          background: [
+            { kind: "blur", blur: 8, vibrancy: { saturation: 1.2, brightness: 0.95 } },
+            "#ffffff80",
+          ],
+        },
+        children: [],
+      },
+    });
+    expect(frag).toMatch(/backdrop-filter:blur\(8px\) saturate\(1\.2\) brightness\(0\.95\)/);
+  });
+
+  it("shows icon name inside the color swatch", () => {
+    const frag = renderBakedComponentToHtmlFragment({
+      name: "I",
+      rootKind: "icon",
+      bakedParams: {},
+      root: {
+        id: "Root",
+        kind: "icon",
+        props: { icon: "star", size: 32, color: "#336699" },
+        children: [],
+      },
+    });
+    expect(frag).toContain("pdl-icon__name");
+    expect(frag).toContain("star");
+    expect(frag).toContain("#336699");
   });
 
   it("renders multi-layer background and foreground as bands (not inset foreground box-shadow)", () => {

@@ -8,7 +8,7 @@ use serde_json::{Map, Value};
 use crate::ast::{ComponentDecl, RootKind};
 use crate::design::DesignDefinition;
 use crate::error::PdlError;
-use crate::evaluate::build_resolved_token_map;
+use crate::evaluate::{build_resolved_token_map, Tokens};
 use crate::resolve::{
     prune_hidden_children_tree, resolve_component_tree, resolve_default_param_values, CatalFrame,
     RESOLVE_OPTIONS_LITERAL_BAKE,
@@ -63,12 +63,21 @@ fn baked_component_json(name: &str, root_kind: &str, baked_params: Value, root: 
     Value::Object(o)
 }
 
+fn resolve_preview_background_css(design: &DesignDefinition, token_map: &Tokens) -> Option<String> {
+    let name = design.preview_background.as_ref()?;
+    match token_map.get(name) {
+        Some(Value::String(s)) if !s.trim().is_empty() => Some(s.trim().to_string()),
+        _ => None,
+    }
+}
+
 fn baked_document(
     generated_at: &str,
     entry_path: &str,
     baked_theme: Option<&str>,
     bake_profile: &str,
     components: Map<String, Value>,
+    preview_background: Option<String>,
 ) -> Value {
     let mut provenance = Map::new();
     provenance.insert(
@@ -101,6 +110,9 @@ fn baked_document(
         Value::String(generated_at.to_string()),
     );
     doc.insert("provenance".to_string(), Value::Object(provenance));
+    if let Some(bg) = preview_background {
+        doc.insert("previewBackground".to_string(), Value::String(bg));
+    }
     doc.insert("components".to_string(), Value::Object(components));
     Value::Object(doc)
 }
@@ -132,12 +144,14 @@ pub fn build_baked_design_system(
         );
     }
 
+    let preview_background = resolve_preview_background_css(design, &token_map);
     Ok(baked_document(
         &generated_at.unwrap_or_else(now_iso8601),
         &design.entry_path,
         theme,
         "system-defaults",
         components,
+        preview_background,
     ))
 }
 
@@ -188,12 +202,14 @@ pub fn build_baked_design_component(
         ),
     );
 
+    let preview_background = resolve_preview_background_css(design, &token_map);
     Ok(baked_document(
         &generated_at.unwrap_or_else(now_iso8601),
         &design.entry_path,
         theme,
         "component-explicit",
         components,
+        preview_background,
     ))
 }
 

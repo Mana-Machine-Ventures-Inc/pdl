@@ -1476,6 +1476,7 @@
           }
         }
       },
+      "conformsTo": "PointerInput",
       "defaultParams": {
         "layoutMode": "withHero",
         "subtitle": "Supporting line",
@@ -1498,6 +1499,9 @@
           "title": "Ship notes"
         }
       },
+      "hostProtocols": [
+        "PointerInput"
+      ],
       "interactions": [
         {
           "component": "MoleculeCardArticle",
@@ -1529,7 +1533,7 @@
               "event": "hoverEnd"
             }
           ],
-          "name": "MoleculeCardArticleLayoutPeek"
+          "name": "default"
         }
       ],
       "name": "MoleculeCardArticle",
@@ -1714,15 +1718,15 @@
           "C1__Actions"
         ],
         "C1__Actions": [
-          "C1__Primary",
-          "C1__Secondary"
+          "C1__Actions__Primary",
+          "C1__Actions__Secondary"
         ],
-        "C1__Primary": [
-          "C1__Primary__L"
+        "C1__Actions__Primary": [
+          "C1__Actions__Primary__Primary__L"
         ],
-        "C1__Secondary": [
-          "C1__Secondary__T",
-          "C1__Secondary__Chev"
+        "C1__Actions__Secondary": [
+          "C1__Actions__Secondary__Secondary__T",
+          "C1__Actions__Secondary__Secondary__Chev"
         ],
         "C2": [
           "C2__Title",
@@ -1730,15 +1734,15 @@
           "C2__Actions"
         ],
         "C2__Actions": [
-          "C2__Primary",
-          "C2__Secondary"
+          "C2__Actions__Primary",
+          "C2__Actions__Secondary"
         ],
-        "C2__Primary": [
-          "C2__Primary__L"
+        "C2__Actions__Primary": [
+          "C2__Actions__Primary__Primary__L"
         ],
-        "C2__Secondary": [
-          "C2__Secondary__T",
-          "C2__Secondary__Chev"
+        "C2__Actions__Secondary": [
+          "C2__Actions__Secondary__Secondary__T",
+          "C2__Actions__Secondary__Secondary__Chev"
         ],
         "Root": [
           "C1",
@@ -1790,23 +1794,8 @@
             }
           }
         },
-        "C1__Hero": {
-          "id": "C1__Hero",
-          "kind": "media",
-          "props": {
-            "aspectRatio": "primitive:atoms.ratio.video",
-            "contentMode": "cover",
-            "cornerRadius": "primitive:atoms.radius.sm",
-            "height": {
-              "fixed": 120
-            },
-            "objectPosition": "center",
-            "source": "primitive:atoms.media.hero",
-            "width": "fill"
-          }
-        },
-        "C1__Primary": {
-          "id": "C1__Primary",
+        "C1__Actions__Primary": {
+          "id": "C1__Actions__Primary",
           "instanceKwargs": {
             "label": "Open",
             "size": "sm",
@@ -1830,8 +1819,8 @@
             "wrap": "nowrap"
           }
         },
-        "C1__Primary__L": {
-          "id": "C1__Primary__L",
+        "C1__Actions__Primary__Primary__L": {
+          "id": "C1__Actions__Primary__Primary__L",
           "kind": "text",
           "props": {
             "color": "primitive:atoms.color.textOnBrand",
@@ -1840,8 +1829,8 @@
             "fontWeight": 600
           }
         },
-        "C1__Secondary": {
-          "id": "C1__Secondary",
+        "C1__Actions__Secondary": {
+          "id": "C1__Actions__Secondary",
           "instanceKwargs": {
             "label": "Share",
             "mode": "trailingChevron"
@@ -1863,8 +1852,8 @@
             }
           }
         },
-        "C1__Secondary__Chev": {
-          "id": "C1__Secondary__Chev",
+        "C1__Actions__Secondary__Secondary__Chev": {
+          "id": "C1__Actions__Secondary__Secondary__Chev",
           "kind": "icon",
           "props": {
             "color": "primitive:atoms.color.rgba",
@@ -1872,14 +1861,29 @@
             "size": 18
           }
         },
-        "C1__Secondary__T": {
-          "id": "C1__Secondary__T",
+        "C1__Actions__Secondary__Secondary__T": {
+          "id": "C1__Actions__Secondary__Secondary__T",
           "kind": "text",
           "props": {
             "color": "semantic:atoms.color.sem.fromRgba",
             "content": "param:label",
             "fontSize": 15,
             "fontWeight": 600
+          }
+        },
+        "C1__Hero": {
+          "id": "C1__Hero",
+          "kind": "media",
+          "props": {
+            "aspectRatio": "primitive:atoms.ratio.video",
+            "contentMode": "cover",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "height": {
+              "fixed": 120
+            },
+            "objectPosition": "center",
+            "source": "primitive:atoms.media.hero",
+            "width": "fill"
           }
         },
         "C1__Sub": {
@@ -1942,8 +1946,8 @@
             }
           }
         },
-        "C2__Primary": {
-          "id": "C2__Primary",
+        "C2__Actions__Primary": {
+          "id": "C2__Actions__Primary",
           "instanceKwargs": {
             "label": "Open",
             "size": "sm",
@@ -1967,8 +1971,8 @@
             "wrap": "nowrap"
           }
         },
-        "C2__Primary__L": {
-          "id": "C2__Primary__L",
+        "C2__Actions__Primary__Primary__L": {
+          "id": "C2__Actions__Primary__Primary__L",
           "kind": "text",
           "props": {
             "color": "primitive:atoms.color.textOnBrand",
@@ -1977,8 +1981,8 @@
             "fontWeight": 600
           }
         },
-        "C2__Secondary": {
-          "id": "C2__Secondary",
+        "C2__Actions__Secondary": {
+          "id": "C2__Actions__Secondary",
           "instanceKwargs": {
             "label": "Share",
             "mode": "trailingChevron"
@@ -2000,8 +2004,8 @@
             }
           }
         },
-        "C2__Secondary__Chev": {
-          "id": "C2__Secondary__Chev",
+        "C2__Actions__Secondary__Secondary__Chev": {
+          "id": "C2__Actions__Secondary__Secondary__Chev",
           "kind": "icon",
           "props": {
             "color": "primitive:atoms.color.rgba",
@@ -2009,8 +2013,8 @@
             "size": 18
           }
         },
-        "C2__Secondary__T": {
-          "id": "C2__Secondary__T",
+        "C2__Actions__Secondary__Secondary__T": {
+          "id": "C2__Actions__Secondary__Secondary__T",
           "kind": "text",
           "props": {
             "color": "semantic:atoms.color.sem.fromRgba",
@@ -2113,6 +2117,7 @@
           }
         }
       },
+      "conformsTo": "PointerInput",
       "defaultParams": {
         "helper": "We never share your address.",
         "label": "Email",
@@ -2138,6 +2143,9 @@
           "value": "Acme Corp"
         }
       },
+      "hostProtocols": [
+        "PointerInput"
+      ],
       "interactions": [
         {
           "component": "MoleculeFieldBlock",
@@ -2169,7 +2177,7 @@
               "event": "hoverEnd"
             }
           ],
-          "name": "MoleculeFieldBlockLayoutPeek"
+          "name": "default"
         }
       ],
       "name": "MoleculeFieldBlock",
@@ -2376,7 +2384,7 @@
           "F0__Help"
         ],
         "F0__Box": [
-          "F0__Val"
+          "F0__Box__Val"
         ],
         "F1": [
           "F1__Lab",
@@ -2384,7 +2392,7 @@
           "F1__Help"
         ],
         "F1__Box": [
-          "F1__Val"
+          "F1__Box__Val"
         ],
         "Root": [
           "F0",
@@ -2485,6 +2493,14 @@
             }
           }
         },
+        "F0__Box__Val": {
+          "id": "F0__Box__Val",
+          "kind": "text",
+          "props": {
+            "content": "param:value",
+            "typeStyle": "typeStyle:AtomBody"
+          }
+        },
         "F0__Help": {
           "id": "F0__Help",
           "kind": "text",
@@ -2499,14 +2515,6 @@
           "props": {
             "content": "param:label",
             "typeStyle": "typeStyle:AtomCaption"
-          }
-        },
-        "F0__Val": {
-          "id": "F0__Val",
-          "kind": "text",
-          "props": {
-            "content": "param:value",
-            "typeStyle": "typeStyle:AtomBody"
           }
         },
         "F1": {
@@ -2547,6 +2555,14 @@
             }
           }
         },
+        "F1__Box__Val": {
+          "id": "F1__Box__Val",
+          "kind": "text",
+          "props": {
+            "content": "param:value",
+            "typeStyle": "typeStyle:AtomBody"
+          }
+        },
         "F1__Help": {
           "id": "F1__Help",
           "kind": "text",
@@ -2561,14 +2577,6 @@
           "props": {
             "content": "param:label",
             "typeStyle": "typeStyle:AtomCaption"
-          }
-        },
-        "F1__Val": {
-          "id": "F1__Val",
-          "kind": "text",
-          "props": {
-            "content": "param:value",
-            "typeStyle": "typeStyle:AtomBody"
           }
         },
         "Save": {
@@ -4502,24 +4510,24 @@
           "R0__Trail"
         ],
         "R0__Trail": [
-          "R0__Meta",
-          "R0__Chev"
+          "R0__Trail__Meta",
+          "R0__Trail__Chev"
         ],
         "R1": [
           "R1__Title",
           "R1__Trail"
         ],
         "R1__Trail": [
-          "R1__Meta",
-          "R1__Chev"
+          "R1__Trail__Meta",
+          "R1__Trail__Chev"
         ],
         "R2": [
           "R2__Title",
           "R2__Trail"
         ],
         "R2__Trail": [
-          "R2__Meta",
-          "R2__Chev"
+          "R2__Trail__Meta",
+          "R2__Trail__Chev"
         ],
         "Root": [
           "R0",
@@ -4554,23 +4562,6 @@
             "width": "fill"
           }
         },
-        "R0__Chev": {
-          "id": "R0__Chev",
-          "kind": "icon",
-          "props": {
-            "color": "primitive:atoms.color.rgba",
-            "icon": "primitive:atoms.icon.chevron",
-            "size": 16
-          }
-        },
-        "R0__Meta": {
-          "id": "R0__Meta",
-          "kind": "text",
-          "props": {
-            "content": "param:meta",
-            "typeStyle": "typeStyle:AtomCaption"
-          }
-        },
         "R0__Title": {
           "id": "R0__Title",
           "kind": "text",
@@ -4586,6 +4577,23 @@
             "align": "center",
             "direction": "row",
             "gap": "primitive:atoms.space.xs"
+          }
+        },
+        "R0__Trail__Chev": {
+          "id": "R0__Trail__Chev",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.chevron",
+            "size": 16
+          }
+        },
+        "R0__Trail__Meta": {
+          "id": "R0__Trail__Meta",
+          "kind": "text",
+          "props": {
+            "content": "param:meta",
+            "typeStyle": "typeStyle:AtomCaption"
           }
         },
         "R1": {
@@ -4613,23 +4621,6 @@
             "width": "fill"
           }
         },
-        "R1__Chev": {
-          "id": "R1__Chev",
-          "kind": "icon",
-          "props": {
-            "color": "primitive:atoms.color.rgba",
-            "icon": "primitive:atoms.icon.chevron",
-            "size": 16
-          }
-        },
-        "R1__Meta": {
-          "id": "R1__Meta",
-          "kind": "text",
-          "props": {
-            "content": "param:meta",
-            "typeStyle": "typeStyle:AtomCaption"
-          }
-        },
         "R1__Title": {
           "id": "R1__Title",
           "kind": "text",
@@ -4645,6 +4636,23 @@
             "align": "center",
             "direction": "row",
             "gap": "primitive:atoms.space.xs"
+          }
+        },
+        "R1__Trail__Chev": {
+          "id": "R1__Trail__Chev",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.chevron",
+            "size": 16
+          }
+        },
+        "R1__Trail__Meta": {
+          "id": "R1__Trail__Meta",
+          "kind": "text",
+          "props": {
+            "content": "param:meta",
+            "typeStyle": "typeStyle:AtomCaption"
           }
         },
         "R2": {
@@ -4673,23 +4681,6 @@
             "width": "fill"
           }
         },
-        "R2__Chev": {
-          "id": "R2__Chev",
-          "kind": "icon",
-          "props": {
-            "color": "primitive:atoms.color.rgba",
-            "icon": "primitive:atoms.icon.chevron",
-            "size": 16
-          }
-        },
-        "R2__Meta": {
-          "id": "R2__Meta",
-          "kind": "text",
-          "props": {
-            "content": "param:meta",
-            "typeStyle": "typeStyle:AtomCaption"
-          }
-        },
         "R2__Title": {
           "id": "R2__Title",
           "kind": "text",
@@ -4705,6 +4696,23 @@
             "align": "center",
             "direction": "row",
             "gap": "primitive:atoms.space.xs"
+          }
+        },
+        "R2__Trail__Chev": {
+          "id": "R2__Trail__Chev",
+          "kind": "icon",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "icon": "primitive:atoms.icon.chevron",
+            "size": 16
+          }
+        },
+        "R2__Trail__Meta": {
+          "id": "R2__Trail__Meta",
+          "kind": "text",
+          "props": {
+            "content": "param:meta",
+            "typeStyle": "typeStyle:AtomCaption"
           }
         }
       },
@@ -4866,6 +4874,7 @@
           }
         }
       },
+      "conformsTo": "PointerInput",
       "defaultParams": {
         "label": "Button",
         "size": "sm",
@@ -4888,6 +4897,9 @@
           "tone": "primary"
         }
       },
+      "hostProtocols": [
+        "PointerInput"
+      ],
       "interactions": [
         {
           "component": "MoleculeTextButton",
@@ -4919,7 +4931,7 @@
               "event": "hoverEnd"
             }
           ],
-          "name": "MoleculeTextButtonHoverPreview"
+          "name": "default"
         }
       ],
       "name": "MoleculeTextButton",
@@ -5639,6 +5651,16 @@
       "tokenType": "Color"
     }
   },
+  "protocolRoles": {
+    "PointerInput": "host"
+  },
+  "protocols": {
+    "PointerInput": {
+      "name": "PointerInput",
+      "role": "host",
+      "subject": "host"
+    }
+  },
   "schemaVersion": "1.0.0-beta",
   "semantics": {
     "atoms.bg.blurCard": {
@@ -5851,6 +5873,14 @@
         "compact"
       ],
       "name": "AtomsDensity"
+    },
+    "AtomsPhase": {
+      "cases": [
+        "rest",
+        "hovered",
+        "pressed"
+      ],
+      "name": "AtomsPhase"
     },
     "AtomsSize": {
       "cases": [

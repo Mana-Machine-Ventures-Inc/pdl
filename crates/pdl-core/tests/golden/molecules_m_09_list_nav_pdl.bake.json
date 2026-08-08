@@ -16,14 +16,14 @@
               {
                 "children": [
                   {
-                    "id": "R0__Meta",
+                    "id": "R0__Trail__Meta",
                     "kind": "text",
                     "props": {
                       "content": "Pro"
                     }
                   },
                   {
-                    "id": "R0__Chev",
+                    "id": "R0__Trail__Chev",
                     "kind": "icon",
                     "props": {
                       "color": "#222222",
@@ -78,14 +78,14 @@
               {
                 "children": [
                   {
-                    "id": "R1__Meta",
+                    "id": "R1__Trail__Meta",
                     "kind": "text",
                     "props": {
                       "content": ""
                     }
                   },
                   {
-                    "id": "R1__Chev",
+                    "id": "R1__Trail__Chev",
                     "kind": "icon",
                     "props": {
                       "color": "#222222",
@@ -139,14 +139,14 @@
               {
                 "children": [
                   {
-                    "id": "R2__Meta",
+                    "id": "R2__Trail__Meta",
                     "kind": "text",
                     "props": {
                       "content": "v1"
                     }
                   },
                   {
-                    "id": "R2__Chev",
+                    "id": "R2__Trail__Chev",
                     "kind": "icon",
                     "props": {
                       "color": "#222222",

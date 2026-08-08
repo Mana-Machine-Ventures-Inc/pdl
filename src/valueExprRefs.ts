@@ -32,6 +32,11 @@ export function collectDeclaredTokenNamesFromValueExpr(
     case "array":
       for (const it of expr.items) collectDeclaredTokenNamesFromValueExpr(it, design, sink);
       return;
+    case "instance":
+      for (const v of Object.values(expr.kwargs)) {
+        collectDeclaredTokenNamesFromValueExpr(v, design, sink);
+      }
+      return;
     case "transition":
       collectDeclaredTokenNamesFromValueExpr(expr.duration, design, sink);
       collectDeclaredTokenNamesFromValueExpr(expr.easing, design, sink);

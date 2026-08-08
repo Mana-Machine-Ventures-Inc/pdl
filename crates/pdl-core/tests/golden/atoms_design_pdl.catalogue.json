@@ -1817,6 +1817,14 @@
       ],
       "name": "AtomsDensity"
     },
+    "AtomsPhase": {
+      "cases": [
+        "rest",
+        "hovered",
+        "pressed"
+      ],
+      "name": "AtomsPhase"
+    },
     "AtomsSize": {
       "cases": [
         "sm",

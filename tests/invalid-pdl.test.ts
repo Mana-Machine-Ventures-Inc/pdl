@@ -67,11 +67,20 @@ describe("invalid PDL — unknown symbols & companions (PDL-E006)", () => {
     ["e006-usage-unknown-component.pdl", /usage references unknown component/],
     ["e006-fixtures-unknown-component.pdl", /fixtures references unknown component/],
     ["e006-rules-unknown-component.pdl", /rules references unknown component/],
-    ["e006-interaction-unknown-component.pdl", /interaction targets unknown component/],
     ["e006-extend-unknown-component.pdl", /extend targets unknown component/],
   ];
   it.each(cases)("loadDesign(%s) → PDL-E006", (file, re) => {
     expectPdl(() => loadDesign(err(file)), "PDL-E006", re);
+  });
+});
+
+describe("invalid PDL — removed interaction keyword (PDL-E001)", () => {
+  it("rejects interaction blocks", () => {
+    expectPdl(
+      () => loadDesign(err("e006-interaction-unknown-component.pdl")),
+      "PDL-E001",
+      /interaction.*removed|self\.<channel>/,
+    );
   });
 });
 

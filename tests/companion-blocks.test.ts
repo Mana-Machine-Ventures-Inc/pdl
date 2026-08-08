@@ -8,13 +8,13 @@ import { loadDesign } from "../src/loadDesign.js";
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const fx = (...p: string[]) => resolve(__dirname, "../test-fixtures/pdl", ...p);
 
-describe("companion blocks (usage, fixtures, rules, interaction, extend)", () => {
+describe("companion blocks (usage, fixtures, rules, host handlers, extend)", () => {
   it("parses and merges standalone companions on a component", () => {
     const d = loadDesign(fx("integration/companion_blocks.pdl"));
     expect(d.usage.get("CompanionBlock")?.get("description")).toBe("Test companion metadata.");
     expect(d.fixtures.get("CompanionBlock")?.size).toBe(1);
     expect(d.rules.get("CompanionBlock")?.length).toBeGreaterThan(0);
-    expect(d.interactions.get("CompanionBlock")?.get("CompanionHover")).toBeDefined();
+    expect(d.interactions.get("CompanionBlock")?.get("default")).toBeDefined();
   });
 
   it("merges extend usage += and fixtures by label", () => {
@@ -41,7 +41,7 @@ describe("companion blocks (usage, fixtures, rules, interaction, extend)", () =>
     expect(row.rules?.rules?.[0]?.strength).toBe("should");
     expect(row.interactions?.length).toBe(1);
     const hover = row.interactions?.[0] as { name: string; handlers: { event: string }[] };
-    expect(hover?.name).toBe("CompanionHover");
+    expect(hover?.name).toBe("default");
     expect(hover?.handlers.map((h) => h.event)).toEqual(["hoverStart", "hoverEnd"]);
   });
 

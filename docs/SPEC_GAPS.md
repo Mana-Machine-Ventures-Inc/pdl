@@ -8,10 +8,16 @@ Documented in **`docs/full-spec.md`** banner + body:
 
 1. **`expose` removed** — all params public; **`emits`** is output API (inline / companion / protocol).
 2. **`self` / `self.param`** = enclosing component instance (rules-query `self` stays rules-scoped).
-3. **Selection Pattern A** — pass `selected: FilterId` SoT (`selected: self.currentFilter`); chip compares `selected == filter`.
-4. **`on` by enclosure** — ambient only in `interaction`; declared emits only in `layout` / `ForEach` (PDL-E028 / E029).
+3. **Selection Pattern A** — parent owns id/enum SoT; ForEach derives Bool (`chip.selected = …`).
+4. **Handler assignment** — declared emits: `item.channel(…) = { … }` in layout / ForEach; host inbound: `self.channel = { … }` in the kind body (PDL-E028 / E029 / E030). Layout keyword `on` and `interaction` blocks are hard errors (**PDL-E001**).
 
-Rust B4b/B5 parse+bake expand landed; TS oracle still has legacy `expose` and lacks protocols/emits/ForEach. Host emit dispatch remains B7.
+**Additive (2026-08-07):** **`enum` is a surface alias for `variant`** (same AST/IR). Prefer `variant` for design-axis combinators and `enum` for domain/state sets; keywords may diverge later (associated values, matrix defaults). No `extend Type` — only **`extend Component`** for companions (§11).
+
+**Additive (2026-08-07):** Protocol **host roles** — prelude stubs in **`full-spec` §4a′** (`PointerInput`, `EditableText`); API `requires PointerInput`; **PDL-E030** without effective host conformance; **PDL-E031** host-as-slot. See [`PROPOSAL_PROTOCOL_CAPABILITIES.md`](./PROPOSAL_PROTOCOL_CAPABILITIES.md).
+
+**Additive (slot compose):** Single-slot dotted overrides (`simple.content = …` / `simple.title = …`) classify param vs root-frame prop (§4b). `ForEach` is binder overrides / emit capture only — lists mount via `children = [list]` (**PDL-E035**); array dotted overrides are **PDL-E034**.
+
+Rust B4b/B5 + host-protocol validation + `self.<channel> = { … }` parse landed; `interaction` keyword rejected. TS oracle still has legacy `expose` and lags some protocols/emits/ForEach (Playground uses Rust bake).
 
 ## Accepted proposals (status)
 
@@ -19,19 +25,20 @@ Rust B4b/B5 parse+bake expand landed; TS oracle still has legacy `expose` and la
 |----------|--------|--------|
 | [`PROPOSAL_PORTABLE_CORE.md`](./PROPOSAL_PORTABLE_CORE.md) | **Accepted** 2026-08-05 | Rust portable core; TS oracle until bake parity |
 | [`PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md`](./PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md) | **Accepted** 2026-08-05 | **B1–B5** in Rust + §4a–§4e; B6 chrome deferred; B7 host dispatch open; TS oracle not yet for B1–B5 |
+| [`PROPOSAL_PROTOCOL_CAPABILITIES.md`](./PROPOSAL_PROTOCOL_CAPABILITIES.md) | **Accepted** 2026-08-07 | Host vs API protocol roles; E030/E031; EditableText D3; D5 compat matrix later |
 | [`PROPOSAL_QUICK_PREVIEW.md`](./PROPOSAL_QUICK_PREVIEW.md) | **Proposed** | Disk-watch `preview` harness; amended by Playground proposal §7 |
 | [`PROPOSAL_PDL_PLAYGROUND.md`](./PROPOSAL_PDL_PLAYGROUND.md) | **Accepted** — P0–P5 shipped | Demo/lab vs Studio; file canvas, interactive HTML, variants. Overview: [`PLAYGROUND_OVERVIEW.md`](./PLAYGROUND_OVERVIEW.md) |
 
 **Coverage matrix:** [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) — *Language & host coverage*.  
 **Roadmap:** same file. Crate: **`crates/pdl-core`**.
 
-Until a feature is merged into **`full-spec.md`**, tooling **must not** treat proposal-only syntax as normative. **§4e** is implemented in **Rust** (`ForEach` bake expand + layout `on` validate); TypeScript oracle still lags.
+Until a feature is merged into **`full-spec.md`**, tooling **must not** treat proposal-only syntax as normative. **§4e** is implemented in **Rust** (`ForEach` bake expand + emit capture validate); TypeScript oracle still lags.
 
 ---
 
 ## EBNF catch-up (B1–B4 + B5)
 
-§21 formal grammar in **`docs/full-spec.md`** includes `protocol`, array/`[T]` params, instance literals, `emits`, inline `interaction`, `emit`, and B5 `ForEach` / layout `on`. Rust implements these; TS oracle lags.
+§21 formal grammar in **`docs/full-spec.md`** includes `protocol`, array/`[T]` params, instance literals, `emits`, host inbound `self.<channel> = { … }`, `emit`, and B5 `ForEach` / handler assignment. Rust implements these; TS oracle lags.
 
 ## Lexer: frame kind keywords vs `icon` / `media` property names
 
@@ -59,7 +66,7 @@ Until a feature is merged into **`full-spec.md`**, tooling **must not** treat pr
 
 - **`variantTypes` / `components`:** emitted as **name-keyed objects** (not arrays) so emitters can use `catalogue.variantTypes["MyVariant"]` and `catalogue.components["Button"]`. The same pattern applies to **`resolvedComponent.system`** (`primitives`, `semantics`, `themes`, `typeStyles`, `variantTypes`).
 - **`hidden` on `layout` frames:** `hidden = true | false | .true | .false | <variant condition>` hides the frame from catalogue **`children`** / variant **`children`** overrides and prunes it from nested **`childNodes`** trees, while every declared Root-level **`children = […]`** id remains a **`childNodes`** entry (subtree chosen from a scan where that node is visible when possible). **`pdl resolve --tree-only`** still returns the **full** materialised tree (including hidden nodes in **`children`** arrays) for debugging.
-- **Variant metadata:** top-level **`variantTypes`** plus per-param **`variantTypeName`** carry PDL **`variant`** type names for emitters (e.g. Figma); **`type`** stays **`"variant"`** as the JSON discriminator.
+- **Variant / enum metadata:** top-level **`variantTypes`** plus per-param **`variantTypeName`** carry closed-set type names (declared with **`variant`** or **`enum`**) for emitters (e.g. Figma); catalogue JSON **`type`** stays **`"variant"`** as the discriminator (keyword-agnostic wire format).
 - **External refs in trees:** catalogue trees use **`primitive:`** / **`semantic:`** string markers for frame properties whose RHS is a bare `primitive` / `semantic` identifier (see §16 §2.3); composite RHS values are still fully resolved in v1.
 - **CLI `modifiers`:** the catalogue’s **`primitives` / `semantics` / `themes` / `typeStyles`** graph is **not** modifier-aware; if **`buildComponentCatalogue`** is called with non-empty **`modifiers`**, **tree** resolution still uses **`buildResolvedTokenMap`** with those modifiers. Emitters that replay themes from JSON alone cannot reproduce modifier-specific trees unless they mirror that resolution path.
 - **Variant deltas:** only **single-parameter** axes are expanded automatically against the default instance. Combined variant rows (e.g. `emphasis` + `size` interaction) must be authored explicitly per **§16**; not generated yet.

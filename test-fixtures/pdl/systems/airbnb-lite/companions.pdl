@@ -70,11 +70,11 @@ fixtures AbnPointerLab {
 }
 
 usage AbnButton {
-  description = "Airbnb-lite text button — primary coral, secondary teal, ghost neutral. Inline interaction drives rest → hovered → pressed."
+  description = "Airbnb-lite text button — primary coral, secondary teal, ghost neutral. Host handlers drive rest → hovered → pressed."
 }
 
 usage AbnPointerLab {
-  description = "Interactive pointer-cycle lab — inline interaction { } handlers applied by the HTML preview host."
+  description = "Interactive pointer-cycle lab — self.<channel> = { … } handlers applied by the HTML preview host."
 }
 
 usage AbnField {

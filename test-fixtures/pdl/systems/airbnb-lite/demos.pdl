@@ -76,7 +76,7 @@ variant AbnPointerPhase {
   case pressed
 }
 
-component AbnPointerLab(
+component AbnPointerLab <PointerInput>(
   interactionState: AbnPointerPhase = .rest
 ) layout {
   direction = .column
@@ -189,20 +189,20 @@ component AbnPointerLab(
   }
 
   children = [Title, Hint, Target, Legend, Status]
-} interaction {
-  on hoverStart {
+
+  self.hoverStart = {
     interactionState = .hovered
   }
-  on hoverEnd {
+  self.hoverEnd = {
     interactionState = .rest
   }
-  on pressStart {
+  self.pressStart = {
     interactionState = .pressed
   }
-  on pressEnd {
+  self.pressEnd = {
     interactionState = .hovered
   }
-  on pressCancel {
+  self.pressCancel = {
     interactionState = .rest
   }
 }

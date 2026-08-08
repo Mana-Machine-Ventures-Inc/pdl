@@ -1,7 +1,6 @@
 // Text-only “buttons” in pill rows + size / tone variants
 
 import "foundation.pdl"
-
 variant MoleculeBtnTone {
   case primary
   case secondary
@@ -13,7 +12,7 @@ variant MoleculeBtnSize {
   case lg
 }
 
-component MoleculeTextButton(
+component MoleculeTextButton <PointerInput>(
   label: String = "Button",
   tone: MoleculeBtnTone = .primary,
   size: MoleculeBtnSize = .sm
@@ -53,6 +52,13 @@ component MoleculeTextButton(
   }
 
   children = [L]
+
+  self.hoverStart = {
+    tone = .secondary
+  }
+  self.hoverEnd = {
+    tone = .primary
+  }
 }
 
 component MoleculeButtonRowDemo() layout {

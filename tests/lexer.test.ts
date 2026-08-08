@@ -24,4 +24,26 @@ describe("lexer", () => {
       expect.arrayContaining(["IDENT", ".", "IDENT", "=", "[", "IDENT", "]"]),
     );
   });
+
+  it("treats enum as a surface alias for the variant keyword", () => {
+    const toks = tokenize(`enum FilterId { case all }\nvariant Tone { case primary }`, "t.pdl");
+    const keywords = toks.filter((t) => t.kind === "variant");
+    expect(keywords).toHaveLength(2);
+    expect(keywords.every((t) => t.kind === "variant")).toBe(true);
+  });
+
+  it("skips /* */ block comments", () => {
+    const toks = tokenize(
+      `/*\n  ForEach(chips) { chip in\n    chip.title = "A"\n  }\n  */\nprimitive color.a: Color = #ABC`,
+      "t.pdl",
+    );
+    expect(toks[0]?.kind).toBe("primitive");
+    expect(toks.some((t) => t.value === "ForEach")).toBe(false);
+  });
+
+  it("rejects unterminated block comments", () => {
+    expect(() => tokenize("/* still open\nprimitive x: Color = #000", "t.pdl")).toThrow(
+      /Unterminated block comment/,
+    );
+  });
 });

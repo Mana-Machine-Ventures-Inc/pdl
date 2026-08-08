@@ -44,7 +44,8 @@ export function extractTokenDecls(source) {
     primitives: names("primitive"),
     semantics: names("semantic"),
     themes: names("theme"),
-    variants: names("variant"),
+    // `enum` is a surface alias for `variant` (same closed-set decls).
+    variants: [...names("variant"), ...names("enum")],
     typeStyles: names("typeStyle"),
   };
 }

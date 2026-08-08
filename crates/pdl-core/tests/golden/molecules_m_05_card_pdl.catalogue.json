@@ -293,6 +293,7 @@
           }
         }
       },
+      "conformsTo": "PointerInput",
       "defaultParams": {
         "layoutMode": "withHero",
         "subtitle": "Supporting line",
@@ -302,6 +303,43 @@
         "title",
         "subtitle",
         "layoutMode"
+      ],
+      "hostProtocols": [
+        "PointerInput"
+      ],
+      "interactions": [
+        {
+          "component": "MoleculeCardArticle",
+          "handlers": [
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "layoutMode",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".textOnly"
+                  }
+                }
+              ],
+              "event": "hoverStart"
+            },
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "layoutMode",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".withHero"
+                  }
+                }
+              ],
+              "event": "hoverEnd"
+            }
+          ],
+          "name": "default"
+        }
       ],
       "name": "MoleculeCardArticle",
       "params": [
@@ -427,15 +465,15 @@
           "C1__Actions"
         ],
         "C1__Actions": [
-          "C1__Primary",
-          "C1__Secondary"
+          "C1__Actions__Primary",
+          "C1__Actions__Secondary"
         ],
-        "C1__Primary": [
-          "C1__Primary__L"
+        "C1__Actions__Primary": [
+          "C1__Actions__Primary__Primary__L"
         ],
-        "C1__Secondary": [
-          "C1__Secondary__T",
-          "C1__Secondary__Chev"
+        "C1__Actions__Secondary": [
+          "C1__Actions__Secondary__Secondary__T",
+          "C1__Actions__Secondary__Secondary__Chev"
         ],
         "C2": [
           "C2__Title",
@@ -443,15 +481,15 @@
           "C2__Actions"
         ],
         "C2__Actions": [
-          "C2__Primary",
-          "C2__Secondary"
+          "C2__Actions__Primary",
+          "C2__Actions__Secondary"
         ],
-        "C2__Primary": [
-          "C2__Primary__L"
+        "C2__Actions__Primary": [
+          "C2__Actions__Primary__Primary__L"
         ],
-        "C2__Secondary": [
-          "C2__Secondary__T",
-          "C2__Secondary__Chev"
+        "C2__Actions__Secondary": [
+          "C2__Actions__Secondary__Secondary__T",
+          "C2__Actions__Secondary__Secondary__Chev"
         ],
         "Root": [
           "C1",
@@ -503,23 +541,8 @@
             }
           }
         },
-        "C1__Hero": {
-          "id": "C1__Hero",
-          "kind": "media",
-          "props": {
-            "aspectRatio": "primitive:atoms.ratio.video",
-            "contentMode": "cover",
-            "cornerRadius": "primitive:atoms.radius.sm",
-            "height": {
-              "fixed": 120
-            },
-            "objectPosition": "center",
-            "source": "primitive:atoms.media.hero",
-            "width": "fill"
-          }
-        },
-        "C1__Primary": {
-          "id": "C1__Primary",
+        "C1__Actions__Primary": {
+          "id": "C1__Actions__Primary",
           "instanceKwargs": {
             "label": "Open",
             "size": "sm",
@@ -543,8 +566,8 @@
             "wrap": "nowrap"
           }
         },
-        "C1__Primary__L": {
-          "id": "C1__Primary__L",
+        "C1__Actions__Primary__Primary__L": {
+          "id": "C1__Actions__Primary__Primary__L",
           "kind": "text",
           "props": {
             "color": "primitive:atoms.color.textOnBrand",
@@ -553,8 +576,8 @@
             "fontWeight": 600
           }
         },
-        "C1__Secondary": {
-          "id": "C1__Secondary",
+        "C1__Actions__Secondary": {
+          "id": "C1__Actions__Secondary",
           "instanceKwargs": {
             "label": "Share",
             "mode": "trailingChevron"
@@ -576,8 +599,8 @@
             }
           }
         },
-        "C1__Secondary__Chev": {
-          "id": "C1__Secondary__Chev",
+        "C1__Actions__Secondary__Secondary__Chev": {
+          "id": "C1__Actions__Secondary__Secondary__Chev",
           "kind": "icon",
           "props": {
             "color": "primitive:atoms.color.rgba",
@@ -585,14 +608,29 @@
             "size": 18
           }
         },
-        "C1__Secondary__T": {
-          "id": "C1__Secondary__T",
+        "C1__Actions__Secondary__Secondary__T": {
+          "id": "C1__Actions__Secondary__Secondary__T",
           "kind": "text",
           "props": {
             "color": "semantic:atoms.color.sem.fromRgba",
             "content": "param:label",
             "fontSize": 15,
             "fontWeight": 600
+          }
+        },
+        "C1__Hero": {
+          "id": "C1__Hero",
+          "kind": "media",
+          "props": {
+            "aspectRatio": "primitive:atoms.ratio.video",
+            "contentMode": "cover",
+            "cornerRadius": "primitive:atoms.radius.sm",
+            "height": {
+              "fixed": 120
+            },
+            "objectPosition": "center",
+            "source": "primitive:atoms.media.hero",
+            "width": "fill"
           }
         },
         "C1__Sub": {
@@ -655,8 +693,8 @@
             }
           }
         },
-        "C2__Primary": {
-          "id": "C2__Primary",
+        "C2__Actions__Primary": {
+          "id": "C2__Actions__Primary",
           "instanceKwargs": {
             "label": "Open",
             "size": "sm",
@@ -680,8 +718,8 @@
             "wrap": "nowrap"
           }
         },
-        "C2__Primary__L": {
-          "id": "C2__Primary__L",
+        "C2__Actions__Primary__Primary__L": {
+          "id": "C2__Actions__Primary__Primary__L",
           "kind": "text",
           "props": {
             "color": "primitive:atoms.color.textOnBrand",
@@ -690,8 +728,8 @@
             "fontWeight": 600
           }
         },
-        "C2__Secondary": {
-          "id": "C2__Secondary",
+        "C2__Actions__Secondary": {
+          "id": "C2__Actions__Secondary",
           "instanceKwargs": {
             "label": "Share",
             "mode": "trailingChevron"
@@ -713,8 +751,8 @@
             }
           }
         },
-        "C2__Secondary__Chev": {
-          "id": "C2__Secondary__Chev",
+        "C2__Actions__Secondary__Secondary__Chev": {
+          "id": "C2__Actions__Secondary__Secondary__Chev",
           "kind": "icon",
           "props": {
             "color": "primitive:atoms.color.rgba",
@@ -722,8 +760,8 @@
             "size": 18
           }
         },
-        "C2__Secondary__T": {
-          "id": "C2__Secondary__T",
+        "C2__Actions__Secondary__Secondary__T": {
+          "id": "C2__Actions__Secondary__Secondary__T",
           "kind": "text",
           "props": {
             "color": "semantic:atoms.color.sem.fromRgba",
@@ -1134,6 +1172,7 @@
           }
         }
       },
+      "conformsTo": "PointerInput",
       "defaultParams": {
         "label": "Button",
         "size": "sm",
@@ -1143,6 +1182,43 @@
         "label",
         "tone",
         "size"
+      ],
+      "hostProtocols": [
+        "PointerInput"
+      ],
+      "interactions": [
+        {
+          "component": "MoleculeTextButton",
+          "handlers": [
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "tone",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".secondary"
+                  }
+                }
+              ],
+              "event": "hoverStart"
+            },
+            {
+              "body": [
+                {
+                  "kind": "assign",
+                  "param": "tone",
+                  "value": {
+                    "kind": "dotEnum",
+                    "value": ".primary"
+                  }
+                }
+              ],
+              "event": "hoverEnd"
+            }
+          ],
+          "name": "default"
+        }
       ],
       "name": "MoleculeTextButton",
       "params": [
@@ -1656,6 +1732,16 @@
       },
       "name": "atoms.vibrancy.subtle",
       "tokenType": "Vibrancy"
+    }
+  },
+  "protocolRoles": {
+    "PointerInput": "host"
+  },
+  "protocols": {
+    "PointerInput": {
+      "name": "PointerInput",
+      "role": "host",
+      "subject": "host"
     }
   },
   "schemaVersion": "1.0.0-beta",

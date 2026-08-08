@@ -30,8 +30,25 @@ export type BakedDesignDocument = {
     /** `system-defaults` | `component-explicit` | `injection-pack` (Rust packs) | future profiles */
     bakeProfile: string;
   };
+  /**
+   * Resolved CSS color for `previewBackground` (when declared), after theme apply.
+   * Omitted when unset or unresolvable.
+   */
+  previewBackground?: string;
   components: Record<string, BakedComponentJson>;
 };
+
+/** Resolve entry `previewBackground` token to a CSS color string for HTML hosts. */
+function resolvePreviewBackgroundCss(
+  design: DesignDefinition,
+  tokenMap: Map<string, unknown>,
+): string | undefined {
+  const name = design.previewBackground;
+  if (!name) return undefined;
+  const v = tokenMap.get(name);
+  if (typeof v === "string" && v.trim().length > 0) return v.trim();
+  return undefined;
+}
 
 function stripPresetTypeStyleName(frame: CatalFrame): CatalFrame {
   const props = { ...frame.props };
@@ -79,6 +96,7 @@ export function buildBakedDesignSystem(
     };
   }
 
+  const previewBackground = resolvePreviewBackgroundCss(design, tokenMap);
   return {
     schemaKind: "bakedDesign",
     schemaVersion: PDL_JSON_SCHEMA_VERSION,
@@ -88,6 +106,7 @@ export function buildBakedDesignSystem(
       bakedTheme: opts.theme ?? null,
       bakeProfile: "system-defaults",
     },
+    ...(previewBackground ? { previewBackground } : {}),
     components,
   };
 }
@@ -110,6 +129,7 @@ export function buildBakedDesignComponent(
   const bakedParams = { ...defaults, ...paramOverrides };
   const raw = resolveComponentTree(design, componentName, tokenMap, paramOverrides, resolveOpts);
 
+  const previewBackground = resolvePreviewBackgroundCss(design, tokenMap);
   return {
     schemaKind: "bakedDesign",
     schemaVersion: PDL_JSON_SCHEMA_VERSION,
@@ -119,6 +139,7 @@ export function buildBakedDesignComponent(
       bakedTheme: theme ?? null,
       bakeProfile: "component-explicit",
     },
+    ...(previewBackground ? { previewBackground } : {}),
     components: {
       [componentName]: {
         name: componentName,

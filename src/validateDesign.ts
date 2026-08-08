@@ -25,6 +25,25 @@ function validateConditionExpr(
     case "not":
       validateConditionExpr(design, expr.expr, paramByName, componentName);
       return;
+    case "truthy": {
+      const paramName = expr.param;
+      const p = paramByName.get(paramName);
+      if (!p) {
+        throw new PdlError(
+          "PDL-E007",
+          `Unknown parameter \`${paramName}\` in \`if\` condition (component ${componentName})`,
+          { path: design.entryPath },
+        );
+      }
+      if (p.typeName !== "Boolean" && p.typeName !== "Bool") {
+        throw new PdlError(
+          "PDL-E010",
+          `Bare \`if ${paramName}\` requires a Boolean parameter (got type ${p.typeName}); use \`${paramName} == …\` for variants`,
+          { path: design.entryPath },
+        );
+      }
+      return;
+    }
     case "cmp": {
       const paramName = expr.param;
       const p = paramByName.get(paramName);
@@ -35,6 +54,17 @@ function validateConditionExpr(
           { path: design.entryPath },
         );
       }
+      const rhsRaw = expr.rhs.startsWith(".") ? expr.rhs.slice(1) : expr.rhs;
+      if (p.typeName === "Boolean" || p.typeName === "Bool") {
+        if (rhsRaw !== "true" && rhsRaw !== "false") {
+          throw new PdlError(
+            "PDL-E010",
+            `Boolean condition on \`${paramName}\` expected \`true\` / \`false\` (or \`.true\` / \`.false\`)`,
+            { path: design.entryPath },
+          );
+        }
+        return;
+      }
       const vdecl = design.variants.get(p.typeName);
       if (!vdecl) {
         throw new PdlError(
@@ -43,11 +73,10 @@ function validateConditionExpr(
           { path: design.entryPath },
         );
       }
-      const rhs = expr.rhs.startsWith(".") ? expr.rhs.slice(1) : expr.rhs;
-      if (!vdecl.cases.includes(rhs)) {
+      if (!vdecl.cases.includes(rhsRaw)) {
         throw new PdlError(
           "PDL-E010",
-          `Unknown variant case \`.${rhs}\` for parameter \`${paramName}\` (variant ${vdecl.name}); expected one of: ${vdecl.cases.map((c) => `.${c}`).join(", ")}`,
+          `Unknown variant case \`.${rhsRaw}\` for parameter \`${paramName}\` (variant ${vdecl.name}); expected one of: ${vdecl.cases.map((c) => `.${c}`).join(", ")}`,
           { path: design.entryPath },
         );
       }

@@ -110,33 +110,35 @@ Also valid inside nested `let` bodies.
 ## Protocols, slots, ForEach (Rust-first)
 
 ```pdl
-protocol SubnavItem {
+protocol SubnavItem: component {
+  requires PointerInput
   title = ""
   filter: FilterId = .all
   emits { select(filter: FilterId) }
 }
 
-component FilterChip <SubnavItem>(selected: FilterId = .all) layout {
+component FilterChip <SubnavItem>(selected: Boolean = false) layout {
   let Label: text = { content = title }
   children = [Label]
-} interaction {
-  on pressEnd { emit select(filter) }
+  self.pressEnd = { emit select(filter) }   // host inbound (§4a′)
 }
 
 component Nav(
   currentFilter: FilterId = .all,
   chips: [SubnavItem] = [FilterChip(title: "All", filter: .all)]
 ) layout {
-  children = [chips]
-  // or ForEach(chips) { selected: self.currentFilter
-  //   on select(filter_id: FilterId) { currentFilter = filter_id }
-  // }
+  ForEach(chips) { chip in
+    chip.selected = self.currentFilter == filter
+    chip.select(filter_id: FilterId) = { currentFilter = filter_id }
+  }
+  children = chips
 }
 ```
 
 - `self.param` = this component instance’s param
-- Selection Pattern A: pass `selected` SoT; compare in chip
-- Layout `on` only for **declared** emits
+- Selection: parent owns SoT; ForEach derives `chip.selected = …`
+- Emit capture: `chip.select(…) = { … }` in ForEach / `Field.change(…) = { … }` on lets
+- Host inbound: `[self.]pressEnd = { … }` in the kind body (`self.` optional; prelude stubs in full-spec §4a′)
 
 ## Companions (optional)
 

@@ -7,6 +7,7 @@ component Real(v: V = .a) layout {
   children = []
 }
 
+// `interaction` blocks were removed — this must fail to parse (PDL-E001).
 interaction X for Ghost {
   on hoverStart {
     v = .a

@@ -4,7 +4,7 @@
 >
 > **Repository path:** `docs/full-spec.md` (normative copy in this repo).
 >
-> **Locked language decisions (2026-08-06; selection revised 2026-08-07):** (1) **`expose` removed** — all component params are public; **`emits`** is the public output API. (2) **`self` / `self.param`** means the enclosing component instance (escape hatch for name collisions); bare `self` may be an emit payload. Rules-query `self` is rules-scoped only. (3) **Selection SoT** — parent owns an id/enum SoT (e.g. `currentFilter: FilterId`); ForEach / callsite **derives** a Bool presentation param (`selected: self.currentFilter == filter`); the child draws with `if selected`. (4) **`on` by enclosure** — ambient events only in `interaction`; declared emit channels only in `layout` / `ForEach`.
+> **Locked language decisions (2026-08-06; selection revised 2026-08-07; host handlers revised 2026-08-07):** (1) **`expose` removed** — all component params are public; **`emits`** is the public **child→parent** output API. (2) **`self` / `self.param`** means the enclosing component instance; bare `self` may be an emit payload. Rules-query `self` is rules-scoped only. (3) **Selection SoT** — parent owns id/enum SoT; ForEach derives Bool presentation (`chip.selected = …`). (4) **Handler assignment is one family** — declared emits: `item.channel(…) = { … }` / `Field.change(…) = { … }` (not list `chips.select`, **PDL-E036**). Host inbound: **`[self.]channel = { … }`** in the component kind body (`self.` optional — kind-body names already mean this instance; `self.` is clarifying). The `interaction` keyword is **removed** (**PDL-E001**). Same `=` / `{ }` shape; **different direction** (parent vs environment). (5) **`ForEach` requires an item binder** — `ForEach(chips) { chip in … }`. (6) **API protocols** — `protocol P: component { … }`. **Host protocols** — `protocol P { host … inbound channels … }` (no `: component`). (7) **`enum` ≡ `variant`** in v1. (8) Prelude hosts **`PointerInput`** / **`EditableText`** are stubbed in §4a (always in scope). Inline `} interaction { on … }` is **transitional** until compilers accept `self.pressEnd = { … }` as the canonical form. **PDL-E030** / **PDL-E031**. See §4a / §8.
 
 ---
 
@@ -14,11 +14,12 @@
 1. [Overview & Mental Model](#1-overview--mental-model)
 2. [Files, Imports, and Entry](#2-files-imports-and-entry)
 3. [Tokens, Themes, and Type Styles](#3-tokens-themes-and-type-styles)
-4. [Variants and Component Parameters](#4-variants-and-component-parameters)
+4. [Variants, Enums, and Component Parameters](#4-variants-and-component-parameters)
 4a. [Protocols (B1)](#4a--protocols-b1)
+4a′. [Host protocol prelude stubs](#4a--host-protocol-prelude-stubs)
 4b. [Array params & children expansion (B2)](#4b--array-params--children-expansion-b2)
 4c. [Injection packs (B3)](#4c--injection-packs-b3)
-4d. [Emits & inline interaction (B4)](#4d--emits--inline-interaction-b4)
+4d. [Emits & host inbound (B4)](#4d--emits--host-inbound-b4)
 4e. [ForEach & layout emit capture (B5)](#4e--foreach--layout-emit-capture-b5)
 5. [Components, Frames, and Properties](#5-components-frames-and-properties)
 6. [Values and Expressions](#6-values-and-expressions)
@@ -98,7 +99,7 @@ A `.pdl` **module** is parsed into a **partial design definition**; the **entry 
 
 - **Identifiers**: `MyComponent`, `color.text.primary`, `spacing_md` — letters, digits, `_`, `.` where grammar allows.  
 - **Dot enums**: Variant cases and many keywords use a leading dot: `.row`, `.primary`, `.cover`.  
-- **Comments**: Line comments only: `// …`  
+- **Comments**: Line (`// …`) and block (`/* … */`) comments  
 - **Strings**: Double quotes; escaping (`\"`, `\\`, …). **Hex colors are not strings** — write `#RRGGBB`, not `"#RRGGBB"` (§3, §6).  
 - **Numbers**: Integer or decimal where allowed.  
 
@@ -193,10 +194,10 @@ These may appear in any **module** (entry or imported). Order **within** a file 
 | `primitive` / `semantic` | Tokens (§3) |
 | `theme` | Theme blocks |
 | `typeStyle` | Typography presets |
-| `variant` | Enum types |
+| `variant` / `enum` | Closed finite case sets (same construct today; `enum` is a surface alias) |
 | `protocol` | Shared param/emits contract for conforming components (§4a) |
 | `component` | UI definition |
-| `interaction` | Preview behavior (§8) |
+| *(removed)* `interaction` | Use `[self.]<channel> = { … }` in the kind body (§4a′ / §8) |
 | **`fixtures`** | Example param instances (§12) |
 | **`usage`** | Human-readable guidance (§12) |
 | **`rules`** | Query constraints (§13) |
@@ -218,7 +219,7 @@ These may appear in any **module** (entry or imported). Order **within** a file 
 | `fixtures` | Merge **by example label** (display string); later block with the same label **replaces** that example's body. |
 | `usage` | Per key: **`key =`** replaces; **`key +=`** appends with a **single space** separator. Unknown keys: **later file wins** per key. |
 | `rules` | **`tags =`** / **`tags.add`** **only** appear inside **`rules`** blocks (§13). **`tags = […]`** in a later file **replaces** the entire tags array for that component. **`Rule(…)`** lines: **append** to the rule list in merge order. Duplicate **`Rule`** lines (same strength and canonically equal serialized query) **MAY** be collapsed to one entry. |
-| `interaction` | **Append by interaction name:** each `interaction Name for Component { … }` block is appended to the `InteractionDef[]` array for that component in merge order. If two blocks share the **same interaction name** for the same component, the **later block replaces** the earlier one. Multiple uniquely-named blocks for the same component are all preserved. |
+| Host handlers | Lifted from `[self.]<channel> = { … }` in the kind body into catalogue `interactions[]` (synthetic name **`default`**). Multiple channels append; same channel last-wins. |
 | `extend` | Processed in merge order **after** the base `component` exists; each inner section follows the same rules as standalone blocks. **Entry file wins** over imported files for the same component + same fixture label / same `usage` key. |
 
 **Best practice:** comment the intended pipeline in the entry file: tokens → motion → typography → themes → components → **fixtures** / **emits** (or co-locate companions next to components).
@@ -233,16 +234,24 @@ previewBackground color.surface.primary
 
 - **Argument:** a **`Color`** token name (semantic or primitive).  
 - Used by studio / HTML preview for canvas background.  
+- **Bake:** resolvers emit a CSS color string on **`bakedDesign.previewBackground`** (after theme apply). **`renderHtml`** applies it as **`--pdl-preview-background`** on the document chrome.  
 
 ---
 
 ## Comments
 
-Only line comments:
+Line and block comments (both treated as whitespace):
 
 ```pdl
-// comment
-primitive color.brand: Color = #002fff
+// line comment
+primitive color.brand: Color = #002fff  // inline
+
+/*
+  Block comment — may span lines.
+  ForEach(chips) { chip in
+    chip.title = "A"
+  }
+  */
 ```
 
 ---
@@ -256,8 +265,8 @@ primitive color.brand: Color = #002fff
 | `materials.pdl` | `Background` / `Foreground` semantic stacks (§15) |
 | `typography.pdl` | `typeStyle` |
 | `themes.pdl` | `theme` blocks |
-| `variants.pdl` | Shared `variant` |
-| `*.pdl` features | `component`, `interaction`, **`emits`**, **`fixtures`**, **`usage`**, **`rules`** |
+| `variants.pdl` | Shared `variant` / `enum` closed sets |
+| `*.pdl` features | `component`, host inbound `[self.]<channel> = { … }`, **`emits`**, **`fixtures`**, **`usage`**, **`rules`** |
 | `app-extensions.pdl` | **`extend`** for library components |
 | `design.pdl` | `import` + `previewBackground` only |
 
@@ -464,11 +473,13 @@ component TypographyShowcase() layout {
 
 ## 4 — Variants and Component Parameters
 
-## Variants
+## Variants / enums
 
-A **variant** defines a **finite set of named cases**. Variants are used as **types** for component parameters (and in conditions).
+*(HTML / bake hosts are keyword-agnostic: both spellings resolve to the same closed-set type in catalogue `variantTypes` and baked param discriminators `"type": "variant"`.)*
 
-Syntax:
+A **`variant`** (alias **`enum`**) defines a **finite set of named cases**. These closed sets are used as **types** for component parameters and in conditions.
+
+Syntax (equivalent):
 
 ```pdl
 variant BannerTone {
@@ -476,56 +487,203 @@ variant BannerTone {
   case warning
   case danger
 }
+
+enum FilterId {
+  case all
+  case podcasts
+  case episodes
+}
 ```
 
+- **`enum` is a surface alias for `variant` in v1** — same AST, merge, catalogue, and bake behavior. Prefer **`variant`** when the type is a design-axis combinator (tone × size); prefer **`enum`** for domain ids and interaction/state sets. Tooling may interpret the keywords differently in a future revision (e.g. associated values like `secondary(counter: Int)`, or matrix vs non-matrix defaults).
 - **Case names** are identifiers without dots.  
 - In expressions, cases are written **`.caseName`** (leading dot).  
 
 ---
 
-## 4a — Protocols (B1)
+## 4a — Protocols (B1) + host roles
 
-**Status:** shipped in the **Rust** portable core (`crates/pdl-core`); TypeScript oracle still accepts only pre-protocol grammar until a follow-up port. Proposal: `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` §5.
+**Status:** shipped in the **Rust** portable core (`crates/pdl-core`); TypeScript oracle still accepts only pre-protocol grammar until a follow-up port. API/slots: `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` §5. Host powers: `docs/PROPOSAL_PROTOCOL_CAPABILITIES.md` (accepted).
 
-A **`protocol`** declares a shared parameter surface (and optional **`emits`**) that conforming components inherit. Conformance is declared inline on the component header — there is no separate `conform` statement.
+A **`protocol`** is the single conformance mechanism. It may describe:
+
+| Role | Header | Peer | Meaning |
+|------|--------|------|---------|
+| **API** | `protocol P: component { … }` | Parent in the PDL tree | Shared params + optional **`emits`** (child→parent) for slots / mixed lists |
+| **Host** | `protocol P { host … }` | Environment (Playground / app) | **Inbound** channels + host verbs — **no** `: component`; not a slot type |
+
+**Directions (do not conflate):**
+
+| Surface | Direction | Author wires with |
+|---------|-----------|-------------------|
+| **`emits` / `emit`** | Child → parent | Parent `item.select(…) = { … }` / `Field.change(…) = { … }` |
+| **Host inbound** | Environment → component | Conformer `[self.]pressEnd = { … }` in the kind body (`self.` optional) |
+| **Host verbs** | Component → environment | Call inside a handler (`beginEditing(value)`) |
+
+Frame **kinds** stay on conforming components, not on the protocol. Host channel names are **not** public `emits` (they do not appear in parent catalogues as child intents).
 
 ```pdl
-protocol ModalContent {
+protocol ModalContent: component {
   title = "Modal Title"
   subtitle: String = ""
 }
 
-component UpsellBody <ModalContent>(
-  cta: String = "Upgrade"
-) layout {
-  // may use title, subtitle (from protocol) and cta (own)
-  …
+protocol SubnavItem: component {
+  requires PointerInput
+  title = ""
+  filter: FilterId = .all
+  emits { select(filter: FilterId) }
 }
 
-component ConfirmBody <ModalContent>() layout {
-  // API is exactly protocol params
+component UpsellBody <ModalContent>(cta: String = "Upgrade") layout { … }
+
+component FilterChip <SubnavItem>(…) layout {
   …
+  self.pressEnd = {
+    emit select(filter)
+  }
 }
 ```
+
+### Host prelude (always in scope)
+
+Like frame kinds (`layout` / `text` / …), well-known **host** protocols are a **language prelude** — always in scope, **no import**. Normative stubs: **[§4a′](#4a--host-protocol-prelude-stubs)** below. Authors **opt in** with `component C <PointerInput>` or API `requires PointerInput` (**PDL-E030**). Restating a prelude host in a pack is optional documentation only; redefining a prelude name as an API protocol (params / child `emits` / `requires`) is **PDL-E032**.
+
+Catalogue lists a prelude protocol only when a component **`conformsTo`** it or an API protocol **`requires`** it (`protocolRoles` / `hostProtocols`). Hosts (Playground HTML, apps) deliver inbound channels and implement verbs — they key off conformance + this stub, not pack imports.
 
 ### Protocol body
 
 | Form | Meaning |
 |------|---------|
-| `name = default` | Param with type **inferred** from an unambiguous default (`"…"` → `String`, `#RRGGBB` / `Color(…)` → `Color`, …). Ambiguous defaults (bare numbers, booleans, `.case`) **require** an explicit type. |
-| `name: Type = default` | Explicit typed param (same types as component params). |
-| `emits { intent(arg, …) … }` | Shared emit channels (stored on the protocol; host dispatch lands in later slices). |
+| `: component` | Required header subject for **API** protocols. |
+| `host` | Marks a **host** protocol (no `: component`, no child `emits`, no compositional params). |
+| Inbound channel name | On host protocols: bare `pressEnd` (optional typed parens later) — assignable as `[self.]pressEnd = { … }` (`self.` clarifying). |
+| Host verb name | On host protocols: documented for callsites inside handlers (`beginEditing`). |
+| `requires HostProto` | API protocol pulls in a host (transitive). Targets **must** be host-role. |
+| `name = default` / `name: Type = default` | API params only. |
+| `emits { … }` | API child→parent channels only. |
 
 ### Conformance rules (v1)
 
 | Rule | Intent |
 |------|--------|
+| API header | `protocol P: component { … }` — missing subject is a hard error. |
+| Host header | `protocol P { host … }` — must **not** use `: component`. |
 | `component C <P>(…)` | `C` conforms to protocol `P` (single protocol in v1). |
-| Effective params of `C` | Protocol params ∪ component-own params; **same name replaces** (override default / type must stay compatible). |
-| Catalogue | When present: root **`protocols`** map; component rows may include **`conformsTo`**. Params on the row are the **effective** list. |
-| Unknown `P` | `PDL-E006` at validate/load. |
+| Effective params of `C` | Protocol params ∪ component-own params; **same name replaces**. |
+| Effective host protocols | If `P` is host → `{P}`; if API → transitive `requires` host set. |
+| Host handlers | `self.<inbound> = { … }` legal in the component **kind body** when `<inbound>` is on an effective host protocol — else **PDL-E030**. |
+| Host as slot type | `[PointerInput]` / `x: EditableText` → **PDL-E031**. |
+| Catalogue | Root **`protocols`** (+ **`role`**, **`subject`**, inbound channels when serialised), **`protocolRoles`**, **`conformsTo`**, **`hostProtocols`**. |
+| Unknown `P` | `PDL-E006` / `PDL-E022`. |
 
-Array/slot params typed as a protocol (`[ModalContent]`) are **§4b**. Injection packs are **§4c**. Layout `on` / `ForEach` are **§4e**.
+### Editable text (host)
+
+Stay on kind **`text`**. Opt into prelude **`EditableText`** (direct or via `requires`). Bind with **`editable = value`** (param name). Prefer orthogonal **`editing: Boolean`**. Wire inbound with `self.keyboardDismissed = { … }` / `self.keyboardCancelled = { … }`. Host verbs: see §4a′. Host writes the bound param on commit; `emit change` is optional parent notification.
+
+Array/slot params typed as an **API** protocol (`[ModalContent]`) are **§4b**. Injection packs are **§4c**. Layout emit capture / ForEach are **§4e**.
+
+---
+
+## 4a′ — Host protocol prelude stubs
+
+**Status:** **normative language surface** (this section is the SoT for prelude host contracts). Compilers inject these into every design merge. Packs **must not** redefine them as API protocols (**PDL-E032**). Wire inbound channels with `[self.]<channel> = { … }` in the component kind body (`self.` optional / clarifying). The former `interaction { on … }` / `interaction Name for Component` forms are **removed** (**PDL-E001**).
+
+These stubs use the same keywords as author protocols. Inbound lines are **host channels** (not child `emits`). Verb lines document **host verbs** callable from handler bodies.
+
+```pdl
+// ── Language prelude (always in scope) ─────────────────────────────
+
+protocol PointerInput {
+  host
+
+  // Inbound — environment → component (wire with self.<name> = { … })
+  hoverStart
+  hoverEnd
+  pressStart
+  pressEnd
+  pressCancel
+  focusStart
+  focusEnd
+  activate
+  appear
+  dismiss
+}
+
+protocol EditableText {
+  host
+
+  // Inbound
+  keyboardDismissed
+  keyboardCancelled
+
+  // Host verbs (calls inside handler bodies; not assignable channels)
+  //   beginEditing(value)   — start session bound to String param `value`
+  //   cancelEditing()
+  //   commitEditing()
+}
+```
+
+| Prelude | Inbound channels (`self.<name> = { … }`) | Host verbs | Notes |
+|---------|------------------------------------------|------------|--------|
+| **`PointerInput`** | `hoverStart`, `hoverEnd`, `pressStart`, `pressEnd`, `pressCancel`, `focusStart`, `focusEnd`, `activate`, `appear`, `dismiss` | — | Pointer / focus / lifecycle. Playground wires hover/press today. |
+| **`EditableText`** | `keyboardDismissed`, `keyboardCancelled` | `beginEditing(value)`, `cancelEditing()`, `commitEditing()` | Pair with kind **`text`** + `editable = param`. |
+
+### Host handler assignment (canonical)
+
+Handlers live in the component **kind body** (same enclosure as layout props / `if` / `let`). Bare `pressEnd = { … }` and `self.pressEnd = { … }` are equivalent — names in a kind body already refer to this instance; **`self.` is optional clarifying syntax**. Declared-emit capture keeps parentheses (`item.select(…) = { … }`) so it does not collide with bare host channels:
+
+```pdl
+protocol FormField: component {
+  requires EditableText
+  requires PointerInput
+  value: String = ""
+  placeholder: String = ""
+  emits { change(value: String) }
+}
+
+component SearchField <FormField>(
+  value: String = "",
+  placeholder: String = "Search",
+  editing: Boolean = false
+) text {
+  editable = value
+  content = placeholder
+  fontSize = 15
+  color = #111111
+
+  if editing {
+    content = value
+    borderColor = #0066FF
+    borderWidth = 1
+  }
+
+  self.pressEnd = {
+    if editing {
+      // already editing — host owns the session
+    } else {
+      editing = true
+      beginEditing(value)
+    }
+  }
+  self.keyboardDismissed = {
+    editing = false
+    emit change(value)
+  }
+  self.keyboardCancelled = {
+    editing = false
+    cancelEditing()
+  }
+}
+```
+
+| Rule | Intent |
+|------|--------|
+| `[self.]<channel> = { … }` | Assign handler for a host inbound channel on an **effective** host protocol. `self.` is optional (kind-body names already refer to this instance). |
+| Body | Same statements as today’s interaction handlers: param assigns, `emit`, `if`, host verbs, motion (§14). |
+| Coverage | Using a host channel or verb without effective host conformance → **PDL-E030**. |
+| Not child emits | Host channels are **not** captured by parents with `item.pressEnd = { … }`. |
+| Removed | `interaction { … }` / `interaction Name for C` → **PDL-E001**; use `[self.]<channel> = { … }`. |
 
 ---
 
@@ -595,11 +753,25 @@ component Modal(
 |------|--------|
 | `[T]` | Param type: array of instances whose concrete component is `T` or conforms to protocol `T` |
 | Defaults | Instance literals `Name()` / `Name(param: value, …)`; empty `[]` allowed |
-| Expansion | A list/slot param name in `children = […]` splices evaluated instances in place (one level) |
+| Expansion | A list/slot param name in `children = […]` (or bare `children = slots`) splices evaluated instances in place (one level) — **only** mount site |
+| Bare list sugar | `children = chips` ≡ `children = [chips]` when `chips` is a list/slot / let / instance ref (§4e) |
 | Single slot | Non-array `content: ModalContent = UpsellBody()` also expands when referenced in `children` |
+| Slot dotted override | `slot.field = value` on a **single** slot/instance param: if `field` is an effective **param** of the concrete component → kwargs before mount; otherwise → **root frame prop** after mount (same sugar as `L.padding = 50`). Array slots cannot use `slots.foo =` (**PDL-E034**) — use `ForEach` |
 | Catalogue | Param `type` is `{ "kind": "array", "element": "…" }` for `[T]` |
 
-Injection packs / soft-fail are **§4c**. `ForEach` / layout `on` are **§4e** (chrome `before`/`between`/`after` deferred as **B6** under §4e).
+```pdl
+component AbnButton(
+  simple: SimpleChip = SimpleChip(title: "Chip")
+) layout {
+  let L: text = { content = label }
+  simple.content = "Override"   // root text prop on mounted SimpleChip
+  simple.padding = 50           // root frame prop
+  // simple.title = "X"         // would override the title param
+  children = [L, simple]
+}
+```
+
+Injection packs / soft-fail are **§4c**. `ForEach` / emit handler assignment are **§4e** (chrome `before`/`between`/`after` deferred as **B6** under §4e).
 
 ---
 
@@ -632,7 +804,7 @@ CLI: `pdl bakePack <entry.pdl> <pack.json>` · `pdl validatePack <entry.pdl> <pa
 
 ---
 
-## 4d — Emits & inline interaction (B4)
+## 4d — Emits & host inbound (B4)
 
 **Status:** shipped in the **Rust** portable core (declare + fire; host dispatch is later). Proposal §8.
 
@@ -640,11 +812,11 @@ CLI: `pdl bakePack <entry.pdl> <pack.json>` · `pdl validatePack <entry.pdl> <pa
 
 A component **declares** channels in any of these forms (effective emits = protocol ∪ own):
 
-1. **Inline** after the root frame (preferred when co-located): `component C(…) layout { … } emits { select(filter: FilterId) } interaction { … }`
+1. **Inline** after the root frame (preferred when co-located): `component C(…) layout { …; self.pressEnd = { emit select(filter) } } emits { select(filter: FilterId) }` — host handlers in the kind body
 2. **Companion** top-level: `emits C { select(filter: FilterId) }`
-3. **Protocol** body: `protocol P { … emits { select(filter: FilterId) } }` — shared channels for mixed lists
+3. **Protocol** body: `protocol P: component { … emits { select(filter: FilterId) } }` — shared channels for mixed lists
 
-It **fires** them from `interaction` with `emit …`, and a **parent** **captures** them in `layout` / `ForEach` with `on …` (§4e). Component-to-component wiring is **params + `emits` only**.
+It **fires** them from host handlers with `emit …`, and a **parent** **captures** them in `layout` / `ForEach` with handler assignment (§4e). Component-to-component wiring is **params + `emits` only**.
 
 ### Emit signatures and payload types
 
@@ -661,11 +833,11 @@ emits FilterChip {
 | `select(filter: FilterId)` | Channel `select` carries one field, `filter`, of type **`FilterId`** |
 | Type required | Each payload field **MUST** include `: TypeName`. Allowed kinds: variants, primitives (`String`, …), **protocol** names, and **component** types. |
 | Fire site | `emit select(filter)` binds by **name** to a value in scope (typically the component param of the same name); the value **MUST** type-check against the declared payload type. Authors **MAY** pass `self` when the payload type is this component or a protocol it conforms to. |
-| Parent capture | `on …select(filter_id: FilterId) { … }` **re-declares** typed payload fields (same shape as the emit signature). Capture names are **handler locals** (need not match declaration names). Arity and types **MUST** match the effective emit signature by **position**. |
+| Parent capture | `item.select(filter_id: FilterId) = { … }` (ForEach binder) or `Field.change(…) = { … }` (let/slot) **re-declares** typed payload fields and **assigns** the handler body. List-param `chips.select` is **PDL-E036**. |
 | Catalogue | Effective emits record `{ name, args: [{ name, type }, …] }` |
 | Protocol | Same typed form on protocol `emits { … }`; mixed-list parents rely on that shared typed channel |
 
-Bare `emit select` / `on select { … }` (no payload parens) is allowed only when the declared signature has **no** payload fields; if the signature lists `(filter: FilterId)`, fire sites **MUST** supply `emit select(…)` and parents **MUST** write `on select(…: …) { … }`.
+Bare `emit select` / `select = { … }` (no payload parens) is allowed only when the declared signature has **no** payload fields; if the signature lists `(filter: FilterId)`, fire sites **MUST** supply `emit select(…)` and parents **MUST** write `select(…: …) = { … }`.
 
 **Richer payloads** — ids/enums are the common case; a child may also emit a protocol-conforming item or itself:
 
@@ -675,13 +847,13 @@ emits FeedRow {
   // or: open(item: FeedItem)  // protocol the row conforms to
 }
 
-// interaction:
-on pressEnd {
+// kind body (host inbound → promote):
+self.pressEnd = {
   emit open(self)
 }
 
 // parent layout:
-on open(item: FeedRow) {
+open(item: FeedRow) = {
   focused = item
 }
 ```
@@ -691,7 +863,7 @@ on open(item: FeedRow) {
 One concrete chip type; the parent listens to that type’s channel.
 
 ```pdl
-variant FilterId {
+enum FilterId {
   case all
   case podcasts
 }
@@ -705,15 +877,12 @@ component FilterChip(
   if selected { /* selected chrome */ }
   let Label: text = { content = title }
   children = [Label]
+  self.pressEnd = { emit select(filter) }
 } emits {
   select(filter: FilterId)
-} interaction {
-  on pressEnd {
-    emit select(filter)
-  }
 }
 
-// Parent: own SoT, mount chips, capture select (§4e layout `on`)
+// Parent: own SoT, mount chips, capture select (§4e handler assignment)
 // Pattern A — derive Bool `selected` from SoT vs each chip’s identity
 component FilterBar(
   currentFilter: FilterId = .all
@@ -732,10 +901,10 @@ component FilterBar(
   )
   children = [All, Podcasts]
 
-  on All.select(filter_id: FilterId) {
+  All.select(filter_id: FilterId) = {
     currentFilter = filter_id
   }
-  on Podcasts.select(filter_id: FilterId) {
+  Podcasts.select(filter_id: FilterId) = {
     currentFilter = filter_id
   }
 }
@@ -753,18 +922,20 @@ component FilterBar(
 ) layout {
   direction = .row
   children = [chips]
-  on chips.select(filter_id: FilterId) {
-    currentFilter = filter_id
+  ForEach(chips) { chip in
+    chip.select(filter_id: FilterId) = {
+      currentFilter = filter_id
+    }
   }
 }
 ```
 
 ### Example B — shared emits on a protocol (mixed list)
 
-When several concrete types appear in one list, put the **shared** channel on the protocol so the parent writes **`on select` once**. Each conformer still **fires** `emit select(…)`; a per-component `emits` block is optional if the protocol already declares the channel (effective emits = protocol ∪ own).
+When several concrete types appear in one list, put the **shared** channel on the protocol so the parent writes **`chip.select(…) = { … }` once** inside `ForEach`. Each conformer still **fires** `emit select(…)`; a per-component `emits` block is optional if the protocol already declares the channel (effective emits = protocol ∪ own).
 
 ```pdl
-protocol SubnavItem {
+protocol SubnavItem: component {
   title = ""
   filter: FilterId = .all
   emits {
@@ -779,10 +950,7 @@ component FilterChip <SubnavItem>(
   if selected { /* selected chrome */ }
   let Label: text = { content = title }
   children = [Label]
-} interaction {
-  on pressEnd {
-    emit select(filter)
-  }
+  self.pressEnd = { emit select(filter) }
 }
 
 component IconFilterChip <SubnavItem>(
@@ -794,10 +962,7 @@ component IconFilterChip <SubnavItem>(
   let Mark: text = { content = glyph }
   let Label: text = { content = title }
   children = [Mark, Label]
-} interaction {
-  on pressEnd {
-    emit select(filter)
-  }
+  self.pressEnd = { emit select(filter) }
 }
 
 // Parent: polymorphic list; one select channel for every SubnavItem
@@ -810,54 +975,54 @@ component LibrarySubnav(
 ) layout {
   direction = .row
 
-  ForEach(chips) {
-    selected: self.currentFilter == filter
-    on select(filter_id: FilterId) {
+  ForEach(chips) { chip in
+    chip.selected = self.currentFilter == filter
+    chip.select(filter_id: FilterId) = {
       currentFilter = filter_id
     }
   }
 }
 ```
 
-(`ForEach` / Pattern A Bool `selected` / layout `on` are **§4e**.)
+(`ForEach` / Pattern A Bool `selected` / emit handler assignment are **§4e**.)
 
 | Rule | Intent |
 |------|--------|
 | `emits C { … }` | Component’s public **output** API (canonical home of emits) |
 | Payload fields | Declared as `name: Type` on the signature (not inferred) |
 | Protocol `emits { … }` | Optional shared channels for conformers / mixed lists (payloads typed from protocol params) |
-| `emit name` / `emit name(args)` | Fire a **declared** channel from `interaction` handlers |
-| Inline `} interaction { … }` | Synthetic name **`default`**; merges into component interactions |
+| `emit name` / `emit name(args)` | Fire a **declared** channel from host handlers (`self.pressEnd = { … }`) |
+| Host inbound | `[self.]<channel> = { … }` in the kind body (§4a′; `self.` optional) |
 | Catalogue | `components[C].emits` = **effective** (protocol ∪ own), each channel with typed payloads |
-| Parent `on` | Captures declared emits in **layout** / `ForEach` only (§4e / §8), with an explicit typed payload list: `on select(name: Type) { … }` |
+| Parent capture | Handler assignment in **layout** / `ForEach` only (§4e / §8): `item.select(…) = { … }` or let/slot `Field.change(…) = { … }` |
 | Inline `emits` | `} emits { … }` after the root frame merges into the component’s own emits (same effective set as companion `emits C`) |
 
-Host dispatch of **unhandled** emits (no layout `on`) is **B7** / prototype runtime (§8).
+Host dispatch of **unhandled** emits (no layout handler assignment) is **B7** / prototype runtime (§8).
 
 ---
 
 ## 4e — ForEach & layout emit capture (B5)
 
-**Status:** **normative**; **shipped in Rust** (`crates/pdl-core` — parse, validate E028/E029, bake-expand `ForEach` binds, catalogue `emitCaptures`). TypeScript oracle still lags. Host emit dispatch is **B7** (Playground HTML host applies captures + rebakes). Source: `test-fixtures/pdl/protocols/filter_chip.pdl` (`LibrarySubnav`).
+**Status:** **normative**; **shipped in Rust** (`crates/pdl-core` — parse, validate E028/E029/E034/E035, bake-apply `ForEach` binds at `children` expand, catalogue `emitCaptures`). TypeScript oracle still lags. Host emit dispatch is **B7** (Playground HTML host applies captures + rebakes). Source: `test-fixtures/pdl/protocols/filter_chip.pdl` (`LibrarySubnav`).
 
-`layout` is the **view body**: it stacks **down** (`children`, expandable slots, optional `ForEach`) and **up** (capture of **declared** child emits via `on`). Bare list mount does **not** require `ForEach` — `children = [slots]` remains enough (§4b).
+`layout` is the **view body**: it stacks **down** (`children` mounts slots/lists) and **up** (capture of **declared** child emits via **handler assignment**). **`ForEach` does not mount** — it only overlays per-item overrides and emit handlers. Lists **MUST** appear via `children = [chips]` or bare `children = chips` (**PDL-E035** if missing).
 
 ### When to use `ForEach`
 
 | Need | Use |
 |------|-----|
-| Just mount instances | `children = [slots]` (no `ForEach`) |
-| Derive child params from parent SoT | `ForEach` + binding (e.g. selection) |
-| Capture list emits next to composition | `on select` inside that `ForEach` / beside the list |
+| Just mount instances | `children = slots` / `children = [slots]` (no `ForEach`) |
+| Derive / override child params or root frame props per item | `ForEach` + `children = list` |
+| Capture list emits | `item.select(…) = { … }` inside that `ForEach` only (list-param `chips.select` is **PDL-E036**) |
 | Dividers / before / after chrome | `ForEach` + `before` / `between` / `after` (**B6** — deferred; see below) |
 
-### Derived bindings + layout `on` (normative for B5)
+### Derived bindings + emit handler assignment (normative for B5)
 
 Parent owns **one** source of truth (SoT). Prefer **ids / enums**, not indexes.
 
-**Selection pattern A (canonical):** the parent owns an id/enum SoT (e.g. `currentFilter: FilterId`). Each child keeps its **identity** (`filter`) and takes a **Bool presentation** param (`selected: Boolean`). The parent **derives** that bool at each callsite / `ForEach` bind (`selected: self.currentFilter == filter`); the child draws with `if selected`.
+**Selection pattern A (canonical):** the parent owns an id/enum SoT (e.g. `currentFilter: FilterId`). Each child keeps its **identity** (`filter`) and takes a **Bool presentation** param (`selected: Boolean`). The parent **derives** that bool in `ForEach` (`chip.selected = self.currentFilter == filter`); the child draws with `if selected`. Mount with `children = [chips]`.
 
-The `ForEach` body is a **repeated callsite** for each list element — same shape as `FilterChip(selected: …)`, not a free assignment block:
+`ForEach` is the list analogue of single-slot dotted overrides (`simple.title = …` / `simple.padding = …`). The **item binder** names the current element explicitly — no implied singular of the list name. Emit capture uses the same `=` family on that binder:
 
 ```pdl
 component LibrarySubnav(
@@ -869,36 +1034,38 @@ component LibrarySubnav(
 ) layout {
   direction = .row
 
-  ForEach(chips) {
-    selected: self.currentFilter == filter
+  ForEach(chips) { chip in
+    chip.selected = self.currentFilter == filter
 
-    on select(filter_id: FilterId) {
+    chip.select(filter_id: FilterId) = {
       currentFilter = filter_id
     }
   }
+
+  children = chips
 }
 ```
 
-`self.currentFilter` names the **enclosing component** param (escape hatch when item fields would shadow). Bare identifiers on the RHS resolve **item fields first**, then enclosing params — so `filter` is the chip’s identity. Prefer `self.` for the parent SoT in `ForEach`.
+`self.currentFilter` names the **enclosing component** param (escape hatch when item fields would shadow). On the RHS, bare identifiers resolve **item fields first**, then enclosing params — so `filter` is the chip’s identity. Prefer `self.` for the parent SoT in `ForEach`.
 
 | Rule | Intent |
 |------|--------|
-| `ForEach(listParam) { … }` | View-body construct **inside** a `layout` (or nested layout frame body). `listParam` **MUST** name a component parameter whose type is `[T]` (array of instances) or a single slot expandable like §4b. |
-| Derived bind | **`itemParam: expr`** — kwargs form. **LHS** is always an **item** (element / protocol) param; **RHS** is a value or condition expression that type-checks against that param (e.g. Bool from `self.currentFilter == filter`). |
+| `ForEach(listParam) { item in … }` | Overlay only — **does not** insert children. **`item in` is required** (binder for the current element). `listParam` **MUST** also appear in some `children = […]` / `children = listParam` (**PDL-E035**). |
+| Item override | **`item.name = expr`** (binder-qualified). If `name` is an effective **param** of the concrete item → kwargs; else → **root frame prop** after mount (same classify as §4b slot dotted). Bare `name = expr` inside `ForEach` is a hard error. |
 | RHS name lookup | Bare identifiers: **item fields first**, then **enclosing component params** (item shadows parent). **`self.param`** always means the enclosing component (§22.2). |
-| Layout `on` (primary) | `on select(filter_id: FilterId) { … }` next to the list / inside `ForEach` — **declared emit channels only** (§8). |
-| Layout `on` (sugar) | `on chips.select(filter_id: FilterId) { … }` beside `children = [chips]` — equivalent capture for that list’s emitters. |
-| Ambient ban | Ambient host events (`hoverStart`, `pressEnd`, …) in `layout` / `ForEach` are **PDL-E028**. |
+| Emit capture (list) | **`item.select(filter_id: FilterId) = { … }`** inside `ForEach` — binder-qualified; **declared emit channels only** (§8). Catalogue/runtime treat the binder as the enclosing list. |
+| Emit capture (single) | **`Field.change(…) = { … }`** / **`All.select(…) = { … }`** on a let instance or single slot — not on array/list params (**PDL-E036**). |
+| Ambient ban | Host inbound events (`hoverStart`, `pressEnd`, …) as layout capture channels are **PDL-E028**. Layout **`on`** and the `interaction` keyword are hard parse errors. |
 | Payload capture | Typed fields in parens (same grammar as emit-sig). Names are **handler locals**; arity+types **MUST** match by position. Assignments target **enclosing** component params. |
-| Unhandled | Emits with no layout `on` bubble to the **prototype / host** runtime (B7) — not a language error. |
-| Static bake | A conforming bake **MUST** expand `ForEach` into concrete instance subtrees and **apply** derived binds using the **current** parent param values (snapshot). Live rebind after emit is a **host** concern until B7. |
+| Unhandled | Emits with no layout handler bubble to the **prototype / host** runtime (B7) — not a language error. |
+| Static bake | A conforming bake **MUST** expand `children = [list]` into concrete instance subtrees and **apply** ForEach overlays using the **current** parent param values (snapshot). Live rebind after emit is a **host** concern until B7. |
 
 ### B6 — list chrome (deferred)
 
 Grammar is reserved; **first compiler slice need not implement** these arms:
 
 ```pdl
-ForEach(slots) {
+ForEach(slots) { slot in
   before { … }
   between { … }
   after { … }
@@ -1491,7 +1658,8 @@ if <param> == .case {
 ### What each assignment targets
 
 - **Bare `prop = value`** (no frame id) — updates the **frame whose `{ … }` contains this `if` block**. On the **root** `layout { … }`, that is the **root** frame. Inside **`let Message: text = { … }`**, that is **`Message`**.  
-- **`SomeFrameId.prop = value`** — updates **`SomeFrameId`**, which must be a **`let`** frame id in the same component. Use this when an `if` at the **root** needs to tweak a **child** frame’s props without moving the whole `if` inside the child’s block.  
+- **`SomeFrameId.prop = value`** — updates **`SomeFrameId`** when it is a **`let`** / **`letInstance`** frame id. When **`SomeFrameId`** is a **single slot/instance param**, see §4b (param vs root-frame classify). Array slot dotted overrides are **PDL-E034**.  
+
 - **`self` is not a frame id.** In layout/interaction expressions, `self` / `self.param` means the **enclosing component instance** (§22.2), not the root frame.  
 - **`SomeFrameId.children = [ … ]`** — allowed in overrides when the grammar permits; the right-hand side is a **child list** like a normal **`children`** assignment (§5 — **`children` array**).
 
@@ -1500,6 +1668,12 @@ if <param> == .case {
 The **root** `layout` sets a default **`background`**. The **`if` chain** swaps **`background`** when **`interactionState`** changes; **`Label`** is unchanged structurally—only the chrome around it updates.
 
 ```pdl
+enum InteractionState {
+  case rest
+  case hovered
+  case pressed
+}
+
 component InteractiveChip(
   label: String = "Chip",
   interactionState: InteractionState = .rest
@@ -1666,7 +1840,7 @@ Conditions always resolve against the **component’s parameter values** (and li
 
 ## See also
 
-- §4 — parameters and **`variant`** types used in **`if`** conditions  
+- §4 — parameters and **`variant`** / **`enum`** types used in **`if`** conditions  
 - §5 — authoritative **property** / **`children`** tables  
 - §6 — **RHS** grammar and **conditions**  
 - §8 — **`on`** handlers (separate from static **`if`**, but often drive the same params)  
@@ -1679,85 +1853,75 @@ Conditions always resolve against the **component’s parameter values** (and li
 
 ## 8 — Interactions
 
-**Interactions** attach **preview-time behavior** (and optional **motion** hints) to components: when an event fires, handlers assign new values to **public component parameters** (typically variant-typed state like `interactionState`).
+**Host inbound handlers** attach **preview-time behavior** (and optional **motion** hints) to components: when a host channel fires, handlers assign **public component parameters** and may **`emit`** child intents.
 
-They are declared at **top level** and **name the component** they augment.
+**Authoring** is host handler assignment in the kind body (§4a′): `self.pressEnd = { … }`. Compilers lift these into the component’s interaction IR (catalogue `interactions[]`, synthetic name **`default`**). The `interaction` keyword is **removed** (**PDL-E001**).
 
 ---
 
 ## Declaration
 
-Interactions may be declared **top-level** (`interaction Name for Component { … }`) or **inline** after a component’s root frame (`} interaction { … }` — synthetic name **`default`**; see §4d).
+| Form | Status | Notes |
+|------|--------|--------|
+| `[self.]<hostChannel> = { … }` in kind body | **Normative** | `self.` optional / clarifying. Requires effective host protocol (§4a′). |
+| `interaction { … }` / `interaction Name for C` | **Removed** | **PDL-E001** — use `self.<channel> = { … }`. |
 
 ```pdl
-interaction MyBehavior for TargetComponent {
-  on <eventName> {
-    <statements>
-  }
+component InteractiveChip <PointerInput>(…) layout {
   …
+  self.hoverStart = { interactionState = .hovered }
+  self.pressEnd = { interactionState = .hovered }
 }
 ```
 
-- **`MyBehavior`** — interaction name (required by grammar for top-level forms).  
-- **`TargetComponent`** — must match a `component` name after merge.  
-- **`on`** blocks contain **assignments**, optional **`emit`**, optional **`if` chains**, and optional **motion** clauses (§14).  
-
 ---
 
-## Two `on` namespaces (disambiguated by enclosure)
+## Handler assignment family (host vs emit)
 
-One keyword, two lanes. **Enclosure decides** which lane is legal; violations are hard errors.
+One syntactic family (`… = { … }`), two directions:
 
-| Namespace | Where legal | Listens to | Shape |
-|-----------|-------------|------------|--------|
-| **Ambient (host)** | `interaction` / inline `interaction` **only** | Host-synthesized pointer/focus/lifecycle events | `on pressEnd { … }` — may assign params and/or `emit` |
-| **Declared emit** | `layout` body / `ForEach` **only** (§4e) | Child **`emits`** channels | `on select(filter_id: FilterId) { … }` — typed payload locals; assign enclosing params |
+| Lane | Where legal | Listens to | Shape |
+|------|-------------|------------|--------|
+| **Host inbound** | Component **kind body** | Channels declared on effective **host** protocols (§4a′) | `self.pressEnd = { … }` — assign params, `emit`, host verbs |
+| **Declared emit** | Parent **layout** / `ForEach` (§4e) | Child **`emits`** | `item.select(…) = { … }` / `Field.change(…) = { … }` |
 
 | Violation | Code |
 |-----------|------|
-| Ambient event name in `layout` / `ForEach` | **PDL-E028** `ambient-on-in-layout` |
-| Declared emit channel (or `list.channel`) in `interaction` | **PDL-E029** `declared-on-in-interaction` |
+| Host channel used as parent emit capture (no `self.`, treating as child emit) | **PDL-E028** (ambient-as-emit-capture) |
+| Declared emit channel used as a host inbound channel name | **PDL-E029** |
+| Layout / `ForEach` keyword `on` | **Parse error** — use handler assignment |
+| List-param emit capture `chips.select` | **PDL-E036** |
 
-**Primary capture form:** `on select(…)` next to the list / inside `ForEach`.  
-**Optional sugar:** `on chips.select(…)` beside `children = [chips]`.  
-Promote ambient → public intent with `emit select(…)` inside `interaction` (§4d). Do **not** invent a second keyword unless enclosure errors prove insufficient in practice.
+**Primary list emit capture:** `chip.select(…) = { … }` inside `ForEach`.  
+**Promote host → parent intent:** `emit select(…)` inside a `self.pressEnd` body (§4d).
 
 ---
 
-## Events (`on …`) — ambient lane
+## Host inbound channels
 
-| Event | Typical use |
-|-------|-------------|
-| `hoverStart` | Pointer entered |
-| `hoverEnd` | Pointer left |
-| `pressStart` | Mouse/touch down |
-| `pressEnd` | Mouse/touch up (commit) |
-| `pressCancel` | Gesture cancelled |
-| `focusStart` | Focus gained |
-| `focusEnd` | Focus lost |
-| `activate` | Primary action (`Enter`, etc.) |
-| **`appear`** | Node entered hierarchy / became visible (§14) |
-| **`dismiss`** | Node exited / hidden (§14) |
+Authoritative list: **§4a′** prelude stubs. Summary:
 
-Example (classic pointer cycle):
+| Channel | Protocol | Typical use |
+|---------|----------|-------------|
+| `hoverStart` / `hoverEnd` | `PointerInput` | Pointer entered / left |
+| `pressStart` / `pressEnd` / `pressCancel` | `PointerInput` | Down / up / cancel |
+| `focusStart` / `focusEnd` | `PointerInput` | Focus gained / lost |
+| `activate` | `PointerInput` | Primary action (`Enter`, etc.) |
+| `appear` / `dismiss` | `PointerInput` | Hierarchy visibility (§14) |
+| `keyboardDismissed` / `keyboardCancelled` | `EditableText` | Soft-keyboard commit / cancel |
+
+Example (canonical pointer cycle on the component):
 
 ```pdl
-interaction InteractiveChipBehavior for InteractiveChip {
-  on hoverStart {
-    interactionState = .hovered
-  }
-  on hoverEnd {
-    interactionState = .rest
-  }
-  on pressStart {
-    interactionState = .pressed
-  }
-  on pressEnd {
-    interactionState = .hovered
-  }
-  on pressCancel {
-    interactionState = .rest
-  }
+component InteractiveChip(
+  interactionState: ChipInteraction = .rest
+) layout {
+  …
+  self.hoverStart = { interactionState = .hovered }
+  self.hoverEnd = { interactionState = .rest }
+  self.pressStart = { interactionState = .pressed }
+  self.pressEnd = { interactionState = .hovered }
+  self.pressCancel = { interactionState = .rest }
 }
 ```
 
@@ -1773,7 +1937,11 @@ toneVariant = .active
 - LHS: a **parameter** of the target component (all params are public).
 - RHS: type-checks against param type (variants use **`.case`**; `String` params take a quoted string).
 
-**`self`:** in interaction/layout value positions, bare `self` is the **enclosing component instance** (valid emit payload when the signature accepts this component or a protocol it conforms to). **`self.param`** is that component’s parameter (optional on LHS: `self.interactionState = .hovered` ≡ `interactionState = .hovered`). This is **not** the rules-query `self` (§12).
+**`self`:**  
+- **`self.<hostChannel> = { … }`** — host handler assignment (§4a′).  
+- **`self.param`** — enclosing component parameter (optional on LHS: `self.interactionState = .hovered` ≡ `interactionState = .hovered`).  
+- Bare **`self`** as a value — enclosing **instance** (valid emit payload when the signature accepts this component or a protocol it conforms to).  
+Rules-query `self` is separate (§12).
 
 ---
 
@@ -1792,7 +1960,7 @@ Summary:
 ## Conditional statements in handlers
 
 ```pdl
-on pressEnd {
+self.pressEnd = {
   interactionState = .hovered
 
   if tone == .danger {
@@ -1803,7 +1971,7 @@ on pressEnd {
 }
 ```
 
-**Normative:** conditions in interaction handlers follow the same `ConditionExpr` grammar as frame overrides (§7) — a **variant-typed parameter** compared to a **`.caseName`**. Only variant equality comparisons are supported in v1; arbitrary string or numeric comparisons in handler `if` conditions are **not** supported.
+**Normative:** conditions in handlers follow the same `ConditionExpr` grammar as frame overrides (§7) — a **variant-typed parameter** compared to a **`.caseName`**. Only variant equality comparisons are supported in v1; arbitrary string or numeric comparisons in handler `if` conditions are **not** supported.
 
 ---
 
@@ -1816,7 +1984,7 @@ Pair interactions with a **variant** (or other param) on the component; drive vi
 ## Preview vs static export
 
 - **Studio / iframe preview** should run **full** interaction + motion behavior when implemented.  
-- **Static HTML** (`renderHtml`, `npm run preview`) draws **bake snapshots** only — it does **not** run ambient handlers or layout `on` emit capture end-to-end (B7).  
+- **Static HTML** (`renderHtml`, `npm run preview`) draws **bake snapshots** only — it does **not** run ambient handlers or layout emit capture end-to-end (B7).  
 - Live rebind after `emit` requires a host runtime (B7 / C3).  
 - **`appear` / `dismiss`** may be **no-ops** in static export.  
 
@@ -1824,8 +1992,8 @@ Pair interactions with a **variant** (or other param) on the component; drive vi
 
 ## See also
 
-- §4d — `emits` / `emit` / inline interaction  
-- §4e — layout `on` / `ForEach`  
+- §4d — `emits` / `emit` / host inbound  
+- §4e — emit handler assignment / `ForEach`  
 - §14  
 - §16 — `applyInteractionEvent`  
 - `test-fixtures/pdl/06_interaction_states.pdl`, `test-fixtures/pdl/protocols/filter_chip.pdl`
@@ -1950,19 +2118,20 @@ semantic name: TokenType = value
 
 theme Name { … }
 typeStyle StyleName { prop = value … }
-variant V { case a case b }
+variant Tone { case primary case secondary }   // design-axis combinator
+enum InteractionState { case rest case hovered case pressed }  // state / domain set (≡ variant in v1)
 
-protocol P {
+protocol P: component {
   title = ""
   emits { select(filter: FilterId) }
 }
 
-component C <P>(params…) layout|text|icon|media { … } interaction { on pressEnd { emit select(filter) } }
+component C <P>(params…) layout|text|icon|media {
+  …
+  self.pressEnd = { emit select(filter) }   // host inbound (§4a′)
+}
 
 emits C { select(filter: FilterId) }
-
-interaction I for Component { on event { … } }
-
 
 fixtures C {
   example "Label" { param = value … }
@@ -1989,9 +2158,9 @@ Inside `layout` (see §4b / §4e):
 
 ```txt
 children = [Header, slots]           // expand list/slot params
-ForEach(chips) {                     // §4e — Rust bake expands
-  selected: self.currentFilter         // Pattern A: pass FilterId SoT
-  on select(filter_id: FilterId) {     // typed payload locals (= emit-sig shape)
+ForEach(chips) { chip in             // §4e — Rust bake expands
+  chip.selected = self.currentFilter == filter
+  chip.select(filter_id: FilterId) = {  // binder-qualified handler
     currentFilter = filter_id
   }
 }
@@ -2774,17 +2943,18 @@ theme ReducedMotion {
 
 ---
 
-## 2. Interaction blocks — animation statements
+## 2. Host handler bodies — animation statements
 
-Interactions (§8) gain optional **motion** clauses on handlers.
+Host inbound handlers (§8) gain optional **motion** clauses.
 
 ### 2.1 `animate`
 
 Selects a **resolved `Transition`** token (or inline tuple if grammar allows):
 
 ```pdl
-interaction ButtonPreview for Button {
-  on hoverStart {
+component Button <PointerInput>(…) layout {
+  …
+  self.hoverStart = {
     interactionState = .hovered
     animate = motion.interactive
   }
@@ -2796,15 +2966,16 @@ interaction ButtonPreview for Button {
 **Lifecycle** events for enter/exit animations (preview and native emitters map to platform equivalents).
 
 ```pdl
-interaction ModalPreview for Modal {
-  on appear {
+component Modal <PointerInput>(…) layout {
+  …
+  self.appear = {
     animate = motion.appear
     from {
       opacity = 0
       scale = 0.95
     }
   }
-  on dismiss {
+  self.dismiss = {
     animate = motion.dismiss
     to {
       opacity = 0
@@ -2831,8 +3002,9 @@ Emitters **MUST** support at minimum `opacity`, `scale`, `translateX`, and `tran
 ### 2.3 Stagger for lists
 
 ```pdl
-interaction ListPreview for List {
-  on appear {
+component List <PointerInput>(…) layout {
+  …
+  self.appear = {
     animate = motion.appear
     stagger = 30
     staggerFrom = .first
@@ -3158,11 +3330,13 @@ In §5, **`background`** and **`foreground`** on `layout` / `text` / `media` eac
 2. **Pair type styles with semantic text colors.**  
 3. **Clamp long copy** — `lineClamp` + `textOverflow = .ellipsis`.  
 
-## Variants
+## Variants / enums
 
-1. **Finite state** — `rest` / `hovered` / `pressed` beats many booleans.  
+1. **Finite state** — `rest` / `hovered` / `pressed` beats many booleans (`enum InteractionState { … }` is the usual spelling).  
 2. **Readable case names** — `.primary`, `.secondary`.  
 3. **Safe defaults** — e.g. `interactionState = .rest`.  
+4. **Spelling** — use **`variant`** for design-axis combinators (tone × size); **`enum`** for ids and interaction/state (same IR today).  
+5. **No `extend Type`** — declare a new closed set (or map exotic host events onto an existing case) rather than OO-extending an enum.  
 
 ## Components
 
@@ -3378,7 +3552,7 @@ When the reference CLI writes catalogue JSON to disk, **§16a** (compact keys) m
 | `semantics` | Map **semantic token name** → **`{ name, tokenType, definition }`**. Same shape as **`primitives`**. |
 | `themes` | Map **theme name** → **`{ baseTheme, overrides }`**. **`baseTheme`**: parent theme name when the PDL declares **`theme Name: ParentName { … }`**, else **`null`**. Each **`overrides`** entry is **LHS token name** → serialised RHS (same pointer rules as **`definition`**). |
 | `typeStyles` | Map **preset name** → **`{ name, props }`**. Each **`props`** value uses the same serialisation as token **`definition`**s (pointers for bare **`primitive` / `semantic`** idents). |
-| `variantTypes` | Every merged **`variant`** type (**name-keyed** object in the reference implementation): **`cases`** are case ids **without** a leading dot. Variant-typed **`components[].params`** carry **`variantTypeName`** only (§2.2). Empty object when the design defines no **`variant`** blocks. |
+| `variantTypes` | Every merged closed-set type from **`variant`** or **`enum`** (§4; same IR): **name-keyed** object; **`cases`** are case ids **without** a leading dot. Variant-typed **`components[].params`** carry **`variantTypeName`** only (§2.2). Empty object when the design defines no such blocks. |
 | `components` | Map **component name** → component entry (§2.2). |
 
 **CLI wire note:** On files emitted with **`stableStringify(..., { omitEmpty: true })`** (**§16a**), any row in the table above whose logical value is an **empty map** may appear as a **missing** key at the catalogue root. Treat absent **`primitives`**, **`semantics`**, **`themes`**, **`typeStyles`**, or **`variantTypes`** as **`{}`**.
@@ -3692,7 +3866,7 @@ The reference CLI emits **two graph-shaped JSON artefacts** (rich, reference-hea
 
 **Serialization:** **`bakeSystem`** and **`bakeComponent`** use the same **`stableStringify(..., { omitEmpty: true })`** rules as graph output — **§16a** (e.g. **`BakedFrame.children`** may be absent when there are no visible children).
 
-**HTML preview (`pdl renderHtml`):** The reference CLI can turn the same in-memory **`bakedDesign`** into a minimal **HTML5** document for Studio iframes and static reference pages (`src/renderHtml.ts`). The emitter maps **`layout`** (flex including **`.rowReverse` / `.columnReverse`**, **`.stack`** as overlapping CSS grid cells, **`gap` / `columnGap` / `rowGap`**, **`.flex` sizing** with evaluated **`min` / `max` / `preferred`**, **`alignSelf` / `grow` / `shrink` / `position` + `inset`**, scalar or first-color **`background`**, **`foreground`** as an inset overlay **`box-shadow`**, **`borderWidth`/`borderColor`**, **`shadow`**, **`overflow`**, asymmetric **`Corner`** radii), **`text`** (typography, **`lineHeight`** ratio, **`letterSpacing`** in px from em×`fontSize`, **`justify`** → **`text-align`**, **`align`** → **`align-self`**, clamp / ellipsis / opacity / overflow), **`spacer`**, **`icon`** ( **`size`/`color`** swatch), and **`media`** ( **`<img>`** when **`source`** looks like a URL/path; **`contentMode`** → **`object-fit`** ) to flexbox- and grid-oriented markup. **Ramp**, **Blur**, full **layer** compositing, **`borderPosition`**, **`objectPosition`**, and non-raster **media** remain approximated or omitted. The mapping is **best-effort** and versioned with the toolchain, not part of the **`bakedDesign`** schema contract.
+**HTML preview (`pdl renderHtml`):** The reference CLI can turn the same in-memory **`bakedDesign`** into a minimal **HTML5** document for Studio iframes and static reference pages (`src/renderHtml.ts`). When present, root **`previewBackground`** (resolved CSS color from bake) sets document chrome via **`--pdl-preview-background`**. The emitter maps **`layout`** (flex including **`.rowReverse` / `.columnReverse`**, **`.stack`** as overlapping CSS grid cells, **`gap` / `columnGap` / `rowGap`**, **`.flex` sizing** with evaluated **`min` / `max` / `preferred`**, **`alignSelf` / `grow` / `shrink` / `position` + `inset`**, **`justify`** including **`.stretch`**, scalar or first-color **`background`**, **`foreground`** as an inset overlay **`box-shadow`**, **`borderWidth`/`borderColor`** with **`borderPosition`** (**outside** → CSS border; **inside** → inset **`box-shadow`**), **`shadow`**, **`overflow`**, asymmetric **`Corner`** radii, approximate **Blur** / **Vibrancy** via **`backdrop-filter`**), **`text`** (typography, **`lineHeight`** ratio, **`letterSpacing`** in px from em×`fontSize`, **`justify`** / **`align`** via a flex column shell + **`text-align`**, clamp / ellipsis / opacity / overflow), **`spacer`**, **`icon`** (color swatch + name label — not a real glyph set), and **`media`** ( **`<img>`** when **`source`** looks like a URL/path; **`contentMode`** → **`object-fit`**; **`aspectRatio`** / **`objectPosition`**) to flexbox- and grid-oriented markup. **Ramp**, full **layer** compositing fidelity, stack+**`spaceBetween`**, custom **`@font-face`** loading, and non-raster **media** remain approximated or omitted. Closed-set params from **`variant`** or **`enum`** are keyword-agnostic (bake IR uses **`"type": "variant"`**). The mapping is **best-effort** and versioned with the toolchain, not part of the **`bakedDesign`** schema contract.
 
 ### `bakedDesign` — root document
 
@@ -3705,9 +3879,10 @@ The reference CLI emits **two graph-shaped JSON artefacts** (rich, reference-hea
 | **`provenance.entryPath`** | string | Entry **`.pdl`** path used for the bake. |
 | **`provenance.bakedTheme`** | string \| **`null`** | Theme **name** passed to **`--theme`**, or **`null`** when omitted. |
 | **`provenance.bakeProfile`** | string | **`"system-defaults"`** (**`bakeSystem`**), **`"component-explicit"`** (**`bakeComponent`**), or **`"injection-pack"`** (**`bakePack`**, §4c). |
+| **`previewBackground`** | string (optional) | Resolved **CSS color** for the entry **`previewBackground`** token after theme apply (e.g. **`#F7F7F7`**). Omitted when the design has no preview background or the token cannot be resolved to a color. HTML hosts apply this to document chrome; it is **not** the token name. |
 | **`components`** | object | Map **component name** → **`BakedComponent`**. |
 
-**Normative:** Sibling keys such as **`primitives`**, **`semantics`**, **`themes`**, **`variantTypes`**, **`rules`**, **`fixtures`**, and **`interactions`** **must not** appear on **`bakedDesign`** (unless a future minor version explicitly extends this contract).
+**Normative:** Sibling keys such as **`primitives`**, **`semantics`**, **`themes`**, **`variantTypes`**, **`rules`**, **`fixtures`**, and **`interactions`** **must not** appear on **`bakedDesign`** (unless a future minor version explicitly extends this contract). **`previewBackground`** (resolved CSS color) is the intentional exception for HTML / studio chrome.
 
 ### `BakedComponent`
 
@@ -3878,7 +4053,7 @@ This checklist orders work so a **greenfield implementation** (or a full port to
 ## Phase A — Surface syntax
 
 1. **Lexer** — comments `//`, strings, numbers, identifiers, punctuation (per §1, §11).  
-2. **Top-level declarations** — `import`, `previewBackground`, `primitive`, `semantic`, `theme`, `typeStyle`, `variant`, `component`, `interaction`, **`emits`**, **`fixtures`**, **`usage`**, **`rules`**, **`extend`** (§2, §11).  
+2. **Top-level declarations** — `import`, `previewBackground`, `primitive`, `semantic`, `theme`, `typeStyle`, `variant` / **`enum`** (same closed-set construct), `component`, `interaction`, **`emits`**, **`fixtures`**, **`usage`**, **`rules`**, **`extend`** (§2, §4, §11).  
 3. **Component grammar** — header params, root kind block, `let`, `children`, `if` chains (§4, §5, §7).
 
 **Acceptance:** parse golden `.pdl` files to AST without loss; unknown top-level → error.
@@ -4060,14 +4235,24 @@ Newlines (CR, LF, or CR+LF) are normalized to a single LF for error-reporting pu
 
 ### 20.3 Comments
 
-PDL supports **line comments only**. A comment begins with `//` and extends to the end of the current line (up to but not including the newline character). Comments are treated as whitespace.
+PDL supports **line comments** and **block comments**. Both are treated as whitespace (they do not produce tokens).
+
+| Form | Rules |
+|------|--------|
+| Line | Begins with `//` and extends to the end of the current line (up to but not including the newline). |
+| Block | Begins with `/*` and extends through the first closing `*/`. May span lines. **Non-nesting** — an inner `/*` does not open a nested comment. An unclosed `/*` is **PDL-E001**. |
 
 ```pdl
 // This is a comment
 primitive color.brand: Color = #002FFF  // inline comment
-```
 
-Block comments (`/* … */`) are **not** supported in v1.
+/*
+  ForEach(chips) { chip in
+    chip.title = "A"
+    chip.selected = self.currentFilter == filter
+  }
+  */
+```
 
 ---
 
@@ -4089,14 +4274,14 @@ A **leading dot** (`.`) followed by an identifier, e.g. `.row`, `.primary`, is a
 **Reserved words** (may not be used as user-defined identifiers):
 
 ```
-primitive  semantic  theme  typeStyle  variant  component
-protocol  emits  emit  interaction  fixtures  usage  rules  extend
-import  previewBackground  let  if  else  on  for  ForEach
+primitive  semantic  theme  typeStyle  variant  enum  component
+protocol  requires  host  emits  emit  interaction  fixtures  usage  rules  extend
+import  previewBackground  let  if  else  on  for  in  ForEach
 before  between  after
 true  false  self
 ```
 
-`before` / `between` / `after` are reserved for **B6** list chrome inside `ForEach` (§4e). Layout emit capture uses typed parens (`on select(filter_id: FilterId) { … }`). **`expose` is not a keyword** (removed). **`self`** in layout/interaction means the enclosing component instance (§22.2); in `rules` queries it is the rules evaluation root (§12).
+`enum` is a reserved word and a **surface alias** of `variant` (§4). API protocols declare **`protocol P: component`**; **`host`** marks host-role protocols (§4a). `before` / `between` / `after` are reserved for **B6** list chrome inside `ForEach` (§4e). **`in`** introduces the required `ForEach` item binder. Layout emit capture is handler assignment (`chip.select(…) = { … }` / `Field.change(…) = { … }`); list-param `chips.select` is **PDL-E036**. Keyword `on` is **not** used for declared emits. **`expose` is not a keyword** (removed). **`self`** in layout/interaction means the enclosing component instance (§22.2); in `rules` queries it is the rules evaluation root (§12).
 
 ---
 
@@ -4259,7 +4444,7 @@ type-style-prop
 
 ```ebnf
 variant-decl
-  ::= 'variant' IDENT '{' { 'case' IDENT } '}' ;
+  ::= ( 'variant' | 'enum' ) IDENT '{' { 'case' IDENT } '}' ;
 ```
 
 ---
@@ -4268,10 +4453,13 @@ variant-decl
 
 ```ebnf
 protocol-decl
-  ::= 'protocol' IDENT '{' { protocol-body-item } '}' ;
+  ::= 'protocol' IDENT ':' 'component' '{' { protocol-body-item } '}'   (* API *)
+    | 'protocol' IDENT '{' { protocol-body-item } '}' ;                 (* host — body MUST include `host` *)
 
 protocol-body-item
-  ::= protocol-param
+  ::= 'host'
+    | 'requires' IDENT
+    | protocol-param
     | protocol-emits-block
     ;
 
@@ -4327,7 +4515,7 @@ component-body-item
     | deferred-children-assignment
     | children-assignment
     | foreach-stmt
-    | layout-on-handler
+    | emit-capture-handler
     | if-chain
     ;
 
@@ -4347,21 +4535,22 @@ frame-body-item
     | let-decl
     | children-assignment
     | foreach-stmt
-    | layout-on-handler
+    | emit-capture-handler
     | if-chain
     ;
 
 foreach-stmt
-  ::= 'ForEach' '(' IDENT ')' '{' { foreach-body-item } '}' ;
+  ::= 'ForEach' '(' IDENT ')' '{' IDENT 'in' { foreach-body-item } '}' ;
 
 foreach-body-item
-  ::= derived-bind
-    | layout-on-handler
+  ::= item-override
+    | emit-capture-handler
     | foreach-chrome   (* B6 — deferred *)
     ;
 
-derived-bind
-  ::= IDENT ':' value-expr ;   (* item param : expr — same shape as instance kwargs *)
+item-override
+  ::= IDENT '.' IDENT '=' value-expr ;   (* binder.prop — param or root frame prop *)
+
 
 (* B6 deferred — compilers MAY reject until B6 ships *)
 foreach-chrome
@@ -4370,8 +4559,9 @@ foreach-chrome
     | 'after' '{' { component-body-item } '}'
     ;
 
-layout-on-handler
-  ::= 'on' emit-channel [ '(' [ emit-arg { ',' emit-arg } [ ',' ] ] ')' ] '{' { handler-statement } '}' ;
+(* Declared emit capture — handler assignment; not keyword `on` *)
+emit-capture-handler
+  ::= emit-channel [ '(' [ emit-arg { ',' emit-arg } [ ',' ] ] ')' ] '=' '{' { handler-statement } '}' ;
     (* payload list reuses emit-arg — same shape as emit-sig; names are handler locals *)
 
 emit-channel
@@ -4396,8 +4586,13 @@ frame-prop-assignment
   ::= IDENT '.' IDENT '=' value-expr ;
 
 children-assignment
-  ::= 'children' '=' children-list
-    | IDENT '.' 'children' '=' children-list
+  ::= 'children' '=' children-rhs
+    | IDENT '.' 'children' '=' children-rhs
+    ;
+
+children-rhs
+  ::= children-list
+    | IDENT   (* sugar: `children = chips` ≡ `children = [chips]` *)
     ;
 
 children-list
@@ -4419,7 +4614,7 @@ kwarg
   ::= IDENT ':' value-expr ;
 ```
 
-> **Note:** `ForEach` / layout `on` (with optional typed payload list) are **normative grammar** (§4e). Rust implements them; other compilers **MAY** lag with a clear diagnostic. `foreach-chrome` is **B6**.
+> **Note:** `ForEach` / emit-capture-handler (with optional typed payload list) are **normative grammar** (§4e). Rust implements them; other compilers **MAY** lag with a clear diagnostic. `foreach-chrome` is **B6**.
 
 ---
 
@@ -4710,7 +4905,7 @@ A component named `Button` and a variant named `Button` **MAY** coexist — they
 
 ### 22.2 Within-component scoping
 
-Inside a `component` body (and its `interaction` / layout `on` handlers), the following names are in scope:
+Inside a `component` body (and its `interaction` / layout emit-capture handlers), the following names are in scope:
 
 1. **Component parameters** — declared in the parameter list; accessible as bare identifiers in value positions.
 2. **`self` / `self.param`** — **`self`** is the **enclosing component instance**. Bare `self` is a value (e.g. emit payload). **`self.param`** always names a parameter of that component (escape hatch when a nested scope shadows the bare name — especially inside `ForEach`). Optional on assignment LHS (`self.x =` ≡ `x =`).
@@ -4718,9 +4913,9 @@ Inside a `component` body (and its `interaction` / layout `on` handlers), the fo
 4. **Global token names** — any token from the merged definition.
 5. **Global component names** — for use in `children` component instances.
 6. **Global variant case names** — used with the leading dot in conditions.
-7. **Handler locals** — layout `on select(name: Type)` payload names; rules-query binders are separate (§12).
+7. **Handler locals** — layout `select(name: Type) = { … }` payload names; rules-query binders are separate (§12).
 
-**`ForEach` item scope:** inside `ForEach(list) { … }`, bare identifiers resolve to **item fields first**, then enclosing component params. Use **`self.param`** for the enclosing component when needed (§4e).
+**`ForEach` item scope:** inside `ForEach(list) { item in … }`, overrides are **`item.field = …`**. On RHS expressions, bare identifiers resolve to **item fields first**, then enclosing component params. Use **`self.param`** for the enclosing component when needed (§4e).
 
 **Rules-query `self`:** inside `rules` / query expressions, `self` means the **evaluation root node** of that rules block (§12). That is a different namespace from component `self`.
 
@@ -4884,12 +5079,19 @@ Future additions must use codes not in this list. Codes are never reused after r
 | **PDL-E021** | `duplicate-let-frame-id` | Two **`let`** or **`letInstance`** frames in the same component reuse the same **`id`** (names must be unique across the whole component body, including all **`if`** branches and sibling nested frames). |
 | **PDL-E022** | `unknown-protocol` | A `component C <P>` or protocol-typed param references an undeclared protocol `P`. |
 | **PDL-E023** | `unknown-foreach-list` | `ForEach(name)` names a parameter that is not an expandable list/slot in the enclosing component (§4e). |
-| **PDL-E024** | `unknown-emit-channel` | Layout `on` or `emit` names a channel not in the effective `emits` set for the relevant component/protocol (§4d–§4e). |
+| **PDL-E024** | `unknown-emit-channel` | Layout emit capture or `emit` names a channel not in the effective `emits` set for the relevant component/protocol (§4d–§4e). |
 | **PDL-E025** | `invalid-foreach-binding` | A derived bind inside `ForEach` references an unknown parent/item field or fails type rules for the target child param (§4e). |
 | **PDL-E026** | `foreach-chrome-unimplemented` | `before` / `between` / `after` appears in `ForEach` before B6 is implemented (implementations **MAY** use this code while rejecting chrome). |
-| **PDL-E027** | `emit-payload-mismatch` | Layout `on channel(…)` arity or types do not match the effective emit signature by position, or a fire-site `emit` arg fails the declared payload type (§4d–§4e). |
-| **PDL-E028** | `ambient-on-in-layout` | An ambient host event (`hoverStart`, `pressEnd`, …) appears as `on` inside `layout` / `ForEach` (§8). |
-| **PDL-E029** | `declared-on-in-interaction` | A declared emit channel (`on select(…)` / `on chips.select(…)`) appears inside `interaction` (§8). |
+| **PDL-E027** | `emit-payload-mismatch` | Layout `channel(…) = { … }` arity or types do not match the effective emit signature by position, or a fire-site `emit` arg fails the declared payload type (§4d–§4e). |
+| **PDL-E028** | `ambient-as-emit-capture` | A host inbound channel name is used as a **child emit capture** (e.g. bare / parent-qualified `pressEnd(…) = { … }` without `self.`) (§4a′ / §8). |
+| **PDL-E029** | `declared-as-host-channel` | A declared emit channel name is used as a host inbound channel (`self.select = { … }`) (§8) — use parent layout handler assignment instead. |
+| **PDL-E030** | `interaction-missing-host-protocol` | A component wires a host channel / verb (`self.pressEnd`, `beginEditing`, …) without effective host protocol conformance (§4a / §4a′). |
+| **PDL-E031** | `host-protocol-as-slot-type` | A host-role protocol is used as a param or `[T]` slot/array element type (§4a). |
+| **PDL-E032** | `invalid-protocol-requires` | `requires` targets a non-host protocol, an unknown name, or appears on a host protocol (§4a). |
+| **PDL-E033** | `unknown-host-verb` | Interaction body calls an unknown host verb (expected `beginEditing` / `cancelEditing` / `commitEditing`) (§4a). |
+| **PDL-E034** | `array-slot-dotted-override` | `slots.field = …` on an **array** slot/list param; use `ForEach(slots) { item in item.field = … }` (§4b / §4e). |
+| **PDL-E035** | `foreach-without-mount` | `ForEach(list)` appears but `list` is never referenced in any `children = […]` / `children = list` of the component (§4e). |
+| **PDL-E036** | `list-emit-capture` | Emit capture qualifies an **array/list** param (`chips.select(…) = { … }`); use `ForEach(chips) { chip in chip.select(…) = { … } }` (§4e). |
 
 ---
 
