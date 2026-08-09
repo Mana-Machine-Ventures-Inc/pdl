@@ -52,7 +52,7 @@ Pack (.pdl files)
 | **P4** | Hover/press host: dual-bake `interactionState`, iframe swap, click → emit status |
 | **P5** | Variant preview: **Single / Grid / Pick** (grid capped at 16 combos) |
 
-**Still deferred:** Phase S (Studio) — authoring-first product, governance, possibly separate repo.
+**Still deferred:** Phase S (Studio) — authoring-first product, governance, possibly separate repo. Speculative working-set model (ops log, rebase, promote): [`PROPOSAL_STUDIO_EXPERIMENT_OPS.md`](./PROPOSAL_STUDIO_EXPERIMENT_OPS.md) — **not** in Playground scope.
 
 ---
 
