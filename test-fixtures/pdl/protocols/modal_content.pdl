@@ -8,7 +8,7 @@ component UpsellBody <ModalContent>(
   cta: String = "Upgrade"
 ) layout {
   direction = .column
-  
+
   let Title: text = {
     content = title
   }
@@ -26,11 +26,11 @@ component UpsellBody <ModalContent>(
 
 component ConfirmBody <ModalContent>() layout {
   direction = .column
-  
+
   let Title: text = {
     content = title
   }
-  
+
   let Sub: text = {
     content = subtitle
   }
@@ -41,10 +41,9 @@ component Modal(
   chromeTitle: String = "Dialog",
   slots: [ModalContent] = [UpsellBody(), ConfirmBody()]
 ) layout {
-  
   direction = .column
   gap = 12
-  
+
   let Header: text = {
     content = chromeTitle
   }

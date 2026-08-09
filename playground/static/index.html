@@ -29,8 +29,8 @@
     <section class="panel nav" aria-labelledby="nav-label">
       <h2 id="nav-label">Pack</h2>
       <label class="field">
-        <span>Design pack</span>
-        <select id="packSelect"></select>
+        <span>Project</span>
+        <select id="packSelect" aria-label="Design pack or scratch project"></select>
       </label>
       <div class="row pack-draft-row">
         <button type="button" class="btn secondary" id="btnReloadPack" title="Discard browser draft and reload this pack from disk">
@@ -79,12 +79,16 @@
           <span>Workspace</span>
           <div class="row">
             <label><input type="radio" name="workspace" value="disk" checked /> Pack on disk</label>
-            <label><input type="radio" name="workspace" value="editor" /> Scratch upload</label>
+            <label><input type="radio" name="workspace" value="editor" /> Scratch project</label>
           </div>
+          <p class="hint">
+            Scratch is a separate browser project (not mixed with Airbnb / fixture packs).
+            Dropping a folder <strong>replaces</strong> the scratch workspace.
+          </p>
         </div>
         <div id="editorWorkspace" hidden>
           <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Drop .pdl files">
-            <strong>Drop</strong> <code>.pdl</code> files or a folder.
+            <strong>Drop</strong> <code>.pdl</code> files or a folder to <em>replace</em> this scratch project.
             <div class="drop-actions">
               <label class="btn secondary"><input type="file" id="filePick" accept=".pdl,text/plain" multiple hidden />Files</label>
               <label class="btn secondary"><input type="file" id="dirPick" webkitdirectory hidden />Folder</label>
@@ -92,7 +96,7 @@
           </div>
           <label class="field">
             <span>Entry (scratch)</span>
-            <input type="text" id="entryPath" value="design.pdl" spellcheck="false" />
+            <input type="text" id="entryPath" value="lab.pdl" spellcheck="false" />
           </label>
         </div>
         <label class="field" id="packWrap" hidden>

@@ -26,6 +26,8 @@ npm run playground
 
 Edits autosave in the browser (`localStorage`) so a reload restores files, entry, pack, and param knobs. Use **Reload from disk** to discard the draft and reopen the selected pack. Switching packs also reloads from disk.
 
+**Scratch project** is a separate browser workspace (Project → Scratch, or Workspace → Scratch). Dropping a folder/files **replaces** that scratch — it never merges into Airbnb or other disk packs. Toggling back to a disk pack keeps a scratch snapshot so you can return without losing it; **Reset scratch** starts over with `lab.pdl`.
+
 ## WASM bake (disk workspace)
 
 Rust bake reads the repo import closure from disk. **WASM** only sees an in-memory map, so in disk mode the Playground calls **`POST /api/disk-sources`** to load that closure (then overlays editor edits) before baking. Rebuild WASM after language changes: `npm run build:wasm`.
@@ -40,10 +42,12 @@ Rust bake reads the repo import closure from disk. **WASM** only sees an in-memo
 
 ## Interaction (P4)
 
-- Components with catalogue `interaction` handlers: HTML host applies `on hoverStart|pressStart|…` assigns (mirrors `applyInteractionEvent`), then swaps pre-baked `interactionState` trees when available.
+- Author host inbound in the kind body: `[self.]pressEnd = { … }` (`self.` optional). Compilers lift these into catalogue `interactions[]` (name `default`). The `interaction` keyword is **removed**.
+- HTML host applies those handlers on pointer events (mirrors `applyInteractionEvent`), then swaps pre-baked `interactionState` trees when available.
 - Host posts `pdl-interaction` with `{ event, params, emits, previewHandled }` so Playground syncs knobs from real handler results.
-- Airbnb-lite opens on **`AbnPointerLab`** (`self.<channel> = { … }` host handlers) for a full pointer-cycle demo.
-- Protocols opens on **`LibrarySubnav`**: nested FilterChip `emit select` → parent `ForEach(chips) { chip in chip.select(…) = { … } }` rebinds `currentFilter` → rebake (Pattern A).
+- Airbnb-lite opens on **`AbnPointerLab`** for a full pointer-cycle demo.
+- Protocols opens on **`LibrarySubnav`**: nested FilterChip host handlers (hover/press) + `emit select` → parent `ForEach` capture rebinds `currentFilter` → rebake (Pattern A). Enrichment merges Rust catalogue `emitCaptures` (TS still skims ForEach).
+- Insert templates cover Button host handlers, EditableText SearchField, and a FilterBar (emits + ForEach).
 
 ## Variants (P5)
 

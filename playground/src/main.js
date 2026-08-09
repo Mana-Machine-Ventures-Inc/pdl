@@ -13,8 +13,12 @@ import { pdlCompletionSource as buildPdlCompletionSource } from "./pdl-completio
 import { formatTemplateInsert, PDL_TEMPLATES } from "./pdl-templates.js";
 import { loadWasmBake, virtualizeSources } from "./wasm-bake.js";
 
-/** Default workspace: a few tokens + one component for quick Analyze / Render. */
-const START_DESIGN_PDL = `// Starter design — tokens + a simple labeled control for playground previews.
+/** Synthetic pack id for browser-only scratch (never mixed with disk fixture packs). */
+const SCRATCH_PACK_ID = "__scratch__";
+
+/** Default scratch starter — tokens + a simple labeled control. */
+const START_DESIGN_PDL = `// Scratch project — separate from fixture packs (Airbnb, molecules, …).
+// Coverage walk: rename entry to lab.pdl and build bottom-up (see PLAYGROUND_COVERAGE_CHECKLIST.md).
 
 primitive atoms.color.brandPrimary: Color = #FF5A5F
 primitive atoms.color.surface: Color = #F2F2F4
@@ -44,8 +48,12 @@ component Button() layout {
 `;
 
 /** @type {Record<string, string>} */
-let files = { "design.pdl": START_DESIGN_PDL };
-let activePath = "design.pdl";
+let files = { "lab.pdl": START_DESIGN_PDL };
+let activePath = "lab.pdl";
+/** Last real disk pack id (so leaving scratch can restore it). */
+let lastDiskPackId = "airbnb-lite";
+/** @type {Record<string, string> | null} last scratch file map (survives toggling to a disk pack) */
+let lastScratchSnapshot = null;
 
 /** @type {string[]} */
 let completionSymbols = [];
@@ -56,8 +64,10 @@ let editorView = null;
 /** Auto-refresh preview this many ms after the last editor change. */
 const RENDER_DEBOUNCE_MS = 500;
 
-/** Browser draft — survives reload; not a Studio project store. */
-const DRAFT_STORAGE_KEY = "pdl-playground-draft-v1";
+/** Browser draft — survives reload; not a Studio project store.
+ * Bump key/version when language breaks old editor buffers (e.g. protocol `: component`). */
+const DRAFT_STORAGE_KEY = "pdl-playground-draft-v2";
+const DRAFT_SCHEMA_VERSION = 2;
 /** Drop drafts older than this (ms). */
 const DRAFT_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 const DRAFT_SAVE_DEBOUNCE_MS = 400;
@@ -859,36 +869,92 @@ function renderTabs() {
   }
 }
 
-function mergeDroppedFiles(newMap) {
+/**
+ * Replace the scratch workspace with dropped/picked files (never merge into a disk pack).
+ * @param {Record<string, string>} newMap
+ * @param {{ label?: string }} [opts]
+ */
+function replaceScratchFiles(newMap, opts = {}) {
   syncEditorToFiles();
-  files = { ...files, ...newMap };
+  enterScratchProject({
+    fileMap: newMap,
+    analyze: true,
+    status: opts.label ?? `Scratch project · ${Object.keys(newMap).length} file(s)`,
+  });
+}
+
+/**
+ * Enter the isolated scratch project (browser files only).
+ * @param {{
+ *   fileMap?: Record<string, string>,
+ *   analyze?: boolean,
+ *   status?: string,
+ *   clearDraftHint?: boolean,
+ * }} [opts]
+ */
+function enterScratchProject(opts = {}) {
+  const fileMap =
+    opts.fileMap && Object.keys(opts.fileMap).length > 0
+      ? { ...opts.fileMap }
+      : lastScratchSnapshot && Object.keys(lastScratchSnapshot).length > 0
+        ? { ...lastScratchSnapshot }
+        : { "lab.pdl": START_DESIGN_PDL };
+  if (packSelect.value && packSelect.value !== SCRATCH_PACK_ID) {
+    lastDiskPackId = packSelect.value;
+  }
+  setWorkspaceMode("editor");
+  if ([...packSelect.options].some((o) => o.value === SCRATCH_PACK_ID)) {
+    packSelect.value = SCRATCH_PACK_ID;
+  }
+  files = fileMap;
+  lastScratchSnapshot = { ...files };
+  preferredComponent = null;
+  primaryComponent = "";
+  kvByComponent = {};
+  activeFixtureLabel = null;
+  writeKvObject({});
   const paths = sortedFilePaths();
   const pdl = paths.filter((p) => p.endsWith(".pdl"));
   const designPath = pdl.find((p) => fileBasename(p) === "design.pdl");
+  const labPath = pdl.find((p) => fileBasename(p) === "lab.pdl");
   if (pdl.length === 1) {
     entryPath.value = pdl[0];
+  } else if (labPath) {
+    entryPath.value = labPath;
   } else if (designPath) {
     entryPath.value = designPath;
   } else if (pdl.length > 0) {
     entryPath.value = pdl[0];
+  } else {
+    entryPath.value = "lab.pdl";
   }
   const ent = entryPath.value.trim();
-  if (files[ent] !== undefined) {
-    activePath = ent;
-  } else if (pdl.length > 0) {
-    activePath = pdl[0];
-    entryPath.value = pdl[0];
-  } else {
-    activePath = paths[0] ?? "design.pdl";
-    if (files[activePath] === undefined) {
-      files[activePath] = "";
-    }
+  activePath = files[ent] !== undefined ? ent : pdl[0] ?? paths[0] ?? "lab.pdl";
+  if (files[activePath] === undefined) {
+    files[activePath] = "";
   }
+  packDesc.textContent =
+    "Scratch project — browser-only workspace, separate from fixture packs on disk.";
+  if (btnReloadPack) {
+    btnReloadPack.textContent = "Reset scratch";
+    btnReloadPack.title = "Replace this scratch project with the starter lab.pdl";
+  }
+  if (opts.clearDraftHint !== false && draftHint) draftHint.hidden = true;
   setEditorText(files[activePath] ?? "");
   renderTabs();
-  void (async () => {
-    if (await runAnalyze()) scheduleDebouncedRender(0);
-  })();
+  refreshCanvasHint();
+  updateWorkspaceUi();
+  if (opts.status) setStatus(opts.status);
+  scheduleDraftSave();
+  if (opts.analyze !== false) {
+    void (async () => {
+      if (await runAnalyze()) scheduleDebouncedRender(0);
+    })();
+  }
+}
+
+function isScratchProject() {
+  return packSelect.value === SCRATCH_PACK_ID || !diskRootMode();
 }
 
 /** @param {FileList} list */
@@ -920,8 +986,7 @@ dropzone.addEventListener("drop", async (e) => {
   if (!dt?.files?.length) return;
   try {
     const map = await readFileList(dt.files);
-    mergeDroppedFiles(map);
-    setStatus(`Loaded ${Object.keys(map).length} file(s)`);
+    replaceScratchFiles(map, { label: `Scratch project · ${Object.keys(map).length} file(s)` });
     showError("");
   } catch (err) {
     showError(err instanceof Error ? err.message : String(err));
@@ -933,8 +998,7 @@ filePick.addEventListener("change", async () => {
   if (!list?.length) return;
   try {
     const map = await readFileList(list);
-    mergeDroppedFiles(map);
-    setStatus(`Loaded ${Object.keys(map).length} file(s)`);
+    replaceScratchFiles(map, { label: `Scratch project · ${Object.keys(map).length} file(s)` });
     showError("");
   } catch (err) {
     showError(err instanceof Error ? err.message : String(err));
@@ -947,8 +1011,9 @@ dirPick.addEventListener("change", async () => {
   if (!list?.length) return;
   try {
     const map = await readFileList(list);
-    mergeDroppedFiles(map);
-    setStatus(`Loaded ${Object.keys(map).length} file(s) from folder`);
+    replaceScratchFiles(map, {
+      label: `Scratch project · ${Object.keys(map).length} file(s) from folder`,
+    });
     showError("");
   } catch (err) {
     showError(err instanceof Error ? err.message : String(err));
@@ -982,10 +1047,16 @@ function setEngineValue(eng) {
  */
 function readDraft() {
   try {
+    // Drop pre-breakage drafts that still have `interaction { }` / bare `protocol P {`.
+    try {
+      localStorage.removeItem("pdl-playground-draft-v1");
+    } catch {
+      /* ignore */
+    }
     const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
     if (!raw) return null;
     const draft = JSON.parse(raw);
-    if (!draft || typeof draft !== "object" || draft.v !== 1) return null;
+    if (!draft || typeof draft !== "object" || draft.v !== DRAFT_SCHEMA_VERSION) return null;
     if (typeof draft.savedAt !== "number" || Date.now() - draft.savedAt > DRAFT_TTL_MS) {
       localStorage.removeItem(DRAFT_STORAGE_KEY);
       return null;
@@ -1020,9 +1091,9 @@ function saveDraftNow() {
       }
     }
     const payload = {
-      v: 1,
+      v: DRAFT_SCHEMA_VERSION,
       savedAt: Date.now(),
-      packId: packSelect.value || null,
+      packId: diskRootMode() ? packSelect.value || null : SCRATCH_PACK_ID,
       packDesc: packDesc.textContent || "",
       workspace: workspaceModeValue(),
       engine: selectedEngine(),
@@ -1034,6 +1105,7 @@ function saveDraftNow() {
       kvByComponent: { ...kvByComponent },
       theme: themeInput.value || "",
       variantView: selectedVariantView(),
+      lastDiskPackId,
     };
     localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
   } catch (err) {
@@ -1056,17 +1128,62 @@ function scheduleDraftSave() {
 async function restoreDraft(draft) {
   suppressDraftSave = true;
   try {
-    if (draft.packId && [...packSelect.options].some((o) => o.value === draft.packId)) {
-      packSelect.value = draft.packId;
+    if (typeof draft.lastDiskPackId === "string" && draft.lastDiskPackId) {
+      lastDiskPackId = draft.lastDiskPackId;
     }
-    packDesc.textContent = typeof draft.packDesc === "string" ? draft.packDesc : "";
-    setWorkspaceMode(draft.workspace === "editor" ? "editor" : "disk");
     setEngineValue(draft.engine);
     const vv = draft.variantView === "grid" ? "grid" : "single";
     const vvRadio = document.querySelector(`input[name="variantView"][value="${vv}"]`);
     if (vvRadio) vvRadio.checked = true;
+    themeInput.value = typeof draft.theme === "string" ? draft.theme : "";
+
+    const scratch =
+      draft.packId === SCRATCH_PACK_ID ||
+      draft.workspace === "editor" ||
+      !draft.packId ||
+      draft.packId === "";
+
+    if (scratch) {
+      enterScratchProject({
+        fileMap: draft.files && typeof draft.files === "object" ? draft.files : undefined,
+        analyze: false,
+        clearDraftHint: false,
+        status: "Restored scratch draft",
+      });
+      if (typeof draft.entry === "string" && draft.entry && files[draft.entry] !== undefined) {
+        entryPath.value = draft.entry;
+        activePath = draft.entry;
+      }
+      if (typeof draft.activePath === "string" && files[draft.activePath] !== undefined) {
+        activePath = draft.activePath;
+      }
+      preferredComponent = typeof draft.preferredComponent === "string" ? draft.preferredComponent : null;
+      primaryComponent = typeof draft.primaryComponent === "string" ? draft.primaryComponent : "";
+      kvByComponent =
+        draft.kvByComponent && typeof draft.kvByComponent === "object" && !Array.isArray(draft.kvByComponent)
+          ? { ...draft.kvByComponent }
+          : {};
+      setEditorText(files[activePath] ?? "");
+      renderTabs();
+      refreshCanvasHint();
+      if (draftHint) draftHint.hidden = false;
+      if (await runAnalyze()) await runRender({ debounced: false });
+      return;
+    }
+
+    if (draft.packId && [...packSelect.options].some((o) => o.value === draft.packId)) {
+      packSelect.value = draft.packId;
+      lastDiskPackId = draft.packId;
+    }
+    packDesc.textContent = typeof draft.packDesc === "string" ? draft.packDesc : "";
+    setWorkspaceMode("disk");
+    if (btnReloadPack) {
+      btnReloadPack.textContent = "Reload from disk";
+      btnReloadPack.title = "Discard browser draft and reload this pack from disk";
+    }
     files = { ...(draft.files ?? {}) };
-    entryPath.value = typeof draft.entry === "string" && draft.entry ? draft.entry : sortedFilePaths()[0] ?? "design.pdl";
+    entryPath.value =
+      typeof draft.entry === "string" && draft.entry ? draft.entry : sortedFilePaths()[0] ?? "design.pdl";
     activePath =
       typeof draft.activePath === "string" && files[draft.activePath] !== undefined
         ? draft.activePath
@@ -1080,7 +1197,6 @@ async function restoreDraft(draft) {
         ? { ...draft.kvByComponent }
         : {};
     activeFixtureLabel = null;
-    themeInput.value = typeof draft.theme === "string" ? draft.theme : "";
     writeKvObject({});
     setEditorText(files[activePath] ?? "");
     renderTabs();
@@ -1329,6 +1445,10 @@ async function flushDiskWrites() {
 }
 
 async function loadPack(packId, { fromDisk = false } = {}) {
+  if (packId === SCRATCH_PACK_ID) {
+    enterScratchProject({ status: "Scratch project" });
+    return true;
+  }
   setStatus(`Loading pack ${packId}…`);
   showError("");
   suppressDraftSave = true;
@@ -1345,9 +1465,15 @@ async function loadPack(packId, { fromDisk = false } = {}) {
       return false;
     }
     if (fromDisk) clearDraft();
+    lastDiskPackId = packId;
     const diskRadio = document.querySelector('input[name="workspace"][value="disk"]');
     if (diskRadio) diskRadio.checked = true;
+    if (packSelect.value !== packId) packSelect.value = packId;
     updateWorkspaceUi();
+    if (btnReloadPack) {
+      btnReloadPack.textContent = "Reload from disk";
+      btnReloadPack.title = "Discard browser draft and reload this pack from disk";
+    }
     files = { ...(data.files ?? {}) };
     entryPath.value = data.entry;
     preferredComponent = data.defaultComponent ?? null;
@@ -1376,6 +1502,10 @@ async function initCatalog() {
   const res = await fetch("/api/catalog");
   const data = await res.json();
   packSelect.replaceChildren();
+  const scratchOpt = document.createElement("option");
+  scratchOpt.value = SCRATCH_PACK_ID;
+  scratchOpt.textContent = "Scratch project";
+  packSelect.append(scratchOpt);
   for (const p of data.packs ?? []) {
     const opt = document.createElement("option");
     opt.value = p.id;
@@ -1383,6 +1513,7 @@ async function initCatalog() {
     packSelect.append(opt);
   }
   packSelect.value = "airbnb-lite";
+  lastDiskPackId = "airbnb-lite";
 }
 
 async function runAnalyze() {
@@ -1632,17 +1763,49 @@ document.querySelectorAll('input[name="engine"]').forEach((r) => {
 document.querySelectorAll('input[name="workspace"]').forEach((r) => {
   r.addEventListener("change", () => {
     updateWorkspaceUi();
-    void runAnalyze().then((ok) => {
-      if (ok) scheduleDebouncedRender(0);
-    });
+    if (!diskRootMode()) {
+      // Disk pack → scratch (restore prior scratch snapshot if any; never keep pack files).
+      enterScratchProject({
+        status: lastScratchSnapshot ? "Scratch project restored" : "Scratch project (starter)",
+      });
+      return;
+    }
+    // Scratch → disk pack (snapshot scratch first so toggle-back restores it)
+    syncEditorToFiles();
+    lastScratchSnapshot = { ...files };
+    const id =
+      lastDiskPackId && lastDiskPackId !== SCRATCH_PACK_ID ? lastDiskPackId : "airbnb-lite";
+    void loadPack(id, { fromDisk: true });
   });
 });
 packSelect.addEventListener("change", () => {
+  const id = packSelect.value || "airbnb-lite";
+  if (id === SCRATCH_PACK_ID) {
+    enterScratchProject({
+      status: lastScratchSnapshot ? "Scratch project restored" : "Scratch project (starter)",
+    });
+    return;
+  }
+  // Leaving scratch for a fixture pack — keep scratch snapshot for later.
+  // (value is already the new pack id; use workspace mode to detect prior scratch.)
+  if (!diskRootMode()) {
+    syncEditorToFiles();
+    lastScratchSnapshot = { ...files };
+  }
   // Switching packs intentionally drops the browser draft for a clean disk load.
-  void loadPack(packSelect.value, { fromDisk: true });
+  void loadPack(id, { fromDisk: true });
 });
 btnReloadPack.addEventListener("click", () => {
-  const id = packSelect.value || "airbnb-lite";
+  if (packSelect.value === SCRATCH_PACK_ID || !diskRootMode()) {
+    clearDraft();
+    lastScratchSnapshot = null;
+    enterScratchProject({
+      fileMap: { "lab.pdl": START_DESIGN_PDL },
+      status: "Scratch reset to starter lab.pdl",
+    });
+    return;
+  }
+  const id = packSelect.value || lastDiskPackId || "airbnb-lite";
   void loadPack(id, { fromDisk: true });
 });
 window.addEventListener("beforeunload", () => {

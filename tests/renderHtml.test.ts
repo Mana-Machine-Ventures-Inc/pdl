@@ -488,6 +488,57 @@ describe("renderHtml", () => {
     expect(frag).toContain("#f7f7f79e");
   });
 
+  it("marks parent interactive when nested instances have host handlers", () => {
+    const doc = {
+      schemaKind: "bakedDesign" as const,
+      schemaVersion: "1.0.0-beta",
+      generatedAt: "2026-01-01T00:00:00.000Z",
+      provenance: {
+        entryPath: "/x.pdl",
+        bakedTheme: null,
+        bakeProfile: "component-explicit" as const,
+      },
+      components: {
+        LibrarySubnav: {
+          name: "LibrarySubnav",
+          rootKind: "layout",
+          bakedParams: {},
+          root: {
+            id: "Root",
+            kind: "layout",
+            props: { direction: "row" },
+            children: [
+              {
+                id: "Chip0",
+                kind: "layout",
+                instanceOf: "FilterChip",
+                instanceKwargs: { filter: "all", selected: true },
+                props: {},
+                children: [],
+              },
+            ],
+          },
+        },
+      },
+    };
+    const html = renderBakedDesignToHtmlDocument(doc, {
+      singleComponent: "LibrarySubnav",
+      interactiveHost: true,
+      interactionsByComponent: {
+        FilterChip: [
+          {
+            name: "default",
+            handlers: [{ event: "pressEnd", body: [] }],
+          },
+        ],
+      },
+      // Intentionally omit emitCaptures — nested handlers alone must enable the host.
+    });
+    expect(html).toContain('data-pdl-component="LibrarySubnav"');
+    expect(html).toContain('data-pdl-interactive="1"');
+    expect(html).toContain('data-pdl-instance-of="FilterChip"');
+  });
+
   it("maps text line-height and letter-spacing", () => {
     const doc = {
       schemaKind: "bakedDesign" as const,

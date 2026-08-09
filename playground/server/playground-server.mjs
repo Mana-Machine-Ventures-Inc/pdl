@@ -434,7 +434,7 @@ function formatErr(err) {
 
 /**
  * Enrich payload from Rust `pdl catalogue` when TS loadDesign cannot parse
- * Rust-first syntax (protocols, trailing interaction, …).
+ * Rust-first syntax (protocols, host inbound `[self.]channel = { … }`, emits, ForEach, …).
  * @param {string} entryAbs
  */
 function enrichFromRustCatalogue(entryAbs) {
@@ -510,24 +510,56 @@ function enrichFromRustCatalogue(entryAbs) {
 }
 
 /**
- * Prefer TS loadDesign (fixtures / design summary); fall back to Rust catalogue
- * for packs that use Rust-first grammar.
+ * Prefer TS loadDesign (fixtures / design summary); always merge Rust catalogue
+ * emitCaptures + interactions when available. TS still skims ForEach / emit
+ * capture assigns, so nested LibrarySubnav-style hosts need the Rust slice.
  * @param {string} entryAbs
  * @param {string} summaryRoot
  */
 async function enrichDesignAt(entryAbs, summaryRoot) {
   const { loadDesign, serialiseValueExpr, evaluateValue, buildResolvedTokenMap } =
     await toolchainPromise;
+  /** @type {ReturnType<typeof enrichFromRustCatalogue> | null} */
+  let rustEnrich = null;
+  try {
+    rustEnrich = enrichFromRustCatalogue(entryAbs);
+  } catch {
+    rustEnrich = null;
+  }
   try {
     const design = loadDesign(entryAbs);
-    return enrichLoadPayload(
+    const tsPayload = enrichLoadPayload(
       design,
       serialiseValueExpr,
       evaluateValue,
       buildResolvedTokenMap,
       summaryRoot,
     );
+    if (!rustEnrich) return tsPayload;
+    return {
+      ...tsPayload,
+      // Rust wins for host/emit metadata (ForEach captures, host handlers).
+      interactionsByComponent: {
+        ...(tsPayload.interactionsByComponent ?? {}),
+        ...(rustEnrich.interactionsByComponent ?? {}),
+      },
+      emitCapturesByComponent: {
+        ...(tsPayload.emitCapturesByComponent ?? {}),
+        ...(rustEnrich.emitCapturesByComponent ?? {}),
+      },
+      // Prefer Rust variant cases when TS missed protocol/enum surfaces.
+      variantCases: {
+        ...(tsPayload.variantCases ?? {}),
+        ...(rustEnrich.variantCases ?? {}),
+      },
+      componentParams: {
+        ...(tsPayload.componentParams ?? {}),
+        ...(rustEnrich.componentParams ?? {}),
+      },
+      loader: "ts+rust-catalogue",
+    };
   } catch (err) {
+    if (rustEnrich) return rustEnrich;
     try {
       return enrichFromRustCatalogue(entryAbs);
     } catch (rustErr) {

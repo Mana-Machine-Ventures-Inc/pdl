@@ -29,8 +29,8 @@
 | 7 | §4, §7 | Params, variants, conditionals | [ ] |
 | 8 | §5 instances | Multi-component + scoping | [ ] |
 | 9 | §15 / §14 | Layers & materials | [ ] |
-| 10 | §8, §4d–4e | Interaction, emits, ForEach | [ ] |
-| 11 | §4a–4b | Protocols & slots | [ ] |
+| 10 | §8, §4a′, §4d–4e | Host inbound, emits, ForEach | [ ] |
+| 11 | §4a–4b | Protocols, host roles & slots | [ ] |
 
 ---
 
@@ -70,6 +70,7 @@ Start `lab.pdl` with only tokens (no component yet — Tokens canvas is OK). The
 - [ ] `previewBackground = color.surface.canvas` (or hex)  
   *See:* iframe page background.
 - [ ] Line comments `//` ignored.
+- [ ] Block comments `/* … */` ignored (non-nesting; unclosed must fail parse).
 
 ---
 
@@ -465,67 +466,140 @@ Build on `LabCard` / `LabButton`:
 
 ---
 
-## Phase 10 — Interaction, emits, ForEach
+## Phase 10 — Host inbound, emits, ForEach
 
 **Spec:** §8 interactions; §4a′ host prelude; §4d emits; §4e ForEach + handler assignment.  
 **Host:** Playground HTML interactive host.
 
 ### 10.1 Host inbound (single component)
 
+`PointerInput` is a **language prelude** — always in scope, **no** `protocol PointerInput { host }` in your file.
+
 ```pdl
+enum LabState { case idle case hovered case pressed }
+
 component LabPress <PointerInput>(
   interactionState: LabState = .idle
 ) layout {
   // … chrome …
   let Label: text = { content = "Press me" }
   children = [Label]
+
+  // `self.` optional / clarifying — bare form is equivalent:
   self.hoverStart = { interactionState = .hovered }
-  self.hoverEnd = { interactionState = .idle }
+  hoverEnd = { interactionState = .idle }
   self.pressStart = { interactionState = .pressed }
-  self.pressEnd = { interactionState = .hovered }
+  pressEnd = { interactionState = .hovered }
   self.pressCancel = { interactionState = .idle }
 }
 ```
 
 (Use your real param/variant names for idle/hovered/pressed — pattern from Airbnb / FilterChip.)
 
+- [ ] `<PointerInput>` with **no** local host-protocol decl analyzes OK  
 - [ ] Hover changes paint (state tree swap or rebake)  
 - [ ] Press changes paint  
 - [ ] Release / cancel restores  
+- [ ] Bare `pressEnd = { … }` behaves the same as `self.pressEnd = { … }`  
+- [ ] Catalogue / Analyze shows handlers under `interactions` (name `default`)
 
-### 10.2 Emit + parent capture
+### 10.2 Negative: removed / wrong lanes
+
+Must **fail** (parse or validate) — note the code:
+
+- [ ] `} interaction { on pressEnd { … } }` → **PDL-E001** (keyword removed)  
+- [ ] Top-level `interaction Name for LabPress { … }` → **PDL-E001**  
+- [ ] Layout keyword `on pressEnd { … }` → parse error (use `[self.]pressEnd = { … }`)  
+- [ ] Host handlers **without** `<PointerInput>` / `requires PointerInput` → **PDL-E030**  
+- [ ] Parent tries `chip.pressEnd(…) = { … }` (ambient as emit capture) → **PDL-E028**
+
+### 10.3 Emit + parent capture
 
 Parent owns SoT; child emits; ForEach derives Bool (**locked Pattern A**):
 
-- [ ] Child `emits { select(filter: FilterId) }` (or your id type)  
-- [ ] Child `self.pressEnd = { emit select(filter) }`  
-- [ ] Parent `ForEach(chips) { chip in …; chip.select(id: FilterId) = { currentFilter = id } }`  
-- [ ] `chip.selected = self.currentFilter == filter` bind into child  
-- [ ] Child `if selected { … }` presentation only  
-- [ ] Click updates SoT and **stays** after rebake  
-- [ ] Nested hover on items still redraws
+```pdl
+component LabChip <PointerInput>(
+  filter: FilterId = .all,
+  selected: Boolean = false
+) layout {
+  // … chrome from selected / interactionState …
+  self.pressEnd = { emit select(filter) }
+} emits {
+  select(filter: FilterId)
+}
 
-### 10.3 Host events that may be unwired
+component LabBar(
+  currentFilter: FilterId = .all,
+  chips: [LabChip] = [ /* … */ ]
+) layout {
+  ForEach(chips) { chip in
+    chip.selected = self.currentFilter == filter
+    chip.select(filter_id: FilterId) = {
+      currentFilter = filter_id
+    }
+  }
+  children = chips   // or children = [chips]
+}
+```
+
+- [ ] Child `emits { select(filter: FilterId) }` with typed payload  
+- [ ] Child `[self.]pressEnd = { emit select(filter) }` promotes host → parent intent  
+- [ ] Parent `ForEach(chips) { chip in … }` — **binder required**  
+- [ ] Bare `ForEach(chips) { selected = … }` (no `chip in`) → **parse error**  
+- [ ] `chip.select(filter_id: FilterId) = { currentFilter = filter_id }` capture  
+- [ ] `chip.selected = self.currentFilter == filter` Bool bind  
+- [ ] Child `if selected { … }` presentation only  
+- [ ] `children = chips` (list sugar) mounts the list (**PDL-E035** if ForEach without mount)  
+- [ ] Click updates SoT and **stays** after rebake  
+- [ ] Nested hover on items still redraws  
+- [ ] List-param `chips.select(…) = { … }` → **PDL-E036** (must use ForEach binder)
+
+### 10.4 EditableText (optional visual)
+
+**Spec:** §4a′ `EditableText`; fixture pattern `editable_search.pdl`.
+
+- [ ] `component LabField <FormField>(…) text { editable = value; … }` with API `requires EditableText` + `requires PointerInput`  
+- [ ] `self.pressEnd = { editing = true; beginEditing(value) }`  
+- [ ] Soft keyboard / Done → `keyboardDismissed` assigns + optional `emit change`  
+- [ ] Cancel → `keyboardCancelled` / `cancelEditing()`  
+- [ ] Missing `EditableText` coverage when using verbs / keyboard channels → **PDL-E030**
+
+### 10.5 Host events that may be unwired
 
 - [ ] `focusStart` / `focusEnd` — try; note if no host  
 - [ ] `activate` — try; note if no host  
 - [ ] `appear` / `dismiss` / `animate` — **tokens OK; no motion runtime expected**
 
-**Phase 10 gate:** Pointer states + one selection list work end-to-end in the iframe.
+**Phase 10 gate:** Pointer states + one selection list work end-to-end in the iframe; negatives above fail loudly.
 
 ---
 
-## Phase 11 — Protocols & slots
+## Phase 11 — Protocols, host roles & slots
 
-**Spec:** §4a protocols; §4b array / slot expansion.
+**Spec:** §4a / §4a′ protocols; §4b array / slot expansion.
 
-- [ ] `protocol P { …; emits { … } }`  
-- [ ] `component Body <P>(…) layout { … }` conforms  
+### 11.1 API protocols
+
+- [ ] `protocol SubnavItem: component { …; emits { select(filter: FilterId) } }` — **`: component` required**  
+- [ ] Missing `: component` on an API protocol → **hard parse error**  
+- [ ] `component LabChip <SubnavItem>(…) layout { … }` conforms (params + emits inherited)  
+- [ ] Parent list `[SubnavItem]` with mixed concrete types + one ForEach capture channel
+
+### 11.2 Host protocols & `requires`
+
+- [ ] Prelude `PointerInput` / `EditableText` need **no import**  
+- [ ] API `requires PointerInput` implies effective host for conformers (**E030** satisfied)  
+- [ ] Direct `component C <PointerInput>` also works  
+- [ ] Host protocol as slot type `[PointerInput]` → **PDL-E031**  
+- [ ] Redefining prelude name as API protocol (params / emits) → **PDL-E032** (if you try)
+
+### 11.3 Slots / compose
+
 - [ ] Host component takes `[P]` or slot array param  
 - [ ] `children = [Header, slots]` expands injected bodies  
 - [ ] Soft-fail / pack injection only if you care (CLI); not required for visual walk
 
-**Phase 11 gate:** A modal-like shell shows injected protocol bodies.
+**Phase 11 gate:** A modal-like or chip-bar shell shows protocol-typed bodies; host opt-in is explicit.
 
 ---
 
@@ -539,10 +613,11 @@ If you only have one session, author in this order and stop when time runs out:
 4. Phase 6 card  
 5. Phase 7 button with tone + selected  
 6. Phase 8 Cancel/Save row  
-7. Phase 10.1 hover/press on the button  
-8. Phase 10.2 mini chip list (even 3 hard-coded items in ForEach)
+7. Phase 10.1 hover/press on the button (`[self.]pressEnd = { … }`, bare + `self.`)  
+8. Phase 10.3 mini chip list (ForEach binder + emit capture)  
+9. Phase 10.2 one negative (`interaction { }` must fail)
 
-Backfill Phase 5 (icon/media), 9 (layers), 11 (protocols) next.
+Backfill Phase 5 (icon/media), 9 (layers), 10.4 EditableText, 11 (protocols) next.
 
 ---
 
@@ -551,11 +626,12 @@ Backfill Phase 5 (icon/media), 9 (layers), 11 (protocols) next.
 | Spec item | Expectation |
 |-----------|-------------|
 | B6 ForEach `before` / `between` / `after` | Deferred |
-| Motion runtime (`animate`, stagger) | Tokens only |
+| Motion runtime (`animate`, stagger) | Tokens only; author `animate =` in host handlers OK |
 | Real icon glyphs | HTML placeholder |
 | Vibrancy paint | May skip in HTML |
 | `borderPosition` | May no-op in HTML |
-| TS bake for protocols/ForEach | Use Rust |
+| TS bake for protocols/ForEach/host handlers | Use Rust |
+| `interaction { }` / `interaction Name for C` | **Removed** — must fail **PDL-E001** (Phase 10.2) |
 | `expose`, theme OO `theme : Base` | Removed / unused |
 
 ---
@@ -590,4 +666,4 @@ Updated **2026-08-07** after emitter fixes. Remaining caveats only.
 | Stack + `spaceBetween` | **Inherent limit** — overlapping stack cannot distribute; maps to `start` |
 | Blur without backdrop | **WEAK** — `backdrop-filter` no-ops over empty page chrome |
 | focus / activate / motion runtime | Still **HOST / deferred** |
-| Phases 10–11 live interaction | Still need Playground `interactiveHost` path |
+| Phases 10–11 live host inbound | Playground interactive host + catalogue `interactions[]` from `[self.]channel = { … }` |

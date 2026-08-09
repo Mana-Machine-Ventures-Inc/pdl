@@ -40,7 +40,7 @@ Implement **after A2** unless a spike is explicitly throwaway.
 | **B1** | `protocol` / `component C <P>` / shared params | ✅ Rust + §4a + `protocols/` fixtures + bake/catalogue goldens |
 | **B2** | `[T]` params, instance literals, expand in `children` | ✅ Rust + §4b; Modal slots |
 | **B3** | Injection pack validate + bake | ✅ `pack.rs` + `bakePack`/`validatePack` + soft-skip + §4c |
-| **B4** | `emits` / `emit` + inline `interaction` | ✅ Parse/merge/catalogue + FilterChip fixture + §4d; host dispatch later |
+| **B4** | `emits` / `emit` + `[self.]channel = { … }` host inbound | ✅ Parse/merge/catalogue + FilterChip; `interaction` keyword removed; host dispatch B7 |
 | **B4b** | Language cleanup (locked 2026-08-06) | ✅ Rust: reject `expose`; trailing `} emits { }`; `self` / `self.param`; param==param; E028/E029; catalogue `expose` = all params |
 | **B5** | Emit handler assignment + `ForEach` derived binds (Pattern A) | ✅ Rust parse + bake expand; emit capture validated (host dispatch B7); `library_subnav.pdl` parses |
 | **B6** | `ForEach` before/between/after | Deferred chrome — grammar sketched under §4e; not first compiler slice |
@@ -53,7 +53,7 @@ Implement **after A2** unless a spike is explicitly throwaway.
 | Layer | Covered now | Not covered yet |
 |-------|-------------|-----------------|
 | Classic PDL → bake / catalogue (TS + Rust parity) | Tokens, themes, variants, components, `if`, companions | — |
-| Rust-first language | **B1–B4** (`protocol`, `[T]`, packs, `emits` / inline `interaction`) | TS oracle port of B1–B4 |
+| Rust-first language | **B1–B4** (`protocol`, `[T]`, packs, `emits` / host inbound handlers) | TS oracle port of B1–B4 |
 | Normative grammar | §4a–§4e in `full-spec.md`; Rust B4b/B5 | **B6** chrome; TS oracle lag; B7 host dispatch |
 | HTML host (C1) | Static draw of bake IR; `npm run preview` / playground | Live interactions; emit dispatch (B7); motion runtime |
 | Native / prototype | — | C2 SwiftUI; C3 routes/stack; A5 C ABI |
@@ -94,7 +94,7 @@ Implement **after A2** unless a spike is explicitly throwaway.
 |----|--------|----------|
 | **Q1** | Single slot vs always array | **A** — both `content: ModalContent` and `slots: [ModalContent]` |
 | **Q2** | Bad injection pack items | **A** — soft skip/placeholder **with warning**; continue mounting rest |
-| **Q3** | Inline + named `interaction` merge | Inline = synthetic name **`default`**; unique names **append**; **same name replaces** |
+| **Q3** | Host inbound handlers | Kind-body `[self.]channel = { … }` → catalogue `interactions[]` name **`default`**; `interaction` keyword **removed** |
 | **Q3b** | Same ambient event in two bundles | **A** — **last wins** per event (override); no double `hoverStart` |
 | **Q4** | First golden set | **A** — `atoms/design.pdl` + `molecules/design.pdl` + `integration/design.pdl` |
 | **Q5** | `schemaVersion` when B1 ships | **C** — pre-release: stay on **`1.0.0`** lineage only (no `1.1` / capability-flag scheme). Not publicly released yet; treat versioning as simple **1.0** for now. |
@@ -120,7 +120,7 @@ None from the A0 question set. Further grammar nits can be decided when writing 
 - [x] First `full-spec` patch with B1 (§4a protocols; Rust-first)  
 - [x] B2 `[T]` / instance literals / children expand (§4b; Rust-first)  
 - [x] B3 injection packs (`bakePack` / `validatePack`)  
-- [x] B4 emits + inline interaction (declare/fire; host dispatch later)  
+- [x] B4 emits + host inbound `[self.]channel = { … }` (declare/fire; host dispatch B7)  
 - [x] C1a live preview (`npm run preview` + playground Rust bake path)  
 - [x] B5 language formalized in `full-spec` §4e; Rust parse + ForEach bake expand shipped (B4b/B5)  
 - [ ] Align published `schemaVersion` string to plain **`1.0.0`** when touching normative version prose (drop `-beta` framing; still unreleased)

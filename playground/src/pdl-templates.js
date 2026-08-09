@@ -54,28 +54,34 @@ component Button <PointerInput>(
   }
 
   children = [Label]
+
+  // Host inbound (full-spec §4a′ / §8) — self. optional / clarifying
+  self.hoverStart = { interactionState = .hovered }
+  hoverEnd = { interactionState = .rest }
+  self.pressStart = { interactionState = .pressed }
+  pressEnd = { interactionState = .hovered }
+  self.pressCancel = { interactionState = .rest }
 }
 `,
   },
   {
-    id: "interaction-hover",
-    label: "Interaction · Hover (Button)",
-    select: "ButtonHover",
-    snippet: `interaction ButtonHover for Button {
-  on hoverStart {
-    interactionState = .hovered
-  }
-  on hoverEnd {
-    interactionState = .rest
-  }
-}
+    id: "host-handlers",
+    label: "Host inbound · [self.]channel handlers",
+    select: "pressEnd",
+    snippet: `  // Paste inside a PointerInput component kind body.
+  // Bare and self.-qualified forms are equivalent.
+  self.hoverStart = { interactionState = .hovered }
+  hoverEnd = { interactionState = .rest }
+  self.pressStart = { interactionState = .pressed }
+  pressEnd = { interactionState = .hovered }
+  self.pressCancel = { interactionState = .rest }
 `,
   },
   {
     id: "search-field",
     label: "Component · SearchField (EditableText)",
     select: "SearchField",
-    snippet: `protocol FormField {
+    snippet: `protocol FormField: component {
   requires EditableText
   requires PointerInput
   value: String = ""
@@ -121,16 +127,88 @@ component SearchField <FormField>(
     label: "Component · PointerInput opt-in",
     select: "PointerTarget",
     snippet: `// PointerInput is a language prelude — no import / no protocol decl needed.
+enum PointerPhase {
+  case rest
+  case hovered
+}
+
 component PointerTarget <PointerInput>(
-  interactionState: String = "rest"
+  interactionState: PointerPhase = .rest
 ) layout {
   width = 120
   height = 40
   background = #EEEEEE
   children = []
 
-  self.hoverStart = { interactionState = "hovered" }
-  self.hoverEnd = { interactionState = "rest" }
+  if interactionState == .hovered {
+    background = #DDDDDD
+  }
+
+  self.hoverStart = { interactionState = .hovered }
+  hoverEnd = { interactionState = .rest }
+}
+`,
+  },
+  {
+    id: "filter-bar",
+    label: "Component · Filter bar (emits + ForEach)",
+    select: "FilterBar",
+    snippet: `enum FilterId {
+  case all
+  case podcasts
+}
+
+protocol SubnavItem: component {
+  requires PointerInput
+  title = ""
+  filter: FilterId = .all
+  emits {
+    select(filter: FilterId)
+  }
+}
+
+component FilterChip <SubnavItem>(
+  selected: Boolean = false
+) layout {
+  direction = .row
+  padding = EdgeInsets(x: 12, y: 8)
+  cornerRadius = 999
+  background = #F2F2F4
+
+  if selected {
+    background = #222222
+  }
+
+  let Label: text = {
+    content = title
+    fontSize = 13
+    fontWeight = 600
+    color = #111111
+    if selected { color = #FFFFFF }
+  }
+  children = [Label]
+
+  self.pressEnd = { emit select(filter) }
+}
+
+component FilterBar(
+  currentFilter: FilterId = .all,
+  chips: [SubnavItem] = [
+    FilterChip(title: "All", filter: .all),
+    FilterChip(title: "Podcasts", filter: .podcasts)
+  ]
+) layout {
+  direction = .row
+  gap = 8
+  padding = 12
+
+  ForEach(chips) { chip in
+    chip.selected = self.currentFilter == filter
+    chip.select(filter_id: FilterId) = {
+      currentFilter = filter_id
+    }
+  }
+  children = chips
 }
 `,
   },

@@ -1314,7 +1314,31 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         const hasCaptures =
           Array.isArray(opts.emitCapturesByComponent?.[name]) &&
           (opts.emitCapturesByComponent?.[name] as unknown[]).length > 0;
-        const hasInteraction = opts.interactiveHost && (hasOwnIx || hasCaptures);
+        // Nested instances (ForEach chips) carry handlers on their concrete type,
+        // not on the parent — still need the interactive host attached.
+        const hasNestedIx = (() => {
+          if (!opts.interactionsByComponent) return false;
+          const walk = (nodes: unknown): boolean => {
+            if (!Array.isArray(nodes)) return false;
+            for (const n of nodes) {
+              if (!n || typeof n !== "object") continue;
+              const rec = n as Record<string, unknown>;
+              const of = rec.instanceOf;
+              if (
+                typeof of === "string" &&
+                Array.isArray(opts.interactionsByComponent?.[of]) &&
+                (opts.interactionsByComponent?.[of] as unknown[]).length > 0
+              ) {
+                return true;
+              }
+              if (walk(rec.children)) return true;
+            }
+            return false;
+          };
+          return walk(comp.root?.children ?? (comp as { children?: unknown }).children);
+        })();
+        const hasInteraction =
+          opts.interactiveHost && (hasOwnIx || hasCaptures || hasNestedIx);
         const interactiveAttr = hasInteraction ? ` data-pdl-interactive="1"` : "";
         const paramBar = renderParamBar(name, opts.paramControlsByComponent?.[name]);
         const sourceLink = renderSourceFileLink(name, opts.componentSourcesByComponent?.[name]);
