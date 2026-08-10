@@ -11,23 +11,25 @@
           "borderColor": "#222222",
           "borderPosition": "inside",
           "borderWidth": 1,
-          "cornerRadius": {
-            "bl": 2,
-            "br": 2,
-            "tl": 8,
-            "tr": 8
-          },
+          "cornerRadius": 8,
           "direction": "column",
           "justify": "start",
           "opacity": 1,
-          "overflow": "hidden",
+          "overflow": "clip",
           "padding": {
             "bottom": 12,
             "left": 12,
             "right": 12,
             "top": 12
           },
-          "shadow": "0 2px 8px rgba(0,0,0,0.12)",
+          "shadow": {
+            "blurRadius": 8,
+            "color": "#0000001f",
+            "kind": "shadow",
+            "spread": 0,
+            "x": 0,
+            "y": 2
+          },
           "wrap": "nowrap"
         }
       },

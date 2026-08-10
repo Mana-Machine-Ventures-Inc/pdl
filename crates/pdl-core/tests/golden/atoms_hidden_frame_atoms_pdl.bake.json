@@ -11,7 +11,13 @@
             "id": "A",
             "kind": "text",
             "props": {
-              "content": "Always"
+              "color": "#717171",
+              "content": "Always",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 12,
+              "fontWeight": 600,
+              "letterSpacing": 0.02,
+              "lineHeight": 1.2
             }
           },
           {
@@ -20,7 +26,13 @@
                 "id": "Inner",
                 "kind": "text",
                 "props": {
-                  "content": "Sometimes"
+                  "color": "#222222",
+                  "content": "Sometimes",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               }
             ],

@@ -1,0 +1,2 @@
+// PDL-E005 — Shadow tokens must use Shadow(…), not CSS strings
+primitive bad.shadow: Shadow = "0 2px 8px rgba(0,0,0,0.12)"

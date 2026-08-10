@@ -93,7 +93,7 @@ function applyExtend(
 ): void {
   const c = ext.component;
   if (!components.has(c)) {
-    throw new PdlError("PDL-E006", `extend targets unknown component \`${c}\``, { path: entryPath });
+    throw new PdlError("PDL-E016", `extend targets unknown component \`${c}\``, { path: entryPath });
   }
   for (const sec of ext.sections) {
     switch (sec.kind) {
@@ -143,6 +143,19 @@ function collectModules(
   ordered.push(mod);
 }
 
+function assertUniqueTokenName(
+  name: string,
+  primitives: Map<string, PrimitiveDecl>,
+  semantics: Map<string, SemanticDecl>,
+  modulePath: string,
+): void {
+  if (primitives.has(name) || semantics.has(name)) {
+    throw new PdlError("PDL-E003", `Invalid redeclaration of token \`${name}\``, {
+      path: modulePath,
+    });
+  }
+}
+
 function mergeDesign(entryPath: string, ordered: ModuleAst[]): DesignDefinition {
   const primitives = new Map<string, PrimitiveDecl>();
   const semantics = new Map<string, SemanticDecl>();
@@ -167,9 +180,11 @@ function mergeDesign(entryPath: string, ordered: ModuleAst[]): DesignDefinition 
           previewBackground = decl.token;
           break;
         case "primitive":
+          assertUniqueTokenName(decl.name, primitives, semantics, mod.path);
           primitives.set(decl.name, decl);
           break;
         case "semantic":
+          assertUniqueTokenName(decl.name, primitives, semantics, mod.path);
           semantics.set(decl.name, decl);
           break;
         case "theme":

@@ -1,0 +1,7 @@
+// PDL-E006: bare Opacity token is not a valid background/foreground layer
+primitive shield2: Opacity = 0.5
+
+component Bad() layout {
+  foreground = [shield2]
+  children = []
+}

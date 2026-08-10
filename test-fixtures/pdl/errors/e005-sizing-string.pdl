@@ -1,0 +1,2 @@
+// PDL-E005 — Sizing tokens must be sizing literals, not strings
+primitive bad.sizing: Sizing = ".hug"

@@ -1,0 +1,2 @@
+// PDL-E005 — Size tokens must be numbers
+primitive bad.size: Size = "16"

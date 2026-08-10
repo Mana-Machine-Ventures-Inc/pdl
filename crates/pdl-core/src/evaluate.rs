@@ -149,6 +149,7 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
         ValueExpr::Hex { value } => Ok(Value::String(expand_hex(value))),
         ValueExpr::String { value } => Ok(Value::String(value.clone())),
         ValueExpr::Number { value } => Ok(number_value(*value)),
+        ValueExpr::Ratio { width, height } => Ok(number_value(width / height)),
         ValueExpr::Boolean { value } => Ok(Value::Bool(*value)),
         ValueExpr::Condition { expr } => {
             let pv = ev.param_values.ok_or_else(|| {
@@ -242,6 +243,30 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
             } else {
                 Ok(obj(vec![("tl", tl), ("tr", tr), ("br", br), ("bl", bl)]))
             }
+        }
+        ValueExpr::Shadow {
+            x,
+            y,
+            blur_radius,
+            color,
+            spread,
+        } => {
+            let x = evaluate_value(x, ev)?;
+            let y = evaluate_value(y, ev)?;
+            let blur_radius = evaluate_value(blur_radius, ev)?;
+            let color = evaluate_value(color, ev)?;
+            let spread = match spread {
+                Some(s) => evaluate_value(s, ev)?,
+                None => number_value(0.0),
+            };
+            Ok(obj(vec![
+                ("kind", Value::String("shadow".to_string())),
+                ("x", x),
+                ("y", y),
+                ("blurRadius", blur_radius),
+                ("spread", spread),
+                ("color", color),
+            ]))
         }
         ValueExpr::Array { items } => {
             let mut out = Vec::with_capacity(items.len());

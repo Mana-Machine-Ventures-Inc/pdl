@@ -112,7 +112,7 @@ fn component_param_names(
 ) -> Result<HashSet<String>, PdlError> {
     let c = design.components.get(component).ok_or_else(|| {
         PdlError::new(
-            "PDL-E006",
+            "PDL-E037",
             format!("Unknown component `{component}`"),
             Some(design.entry_path.clone()),
             None,
@@ -193,11 +193,11 @@ fn strip_leading_dot(s: &str) -> &str {
 // ---- frameNumericSugar port -----------------------------------------------
 
 fn is_uniform_edge_inset(prop: &str) -> bool {
-    matches!(prop, "padding" | "margin" | "inset")
+    crate::frame_props::is_uniform_edge_inset(prop)
 }
 
 fn is_fixed_sizing_axis(prop: &str) -> bool {
-    matches!(prop, "width" | "height")
+    crate::frame_props::is_fixed_sizing_axis(prop)
 }
 
 fn assert_scalar_sugar_number(name: &str, n: f64, entry_path: &str) -> Result<(), PdlError> {
@@ -563,7 +563,7 @@ fn process_frame_items(
             } => {
                 if design.components.get(component).is_none() {
                     return Err(PdlError::new(
-                        "PDL-E006",
+                        "PDL-E037",
                         format!("Unknown component {component} in let instance"),
                         Some(entry_path.clone()),
                         None,
@@ -643,7 +643,7 @@ pub fn resolve_component_tree(
         .cloned()
         .ok_or_else(|| {
             PdlError::new(
-                "PDL-E006",
+                "PDL-E037",
                 format!("Unknown component {component_name}"),
                 Some(design.entry_path.clone()),
                 None,

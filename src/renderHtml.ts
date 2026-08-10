@@ -405,26 +405,47 @@ function backgroundCssDecl(props: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
+/**
+ * Baked `Shadow(…)` → CSS box-shadow layer (`x y blur spread color`).
+ * Also accepts a legacy CSS string (baked HTML unit tests / transitional IR).
+ */
+function shadowLayerCss(shadow: unknown): string | undefined {
+  if (typeof shadow === "string") {
+    const s = shadow.trim();
+    return s.length > 0 ? s : undefined;
+  }
+  if (!shadow || typeof shadow !== "object") return undefined;
+  const o = shadow as Record<string, unknown>;
+  if (o.kind !== "shadow") return undefined;
+  const x = finiteNum(o.x);
+  const y = finiteNum(o.y);
+  const blur = finiteNum(o.blurRadius);
+  const spread = finiteNum(o.spread) ?? 0;
+  const color = typeof o.color === "string" ? o.color.trim() : "";
+  if (x === undefined || y === undefined || blur === undefined || !color) return undefined;
+  return `${x}px ${y}px ${blur}px ${spread}px ${color}`;
+}
+
 /** Drop shadow only when not combining with inside border (see {@link combinedBoxShadowCss}). */
 function dropShadowCss(props: Record<string, unknown>): string | undefined {
   const posRaw = props.borderPosition;
   const pos =
     typeof posRaw === "string" ? posRaw : (dotEnumValue(posRaw) ?? "outside");
   if (pos === "inside") return combinedBoxShadowCss(props);
-  if (typeof props.shadow === "string" && props.shadow.trim().length > 0) {
-    return `box-shadow:${props.shadow.trim()}`;
-  }
-  return undefined;
+  const drop = shadowLayerCss(props.shadow);
+  return drop ? `box-shadow:${drop}` : undefined;
 }
 
 function overflowCss(overflow: unknown): string | undefined {
   if (typeof overflow !== "string") return undefined;
+  // PDL overflow: `.visible` | `.scroll` | `.clip` (no `.hidden` / `.auto`).
+  // HTML preview maps `.clip` → CSS `overflow: hidden` because Chromium often fails
+  // to crop with `overflow: clip` on flex-centered text shells. Native emitters may
+  // use true `clip` (hard crop, not a scroll container).
+  if (overflow === "clip") return "overflow:hidden";
   const m: Record<string, string> = {
     visible: "visible",
-    hidden: "hidden",
     scroll: "scroll",
-    auto: "auto",
-    clip: "clip",
   };
   const v = m[overflow];
   return v ? `overflow:${v}` : undefined;
@@ -451,7 +472,7 @@ function borderDecls(props: Record<string, unknown>): string[] {
 /** Merge drop shadow + optional inside-border inset shadow into one box-shadow. */
 function combinedBoxShadowCss(props: Record<string, unknown>): string | undefined {
   const parts: string[] = [];
-  const drop = typeof props.shadow === "string" ? props.shadow.trim() : "";
+  const drop = shadowLayerCss(props.shadow);
   if (drop) parts.push(drop);
   const w = finiteNum(props.borderWidth);
   const c = props.borderColor;
@@ -725,21 +746,26 @@ function frameBoxStyle(
   return mergeInlineStyles(layoutContainerStyle(props), item, stack);
 }
 
-/**
- * Typography + in-box alignment.
- * Spec: `justify` = main (horizontal) → text-align; `align` = cross (vertical) →
- * flex column `justify-content` so a lone text root with fixed height centers/end-aligns.
- */
-function textGlyphAndFlowStyle(props: Record<string, unknown>): string {
+function truncateStyleKind(props: Record<string, unknown>): "ellipsis" | "clip" | undefined {
+  if (props.truncateStyle === "ellipsis") return "ellipsis";
+  if (props.truncateStyle === "clip") return "clip";
+  return undefined;
+}
+
+function textLineClamp(props: Record<string, unknown>): number | undefined {
+  const lc = finiteNum(props.lineClamp);
+  return lc !== undefined && lc > 0 ? lc : undefined;
+}
+
+/** Font / color / tracking / text-align (no frame overflow, sizing, or clamp). */
+function textTypographyStyle(props: Record<string, unknown>): string {
   const parts: string[] = ["min-width:0", "width:100%", "box-sizing:border-box"];
   if (typeof props.color === "string") parts.push(`color:${props.color}`);
   if (typeof props.fontSize === "number") parts.push(`font-size:${props.fontSize}px`);
   if (typeof props.fontWeight === "number") parts.push(`font-weight:${String(props.fontWeight)}`);
   if (typeof props.fontFamily === "string") parts.push(`font-family:${props.fontFamily}`);
   const lh = finiteNum(props.lineHeight);
-  if (lh !== undefined) {
-    parts.push(`line-height:${String(lh)}`);
-  }
+  if (lh !== undefined) parts.push(`line-height:${String(lh)}`);
   const ls = finiteNum(props.letterSpacing);
   const fs = finiteNum(props.fontSize);
   if (ls !== undefined) {
@@ -748,16 +774,50 @@ function textGlyphAndFlowStyle(props: Record<string, unknown>): string {
   }
   const ta = textAlignFromJustify(props.justify);
   if (ta) parts.push(ta);
+  return parts.join(";");
+}
+
+/**
+ * Inner styles that enforce lineClamp. Always `overflow:hidden` so excess lines are not
+ * painted — independent of frame `overflow` (which stays on the outer shell).
+ */
+function textClampInnerStyle(props: Record<string, unknown>): string {
+  const parts: string[] = [textTypographyStyle(props), "overflow:hidden"];
+  const lc = textLineClamp(props)!;
+  const to = truncateStyleKind(props);
+  if (to === "clip") {
+    const lh = finiteNum(props.lineHeight);
+    const fs = finiteNum(props.fontSize);
+    const ratio = lh !== undefined && lh > 0 ? lh : 1.2;
+    if (fs !== undefined) parts.push(`max-height:${fs * ratio * lc}px`);
+    else parts.push(`max-height:${ratio * lc}em`);
+    parts.push("text-overflow:clip");
+  } else {
+    // .ellipsis or unspecified with lineClamp
+    parts.push(
+      "display:-webkit-box",
+      "-webkit-box-orient:vertical",
+      `-webkit-line-clamp:${String(lc)}`,
+      "text-overflow:ellipsis",
+    );
+  }
+  return parts.join(";");
+}
+
+/**
+ * Typography + optional single-line truncateStyle (no lineClamp).
+ * Spec: `justify` = main (horizontal) → text-align.
+ */
+function textGlyphAndFlowStyle(props: Record<string, unknown>): string {
+  const parts: string[] = [textTypographyStyle(props)];
   const ov = overflowCss(props.overflow);
   if (ov) parts.push(ov);
-  const lc = finiteNum(props.lineClamp);
-  if (lc !== undefined && lc > 0) {
-    parts.push("-webkit-box-orient:vertical");
-    parts.push(`-webkit-line-clamp:${String(lc)}`);
-    parts.push("overflow:hidden");
-  }
-  if (props.textOverflow === "ellipsis") {
-    parts.push("text-overflow:ellipsis");
+  const to = truncateStyleKind(props);
+  if (to === "ellipsis") {
+    parts.push("text-overflow:ellipsis", "white-space:nowrap");
+    if (!ov) parts.push("overflow:hidden");
+  } else if (to === "clip") {
+    parts.push("text-overflow:clip");
   }
   return parts.join(";");
 }
@@ -774,7 +834,7 @@ function textBoxAlignStyle(props: Record<string, unknown>): string {
   return parts.join(";");
 }
 
-/** Padding, margin, sizing, radius, opacity (used as outer shell when text uses layer bands). */
+/** Padding, margin, sizing, radius, opacity (outer shell). */
 function textMetricsShellStyle(props: Record<string, unknown>): string {
   const parts: string[] = [];
   const tpad = paddingToCss(props, "padding");
@@ -791,7 +851,18 @@ function textMetricsShellStyle(props: Record<string, unknown>): string {
   return parts.join(";");
 }
 
-/** Text typography / box (no outer display — caller sets clamp vs flex align shell). */
+/** Outer frame chrome when lineClamp uses an inner truncating wrapper. */
+function textClampOuterStyle(props: Record<string, unknown>): string {
+  return mergeInlineStyles(
+    textBoxAlignStyle(props),
+    textMetricsShellStyle(props),
+    backgroundCssDecl(props),
+    dropShadowCss(props),
+    overflowCss(props.overflow),
+  );
+}
+
+/** Text typography / box (no outer display — caller sets flex align shell). */
 function textOwnStyle(props: Record<string, unknown>): string {
   return mergeInlineStyles(
     textGlyphAndFlowStyle(props),
@@ -802,11 +873,6 @@ function textOwnStyle(props: Record<string, unknown>): string {
 }
 
 function textInlineStyle(props: Record<string, unknown>): string {
-  const lc = finiteNum(props.lineClamp);
-  if (lc !== undefined && lc > 0) {
-    // -webkit-box path for line clamp (incompatible with flex align shell).
-    return mergeInlineStyles("display:-webkit-box", textOwnStyle(props));
-  }
   return mergeInlineStyles(textBoxAlignStyle(props), textOwnStyle(props));
 }
 
@@ -926,11 +992,14 @@ function renderFrame(
         : props.editable === true
           ? "value"
           : undefined;
+    const itemStack = mergeInlineStyles(
+      ...flexItemDecls(props),
+      ...(opts.stackChild ? stackCellDecls(opts.stackIndex) : []),
+    );
     if (editableBind) {
       const style = mergeInlineStyles(
         textInlineStyle(props),
-        ...flexItemDecls(props),
-        ...(opts.stackChild ? stackCellDecls(opts.stackIndex) : []),
+        itemStack,
         "border:none",
         "outline:none",
         "background:transparent",
@@ -941,28 +1010,34 @@ function renderFrame(
       );
       return `<input class="pdl-frame pdl-text pdl-text--editable" type="text"${dataId}${instAttrs} data-pdl-editable="${escapeAttr(editableBind)}" value="${escapeAttr(content)}" style="${escapeStyleAttr(style)}" />`;
     }
+    const clamped = textLineClamp(props) !== undefined;
     if (textLayerBandsActive(props)) {
-      const lc = finiteNum(props.lineClamp);
-      const shellDisplay =
-        lc !== undefined && lc > 0 ? "display:inline-block" : textBoxAlignStyle(props);
       const wrapStyle = mergeInlineStyles(
         textMetricsShellStyle(props),
         dropShadowCss(props),
-        shellDisplay,
+        textBoxAlignStyle(props),
+        overflowCss(props.overflow),
         "position:relative",
         "vertical-align:top",
         "min-width:0",
-        mergeInlineStyles(...flexItemDecls(props)),
-        ...(opts.stackChild ? stackCellDecls(opts.stackIndex) : []),
+        itemStack,
       );
-      const display =
-        lc !== undefined && lc > 0 ? "display:-webkit-box" : "display:block";
-      const innerStyle = mergeInlineStyles(display, textGlyphAndFlowStyle(props), "position:relative", "z-index:1");
+      const innerStyle = mergeInlineStyles(
+        clamped ? textClampInnerStyle(props) : textGlyphAndFlowStyle(props),
+        "position:relative",
+        "z-index:1",
+      );
       const under = renderLayerBandHtml(flattenLayerOps(props.background), 0);
       const over = renderLayerBandHtml(flattenLayerOps(props.foreground), 2);
       return `<span class="pdl-frame pdl-text pdl-text--layers"${dataId}${instAttrs} style="${escapeStyleAttr(wrapStyle)}">${under}<span class="pdl-text__inner" style="${escapeStyleAttr(innerStyle)}">${escapeHtml(content)}</span>${over}</span>`;
     }
-    const style = mergeInlineStyles(textInlineStyle(props), ...flexItemDecls(props), ...(opts.stackChild ? stackCellDecls(opts.stackIndex) : []));
+    if (clamped) {
+      // Outer keeps frame size / align / overflow; inner always hides excess lines.
+      const outer = mergeInlineStyles(textClampOuterStyle(props), itemStack);
+      const inner = textClampInnerStyle(props);
+      return `<span class="pdl-frame pdl-text"${dataId}${instAttrs} style="${escapeStyleAttr(outer)}"><span class="pdl-text__clamp" style="${escapeStyleAttr(inner)}">${escapeHtml(content)}</span></span>`;
+    }
+    const style = mergeInlineStyles(textInlineStyle(props), itemStack);
     return `<span class="pdl-frame pdl-text"${dataId}${instAttrs} style="${escapeStyleAttr(style)}">${escapeHtml(content)}</span>`;
   }
 
@@ -1070,17 +1145,26 @@ body { margin: 0; padding: 16px; background: var(--pdl-preview-background, #f6f6
   font-family: ui-monospace, monospace;
 }
 .pdl-canvas {
+  /* Definite width so root width=.fill (width:100%) has a containing block.
+     Keep align-items:flex-start so .hug roots still size to content (not stretch). */
   border: 1px dashed #ccc;
   border-radius: 4px;
   padding: 8px;
   box-sizing: border-box;
-  width: max-content;
+  width: 100%;
   max-width: 100%;
   height: auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+}
+/* Preview stage when the root uses height=.fill — scroll view has no intrinsic
+   height, so give percentage fill a sensible containing block. */
+.pdl-canvas--fill-height {
+  height: 240px;
+  min-height: 240px;
+  overflow: auto;
 }
 .pdl-param-bar {
   display: flex;
@@ -1147,11 +1231,21 @@ body { margin: 0; padding: 16px; background: var(--pdl-preview-background, #f6f6
 }
 `.trim();
 
+function rootUsesHeightFill(comp: BakedComponentJson): boolean {
+  const root = comp.root as { props?: Record<string, unknown> } | undefined;
+  return root?.props?.height === "fill";
+}
+
+function wrapPdlCanvas(comp: BakedComponentJson, instCtx?: InstanceRenderCtx): string {
+  const cls = rootUsesHeightFill(comp) ? "pdl-canvas pdl-canvas--fill-height" : "pdl-canvas";
+  return `<div class="${cls}">${renderComponentBody(comp, instCtx)}</div>`;
+}
+
 /**
  * Render a single baked component root to an HTML fragment (no `<html>` wrapper).
  */
 export function renderBakedComponentToHtmlFragment(comp: BakedComponentJson): string {
-  return `<div class="pdl-canvas">${renderComponentBody(comp)}</div>`;
+  return wrapPdlCanvas(comp);
 }
 
 export type ComponentRenderFailure = {
@@ -1296,7 +1390,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       const comp = doc.components[name]!;
       const paramsJson = escapeHtml(JSON.stringify(comp.bakedParams ?? {}));
       try {
-        const body = `<div class="pdl-canvas">${renderComponentBody(comp, instCtx)}</div>`;
+        const body = wrapPdlCanvas(comp, instCtx);
         const stateExtra = opts.stateTrees?.[name];
         let stateBlocks = "";
         if (stateExtra) {

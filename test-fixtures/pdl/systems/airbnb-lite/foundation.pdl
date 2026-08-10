@@ -16,13 +16,13 @@ primitive abn.color.brandSecondaryPressed: Color = #007A71
 primitive abn.color.ghostHover: Color = #DDDDDD
 primitive abn.color.ghostPressed: Color = #D0D0D0
 
-primitive abn.space.xs: Number = 4
-primitive abn.space.sm: Number = 8
-primitive abn.space.md: Number = 16
-primitive abn.space.lg: Number = 24
+primitive abn.space.xs: Distance = 4
+primitive abn.space.sm: Distance = 8
+primitive abn.space.md: Distance = 16
+primitive abn.space.lg: Distance = 24
 
-primitive abn.radius.sm: Number = 8
-primitive abn.radius.pill: Number = 24
+primitive abn.radius.sm: Radius = 8
+primitive abn.radius.pill: Radius = 24
 
 semantic abn.color.surface: Color = abn.color.elevated
 semantic abn.color.page: Color = abn.color.canvas

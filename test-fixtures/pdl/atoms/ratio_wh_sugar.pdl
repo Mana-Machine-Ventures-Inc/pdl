@@ -1,0 +1,18 @@
+// Defensive fixture: Ratio W:H sugar on tokens + media aspectRatio.
+
+primitive ratio.video: Ratio = 16:9
+primitive ratio.photo: Ratio = 4:3
+primitive ratio.square: Ratio = 1
+semantic ratio.hero: Ratio = ratio.video
+
+component RatioSugarMedia() media {
+  source = "https://example.com/hero.png"
+  aspectRatio = 16:9
+  width = .fill
+}
+
+component RatioSugarTokenRef() media {
+  source = "https://example.com/photo.png"
+  aspectRatio = ratio.photo
+  width = .fill
+}

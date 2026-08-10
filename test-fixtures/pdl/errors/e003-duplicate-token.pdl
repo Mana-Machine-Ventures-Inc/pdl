@@ -1,0 +1,2 @@
+primitive color.dup: Color = #FF0000
+primitive color.dup: Color = #00FF00

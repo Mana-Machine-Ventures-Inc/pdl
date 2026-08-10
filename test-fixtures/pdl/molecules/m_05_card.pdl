@@ -23,7 +23,7 @@ component MoleculeCardArticle <PointerInput>(
   borderWidth = 1
   borderColor = atoms.color.rgba
   borderPosition = .inside
-  overflow = .hidden
+  overflow = .clip
   background = atoms.color.sem.fromRgb
 
   let Hero: media = {

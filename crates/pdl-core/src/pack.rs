@@ -301,7 +301,7 @@ pub fn validate_injection_pack(
     let pack = parse_pack_object(raw, design)?;
     if !design.components.contains_key(&pack.component) {
         return Err(err(
-            "PDL-E006",
+            "PDL-E037",
             format!("Unknown pack component `{}`", pack.component),
             design,
         ));
@@ -309,7 +309,7 @@ pub fn validate_injection_pack(
     if let Some(theme) = &pack.theme {
         if !design.themes.contains_key(theme) {
             return Err(err(
-                "PDL-E006",
+                "PDL-E005",
                 format!("Unknown pack theme `{theme}`"),
                 design,
             ));

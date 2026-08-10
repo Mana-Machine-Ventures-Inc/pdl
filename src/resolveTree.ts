@@ -251,7 +251,7 @@ function processFrameItems(
       case "letInstance": {
         const childComp = ctx.design.components.get(item.component);
         if (!childComp) {
-          throw new PdlError("PDL-E006", `Unknown component ${item.component} in let instance`, {
+          throw new PdlError("PDL-E037", `Unknown component ${item.component} in let instance`, {
             path: ctx.design.entryPath,
           });
         }
@@ -308,7 +308,7 @@ export function resolveComponentTree(
 ): CatalFrame {
   const c = design.components.get(componentName);
   if (!c) {
-    throw new PdlError("PDL-E006", `Unknown component ${componentName}`, { path: design.entryPath });
+    throw new PdlError("PDL-E037", `Unknown component ${componentName}`, { path: design.entryPath });
   }
   const paramValues = resolveDefaultParamValues(design, tokens, c);
   for (const [k, v] of Object.entries(paramOverrides)) {

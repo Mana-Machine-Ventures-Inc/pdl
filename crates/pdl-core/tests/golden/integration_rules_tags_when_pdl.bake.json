@@ -11,7 +11,13 @@
             "id": "L",
             "kind": "text",
             "props": {
-              "content": "e"
+              "color": "#717171",
+              "content": "e",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 12,
+              "fontWeight": 600,
+              "letterSpacing": 0.02,
+              "lineHeight": 1.2
             }
           }
         ],
@@ -35,7 +41,13 @@
             "id": "L",
             "kind": "text",
             "props": {
-              "content": "n"
+              "color": "#717171",
+              "content": "n",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 12,
+              "fontWeight": 600,
+              "letterSpacing": 0.02,
+              "lineHeight": 1.2
             }
           }
         ],
@@ -58,7 +70,13 @@
             "id": "L",
             "kind": "text",
             "props": {
-              "content": "r"
+              "color": "#717171",
+              "content": "r",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 12,
+              "fontWeight": 600,
+              "letterSpacing": 0.02,
+              "lineHeight": 1.2
             }
           }
         ],

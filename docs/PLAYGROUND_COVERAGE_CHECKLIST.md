@@ -48,9 +48,9 @@ Start `lab.pdl` with only tokens (no component yet — Tokens canvas is OK). The
   *See:* usable later with `@` and `opacity =`.
 - [ ] `Distance` — spacing numbers  
   *See:* later `gap` / `padding` via token ref.
-- [ ] `Radius` — number and `Corner(tl:…, tr:…, br:…, bl:…)`  
+- [ ] `Radius` — number only on tokens (`Corner(…)` is frame-only; must fail on token RHS)  
   *See:* later corners.
-- [ ] `Shadow` — CSS box-shadow string  
+- [ ] `Shadow` — `Shadow(x:, y:, blurRadius:, color: [, spread:])`  
   *See:* later drop shadow on layout.
 - [ ] `FontFamily` / `Size` / `Weight`  
   *See:* later text props via token.
@@ -121,10 +121,10 @@ Tick each property by changing **one thing at a time** (or a tiny controlled set
 
 ### 1.5 Overflow & clamp
 
-- [ ] Long `content` + `width = .fixed(120)` + `overflow = .hidden`  
-- [ ] `textOverflow = .ellipsis` + `lineClamp = 1`  
+- [ ] Long `content` + `width = .fixed(120)` + `overflow = .clip`  
+- [ ] `truncateStyle = .ellipsis` + `lineClamp = 1`  
 - [ ] `lineClamp = 2` with multi-line string  
-- [ ] `textOverflow = .clip` (no ellipsis)
+- [ ] `truncateStyle = .clip` (no ellipsis)
 
 ### 1.6 Chrome on text
 
@@ -247,12 +247,13 @@ With **two+ children** of unequal size:
 
 - [ ] `background` solid color / semantic  
 - [ ] `cornerRadius = 8`  
-- [ ] `cornerRadius = Corner(tl:…, tr:…, br:…, bl:…)` or Radius token  
-- [ ] `shadow = shadow.…` (or literal string)  
+- [ ] `cornerRadius =` number, `Radius` token, or `Corner(tl:…, tr:…, br:…, bl:…)` (asymmetric on the frame)  
+- [ ] `shadow = shadow.…` or `Shadow(x:, y:, blurRadius:, color: …)`  
+
 - [ ] `borderWidth` + `borderColor`  
 - [ ] `borderPosition = .inside` / `.outside` — **note if HTML ignores** (known gap)  
 - [ ] `opacity` literal + Opacity token  
-- [ ] `overflow = .visible` / `.hidden` / `.scroll` / `.auto` / `.clip`  
+- [ ] `overflow = .visible` / `.scroll` / `.clip`  
   *Use oversized child to see clipping/scroll.*
 
 ### 4.6 Child-only props (need parent layout + child)

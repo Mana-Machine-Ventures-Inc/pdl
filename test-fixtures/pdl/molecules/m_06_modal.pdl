@@ -23,7 +23,8 @@ component MoleculeModalShell(
     gap = atoms.space.md
     padding = EdgeInsets(x: atoms.space.md, y: atoms.space.md)
     width = .hug
-    cornerRadius = atoms.radius.mixed
+    // Asymmetric corners belong on the frame, not on a Radius token.
+    cornerRadius = Corner(tl: atoms.radius.md, tr: atoms.radius.md, br: atoms.radius.sm, bl: atoms.radius.sm)
     shadow = atoms.shadow.hard
     background = atoms.color.sem.fromRgb
     foreground = [atoms.color.rgb @ 0.06]

@@ -1,0 +1,2 @@
+primitive color.clash: Color = #FF0000
+semantic color.clash: Color = #00FF00

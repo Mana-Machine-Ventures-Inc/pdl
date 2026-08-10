@@ -114,7 +114,7 @@ component AtomLayoutChrome() layout {
   borderColor = atoms.color.rgba
   borderPosition = .inside
   opacity = 1
-  overflow = .hidden
+  overflow = .clip
   children = []
 }
 

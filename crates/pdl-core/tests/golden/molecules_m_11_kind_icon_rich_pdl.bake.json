@@ -19,7 +19,13 @@
                 "id": "A__L",
                 "kind": "text",
                 "props": {
-                  "content": "Save changes"
+                  "color": "#717171",
+                  "content": "Save changes",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 12,
+                  "fontWeight": 600,
+                  "letterSpacing": 0.02,
+                  "lineHeight": 1.2
                 }
               }
             ],
@@ -59,7 +65,13 @@
                 "id": "B__L",
                 "kind": "text",
                 "props": {
-                  "content": "Learn more about billing"
+                  "color": "#222222",
+                  "content": "Learn more about billing",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               }
             ],
@@ -99,7 +111,13 @@
                 "id": "C__L",
                 "kind": "text",
                 "props": {
-                  "content": "Permanently delete"
+                  "color": "#222222",
+                  "content": "Permanently delete",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 22,
+                  "fontWeight": 700,
+                  "letterSpacing": -0.01,
+                  "lineHeight": 1.2
                 }
               }
             ],
@@ -161,7 +179,13 @@
             "id": "L",
             "kind": "text",
             "props": {
-              "content": "Save changes"
+              "color": "#717171",
+              "content": "Save changes",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 12,
+              "fontWeight": 600,
+              "letterSpacing": 0.02,
+              "lineHeight": 1.2
             }
           }
         ],
@@ -209,12 +233,7 @@
         "props": {
           "align": "center",
           "background": "#D3D3D3",
-          "cornerRadius": {
-            "bl": 2,
-            "br": 2,
-            "tl": 8,
-            "tr": 8
-          },
+          "cornerRadius": 8,
           "direction": "row",
           "justify": "center",
           "padding": {
@@ -256,12 +275,7 @@
             "props": {
               "align": "center",
               "background": "#F7F7F7",
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "row",
               "justify": "center",
               "padding": {
@@ -297,12 +311,7 @@
             "props": {
               "align": "center",
               "background": "#D3D3D3",
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "row",
               "justify": "center",
               "padding": {
@@ -338,12 +347,7 @@
             "props": {
               "align": "center",
               "background": "#EBEBEB",
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "row",
               "justify": "center",
               "padding": {
@@ -379,12 +383,7 @@
             "props": {
               "align": "center",
               "background": "#F7F7F7",
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "row",
               "justify": "center",
               "padding": {

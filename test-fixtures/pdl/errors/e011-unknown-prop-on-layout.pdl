@@ -1,0 +1,3 @@
+component BadProp() layout {
+  content = "not on layout"
+}

@@ -1,4 +1,4 @@
-// Root test entry: full atom suite (tokens, themes, frames, composition) + merge override chain.
+// Root test entry: full atom suite (tokens, themes, frames, composition) + merge chain.
 
 import "../atoms/design.pdl"
 import "../molecules/design.pdl"

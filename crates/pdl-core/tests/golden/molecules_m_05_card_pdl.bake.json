@@ -149,7 +149,7 @@
             "id": "Hero",
             "kind": "media",
             "props": {
-              "aspectRatio": 1.777,
+              "aspectRatio": 1.7777777777777777,
               "contentMode": "cover",
               "cornerRadius": 4,
               "height": {
@@ -164,14 +164,26 @@
             "id": "Title",
             "kind": "text",
             "props": {
-              "content": "Article"
+              "color": "#222222",
+              "content": "Article",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 22,
+              "fontWeight": 700,
+              "letterSpacing": -0.01,
+              "lineHeight": 1.2
             }
           },
           {
             "id": "Sub",
             "kind": "text",
             "props": {
-              "content": "Supporting line"
+              "color": "#222222",
+              "content": "Supporting line",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 16,
+              "fontWeight": 400,
+              "letterSpacing": 0,
+              "lineHeight": 1.35
             }
           },
           {
@@ -282,22 +294,24 @@
           "borderColor": "#222222",
           "borderPosition": "inside",
           "borderWidth": 1,
-          "cornerRadius": {
-            "bl": 2,
-            "br": 2,
-            "tl": 8,
-            "tr": 8
-          },
+          "cornerRadius": 8,
           "direction": "column",
           "gap": 8,
-          "overflow": "hidden",
+          "overflow": "clip",
           "padding": {
             "bottom": 16,
             "left": 16,
             "right": 16,
             "top": 16
           },
-          "shadow": "0 2px 8px rgba(0,0,0,0.12)"
+          "shadow": {
+            "blurRadius": 8,
+            "color": "#0000001f",
+            "kind": "shadow",
+            "spread": 0,
+            "x": 0,
+            "y": 2
+          }
         }
       },
       "rootKind": "layout"
@@ -312,7 +326,7 @@
                 "id": "C1__Hero",
                 "kind": "media",
                 "props": {
-                  "aspectRatio": 1.777,
+                  "aspectRatio": 1.7777777777777777,
                   "contentMode": "cover",
                   "cornerRadius": 4,
                   "height": {
@@ -327,14 +341,26 @@
                 "id": "C1__Title",
                 "kind": "text",
                 "props": {
-                  "content": "With media"
+                  "color": "#222222",
+                  "content": "With media",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 22,
+                  "fontWeight": 700,
+                  "letterSpacing": -0.01,
+                  "lineHeight": 1.2
                 }
               },
               {
                 "id": "C1__Sub",
                 "kind": "text",
                 "props": {
-                  "content": "Default"
+                  "color": "#222222",
+                  "content": "Default",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               },
               {
@@ -451,22 +477,24 @@
               "borderColor": "#222222",
               "borderPosition": "inside",
               "borderWidth": 1,
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "column",
               "gap": 8,
-              "overflow": "hidden",
+              "overflow": "clip",
               "padding": {
                 "bottom": 16,
                 "left": 16,
                 "right": 16,
                 "top": 16
               },
-              "shadow": "0 2px 8px rgba(0,0,0,0.12)"
+              "shadow": {
+                "blurRadius": 8,
+                "color": "#0000001f",
+                "kind": "shadow",
+                "spread": 0,
+                "x": 0,
+                "y": 2
+              }
             }
           },
           {
@@ -475,14 +503,26 @@
                 "id": "C2__Title",
                 "kind": "text",
                 "props": {
-                  "content": "No media"
+                  "color": "#222222",
+                  "content": "No media",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 22,
+                  "fontWeight": 700,
+                  "letterSpacing": -0.01,
+                  "lineHeight": 1.2
                 }
               },
               {
                 "id": "C2__Sub",
                 "kind": "text",
                 "props": {
-                  "content": "Text only shell"
+                  "color": "#222222",
+                  "content": "Text only shell",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               },
               {
@@ -599,22 +639,24 @@
               "borderColor": "#222222",
               "borderPosition": "inside",
               "borderWidth": 1,
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "column",
               "gap": 8,
-              "overflow": "hidden",
+              "overflow": "clip",
               "padding": {
                 "bottom": 16,
                 "left": 16,
                 "right": 16,
                 "top": 16
               },
-              "shadow": "0 2px 8px rgba(0,0,0,0.12)"
+              "shadow": {
+                "blurRadius": 8,
+                "color": "#0000001f",
+                "kind": "shadow",
+                "spread": 0,
+                "x": 0,
+                "y": 2
+              }
             }
           }
         ],

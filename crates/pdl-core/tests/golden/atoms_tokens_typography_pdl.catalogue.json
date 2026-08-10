@@ -18,6 +18,54 @@
       "name": "atoms.font.ui",
       "tokenType": "FontFamily"
     },
+    "atoms.type.letterSpacing.normal": {
+      "definition": {
+        "kind": "number",
+        "value": 0
+      },
+      "name": "atoms.type.letterSpacing.normal",
+      "tokenType": "LetterSpacing"
+    },
+    "atoms.type.letterSpacing.tight": {
+      "definition": {
+        "kind": "number",
+        "value": -0.01
+      },
+      "name": "atoms.type.letterSpacing.tight",
+      "tokenType": "LetterSpacing"
+    },
+    "atoms.type.letterSpacing.wide": {
+      "definition": {
+        "kind": "number",
+        "value": 0.02
+      },
+      "name": "atoms.type.letterSpacing.wide",
+      "tokenType": "LetterSpacing"
+    },
+    "atoms.type.lineHeight.body": {
+      "definition": {
+        "kind": "number",
+        "value": 1.35
+      },
+      "name": "atoms.type.lineHeight.body",
+      "tokenType": "LineHeight"
+    },
+    "atoms.type.lineHeight.loose": {
+      "definition": {
+        "kind": "number",
+        "value": 1.5
+      },
+      "name": "atoms.type.lineHeight.loose",
+      "tokenType": "LineHeight"
+    },
+    "atoms.type.lineHeight.tight": {
+      "definition": {
+        "kind": "number",
+        "value": 1.2
+      },
+      "name": "atoms.type.lineHeight.tight",
+      "tokenType": "LineHeight"
+    },
     "atoms.type.size.body": {
       "definition": {
         "kind": "number",

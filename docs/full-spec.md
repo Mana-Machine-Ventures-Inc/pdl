@@ -209,8 +209,9 @@ These may appear in any **module** (entry or imported). Order **within** a file 
 
 - Imports resolve **relative to the importing file** (or project root as configured by the loader).  
 - The merge product is one resolved design definition.  
-- **Order matters:** later definitions **override** earlier ones for the **same symbol key** where the key is unique per kind (same component name, same token name, same theme name, …).  
-- The **entry file’s** own top-level declarations are merged **last** among its import closure so **entry wins** on clashes.  
+- **Tokens** (`primitive` / `semantic`) share one namespace: a second declaration of the same name is **`PDL-E003`** (`Invalid redeclaration of token \`…\``) — including across the import graph (§22).  
+- Other top-level kinds (components, themes, …): later definitions **override** earlier ones for the same symbol key today; uniqueness rules for those namespaces are in §22.  
+- The **entry file’s** own top-level declarations are merged **last** among its import closure.  
 
 **Companion merge (normative — single policy):**
 
@@ -292,7 +293,8 @@ primitive <name>: <TokenType> = <value>
 
 - **name**: dotted identifiers encouraged, e.g. `color.primitive.blue.500`.  
 - **TokenType**: one of the **built-in types** (complete table below).  
-- **value**: literal, token reference, or structured literal valid for that type.  
+- **value (primitive):** a **literal** (or literal composite such as `#RRGGBB @ 0.5` / `#RRGGBB @ opacityToken`). A bare token identifier on a `primitive` RHS is **PDL-E005** — use **`semantic`** to alias or retarget tokens.  
+- **value (semantic):** literal, **same-type** token reference, or structured value valid for that type (§23.2).  
 
 ---
 
@@ -302,15 +304,17 @@ primitive <name>: <TokenType> = <value>
 |------|----------|-------------|-----------|---------|
 | `Color` | color | Fills, text, borders | Unquoted `#RGB` / `#RRGGBB` / `#RRGGBBAA`, or token ref — **quoted hex is invalid** | `primitive color.primitive.blue.500: Color = #3B82F6` |
 | `Opacity` | alpha | **Alpha multipliers (0–1)** — **preferred** wherever a color is tinted (e.g. `@` on a color in a layer, state overlays). Use **named primitives + semantics** so themes can remap scrims and tints without hunting literals. | Number literal or `Opacity` token ref | `primitive opacity.primitive.scrim: Opacity = 0.4` then `semantic opacity.surface.tint: Opacity = opacity.primitive.scrim` |
-| `Distance` | spacing | Gaps, padding axes | Number (px), token | `primitive spacing.primitive.md: Distance = 12` |
-| `Radius` | shape | Corner radii | Number, `Corner(…)`, token | `primitive radius.primitive.md: Radius = 10` |
-| `Shadow` | effect | Drop shadows | **CSS box-shadow string** in the form `"<x-offset>px <y-offset>px <blur>px <spread>px <rgba-color>"` or the shorthand `"<x>px <y>px <blur>px <color>"`. Emitters targeting non-CSS platforms **MUST** parse these four/five numeric fields and map them to the nearest platform equivalent; the string format is normative for authoring and interchange. Spread defaults to `0` when omitted. Multiple shadows are comma-separated (same CSS convention). | `primitive shadow.card: Shadow = "0 4px 12px rgba(0,0,0,0.15)"` |
+| `Distance` | spacing | Gaps, padding axes | Non-negative number (px), or (on **`semantic`**) a `Distance` token alias — not a string | `primitive spacing.primitive.md: Distance = 12` |
+| `Radius` | shape | Uniform corner radius | Non-negative number, or (on **`semantic`**) a `Radius` token alias — **not** `Corner(…)` | `primitive radius.primitive.md: Radius = 10` |
+| `Shadow` | effect | Drop shadows | **`Shadow(x:, y:, blurRadius:, color: [, spread:])`** constructor (§6). Axes are numbers (or numeric token refs); `color` is a `Color` (hex / token / `color @ opacity`). Optional `spread` defaults to `0`. Resolved IR is a JSON object `{ kind: "shadow", x, y, blurRadius, spread, color }` — emitters map fields to the platform (HTML → CSS `box-shadow`). A CSS box-shadow **string** on a `Shadow` token is **PDL-E005**. | `primitive shadow.card: Shadow = Shadow(x: 0, y: 4, blurRadius: 12, color: #000000 @ 0.15)` |
 | `Icon` | asset | Glyph id | String | `primitive icon.primitive.star: Icon = "star"` |
 | `MediaSource` | asset | **Raster, vector, video, or other media ref** — today often a **string** URL/path (raster); evolves to a tagged union per emitter (§5 §`media`). | `primitive media.hero: MediaSource = "https://example.com/hero.jpg"` |
-| `Ratio` | layout | Aspect ratio | Number | `primitive ratio.video: Ratio = 1.777` |
+| `Ratio` | layout | Aspect ratio | Positive number, or **`W:H` sugar** (e.g. `16:9` → `16/9`) | `primitive ratio.video: Ratio = 16:9` |
 | `FontFamily` | typography | Font stack | String | `primitive font.body: FontFamily = "Inter, system-ui, sans-serif"` |
-| `Size` | typography | Font size, etc. | Number | `primitive type.size.body: Size = 16` |
+| `Size` | typography | Font size (px / design units) | Number | `primitive type.size.body: Size = 16` |
 | `Weight` | typography | Font weight | Number | `primitive type.weight.medium: Weight = 500` |
+| `LineHeight` | typography | Leading as a **unitless ratio** of `fontSize` (e.g. `1.35`) | Positive number | `primitive type.lineHeight.body: LineHeight = 1.35` |
+| `LetterSpacing` | typography | Tracking in **em** units (fraction of `fontSize`; may be negative) | Number | `primitive type.letterSpacing.tight: LetterSpacing = -0.01` |
 | `Sizing` | layout | Hug/fill/flex | Sizing literal (rare at token level) | `primitive sizing.sidebar: Sizing = .fill` |
 | `Duration` | motion | Animation length | Number (ms) (§14) | `primitive motion.duration.fast: Duration = 150` |
 | `Easing` | motion | Curves | String or enum literal (§14) | `primitive motion.easing.standard: Easing = "cubic-bezier(0.2, 0, 0, 1)"` |
@@ -434,6 +438,7 @@ Rules:
 - Only **valid `text` frame property names** (§5).  
 - Each line is `name = value`.  
 - Text frames use **`style = TypeStyleName`**.  
+- **Catalogue** keeps a **`typeStyle:`** ref (preset props live under **`typeStyles`**). **Bake** / HTML preview **expand** the preset into literal props on the frame (explicit props win).  
 
 ### Full example (tokens + type styles + component)
 
@@ -575,7 +580,7 @@ Catalogue lists a prelude protocol only when a component **`conformsTo`** it or 
 | Host handlers | `self.<inbound> = { … }` legal in the component **kind body** when `<inbound>` is on an effective host protocol — else **PDL-E030**. |
 | Host as slot type | `[PointerInput]` / `x: EditableText` → **PDL-E031**. |
 | Catalogue | Root **`protocols`** (+ **`role`**, **`subject`**, inbound channels when serialised), **`protocolRoles`**, **`conformsTo`**, **`hostProtocols`**. |
-| Unknown `P` | `PDL-E006` / `PDL-E022`. |
+| Unknown `P` | `PDL-E022`. |
 
 ### Editable text (host)
 
@@ -1230,10 +1235,10 @@ Row.children = [IconA, IconB]
 |----------|------|----------------|
 | `width` | sizing | **`.hug`**, **`.fill`**, **`.fixed(n)`**, **`.flex(…)`**, or **scalar sugar** — a non-negative **number** means **`.fixed(n)`** (§6 §Sizing) |
 | `height` | sizing | same |
-| `direction` | enum | `.row`, `.column`, `.rowReverse`, `.columnReverse`, **`.stack`** (overlap; z-order = array order, last on top) |
-| **`wrap`** | enum | **`.nowrap`**, **`.wrap`** — main-axis wrapping |
-| `align` | enum | `.start`, `.center`, `.end`, **`.stretch`** — cross axis |
-| `justify` | enum | `.start`, `.center`, `.end`, **`.stretch`**, **`.spaceBetween`**, **`.spaceAround`** — main axis |
+| `direction` | enum | `.row`, `.column`, `.rowReverse`, `.columnReverse`, **`.stack`** (or `Direction.<case>`) — overlap; z-order = array order, last on top |
+| **`wrap`** | enum | **`.nowrap`**, **`.wrap`** (or `Wrap.<case>`) — main-axis wrapping |
+| `align` | enum | `.start`, `.center`, `.end`, **`.stretch`** (or `Align.<case>`) — cross axis |
+| `justify` | enum | `.start`, `.center`, `.end`, **`.stretch`**, **`.spaceBetween`**, **`.spaceAround`** (or `Justify.<case>`) — main axis |
 | `gap` | number / `Distance` | Uniform gap applied to both axes; use **`columnGap`** and **`rowGap`** when per-axis control is needed |
 | **`columnGap`** | number / `Distance` | Gap on the **cross** axis when wrapping; emitter maps to CSS `column-gap` / `gap` split as appropriate |
 | **`rowGap`** | number / `Distance` | Gap between **wrapped lines** on the main axis when `wrap = .wrap`. If omitted, **`gap`** applies to both axes. Emitters **MUST** map this to CSS `row-gap` or the platform equivalent. Parsers **MUST** accept and validate `rowGap` as a first-class property. |
@@ -1243,8 +1248,8 @@ Row.children = [IconA, IconB]
 | **`foreground`** | color \| layers | Same as **`background`** (color sugar, layers, or **`Foreground`** token); composited **over** children (§15) |
 | `cornerRadius` | cornerRadius | number, `Corner(…)`, `Radius` token |
 | `opacity` | number \| `Opacity` | **0…1** literal or **`Opacity`** token (§6 §Opacity-valued properties) |
-| `overflow` | enum | `visible`, `hidden`, `scroll`, `auto`, `clip` |
-| `shadow` | shadow | |
+| `overflow` | enum | **`.visible`**, **`.scroll`**, **`.clip`** (or `Overflow.<case>`) — §6 §Overflow; no `.hidden` / `.auto` |
+| `shadow` | shadow | `Shadow(…)` constructor, or `Shadow` token |
 | `borderWidth` | number | |
 | `borderColor` | color | |
 | `borderPosition` | enum | `inside`, `outside` |
@@ -1271,24 +1276,29 @@ Row.children = [IconA, IconB]
 |----------|------|--------------|---------|
 | `content` | string | Quoted string body (§6) | `content = "Sign in"` |
 | `fontFamily` | string | Often superseded by `style` / `typeStyle` | `fontFamily = "Inter, system-ui, sans-serif"` |
-| `fontSize` | number | Non-negative; px or design-unit per emitter | `fontSize = 16` |
-| `fontWeight` | number | Typical CSS-style weights (e.g. 400, 500, 600) | `fontWeight = 600` |
-| `lineHeight` | number | **Unitless ratio** (e.g. `1.35` = 135% of font size). Emitters **MUST** treat this as a ratio multiplied by `fontSize`. Use `lineHeight = 1.0` for tight leading, `1.5` for loose. A future minor revision may add a typed `px` form; until then, all values are ratios. | `lineHeight = 1.35` |
-| `letterSpacing` | number | **Em units** (e.g. `0.01` = 1% of font size extra tracking). Emitters **MUST** treat this as an em multiplier applied to `fontSize`. Zero means no extra tracking. A future minor revision may add explicit px/em disambiguation. | `letterSpacing = 0.01` |
+| `fontSize` | `Size` | Non-negative number or **`Size`** token; px or design-unit per emitter | `fontSize = 16` |
+| `fontWeight` | `Weight` | Number or **`Weight`** token (e.g. 400, 500, 600) | `fontWeight = 600` |
+| `lineHeight` | `LineHeight` | Positive **unitless ratio** (e.g. `1.35` = 135% of font size) or **`LineHeight`** token. Emitters **MUST** treat this as a ratio multiplied by `fontSize`. | `lineHeight = type.lineHeight.body` |
+| `letterSpacing` | `LetterSpacing` | Number in **em** units (e.g. `0.01`) or **`LetterSpacing`** token; may be negative. Emitters **MUST** treat this as an em multiplier of `fontSize`. Zero means no extra tracking. | `letterSpacing = 0.01` |
 | `color` | color | Token name or unquoted `#RGB` / `#RRGGBB` / `#RRGGBBAA` (§3, §6) | `color = color.text.primary` |
 | `style` | styleRef | **`typeStyle`** name: bare identifier, **case-sensitive**, matching the declared `typeStyle` name exactly (e.g. `typeStyle Body { … }` is referenced as `style = Body`). | `style = Body` |
 | `width` | sizing | **Sizing literals** (§6 §Sizing) including **scalar number** = **`.fixed(n)`** | `width = .fill`, `width = 200` |
 | `height` | sizing | Same set as **`width`** | `height = .hug`, `height = 48` |
 | `padding` | edgeInsets | **`EdgeInsets(…)`** or **scalar sugar** (§6 §`EdgeInsets`) | `padding = EdgeInsets(x: 16, y: 12)`, `padding = 12` |
 | **`margin`** | edgeInsets | **`EdgeInsets(…)`** or **scalar sugar** | `margin = 8` |
-| `justify` | enum | **`.start`**, **`.center`**, **`.end`** only on **`text`** (main-axis alignment inside the text box; canonical list in the **`text`** table above) | `justify = .center` |
+| `justify` | enum | **`.start`**, **`.center`**, **`.end`** only on **`text`** (or `Justify.<case>`) | `justify = .center`, `justify = Justify.center` |
 | `align` | enum | **`.start`**, **`.center`**, **`.end`** only on **`text`** (cross-axis) | `align = .start` |
 | `background` | color \| layers | Scalar color, layer array, or **`Background`** token (§15) | `background = color.surface.subtle` |
 | **`foreground`** | color \| layers | Same grammar as **`background`** + **`Foreground`** token (§15) | `foreground = [color.primitive.black @ opacity.state.hover]` |
 | `opacity` | number | **0…1** | `opacity = 0.85` |
-| `overflow` | enum | **`.visible`**, **`.hidden`**, **`.scroll`**, **`.auto`**, **`.clip`** | `overflow = .hidden` |
-| `textOverflow` | enum | **`.clip`**, **`.ellipsis`** | `textOverflow = .ellipsis` |
-| `lineClamp` | number | Non-negative; max lines when paired with **`textOverflow = .ellipsis`** (emitter maps to `-webkit-line-clamp` / platform equivalent) | `lineClamp = 2` |
+| `overflow` | enum | **`.visible`**, **`.scroll`**, **`.clip`** (or `Overflow.<case>`) — §6 §Overflow | `overflow = .clip` |
+| `truncateStyle` | enum | **`.clip`** (hard end, no `…`), **`.ellipsis`** (trailing `…`); or `TruncateStyle.<case>` | `truncateStyle = .ellipsis` |
+| `lineClamp` | number | Non-negative max lines. With **`truncateStyle = .ellipsis`** → ellipsis clamp; with **`.clip`** → hard cut after N lines (**no** `…`). Omit `truncateStyle` with `lineClamp` → ellipsis (same as `.ellipsis`). Excess lines are **not painted** (independent of frame **`overflow`**). | `lineClamp = 2` |
+| `cornerRadius` | cornerRadius | Same as **`layout`** — used for chips, fields, and other text boxes with a painted fill/border | `cornerRadius = 8` |
+| `shadow` | shadow | Same as **`layout`** | |
+| `borderWidth` | number | Same as **`layout`** — common on editable fields | `borderWidth = 1` |
+| `borderColor` | color | Same as **`layout`** | `borderColor = #0066FF` |
+| `borderPosition` | enum | Same as **`layout`**: `inside`, `outside` | |
 | **`alignSelf`**, **`grow`**, **`shrink`**, **`position`**, **`inset`** | mixed | When this **`text`** frame is a **child of `layout`**: **`alignSelf`** — **`.start`**, **`.center`**, **`.end`**, **`.stretch`**, **`.auto`**; **`position`** — **`.flow`** (default), **`.absolute`**; **`grow`** / **`shrink`** — numbers; **`inset`** — **`EdgeInsets(…)`** or **scalar sugar** when **`position = .absolute`** (same lists as layout **child-only** table above) | `alignSelf = .end`, `grow = 1`, `position = .absolute`, `inset = 8` |
 
 ### `icon`
@@ -1424,6 +1434,15 @@ width = 200
 height = 100
 ```
 
+## Ratio (`W:H` sugar)
+
+**`Ratio`** tokens and **`aspectRatio`** accept a positive number, or **`W:H`** sugar (`16:9`, `4:3`, …). The parser keeps `{ kind: "ratio", width, height }`; evaluation yields **`W / H`**. Height **MUST** be positive and finite (**PDL-E001** otherwise). Prefer sugar for common media ratios so intent stays readable.
+
+```pdl
+primitive atoms.ratio.video: Ratio = 16:9
+aspectRatio = 4:3
+```
+
 ---
 
 ## Colors
@@ -1481,13 +1500,53 @@ align = .stretch
 wrap = .wrap
 contentMode = .cover
 objectPosition = .center
-overflow = .hidden
-textOverflow = .ellipsis
+overflow = .visible
+overflow = .scroll
+overflow = .clip
+truncateStyle = .ellipsis
 borderPosition = .outside
 position = .absolute
+
+// Optional TypeName.case (same meaning as .case):
+direction = Direction.column
+justify = Justify.spaceBetween
+align = Align.stretch
+wrap = Wrap.wrap
+contentMode = ContentMode.cover
+objectPosition = ObjectPosition.center
+overflow = Overflow.clip
+truncateStyle = TruncateStyle.ellipsis
+borderPosition = BorderPosition.outside
+position = Position.absolute
+alignSelf = AlignSelf.stretch
 ```
 
-Allowed values are **per property** (§5).
+Allowed values are **per property** (§5). **`TypeName.case`** is optional sugar for the leading-dot form (§20.4 / §22.4). See also **§6 §Overflow**.
+
+---
+
+## `Overflow` (frame)
+
+Frame **`overflow`** is a closed set of **three** cases (SoT: `shared/frame-props.json` → `enumOverflow`):
+
+| Case | Meaning |
+|------|---------|
+| **`.visible`** / `Overflow.visible` | Content may paint **outside** the frame’s box. |
+| **`.scroll`** / `Overflow.scroll` | Overflow is **scrollable** (scroll UI / scroll container). |
+| **`.clip`** / `Overflow.clip` | Hard **crop** at the box; **no** scroll mechanism. |
+
+There is **no** **`.hidden`** or **`.auto`**. Authors who want CSS-like “crop without scrollbars” **MUST** use **`.clip`**. Using **`.hidden`** or **`.auto`** is **PDL-E006**.
+
+**`truncateStyle`** is orthogonal to frame **`overflow`**: **`.ellipsis`** paints a trailing `…`; **`.clip`** ends flush with no `…`. Pair with **`overflow = .clip`** (and optional **`lineClamp`**) when truncating.
+
+**HTML preview mapping** (`src/renderHtml.ts`): **`.scroll`** → CSS `overflow: scroll`; **`.clip`** → CSS `overflow: hidden` (Chromium often fails to crop with CSS `overflow: clip` on flex-centered text shells). Native emitters **MAY** map **`.clip`** to a true non-scroll clip.
+
+```pdl
+overflow = .visible
+overflow = .scroll
+overflow = .clip
+overflow = Overflow.clip
+```
 
 ---
 
@@ -1511,19 +1570,52 @@ inset = 4
 
 ---
 
-## `Corner` (corner radius)
+## `Corner` (asymmetric `cornerRadius` on frames)
+
+`Corner(…)` is a **frame value constructor** for **`cornerRadius`**, not a `Radius` token RHS. `Radius` tokens are **uniform scalars**; compose per-corner values on the component:
 
 ```pdl
-primitive radius.card: Radius = Corner(tl: 12, tr: 12, br: 4, bl: 4)
+primitive radius.md: Radius = 12
+primitive radius.sm: Radius = 4
+
+// On a layout / media / text frame — not on a token declaration:
+cornerRadius = Corner(tl: radius.md, tr: radius.md, br: radius.sm, bl: radius.sm)
 ```
 
-Token references inside corners are allowed when types match.
+Axes accept numbers or **`Radius` / `Distance`-compatible** numeric token refs. A `primitive` / `semantic` of type **`Radius = Corner(…)`** is **PDL-E005**.
+
+---
+
+## `Shadow` (drop shadow)
+
+`Shadow(…)` is the normative authoring form for **`Shadow` tokens** and frame **`shadow=`**:
+
+```pdl
+primitive shadow.card: Shadow = Shadow(x: 0, y: 4, blurRadius: 12, color: #000000 @ 0.15)
+primitive shadow.soft: Shadow = Shadow(x: 0, y: 2, blurRadius: 8, color: color.primitive.black @ opacity.scrim)
+
+// On a layout frame:
+shadow = shadow.card
+shadow = Shadow(x: 0, y: 1, blurRadius: 3, spread: 0, color: #000000 @ 0.35)
+```
+
+| Field | Type | Notes |
+|-------|------|--------|
+| `x` | number | Horizontal offset (px) |
+| `y` | number | Vertical offset (px) |
+| `blurRadius` | number | Blur radius (px); non-negative |
+| `color` | `Color` | Hex, color token, or `color @ opacity` |
+| `spread` | number | Optional; defaults to `0` |
+
+Bake / catalogue resolve to `{ "kind": "shadow", "x", "y", "blurRadius", "spread", "color" }`. HTML preview maps that to CSS `box-shadow: <x>px <y>px <blurRadius>px <spread>px <color>`. A quoted CSS box-shadow string on a `Shadow` token is **PDL-E005**. Non-numeric axis values (e.g. `x: "a"`), axis refs to non-numeric tokens (e.g. `x: red` when `red` is a `Color`), and non-Color `color` values are also **PDL-E005**; `blurRadius` must be non-negative.
 
 ---
 
 ## Background / foreground layer lists
 
 **`background`** and **`foreground`** use the **same** forms: a **scalar color** (sugar for one solid layer) or an **ordered array** of layer constructors. They differ only in **stacking vs children** (under vs over) at composite time (§15).
+
+A bare **`Opacity`** token is **not** a layer (**PDL-E006** / **PDL-E005** on tokens): apply it with **`color @ opacity…`** or a constructor **`opacity:`** argument.
 
 Examples:
 
@@ -2170,7 +2262,7 @@ ForEach(chips) { chip in             // §4e — Rust bake expands
 
 ## Token types (names)
 
-`Color`, `Opacity`, `Distance`, `Radius`, `Shadow`, `Icon`, `MediaSource`, `Ratio`, `FontFamily`, `Size`, `Weight`, `Sizing`, `Duration`, `Easing`, `Transition`, `Blur`, `Vibrancy`, `Ramp`, `Background`, `Foreground`
+`Color`, `Opacity`, `Distance`, `Radius`, `Shadow`, `Icon`, `MediaSource`, `Ratio`, `FontFamily`, `Size`, `Weight`, `LineHeight`, `LetterSpacing`, `Sizing`, `Duration`, `Easing`, `Transition`, `Blur`, `Vibrancy`, `Ramp`, `Background`, `Foreground`
 
 ---
 
@@ -2187,17 +2279,27 @@ name: VariantName = .case
 
 ```txt
 .hug  .fill  .fixed(120)  .flex(min: 40, max: 200)
+Sizing.hug  Sizing.fill  Sizing.fixed(120)  Sizing.flex(min: 40, max: 200)
 .row .column .rowReverse .columnReverse .stack
+Direction.row  Direction.column  …
 .wrap .nowrap
+Wrap.wrap  Wrap.nowrap
 .start .center .end .stretch
+Justify.center  Align.stretch  AlignSelf.end
 .spaceBetween .spaceAround
 .flow .absolute
+Position.flow  Position.absolute
+.visible .scroll .clip
+Overflow.visible  Overflow.scroll  Overflow.clip
+ContentMode.cover  TruncateStyle.ellipsis  TruncateStyle.clip
+BorderPosition.inside  ObjectPosition.topLeft
 #RRGGBB   (hex never quoted)   "string"   (other string literals)
 color.token @ opacity.semantic.name
 color.token @ 0.5
 EdgeInsets(x: n, y: n)
 EdgeInsets(top: …, right: …, bottom: …, left: …)
 Corner(tl: n, tr: n, br: n, bl: n)
+Shadow(x: n, y: n, blurRadius: n, color: #hex [| @ opacity] [, spread: n])
 ```
 
 *(Prefer `color… @ opacity…` over a raw `0…1` literal in libraries; literals stay valid for one-offs.)*
@@ -3277,14 +3379,16 @@ semantic effect.scrollFade: Foreground = [ramp.scrollFade]
 | `Color` | color | Solid colors |
 | `Opacity` | color | Alpha multipliers |
 | `Distance` | spacing | Gaps, insets |
-| `Radius` | shape | Corners |
-| `Shadow` | effect | Drop shadows |
+| `Radius` | shape | Uniform corner radius (scalar; `Corner(…)` is frame-only) |
+| `Shadow` | effect | Drop shadows (`Shadow(…)` constructor) |
 | `Icon` | asset | Glyph id |
 | `MediaSource` | asset | Raster / vector / video / path ref (§5 §`media`) |
 | `Ratio` | layout | Aspect ratio |
 | `FontFamily` | typography | Font stack |
-| `Size` | typography | Font size, etc. |
+| `Size` | typography | Font size |
 | `Weight` | typography | Font weight |
+| `LineHeight` | typography | Unitless leading ratio |
+| `LetterSpacing` | typography | Tracking (em) |
 | `Sizing` | layout | Hug/fill/flex literals at token level (rare) |
 | `Duration` | motion | Time spans |
 | `Easing` | motion | Curves |
@@ -3328,7 +3432,7 @@ In §5, **`background`** and **`foreground`** on `layout` / `text` / `media` eac
 
 1. **Prefer `typeStyle`** over repeating font props.  
 2. **Pair type styles with semantic text colors.**  
-3. **Clamp long copy** — `lineClamp` + `textOverflow = .ellipsis`.  
+3. **Clamp long copy** — `overflow = .clip` + `truncateStyle = .ellipsis` (+ optional `lineClamp`).  
 
 ## Variants / enums
 
@@ -3797,7 +3901,7 @@ Emitters should treat these objects as **embedded AST slices** inside catalogue 
 | **`or`** | `items` | Disjunction of nested `ConditionExpr`. |
 | **`not`** | `expr` | Negation of a nested `ConditionExpr`. |
 
-**TODO:** Document mixed `&&` / `||` parenthesis rules (parser rejects certain mixes; mirror §7 / §21).
+Mixed `&&` / `||` without parentheses is **PDL-E038** (see §21.6 / §24).
 
 ---
 
@@ -3856,7 +3960,7 @@ The reference CLI emits **two graph-shaped JSON artefacts** (rich, reference-hea
 
 ## 16d — Baked design JSON (`bakeSystem`, `bakeComponent`)
 
-**Bake** is a **one-way** denormalisation: emitters receive **only** materialised component trees and **literal** frame properties. There is **no** **`variantTypes`**, no catalogue **`primitives` / `semantics` / `themes`** graph, no **`primitive:`** / **`semantic:`** markers, and no catalogue **`variants[]`** deltas.
+**Bake** is a **one-way** denormalisation: emitters receive **only** materialised component trees and **literal** frame properties. There is **no** **`variantTypes`**, no catalogue **`primitives` / `semantics` / `themes`** graph, no **`primitive:`** / **`semantic:`** markers, and no catalogue **`variants[]`** deltas. Text **`style = TypeStyleName`** is **expanded** into the preset’s typography props (then the **`typeStyle`** name is dropped); explicit frame props **win** over the preset.
 
 | Command | Arguments | JSON output |
 |---------|-----------|-------------|
@@ -3866,7 +3970,7 @@ The reference CLI emits **two graph-shaped JSON artefacts** (rich, reference-hea
 
 **Serialization:** **`bakeSystem`** and **`bakeComponent`** use the same **`stableStringify(..., { omitEmpty: true })`** rules as graph output — **§16a** (e.g. **`BakedFrame.children`** may be absent when there are no visible children).
 
-**HTML preview (`pdl renderHtml`):** The reference CLI can turn the same in-memory **`bakedDesign`** into a minimal **HTML5** document for Studio iframes and static reference pages (`src/renderHtml.ts`). When present, root **`previewBackground`** (resolved CSS color from bake) sets document chrome via **`--pdl-preview-background`**. The emitter maps **`layout`** (flex including **`.rowReverse` / `.columnReverse`**, **`.stack`** as overlapping CSS grid cells, **`gap` / `columnGap` / `rowGap`**, **`.flex` sizing** with evaluated **`min` / `max` / `preferred`**, **`alignSelf` / `grow` / `shrink` / `position` + `inset`**, **`justify`** including **`.stretch`**, scalar or first-color **`background`**, **`foreground`** as an inset overlay **`box-shadow`**, **`borderWidth`/`borderColor`** with **`borderPosition`** (**outside** → CSS border; **inside** → inset **`box-shadow`**), **`shadow`**, **`overflow`**, asymmetric **`Corner`** radii, approximate **Blur** / **Vibrancy** via **`backdrop-filter`**), **`text`** (typography, **`lineHeight`** ratio, **`letterSpacing`** in px from em×`fontSize`, **`justify`** / **`align`** via a flex column shell + **`text-align`**, clamp / ellipsis / opacity / overflow), **`spacer`**, **`icon`** (color swatch + name label — not a real glyph set), and **`media`** ( **`<img>`** when **`source`** looks like a URL/path; **`contentMode`** → **`object-fit`**; **`aspectRatio`** / **`objectPosition`**) to flexbox- and grid-oriented markup. **Ramp**, full **layer** compositing fidelity, stack+**`spaceBetween`**, custom **`@font-face`** loading, and non-raster **media** remain approximated or omitted. Closed-set params from **`variant`** or **`enum`** are keyword-agnostic (bake IR uses **`"type": "variant"`**). The mapping is **best-effort** and versioned with the toolchain, not part of the **`bakedDesign`** schema contract.
+**HTML preview (`pdl renderHtml`):** The reference CLI can turn the same in-memory **`bakedDesign`** into a minimal **HTML5** document for Studio iframes and static reference pages (`src/renderHtml.ts`). When present, root **`previewBackground`** (resolved CSS color from bake) sets document chrome via **`--pdl-preview-background`**. The emitter maps **`layout`** (flex including **`.rowReverse` / `.columnReverse`**, **`.stack`** as overlapping CSS grid cells, **`gap` / `columnGap` / `rowGap`**, **`.flex` sizing** with evaluated **`min` / `max` / `preferred`**, **`alignSelf` / `grow` / `shrink` / `position` + `inset`**, **`justify`** including **`.stretch`**, scalar or first-color **`background`**, **`foreground`** as an inset overlay **`box-shadow`**, **`borderWidth`/`borderColor`** with **`borderPosition`** (**outside** → CSS border; **inside** → inset **`box-shadow`**), **`shadow`**, **`overflow`** (**`.visible`** / **`.scroll`** / **`.clip`**; preview maps **`.clip`** → CSS `overflow: hidden` — §6 §Overflow), asymmetric **`Corner`** radii, approximate **Blur** / **Vibrancy** via **`backdrop-filter`**), **`text`** (typography, **`lineHeight`** ratio, **`letterSpacing`** in px from em×`fontSize`, **`justify`** / **`align`** via a flex column shell + **`text-align`**, clamp / ellipsis / opacity / overflow), **`spacer`**, **`icon`** (color swatch + name label — not a real glyph set), and **`media`** ( **`<img>`** when **`source`** looks like a URL/path; **`contentMode`** → **`object-fit`**; **`aspectRatio`** / **`objectPosition`**) to flexbox- and grid-oriented markup. **Ramp**, full **layer** compositing fidelity, stack+**`spaceBetween`**, custom **`@font-face`** loading, and non-raster **media** remain approximated or omitted. Closed-set params from **`variant`** or **`enum`** are keyword-agnostic (bake IR uses **`"type": "variant"`**). The mapping is **best-effort** and versioned with the toolchain, not part of the **`bakedDesign`** schema contract.
 
 ### `bakedDesign` — root document
 
@@ -3899,7 +4003,7 @@ The reference CLI emits **two graph-shaped JSON artefacts** (rich, reference-hea
 |-------|------|---------|
 | **`id`** | string | Frame id (**`Root`**, **`let`** ids, synthetic ids for spacers / instances). |
 | **`kind`** | string | **`layout`**, **`text`**, **`icon`**, **`media`**, **`spacer`**, … |
-| **`props`** | object | JSON-serialisable literals after evaluation. **`hidden`** frames are **omitted** from parent **`children`** lists (they do not appear as nodes in **`bake*`** output). |
+| **`props`** | object | JSON-serialisable literals after evaluation (including typography from expanded **`typeStyle`** presets). **`hidden`** frames are **omitted** from parent **`children`** lists (they do not appear as nodes in **`bake*`** output). |
 | **`children`** | **`BakedFrame[]`** | Ordered visible children. **Optional** on CLI output when the list is empty — omit the key or use **`[]`** per **§16a**; parsers **SHOULD** treat a missing **`children`** property as **`[]`**. |
 
 **Reference implementation:** `buildBakedDesignSystem` / `buildBakedDesignComponent` in **`src/bakeDesign.ts`**, CLI in **`src/cli.ts`**.
@@ -4271,6 +4375,8 @@ A dot (`.`) within an identifier acts as a namespace separator and is part of th
 
 A **leading dot** (`.`) followed by an identifier, e.g. `.row`, `.primary`, is a **dot-enum literal** — a distinct token type representing a variant case or built-in enum value. The dot is part of this token.
 
+**Optional qualified form:** for built-in **frame enums** (and **`Sizing`**), authors **MAY** write **`TypeName.case`** instead of **`.case`**. Both forms are equivalent after parse (same AST / evaluation). Examples: `justify = Justify.center`, `direction = Direction.row`, `width = Sizing.fill`. The type name is the PascalCase name from the frame-prop SoT (`shared/frame-props.json` `typeName`); case names remain case-sensitive. User **`variant`** cases still use leading-dot only in v1 (`param == .primary`).
+
 **Reserved words** (may not be used as user-defined identifiers):
 
 ```
@@ -4415,7 +4521,8 @@ semantic-decl
 token-type-name
   ::= 'Color' | 'Opacity' | 'Distance' | 'Radius' | 'Shadow'
     | 'Icon' | 'MediaSource' | 'Ratio' | 'FontFamily' | 'Size'
-    | 'Weight' | 'Sizing' | 'Duration' | 'Easing' | 'Transition'
+    | 'Weight' | 'LineHeight' | 'LetterSpacing' | 'Sizing' | 'Duration'
+    | 'Easing' | 'Transition'
     | 'Blur' | 'Vibrancy' | 'Ramp' | 'Background' | 'Foreground'
     ;
 ```
@@ -4783,15 +4890,18 @@ value-expr
   ::= HEX_COLOR
     | STRING
     | NUMBER
+    | ratio-literal
     | 'true'
     | 'false'
     | DOT_ENUM
+    | qualified-enum-literal
     | 'self'                      (* enclosing component instance *)
     | 'self' '.' IDENT            (* enclosing component param *)
     | IDENT
     | sizing-literal
     | edge-insets-literal
     | corner-literal
+    | shadow-literal
     | transition-literal
     | vibrancy-literal
     | ramp-literal
@@ -4800,11 +4910,27 @@ value-expr
     | layer-constructor
     ;
 
+(* Aspect-ratio sugar for Ratio tokens / aspectRatio — evaluates to W/H. Height MUST be > 0. *)
+ratio-literal
+  ::= NUMBER ':' NUMBER
+    ;
+
+(* Optional TypeName.case → same as DOT_ENUM `.case`. TypeName from frame-props SoT
+   (Direction, Wrap, Align, Justify, Overflow, BorderPosition, TruncateStyle,
+   ContentMode, ObjectPosition, AlignSelf, Position). Not used for user variants. *)
+qualified-enum-literal
+  ::= IDENT '.' IDENT
+    ;
+
 sizing-literal
   ::= '.hug'
     | '.fill'
     | '.fixed' '(' NUMBER ')'
     | '.flex' '(' [ flex-arg { ',' flex-arg } ] ')'
+    | 'Sizing' '.' 'hug'
+    | 'Sizing' '.' 'fill'
+    | 'Sizing' '.' 'fixed' '(' NUMBER ')'
+    | 'Sizing' '.' 'flex' '(' [ flex-arg { ',' flex-arg } ] ')'
     ;
 
 flex-arg
@@ -4822,6 +4948,20 @@ edge-insets-args
 corner-literal
   ::= 'Corner' '(' 'tl' ':' number-or-token ',' 'tr' ':' number-or-token
       ',' 'br' ':' number-or-token ',' 'bl' ':' number-or-token ')' ;
+
+shadow-literal
+  ::= 'Shadow' '(' shadow-arg { ',' shadow-arg } [ ',' ] ')' ;
+
+shadow-arg
+  ::= 'x' ':' number-or-token
+    | 'y' ':' number-or-token
+    | 'blurRadius' ':' number-or-token
+    | 'spread' ':' number-or-token
+    | 'color' ':' color-value
+    ;
+
+color-value
+  ::= HEX_COLOR | IDENT | color-with-opacity ;
 
 number-or-token
   ::= NUMBER | IDENT ;
@@ -4945,6 +5085,8 @@ A dot-enum literal like `.primary` is resolved against the **expected type** at 
 - In a **frame property**: resolved against the allowed enum set for that property (§5).
 - As a **frame kind** keyword (`layout`, `text`, `icon`, `media`): these are keywords, not dot-enums; they do not carry a leading dot.
 
+**Qualified sugar:** `TypeName.case` for a built-in frame enum (e.g. `Justify.center`) **MUST** parse to the same value as `.case` and then resolve with the same rules. Invalid cases for the property remain **PDL-E006**. `Sizing.*` remains a sizing literal (§6 / §21), not a `dotEnum` AST node.
+
 ---
 
 ### 22.5 Type style name resolution
@@ -4966,7 +5108,7 @@ An `interaction` block's `for ComponentName` clause must resolve to an existing 
 PDL has a **structural type system** used exclusively at validation time. There is no runtime type dispatch — all types are resolved before emit. Types fall into two categories:
 
 **Primitive types** — scalar values:
-`Color`, `Opacity`, `Distance`, `Radius`, `Shadow`, `Icon`, `MediaSource`, `Ratio`, `FontFamily`, `Size`, `Weight`, `Duration`, `Easing`, `Boolean`, `String`, `Number`
+`Color`, `Opacity`, `Distance`, `Radius`, `Shadow`, `Icon`, `MediaSource`, `Ratio`, `FontFamily`, `Size`, `Weight`, `LineHeight`, `LetterSpacing`, `Duration`, `Easing`, `Boolean`, `String`, `Number`
 
 **Composite types** — structured values:
 `Sizing`, `EdgeInsets`, `CornerRadii`, `Transition`, `Vibrancy`, `Ramp`, `Background`, `Foreground`
@@ -4978,15 +5120,15 @@ PDL has a **structural type system** used exclusively at validation time. There 
 
 ### 23.2 Token type checking
 
-When a token is declared with a `TokenType`, the RHS value **MUST** be compatible with that type:
+When a token is declared with a `TokenType`, the RHS value **MUST** be compatible with that type. The merged-design validator enforces this as **one TokenType → allowed RHS shape table** (TS `assertTokenRhsCompatible` / Rust `assert_token_rhs_compatible`); mismatched literals are **PDL-E005**.
 
 | TokenType | Valid RHS |
 |-----------|-----------|
 | `Color` | `#hex` literal, or reference to a `Color` token |
 | `Opacity` | `NUMBER` in 0…1, or reference to an `Opacity` token |
-| `Distance` | non-negative `NUMBER`, or reference to a `Distance` token |
-| `Radius` | non-negative `NUMBER`, `Corner(…)` literal, or `Radius` token |
-| `Shadow` | CSS box-shadow `STRING` (§3), or `Shadow` token |
+| `Distance` | non-negative `NUMBER`, or (on **`semantic`**) a `Distance` token — strings and other literals are **PDL-E005** |
+| `Radius` | non-negative `NUMBER`, or (on **`semantic`**) a `Radius` token — **not** `Corner(…)` (that form is frame-only on `cornerRadius`) |
+| `Shadow` | `Shadow(x:, y:, blurRadius:, color: [, spread:])` (§6), or (on **`semantic`**) a `Shadow` token — CSS strings are **PDL-E005** |
 | `Duration` | non-negative `NUMBER` (ms), or `Duration` token |
 | `Easing` | CSS easing `STRING` or `"linear"`, or `Easing` token |
 | `Transition` | transition tuple `(duration: …, easing: …)`, or `Transition` token |
@@ -4994,17 +5136,20 @@ When a token is declared with a `TokenType`, the RHS value **MUST** be compatibl
 | `Vibrancy` | vibrancy tuple `(saturation: …, brightness: …)`, or `Vibrancy` token |
 | `Ramp` | ramp literal `(direction: …, stops: […])`, or `Ramp` token |
 | `Background` / `Foreground` | scalar `Color`, layer list `[…]`, or token of the same type |
-| `Sizing` | sizing literal (`.hug`, `.fill`, `.fixed(n)`, `.flex(…)`) |
+| `Sizing` | sizing literal (`.hug` / `Sizing.hug`, `.fill` / `Sizing.fill`, `.fixed(n)` / `Sizing.fixed(n)`, `.flex(…)` / `Sizing.flex(…)`) — strings like `".hug"` are **PDL-E005** |
 | `FontFamily` / `Icon` / `MediaSource` | `STRING` |
-| `Size` / `Weight` / `Ratio` | `NUMBER` |
+| `Size` / `Weight` | `NUMBER` |
+| `LineHeight` | positive `NUMBER` (unitless ratio) |
+| `LetterSpacing` | `NUMBER` (em units; may be negative) |
+| `Ratio` | positive `NUMBER`, or **`W:H`** sugar (`16:9`) evaluating to `W/H` |
 
-A token referenced on the RHS must have been declared with the **same** `TokenType`. Assigning a `Distance` token to a `Color` declaration is **PDL-E005** (type mismatch).
+A token referenced on the RHS must have been declared with the **same** `TokenType`. Assigning a `Distance` token to a `Color` declaration is **PDL-E005** (type mismatch). A **`primitive`** whose RHS is a bare token identifier is also **PDL-E005** (primitives are literal leaves; aliases belong on **`semantic`**).
 
 ---
 
 ### 23.3 Frame property type checking
 
-Frame properties are type-checked against the allowed types in §5. Assigning a value of the wrong type to a property (e.g. `gap = "#FF0000"`) is **PDL-E006** (frame property type mismatch).
+Frame properties are type-checked against the allowed types in §5. The machine-readable SoT is **`shared/frame-props.json`** (loaded by TS `frameProps.ts` / Rust `frame_props.rs`): each frame kind maps property names to a reusable **value kind** (literal shapes, enum cases, and optional token types). Assigning a value of the wrong type to a property (e.g. `gap = "#FF0000"`) is **PDL-E006** (frame property type mismatch). An unknown property on a frame kind is **PDL-E011**. The same text-frame property set applies to **`typeStyle`** bodies (excluding `style`).
 
 ---
 
@@ -5061,12 +5206,12 @@ Future additions must use codes not in this list. Codes are never reused after r
 | **PDL-E003** | `duplicate-symbol` | Two top-level declarations share the same name within the same namespace (e.g. two `component Button` after merge). |
 | **PDL-E004** | `unknown-token-type` | A `primitive` or `semantic` declaration uses a `TokenType` name that is not in the §21.2 list. |
 | **PDL-E005** | `token-type-mismatch` | The RHS value of a token declaration is incompatible with the declared `TokenType` (§23.2). |
-| **PDL-E006** | `frame-prop-type-mismatch` | A frame property is assigned a value of the wrong type (§23.3). |
+| **PDL-E006** | `frame-prop-type-mismatch` | A frame property (or `typeStyle` prop) is assigned a value of the wrong type (§23.3 / `shared/frame-props.json`). |
 | **PDL-E007** | `unresolved-reference` | A dotted identifier or bare identifier used as a value does not match any token, parameter, or frame id in scope. |
 | **PDL-E008** | `unresolved-type-style` | A `style = Name` reference does not match any declared `typeStyle` (case-sensitive). |
 | **PDL-E009** | `unresolved-interaction-target` | An `interaction … for ComponentName` block names a component that does not exist in the merged definition. |
 | **PDL-E010** | `invalid-condition-operand` | A condition expression compares a non-variant parameter, or uses an operator not supported for its type (§23.5). |
-| **PDL-E011** | `unknown-frame-property` | A property name is used on a frame kind that does not define it (§5). |
+| **PDL-E011** | `unknown-frame-property` | A property name is used on a frame kind (or `typeStyle`) that does not define it (§5 / `shared/frame-props.json`). |
 | **PDL-E012** | `param-reference-in-fixture` | A fixture value body contains a `param`-kind reference (§23.6). |
 | **PDL-E013** | `circular-token-reference` | A token's RHS resolves to itself directly or through a chain. |
 | **PDL-E014** | `duplicate-fixture-label` | Two `example` blocks within the same `fixtures ComponentName { … }` have identical labels. |
@@ -5092,6 +5237,8 @@ Future additions must use codes not in this list. Codes are never reused after r
 | **PDL-E034** | `array-slot-dotted-override` | `slots.field = …` on an **array** slot/list param; use `ForEach(slots) { item in item.field = … }` (§4b / §4e). |
 | **PDL-E035** | `foreach-without-mount` | `ForEach(list)` appears but `list` is never referenced in any `children = […]` / `children = list` of the component (§4e). |
 | **PDL-E036** | `list-emit-capture` | Emit capture qualifies an **array/list** param (`chips.select(…) = { … }`); use `ForEach(chips) { chip in chip.select(…) = { … } }` (§4e). |
+| **PDL-E037** | `unknown-component` | A companion block, instance, bake, or resolve path names a component that does not exist in the merged definition. |
+| **PDL-E038** | `mixed-condition-operators` | A condition expression mixes `&&` and `\|\|` at the same precedence level without parentheses (§21.6). |
 
 ---
 

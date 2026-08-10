@@ -10,7 +10,13 @@
                 "id": "R0__Title",
                 "kind": "text",
                 "props": {
-                  "content": "Account"
+                  "color": "#222222",
+                  "content": "Account",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               },
               {
@@ -19,7 +25,13 @@
                     "id": "R0__Trail__Meta",
                     "kind": "text",
                     "props": {
-                      "content": "Pro"
+                      "color": "#717171",
+                      "content": "Pro",
+                      "fontFamily": "system-ui, sans-serif",
+                      "fontSize": 12,
+                      "fontWeight": 600,
+                      "letterSpacing": 0.02,
+                      "lineHeight": 1.2
                     }
                   },
                   {
@@ -72,7 +84,13 @@
                 "id": "R1__Title",
                 "kind": "text",
                 "props": {
-                  "content": "Privacy"
+                  "color": "#222222",
+                  "content": "Privacy",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               },
               {
@@ -81,7 +99,13 @@
                     "id": "R1__Trail__Meta",
                     "kind": "text",
                     "props": {
-                      "content": ""
+                      "color": "#717171",
+                      "content": "",
+                      "fontFamily": "system-ui, sans-serif",
+                      "fontSize": 12,
+                      "fontWeight": 600,
+                      "letterSpacing": 0.02,
+                      "lineHeight": 1.2
                     }
                   },
                   {
@@ -133,7 +157,13 @@
                 "id": "R2__Title",
                 "kind": "text",
                 "props": {
-                  "content": "About"
+                  "color": "#222222",
+                  "content": "About",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               },
               {
@@ -142,7 +172,13 @@
                     "id": "R2__Trail__Meta",
                     "kind": "text",
                     "props": {
-                      "content": "v1"
+                      "color": "#717171",
+                      "content": "v1",
+                      "fontFamily": "system-ui, sans-serif",
+                      "fontSize": 12,
+                      "fontWeight": 600,
+                      "letterSpacing": 0.02,
+                      "lineHeight": 1.2
                     }
                   },
                   {
@@ -218,7 +254,13 @@
             "id": "Title",
             "kind": "text",
             "props": {
-              "content": "Settings"
+              "color": "#222222",
+              "content": "Settings",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 16,
+              "fontWeight": 400,
+              "letterSpacing": 0,
+              "lineHeight": 1.35
             }
           },
           {
@@ -227,7 +269,13 @@
                 "id": "Meta",
                 "kind": "text",
                 "props": {
-                  "content": ""
+                  "color": "#717171",
+                  "content": "",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 12,
+                  "fontWeight": 600,
+                  "letterSpacing": 0.02,
+                  "lineHeight": 1.2
                 }
               },
               {

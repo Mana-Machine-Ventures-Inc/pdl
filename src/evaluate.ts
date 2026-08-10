@@ -96,6 +96,8 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
       return expr.value;
     case "number":
       return expr.value;
+    case "ratio":
+      return expr.width / expr.height;
     case "boolean":
       return expr.value;
     case "condition": {
@@ -196,6 +198,14 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
       const bl = evaluateValue(expr.bl, opts);
       if (tl === tr && tr === br && br === bl) return tl;
       return { tl, tr, br, bl };
+    }
+    case "shadow": {
+      const x = evaluateValue(expr.x, opts);
+      const y = evaluateValue(expr.y, opts);
+      const blurRadius = evaluateValue(expr.blurRadius, opts);
+      const color = evaluateValue(expr.color, opts);
+      const spread = expr.spread !== undefined ? evaluateValue(expr.spread, opts) : 0;
+      return { kind: "shadow", x, y, blurRadius, spread, color };
     }
     case "array":
       return expr.items.map((i) => evaluateValue(i, opts));

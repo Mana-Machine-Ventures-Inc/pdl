@@ -9,6 +9,7 @@ pub mod catalogue;
 pub mod design;
 pub mod error;
 pub mod evaluate;
+pub mod frame_props;
 pub mod graph_serialize;
 pub mod interaction;
 pub mod lexer;

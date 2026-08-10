@@ -52,32 +52,78 @@ describe("invalid PDL — import graph", () => {
   });
 });
 
-describe("invalid PDL — condition grammar (PDL-E011)", () => {
+describe("invalid PDL — condition grammar (PDL-E038)", () => {
   it("rejects mixing && and || without parentheses in layout if", () => {
-    expectPdl(() => loadDesign(err("e011-mixed-and-or.pdl")), "PDL-E011", /Cannot mix `&&` and `\|\|`/);
+    expectPdl(() => loadDesign(err("e038-mixed-and-or.pdl")), "PDL-E038", /Cannot mix `&&` and `\|\|`/);
   });
 
   it("rejects mixing && and || without parentheses in hidden = condition", () => {
-    expectPdl(() => loadDesign(err("e011-hidden-mixed-and-or.pdl")), "PDL-E011", /Cannot mix `&&` and `\|\|`/);
+    expectPdl(() => loadDesign(err("e038-hidden-mixed-and-or.pdl")), "PDL-E038", /Cannot mix `&&` and `\|\|`/);
   });
 });
 
-describe("invalid PDL — unknown symbols & companions (PDL-E006)", () => {
-  const cases: [string, RegExp][] = [
-    ["e006-usage-unknown-component.pdl", /usage references unknown component/],
-    ["e006-fixtures-unknown-component.pdl", /fixtures references unknown component/],
-    ["e006-rules-unknown-component.pdl", /rules references unknown component/],
-    ["e006-extend-unknown-component.pdl", /extend targets unknown component/],
+describe("invalid PDL — frame property types (PDL-E006 / PDL-E011)", () => {
+  it("PDL-E006 when gap is a hex color", () => {
+    expectPdl(() => loadDesign(err("e006-gap-hex-color.pdl")), "PDL-E006", /gap.*number|Distance/);
+  });
+
+  it("PDL-E006 when direction is a string", () => {
+    expectPdl(() => loadDesign(err("e006-direction-string.pdl")), "PDL-E006", /direction/);
+  });
+
+  it("PDL-E006 when text justify uses layout-only .stretch", () => {
+    expectPdl(() => loadDesign(err("e006-text-justify-stretch.pdl")), "PDL-E006", /justify/);
+  });
+
+  it("PDL-E006 when overflow uses removed .hidden (use .clip)", () => {
+    expectPdl(() => loadDesign(err("e006-overflow-hidden.pdl")), "PDL-E006", /overflow/);
+  });
+
+  it("PDL-E006 when overflow uses removed .auto (use .scroll)", () => {
+    expectPdl(() => loadDesign(err("e006-overflow-auto.pdl")), "PDL-E006", /overflow/);
+  });
+
+  it("PDL-E006 when a bare Opacity token is used as a layer", () => {
+    expectPdl(
+      () => loadDesign(err("e006-opacity-as-layer.pdl")),
+      "PDL-E006",
+      /Opacity|color @/,
+    );
+  });
+
+  it("PDL-E011 for unknown property on layout", () => {
+    expectPdl(
+      () => loadDesign(err("e011-unknown-prop-on-layout.pdl")),
+      "PDL-E011",
+      /unknown property `content` on `layout`/,
+    );
+  });
+
+  it("PDL-E011 for unknown property on typeStyle", () => {
+    expectPdl(
+      () => loadDesign(err("e011-typestyle-unknown-prop.pdl")),
+      "PDL-E011",
+      /typeStyle.*gap|unknown property `gap`/,
+    );
+  });
+});
+
+describe("invalid PDL — unknown symbols & companions (PDL-E037 / PDL-E016)", () => {
+  const cases: [string, string, RegExp][] = [
+    ["e037-usage-unknown-component.pdl", "PDL-E037", /usage references unknown component/],
+    ["e037-fixtures-unknown-component.pdl", "PDL-E037", /fixtures references unknown component/],
+    ["e037-rules-unknown-component.pdl", "PDL-E037", /rules references unknown component/],
+    ["e016-extend-unknown-component.pdl", "PDL-E016", /extend targets unknown component/],
   ];
-  it.each(cases)("loadDesign(%s) → PDL-E006", (file, re) => {
-    expectPdl(() => loadDesign(err(file)), "PDL-E006", re);
+  it.each(cases)("loadDesign(%s) → %s", (file, code, re) => {
+    expectPdl(() => loadDesign(err(file)), code, re);
   });
 });
 
 describe("invalid PDL — removed interaction keyword (PDL-E001)", () => {
   it("rejects interaction blocks", () => {
     expectPdl(
-      () => loadDesign(err("e006-interaction-unknown-component.pdl")),
+      () => loadDesign(err("e037-interaction-unknown-component.pdl")),
       "PDL-E001",
       /interaction.*removed|self\.<channel>/,
     );
@@ -103,8 +149,8 @@ describe("invalid PDL — parameters & identifiers (PDL-E007)", () => {
   });
 
   it("unknown component in let instance (catalogue)", () => {
-    const d = loadDesign(err("e006-let-instance-unknown-component.pdl"));
-    expectPdl(() => buildComponentCatalogue(d), "PDL-E006", /DefinitelyNotAComponent/);
+    const d = loadDesign(err("e037-let-instance-unknown-component.pdl"));
+    expectPdl(() => buildComponentCatalogue(d), "PDL-E037", /DefinitelyNotAComponent/);
   });
 });
 
@@ -115,13 +161,129 @@ describe("invalid PDL — frame & hidden rules (PDL-E012)", () => {
 });
 
 describe("invalid PDL — token graph (PDL-E004)", () => {
-  it("circular primitive definitions", () => {
+  it("circular semantic definitions", () => {
     const d = loadDesign(err("e004-circular-primitives.pdl"));
     expectPdl(() => buildResolvedTokenMap(d), "PDL-E004", /Circular token reference/);
   });
 });
 
 describe("invalid PDL — catalogue & theme (PDL-E005 / PDL-E010)", () => {
+  it("PDL-E005 when a primitive aliases another token", () => {
+    expectPdl(
+      () => loadDesign(err("e005-primitive-token-ref.pdl")),
+      "PDL-E005",
+      /Primitive `shield4` must use a literal value.*`red`.*Color/,
+    );
+  });
+
+  it("PDL-E005 when a semantic aliases a token of the wrong type", () => {
+    expectPdl(
+      () => loadDesign(err("e005-semantic-type-mismatch.pdl")),
+      "PDL-E005",
+      /type Opacity but references `red` of type Color/,
+    );
+  });
+
+  it("PDL-E005 when Radius token uses Corner(…)", () => {
+    expectPdl(
+      () => loadDesign(err("e005-radius-corner-on-token.pdl")),
+      "PDL-E005",
+      /Radius.*Corner|Corner.*cornerRadius/,
+    );
+  });
+
+  it("PDL-E005 when Distance token uses a string", () => {
+    expectPdl(
+      () => loadDesign(err("e005-distance-string.pdl")),
+      "PDL-E005",
+      /Distance.*non-negative number/,
+    );
+  });
+
+  it("PDL-E005 when Shadow token uses a CSS string", () => {
+    expectPdl(
+      () => loadDesign(err("e005-shadow-string.pdl")),
+      "PDL-E005",
+      /Shadow.*Shadow\(|CSS box-shadow/,
+    );
+  });
+
+  it("PDL-E005 when Shadow axis is a string", () => {
+    expectPdl(
+      () => loadDesign(err("e005-shadow-axis-string.pdl")),
+      "PDL-E005",
+      /Shadow.*field `x`.*number/,
+    );
+  });
+
+  it("PDL-E005 when Shadow axis references a Color token", () => {
+    expectPdl(
+      () => loadDesign(err("e005-shadow-axis-color-token.pdl")),
+      "PDL-E005",
+      /Shadow.*field `x`.*numeric token|`red` has type Color/,
+    );
+  });
+
+  it("PDL-E005 when color @ opacity literal is out of range", () => {
+    expectPdl(
+      () => loadDesign(err("e005-opacity-of-out-of-range.pdl")),
+      "PDL-E005",
+      /Opacity side of `@`.*0…1|got 1\.5/,
+    );
+  });
+
+  it("PDL-E005 when FontFamily token uses a number", () => {
+    expectPdl(
+      () => loadDesign(err("e005-fontfamily-number.pdl")),
+      "PDL-E005",
+      /FontFamily.*string/,
+    );
+  });
+
+  it("PDL-E005 when FontFamily token uses a hex color", () => {
+    expectPdl(
+      () => loadDesign(err("e005-fontfamily-hex.pdl")),
+      "PDL-E005",
+      /FontFamily.*string/,
+    );
+  });
+
+  it("PDL-E005 when Size token uses a string", () => {
+    expectPdl(() => loadDesign(err("e005-size-string.pdl")), "PDL-E005", /Size.*number/);
+  });
+
+  it("PDL-E005 when LineHeight token uses a string", () => {
+    expectPdl(() => loadDesign(err("e005-lineheight-string.pdl")), "PDL-E005", /LineHeight/);
+  });
+
+  it("PDL-E005 when LineHeight token is zero", () => {
+    expectPdl(() => loadDesign(err("e005-lineheight-zero.pdl")), "PDL-E005", /LineHeight/);
+  });
+
+  it("PDL-E005 when LetterSpacing token uses a string", () => {
+    expectPdl(
+      () => loadDesign(err("e005-letterspacing-string.pdl")),
+      "PDL-E005",
+      /LetterSpacing/,
+    );
+  });
+
+  it("PDL-E005 when Sizing token uses a string", () => {
+    expectPdl(
+      () => loadDesign(err("e005-sizing-string.pdl")),
+      "PDL-E005",
+      /Sizing.*sizing literal|got string/,
+    );
+  });
+
+  it("PDL-E005 when Color token uses a number", () => {
+    expectPdl(() => loadDesign(err("e005-color-number.pdl")), "PDL-E005", /Color.*hex|Color.*color/);
+  });
+
+  it("PDL-E005 when Opacity token uses a string", () => {
+    expectPdl(() => loadDesign(err("e005-opacity-string.pdl")), "PDL-E005", /Opacity.*0…1|Opacity.*number/);
+  });
+
   it("PDL-E005 for unknown active theme name", () => {
     const d = loadDesign(err("e005-unknown-theme.pdl"));
     expectPdl(() => buildComponentCatalogue(d, { theme: "NoSuchThemeName" }), "PDL-E005", /Unknown theme/);
@@ -153,7 +315,33 @@ describe("invalid PDL — legacy fixtures (same validators)", () => {
   });
 });
 
-describe("valid merge note — duplicate top-level names last-win", () => {
+describe("PDL-E003 duplicate token names", () => {
+  it("same-file primitive redeclaration", () => {
+    expectPdl(
+      () => loadDesign(err("e003-duplicate-token.pdl")),
+      "PDL-E003",
+      /Invalid redeclaration of token `color\.dup`/,
+    );
+  });
+
+  it("primitive vs semantic same name", () => {
+    expectPdl(
+      () => loadDesign(err("e003-duplicate-token-cross-kind.pdl")),
+      "PDL-E003",
+      /Invalid redeclaration of token `color\.clash`/,
+    );
+  });
+
+  it("import chain redeclaration", () => {
+    expectPdl(
+      () => loadDesign(err("e003-duplicate-token-import.pdl")),
+      "PDL-E003",
+      /Invalid redeclaration of token `color\.shared`/,
+    );
+  });
+});
+
+describe("valid merge note — duplicate component names last-win", () => {
   it("two components with the same name in one file: load succeeds (later declaration wins)", () => {
     const d = loadDesign(err("valid-duplicate-component-name.pdl"));
     expect(d.components.has("Dup")).toBe(true);

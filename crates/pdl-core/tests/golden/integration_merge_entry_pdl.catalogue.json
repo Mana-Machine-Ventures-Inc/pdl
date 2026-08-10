@@ -2,6 +2,22 @@
   "generatedAt": "2026-08-06T00:33:37.262Z",
   "kind": "componentCatalogue",
   "primitives": {
+    "color.merge.fromA": {
+      "definition": {
+        "kind": "hex",
+        "value": "#222222"
+      },
+      "name": "color.merge.fromA",
+      "tokenType": "Color"
+    },
+    "color.merge.fromB": {
+      "definition": {
+        "kind": "hex",
+        "value": "#111111"
+      },
+      "name": "color.merge.fromB",
+      "tokenType": "Color"
+    },
     "color.merge.token": {
       "definition": {
         "kind": "hex",

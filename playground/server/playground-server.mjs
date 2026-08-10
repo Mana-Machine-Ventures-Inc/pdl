@@ -323,13 +323,51 @@ function buildFixturesAndParams(design, evaluateValue, tokenMap) {
   return { fixturesByComponent, componentParams, variantCases };
 }
 
+/** @param {unknown} v */
+function cssColorFromResolved(v) {
+  if (typeof v !== "string") return null;
+  const s = v.trim();
+  if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(s)) return s;
+  return null;
+}
+
+/**
+ * Expand #RGB / #RRGGBB / #RRGGBBAA to a CSS color that preserves alpha.
+ * 8-digit hex is fine in modern browsers; also expose rgba() for overlays.
+ * @param {string} hex
+ */
+function cssPaintFromHex(hex) {
+  const raw = hex.trim();
+  let h = raw.startsWith("#") ? raw.slice(1) : raw;
+  if (h.length === 3) {
+    h = `${h[0]}${h[0]}${h[1]}${h[1]}${h[2]}${h[2]}`;
+  }
+  if (h.length === 6) {
+    return { hex: `#${h.toUpperCase()}`, css: `#${h}`, alpha: 1 };
+  }
+  if (h.length === 8) {
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    const a = parseInt(h.slice(6, 8), 16) / 255;
+    const alpha = Math.round(a * 1000) / 1000;
+    return {
+      hex: `#${h.toUpperCase()}`,
+      css: `rgba(${r}, ${g}, ${b}, ${alpha})`,
+      alpha,
+    };
+  }
+  return { hex: raw, css: raw, alpha: 1 };
+}
+
 /**
  * JSON-friendly view of primitives, semantics, themes, variants, type styles (for playground UI).
  * @param {unknown} design - DesignDefinition from loadDesign
  * @param {(e: unknown) => unknown} serialiseValueExpr
  * @param {string} workspaceRoot
+ * @param {Map<string, unknown> | undefined} [tokenMap]
  */
-function buildDesignSummary(design, serialiseValueExpr, workspaceRoot) {
+function buildDesignSummary(design, serialiseValueExpr, workspaceRoot, tokenMap) {
   const relModule = (p) => {
     try {
       const r = relative(workspaceRoot, p);
@@ -340,21 +378,146 @@ function buildDesignSummary(design, serialiseValueExpr, workspaceRoot) {
     return String(p).replace(/\\/g, "/");
   };
 
+  /** @param {string} name @param {string} tokenType @param {unknown} value */
+  const tokenRow = (name, tokenType, value) => {
+    const resolved = tokenMap?.get(name);
+
+    // Opacity tokens: preview as black @ alpha over the checkerboard.
+    if (tokenType === "Opacity") {
+      let alpha = NaN;
+      if (typeof resolved === "number") alpha = resolved;
+      else if (typeof resolved === "string" && /^-?\d+(\.\d+)?$/.test(resolved.trim())) {
+        alpha = Number(resolved.trim());
+      }
+      if (Number.isFinite(alpha)) {
+        const a = Math.min(1, Math.max(0, alpha));
+        const rounded = Math.round(a * 1000) / 1000;
+        return {
+          name,
+          tokenType,
+          value,
+          cssColor: `rgba(0, 0, 0, ${rounded})`,
+          hex: String(rounded),
+          alpha: rounded,
+          resolved: String(rounded),
+        };
+      }
+    }
+
+    // Shadow tokens: CSS box-shadow string for previews (no color swatch — use shadow card).
+    if (
+      tokenType === "Shadow" &&
+      resolved &&
+      typeof resolved === "object" &&
+      /** @type {Record<string, unknown>} */ (resolved).kind === "shadow"
+    ) {
+      const o = /** @type {Record<string, unknown>} */ (resolved);
+      const x = Number(o.x);
+      const y = Number(o.y);
+      const blur = Number(o.blurRadius);
+      const spread = o.spread === undefined || o.spread === null ? 0 : Number(o.spread);
+      const color = typeof o.color === "string" ? o.color : "";
+      if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(blur) && color) {
+        const css = `${x}px ${y}px ${blur}px ${Number.isFinite(spread) ? spread : 0}px ${color}`;
+        return {
+          name,
+          tokenType,
+          value,
+          resolved: css,
+          shadowCss: css,
+          hex: css,
+        };
+      }
+    }
+
+    // Size / Weight / LineHeight / LetterSpacing: numeric resolved value for Aa micro-previews.
+    if (
+      tokenType === "Size" ||
+      tokenType === "Weight" ||
+      tokenType === "LineHeight" ||
+      tokenType === "LetterSpacing"
+    ) {
+      let n = NaN;
+      if (typeof resolved === "number") n = resolved;
+      else if (typeof resolved === "string" && /^-?\d+(\.\d+)?$/.test(resolved.trim())) {
+        n = Number(resolved.trim());
+      }
+      if (Number.isFinite(n)) {
+        return {
+          name,
+          tokenType,
+          value,
+          resolved: String(n),
+          hex: String(n),
+        };
+      }
+    }
+
+    // Sizing: hug / fill / fixed / flex — expose a mode + label for icons.
+    if (tokenType === "Sizing") {
+      /** @type {string | null} */
+      let mode = null;
+      /** @type {string | null} */
+      let label = null;
+      if (resolved === "hug" || resolved === "fill") {
+        mode = resolved;
+        label = resolved;
+      } else if (resolved && typeof resolved === "object") {
+        const o = /** @type {Record<string, unknown>} */ (resolved);
+        if (typeof o.fixed === "number" || typeof o.fixed === "string") {
+          mode = "fixed";
+          label = `fixed(${o.fixed})`;
+        } else if (o.flex && typeof o.flex === "object") {
+          mode = "flex";
+          const fx = /** @type {Record<string, unknown>} */ (o.flex);
+          const parts = [];
+          if (fx.min != null) parts.push(`min: ${fx.min}`);
+          if (fx.max != null) parts.push(`max: ${fx.max}`);
+          if (fx.preferred != null) parts.push(`preferred: ${fx.preferred}`);
+          label = parts.length ? `flex(${parts.join(", ")})` : "flex";
+        }
+      }
+      if (mode && label) {
+        return {
+          name,
+          tokenType,
+          value,
+          resolved: label,
+          sizingMode: mode,
+          hex: label,
+        };
+      }
+    }
+
+    const hexRaw = cssColorFromResolved(resolved);
+    const paint = hexRaw ? cssPaintFromHex(hexRaw) : null;
+    const display =
+      paint?.hex ??
+      (typeof resolved === "string" || typeof resolved === "number" || typeof resolved === "boolean"
+        ? String(resolved)
+        : null);
+    return {
+      name,
+      tokenType,
+      value,
+      ...(paint
+        ? {
+            cssColor: paint.css,
+            hex: paint.hex,
+            alpha: paint.alpha,
+          }
+        : {}),
+      ...(display != null ? { resolved: display } : {}),
+    };
+  };
+
   const primitives = [...design.primitives.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([name, p]) => ({
-      name,
-      tokenType: p.tokenType,
-      value: serialiseValueExpr(p.value),
-    }));
+    .map(([name, p]) => tokenRow(name, p.tokenType, serialiseValueExpr(p.value)));
 
   const semantics = [...design.semantics.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([name, s]) => ({
-      name,
-      tokenType: s.tokenType,
-      value: serialiseValueExpr(s.value),
-    }));
+    .map(([name, s]) => tokenRow(name, s.tokenType, serialiseValueExpr(s.value)));
 
   const themeDefinitions = [...design.themes.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
@@ -399,7 +562,7 @@ function buildDesignSummary(design, serialiseValueExpr, workspaceRoot) {
 
 function enrichLoadPayload(design, serialiseValueExpr, evaluateValue, buildResolvedTokenMap, workspaceRoot) {
   const tokenMap = buildResolvedTokenMap(design);
-  const designSummary = buildDesignSummary(design, serialiseValueExpr, workspaceRoot);
+  const designSummary = buildDesignSummary(design, serialiseValueExpr, workspaceRoot, tokenMap);
   const controls = buildFixturesAndParams(design, evaluateValue, tokenMap);
   /** @type {Record<string, unknown>} */
   const interactionsByComponent = {};
@@ -590,7 +753,19 @@ async function handleLoad(body) {
     if (relative(tmp, entryAbs).startsWith("..")) {
       throw new Error("Invalid entry path");
     }
-    return enrichDesignAt(entryAbs, tmp);
+    if (!existsSync(entryAbs)) {
+      const available = Object.keys(files ?? {})
+        .filter((p) => String(p).endsWith(".pdl"))
+        .slice(0, 8)
+        .join(", ");
+      throw new Error(
+        `Entry "${entry}" is not in the scratch workspace` +
+          (available ? ` (have: ${available})` : " (no .pdl files)"),
+      );
+    }
+    // Must await: a bare `return enrichDesignAt(...)` runs `finally` (rmSync) before the
+    // async enrich reads the temp files → ENOENT on lab.pdl / entry.
+    return await enrichDesignAt(entryAbs, tmp);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

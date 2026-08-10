@@ -48,44 +48,6 @@
       },
       "rootKind": "layout"
     },
-    "AtomTextOverflow": {
-      "name": "AtomTextOverflow",
-      "root": {
-        "children": [
-          {
-            "id": "Clipped",
-            "kind": "text",
-            "props": {
-              "color": "#222222",
-              "content": "Clipped overflow",
-              "fontSize": 13,
-              "overflow": "clip",
-              "textOverflow": "clip"
-            }
-          },
-          {
-            "id": "Ellipsis",
-            "kind": "text",
-            "props": {
-              "color": "#EBEBEB",
-              "content": "Very long label that should ellipsize when constrained",
-              "fontSize": 13,
-              "lineClamp": 2,
-              "overflow": "hidden",
-              "textOverflow": "ellipsis"
-            }
-          }
-        ],
-        "id": "Root",
-        "kind": "layout",
-        "props": {
-          "background": "#F7F7F7",
-          "direction": "column",
-          "gap": 4
-        }
-      },
-      "rootKind": "layout"
-    },
     "AtomTextPlain": {
       "name": "AtomTextPlain",
       "root": {
@@ -121,8 +83,13 @@
             "id": "T",
             "kind": "text",
             "props": {
+              "color": "#717171",
               "content": "Mixed",
-              "fontSize": 22
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 22,
+              "fontWeight": 600,
+              "letterSpacing": 0.02,
+              "lineHeight": 1.2
             }
           }
         ],
@@ -143,28 +110,52 @@
             "id": "A",
             "kind": "text",
             "props": {
-              "content": "Caption line"
+              "color": "#717171",
+              "content": "Caption line",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 12,
+              "fontWeight": 600,
+              "letterSpacing": 0.02,
+              "lineHeight": 1.2
             }
           },
           {
             "id": "B",
             "kind": "text",
             "props": {
-              "content": "Body line"
+              "color": "#222222",
+              "content": "Body line",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 16,
+              "fontWeight": 400,
+              "letterSpacing": 0,
+              "lineHeight": 1.35
             }
           },
           {
             "id": "C",
             "kind": "text",
             "props": {
-              "content": "Title line"
+              "color": "#222222",
+              "content": "Title line",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 22,
+              "fontWeight": 700,
+              "letterSpacing": -0.01,
+              "lineHeight": 1.2
             }
           },
           {
             "id": "D",
             "kind": "text",
             "props": {
-              "content": "Mono line"
+              "color": "#222222",
+              "content": "Mono line",
+              "fontFamily": "ui-monospace, monospace",
+              "fontSize": 12,
+              "fontWeight": 400,
+              "letterSpacing": 0,
+              "lineHeight": 1.35
             }
           }
         ],
@@ -176,13 +167,59 @@
         }
       },
       "rootKind": "layout"
+    },
+    "AtomTruncateStyle": {
+      "name": "AtomTruncateStyle",
+      "root": {
+        "children": [
+          {
+            "id": "Clipped",
+            "kind": "text",
+            "props": {
+              "color": "#222222",
+              "content": "Very long label that should hard-clip with no ellipsis glyph when constrained",
+              "fontSize": 13,
+              "lineClamp": 2,
+              "lineHeight": 1.4,
+              "overflow": "clip",
+              "truncateStyle": "clip",
+              "width": {
+                "fixed": 120
+              }
+            }
+          },
+          {
+            "id": "Ellipsis",
+            "kind": "text",
+            "props": {
+              "color": "#EBEBEB",
+              "content": "Very long label that should ellipsize when constrained",
+              "fontSize": 13,
+              "lineClamp": 2,
+              "overflow": "clip",
+              "truncateStyle": "ellipsis",
+              "width": {
+                "fixed": 120
+              }
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": "#F7F7F7",
+          "direction": "column",
+          "gap": 4
+        }
+      },
+      "rootKind": "layout"
     }
   },
-  "generatedAt": "2026-08-05T23:45:27.745Z",
+  "generatedAt": "2026-08-10T01:20:11.387Z",
   "provenance": {
     "bakeProfile": "system-defaults",
     "bakedTheme": null,
-    "entryPath": "/workspace/test-fixtures/pdl/atoms/text_atoms.pdl"
+    "entryPath": "/Users/andrewjclark/Developer/pdl/test-fixtures/pdl/atoms/text_atoms.pdl"
   },
   "schemaKind": "bakedDesign",
   "schemaVersion": "1.0.0-beta"

@@ -1,0 +1,266 @@
+{
+  "$comment": "Machine SoT for full-spec §5 frame properties and §23.3 type checks. Loaded by src/frameProps.ts and crates/pdl-core/src/frame_props.rs. Enum valueKinds with typeName accept TypeName.case as sugar for .case (Sizing stays a keyword sizing-literal).",
+  "schemaVersion": 1,
+  "valueKinds": {
+    "sizing": {
+      "accept": ["sizing", "number"],
+      "numberSugar": "fixed",
+      "tokenTypes": ["Sizing"],
+      "nonNegativeNumber": true
+    },
+    "edgeInsets": {
+      "accept": ["edgeInsets", "number"],
+      "numberSugar": "uniformInsets",
+      "nonNegativeNumber": true
+    },
+    "distance": {
+      "accept": ["number"],
+      "tokenTypes": ["Distance"],
+      "nonNegativeNumber": true
+    },
+    "number": {
+      "accept": ["number"]
+    },
+    "nonNegNumber": {
+      "accept": ["number"],
+      "nonNegativeNumber": true
+    },
+    "size": {
+      "accept": ["number"],
+      "tokenTypes": ["Size"],
+      "nonNegativeNumber": true
+    },
+    "weight": {
+      "accept": ["number"],
+      "tokenTypes": ["Weight"]
+    },
+    "lineHeight": {
+      "accept": ["number"],
+      "tokenTypes": ["LineHeight"],
+      "positiveNumber": true
+    },
+    "letterSpacing": {
+      "accept": ["number"],
+      "tokenTypes": ["LetterSpacing"]
+    },
+    "ratio": {
+      "accept": ["number", "ratio"],
+      "tokenTypes": ["Ratio"]
+    },
+    "opacity": {
+      "accept": ["number"],
+      "tokenTypes": ["Opacity"],
+      "range": [0, 1]
+    },
+    "color": {
+      "accept": ["hex", "opacityOf"],
+      "tokenTypes": ["Color"]
+    },
+    "colorOrLayers": {
+      "accept": ["hex", "opacityOf", "array", "call"],
+      "tokenTypes": ["Color", "Background", "Foreground"]
+    },
+    "cornerRadius": {
+      "accept": ["number", "corner"],
+      "tokenTypes": ["Radius"],
+      "nonNegativeNumber": true
+    },
+    "shadow": {
+      "accept": ["shadow"],
+      "tokenTypes": ["Shadow"]
+    },
+    "string": {
+      "accept": ["string"],
+      "tokenTypes": ["FontFamily", "Icon", "MediaSource", "Easing"]
+    },
+    "mediaSource": {
+      "accept": ["string"],
+      "tokenTypes": ["MediaSource"]
+    },
+    "styleRef": {
+      "accept": ["ident"]
+    },
+    "booleanOrCondition": {
+      "accept": ["boolean", "condition", "dotEnum", "ident"]
+    },
+    "enumDirection": {
+      "accept": ["dotEnum"],
+      "typeName": "Direction",
+      "cases": ["row", "column", "rowReverse", "columnReverse", "stack"]
+    },
+    "enumWrap": {
+      "accept": ["dotEnum"],
+      "typeName": "Wrap",
+      "cases": ["nowrap", "wrap"]
+    },
+    "enumAlignLayout": {
+      "accept": ["dotEnum"],
+      "typeName": "Align",
+      "cases": ["start", "center", "end", "stretch"]
+    },
+    "enumJustifyLayout": {
+      "accept": ["dotEnum"],
+      "typeName": "Justify",
+      "cases": ["start", "center", "end", "stretch", "spaceBetween", "spaceAround"]
+    },
+    "enumAlignText": {
+      "accept": ["dotEnum"],
+      "typeName": "Align",
+      "cases": ["start", "center", "end"]
+    },
+    "enumJustifyText": {
+      "accept": ["dotEnum"],
+      "typeName": "Justify",
+      "cases": ["start", "center", "end"]
+    },
+    "enumOverflow": {
+      "accept": ["dotEnum", "ident"],
+      "typeName": "Overflow",
+      "cases": ["visible", "scroll", "clip"]
+    },
+    "enumBorderPosition": {
+      "accept": ["dotEnum", "ident"],
+      "typeName": "BorderPosition",
+      "cases": ["inside", "outside"]
+    },
+    "enumTruncateStyle": {
+      "accept": ["dotEnum"],
+      "typeName": "TruncateStyle",
+      "cases": ["clip", "ellipsis"]
+    },
+    "enumContentMode": {
+      "accept": ["dotEnum"],
+      "typeName": "ContentMode",
+      "cases": ["cover", "contain", "fill", "scaleDown"]
+    },
+    "enumObjectPosition": {
+      "accept": ["dotEnum"],
+      "typeName": "ObjectPosition",
+      "cases": [
+        "center",
+        "top",
+        "bottom",
+        "left",
+        "right",
+        "topLeft",
+        "topRight",
+        "bottomLeft",
+        "bottomRight"
+      ]
+    },
+    "enumAlignSelf": {
+      "accept": ["dotEnum"],
+      "typeName": "AlignSelf",
+      "cases": ["start", "center", "end", "stretch", "auto"]
+    },
+    "enumPosition": {
+      "accept": ["dotEnum"],
+      "typeName": "Position",
+      "cases": ["flow", "absolute"]
+    }
+  },
+  "kinds": {
+    "layout": {
+      "props": {
+        "width": { "type": "sizing" },
+        "height": { "type": "sizing" },
+        "direction": { "type": "enumDirection" },
+        "wrap": { "type": "enumWrap" },
+        "align": { "type": "enumAlignLayout" },
+        "justify": { "type": "enumJustifyLayout" },
+        "gap": { "type": "distance" },
+        "columnGap": { "type": "distance" },
+        "rowGap": { "type": "distance" },
+        "padding": { "type": "edgeInsets" },
+        "margin": { "type": "edgeInsets" },
+        "background": { "type": "colorOrLayers" },
+        "foreground": { "type": "colorOrLayers" },
+        "cornerRadius": { "type": "cornerRadius" },
+        "opacity": { "type": "opacity" },
+        "overflow": { "type": "enumOverflow" },
+        "shadow": { "type": "shadow" },
+        "borderWidth": { "type": "nonNegNumber" },
+        "borderColor": { "type": "color" },
+        "borderPosition": { "type": "enumBorderPosition" }
+      }
+    },
+    "text": {
+      "props": {
+        "content": { "type": "string" },
+        "fontFamily": { "type": "string" },
+        "fontSize": { "type": "size" },
+        "fontWeight": { "type": "weight" },
+        "lineHeight": { "type": "lineHeight" },
+        "letterSpacing": { "type": "letterSpacing" },
+        "color": { "type": "color" },
+        "style": { "type": "styleRef" },
+        "width": { "type": "sizing" },
+        "height": { "type": "sizing" },
+        "padding": { "type": "edgeInsets" },
+        "margin": { "type": "edgeInsets" },
+        "justify": { "type": "enumJustifyText" },
+        "align": { "type": "enumAlignText" },
+        "background": { "type": "colorOrLayers" },
+        "foreground": { "type": "colorOrLayers" },
+        "opacity": { "type": "opacity" },
+        "overflow": { "type": "enumOverflow" },
+        "truncateStyle": { "type": "enumTruncateStyle" },
+        "lineClamp": { "type": "nonNegNumber" },
+        "cornerRadius": { "type": "cornerRadius" },
+        "shadow": { "type": "shadow" },
+        "borderWidth": { "type": "nonNegNumber" },
+        "borderColor": { "type": "color" },
+        "borderPosition": { "type": "enumBorderPosition" }
+      }
+    },
+    "icon": {
+      "props": {
+        "icon": { "type": "string" },
+        "size": { "type": "size" },
+        "color": { "type": "color" },
+        "width": { "type": "sizing" },
+        "height": { "type": "sizing" },
+        "opacity": { "type": "opacity" }
+      }
+    },
+    "media": {
+      "props": {
+        "source": { "type": "mediaSource" },
+        "width": { "type": "sizing" },
+        "height": { "type": "sizing" },
+        "aspectRatio": { "type": "ratio" },
+        "contentMode": { "type": "enumContentMode" },
+        "objectPosition": { "type": "enumObjectPosition" },
+        "background": { "type": "colorOrLayers" },
+        "foreground": { "type": "colorOrLayers" },
+        "cornerRadius": { "type": "cornerRadius" },
+        "opacity": { "type": "opacity" }
+      }
+    }
+  },
+  "childFlexProps": {
+    "alignSelf": { "type": "enumAlignSelf" },
+    "grow": { "type": "number" },
+    "shrink": { "type": "number" },
+    "position": { "type": "enumPosition" },
+    "inset": { "type": "edgeInsets" }
+  },
+  "special": {
+    "hidden": {
+      "kinds": ["layout"],
+      "type": "booleanOrCondition"
+    },
+    "editable": {
+      "kinds": ["text"],
+      "structural": true
+    },
+    "style": {
+      "kinds": ["text"],
+      "type": "styleRef",
+      "typeStyleRef": true
+    },
+    "children": {
+      "structural": true
+    }
+  }
+}

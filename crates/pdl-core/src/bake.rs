@@ -3,12 +3,14 @@
 //! Rust port of `src/bakeDesign.ts`. Produces fully materialised, draw-oriented
 //! JSON (one component entry per component, no token tables).
 
+use std::collections::HashSet;
+
 use serde_json::{Map, Value};
 
 use crate::ast::{ComponentDecl, RootKind};
 use crate::design::DesignDefinition;
 use crate::error::PdlError;
-use crate::evaluate::{build_resolved_token_map, Tokens};
+use crate::evaluate::{build_resolved_token_map, evaluate_value, Eval, Tokens};
 use crate::resolve::{
     prune_hidden_children_tree, resolve_component_tree, resolve_default_param_values, CatalFrame,
     RESOLVE_OPTIONS_LITERAL_BAKE,
@@ -27,31 +29,71 @@ fn root_kind_str(k: RootKind) -> &'static str {
     }
 }
 
-fn strip_preset_type_style_name(frame: &CatalFrame) -> CatalFrame {
+/// Expand `style = TypeStyle` into concrete text props, then drop the `typeStyle` name.
+/// Explicit frame props win over preset defaults.
+fn expand_type_style_into_frame(
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+    frame: &CatalFrame,
+) -> Result<CatalFrame, PdlError> {
     let mut props = frame.props.clone();
-    if matches!(props.get("typeStyle"), Some(Value::String(_))) && props.len() > 1 {
-        props.remove("typeStyle");
+    if let Some(Value::String(ts_raw)) = props.get("typeStyle").cloned() {
+        let name = ts_raw
+            .strip_prefix("typeStyle:")
+            .unwrap_or(ts_raw.as_str());
+        if let Some(decl) = design.type_styles.get(name) {
+            let mut from_style = Map::new();
+            for (k, expr) in &decl.props {
+                let mut visiting = HashSet::new();
+                let mut ev = Eval {
+                    design,
+                    tokens,
+                    visiting: &mut visiting,
+                    param_values: None,
+                    param_meta: None,
+                    use_string_placeholders: false,
+                };
+                let v = evaluate_value(expr, &mut ev)?;
+                from_style.insert(k.clone(), v);
+            }
+            let frame_rest = {
+                let mut rest = props.clone();
+                rest.remove("typeStyle");
+                rest
+            };
+            props = from_style;
+            for (k, v) in frame_rest {
+                props.insert(k, v);
+            }
+            props.remove("typeStyle");
+        } else if props.len() > 1 {
+            props.remove("typeStyle");
+        }
     }
-    CatalFrame {
+    let mut children = Vec::with_capacity(frame.children.len());
+    for ch in &frame.children {
+        children.push(expand_type_style_into_frame(design, tokens, ch)?);
+    }
+    Ok(CatalFrame {
         id: frame.id.clone(),
         kind: frame.kind.clone(),
         props,
-        children: frame
-            .children
-            .iter()
-            .map(strip_preset_type_style_name)
-            .collect(),
+        children,
         instance_of: frame.instance_of.clone(),
         instance_kwargs: if frame.instance_of.is_some() {
             Some(frame.instance_kwargs.clone().unwrap_or_default())
         } else {
             None
         },
-    }
+    })
 }
 
-fn bake_frame_tree(raw: &CatalFrame) -> CatalFrame {
-    strip_preset_type_style_name(&prune_hidden_children_tree(raw))
+fn bake_frame_tree(
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+    raw: &CatalFrame,
+) -> Result<CatalFrame, PdlError> {
+    expand_type_style_into_frame(design, tokens, &prune_hidden_children_tree(raw))
 }
 
 fn baked_component_json(name: &str, root_kind: &str, baked_params: Value, root: Value) -> Value {
@@ -139,7 +181,7 @@ pub fn build_baked_design_system(
                 &c.name,
                 root_kind_str(c.root_kind),
                 Value::Object(baked_params),
-                bake_frame_tree(&raw).to_value(),
+                bake_frame_tree(design, &mut token_map, &raw)?.to_value(),
             ),
         );
     }
@@ -169,7 +211,7 @@ pub fn build_baked_design_component(
         .cloned()
         .ok_or_else(|| {
             PdlError::new(
-                "PDL-E006",
+                "PDL-E037",
                 format!("Unknown component {component_name}"),
                 Some(design.entry_path.clone()),
                 None,
@@ -198,7 +240,7 @@ pub fn build_baked_design_component(
             component_name,
             root_kind_str(c.root_kind),
             Value::Object(baked_params),
-            bake_frame_tree(&raw).to_value(),
+            bake_frame_tree(design, &mut token_map, &raw)?.to_value(),
         ),
     );
 

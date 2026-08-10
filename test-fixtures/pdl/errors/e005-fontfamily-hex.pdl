@@ -1,0 +1,2 @@
+// PDL-E005 — FontFamily tokens must be strings
+primitive bad.font: FontFamily = #FF0000

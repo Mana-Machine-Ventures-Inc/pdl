@@ -129,6 +129,11 @@ pub fn serialise_value_expr(e: &ValueExpr) -> Value {
             ("kind", Value::String(scalar_kind(e).to_string())),
             ("value", scalar_value(e)),
         ]),
+        ValueExpr::Ratio { width, height } => obj(vec![
+            ("kind", Value::String("ratio".to_string())),
+            ("width", number_value(*width)),
+            ("height", number_value(*height)),
+        ]),
         ValueExpr::Condition { expr } => obj(vec![
             ("kind", Value::String("condition".to_string())),
             ("expr", serialise_condition_expr(expr)),
@@ -166,6 +171,25 @@ pub fn serialise_value_expr(e: &ValueExpr) -> Value {
             ("br", serialise_value_expr(br)),
             ("bl", serialise_value_expr(bl)),
         ]),
+        ValueExpr::Shadow {
+            x,
+            y,
+            blur_radius,
+            color,
+            spread,
+        } => {
+            let mut entries = vec![
+                ("kind", Value::String("shadow".to_string())),
+                ("x", serialise_value_expr(x)),
+                ("y", serialise_value_expr(y)),
+                ("blurRadius", serialise_value_expr(blur_radius)),
+                ("color", serialise_value_expr(color)),
+            ];
+            if let Some(s) = spread {
+                entries.push(("spread", serialise_value_expr(s)));
+            }
+            obj(entries)
+        }
         ValueExpr::Array { items } => obj(vec![
             ("kind", Value::String("array".to_string())),
             (
@@ -289,6 +313,11 @@ pub fn serialise_value_expr_with_token_refs(expr: &ValueExpr, design: &DesignDef
             ("kind", Value::String(scalar_kind(expr).to_string())),
             ("value", scalar_value(expr)),
         ]),
+        ValueExpr::Ratio { width, height } => obj(vec![
+            ("kind", Value::String("ratio".to_string())),
+            ("width", number_value(*width)),
+            ("height", number_value(*height)),
+        ]),
         ValueExpr::Condition { .. } => serialise_value_expr(expr),
         ValueExpr::DotEnum { value } => obj(vec![
             ("kind", Value::String("dotEnum".to_string())),
@@ -320,6 +349,28 @@ pub fn serialise_value_expr_with_token_refs(expr: &ValueExpr, design: &DesignDef
             ("br", serialise_value_expr_with_token_refs(br, design)),
             ("bl", serialise_value_expr_with_token_refs(bl, design)),
         ]),
+        ValueExpr::Shadow {
+            x,
+            y,
+            blur_radius,
+            color,
+            spread,
+        } => {
+            let mut entries = vec![
+                ("kind", Value::String("shadow".to_string())),
+                ("x", serialise_value_expr_with_token_refs(x, design)),
+                ("y", serialise_value_expr_with_token_refs(y, design)),
+                (
+                    "blurRadius",
+                    serialise_value_expr_with_token_refs(blur_radius, design),
+                ),
+                ("color", serialise_value_expr_with_token_refs(color, design)),
+            ];
+            if let Some(s) = spread {
+                entries.push(("spread", serialise_value_expr_with_token_refs(s, design)));
+            }
+            obj(entries)
+        }
         ValueExpr::Array { items } => obj(vec![
             ("kind", Value::String("array".to_string())),
             (
@@ -431,6 +482,21 @@ pub fn collect_declared_token_names_from_value_expr(
             collect_declared_token_names_from_value_expr(br, design, sink);
             collect_declared_token_names_from_value_expr(bl, design, sink);
         }
+        ValueExpr::Shadow {
+            x,
+            y,
+            blur_radius,
+            color,
+            spread,
+        } => {
+            collect_declared_token_names_from_value_expr(x, design, sink);
+            collect_declared_token_names_from_value_expr(y, design, sink);
+            collect_declared_token_names_from_value_expr(blur_radius, design, sink);
+            collect_declared_token_names_from_value_expr(color, design, sink);
+            if let Some(s) = spread {
+                collect_declared_token_names_from_value_expr(s, design, sink);
+            }
+        }
         ValueExpr::Array { items } => {
             for it in items {
                 collect_declared_token_names_from_value_expr(it, design, sink);
@@ -477,6 +543,7 @@ pub fn collect_declared_token_names_from_value_expr(
         ValueExpr::Hex { .. }
         | ValueExpr::String { .. }
         | ValueExpr::Number { .. }
+        | ValueExpr::Ratio { .. }
         | ValueExpr::Boolean { .. }
         | ValueExpr::DotEnum { .. }
         | ValueExpr::Condition { .. }

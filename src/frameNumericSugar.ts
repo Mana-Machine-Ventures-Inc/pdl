@@ -1,10 +1,11 @@
+import { fixedSizingAxisProps, uniformEdgeInsetProps } from "./frameProps.js";
 import { PdlError } from "./errors.js";
 
-/** Frame props where a single non-negative number means uniform `EdgeInsets` (full-spec §6). */
-const UNIFORM_EDGE_INSETS = new Set(["padding", "margin", "inset"]);
+/** Frame props where a single non-negative number means uniform `EdgeInsets` (full-spec §6 / shared/frame-props.json). */
+const UNIFORM_EDGE_INSETS = uniformEdgeInsetProps();
 
 /** `width` / `height`: non-negative number is sugar for `.fixed(n)` → `{ fixed: n }` after evaluation. */
-const FIXED_SIZING_AXES = new Set(["width", "height"]);
+const FIXED_SIZING_AXES = fixedSizingAxisProps();
 
 function assertScalarSugarNumber(name: string, n: number, entryPath: string): void {
   if (!Number.isFinite(n) || n < 0) {

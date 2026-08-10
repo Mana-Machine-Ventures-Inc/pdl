@@ -22,7 +22,7 @@ component MoleculeMatrixButton(
   justify = .center
   align = .center
   wrap = .nowrap
-  cornerRadius = atoms.radius.mixed
+  cornerRadius = atoms.radius.md
 
   if kind == .primary {
     if size == .compact {

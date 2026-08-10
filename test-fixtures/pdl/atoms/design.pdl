@@ -24,6 +24,7 @@ import "value_layer_list_atoms.pdl"
 
 // --- layout / text / icon / media ---
 import "layout_enums_atoms.pdl"
+import "qualified_enums.pdl"
 import "layout_flex_child_atoms.pdl"
 import "text_atoms.pdl"
 import "icon_atoms.pdl"

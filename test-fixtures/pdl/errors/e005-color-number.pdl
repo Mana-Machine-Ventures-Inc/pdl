@@ -1,0 +1,2 @@
+// PDL-E005 — Color tokens must be #hex (or color @ opacity)
+primitive bad.color: Color = 12

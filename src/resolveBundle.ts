@@ -219,7 +219,7 @@ export function buildResolvedComponentDocument(
   const { componentName, paramOverrides = {}, theme, modifiers = [] } = opts;
   const c = design.components.get(componentName);
   if (!c) {
-    throw new PdlError("PDL-E006", `Unknown component ${componentName}`, { path: design.entryPath });
+    throw new PdlError("PDL-E037", `Unknown component ${componentName}`, { path: design.entryPath });
   }
   const tokenMap = buildResolvedTokenMap(design, theme || undefined, modifiers);
 
@@ -229,7 +229,7 @@ export function buildResolvedComponentDocument(
   for (const name of allNames) {
     const decl = design.components.get(name);
     if (!decl) {
-      throw new PdlError("PDL-E006", `Unknown component ${name} in required closure`, { path: design.entryPath });
+      throw new PdlError("PDL-E037", `Unknown component ${name} in required closure`, { path: design.entryPath });
     }
     catalogueRows.set(name, buildCatalogueComponentRow(design, tokenMap, decl, RESOLVE_OPTIONS_GRAPH_CATALOGUE));
   }

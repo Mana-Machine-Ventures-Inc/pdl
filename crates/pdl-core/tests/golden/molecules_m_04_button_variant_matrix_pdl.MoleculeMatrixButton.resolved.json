@@ -48,7 +48,7 @@
         "props": {
           "align": "center",
           "background": "primitive:atoms.color.rgb",
-          "cornerRadius": "primitive:atoms.radius.mixed",
+          "cornerRadius": "primitive:atoms.radius.md",
           "direction": "row",
           "justify": "center",
           "padding": {
@@ -259,27 +259,12 @@
         "name": "atoms.color.rgba",
         "tokenType": "Color"
       },
-      "atoms.radius.mixed": {
+      "atoms.radius.md": {
         "definition": {
-          "bl": {
-            "kind": "number",
-            "value": 2
-          },
-          "br": {
-            "kind": "number",
-            "value": 2
-          },
-          "kind": "corner",
-          "tl": {
-            "kind": "number",
-            "value": 8
-          },
-          "tr": {
-            "kind": "number",
-            "value": 8
-          }
+          "kind": "number",
+          "value": 8
         },
-        "name": "atoms.radius.mixed",
+        "name": "atoms.radius.md",
         "tokenType": "Radius"
       }
     },

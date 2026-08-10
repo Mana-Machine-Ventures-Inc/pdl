@@ -25,12 +25,7 @@
         "props": {
           "align": "center",
           "background": "#D3D3D3",
-          "cornerRadius": {
-            "bl": 2,
-            "br": 2,
-            "tl": 8,
-            "tr": 8
-          },
+          "cornerRadius": 8,
           "direction": "row",
           "justify": "center",
           "padding": {
@@ -72,12 +67,7 @@
             "props": {
               "align": "center",
               "background": "#F7F7F7",
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "row",
               "justify": "center",
               "padding": {
@@ -113,12 +103,7 @@
             "props": {
               "align": "center",
               "background": "#D3D3D3",
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "row",
               "justify": "center",
               "padding": {
@@ -154,12 +139,7 @@
             "props": {
               "align": "center",
               "background": "#EBEBEB",
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "row",
               "justify": "center",
               "padding": {
@@ -195,12 +175,7 @@
             "props": {
               "align": "center",
               "background": "#F7F7F7",
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "row",
               "justify": "center",
               "padding": {

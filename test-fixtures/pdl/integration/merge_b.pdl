@@ -1,1 +1,1 @@
-primitive color.merge.token: Color = #111111
+primitive color.merge.fromB: Color = #111111

@@ -1,4 +1,4 @@
-// text: content, style, typography props, justify/align, overflow, textOverflow, lineClamp
+// text: content, style, typography props, justify/align, overflow, truncateStyle, lineClamp
 
 import "tokens_color.pdl"
 import "tokens_distance_radius.pdl"
@@ -93,26 +93,30 @@ component AtomTextJustifyAlign() layout {
   children = [L, C, R]
 }
 
-component AtomTextOverflow() layout {
+component AtomTruncateStyle() layout {
   direction = .column
   gap = atoms.space.xs
   background = atoms.color.sem.fromRgb
 
   let Clipped: text = {
-    content = "Clipped overflow"
+    content = "Very long label that should hard-clip with no ellipsis glyph when constrained"
     overflow = .clip
-    textOverflow = .clip
+    truncateStyle = .clip
+    lineClamp = 2
     color = atoms.color.rgba
     fontSize = 13
+    lineHeight = 1.4
+    width = .fixed(120)
   }
 
   let Ellipsis: text = {
     content = "Very long label that should ellipsize when constrained"
-    overflow = .hidden
-    textOverflow = .ellipsis
+    overflow = .clip
+    truncateStyle = .ellipsis
     lineClamp = 2
     color = atoms.color.sem.fromRgba
     fontSize = 13
+    width = .fixed(120)
   }
 
   children = [Clipped, Ellipsis]

@@ -95,21 +95,39 @@
             "id": "A",
             "kind": "text",
             "props": {
-              "content": "Caption"
+              "color": "#717171",
+              "content": "Caption",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 12,
+              "fontWeight": 600,
+              "letterSpacing": 0.02,
+              "lineHeight": 1.2
             }
           },
           {
             "id": "B",
             "kind": "text",
             "props": {
-              "content": "Title line"
+              "color": "#222222",
+              "content": "Title line",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 22,
+              "fontWeight": 700,
+              "letterSpacing": -0.01,
+              "lineHeight": 1.2
             }
           },
           {
             "id": "C",
             "kind": "text",
             "props": {
-              "content": "Muted supporting copy"
+              "color": "#222222",
+              "content": "Muted supporting copy",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 16,
+              "fontWeight": 400,
+              "letterSpacing": 0,
+              "lineHeight": 1.35
             }
           }
         ],

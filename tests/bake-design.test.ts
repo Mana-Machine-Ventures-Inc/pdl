@@ -28,12 +28,24 @@ describe("bakedDesign", () => {
     expect(root.children.map((c) => c.id)).toEqual(["A"]);
   });
 
-  it("omits typeStyle preset string after strip when it was the only extra prop on text", () => {
+  it("expands typeStyle into literal typography and drops the preset name", () => {
     const design = loadDesign(fx("atoms/text_atoms.pdl"));
     const doc = buildBakedDesignSystem(design);
     const row = doc.components.AtomTextTypeStyle!;
     const caption = row.root.children.find((c) => c.id === "A")!;
     expect(caption.props.content).toBe("Caption line");
     expect(caption.props).not.toHaveProperty("typeStyle");
+    expect(caption.props.fontSize).toBe(12);
+    expect(caption.props.fontFamily).toBe("system-ui, sans-serif");
+    expect(caption.props.fontWeight).toBe(600);
+  });
+
+  it("keeps explicit typography overrides over typeStyle defaults when baking", () => {
+    const design = loadDesign(fx("atoms/text_atoms.pdl"));
+    const doc = buildBakedDesignSystem(design);
+    const t = doc.components.AtomTextStylePlusOverride!.root.children.find((c) => c.id === "T")!;
+    expect(t.props.fontSize).toBe(22);
+    expect(t.props.fontFamily).toBe("system-ui, sans-serif");
+    expect(t.props).not.toHaveProperty("typeStyle");
   });
 });

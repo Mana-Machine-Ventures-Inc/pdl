@@ -1,8 +1,9 @@
 //! Merged design model + loader.
 //!
 //! Rust port of `src/designModel.ts` + `src/loadDesign.ts`. Collects the import
-//! closure (post-order DFS, cycle → `PDL-E002`), merges declarations (last module
-//! wins on symbol clashes) and runs [`crate::validate::validate_merged_design`].
+//! closure (post-order DFS, cycle → `PDL-E002`), merges declarations (token
+//! namespace → `PDL-E003` on clash; other kinds last-wins today), and runs
+//! [`crate::validate::validate_merged_design`].
 
 use std::collections::HashSet;
 use std::path::{Component, Path, PathBuf};
@@ -87,7 +88,7 @@ fn collect_host_protocols(
 ) -> Result<(), PdlError> {
     if !visiting.insert(proto_name.to_string()) {
         return Err(PdlError::new(
-            "PDL-E006",
+            "PDL-E032",
             format!("Protocol `requires` cycle involving `{proto_name}`"),
             Some(design.entry_path.clone()),
             None,
@@ -158,7 +159,7 @@ pub fn effective_params(
     if let Some(proto_name) = &c.conforms_to {
         let proto = design.protocols.get(proto_name).ok_or_else(|| {
             PdlError::new(
-                "PDL-E006",
+                "PDL-E022",
                 format!(
                     "Component `{}` conforms to unknown protocol `{}`",
                     c.name, proto_name
@@ -288,7 +289,7 @@ fn apply_extend(
     let c = &ext.component;
     if !components.contains_key(c) {
         return Err(PdlError::new(
-            "PDL-E006",
+            "PDL-E016",
             format!("extend targets unknown component `{}`", c),
             Some(entry_path.to_string()),
             None,
@@ -409,6 +410,24 @@ fn collect_modules_from_map(
     collect_modules_with(entry_path, visiting, ordered, &mut read)
 }
 
+fn assert_unique_token_name(
+    name: &str,
+    primitives: &IndexMap<String, PrimitiveDecl>,
+    semantics: &IndexMap<String, SemanticDecl>,
+    module_path: &str,
+) -> Result<(), PdlError> {
+    if primitives.contains_key(name) || semantics.contains_key(name) {
+        return Err(PdlError::new(
+            "PDL-E003",
+            format!("Invalid redeclaration of token `{name}`"),
+            Some(module_path.to_string()),
+            None,
+            None,
+        ));
+    }
+    Ok(())
+}
+
 fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefinition, PdlError> {
     let mut primitives = IndexMap::new();
     let mut semantics = IndexMap::new();
@@ -435,9 +454,11 @@ fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefin
                     preview_background = Some(pb.token.clone());
                 }
                 TopLevelDecl::Primitive(p) => {
+                    assert_unique_token_name(&p.name, &primitives, &semantics, &module.path)?;
                     primitives.insert(p.name.clone(), p.clone());
                 }
                 TopLevelDecl::Semantic(s) => {
+                    assert_unique_token_name(&s.name, &primitives, &semantics, &module.path)?;
                     semantics.insert(s.name.clone(), s.clone());
                 }
                 TopLevelDecl::Theme(t) => {

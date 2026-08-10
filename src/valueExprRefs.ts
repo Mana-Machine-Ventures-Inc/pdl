@@ -29,6 +29,13 @@ export function collectDeclaredTokenNamesFromValueExpr(
       collectDeclaredTokenNamesFromValueExpr(expr.br, design, sink);
       collectDeclaredTokenNamesFromValueExpr(expr.bl, design, sink);
       return;
+    case "shadow":
+      collectDeclaredTokenNamesFromValueExpr(expr.x, design, sink);
+      collectDeclaredTokenNamesFromValueExpr(expr.y, design, sink);
+      collectDeclaredTokenNamesFromValueExpr(expr.blurRadius, design, sink);
+      collectDeclaredTokenNamesFromValueExpr(expr.color, design, sink);
+      if (expr.spread) collectDeclaredTokenNamesFromValueExpr(expr.spread, design, sink);
+      return;
     case "array":
       for (const it of expr.items) collectDeclaredTokenNamesFromValueExpr(it, design, sink);
       return;
@@ -59,6 +66,7 @@ export function collectDeclaredTokenNamesFromValueExpr(
     case "hex":
     case "string":
     case "number":
+    case "ratio":
     case "boolean":
     case "dotEnum":
     case "condition":

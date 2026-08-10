@@ -272,7 +272,12 @@
           "props": {
             "align": "stretch",
             "background": "semantic:atoms.color.sem.fromRgb",
-            "cornerRadius": "primitive:atoms.radius.mixed",
+            "cornerRadius": {
+              "bl": 4,
+              "br": 4,
+              "tl": 8,
+              "tr": 8
+            },
             "direction": "column",
             "foreground": [
               "#d3d3d30f"
@@ -727,27 +732,12 @@
       "name": "atoms.opacity.mid",
       "tokenType": "Opacity"
     },
-    "atoms.radius.mixed": {
+    "atoms.radius.md": {
       "definition": {
-        "bl": {
-          "kind": "number",
-          "value": 2
-        },
-        "br": {
-          "kind": "number",
-          "value": 2
-        },
-        "kind": "corner",
-        "tl": {
-          "kind": "number",
-          "value": 8
-        },
-        "tr": {
-          "kind": "number",
-          "value": 8
-        }
+        "kind": "number",
+        "value": 8
       },
-      "name": "atoms.radius.mixed",
+      "name": "atoms.radius.md",
       "tokenType": "Radius"
     },
     "atoms.radius.sm": {
@@ -802,6 +792,15 @@
       "name": "atoms.ramp.fade",
       "tokenType": "Ramp"
     },
+    "atoms.ratio.photo": {
+      "definition": {
+        "height": 3,
+        "kind": "ratio",
+        "width": 4
+      },
+      "name": "atoms.ratio.photo",
+      "tokenType": "Ratio"
+    },
     "atoms.ratio.square": {
       "definition": {
         "kind": "number",
@@ -812,24 +811,73 @@
     },
     "atoms.ratio.video": {
       "definition": {
-        "kind": "number",
-        "value": 1.777
+        "height": 9,
+        "kind": "ratio",
+        "width": 16
       },
       "name": "atoms.ratio.video",
       "tokenType": "Ratio"
     },
     "atoms.shadow.hard": {
       "definition": {
-        "kind": "string",
-        "value": "0 1px 3px 0 rgba(0,0,0,0.35)"
+        "blurRadius": {
+          "kind": "number",
+          "value": 3
+        },
+        "color": {
+          "base": {
+            "kind": "hex",
+            "value": "#000000"
+          },
+          "kind": "opacityOf",
+          "opacity": {
+            "kind": "number",
+            "value": 0.35
+          }
+        },
+        "kind": "shadow",
+        "spread": {
+          "kind": "number",
+          "value": 0
+        },
+        "x": {
+          "kind": "number",
+          "value": 0
+        },
+        "y": {
+          "kind": "number",
+          "value": 1
+        }
       },
       "name": "atoms.shadow.hard",
       "tokenType": "Shadow"
     },
     "atoms.shadow.soft": {
       "definition": {
-        "kind": "string",
-        "value": "0 2px 8px rgba(0,0,0,0.12)"
+        "blurRadius": {
+          "kind": "number",
+          "value": 8
+        },
+        "color": {
+          "base": {
+            "kind": "hex",
+            "value": "#000000"
+          },
+          "kind": "opacityOf",
+          "opacity": {
+            "kind": "number",
+            "value": 0.12
+          }
+        },
+        "kind": "shadow",
+        "x": {
+          "kind": "number",
+          "value": 0
+        },
+        "y": {
+          "kind": "number",
+          "value": 2
+        }
       },
       "name": "atoms.shadow.soft",
       "tokenType": "Shadow"
@@ -857,6 +905,54 @@
       },
       "name": "atoms.space.xs",
       "tokenType": "Distance"
+    },
+    "atoms.type.letterSpacing.normal": {
+      "definition": {
+        "kind": "number",
+        "value": 0
+      },
+      "name": "atoms.type.letterSpacing.normal",
+      "tokenType": "LetterSpacing"
+    },
+    "atoms.type.letterSpacing.tight": {
+      "definition": {
+        "kind": "number",
+        "value": -0.01
+      },
+      "name": "atoms.type.letterSpacing.tight",
+      "tokenType": "LetterSpacing"
+    },
+    "atoms.type.letterSpacing.wide": {
+      "definition": {
+        "kind": "number",
+        "value": 0.02
+      },
+      "name": "atoms.type.letterSpacing.wide",
+      "tokenType": "LetterSpacing"
+    },
+    "atoms.type.lineHeight.body": {
+      "definition": {
+        "kind": "number",
+        "value": 1.35
+      },
+      "name": "atoms.type.lineHeight.body",
+      "tokenType": "LineHeight"
+    },
+    "atoms.type.lineHeight.loose": {
+      "definition": {
+        "kind": "number",
+        "value": 1.5
+      },
+      "name": "atoms.type.lineHeight.loose",
+      "tokenType": "LineHeight"
+    },
+    "atoms.type.lineHeight.tight": {
+      "definition": {
+        "kind": "number",
+        "value": 1.2
+      },
+      "name": "atoms.type.lineHeight.tight",
+      "tokenType": "LineHeight"
     },
     "atoms.type.size.body": {
       "definition": {
@@ -1030,7 +1126,7 @@
       "tokenType": "Opacity"
     },
     "atoms.radius.card": {
-      "definition": "primitive:atoms.radius.mixed",
+      "definition": "primitive:atoms.radius.md",
       "name": "atoms.radius.card",
       "tokenType": "Radius"
     },
@@ -1076,7 +1172,9 @@
         "color": "primitive:atoms.color.textPrimary",
         "fontFamily": "primitive:atoms.font.ui",
         "fontSize": "primitive:atoms.type.size.body",
-        "fontWeight": "primitive:atoms.type.weight.regular"
+        "fontWeight": "primitive:atoms.type.weight.regular",
+        "letterSpacing": "primitive:atoms.type.letterSpacing.normal",
+        "lineHeight": "primitive:atoms.type.lineHeight.body"
       }
     },
     "AtomCaption": {
@@ -1085,7 +1183,9 @@
         "color": "primitive:atoms.color.textMuted",
         "fontFamily": "primitive:atoms.font.ui",
         "fontSize": "primitive:atoms.type.size.caption",
-        "fontWeight": "primitive:atoms.type.weight.medium"
+        "fontWeight": "primitive:atoms.type.weight.medium",
+        "letterSpacing": "primitive:atoms.type.letterSpacing.wide",
+        "lineHeight": "primitive:atoms.type.lineHeight.tight"
       }
     },
     "AtomMono": {
@@ -1094,7 +1194,9 @@
         "color": "primitive:atoms.color.textPrimary",
         "fontFamily": "primitive:atoms.font.mono",
         "fontSize": "primitive:atoms.type.size.caption",
-        "fontWeight": "primitive:atoms.type.weight.regular"
+        "fontWeight": "primitive:atoms.type.weight.regular",
+        "letterSpacing": "primitive:atoms.type.letterSpacing.normal",
+        "lineHeight": "primitive:atoms.type.lineHeight.body"
       }
     },
     "AtomTitle": {
@@ -1103,7 +1205,9 @@
         "color": "primitive:atoms.color.textPrimary",
         "fontFamily": "primitive:atoms.font.ui",
         "fontSize": "primitive:atoms.type.size.title",
-        "fontWeight": "primitive:atoms.type.weight.bold"
+        "fontWeight": "primitive:atoms.type.weight.bold",
+        "letterSpacing": "primitive:atoms.type.letterSpacing.tight",
+        "lineHeight": "primitive:atoms.type.lineHeight.tight"
       }
     }
   },

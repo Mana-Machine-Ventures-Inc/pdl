@@ -428,7 +428,14 @@ export function assertResolvedComponentContract(doc: unknown, path = "resolvedCo
   }
 }
 
-const BAKED_DOC_ROOT = new Set(["schemaKind", "schemaVersion", "generatedAt", "provenance", "components"]);
+const BAKED_DOC_ROOT = new Set([
+  "schemaKind",
+  "schemaVersion",
+  "generatedAt",
+  "provenance",
+  "components",
+  "previewBackground",
+]);
 const BAKED_PROVENANCE_ROOT = new Set(["entryPath", "bakedTheme", "bakeProfile"]);
 const BAKE_PROFILES = new Set(["system-defaults", "component-explicit"]);
 

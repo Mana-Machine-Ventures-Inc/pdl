@@ -1,0 +1,2 @@
+// PDL-E005 — Opacity tokens must be a number in 0…1
+primitive bad.opacity: Opacity = "0.5"

@@ -1,2 +1,3 @@
-primitive x: Color = y
-primitive y: Color = x
+// Circular aliases must use semantic (primitives cannot reference tokens).
+semantic x: Color = y
+semantic y: Color = x

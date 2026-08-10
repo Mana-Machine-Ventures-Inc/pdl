@@ -149,7 +149,7 @@
             "id": "Hero",
             "kind": "media",
             "props": {
-              "aspectRatio": 1.777,
+              "aspectRatio": 1.7777777777777777,
               "contentMode": "cover",
               "cornerRadius": 4,
               "height": {
@@ -164,14 +164,26 @@
             "id": "Title",
             "kind": "text",
             "props": {
-              "content": "Article"
+              "color": "#222222",
+              "content": "Article",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 22,
+              "fontWeight": 700,
+              "letterSpacing": -0.01,
+              "lineHeight": 1.2
             }
           },
           {
             "id": "Sub",
             "kind": "text",
             "props": {
-              "content": "Supporting line"
+              "color": "#222222",
+              "content": "Supporting line",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 16,
+              "fontWeight": 400,
+              "letterSpacing": 0,
+              "lineHeight": 1.35
             }
           },
           {
@@ -282,22 +294,24 @@
           "borderColor": "#222222",
           "borderPosition": "inside",
           "borderWidth": 1,
-          "cornerRadius": {
-            "bl": 2,
-            "br": 2,
-            "tl": 8,
-            "tr": 8
-          },
+          "cornerRadius": 8,
           "direction": "column",
           "gap": 8,
-          "overflow": "hidden",
+          "overflow": "clip",
           "padding": {
             "bottom": 16,
             "left": 16,
             "right": 16,
             "top": 16
           },
-          "shadow": "0 2px 8px rgba(0,0,0,0.12)"
+          "shadow": {
+            "blurRadius": 8,
+            "color": "#0000001f",
+            "kind": "shadow",
+            "spread": 0,
+            "x": 0,
+            "y": 2
+          }
         }
       },
       "rootKind": "layout"
@@ -312,7 +326,7 @@
                 "id": "C1__Hero",
                 "kind": "media",
                 "props": {
-                  "aspectRatio": 1.777,
+                  "aspectRatio": 1.7777777777777777,
                   "contentMode": "cover",
                   "cornerRadius": 4,
                   "height": {
@@ -327,14 +341,26 @@
                 "id": "C1__Title",
                 "kind": "text",
                 "props": {
-                  "content": "With media"
+                  "color": "#222222",
+                  "content": "With media",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 22,
+                  "fontWeight": 700,
+                  "letterSpacing": -0.01,
+                  "lineHeight": 1.2
                 }
               },
               {
                 "id": "C1__Sub",
                 "kind": "text",
                 "props": {
-                  "content": "Default"
+                  "color": "#222222",
+                  "content": "Default",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               },
               {
@@ -451,22 +477,24 @@
               "borderColor": "#222222",
               "borderPosition": "inside",
               "borderWidth": 1,
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "column",
               "gap": 8,
-              "overflow": "hidden",
+              "overflow": "clip",
               "padding": {
                 "bottom": 16,
                 "left": 16,
                 "right": 16,
                 "top": 16
               },
-              "shadow": "0 2px 8px rgba(0,0,0,0.12)"
+              "shadow": {
+                "blurRadius": 8,
+                "color": "#0000001f",
+                "kind": "shadow",
+                "spread": 0,
+                "x": 0,
+                "y": 2
+              }
             }
           },
           {
@@ -475,14 +503,26 @@
                 "id": "C2__Title",
                 "kind": "text",
                 "props": {
-                  "content": "No media"
+                  "color": "#222222",
+                  "content": "No media",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 22,
+                  "fontWeight": 700,
+                  "letterSpacing": -0.01,
+                  "lineHeight": 1.2
                 }
               },
               {
                 "id": "C2__Sub",
                 "kind": "text",
                 "props": {
-                  "content": "Text only shell"
+                  "color": "#222222",
+                  "content": "Text only shell",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               },
               {
@@ -599,22 +639,24 @@
               "borderColor": "#222222",
               "borderPosition": "inside",
               "borderWidth": 1,
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "column",
               "gap": 8,
-              "overflow": "hidden",
+              "overflow": "clip",
               "padding": {
                 "bottom": 16,
                 "left": 16,
                 "right": 16,
                 "top": 16
               },
-              "shadow": "0 2px 8px rgba(0,0,0,0.12)"
+              "shadow": {
+                "blurRadius": 8,
+                "color": "#0000001f",
+                "kind": "shadow",
+                "spread": 0,
+                "x": 0,
+                "y": 2
+              }
             }
           }
         ],
@@ -649,7 +691,13 @@
             "id": "Lab",
             "kind": "text",
             "props": {
-              "content": "Email"
+              "color": "#717171",
+              "content": "Email",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 12,
+              "fontWeight": 600,
+              "letterSpacing": 0.02,
+              "lineHeight": 1.2
             }
           },
           {
@@ -658,7 +706,13 @@
                 "id": "Val",
                 "kind": "text",
                 "props": {
-                  "content": "you@example.com"
+                  "color": "#222222",
+                  "content": "you@example.com",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               }
             ],
@@ -683,7 +737,13 @@
             "id": "Help",
             "kind": "text",
             "props": {
-              "content": "We never share your address."
+              "color": "#222222",
+              "content": "We never share your address.",
+              "fontFamily": "ui-monospace, monospace",
+              "fontSize": 12,
+              "fontWeight": 400,
+              "letterSpacing": 0,
+              "lineHeight": 1.35
             }
           }
         ],
@@ -767,7 +827,13 @@
                 "id": "F0__Lab",
                 "kind": "text",
                 "props": {
-                  "content": "Workspace"
+                  "color": "#717171",
+                  "content": "Workspace",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 12,
+                  "fontWeight": 600,
+                  "letterSpacing": 0.02,
+                  "lineHeight": 1.2
                 }
               },
               {
@@ -776,7 +842,13 @@
                     "id": "F0__Box__Val",
                     "kind": "text",
                     "props": {
-                      "content": "Design"
+                      "color": "#222222",
+                      "content": "Design",
+                      "fontFamily": "system-ui, sans-serif",
+                      "fontSize": 16,
+                      "fontWeight": 400,
+                      "letterSpacing": 0,
+                      "lineHeight": 1.35
                     }
                   }
                 ],
@@ -801,7 +873,13 @@
                 "id": "F0__Help",
                 "kind": "text",
                 "props": {
-                  "content": "Renaming updates the slug."
+                  "color": "#222222",
+                  "content": "Renaming updates the slug.",
+                  "fontFamily": "ui-monospace, monospace",
+                  "fontSize": 12,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               }
             ],
@@ -831,7 +909,13 @@
                 "id": "F1__Lab",
                 "kind": "text",
                 "props": {
-                  "content": "Role"
+                  "color": "#717171",
+                  "content": "Role",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 12,
+                  "fontWeight": 600,
+                  "letterSpacing": 0.02,
+                  "lineHeight": 1.2
                 }
               },
               {
@@ -840,7 +924,13 @@
                     "id": "F1__Box__Val",
                     "kind": "text",
                     "props": {
-                      "content": "Editor"
+                      "color": "#222222",
+                      "content": "Editor",
+                      "fontFamily": "system-ui, sans-serif",
+                      "fontSize": 16,
+                      "fontWeight": 400,
+                      "letterSpacing": 0,
+                      "lineHeight": 1.35
                     }
                   }
                 ],
@@ -865,7 +955,13 @@
                 "id": "F1__Help",
                 "kind": "text",
                 "props": {
-                  "content": ""
+                  "color": "#222222",
+                  "content": "",
+                  "fontFamily": "ui-monospace, monospace",
+                  "fontSize": 12,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               }
             ],
@@ -1630,7 +1726,13 @@
                 "id": "A__L",
                 "kind": "text",
                 "props": {
-                  "content": "Save changes"
+                  "color": "#717171",
+                  "content": "Save changes",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 12,
+                  "fontWeight": 600,
+                  "letterSpacing": 0.02,
+                  "lineHeight": 1.2
                 }
               }
             ],
@@ -1670,7 +1772,13 @@
                 "id": "B__L",
                 "kind": "text",
                 "props": {
-                  "content": "Learn more about billing"
+                  "color": "#222222",
+                  "content": "Learn more about billing",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               }
             ],
@@ -1710,7 +1818,13 @@
                 "id": "C__L",
                 "kind": "text",
                 "props": {
-                  "content": "Permanently delete"
+                  "color": "#222222",
+                  "content": "Permanently delete",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 22,
+                  "fontWeight": 700,
+                  "letterSpacing": -0.01,
+                  "lineHeight": 1.2
                 }
               }
             ],
@@ -1772,7 +1886,13 @@
             "id": "L",
             "kind": "text",
             "props": {
-              "content": "Save changes"
+              "color": "#717171",
+              "content": "Save changes",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 12,
+              "fontWeight": 600,
+              "letterSpacing": 0.02,
+              "lineHeight": 1.2
             }
           }
         ],
@@ -1890,21 +2010,39 @@
             "id": "A",
             "kind": "text",
             "props": {
-              "content": "Caption"
+              "color": "#717171",
+              "content": "Caption",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 12,
+              "fontWeight": 600,
+              "letterSpacing": 0.02,
+              "lineHeight": 1.2
             }
           },
           {
             "id": "B",
             "kind": "text",
             "props": {
-              "content": "Title line"
+              "color": "#222222",
+              "content": "Title line",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 22,
+              "fontWeight": 700,
+              "letterSpacing": -0.01,
+              "lineHeight": 1.2
             }
           },
           {
             "id": "C",
             "kind": "text",
             "props": {
-              "content": "Muted supporting copy"
+              "color": "#222222",
+              "content": "Muted supporting copy",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 16,
+              "fontWeight": 400,
+              "letterSpacing": 0,
+              "lineHeight": 1.35
             }
           }
         ],
@@ -2070,12 +2208,7 @@
         "props": {
           "align": "center",
           "background": "#D3D3D3",
-          "cornerRadius": {
-            "bl": 2,
-            "br": 2,
-            "tl": 8,
-            "tr": 8
-          },
+          "cornerRadius": 8,
           "direction": "row",
           "justify": "center",
           "padding": {
@@ -2117,12 +2250,7 @@
             "props": {
               "align": "center",
               "background": "#F7F7F7",
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "row",
               "justify": "center",
               "padding": {
@@ -2158,12 +2286,7 @@
             "props": {
               "align": "center",
               "background": "#D3D3D3",
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "row",
               "justify": "center",
               "padding": {
@@ -2199,12 +2322,7 @@
             "props": {
               "align": "center",
               "background": "#EBEBEB",
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "row",
               "justify": "center",
               "padding": {
@@ -2240,12 +2358,7 @@
             "props": {
               "align": "center",
               "background": "#F7F7F7",
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "row",
               "justify": "center",
               "padding": {
@@ -2290,14 +2403,26 @@
                 "id": "Header",
                 "kind": "text",
                 "props": {
-                  "content": "Confirm"
+                  "color": "#222222",
+                  "content": "Confirm",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 22,
+                  "fontWeight": 700,
+                  "letterSpacing": -0.01,
+                  "lineHeight": 1.2
                 }
               },
               {
                 "id": "Copy",
                 "kind": "text",
                 "props": {
-                  "content": "This cannot be undone."
+                  "color": "#222222",
+                  "content": "This cannot be undone.",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               },
               {
@@ -2394,8 +2519,8 @@
               "align": "stretch",
               "background": "#F7F7F7",
               "cornerRadius": {
-                "bl": 2,
-                "br": 2,
+                "bl": 4,
+                "br": 4,
                 "tl": 8,
                 "tr": 8
               },
@@ -2410,7 +2535,14 @@
                 "right": 16,
                 "top": 16
               },
-              "shadow": "0 1px 3px 0 rgba(0,0,0,0.35)",
+              "shadow": {
+                "blurRadius": 3,
+                "color": "#00000059",
+                "kind": "shadow",
+                "spread": 0,
+                "x": 0,
+                "y": 1
+              },
               "width": "hug"
             }
           }
@@ -2444,7 +2576,13 @@
                 "id": "R0__Title",
                 "kind": "text",
                 "props": {
-                  "content": "Account"
+                  "color": "#222222",
+                  "content": "Account",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               },
               {
@@ -2453,7 +2591,13 @@
                     "id": "R0__Trail__Meta",
                     "kind": "text",
                     "props": {
-                      "content": "Pro"
+                      "color": "#717171",
+                      "content": "Pro",
+                      "fontFamily": "system-ui, sans-serif",
+                      "fontSize": 12,
+                      "fontWeight": 600,
+                      "letterSpacing": 0.02,
+                      "lineHeight": 1.2
                     }
                   },
                   {
@@ -2506,7 +2650,13 @@
                 "id": "R1__Title",
                 "kind": "text",
                 "props": {
-                  "content": "Privacy"
+                  "color": "#222222",
+                  "content": "Privacy",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               },
               {
@@ -2515,7 +2665,13 @@
                     "id": "R1__Trail__Meta",
                     "kind": "text",
                     "props": {
-                      "content": ""
+                      "color": "#717171",
+                      "content": "",
+                      "fontFamily": "system-ui, sans-serif",
+                      "fontSize": 12,
+                      "fontWeight": 600,
+                      "letterSpacing": 0.02,
+                      "lineHeight": 1.2
                     }
                   },
                   {
@@ -2567,7 +2723,13 @@
                 "id": "R2__Title",
                 "kind": "text",
                 "props": {
-                  "content": "About"
+                  "color": "#222222",
+                  "content": "About",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               },
               {
@@ -2576,7 +2738,13 @@
                     "id": "R2__Trail__Meta",
                     "kind": "text",
                     "props": {
-                      "content": "v1"
+                      "color": "#717171",
+                      "content": "v1",
+                      "fontFamily": "system-ui, sans-serif",
+                      "fontSize": 12,
+                      "fontWeight": 600,
+                      "letterSpacing": 0.02,
+                      "lineHeight": 1.2
                     }
                   },
                   {
@@ -2652,7 +2820,13 @@
             "id": "Title",
             "kind": "text",
             "props": {
-              "content": "Settings"
+              "color": "#222222",
+              "content": "Settings",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 16,
+              "fontWeight": 400,
+              "letterSpacing": 0,
+              "lineHeight": 1.35
             }
           },
           {
@@ -2661,7 +2835,13 @@
                 "id": "Meta",
                 "kind": "text",
                 "props": {
-                  "content": ""
+                  "color": "#717171",
+                  "content": "",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 12,
+                  "fontWeight": 600,
+                  "letterSpacing": 0.02,
+                  "lineHeight": 1.2
                 }
               },
               {

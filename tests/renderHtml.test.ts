@@ -100,7 +100,42 @@ describe("renderHtml", () => {
     expect(html).toContain("#FF5A5F");
     expect(html).toContain("width:100%");
     expect(html).toContain("height:100%");
+    expect(html).toContain("pdl-canvas--fill-height");
+    expect(html).toMatch(/\.pdl-canvas--fill-height\s*\{[^}]*height:\s*240px/);
     expect(html).toContain("align-items: flex-start");
+  });
+
+  it("canvas is width:100% so root width=.fill can expand to the preview", () => {
+    const doc = {
+      schemaKind: "bakedDesign" as const,
+      schemaVersion: "1.0.0-beta",
+      generatedAt: "2026-01-01T00:00:00.000Z",
+      provenance: {
+        entryPath: "/x.pdl",
+        bakedTheme: null,
+        bakeProfile: "component-explicit" as const,
+      },
+      components: {
+        WideText: {
+          name: "WideText",
+          rootKind: "text",
+          bakedParams: {},
+          root: {
+            id: "Root",
+            kind: "text",
+            props: {
+              content: "Hello",
+              width: "fill",
+              background: "#eee",
+            },
+            children: [],
+          },
+        },
+      },
+    };
+    const html = renderBakedDesignToHtmlDocument(doc, { singleComponent: "WideText" });
+    expect(html).toMatch(/\.pdl-canvas\s*\{[^}]*width:\s*100%/);
+    expect(html).toMatch(/data-pdl-id="Root"[^>]*width:100%/);
   });
 
   it("canvas uses flex-start so root hug width is not stretched by the preview chrome", () => {
@@ -142,6 +177,7 @@ describe("renderHtml", () => {
     const html = renderBakedDesignToHtmlDocument(doc, { singleComponent: "Huggy" });
     expect(html).toContain("align-items: flex-start");
     expect(html).toMatch(/data-pdl-id="Root"[^>]*width:auto/);
+    expect(html).not.toMatch(/<div class="[^"]*pdl-canvas--fill-height/);
   });
 
   it("escapes text content for HTML safety", () => {
@@ -249,7 +285,7 @@ describe("renderHtml", () => {
     expect(frag).toContain("row-gap:10px");
   });
 
-  it("emits border and box-shadow from baked props", () => {
+  it("emits border and box-shadow from baked Shadow object", () => {
     const doc = {
       schemaKind: "bakedDesign" as const,
       schemaVersion: "1.0.0-beta",
@@ -271,7 +307,14 @@ describe("renderHtml", () => {
               direction: "column",
               borderWidth: 2,
               borderColor: "#112233",
-              shadow: "0 2px 4px rgba(0,0,0,0.2)",
+              shadow: {
+                kind: "shadow",
+                x: 0,
+                y: 2,
+                blurRadius: 4,
+                spread: 0,
+                color: "#00000033",
+              },
             },
             children: [],
           },
@@ -280,10 +323,10 @@ describe("renderHtml", () => {
     };
     const frag = renderBakedComponentToHtmlFragment(doc.components.B!);
     expect(frag).toContain("border:2px solid #112233");
-    expect(frag).toContain("box-shadow:0 2px 4px rgba(0,0,0,0.2)");
+    expect(frag).toContain("box-shadow:0px 2px 4px 0px #00000033");
   });
 
-  it("maps inside borderPosition to inset box-shadow", () => {
+  it("maps inside borderPosition to inset box-shadow with Shadow object", () => {
     const frag = renderBakedComponentToHtmlFragment({
       name: "In",
       rootKind: "layout",
@@ -296,13 +339,20 @@ describe("renderHtml", () => {
           borderWidth: 3,
           borderColor: "#ff0000",
           borderPosition: "inside",
-          shadow: "0 1px 2px rgba(0,0,0,0.2)",
+          shadow: {
+            kind: "shadow",
+            x: 0,
+            y: 1,
+            blurRadius: 2,
+            spread: 0,
+            color: "#00000033",
+          },
         },
         children: [],
       },
     });
     expect(frag).toContain("inset 0 0 0 3px #ff0000");
-    expect(frag).toContain("0 1px 2px rgba(0,0,0,0.2)");
+    expect(frag).toContain("0px 1px 2px 0px #00000033");
     expect(frag).not.toContain("border:3px solid");
   });
 
@@ -537,6 +587,100 @@ describe("renderHtml", () => {
     expect(html).toContain('data-pdl-component="LibrarySubnav"');
     expect(html).toContain('data-pdl-interactive="1"');
     expect(html).toContain('data-pdl-instance-of="FilterChip"');
+  });
+
+  it("truncateStyle=.clip with lineClamp does not emit ellipsis or -webkit-line-clamp", () => {
+    const frag = renderBakedComponentToHtmlFragment({
+      name: "T",
+      rootKind: "text",
+      bakedParams: {},
+      root: {
+        id: "Root",
+        kind: "text",
+        props: {
+          content: "Long copy that would otherwise ellipsize",
+          overflow: "clip",
+          truncateStyle: "clip",
+          lineClamp: 2,
+          fontSize: 16,
+          lineHeight: 1.5,
+        },
+        children: [],
+      },
+    });
+    expect(frag).toContain('class="pdl-text__clamp"');
+    expect(frag).toContain("text-overflow:clip");
+    expect(frag).toContain("max-height:48px"); // 16 * 1.5 * 2
+    expect(frag).not.toContain("text-overflow:ellipsis");
+    expect(frag).not.toContain("-webkit-line-clamp");
+  });
+
+  it("lineClamp hides excess lines even when frame overflow is visible", () => {
+    const frag = renderBakedComponentToHtmlFragment({
+      name: "T",
+      rootKind: "text",
+      bakedParams: {},
+      root: {
+        id: "Root",
+        kind: "text",
+        props: {
+          content: "Hello a a a a a a a a a a a a a a a a a a a a",
+          overflow: "visible",
+          truncateStyle: "clip",
+          lineClamp: 2,
+          fontSize: 34,
+          lineHeight: 1.2,
+          width: { fixed: 200 },
+          height: { fixed: 150 },
+        },
+        children: [],
+      },
+    });
+    // Outer keeps frame overflow + size; inner always clips the truncated tail.
+    expect(frag).toMatch(/pdl-text"[^>]*overflow:visible/);
+    expect(frag).toContain("height:150px");
+    expect(frag).toContain('class="pdl-text__clamp"');
+    expect(frag).toMatch(/pdl-text__clamp"[^>]*overflow:hidden/);
+    expect(frag).toContain("max-height:81.6px"); // 34 * 1.2 * 2
+    expect(frag).not.toContain("text-overflow:ellipsis");
+  });
+
+  it("truncateStyle=.ellipsis with lineClamp uses -webkit-line-clamp on inner", () => {
+    const frag = renderBakedComponentToHtmlFragment({
+      name: "T",
+      rootKind: "text",
+      bakedParams: {},
+      root: {
+        id: "Root",
+        kind: "text",
+        props: {
+          content: "Long copy",
+          overflow: "clip",
+          truncateStyle: "ellipsis",
+          lineClamp: 2,
+        },
+        children: [],
+      },
+    });
+    expect(frag).toContain('class="pdl-text__clamp"');
+    expect(frag).toContain("-webkit-line-clamp:2");
+    expect(frag).toContain("text-overflow:ellipsis");
+  });
+
+  it("maps overflow=.clip to overflow:hidden in HTML preview", () => {
+    const frag = renderBakedComponentToHtmlFragment({
+      name: "T",
+      rootKind: "text",
+      bakedParams: {},
+      root: {
+        id: "Root",
+        kind: "text",
+        props: { content: "Long copy", overflow: "clip", width: { fixed: 200 }, height: { fixed: 200 } },
+        children: [],
+      },
+    });
+    expect(frag).toContain("overflow:hidden");
+    expect(frag).not.toContain("overflow:clip");
   });
 
   it("maps text line-height and letter-spacing", () => {

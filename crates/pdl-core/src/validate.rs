@@ -8,6 +8,7 @@ use std::collections::HashSet;
 use crate::ast::*;
 use crate::design::{effective_params, DesignDefinition};
 use crate::error::PdlError;
+use crate::frame_props::{validate_frame_props_in_body, validate_type_style_props};
 
 fn root_kind_str(k: RootKind) -> &'static str {
     match k {
@@ -599,7 +600,7 @@ fn validate_companion_symbols(design: &DesignDefinition) -> Result<(), PdlError>
         for name in names {
             if !design.components.contains_key(name) {
                 return Err(err(
-                    "PDL-E006",
+                    "PDL-E037",
                     format!("{} unknown component `{}`", what, name),
                     design,
                 ));
@@ -928,16 +929,450 @@ fn validate_rules_for_component(
     validate_rules_statements(design, stmts, &param_by_name, component_name)
 }
 
+fn token_type_of(design: &DesignDefinition, name: &str) -> Option<String> {
+    design
+        .primitives
+        .get(name)
+        .map(|p| p.token_type.clone())
+        .or_else(|| design.semantics.get(name).map(|s| s.token_type.clone()))
+}
+
+fn validate_opacity_sides(design: &DesignDefinition, expr: &ValueExpr) -> Result<(), PdlError> {
+    match expr {
+        ValueExpr::OpacityOf { base, opacity } => {
+            validate_opacity_sides(design, base)?;
+            match opacity.as_ref() {
+                ValueExpr::Number { value: n } => {
+                    if *n < 0.0 || *n > 1.0 {
+                        return Err(err(
+                            "PDL-E005",
+                            format!("Opacity side of `@` must be a number in 0…1 (got {n})"),
+                            design,
+                        ));
+                    }
+                    Ok(())
+                }
+                ValueExpr::Ident { name } => {
+                    let Some(ref_type) = token_type_of(design, name) else {
+                        return Err(err(
+                            "PDL-E007",
+                            format!("Unresolved identifier {name}"),
+                            design,
+                        ));
+                    };
+                    if ref_type != "Opacity" {
+                        return Err(err(
+                            "PDL-E005",
+                            format!(
+                                "Opacity side of `@` must be an Opacity token or number (got `{name}` of type {ref_type})"
+                            ),
+                            design,
+                        ));
+                    }
+                    Ok(())
+                }
+                _ => Err(err(
+                    "PDL-E005",
+                    "Opacity side of `@` must be an Opacity token or number".to_string(),
+                    design,
+                )),
+            }
+        }
+        ValueExpr::Array { items } => {
+            for item in items {
+                validate_opacity_sides(design, item)?;
+            }
+            Ok(())
+        }
+        ValueExpr::Corner { tl, tr, br, bl } => {
+            validate_opacity_sides(design, tl)?;
+            validate_opacity_sides(design, tr)?;
+            validate_opacity_sides(design, br)?;
+            validate_opacity_sides(design, bl)
+        }
+        ValueExpr::Shadow {
+            x,
+            y,
+            blur_radius,
+            color,
+            spread,
+        } => {
+            validate_opacity_sides(design, x)?;
+            validate_opacity_sides(design, y)?;
+            validate_opacity_sides(design, blur_radius)?;
+            validate_opacity_sides(design, color)?;
+            if let Some(s) = spread {
+                validate_opacity_sides(design, s)?;
+            }
+            Ok(())
+        }
+        ValueExpr::EdgeInsets { fields, .. } => {
+            for v in fields.values() {
+                validate_opacity_sides(design, v)?;
+            }
+            Ok(())
+        }
+        ValueExpr::Transition {
+            duration,
+            easing,
+            delay,
+        } => {
+            validate_opacity_sides(design, duration)?;
+            validate_opacity_sides(design, easing)?;
+            if let Some(d) = delay {
+                validate_opacity_sides(design, d)?;
+            }
+            Ok(())
+        }
+        ValueExpr::Call { args, .. } => {
+            for v in args.values() {
+                validate_opacity_sides(design, v)?;
+            }
+            Ok(())
+        }
+        ValueExpr::RampInline { stops, .. } => {
+            for s in stops {
+                validate_opacity_sides(design, s)?;
+            }
+            Ok(())
+        }
+        ValueExpr::GradientStop { fields } => {
+            for v in fields.values() {
+                validate_opacity_sides(design, v)?;
+            }
+            Ok(())
+        }
+        _ => Ok(()),
+    }
+}
+
+fn token_rhs_expectation(token_type: &str) -> &'static str {
+    match token_type {
+        "Color" => "a #hex color (or color @ opacity)",
+        "Opacity" => "a number in 0…1",
+        "Distance" | "Radius" => "a non-negative number",
+        "Shadow" => "`Shadow(x:, y:, blurRadius:, color: [, spread:])`",
+        "Size" | "Weight" => "a number",
+        "LineHeight" => "a positive number (unitless ratio, e.g. `1.35`)",
+        "LetterSpacing" => "a number (em units, e.g. `0.01` or `-0.02`)",
+        "Ratio" => "a positive number or `W:H` ratio sugar (e.g. `16:9`)",
+        "Duration" | "Blur" => "a non-negative number",
+        "FontFamily" | "Icon" | "MediaSource" | "Easing" => "a string",
+        "Transition" => "a transition tuple `(duration: …, easing: …)`",
+        "Vibrancy" => "a vibrancy tuple `(saturation: …, brightness: …)`",
+        "Ramp" => "a ramp literal `(direction: …, stops: […])`",
+        "Sizing" => {
+            "a sizing literal (`.hug` / `Sizing.hug`, `.fill`, `.fixed(n)`, `.flex(…)`)"
+        }
+        "Background" | "Foreground" => "a color, layer list `[…]`, or layer constructor",
+        _ => "a value compatible with the declared TokenType",
+    }
+}
+
+fn value_expr_kind_name(value: &ValueExpr) -> &'static str {
+    match value {
+        ValueExpr::Hex { .. } => "hex",
+        ValueExpr::String { .. } => "string",
+        ValueExpr::Number { .. } => "number",
+        ValueExpr::Ratio { .. } => "ratio",
+        ValueExpr::Boolean { .. } => "boolean",
+        ValueExpr::Condition { .. } => "condition",
+        ValueExpr::Ident { .. } => "ident",
+        ValueExpr::SelfRef => "self",
+        ValueExpr::SelfMember { .. } => "selfMember",
+        ValueExpr::DotEnum { .. } => "dotEnum",
+        ValueExpr::OpacityOf { .. } => "opacityOf",
+        ValueExpr::EdgeInsets { .. } => "edgeInsets",
+        ValueExpr::Corner { .. } => "corner",
+        ValueExpr::Shadow { .. } => "shadow",
+        ValueExpr::Array { .. } => "array",
+        ValueExpr::Instance { .. } => "instance",
+        ValueExpr::Transition { .. } => "transition",
+        ValueExpr::VibrancyTuple { .. } => "vibrancyTuple",
+        ValueExpr::RampInline { .. } => "rampInline",
+        ValueExpr::Sizing { .. } => "sizing",
+        ValueExpr::Call { .. } => "call",
+        ValueExpr::GradientStop { .. } => "gradientStop",
+    }
+}
+
+fn is_shadow_axis_token_type(token_type: &str) -> bool {
+    matches!(
+        token_type,
+        "Distance" | "Radius" | "Size" | "Weight" | "Ratio" | "Duration" | "Blur"
+    )
+}
+
+fn assert_shadow_axis_field(
+    design: &DesignDefinition,
+    token_name: &str,
+    field: &str,
+    expr: &ValueExpr,
+    non_negative: bool,
+) -> Result<(), PdlError> {
+    match expr {
+        ValueExpr::Ident { name: ref_name } => {
+            let Some(ref_type) = token_type_of(design, ref_name) else {
+                return Err(err(
+                    "PDL-E007",
+                    format!("Unresolved identifier {ref_name}"),
+                    design,
+                ));
+            };
+            if !is_shadow_axis_token_type(&ref_type) {
+                return Err(err(
+                    "PDL-E005",
+                    format!(
+                        "Shadow `{token_name}` field `{field}` must be a number or numeric token (Distance, Radius, Size, …); `{ref_name}` has type {ref_type}"
+                    ),
+                    design,
+                ));
+            }
+            Ok(())
+        }
+        ValueExpr::Number { value: n } => {
+            if non_negative && *n < 0.0 {
+                return Err(err(
+                    "PDL-E005",
+                    format!(
+                        "Shadow `{token_name}` field `{field}` must be a non-negative number"
+                    ),
+                    design,
+                ));
+            }
+            Ok(())
+        }
+        _ => Err(err(
+            "PDL-E005",
+            format!(
+                "Shadow `{token_name}` field `{field}` must be a number (got {})",
+                value_expr_kind_name(expr)
+            ),
+            design,
+        )),
+    }
+}
+
+fn assert_shadow_color_field(
+    design: &DesignDefinition,
+    token_name: &str,
+    expr: &ValueExpr,
+) -> Result<(), PdlError> {
+    match expr {
+        ValueExpr::Hex { .. } | ValueExpr::OpacityOf { .. } => Ok(()),
+        ValueExpr::Ident { name: ref_name } => {
+            let Some(ref_type) = token_type_of(design, ref_name) else {
+                return Err(err(
+                    "PDL-E007",
+                    format!("Unresolved identifier {ref_name}"),
+                    design,
+                ));
+            };
+            if ref_type != "Color" {
+                return Err(err(
+                    "PDL-E005",
+                    format!(
+                        "Shadow `{token_name}` field `color` must be a Color; `{ref_name}` has type {ref_type}"
+                    ),
+                    design,
+                ));
+            }
+            Ok(())
+        }
+        _ => Err(err(
+            "PDL-E005",
+            format!(
+                "Shadow `{token_name}` field `color` must be a Color (#hex, color @ opacity, or Color token) (got {})",
+                value_expr_kind_name(expr)
+            ),
+            design,
+        )),
+    }
+}
+
+fn assert_shadow_constructor_fields(
+    design: &DesignDefinition,
+    token_name: &str,
+    value: &ValueExpr,
+) -> Result<(), PdlError> {
+    let ValueExpr::Shadow {
+        x,
+        y,
+        blur_radius,
+        color,
+        spread,
+    } = value
+    else {
+        return Ok(());
+    };
+    assert_shadow_axis_field(design, token_name, "x", x, false)?;
+    assert_shadow_axis_field(design, token_name, "y", y, false)?;
+    assert_shadow_axis_field(design, token_name, "blurRadius", blur_radius, true)?;
+    if let Some(s) = spread {
+        assert_shadow_axis_field(design, token_name, "spread", s, false)?;
+    }
+    assert_shadow_color_field(design, token_name, color)
+}
+
+/// Full-spec §23.2: one gate for every TokenType RHS shape.
+/// Bare `Ident` is accepted here; primitive/semantic alias rules run separately.
+fn assert_token_rhs_compatible(
+    design: &DesignDefinition,
+    name: &str,
+    token_type: &str,
+    value: &ValueExpr,
+) -> Result<(), PdlError> {
+    if matches!(value, ValueExpr::Ident { .. }) {
+        return Ok(());
+    }
+
+    if token_type == "Radius" {
+        if let ValueExpr::Corner { .. } = value {
+            return Err(err(
+                "PDL-E005",
+                format!(
+                    "Token `{name}` has type Radius and must be a number (or Radius token alias on `semantic`); `Corner(…)` belongs on frame `cornerRadius`, not on tokens"
+                ),
+                design,
+            ));
+        }
+    }
+    if token_type == "Shadow" && !matches!(value, ValueExpr::Shadow { .. }) {
+        return Err(err(
+            "PDL-E005",
+            format!(
+                "Token `{name}` has type Shadow and must be `Shadow(x:, y:, blurRadius:, color: [, spread:])` (or a Shadow token alias on `semantic`); CSS box-shadow strings are not valid"
+            ),
+            design,
+        ));
+    }
+
+    let ok = match token_type {
+        "Color" => matches!(value, ValueExpr::Hex { .. } | ValueExpr::OpacityOf { .. }),
+        "Opacity" => matches!(value, ValueExpr::Number { value: n } if *n >= 0.0 && *n <= 1.0),
+        "Distance" | "Radius" => matches!(value, ValueExpr::Number { value: n } if *n >= 0.0),
+        "Shadow" => matches!(value, ValueExpr::Shadow { .. }),
+        "Size" | "Weight" => matches!(value, ValueExpr::Number { .. }),
+        "LineHeight" => matches!(value, ValueExpr::Number { value: n } if *n > 0.0),
+        "LetterSpacing" => matches!(value, ValueExpr::Number { .. }),
+        "Ratio" => match value {
+            ValueExpr::Number { value: n } => *n > 0.0,
+            ValueExpr::Ratio { width, height } => *width > 0.0 && *height > 0.0,
+            _ => false,
+        },
+        "Duration" | "Blur" => matches!(value, ValueExpr::Number { value: n } if *n >= 0.0),
+        "FontFamily" | "Icon" | "MediaSource" | "Easing" => {
+            matches!(value, ValueExpr::String { .. })
+        }
+        "Transition" => matches!(value, ValueExpr::Transition { .. }),
+        "Vibrancy" => matches!(value, ValueExpr::VibrancyTuple { .. }),
+        "Ramp" => matches!(value, ValueExpr::RampInline { .. }),
+        "Sizing" => matches!(value, ValueExpr::Sizing { .. }),
+        "Background" | "Foreground" => matches!(
+            value,
+            ValueExpr::Hex { .. }
+                | ValueExpr::OpacityOf { .. }
+                | ValueExpr::Array { .. }
+                | ValueExpr::Call { .. }
+        ),
+        _ => false,
+    };
+
+    if !ok {
+        let detail = match (token_type, value) {
+            ("Opacity", ValueExpr::Number { .. }) => " (out of range 0…1)".to_string(),
+            ("Distance" | "Radius" | "Duration" | "Blur", ValueExpr::Number { .. }) => {
+                " (must be non-negative)".to_string()
+            }
+            _ => format!(" (got {})", value_expr_kind_name(value)),
+        };
+        return Err(err(
+            "PDL-E005",
+            format!(
+                "Token `{name}` has type {token_type} and must be {}{detail}",
+                token_rhs_expectation(token_type)
+            ),
+            design,
+        ));
+    }
+
+    if token_type == "Shadow" {
+        assert_shadow_constructor_fields(design, name, value)?;
+    }
+    if ok && (token_type == "Background" || token_type == "Foreground") {
+        if let Err(e) = crate::frame_props::assert_layer_stack_value(
+            design,
+            value,
+            &format!("Token `{name}`"),
+        ) {
+            // Frame props use E006; token RHS stays E005.
+            if e.code == "PDL-E006" {
+                return Err(err("PDL-E005", e.message, design));
+            }
+            return Err(e);
+        }
+    }
+    Ok(())
+}
+
+fn validate_token_declarations(design: &DesignDefinition) -> Result<(), PdlError> {
+    for (name, p) in &design.primitives {
+        assert_token_rhs_compatible(design, name, &p.token_type, &p.value)?;
+        if let ValueExpr::Ident { name: ref_name } = &p.value {
+            let ref_type = token_type_of(design, ref_name);
+            return Err(err(
+                "PDL-E005",
+                match ref_type {
+                    Some(t) => format!(
+                        "Primitive `{name}` must use a literal value (cannot reference token `{ref_name}` of type {t}); use `semantic` to alias tokens"
+                    ),
+                    None => format!(
+                        "Primitive `{name}` must use a literal value (cannot reference `{ref_name}`); use `semantic` to alias tokens"
+                    ),
+                },
+                design,
+            ));
+        }
+        validate_opacity_sides(design, &p.value)?;
+    }
+    for (name, s) in &design.semantics {
+        assert_token_rhs_compatible(design, name, &s.token_type, &s.value)?;
+        if let ValueExpr::Ident { name: ref_name } = &s.value {
+            let Some(ref_type) = token_type_of(design, ref_name) else {
+                return Err(err(
+                    "PDL-E007",
+                    format!("Unresolved identifier {ref_name}"),
+                    design,
+                ));
+            };
+            if ref_type != s.token_type {
+                return Err(err(
+                    "PDL-E005",
+                    format!(
+                        "Token `{name}` has type {} but references `{ref_name}` of type {ref_type}",
+                        s.token_type
+                    ),
+                    design,
+                ));
+            }
+        }
+        validate_opacity_sides(design, &s.value)?;
+    }
+    Ok(())
+}
+
 /// Semantic checks on the merged design (after parse + import merge).
 pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError> {
     validate_companion_symbols(design)?;
     validate_host_protocol_prelude(design)?;
     validate_protocol_requires(design)?;
+    validate_token_declarations(design)?;
+    validate_type_style_props(design)?;
     for c in design.components.values() {
         if let Some(proto) = &c.conforms_to {
             if !design.protocols.contains_key(proto) {
                 return Err(err(
-                    "PDL-E006",
+                    "PDL-E022",
                     format!(
                         "Component `{}` conforms to unknown protocol `{}`",
                         c.name, proto
@@ -968,6 +1403,13 @@ pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError>
             design,
             &c.body,
             &param_by_name,
+            &c.name,
+            root_kind_str(c.root_kind),
+            &let_kinds,
+        )?;
+        validate_frame_props_in_body(
+            design,
+            &c.body,
             &c.name,
             root_kind_str(c.root_kind),
             &let_kinds,

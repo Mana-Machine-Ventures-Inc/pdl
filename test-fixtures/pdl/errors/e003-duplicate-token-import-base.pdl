@@ -1,0 +1,1 @@
+primitive color.shared: Color = #FF0000

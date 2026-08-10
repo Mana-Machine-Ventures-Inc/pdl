@@ -1,0 +1,3 @@
+import "e003-duplicate-token-import-base.pdl"
+
+primitive color.shared: Color = #00FF00

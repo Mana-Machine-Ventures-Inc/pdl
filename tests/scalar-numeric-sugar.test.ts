@@ -23,9 +23,8 @@ describe("scalar numeric sugar", () => {
   });
 
   it("rejects negative scalar sugar for edge insets", () => {
-    const design = loadDesign(fx("atoms/scalar_numeric_sugar_bad.pdl"));
-    expect(() => buildBakedDesignComponent(design, { componentName: "ScalarNumericSugarBad" })).toThrow(
-      /scalar numeric sugar/,
+    expect(() => loadDesign(fx("atoms/scalar_numeric_sugar_bad.pdl"))).toThrow(
+      /padding|non-negative|edgeInsets|PDL-E006/,
     );
   });
 

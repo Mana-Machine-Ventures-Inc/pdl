@@ -163,27 +163,12 @@
       "name": "atoms.opacity.mid",
       "tokenType": "Opacity"
     },
-    "atoms.radius.mixed": {
+    "atoms.radius.md": {
       "definition": {
-        "bl": {
-          "kind": "number",
-          "value": 2
-        },
-        "br": {
-          "kind": "number",
-          "value": 2
-        },
-        "kind": "corner",
-        "tl": {
-          "kind": "number",
-          "value": 8
-        },
-        "tr": {
-          "kind": "number",
-          "value": 8
-        }
+        "kind": "number",
+        "value": 8
       },
-      "name": "atoms.radius.mixed",
+      "name": "atoms.radius.md",
       "tokenType": "Radius"
     },
     "atoms.radius.sm": {
@@ -266,7 +251,7 @@
       "tokenType": "Opacity"
     },
     "atoms.radius.card": {
-      "definition": "primitive:atoms.radius.mixed",
+      "definition": "primitive:atoms.radius.md",
       "name": "atoms.radius.card",
       "tokenType": "Radius"
     },

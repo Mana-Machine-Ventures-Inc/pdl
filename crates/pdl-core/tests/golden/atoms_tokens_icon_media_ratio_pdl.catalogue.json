@@ -26,6 +26,15 @@
       "name": "atoms.media.hero",
       "tokenType": "MediaSource"
     },
+    "atoms.ratio.photo": {
+      "definition": {
+        "height": 3,
+        "kind": "ratio",
+        "width": 4
+      },
+      "name": "atoms.ratio.photo",
+      "tokenType": "Ratio"
+    },
     "atoms.ratio.square": {
       "definition": {
         "kind": "number",
@@ -36,8 +45,9 @@
     },
     "atoms.ratio.video": {
       "definition": {
-        "kind": "number",
-        "value": 1.777
+        "height": 9,
+        "kind": "ratio",
+        "width": 16
       },
       "name": "atoms.ratio.video",
       "tokenType": "Ratio"

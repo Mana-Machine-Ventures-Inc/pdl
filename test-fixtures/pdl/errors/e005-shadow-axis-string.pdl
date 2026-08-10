@@ -1,0 +1,2 @@
+// PDL-E005 — Shadow axes must be numbers
+primitive bad.shadow: Shadow = Shadow(x: "a", y: 1.5, blurRadius: 3, spread: 0, color: #000000 @ 0.35)

@@ -188,7 +188,7 @@ pub fn build_resolved_component_document(
 ) -> Result<Value, PdlError> {
     if !design.components.contains_key(component_name) {
         return Err(PdlError::new(
-            "PDL-E006",
+            "PDL-E037",
             format!("Unknown component {component_name}"),
             Some(design.entry_path.clone()),
             None,
@@ -207,7 +207,7 @@ pub fn build_resolved_component_document(
     for name in &all_names {
         let decl = design.components.get(name).cloned().ok_or_else(|| {
             PdlError::new(
-                "PDL-E006",
+                "PDL-E037",
                 format!("Unknown component {name} in required closure"),
                 Some(design.entry_path.clone()),
                 None,

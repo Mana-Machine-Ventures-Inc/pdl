@@ -34,6 +34,7 @@ import type {
   VariantDecl,
 } from "./ast.js";
 import { PdlError } from "./errors.js";
+import { isFrameEnumTypeName } from "./frameProps.js";
 import type { Token, TokenKind } from "./lexer.js";
 
 export class Parser {
@@ -172,6 +173,8 @@ export class Parser {
       "FontFamily",
       "Size",
       "Weight",
+      "LineHeight",
+      "LetterSpacing",
       "Sizing",
       "Duration",
       "Easing",
@@ -190,7 +193,6 @@ export class Parser {
 
   private consumeTokenTypeName(): string {
     const t = this.peek();
-    if (t.kind === "IDENT") return this.consume("IDENT").value;
     const typeKeywords: TokenKind[] = [
       "Color",
       "Opacity",
@@ -203,6 +205,8 @@ export class Parser {
       "FontFamily",
       "Size",
       "Weight",
+      "LineHeight",
+      "LetterSpacing",
       "Sizing",
       "Duration",
       "Easing",
@@ -1156,7 +1160,7 @@ export class Parser {
     }
     if (hasAnd && hasOr) {
       throw new PdlError(
-        "PDL-E011",
+        "PDL-E038",
         "Cannot mix `&&` and `||` in one condition without parentheses",
         { path: this.filePath, line: this.tokens[start]!.line, column: this.tokens[start]!.column },
       );
@@ -1245,6 +1249,17 @@ export class Parser {
     }
     if (t.kind === "NUMBER") {
       this.advance();
+      // Ratio sugar: `16:9` → width/height (Ratio tokens / aspectRatio).
+      if (this.is(":") && this.peekAheadKind(1) === "NUMBER") {
+        this.advance(); // ':'
+        const h = this.consume("NUMBER");
+        const width = Number(t.value);
+        const height = Number(h.value);
+        if (!(height > 0) || !Number.isFinite(width) || !Number.isFinite(height)) {
+          throw this.err("Ratio sugar `W:H` requires a positive finite height (e.g. `16:9`)");
+        }
+        return { kind: "ratio", width, height };
+      }
       return { kind: "number", value: Number(t.value) };
     }
     if (t.kind === "true" || t.kind === "false") {
@@ -1257,18 +1272,71 @@ export class Parser {
       if (v === ".hug") return { kind: "sizing", mode: "hug" };
       if (v === ".fill") return { kind: "sizing", mode: "fill" };
       if (v === ".fixed") {
+        if (!this.is("(")) {
+          throw this.err(
+            "`.fixed` requires a Distance number argument, e.g. `.fixed(48)`",
+          );
+        }
         this.consume("(");
+        if (!this.is("NUMBER")) {
+          throw this.err(
+            "`.fixed` expects a Distance number (px), e.g. `.fixed(48)`",
+          );
+        }
         const n = this.consume("NUMBER");
         this.consume(")");
         return { kind: "sizing", mode: "fixed", fixed: Number(n.value) };
       }
       if (v === ".flex") {
+        if (!this.is("(")) {
+          throw this.err(
+            "`.flex` requires arguments, e.g. `.flex(min: 8, max: 120)`",
+          );
+        }
         this.consume("(");
         const flexArgs = this.parseFlexArgs();
         this.consume(")");
         return { kind: "sizing", mode: "flex", flexArgs };
       }
       return { kind: "dotEnum", value: v };
+    }
+    // Qualified sizing: `Sizing.hug` / `Sizing.fill` / `Sizing.fixed(n)` / `Sizing.flex(…)`
+    if (t.kind === "Sizing") {
+      this.advance();
+      this.consume(".");
+      const mode = this.consume("IDENT").value;
+      if (mode === "hug") return { kind: "sizing", mode: "hug" };
+      if (mode === "fill") return { kind: "sizing", mode: "fill" };
+      if (mode === "fixed") {
+        if (!this.is("(")) {
+          throw this.err(
+            "`Sizing.fixed` requires a Distance number argument, e.g. `Sizing.fixed(48)`",
+          );
+        }
+        this.consume("(");
+        if (!this.is("NUMBER")) {
+          throw this.err(
+            "`Sizing.fixed` expects a Distance number (px), e.g. `Sizing.fixed(48)`",
+          );
+        }
+        const n = this.consume("NUMBER");
+        this.consume(")");
+        return { kind: "sizing", mode: "fixed", fixed: Number(n.value) };
+      }
+      if (mode === "flex") {
+        if (!this.is("(")) {
+          throw this.err(
+            "`Sizing.flex` requires arguments, e.g. `Sizing.flex(min: 8, max: 120)`",
+          );
+        }
+        this.consume("(");
+        const flexArgs = this.parseFlexArgs();
+        this.consume(")");
+        return { kind: "sizing", mode: "flex", flexArgs };
+      }
+      throw this.err(
+        `Unknown Sizing mode \`${mode}\`; expected hug, fill, fixed, or flex`,
+      );
     }
     if (t.kind === "(") {
       return this.parseParenValue();
@@ -1287,6 +1355,20 @@ export class Parser {
       return { kind: "array", items };
     }
     if (t.kind === "IDENT") {
+      // Qualified frame enum: `Justify.center` → same AST as `.center`
+      // (Sizing.* stays on the Sizing keyword branch above.)
+      if (
+        isFrameEnumTypeName(t.value) &&
+        this.peekAheadKind(1) === "." &&
+        this.peekAheadKind(2) === "IDENT" &&
+        this.peekAheadKind(3) !== "." &&
+        this.peekAheadKind(3) !== "("
+      ) {
+        this.advance();
+        this.consume(".");
+        const caseName = this.consume("IDENT").value;
+        return { kind: "dotEnum", value: `.${caseName}` };
+      }
       const name = this.parseQualifiedName();
       if (this.is("(")) {
         return this.parseIdentCall(name);
@@ -1296,6 +1378,7 @@ export class Parser {
     const kwCallStarts: TokenKind[] = [
       "EdgeInsets",
       "Corner",
+      "Shadow",
       "GradientStop",
       "Color",
       "Ramp",
@@ -1397,6 +1480,25 @@ export class Parser {
       const bl = fields.bl;
       if (!tl || !tr || !br || !bl) throw this.err("Corner requires tl, tr, br, bl");
       return { kind: "corner", tl, tr, br, bl };
+    }
+    if (name === "Shadow") {
+      const fields = this.parseLabelledArgs();
+      this.consume(")");
+      const x = fields.x;
+      const y = fields.y;
+      const blurRadius = fields.blurRadius;
+      const color = fields.color;
+      if (!x || !y || !blurRadius || !color) {
+        throw this.err("Shadow requires x, y, blurRadius, color (optional spread)");
+      }
+      return {
+        kind: "shadow",
+        x,
+        y,
+        blurRadius,
+        color,
+        ...(fields.spread ? { spread: fields.spread } : {}),
+      };
     }
     if (name === "GradientStop") {
       const fields = this.parseLabelledArgs();

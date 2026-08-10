@@ -1,0 +1,5 @@
+// PDL-E006: overflow no longer accepts .hidden — use .clip
+component Bad() text {
+  content = "x"
+  overflow = .hidden
+}

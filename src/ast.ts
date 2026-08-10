@@ -15,6 +15,8 @@ export type ValueExpr =
   | { kind: "hex"; value: string }
   | { kind: "string"; value: string }
   | { kind: "number"; value: number }
+  /** `16:9` aspect-ratio sugar — evaluates to `width / height`. */
+  | { kind: "ratio"; width: number; height: number }
   | { kind: "boolean"; value: boolean }
   /** Only on `hidden = …` — same grammar as `if` conditions (variant comparisons). */
   | { kind: "condition"; expr: ConditionExpr }
@@ -23,6 +25,15 @@ export type ValueExpr =
   | { kind: "opacityOf"; base: ValueExpr; opacity: ValueExpr }
   | { kind: "edgeInsets"; variant: "xy" | "trbl"; fields: Record<string, ValueExpr> }
   | { kind: "corner"; tl: ValueExpr; tr: ValueExpr; br: ValueExpr; bl: ValueExpr }
+  /** `Shadow(x:, y:, blurRadius:, color: [, spread:])` — drop shadow (not a CSS string). */
+  | {
+      kind: "shadow";
+      x: ValueExpr;
+      y: ValueExpr;
+      blurRadius: ValueExpr;
+      color: ValueExpr;
+      spread?: ValueExpr;
+    }
   | { kind: "array"; items: ValueExpr[] }
   | { kind: "instance"; component: string; kwargs: Record<string, ValueExpr> }
   | { kind: "transition"; duration: ValueExpr; easing: ValueExpr; delay?: ValueExpr }

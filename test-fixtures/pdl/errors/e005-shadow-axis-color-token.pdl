@@ -1,0 +1,3 @@
+// PDL-E005 — Shadow axes cannot reference a Color token
+primitive red: Color = #FF0000
+primitive bad.shadow: Shadow = Shadow(x: red, y: 1.5, blurRadius: 3, spread: 0, color: #000000 @ 0.35)

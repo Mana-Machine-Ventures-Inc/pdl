@@ -3,5 +3,6 @@
 primitive atoms.icon.star: Icon = "star"
 primitive atoms.icon.chevron: Icon = "chevron-right"
 primitive atoms.media.hero: MediaSource = "https://example.com/hero.png"
-primitive atoms.ratio.video: Ratio = 1.777
+primitive atoms.ratio.video: Ratio = 16:9
 primitive atoms.ratio.square: Ratio = 1
+primitive atoms.ratio.photo: Ratio = 4:3

@@ -57,6 +57,8 @@ export type TokenKind =
   | "FontFamily"
   | "Size"
   | "Weight"
+  | "LineHeight"
+  | "LetterSpacing"
   | "Sizing"
   | "Duration"
   | "Easing"
@@ -157,6 +159,8 @@ const KEYWORDS = new Map<string, TokenKind>([
   ["FontFamily", "FontFamily"],
   ["Size", "Size"],
   ["Weight", "Weight"],
+  ["LineHeight", "LineHeight"],
+  ["LetterSpacing", "LetterSpacing"],
   ["Sizing", "Sizing"],
   ["Duration", "Duration"],
   ["Easing", "Easing"],

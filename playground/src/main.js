@@ -82,6 +82,9 @@ let suppressDraftSave = false;
 /** Incremented on each render attempt; stale HTTP responses are ignored. */
 let latestRenderId = 0;
 
+/** @type {Record<string, unknown> | null} last Analyze/Render designSummary (resolved colors for token preview) */
+let lastDesignSummary = null;
+
 const $ = (id) => {
   const el = document.getElementById(id);
   if (!el) throw new Error(`Missing #${id}`);
@@ -389,6 +392,7 @@ function mountEditor() {
       doc: start,
       extensions: [
         basicSetup,
+        EditorView.lineWrapping,
         editorTheme,
         keymap.of([indentWithTab, ...completionKeymap]),
         autocompletion({ override: [pdlCompletionSource] }),
@@ -544,6 +548,64 @@ function renderDesignSummary(summary) {
   }
 
   /**
+   * Shadow preview: white card with the resolved CSS box-shadow.
+   * @param {string} css
+   */
+  function shadowCardEl(css) {
+    const pad = document.createElement("span");
+    pad.className = "shadow-pad";
+    pad.setAttribute("aria-hidden", "true");
+    pad.title = css;
+    Object.assign(pad.style, {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flex: "0 0 auto",
+      width: "40px",
+      height: "32px",
+      background: "#eef0f3",
+      borderRadius: "4px",
+      overflow: "visible",
+    });
+    const card = document.createElement("span");
+    Object.assign(card.style, {
+      display: "block",
+      width: "18px",
+      height: "14px",
+      background: "#fff",
+      borderRadius: "3px",
+      boxShadow: css,
+    });
+    pad.append(card);
+    return pad;
+  }
+
+  /**
+   * Radius preview: quarter-corner sized to the px value (capped for the table).
+   * @param {number} px
+   */
+  function radiusCornerEl(px) {
+    const r = Math.max(0, px);
+    const box = Math.max(14, Math.min(Math.round(r) || 14, 48));
+    const rad = Math.min(r, box);
+    const el = document.createElement("span");
+    el.setAttribute("aria-hidden", "true");
+    el.title = `${r}px`;
+    Object.assign(el.style, {
+      display: "inline-block",
+      flex: "0 0 auto",
+      width: `${box}px`,
+      height: `${box}px`,
+      boxSizing: "border-box",
+      background: "#e8ecf1",
+      borderTop: "2px solid #334",
+      borderLeft: "2px solid #334",
+      borderTopLeftRadius: `${rad}px`,
+    });
+    return el;
+  }
+
+  /**
    * @param {string} title
    * @param {Array<Record<string, unknown>>} rows
    * @param {string[]} colKeys
@@ -579,7 +641,284 @@ function renderDesignSummary(summary) {
         for (const key of colKeys) {
           const td = document.createElement("td");
           if (key === "value" || key === "definition") {
-            td.append(jsonCell(row[key]));
+            const wrap = document.createElement("div");
+            wrap.className = "token-value-cell";
+            wrap.style.display = "flex";
+            wrap.style.alignItems = "center";
+            wrap.style.gap = "8px";
+            const cssColor = typeof row.cssColor === "string" ? row.cssColor : null;
+            const hexLabel =
+              typeof row.hex === "string"
+                ? row.hex
+                : typeof row.resolved === "string"
+                  ? row.resolved
+                  : cssColor;
+            const distRaw = row.resolved ?? hexLabel;
+            const distPx =
+              row.tokenType === "Distance" &&
+              (typeof distRaw === "number" || typeof distRaw === "string")
+                ? Number(distRaw)
+                : NaN;
+            const radiusPx =
+              row.tokenType === "Radius" &&
+              (typeof distRaw === "number" || typeof distRaw === "string")
+                ? Number(distRaw)
+                : NaN;
+            if (Number.isFinite(distPx)) {
+              const ruler = document.createElement("span");
+              ruler.setAttribute("aria-hidden", "true");
+              ruler.title = `${distPx}px`;
+              Object.assign(ruler.style, {
+                display: "inline-flex",
+                alignItems: "center",
+                flex: "0 0 auto",
+                height: "14px",
+                color: "#334",
+              });
+              const mkTick = () => {
+                const t = document.createElement("span");
+                Object.assign(t.style, {
+                  width: "2px",
+                  height: "12px",
+                  background: "#334",
+                  borderRadius: "1px",
+                  flex: "0 0 auto",
+                });
+                return t;
+              };
+              const beam = document.createElement("span");
+              Object.assign(beam.style, {
+                width: `${Math.max(2, Math.min(Math.round(Math.abs(distPx)), 96))}px`,
+                height: "2px",
+                background: "#334",
+                flex: "0 0 auto",
+              });
+              ruler.append(mkTick(), beam, mkTick());
+              wrap.append(ruler);
+              const code = document.createElement("code");
+              code.textContent = String(distPx);
+              wrap.append(code);
+            } else if (Number.isFinite(radiusPx) && radiusPx >= 0) {
+              wrap.append(radiusCornerEl(radiusPx));
+              const code = document.createElement("code");
+              code.textContent = String(radiusPx);
+              wrap.append(code);
+            } else if (row.tokenType === "Shadow") {
+              const shadowCss =
+                typeof row.shadowCss === "string"
+                  ? row.shadowCss
+                  : typeof distRaw === "string"
+                    ? distRaw
+                    : "";
+              if (shadowCss.trim()) {
+                wrap.append(shadowCardEl(shadowCss.trim()));
+                const code = document.createElement("code");
+                code.textContent = shadowCss.trim();
+                wrap.append(code);
+              } else {
+                wrap.append(jsonCell(row[key]));
+              }
+            } else if (
+              row.tokenType === "FontFamily" &&
+              typeof distRaw === "string" &&
+              distRaw.trim().length > 0
+            ) {
+              const stack = distRaw.trim();
+              const { text, missing, primary } = fontFamilyPreviewLabel(stack);
+              const sample = document.createElement("span");
+              sample.className = missing ? "font-sample font-sample--missing" : "font-sample";
+              sample.setAttribute("aria-hidden", "true");
+              sample.title = missing
+                ? `Font not found locally: ${primary} (falls back in CSS stack)`
+                : stack;
+              sample.textContent = text;
+              Object.assign(sample.style, {
+                flex: "0 0 auto",
+                fontSize: "16px",
+                lineHeight: "1.2",
+                letterSpacing: "0.02em",
+                ...(missing
+                  ? {
+                      color: "#a40",
+                      fontFamily: "ui-monospace, Menlo, monospace",
+                      background: "#fff6ee",
+                      border: "1px solid #f0c9a8",
+                      borderRadius: "4px",
+                      padding: "2px 6px",
+                    }
+                  : {
+                      color: "#222",
+                      fontFamily: stack.replace(/[\n\r;]/g, " ").trim(),
+                    }),
+              });
+              wrap.append(sample);
+              const code = document.createElement("code");
+              code.textContent = stack;
+              wrap.append(code);
+            } else if (row.tokenType === "Size") {
+              const px = asFiniteNumber(distRaw);
+              if (px != null && px >= 0) {
+                const sample = document.createElement("span");
+                sample.className = "type-sample type-sample--size";
+                sample.setAttribute("aria-hidden", "true");
+                sample.title = `${px}px`;
+                sample.textContent = "Aa";
+                const shown = Math.max(10, Math.min(px, 36));
+                Object.assign(sample.style, {
+                  flex: "0 0 auto",
+                  fontFamily: PREVIEW_UI_FONT,
+                  fontSize: `${shown}px`,
+                  lineHeight: "1",
+                  color: "#222",
+                });
+                wrap.append(sample);
+                const code = document.createElement("code");
+                code.textContent = String(px);
+                wrap.append(code);
+              } else {
+                wrap.append(jsonCell(row[key]));
+              }
+            } else if (row.tokenType === "Weight") {
+              const w = asFiniteNumber(distRaw);
+              if (w != null && w >= 0) {
+                const sample = document.createElement("span");
+                sample.className = "type-sample type-sample--weight";
+                sample.setAttribute("aria-hidden", "true");
+                sample.title = `weight ${w}`;
+                sample.textContent = "Aa";
+                Object.assign(sample.style, {
+                  flex: "0 0 auto",
+                  fontFamily: PREVIEW_UI_FONT,
+                  fontSize: "15px",
+                  fontWeight: String(Math.round(w)),
+                  lineHeight: "1",
+                  color: "#222",
+                });
+                wrap.append(sample);
+                const code = document.createElement("code");
+                code.textContent = String(w);
+                wrap.append(code);
+              } else {
+                wrap.append(jsonCell(row[key]));
+              }
+            } else if (row.tokenType === "LineHeight") {
+              const lh = asFiniteNumber(distRaw);
+              if (lh != null && lh > 0) {
+                const sample = document.createElement("span");
+                sample.className = "type-sample type-sample--lineheight";
+                sample.setAttribute("aria-hidden", "true");
+                sample.title = `line-height ${lh}`;
+                sample.innerHTML = "Ag<br>Ag";
+                Object.assign(sample.style, {
+                  flex: "0 0 auto",
+                  fontFamily: PREVIEW_UI_FONT,
+                  fontSize: "11px",
+                  lineHeight: String(lh),
+                  color: "#222",
+                  textAlign: "center",
+                });
+                wrap.append(sample);
+                const code = document.createElement("code");
+                code.textContent = String(lh);
+                wrap.append(code);
+              } else {
+                wrap.append(jsonCell(row[key]));
+              }
+            } else if (row.tokenType === "LetterSpacing") {
+              const ls = asFiniteNumber(distRaw);
+              if (ls != null) {
+                const sample = document.createElement("span");
+                sample.className = "type-sample type-sample--letterspacing";
+                sample.setAttribute("aria-hidden", "true");
+                sample.title = `letter-spacing ${ls}em`;
+                sample.textContent = "AV";
+                Object.assign(sample.style, {
+                  flex: "0 0 auto",
+                  fontFamily: PREVIEW_UI_FONT,
+                  fontSize: "15px",
+                  letterSpacing: `${ls}em`,
+                  lineHeight: "1",
+                  color: "#222",
+                });
+                wrap.append(sample);
+                const code = document.createElement("code");
+                code.textContent = String(ls);
+                wrap.append(code);
+              } else {
+                wrap.append(jsonCell(row[key]));
+              }
+            } else if (row.tokenType === "Sizing") {
+              const mode =
+                typeof row.sizingMode === "string"
+                  ? row.sizingMode
+                  : typeof distRaw === "string"
+                    ? distRaw.split("(")[0]
+                    : "";
+              const label = typeof distRaw === "string" ? distRaw : mode;
+              if (mode) {
+                const glyph = document.createElement("span");
+                glyph.className = `sizing-icon sizing-icon--${mode}`;
+                glyph.setAttribute("aria-hidden", "true");
+                glyph.title = label || mode;
+                glyph.textContent = sizingModeGlyph(mode);
+                Object.assign(glyph.style, {
+                  flex: "0 0 auto",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "28px",
+                  height: "22px",
+                  fontSize: "14px",
+                  lineHeight: "1",
+                  color: "#334",
+                  background: "#eef0f3",
+                  borderRadius: "4px",
+                });
+                wrap.append(glyph);
+                const code = document.createElement("code");
+                code.textContent = label || mode;
+                wrap.append(code);
+              } else {
+                wrap.append(jsonCell(row[key]));
+              }
+            } else if (cssColor && hexLabel) {
+              const swatch = document.createElement("span");
+              swatch.setAttribute("aria-hidden", "true");
+              swatch.title = hexLabel;
+              Object.assign(swatch.style, {
+                width: "14px",
+                height: "14px",
+                borderRadius: "4px",
+                border: "1px solid rgba(0,0,0,0.18)",
+                flex: "0 0 auto",
+                position: "relative",
+                overflow: "hidden",
+                backgroundImage:
+                  "linear-gradient(45deg,#ccc 25%,transparent 25%),linear-gradient(-45deg,#ccc 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ccc 75%),linear-gradient(-45deg,transparent 75%,#ccc 75%)",
+                backgroundSize: "8px 8px",
+                backgroundPosition: "0 0,0 4px,4px -4px,-4px 0",
+                backgroundColor: "#fff",
+              });
+              const fill = document.createElement("span");
+              Object.assign(fill.style, {
+                position: "absolute",
+                inset: "0",
+                background: cssColor,
+              });
+              swatch.append(fill);
+              wrap.append(swatch);
+              const hex = document.createElement("code");
+              const isOpacity = row.tokenType === "Opacity";
+              const alpha =
+                !isOpacity && typeof row.alpha === "number" && row.alpha < 1
+                  ? ` · α ${Math.round(row.alpha * 100)}%`
+                  : "";
+              hex.textContent = `${hexLabel}${alpha}`;
+              wrap.append(hex);
+            } else {
+              wrap.append(jsonCell(row[key]));
+            }
+            td.append(wrap);
           } else {
             td.textContent = String(row[key] ?? "");
           }
@@ -1259,23 +1598,403 @@ function refreshCanvasHint() {
   refreshControlsUi();
 }
 
-function tokensPreviewHtml(tokens) {
+/** @param {string} s */
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** CSS generic families — always treated as available. */
+const GENERIC_FONT_FAMILIES = new Set([
+  "serif",
+  "sans-serif",
+  "monospace",
+  "cursive",
+  "fantasy",
+  "system-ui",
+  "ui-serif",
+  "ui-sans-serif",
+  "ui-monospace",
+  "ui-rounded",
+  "emoji",
+  "math",
+  "fangsong",
+]);
+
+/**
+ * Split a CSS font-family stack into family names (quotes stripped).
+ * @param {string} stack
+ * @returns {string[]}
+ */
+function parseFontStackFamilies(stack) {
+  const out = [];
+  let cur = "";
+  let quote = /** @type {string | null} */ (null);
+  for (let i = 0; i < stack.length; i++) {
+    const ch = stack[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+      else cur += ch;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (ch === ",") {
+      const name = cur.trim();
+      if (name) out.push(name);
+      cur = "";
+      continue;
+    }
+    cur += ch;
+  }
+  const last = cur.trim();
+  if (last) out.push(last);
+  return out;
+}
+
+/**
+ * Canvas metric probe: primary face is available if pairing it with two
+ * different fallbacks changes at least one measured width vs the bare fallback.
+ * @param {string} familyName
+ */
+function isLocalFontAvailable(familyName) {
+  const name = familyName.trim();
+  if (!name) return false;
+  if (GENERIC_FONT_FAMILIES.has(name.toLowerCase())) return true;
+  try {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return true;
+    const probe = "mmmmmmmmmmlliwi@WwÁg";
+    const size = "72px ";
+    const quoted = `"${name.replace(/\\/g, "").replace(/"/g, "")}"`;
+    ctx.font = `${size}monospace`;
+    const mono = ctx.measureText(probe).width;
+    ctx.font = `${size}serif`;
+    const serif = ctx.measureText(probe).width;
+    ctx.font = `${size}${quoted}, monospace`;
+    const withMono = ctx.measureText(probe).width;
+    ctx.font = `${size}${quoted}, serif`;
+    const withSerif = ctx.measureText(probe).width;
+    return withMono !== mono || withSerif !== serif;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * FontFamily preview copy: "AaBbCc" when the stack's first face is present,
+ * otherwise "??????" (still compiles; preview-only signal).
+ * @param {string} stack
+ * @returns {{ text: string, missing: boolean, primary: string }}
+ */
+function fontFamilyPreviewLabel(stack) {
+  const families = parseFontStackFamilies(stack);
+  const primary = families[0] ?? "";
+  const missing = primary.length > 0 && !isLocalFontAvailable(primary);
+  return {
+    text: missing ? "??????" : "AaBbCc",
+    missing,
+    primary,
+  };
+}
+
+/** System UI stack for Size / Weight micro-previews. */
+const PREVIEW_UI_FONT = "system-ui, -apple-system, Segoe UI, sans-serif";
+
+/**
+ * Sizing mode → compact unicode glyph for token lists.
+ * @param {string} mode
+ */
+function sizingModeGlyph(mode) {
+  switch (mode) {
+    case "hug":
+      return "⟷"; // content-sized
+    case "fill":
+      return "⇔"; // stretch to fill
+    case "fixed":
+      return "▮"; // fixed block
+    case "flex":
+      return "≈"; // flexible range
+    default:
+      return "□";
+  }
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {number | null}
+ */
+function asFiniteNumber(raw) {
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw === "string" && /^-?\d+(\.\d+)?$/.test(raw.trim())) return Number(raw.trim());
+  return null;
+}
+
+/**
+ * @param {{ primitives: string[], semantics: string[], themes: string[], variants: string[], typeStyles: string[] }} tokens
+ * @param {Record<string, unknown> | null} [summary]
+ */
+function tokensPreviewHtml(tokens, summary = null) {
+  /** @type {Map<string, Record<string, unknown>>} */
+  const byName = new Map();
+  if (summary && typeof summary === "object") {
+    for (const row of /** @type {unknown[]} */ (summary.primitives ?? [])) {
+      if (row && typeof row === "object" && /** @type {any} */ (row).name) {
+        byName.set(String(/** @type {any} */ (row).name), /** @type {Record<string, unknown>} */ (row));
+      }
+    }
+    for (const row of /** @type {unknown[]} */ (summary.semantics ?? [])) {
+      if (row && typeof row === "object" && /** @type {any} */ (row).name) {
+        byName.set(String(/** @type {any} */ (row).name), /** @type {Record<string, unknown>} */ (row));
+      }
+    }
+  }
+
+  /** @param {unknown} raw @returns {number | null} */
+  const asNumber = (raw) => {
+    if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+    if (typeof raw === "string" && /^-?\d+(\.\d+)?$/.test(raw.trim())) return Number(raw.trim());
+    return null;
+  };
+
+  /**
+   * Distance preview: ticks + beam sized to the px value (`|_12_|`).
+   * @param {number} px
+   */
+  const distanceRuler = (px) => {
+    const w = Math.max(2, Math.min(Math.round(Math.abs(px)), 96));
+    return `<span class="ruler" title="${escapeHtml(String(px))}px" aria-hidden="true"><span class="tick"></span><span class="beam" style="width:${w}px"></span><span class="tick"></span></span>`;
+  };
+
+  /**
+   * Radius preview: top-left quarter-corner; box ≈ radius (capped) so the curve is true-scale.
+   * @param {number} px
+   */
+  const radiusCorner = (px) => {
+    const r = Math.max(0, px);
+    const box = Math.max(14, Math.min(Math.round(r) || 14, 48));
+    const rad = Math.min(r, box);
+    return `<span class="radius-corner" title="${escapeHtml(String(r))}px" aria-hidden="true" style="width:${box}px;height:${box}px;border-top-left-radius:${rad}px"></span>`;
+  };
+
+  /**
+   * FontFamily preview: sample glyphs in the stack, or ?????? if the primary face is missing.
+   * @param {string} stack
+   */
+  const fontSample = (stack) => {
+    const safe = stack.replace(/[\n\r;]/g, " ").trim();
+    const { text, missing, primary } = fontFamilyPreviewLabel(stack);
+    const title = missing
+      ? `Font not found locally: ${primary} (falls back in CSS stack)`
+      : stack;
+    const cls = missing ? "font-sample font-sample--missing" : "font-sample";
+    const style = missing ? "" : ` style="font-family:${escapeHtml(safe)}"`;
+    return `<span class="${cls}" title="${escapeHtml(title)}" aria-hidden="true"${style}>${escapeHtml(text)}</span>`;
+  };
+
+  /**
+   * Shadow preview: white card with the resolved CSS box-shadow on a gray pad.
+   * @param {string} css
+   */
+  const shadowCard = (css) => {
+    const safe = css.replace(/[\n\r"<>]/g, " ").trim();
+    return `<span class="shadow-pad" title="${escapeHtml(css)}" aria-hidden="true"><span class="shadow-card" style="box-shadow:${escapeHtml(safe)}"></span></span>`;
+  };
+
+  /**
+   * Size preview: "Aa" at (capped) presentation size, system UI font.
+   * @param {number} px
+   */
+  const sizeSample = (px) => {
+    const shown = Math.max(10, Math.min(px, 36));
+    return `<span class="type-sample type-sample--size" title="${escapeHtml(String(px))}px" aria-hidden="true" style="font-size:${shown}px;font-family:${escapeHtml(PREVIEW_UI_FONT)}">Aa</span>`;
+  };
+
+  /**
+   * Weight preview: "Aa" at standard size with the token weight.
+   * @param {number} w
+   */
+  const weightSample = (w) => {
+    const fw = Math.round(w);
+    return `<span class="type-sample type-sample--weight" title="weight ${escapeHtml(String(w))}" aria-hidden="true" style="font-weight:${fw};font-family:${escapeHtml(PREVIEW_UI_FONT)}">Aa</span>`;
+  };
+
+  /**
+   * LineHeight preview: two lines with the token leading.
+   * @param {number} lh
+   */
+  const lineHeightSample = (lh) =>
+    `<span class="type-sample type-sample--lineheight" title="line-height ${escapeHtml(String(lh))}" aria-hidden="true" style="font-family:${escapeHtml(PREVIEW_UI_FONT)};font-size:11px;line-height:${lh};text-align:center">Ag<br>Ag</span>`;
+
+  /**
+   * LetterSpacing preview: tracking applied to "AV".
+   * @param {number} ls
+   */
+  const letterSpacingSample = (ls) =>
+    `<span class="type-sample type-sample--letterspacing" title="letter-spacing ${escapeHtml(String(ls))}em" aria-hidden="true" style="font-family:${escapeHtml(PREVIEW_UI_FONT)};font-size:15px;letter-spacing:${ls}em">AV</span>`;
+
+  /**
+   * Sizing preview: unicode glyph for hug / fill / fixed / flex.
+   * @param {string} mode
+   * @param {string} label
+   */
+  const sizingIcon = (mode, label) => {
+    const g = sizingModeGlyph(mode);
+    return `<span class="sizing-icon sizing-icon--${escapeHtml(mode)}" title="${escapeHtml(label)}" aria-hidden="true">${escapeHtml(g)}</span>`;
+  };
+
+  /** @param {string} name */
+  const tokenLi = (name) => {
+    const meta = byName.get(name);
+    const cssColor = typeof meta?.cssColor === "string" ? meta.cssColor : null;
+    const hexLabel =
+      typeof meta?.hex === "string"
+        ? meta.hex
+        : typeof meta?.resolved === "string"
+          ? meta.resolved
+          : null;
+    const alpha = typeof meta?.alpha === "number" ? meta.alpha : null;
+    const type = typeof meta?.tokenType === "string" ? meta.tokenType : "";
+    const distPx = type === "Distance" ? asNumber(meta?.resolved ?? hexLabel) : null;
+    const radiusPx = type === "Radius" ? asNumber(meta?.resolved ?? hexLabel) : null;
+    const sizePx = type === "Size" ? asNumber(meta?.resolved ?? hexLabel) : null;
+    const weightN = type === "Weight" ? asNumber(meta?.resolved ?? hexLabel) : null;
+    const lineHeightN = type === "LineHeight" ? asNumber(meta?.resolved ?? hexLabel) : null;
+    const letterSpacingN = type === "LetterSpacing" ? asNumber(meta?.resolved ?? hexLabel) : null;
+    const fontStack =
+      type === "FontFamily" && typeof (meta?.resolved ?? hexLabel) === "string"
+        ? String(meta?.resolved ?? hexLabel).trim()
+        : "";
+    const shadowCss =
+      type === "Shadow"
+        ? typeof meta?.shadowCss === "string"
+          ? meta.shadowCss
+          : typeof meta?.resolved === "string"
+            ? meta.resolved
+            : ""
+        : "";
+    const sizingMode =
+      type === "Sizing"
+        ? typeof meta?.sizingMode === "string"
+          ? meta.sizingMode
+          : typeof (meta?.resolved ?? hexLabel) === "string"
+            ? String(meta?.resolved ?? hexLabel).split("(")[0]
+            : ""
+        : "";
+    const sizingLabel =
+      type === "Sizing" && typeof (meta?.resolved ?? hexLabel) === "string"
+        ? String(meta?.resolved ?? hexLabel)
+        : sizingMode;
+
+    let preview;
+    if (distPx != null) {
+      preview = distanceRuler(distPx);
+    } else if (radiusPx != null && radiusPx >= 0) {
+      preview = radiusCorner(radiusPx);
+    } else if (shadowCss) {
+      preview = shadowCard(shadowCss);
+    } else if (fontStack) {
+      preview = fontSample(fontStack);
+    } else if (sizePx != null && sizePx >= 0) {
+      preview = sizeSample(sizePx);
+    } else if (weightN != null && weightN >= 0) {
+      preview = weightSample(weightN);
+    } else if (lineHeightN != null && lineHeightN > 0) {
+      preview = lineHeightSample(lineHeightN);
+    } else if (letterSpacingN != null) {
+      preview = letterSpacingSample(letterSpacingN);
+    } else if (sizingMode) {
+      preview = sizingIcon(sizingMode, sizingLabel || sizingMode);
+    } else if (cssColor) {
+      preview = `<span class="swatch" title="${escapeHtml(hexLabel ?? cssColor)}"><span class="fill" style="background:${escapeHtml(cssColor)}"></span></span>`;
+    } else {
+      preview = `<span class="swatch empty" aria-hidden="true"></span>`;
+    }
+
+    // Color with alpha: append α%. Opacity tokens already display the multiplier.
+    const alphaBit =
+      type !== "Opacity" && cssColor && alpha != null && alpha < 1
+        ? ` · α ${Math.round(alpha * 100)}%`
+        : "";
+    const valueBit = hexLabel
+      ? `<code class="hex">${escapeHtml(hexLabel)}${escapeHtml(alphaBit)}</code>`
+      : "";
+    const typeBit = type ? `<span class="type">${escapeHtml(type)}</span>` : "";
+    return `<li>${preview}<code class="name">${escapeHtml(name)}</code>${typeBit}${valueBit}</li>`;
+  };
+
   const row = (title, items) => {
     if (!items.length) return "";
-    return `<h2>${title}</h2><ul>${items.map((x) => `<li><code>${x}</code></li>`).join("")}</ul>`;
+    return `<h2>${escapeHtml(title)}</h2><ul class="tokens">${items.map(tokenLi).join("")}</ul>`;
+  };
+  const plain = (title, items) => {
+    if (!items.length) return "";
+    return `<h2>${escapeHtml(title)}</h2><ul>${items.map((x) => `<li><code>${escapeHtml(x)}</code></li>`).join("")}</ul>`;
   };
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-  body{font:14px/1.45 ui-sans-serif,system-ui;padding:24px;background:#f6f7f9;color:#222}
-  h1{font-size:1.1rem} h2{font-size:0.95rem;margin-top:1.2rem}
+  html,body{margin:0;height:auto;overflow:visible}
+  body{font:14px/1.45 ui-sans-serif,system-ui;padding:24px;background:#f6f7f9;color:#222;box-sizing:border-box}
+  h1{font-size:1.1rem;margin:0 0 0.4rem} h2{font-size:0.95rem;margin-top:1.2rem;color:#444}
   code{font-family:ui-monospace,Menlo,monospace;font-size:0.85rem}
-  ul{padding-left:1.2rem}
+  ul{padding-left:0;list-style:none;margin:0.4rem 0 0}
+  ul.tokens li{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #e6e8ec}
+  .swatch{width:18px;height:18px;border-radius:5px;border:1px solid rgba(0,0,0,0.18);flex:0 0 auto;position:relative;overflow:hidden;
+    background-color:#fff;
+    background-image:
+      linear-gradient(45deg,#ccc 25%,transparent 25%),linear-gradient(-45deg,#ccc 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#ccc 75%),linear-gradient(-45deg,transparent 75%,#ccc 75%);
+    background-size:8px 8px;background-position:0 0,0 4px,4px -4px,-4px 0}
+  .swatch .fill{position:absolute;inset:0;border-radius:inherit}
+  .swatch.empty{opacity:0.35}
+  .ruler{display:inline-flex;align-items:center;flex:0 0 auto;min-width:18px;height:18px;color:#334}
+  .ruler .tick{width:2px;height:14px;background:#334;border-radius:1px;flex:0 0 auto}
+  .ruler .beam{height:2px;background:#334;flex:0 0 auto;min-width:2px}
+  .radius-corner{display:inline-block;flex:0 0 auto;box-sizing:border-box;background:#e8ecf1;
+    border-top:2px solid #334;border-left:2px solid #334;border-top-left-radius:0}
+  .font-sample{flex:0 0 auto;font-size:17px;line-height:1.2;color:#222;letter-spacing:0.02em;
+    padding:2px 6px;background:#fff;border:1px solid #e0e3e8;border-radius:4px;min-width:4.5rem;text-align:center}
+  .font-sample--missing{color:#a40;background:#fff6ee;border-color:#f0c9a8;
+    font-family:ui-monospace,Menlo,monospace;letter-spacing:0.08em}
+  .shadow-pad{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
+    width:44px;height:34px;background:#eef0f3;border-radius:4px;overflow:visible}
+  .shadow-card{display:block;width:18px;height:14px;background:#fff;border-radius:3px}
+  .type-sample{flex:0 0 auto;line-height:1;color:#222;min-width:1.6rem;text-align:center}
+  .type-sample--weight{font-size:15px}
+  .sizing-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
+    width:28px;height:22px;font-size:14px;line-height:1;color:#334;background:#eef0f3;border-radius:4px}
+  .name{color:#111}
+  .type{color:#789;font-size:0.75rem;min-width:4.5rem}
+  .hex{color:#0b5;background:#eef8f1;padding:1px 6px;border-radius:4px}
   </style></head><body>
-  <h1>Tokens — ${activePath.split("/").pop()}</h1>
+  <h1>Tokens — ${escapeHtml(activePath.split("/").pop() ?? "")}</h1>
   ${row("Primitives", tokens.primitives)}
   ${row("Semantics", tokens.semantics)}
-  ${row("Themes", tokens.themes)}
-  ${row("Variants", tokens.variants)}
-  ${row("Type styles", tokens.typeStyles)}
+  ${plain("Themes", tokens.themes)}
+  ${plain("Variants", tokens.variants)}
+  ${plain("Type styles", tokens.typeStyles)}
+  <script>
+  (function(){
+    function postHeight(){
+      try {
+        var h = Math.max(
+          document.documentElement.scrollHeight,
+          document.body.scrollHeight,
+          document.body.offsetHeight
+        );
+        parent.postMessage({ type: 'pdl-resize', height: h }, '*');
+      } catch (e) {}
+    }
+    postHeight();
+    requestAnimationFrame(postHeight);
+    window.addEventListener('load', postHeight);
+  })();
+  </script>
   </body></html>`;
 }
 
@@ -1355,9 +2074,16 @@ function insertPdlTemplate(templateId) {
 function bakeEntryPath() {
   const disk = diskRootMode();
   if (disk && activePath && activePath.endsWith(".pdl")) return activePath;
+  if (!disk) {
+    const ent = entryPath.value.trim();
+    if (ent && files[ent] !== undefined) return ent;
+    if (activePath && files[activePath] !== undefined) return activePath;
+    const pdl = sortedFilePaths().filter((p) => p.endsWith(".pdl"));
+    if (pdl.length) return pdl[0];
+  }
   return (
     entryPath.value.trim() ||
-    (disk ? "test-fixtures/pdl/molecules/design.pdl" : "design.pdl")
+    (disk ? "test-fixtures/pdl/molecules/design.pdl" : "lab.pdl")
   );
 }
 
@@ -1534,6 +2260,7 @@ async function runAnalyze() {
         { phase: "Analyze (load / parse)", message: data.error || "Analyze failed" },
       ]);
       setStatus("");
+      lastDesignSummary = null;
       renderDesignSummary(null);
       completionSymbols = [];
       return false;
@@ -1549,6 +2276,7 @@ async function runAnalyze() {
     setCompletionSymbolsFromAnalyze(data);
     refreshCanvasHint();
     setStatus(`OK — ${data.components?.length ?? 0} components · ${selectedEngine()}`);
+    lastDesignSummary = data.designSummary ?? null;
     renderDesignSummary(data.designSummary);
     return true;
   } catch (e) {
@@ -1556,6 +2284,7 @@ async function runAnalyze() {
     showError(msg);
     updateRenderConsole([{ phase: "Analyze (network / JSON)", message: msg, stack: e instanceof Error ? e.stack : undefined }]);
     setStatus("");
+    lastDesignSummary = null;
     renderDesignSummary(null);
     completionSymbols = [];
     return false;
@@ -1580,14 +2309,34 @@ async function runRender({ debounced = false } = {}) {
     const eng = selectedEngine();
 
     if (canvas.kind === "tokens") {
+      // Resolve colors via /api/load so swatches show hex + paint (not name-only regex).
+      const loadRes = await fetch("/api/load", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(getBodyBase()),
+      });
+      const loadData = await loadRes.json();
       if (id !== latestRenderId) return;
-      frame.srcdoc = tokensPreviewHtml(canvas.tokens);
+      if (!loadData.ok) {
+        showError(loadData.error || "Token preview failed");
+        updateRenderConsole([
+          { phase: "Tokens (load / parse)", message: loadData.error || "Token preview failed" },
+        ]);
+        lastDesignSummary = null;
+        frame.srcdoc = tokensPreviewHtml(canvas.tokens, null);
+        setStatus("");
+        return;
+      }
+      lastDesignSummary = loadData.designSummary ?? null;
+      renderDesignSummary(loadData.designSummary);
+      frame.srcdoc = tokensPreviewHtml(canvas.tokens, lastDesignSummary);
       setStatus("Preview updated · tokens");
       return;
     }
     if (canvas.kind === "empty" || canvas.componentNames.length === 0) {
       if (id !== latestRenderId) return;
-      frame.srcdoc = `<!DOCTYPE html><html><body style="font:14px system-ui;padding:24px;color:#556">Nothing to preview in <code>${activePath}</code>.</body></html>`;
+      frame.srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:auto}</style></head><body style="font:14px system-ui;padding:24px;color:#556">Nothing to preview in <code>${escapeHtml(activePath)}</code>.
+<script>(function(){function p(){try{parent.postMessage({type:'pdl-resize',height:Math.max(document.documentElement.scrollHeight,document.body.scrollHeight)},'*')}catch(e){}}p();requestAnimationFrame(p)})()</script></body></html>`;
       setStatus("Empty canvas");
       return;
     }
@@ -1721,6 +2470,7 @@ async function runRender({ debounced = false } = {}) {
       refreshCanvasHint();
     }
     if (data.designSummary) {
+      lastDesignSummary = data.designSummary;
       renderDesignSummary(data.designSummary);
       setCompletionSymbolsFromAnalyze(data);
     }

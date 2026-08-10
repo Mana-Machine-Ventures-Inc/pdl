@@ -19,7 +19,8 @@
 //!   `Description`, `Animate`, `From`, `To`, `Stagger`, `StaggerFrom`, `Where`,
 //!   `Tags`, and the type/call keywords `EdgeInsets`, `Corner`, `GradientStop`,
 //!   `Color`, `Opacity`, `Distance`, `Radius`, `Shadow`, `Icon`, `MediaSource`,
-//!   `Ratio`, `FontFamily`, `Size`, `Weight`, `Sizing`, `Duration`, `Easing`,
+//!   `Ratio`, `FontFamily`, `Size`, `Weight`, `LineHeight`, `LetterSpacing`,
+//!   `Sizing`, `Duration`, `Easing`,
 //!   `Transition`, `Ramp`, `Blur`, `Media`, `Vibrancy`, `Background`,
 //!   `Foreground`.
 //! * The `self` keyword is spelled **`SelfKw`** (Rust reserves `Self`/`self`).
@@ -33,6 +34,7 @@
 
 use crate::ast::*;
 use crate::error::PdlError;
+use crate::frame_props::is_frame_enum_type_name;
 use crate::lexer::{tokenize, Token, TokenKind};
 
 pub struct Parser {
@@ -190,9 +192,6 @@ impl Parser {
 
     fn consume_token_type_name(&mut self) -> Result<String, PdlError> {
         let t = self.peek().clone();
-        if t.kind == TokenKind::Ident {
-            return Ok(self.consume(TokenKind::Ident)?.value);
-        }
         if is_type_keyword(t.kind) {
             return Ok(self.advance().value);
         }
@@ -1554,7 +1553,7 @@ impl Parser {
         if has_and && has_or {
             let tok = &self.tokens[start];
             return Err(PdlError::new(
-                "PDL-E011",
+                "PDL-E038",
                 "Cannot mix `&&` and `||` in one condition without parentheses",
                 Some(self.file_path.clone()),
                 Some(tok.line),
@@ -1697,6 +1696,19 @@ impl Parser {
             }
             TokenKind::Number => {
                 self.advance();
+                // Ratio sugar: `16:9` → width/height (Ratio tokens / aspectRatio).
+                if self.is(TokenKind::Colon) && self.peek_ahead_kind(1) == TokenKind::Number {
+                    self.advance(); // ':'
+                    let h = self.consume(TokenKind::Number)?;
+                    let width = self.num(&t.value);
+                    let height = self.num(&h.value);
+                    if !(height > 0.0) || !width.is_finite() || !height.is_finite() {
+                        return Err(self.err(
+                            "Ratio sugar `W:H` requires a positive finite height (e.g. `16:9`)",
+                        ));
+                    }
+                    return Ok(ValueExpr::Ratio { width, height });
+                }
                 return Ok(ValueExpr::Number {
                     value: self.num(&t.value),
                 });
@@ -1721,7 +1733,17 @@ impl Parser {
                     });
                 }
                 if v == ".fixed" {
+                    if !self.is(TokenKind::LParen) {
+                        return Err(self.err(
+                            "`.fixed` requires a Distance number argument, e.g. `.fixed(48)`",
+                        ));
+                    }
                     self.consume(TokenKind::LParen)?;
+                    if !self.is(TokenKind::Number) {
+                        return Err(self.err(
+                            "`.fixed` expects a Distance number (px), e.g. `.fixed(48)`",
+                        ));
+                    }
                     let n = self.consume(TokenKind::Number)?;
                     self.consume(TokenKind::RParen)?;
                     return Ok(ValueExpr::Sizing {
@@ -1731,6 +1753,11 @@ impl Parser {
                     });
                 }
                 if v == ".flex" {
+                    if !self.is(TokenKind::LParen) {
+                        return Err(self.err(
+                            "`.flex` requires arguments, e.g. `.flex(min: 8, max: 120)`",
+                        ));
+                    }
                     self.consume(TokenKind::LParen)?;
                     let flex_args = self.parse_flex_args()?;
                     self.consume(TokenKind::RParen)?;
@@ -1739,6 +1766,58 @@ impl Parser {
                     });
                 }
                 return Ok(ValueExpr::DotEnum { value: v });
+            }
+            // Qualified sizing: `Sizing.hug` / `Sizing.fill` / `Sizing.fixed(n)` / `Sizing.flex(…)`
+            TokenKind::Sizing => {
+                self.advance();
+                self.consume(TokenKind::Dot)?;
+                let mode = self.consume(TokenKind::Ident)?.value;
+                if mode == "hug" {
+                    return Ok(ValueExpr::Sizing {
+                        mode: SizingMode::Hug,
+                    });
+                }
+                if mode == "fill" {
+                    return Ok(ValueExpr::Sizing {
+                        mode: SizingMode::Fill,
+                    });
+                }
+                if mode == "fixed" {
+                    if !self.is(TokenKind::LParen) {
+                        return Err(self.err(
+                            "`Sizing.fixed` requires a Distance number argument, e.g. `Sizing.fixed(48)`",
+                        ));
+                    }
+                    self.consume(TokenKind::LParen)?;
+                    if !self.is(TokenKind::Number) {
+                        return Err(self.err(
+                            "`Sizing.fixed` expects a Distance number (px), e.g. `Sizing.fixed(48)`",
+                        ));
+                    }
+                    let n = self.consume(TokenKind::Number)?;
+                    self.consume(TokenKind::RParen)?;
+                    return Ok(ValueExpr::Sizing {
+                        mode: SizingMode::Fixed {
+                            fixed: self.num(&n.value),
+                        },
+                    });
+                }
+                if mode == "flex" {
+                    if !self.is(TokenKind::LParen) {
+                        return Err(self.err(
+                            "`Sizing.flex` requires arguments, e.g. `Sizing.flex(min: 8, max: 120)`",
+                        ));
+                    }
+                    self.consume(TokenKind::LParen)?;
+                    let flex_args = self.parse_flex_args()?;
+                    self.consume(TokenKind::RParen)?;
+                    return Ok(ValueExpr::Sizing {
+                        mode: SizingMode::Flex { flex_args },
+                    });
+                }
+                return Err(self.err(format!(
+                    "Unknown Sizing mode `{mode}`; expected hug, fill, fixed, or flex"
+                )));
             }
             TokenKind::LParen => {
                 return self.parse_paren_value();
@@ -1759,6 +1838,21 @@ impl Parser {
                 return Ok(ValueExpr::Array { items });
             }
             TokenKind::Ident => {
+                // Qualified frame enum: `Justify.center` → same AST as `.center`
+                // (Sizing.* stays on the Sizing keyword branch above.)
+                if is_frame_enum_type_name(&t.value)
+                    && self.peek_ahead_kind(1) == TokenKind::Dot
+                    && self.peek_ahead_kind(2) == TokenKind::Ident
+                    && self.peek_ahead_kind(3) != TokenKind::Dot
+                    && self.peek_ahead_kind(3) != TokenKind::LParen
+                {
+                    self.advance();
+                    self.consume(TokenKind::Dot)?;
+                    let case_name = self.consume(TokenKind::Ident)?.value;
+                    return Ok(ValueExpr::DotEnum {
+                        value: format!(".{case_name}"),
+                    });
+                }
                 let name = self.parse_qualified_name()?;
                 if self.is(TokenKind::LParen) {
                     return self.parse_ident_call(name);
@@ -1905,6 +1999,31 @@ impl Parser {
                     });
                 }
                 _ => return Err(self.err("Corner requires tl, tr, br, bl")),
+            }
+        }
+        if name == "Shadow" {
+            let mut fields = self.parse_labelled_args()?;
+            self.consume(TokenKind::RParen)?;
+            let x = fields.swap_remove("x");
+            let y = fields.swap_remove("y");
+            let blur_radius = fields.swap_remove("blurRadius");
+            let color = fields.swap_remove("color");
+            let spread = fields.swap_remove("spread");
+            match (x, y, blur_radius, color) {
+                (Some(x), Some(y), Some(blur_radius), Some(color)) => {
+                    return Ok(ValueExpr::Shadow {
+                        x: Box::new(x),
+                        y: Box::new(y),
+                        blur_radius: Box::new(blur_radius),
+                        color: Box::new(color),
+                        spread: spread.map(Box::new),
+                    });
+                }
+                _ => {
+                    return Err(self.err(
+                        "Shadow requires x, y, blurRadius, color (optional spread)",
+                    ));
+                }
             }
         }
         if name == "GradientStop" {
@@ -2119,6 +2238,8 @@ fn is_type_keyword(kind: TokenKind) -> bool {
             | TokenKind::FontFamily
             | TokenKind::Size
             | TokenKind::Weight
+            | TokenKind::LineHeight
+            | TokenKind::LetterSpacing
             | TokenKind::Sizing
             | TokenKind::Duration
             | TokenKind::Easing
@@ -2136,6 +2257,7 @@ fn is_kw_call_start(kind: TokenKind) -> bool {
         kind,
         TokenKind::EdgeInsets
             | TokenKind::Corner
+            | TokenKind::Shadow
             | TokenKind::GradientStop
             | TokenKind::Color
             | TokenKind::Ramp

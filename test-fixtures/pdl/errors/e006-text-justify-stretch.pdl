@@ -1,0 +1,4 @@
+component BadTextJustify() text {
+  content = "hi"
+  justify = .stretch
+}

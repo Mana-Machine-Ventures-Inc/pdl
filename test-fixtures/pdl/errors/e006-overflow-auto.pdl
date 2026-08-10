@@ -1,0 +1,5 @@
+// PDL-E006: overflow no longer accepts .auto — use .scroll
+component Bad() text {
+  content = "x"
+  overflow = .auto
+}

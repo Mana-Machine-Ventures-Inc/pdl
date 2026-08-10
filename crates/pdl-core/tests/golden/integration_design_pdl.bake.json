@@ -184,7 +184,13 @@
             "id": "A",
             "kind": "text",
             "props": {
-              "content": "Always"
+              "color": "#717171",
+              "content": "Always",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 12,
+              "fontWeight": 600,
+              "letterSpacing": 0.02,
+              "lineHeight": 1.2
             }
           },
           {
@@ -193,7 +199,13 @@
                 "id": "Inner",
                 "kind": "text",
                 "props": {
-                  "content": "Sometimes"
+                  "color": "#222222",
+                  "content": "Sometimes",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               }
             ],
@@ -324,23 +336,25 @@
           "borderColor": "#222222",
           "borderPosition": "inside",
           "borderWidth": 1,
-          "cornerRadius": {
-            "bl": 2,
-            "br": 2,
-            "tl": 8,
-            "tr": 8
-          },
+          "cornerRadius": 8,
           "direction": "column",
           "justify": "start",
           "opacity": 1,
-          "overflow": "hidden",
+          "overflow": "clip",
           "padding": {
             "bottom": 12,
             "left": 12,
             "right": 12,
             "top": 12
           },
-          "shadow": "0 2px 8px rgba(0,0,0,0.12)",
+          "shadow": {
+            "blurRadius": 8,
+            "color": "#0000001f",
+            "kind": "shadow",
+            "spread": 0,
+            "x": 0,
+            "y": 2
+          },
           "wrap": "nowrap"
         }
       },
@@ -601,7 +615,7 @@
             "id": "M",
             "kind": "media",
             "props": {
-              "aspectRatio": 1.777,
+              "aspectRatio": 1.7777777777777777,
               "contentMode": "cover",
               "cornerRadius": 4,
               "objectPosition": "center",
@@ -733,6 +747,50 @@
       },
       "rootKind": "layout"
     },
+    "AtomQualifiedEnums": {
+      "name": "AtomQualifiedEnums",
+      "root": {
+        "children": [
+          {
+            "id": "Label",
+            "kind": "text",
+            "props": {
+              "align": "start",
+              "content": "qualified",
+              "justify": "center",
+              "truncateStyle": "ellipsis",
+              "width": "fill"
+            }
+          },
+          {
+            "id": "Child",
+            "kind": "layout",
+            "props": {
+              "alignSelf": "stretch",
+              "background": "#112233",
+              "height": {
+                "fixed": 8
+              },
+              "position": "flow",
+              "width": "fill"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "align": "stretch",
+          "borderPosition": "inside",
+          "direction": "row",
+          "height": "hug",
+          "justify": "center",
+          "overflow": "clip",
+          "width": "fill",
+          "wrap": "nowrap"
+        }
+      },
+      "rootKind": "layout"
+    },
     "AtomTextJustifyAlign": {
       "name": "AtomTextJustifyAlign",
       "root": {
@@ -781,44 +839,6 @@
       },
       "rootKind": "layout"
     },
-    "AtomTextOverflow": {
-      "name": "AtomTextOverflow",
-      "root": {
-        "children": [
-          {
-            "id": "Clipped",
-            "kind": "text",
-            "props": {
-              "color": "#222222",
-              "content": "Clipped overflow",
-              "fontSize": 13,
-              "overflow": "clip",
-              "textOverflow": "clip"
-            }
-          },
-          {
-            "id": "Ellipsis",
-            "kind": "text",
-            "props": {
-              "color": "#EBEBEB",
-              "content": "Very long label that should ellipsize when constrained",
-              "fontSize": 13,
-              "lineClamp": 2,
-              "overflow": "hidden",
-              "textOverflow": "ellipsis"
-            }
-          }
-        ],
-        "id": "Root",
-        "kind": "layout",
-        "props": {
-          "background": "#F7F7F7",
-          "direction": "column",
-          "gap": 4
-        }
-      },
-      "rootKind": "layout"
-    },
     "AtomTextPlain": {
       "name": "AtomTextPlain",
       "root": {
@@ -854,8 +874,13 @@
             "id": "T",
             "kind": "text",
             "props": {
+              "color": "#717171",
               "content": "Mixed",
-              "fontSize": 22
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 22,
+              "fontWeight": 600,
+              "letterSpacing": 0.02,
+              "lineHeight": 1.2
             }
           }
         ],
@@ -876,28 +901,52 @@
             "id": "A",
             "kind": "text",
             "props": {
-              "content": "Caption line"
+              "color": "#717171",
+              "content": "Caption line",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 12,
+              "fontWeight": 600,
+              "letterSpacing": 0.02,
+              "lineHeight": 1.2
             }
           },
           {
             "id": "B",
             "kind": "text",
             "props": {
-              "content": "Body line"
+              "color": "#222222",
+              "content": "Body line",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 16,
+              "fontWeight": 400,
+              "letterSpacing": 0,
+              "lineHeight": 1.35
             }
           },
           {
             "id": "C",
             "kind": "text",
             "props": {
-              "content": "Title line"
+              "color": "#222222",
+              "content": "Title line",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 22,
+              "fontWeight": 700,
+              "letterSpacing": -0.01,
+              "lineHeight": 1.2
             }
           },
           {
             "id": "D",
             "kind": "text",
             "props": {
-              "content": "Mono line"
+              "color": "#222222",
+              "content": "Mono line",
+              "fontFamily": "ui-monospace, monospace",
+              "fontSize": 12,
+              "fontWeight": 400,
+              "letterSpacing": 0,
+              "lineHeight": 1.35
             }
           }
         ],
@@ -906,6 +955,52 @@
         "props": {
           "background": "#EBEBEB",
           "direction": "column"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomTruncateStyle": {
+      "name": "AtomTruncateStyle",
+      "root": {
+        "children": [
+          {
+            "id": "Clipped",
+            "kind": "text",
+            "props": {
+              "color": "#222222",
+              "content": "Very long label that should hard-clip with no ellipsis glyph when constrained",
+              "fontSize": 13,
+              "lineClamp": 2,
+              "lineHeight": 1.4,
+              "overflow": "clip",
+              "truncateStyle": "clip",
+              "width": {
+                "fixed": 120
+              }
+            }
+          },
+          {
+            "id": "Ellipsis",
+            "kind": "text",
+            "props": {
+              "color": "#EBEBEB",
+              "content": "Very long label that should ellipsize when constrained",
+              "fontSize": 13,
+              "lineClamp": 2,
+              "overflow": "clip",
+              "truncateStyle": "ellipsis",
+              "width": {
+                "fixed": 120
+              }
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": "#F7F7F7",
+          "direction": "column",
+          "gap": 4
         }
       },
       "rootKind": "layout"
@@ -1108,7 +1203,7 @@
             "id": "Hero",
             "kind": "media",
             "props": {
-              "aspectRatio": 1.777,
+              "aspectRatio": 1.7777777777777777,
               "contentMode": "cover",
               "cornerRadius": 4,
               "height": {
@@ -1123,14 +1218,26 @@
             "id": "Title",
             "kind": "text",
             "props": {
-              "content": "Article"
+              "color": "#222222",
+              "content": "Article",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 22,
+              "fontWeight": 700,
+              "letterSpacing": -0.01,
+              "lineHeight": 1.2
             }
           },
           {
             "id": "Sub",
             "kind": "text",
             "props": {
-              "content": "Supporting line"
+              "color": "#222222",
+              "content": "Supporting line",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 16,
+              "fontWeight": 400,
+              "letterSpacing": 0,
+              "lineHeight": 1.35
             }
           },
           {
@@ -1241,22 +1348,24 @@
           "borderColor": "#222222",
           "borderPosition": "inside",
           "borderWidth": 1,
-          "cornerRadius": {
-            "bl": 2,
-            "br": 2,
-            "tl": 8,
-            "tr": 8
-          },
+          "cornerRadius": 8,
           "direction": "column",
           "gap": 8,
-          "overflow": "hidden",
+          "overflow": "clip",
           "padding": {
             "bottom": 16,
             "left": 16,
             "right": 16,
             "top": 16
           },
-          "shadow": "0 2px 8px rgba(0,0,0,0.12)"
+          "shadow": {
+            "blurRadius": 8,
+            "color": "#0000001f",
+            "kind": "shadow",
+            "spread": 0,
+            "x": 0,
+            "y": 2
+          }
         }
       },
       "rootKind": "layout"
@@ -1271,7 +1380,7 @@
                 "id": "C1__Hero",
                 "kind": "media",
                 "props": {
-                  "aspectRatio": 1.777,
+                  "aspectRatio": 1.7777777777777777,
                   "contentMode": "cover",
                   "cornerRadius": 4,
                   "height": {
@@ -1286,14 +1395,26 @@
                 "id": "C1__Title",
                 "kind": "text",
                 "props": {
-                  "content": "With media"
+                  "color": "#222222",
+                  "content": "With media",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 22,
+                  "fontWeight": 700,
+                  "letterSpacing": -0.01,
+                  "lineHeight": 1.2
                 }
               },
               {
                 "id": "C1__Sub",
                 "kind": "text",
                 "props": {
-                  "content": "Default"
+                  "color": "#222222",
+                  "content": "Default",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               },
               {
@@ -1410,22 +1531,24 @@
               "borderColor": "#222222",
               "borderPosition": "inside",
               "borderWidth": 1,
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "column",
               "gap": 8,
-              "overflow": "hidden",
+              "overflow": "clip",
               "padding": {
                 "bottom": 16,
                 "left": 16,
                 "right": 16,
                 "top": 16
               },
-              "shadow": "0 2px 8px rgba(0,0,0,0.12)"
+              "shadow": {
+                "blurRadius": 8,
+                "color": "#0000001f",
+                "kind": "shadow",
+                "spread": 0,
+                "x": 0,
+                "y": 2
+              }
             }
           },
           {
@@ -1434,14 +1557,26 @@
                 "id": "C2__Title",
                 "kind": "text",
                 "props": {
-                  "content": "No media"
+                  "color": "#222222",
+                  "content": "No media",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 22,
+                  "fontWeight": 700,
+                  "letterSpacing": -0.01,
+                  "lineHeight": 1.2
                 }
               },
               {
                 "id": "C2__Sub",
                 "kind": "text",
                 "props": {
-                  "content": "Text only shell"
+                  "color": "#222222",
+                  "content": "Text only shell",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               },
               {
@@ -1558,22 +1693,24 @@
               "borderColor": "#222222",
               "borderPosition": "inside",
               "borderWidth": 1,
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "column",
               "gap": 8,
-              "overflow": "hidden",
+              "overflow": "clip",
               "padding": {
                 "bottom": 16,
                 "left": 16,
                 "right": 16,
                 "top": 16
               },
-              "shadow": "0 2px 8px rgba(0,0,0,0.12)"
+              "shadow": {
+                "blurRadius": 8,
+                "color": "#0000001f",
+                "kind": "shadow",
+                "spread": 0,
+                "x": 0,
+                "y": 2
+              }
             }
           }
         ],
@@ -1608,7 +1745,13 @@
             "id": "Lab",
             "kind": "text",
             "props": {
-              "content": "Email"
+              "color": "#717171",
+              "content": "Email",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 12,
+              "fontWeight": 600,
+              "letterSpacing": 0.02,
+              "lineHeight": 1.2
             }
           },
           {
@@ -1617,7 +1760,13 @@
                 "id": "Val",
                 "kind": "text",
                 "props": {
-                  "content": "you@example.com"
+                  "color": "#222222",
+                  "content": "you@example.com",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               }
             ],
@@ -1642,7 +1791,13 @@
             "id": "Help",
             "kind": "text",
             "props": {
-              "content": "We never share your address."
+              "color": "#222222",
+              "content": "We never share your address.",
+              "fontFamily": "ui-monospace, monospace",
+              "fontSize": 12,
+              "fontWeight": 400,
+              "letterSpacing": 0,
+              "lineHeight": 1.35
             }
           }
         ],
@@ -1726,7 +1881,13 @@
                 "id": "F0__Lab",
                 "kind": "text",
                 "props": {
-                  "content": "Workspace"
+                  "color": "#717171",
+                  "content": "Workspace",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 12,
+                  "fontWeight": 600,
+                  "letterSpacing": 0.02,
+                  "lineHeight": 1.2
                 }
               },
               {
@@ -1735,7 +1896,13 @@
                     "id": "F0__Box__Val",
                     "kind": "text",
                     "props": {
-                      "content": "Design"
+                      "color": "#222222",
+                      "content": "Design",
+                      "fontFamily": "system-ui, sans-serif",
+                      "fontSize": 16,
+                      "fontWeight": 400,
+                      "letterSpacing": 0,
+                      "lineHeight": 1.35
                     }
                   }
                 ],
@@ -1760,7 +1927,13 @@
                 "id": "F0__Help",
                 "kind": "text",
                 "props": {
-                  "content": "Renaming updates the slug."
+                  "color": "#222222",
+                  "content": "Renaming updates the slug.",
+                  "fontFamily": "ui-monospace, monospace",
+                  "fontSize": 12,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               }
             ],
@@ -1790,7 +1963,13 @@
                 "id": "F1__Lab",
                 "kind": "text",
                 "props": {
-                  "content": "Role"
+                  "color": "#717171",
+                  "content": "Role",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 12,
+                  "fontWeight": 600,
+                  "letterSpacing": 0.02,
+                  "lineHeight": 1.2
                 }
               },
               {
@@ -1799,7 +1978,13 @@
                     "id": "F1__Box__Val",
                     "kind": "text",
                     "props": {
-                      "content": "Editor"
+                      "color": "#222222",
+                      "content": "Editor",
+                      "fontFamily": "system-ui, sans-serif",
+                      "fontSize": 16,
+                      "fontWeight": 400,
+                      "letterSpacing": 0,
+                      "lineHeight": 1.35
                     }
                   }
                 ],
@@ -1824,7 +2009,13 @@
                 "id": "F1__Help",
                 "kind": "text",
                 "props": {
-                  "content": ""
+                  "color": "#222222",
+                  "content": "",
+                  "fontFamily": "ui-monospace, monospace",
+                  "fontSize": 12,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               }
             ],
@@ -2589,7 +2780,13 @@
                 "id": "A__L",
                 "kind": "text",
                 "props": {
-                  "content": "Save changes"
+                  "color": "#717171",
+                  "content": "Save changes",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 12,
+                  "fontWeight": 600,
+                  "letterSpacing": 0.02,
+                  "lineHeight": 1.2
                 }
               }
             ],
@@ -2629,7 +2826,13 @@
                 "id": "B__L",
                 "kind": "text",
                 "props": {
-                  "content": "Learn more about billing"
+                  "color": "#222222",
+                  "content": "Learn more about billing",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               }
             ],
@@ -2669,7 +2872,13 @@
                 "id": "C__L",
                 "kind": "text",
                 "props": {
-                  "content": "Permanently delete"
+                  "color": "#222222",
+                  "content": "Permanently delete",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 22,
+                  "fontWeight": 700,
+                  "letterSpacing": -0.01,
+                  "lineHeight": 1.2
                 }
               }
             ],
@@ -2731,7 +2940,13 @@
             "id": "L",
             "kind": "text",
             "props": {
-              "content": "Save changes"
+              "color": "#717171",
+              "content": "Save changes",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 12,
+              "fontWeight": 600,
+              "letterSpacing": 0.02,
+              "lineHeight": 1.2
             }
           }
         ],
@@ -2849,21 +3064,39 @@
             "id": "A",
             "kind": "text",
             "props": {
-              "content": "Caption"
+              "color": "#717171",
+              "content": "Caption",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 12,
+              "fontWeight": 600,
+              "letterSpacing": 0.02,
+              "lineHeight": 1.2
             }
           },
           {
             "id": "B",
             "kind": "text",
             "props": {
-              "content": "Title line"
+              "color": "#222222",
+              "content": "Title line",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 22,
+              "fontWeight": 700,
+              "letterSpacing": -0.01,
+              "lineHeight": 1.2
             }
           },
           {
             "id": "C",
             "kind": "text",
             "props": {
-              "content": "Muted supporting copy"
+              "color": "#222222",
+              "content": "Muted supporting copy",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 16,
+              "fontWeight": 400,
+              "letterSpacing": 0,
+              "lineHeight": 1.35
             }
           }
         ],
@@ -3029,12 +3262,7 @@
         "props": {
           "align": "center",
           "background": "#D3D3D3",
-          "cornerRadius": {
-            "bl": 2,
-            "br": 2,
-            "tl": 8,
-            "tr": 8
-          },
+          "cornerRadius": 8,
           "direction": "row",
           "justify": "center",
           "padding": {
@@ -3076,12 +3304,7 @@
             "props": {
               "align": "center",
               "background": "#F7F7F7",
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "row",
               "justify": "center",
               "padding": {
@@ -3117,12 +3340,7 @@
             "props": {
               "align": "center",
               "background": "#D3D3D3",
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "row",
               "justify": "center",
               "padding": {
@@ -3158,12 +3376,7 @@
             "props": {
               "align": "center",
               "background": "#EBEBEB",
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "row",
               "justify": "center",
               "padding": {
@@ -3199,12 +3412,7 @@
             "props": {
               "align": "center",
               "background": "#F7F7F7",
-              "cornerRadius": {
-                "bl": 2,
-                "br": 2,
-                "tl": 8,
-                "tr": 8
-              },
+              "cornerRadius": 8,
               "direction": "row",
               "justify": "center",
               "padding": {
@@ -3249,14 +3457,26 @@
                 "id": "Header",
                 "kind": "text",
                 "props": {
-                  "content": "Confirm"
+                  "color": "#222222",
+                  "content": "Confirm",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 22,
+                  "fontWeight": 700,
+                  "letterSpacing": -0.01,
+                  "lineHeight": 1.2
                 }
               },
               {
                 "id": "Copy",
                 "kind": "text",
                 "props": {
-                  "content": "This cannot be undone."
+                  "color": "#222222",
+                  "content": "This cannot be undone.",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               },
               {
@@ -3353,8 +3573,8 @@
               "align": "stretch",
               "background": "#F7F7F7",
               "cornerRadius": {
-                "bl": 2,
-                "br": 2,
+                "bl": 4,
+                "br": 4,
                 "tl": 8,
                 "tr": 8
               },
@@ -3369,7 +3589,14 @@
                 "right": 16,
                 "top": 16
               },
-              "shadow": "0 1px 3px 0 rgba(0,0,0,0.35)",
+              "shadow": {
+                "blurRadius": 3,
+                "color": "#00000059",
+                "kind": "shadow",
+                "spread": 0,
+                "x": 0,
+                "y": 1
+              },
               "width": "hug"
             }
           }
@@ -3403,7 +3630,13 @@
                 "id": "R0__Title",
                 "kind": "text",
                 "props": {
-                  "content": "Account"
+                  "color": "#222222",
+                  "content": "Account",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               },
               {
@@ -3412,7 +3645,13 @@
                     "id": "R0__Trail__Meta",
                     "kind": "text",
                     "props": {
-                      "content": "Pro"
+                      "color": "#717171",
+                      "content": "Pro",
+                      "fontFamily": "system-ui, sans-serif",
+                      "fontSize": 12,
+                      "fontWeight": 600,
+                      "letterSpacing": 0.02,
+                      "lineHeight": 1.2
                     }
                   },
                   {
@@ -3465,7 +3704,13 @@
                 "id": "R1__Title",
                 "kind": "text",
                 "props": {
-                  "content": "Privacy"
+                  "color": "#222222",
+                  "content": "Privacy",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               },
               {
@@ -3474,7 +3719,13 @@
                     "id": "R1__Trail__Meta",
                     "kind": "text",
                     "props": {
-                      "content": ""
+                      "color": "#717171",
+                      "content": "",
+                      "fontFamily": "system-ui, sans-serif",
+                      "fontSize": 12,
+                      "fontWeight": 600,
+                      "letterSpacing": 0.02,
+                      "lineHeight": 1.2
                     }
                   },
                   {
@@ -3526,7 +3777,13 @@
                 "id": "R2__Title",
                 "kind": "text",
                 "props": {
-                  "content": "About"
+                  "color": "#222222",
+                  "content": "About",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               },
               {
@@ -3535,7 +3792,13 @@
                     "id": "R2__Trail__Meta",
                     "kind": "text",
                     "props": {
-                      "content": "v1"
+                      "color": "#717171",
+                      "content": "v1",
+                      "fontFamily": "system-ui, sans-serif",
+                      "fontSize": 12,
+                      "fontWeight": 600,
+                      "letterSpacing": 0.02,
+                      "lineHeight": 1.2
                     }
                   },
                   {
@@ -3611,7 +3874,13 @@
             "id": "Title",
             "kind": "text",
             "props": {
-              "content": "Settings"
+              "color": "#222222",
+              "content": "Settings",
+              "fontFamily": "system-ui, sans-serif",
+              "fontSize": 16,
+              "fontWeight": 400,
+              "letterSpacing": 0,
+              "lineHeight": 1.35
             }
           },
           {
@@ -3620,7 +3889,13 @@
                 "id": "Meta",
                 "kind": "text",
                 "props": {
-                  "content": ""
+                  "color": "#717171",
+                  "content": "",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 12,
+                  "fontWeight": 600,
+                  "letterSpacing": 0.02,
+                  "lineHeight": 1.2
                 }
               },
               {

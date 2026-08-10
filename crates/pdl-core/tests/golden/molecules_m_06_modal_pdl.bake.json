@@ -152,14 +152,26 @@
                 "id": "Header",
                 "kind": "text",
                 "props": {
-                  "content": "Confirm"
+                  "color": "#222222",
+                  "content": "Confirm",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 22,
+                  "fontWeight": 700,
+                  "letterSpacing": -0.01,
+                  "lineHeight": 1.2
                 }
               },
               {
                 "id": "Copy",
                 "kind": "text",
                 "props": {
-                  "content": "This cannot be undone."
+                  "color": "#222222",
+                  "content": "This cannot be undone.",
+                  "fontFamily": "system-ui, sans-serif",
+                  "fontSize": 16,
+                  "fontWeight": 400,
+                  "letterSpacing": 0,
+                  "lineHeight": 1.35
                 }
               },
               {
@@ -256,8 +268,8 @@
               "align": "stretch",
               "background": "#F7F7F7",
               "cornerRadius": {
-                "bl": 2,
-                "br": 2,
+                "bl": 4,
+                "br": 4,
                 "tl": 8,
                 "tr": 8
               },
@@ -272,7 +284,14 @@
                 "right": 16,
                 "top": 16
               },
-              "shadow": "0 1px 3px 0 rgba(0,0,0,0.35)",
+              "shadow": {
+                "blurRadius": 3,
+                "color": "#00000059",
+                "kind": "shadow",
+                "spread": 0,
+                "x": 0,
+                "y": 1
+              },
               "width": "hug"
             }
           }

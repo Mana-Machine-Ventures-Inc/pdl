@@ -83,6 +83,7 @@ fn catalogue_matches_ts_goldens() {
 /// variants, token refs, structural embeds).
 #[test]
 fn resolved_component_matches_ts_goldens() {
+    let update = std::env::var("UPDATE_GOLDENS").ok().as_deref() == Some("1");
     let cases: &[(&str, &str, &str)] = &[
         (
             "integration_greeting_pdl.Greeting.resolved.json",
@@ -108,8 +109,9 @@ fn resolved_component_matches_ts_goldens() {
 
     let mut failures = Vec::new();
     for (golden_file, rel_path, component) in cases {
-        let golden_text = fs::read_to_string(golden_dir().join(golden_file))
-            .unwrap_or_else(|_| panic!("golden {golden_file}"));
+        let golden_path = golden_dir().join(golden_file);
+        let golden_text =
+            fs::read_to_string(&golden_path).unwrap_or_else(|_| panic!("golden {golden_file}"));
         let golden: Value = serde_json::from_str(&golden_text).expect("parse resolved golden");
         let generated_at = golden["generatedAt"].as_str().unwrap().to_string();
         let entry_path = golden["entryPath"].as_str().unwrap().to_string();
@@ -127,7 +129,11 @@ fn resolved_component_matches_ts_goldens() {
         .unwrap_or_else(|e| panic!("{component} resolve: {}", e.format()));
         let out = stable_stringify(&doc, StableStringifyOptions { omit_empty: true });
         if out != golden_text {
-            failures.push(golden_file.to_string());
+            if update {
+                fs::write(&golden_path, &out).expect("write resolved golden");
+            } else {
+                failures.push(golden_file.to_string());
+            }
         }
     }
     assert!(

@@ -31,13 +31,15 @@ Entry files only import; keep tokens in `foundation.pdl` (or split token files i
 
 | Form | Example |
 |---|---|
-| Primitive | `primitive space.md: Number = 16` |
+| Primitive | `primitive space.md: Distance = 16` |
 | Semantic | `semantic color.fg: Color = color.brand` |
 | Color literal | `#RRGGBB` / `#RRGGBBAA` |
 | Opacity of color | `color.fg @ 0.5` |
+| Radius (scalar) | `primitive radius.md: Radius = 8` — not `Corner(…)` |
 | Theme override | `theme Dark { color.fg = #F8FAFC }` |
 
-Common types: `Color`, `Number`, `String`, `Bool`, `MediaSource`, plus sizing/edge helpers in expressions.
+Common types: `Color`, `Opacity`, `Distance`, `Radius`, `String`, `Bool`, `MediaSource`, plus sizing/edge helpers in expressions.  
+`Corner(tl:…, tr:…, br:…, bl:…)` is **frame-only** on `cornerRadius` (asymmetric); `Radius` tokens are uniform numbers.
 
 ## Type styles
 
@@ -74,6 +76,7 @@ Root kind after `) `: `layout` | `text` | `icon` | `media`.
 ```pdl
 component Row() layout {
   direction = .row
+  // also: Direction.row, Justify.center, Align.stretch, Sizing.fill, …
   gap = 8
   padding = EdgeInsets(x: 12, y: 8)
 
@@ -162,7 +165,9 @@ npm run preview -- <entry.pdl> --system
 
 | Area | Typical props |
 |---|---|
-| layout | `direction`, `gap`, `align`, `justify`, `padding`, `width`/`height` (`.hug`/`.fill`/`.fixed(n)`), `background`, `cornerRadius`, `borderWidth` |
-| text | `content`, `style`, `color`, `fontSize`, `fontWeight` |
+| layout | `direction`, `gap`, `align`, `justify`, `padding`, `width`/`height` (`.hug`/`.fill`/`.fixed(n)`), `background`, `cornerRadius`, `borderWidth`, `overflow` (`.visible` / `.scroll` / `.clip`) |
+| text | `content`, `style`, `color`, `fontSize`, `fontWeight`, `lineHeight`, `letterSpacing`, `overflow` (same three), `truncateStyle` (`.clip` = hard end, `.ellipsis` = `…`) |
 | media | `source`, `contentMode`, `aspectRatio` |
 | icon | `icon` (token/name) |
+
+**Overflow:** use **`.clip`** to hard-crop (no scroll). There is no `.hidden` / `.auto`. Optional sugar: `Overflow.clip`, `Overflow.scroll`, `Overflow.visible`.

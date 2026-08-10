@@ -27,6 +27,8 @@ export function serialiseValueExpr(e: ValueExpr): unknown {
     case "number":
     case "boolean":
       return { kind: e.kind, value: (e as { value: unknown }).value };
+    case "ratio":
+      return { kind: "ratio", width: e.width, height: e.height };
     case "condition":
       return { kind: "condition", expr: serialiseConditionExpr(e.expr) };
     case "ident":
@@ -48,6 +50,15 @@ export function serialiseValueExpr(e: ValueExpr): unknown {
         tr: serialiseValueExpr(e.tr),
         br: serialiseValueExpr(e.br),
         bl: serialiseValueExpr(e.bl),
+      };
+    case "shadow":
+      return {
+        kind: "shadow",
+        x: serialiseValueExpr(e.x),
+        y: serialiseValueExpr(e.y),
+        blurRadius: serialiseValueExpr(e.blurRadius),
+        color: serialiseValueExpr(e.color),
+        ...(e.spread ? { spread: serialiseValueExpr(e.spread) } : {}),
       };
     case "array":
       return { kind: "array", items: e.items.map(serialiseValueExpr) };
@@ -107,6 +118,8 @@ export function serialiseValueExprWithTokenRefs(expr: ValueExpr, design: DesignD
     case "number":
     case "boolean":
       return { kind: expr.kind, value: (expr as { value: unknown }).value };
+    case "ratio":
+      return { kind: "ratio", width: expr.width, height: expr.height };
     case "condition":
       return serialiseValueExpr(expr);
     case "dotEnum":
@@ -132,6 +145,17 @@ export function serialiseValueExprWithTokenRefs(expr: ValueExpr, design: DesignD
         tr: serialiseValueExprWithTokenRefs(expr.tr, design),
         br: serialiseValueExprWithTokenRefs(expr.br, design),
         bl: serialiseValueExprWithTokenRefs(expr.bl, design),
+      };
+    case "shadow":
+      return {
+        kind: "shadow",
+        x: serialiseValueExprWithTokenRefs(expr.x, design),
+        y: serialiseValueExprWithTokenRefs(expr.y, design),
+        blurRadius: serialiseValueExprWithTokenRefs(expr.blurRadius, design),
+        color: serialiseValueExprWithTokenRefs(expr.color, design),
+        ...(expr.spread
+          ? { spread: serialiseValueExprWithTokenRefs(expr.spread, design) }
+          : {}),
       };
     case "array":
       return { kind: "array", items: expr.items.map((it) => serialiseValueExprWithTokenRefs(it, design)) };

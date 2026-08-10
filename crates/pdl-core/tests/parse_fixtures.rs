@@ -301,6 +301,429 @@ emits FilterChip {
 }
 
 #[test]
+fn distance_token_rejects_string() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+primitive distance4: Distance = "a"
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(
+        err.message.contains("Distance") && err.message.contains("non-negative number"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn opacity_of_rejects_out_of_range_literal() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+primitive bad: Shadow = Shadow(x: 6, y: 6, blurRadius: 12, spread: 0, color: #000000 @ 1.5)
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(
+        err.message.contains("0…1") && err.message.contains("1.5"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn shadow_token_rejects_color_token_axis() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+primitive red: Color = #FF0000
+primitive bad: Shadow = Shadow(x: red, y: 1.5, blurRadius: 3, spread: 0, color: #000000 @ 0.35)
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(
+        err.message.contains("field `x`")
+            && err.message.contains("red")
+            && err.message.contains("Color"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn shadow_token_rejects_string_axis() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+primitive bad: Shadow = Shadow(x: "a", y: 1.5, blurRadius: 3, spread: 0, color: #000000 @ 0.35)
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(
+        err.message.contains("field `x`") && err.message.contains("number"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn shadow_token_rejects_css_string() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+primitive bad: Shadow = "0 2px 8px rgba(0,0,0,0.12)"
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(
+        err.message.contains("Shadow") && err.message.contains("CSS box-shadow"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn radius_token_rejects_corner_literal() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+primitive bad: Radius = Corner(tl: 1, tr: 1, br: 1, bl: 1)
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(
+        err.message.contains("Corner") && err.message.contains("cornerRadius"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn fontfamily_token_rejects_number() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+primitive bad: FontFamily = 2
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(
+        err.message.contains("FontFamily") && err.message.contains("string"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn fontfamily_token_rejects_hex() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+primitive bad: FontFamily = #FF0000
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(
+        err.message.contains("FontFamily") && err.message.contains("string"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn bare_fixed_sizing_mentions_distance_number() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+primitive s: Sizing = .fixed
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E001");
+    assert!(
+        err.message.contains("Distance number") && err.message.contains(".fixed"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn parses_qualified_sizing_hug() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/ok.pdl".to_string(),
+        r#"
+primitive s: Sizing = Sizing.hug
+"#
+        .to_string(),
+    );
+    let d = load_design_from_sources("/v/ok.pdl", &sources).expect("load");
+    let p = d.primitives.get("s").expect("primitive s");
+    assert_eq!(p.token_type, "Sizing");
+    assert!(matches!(
+        p.value,
+        pdl_core::ast::ValueExpr::Sizing {
+            mode: pdl_core::ast::SizingMode::Hug
+        }
+    ));
+}
+
+#[test]
+fn parses_qualified_frame_enums() {
+    use pdl_core::ast::{FrameBodyItem, TopLevelDecl, ValueExpr};
+    use pdl_core::parser::parse_module_source;
+    let src = r#"
+component C() layout {
+  direction = Direction.row
+  justify = Justify.center
+  wrap = Wrap.wrap
+  overflow = Overflow.clip
+  children = []
+}
+"#;
+    let m = parse_module_source(src, "x.pdl").expect("parse");
+    let TopLevelDecl::Component(c) = &m.declarations[0] else {
+        panic!("expected component");
+    };
+    let mut found = 0;
+    for item in &c.body {
+        let FrameBodyItem::Prop { name, value } = item else {
+            continue;
+        };
+        match (name.as_str(), value) {
+            ("direction", ValueExpr::DotEnum { value }) => {
+                assert_eq!(value, ".row");
+                found += 1;
+            }
+            ("justify", ValueExpr::DotEnum { value }) => {
+                assert_eq!(value, ".center");
+                found += 1;
+            }
+            ("wrap", ValueExpr::DotEnum { value }) => {
+                assert_eq!(value, ".wrap");
+                found += 1;
+            }
+            ("overflow", ValueExpr::DotEnum { value }) => {
+                assert_eq!(value, ".clip");
+                found += 1;
+            }
+            _ => {}
+        }
+    }
+    assert_eq!(found, 4, "expected four qualified enums");
+}
+
+#[test]
+fn sizing_token_rejects_string() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+primitive bad: Sizing = ".hug"
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(
+        err.message.contains("Sizing") && err.message.contains("string"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn lineheight_token_rejects_string() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+primitive bad: LineHeight = "1.35"
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(err.message.contains("LineHeight"), "{}", err.message);
+}
+
+#[test]
+fn letterspacing_token_rejects_string() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+primitive bad: LetterSpacing = "0.01"
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(err.message.contains("LetterSpacing"), "{}", err.message);
+}
+
+#[test]
+fn size_token_rejects_string() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+primitive bad: Size = "16"
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(
+        err.message.contains("Size") && err.message.contains("number"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn color_token_rejects_number() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+primitive bad: Color = 12
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(
+        err.message.contains("Color") && err.message.contains("hex"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn opacity_token_rejects_string() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+primitive bad: Opacity = "0.5"
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(
+        err.message.contains("Opacity") && err.message.contains("0…1"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn primitive_token_alias_is_e005() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+primitive red: Color = #FF0000
+primitive shield4: Opacity = red
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(
+        err.message.contains("Primitive `shield4` must use a literal value"),
+        "{}",
+        err.message
+    );
+    assert!(err.message.contains("Color"), "{}", err.message);
+}
+
+#[test]
+fn duplicate_token_name_is_e003() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/dup.pdl".to_string(),
+        r#"
+primitive color.dup: Color = #FF0000
+primitive color.dup: Color = #00FF00
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/dup.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E003");
+    assert!(
+        err.message.contains("Invalid redeclaration of token `color.dup`"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
 fn host_handler_without_host_protocol_is_e030() {
     use pdl_core::design::load_design_from_sources;
     use pdl_core::SourceMap;
@@ -751,4 +1174,259 @@ component Host(
     );
     let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
     assert_eq!(err.code, "PDL-E035");
+}
+
+#[test]
+fn parses_ratio_wh_sugar() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/ok.pdl".to_string(),
+        r#"
+primitive r: Ratio = 16:9
+primitive s: Ratio = 4:3
+primitive t: Ratio = 1
+"#
+        .to_string(),
+    );
+    let d = load_design_from_sources("/v/ok.pdl", &sources).unwrap();
+    match &d.primitives.get("r").unwrap().value {
+        pdl_core::ast::ValueExpr::Ratio { width, height } => {
+            assert_eq!(*width, 16.0);
+            assert_eq!(*height, 9.0);
+        }
+        other => panic!("expected Ratio sugar, got {other:?}"),
+    }
+    match &d.primitives.get("s").unwrap().value {
+        pdl_core::ast::ValueExpr::Ratio { width, height } => {
+            assert_eq!(*width, 4.0);
+            assert_eq!(*height, 3.0);
+        }
+        other => panic!("expected 4:3, got {other:?}"),
+    }
+    match &d.primitives.get("t").unwrap().value {
+        pdl_core::ast::ValueExpr::Number { value } => assert_eq!(*value, 1.0),
+        other => panic!("expected bare number, got {other:?}"),
+    }
+}
+
+#[test]
+fn ratio_wh_sugar_evaluates_to_width_over_height() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::evaluate::build_resolved_token_map;
+    use pdl_core::SourceMap;
+    use serde_json::Value;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/ok.pdl".to_string(),
+        r#"
+primitive r: Ratio = 16:9
+semantic hero: Ratio = r
+"#
+        .to_string(),
+    );
+    let d = load_design_from_sources("/v/ok.pdl", &sources).unwrap();
+    let map = build_resolved_token_map(&d, None, &[]).unwrap();
+    let v = match map.get("r").unwrap() {
+        Value::Number(n) => n.as_f64().unwrap(),
+        other => panic!("expected number, got {other}"),
+    };
+    assert!((v - 16.0 / 9.0).abs() < 1e-12, "got {v}");
+    let h = match map.get("hero").unwrap() {
+        Value::Number(n) => n.as_f64().unwrap(),
+        other => panic!("expected number, got {other}"),
+    };
+    assert!((h - 16.0 / 9.0).abs() < 1e-12, "got {h}");
+}
+
+#[test]
+fn ratio_zero_height_is_e001() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+primitive bad: Ratio = 16:0
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E001");
+    assert!(
+        err.message.contains("positive") || err.message.contains("16:9"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn ratio_string_rhs_is_e005() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+primitive bad: Ratio = "16:9"
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+}
+
+#[test]
+fn gap_rejects_ratio_sugar_e006() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+component Bad() layout {
+  gap = 16:9
+}
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E006");
+    assert!(err.message.contains("gap"), "{}", err.message);
+}
+
+#[test]
+fn aspect_ratio_accepts_wh_sugar_on_media() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/ok.pdl".to_string(),
+        r#"
+component M() media {
+  source = "https://example.com/a.png"
+  aspectRatio = 16:9
+}
+"#
+        .to_string(),
+    );
+    let d = load_design_from_sources("/v/ok.pdl", &sources).unwrap();
+    assert!(d.components.contains_key("M"));
+}
+
+#[test]
+fn loads_ratio_wh_sugar_fixture() {
+    let root = repo_root().join("test-fixtures/pdl/atoms/ratio_wh_sugar.pdl");
+    let src = fs::read_to_string(&root).expect("ratio_wh_sugar.pdl");
+    parse_module_source(&src, root.to_str().unwrap()).expect("parse ratio_wh_sugar");
+    use pdl_core::design::load_design;
+    let d = load_design(root.to_str().unwrap()).expect("load ratio_wh_sugar");
+    match &d.primitives.get("ratio.video").unwrap().value {
+        pdl_core::ast::ValueExpr::Ratio { width, height } => {
+            assert_eq!((*width, *height), (16.0, 9.0));
+        }
+        other => panic!("expected 16:9, got {other:?}"),
+    }
+}
+
+#[test]
+fn frame_gap_rejects_hex_color() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+component BadGap() layout {
+  gap = #FF0000
+}
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E006");
+    assert!(err.message.contains("gap"), "{}", err.message);
+}
+
+#[test]
+fn bare_opacity_token_as_layer_is_e006() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+primitive shield2: Opacity = 0.5
+component Bad() layout {
+  foreground = [shield2]
+  children = []
+}
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E006");
+    assert!(
+        err.message.contains("Opacity") && err.message.contains("color @"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn frame_unknown_prop_is_e011() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+component BadProp() layout {
+  content = "not on layout"
+}
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E011");
+    assert!(err.message.contains("content"), "{}", err.message);
+}
+
+#[test]
+fn mixed_condition_operators_is_e038() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+variant V { case a case b }
+component C(p: V = .a) layout {
+  if p == .a && p == .b || p == .a { direction = .row }
+}
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E038");
+}
+
+#[test]
+fn typestyle_unknown_prop_is_e011() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+typeStyle Body {
+  gap = 8
+}
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E011");
+    assert!(err.message.contains("gap"), "{}", err.message);
 }

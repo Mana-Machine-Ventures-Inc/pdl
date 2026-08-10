@@ -105,48 +105,6 @@
         }
       }
     },
-    "AtomTextOverflow": {
-      "childHierarchy": {
-        "Root": [
-          "Clipped",
-          "Ellipsis"
-        ]
-      },
-      "childNodes": {
-        "Clipped": {
-          "id": "Clipped",
-          "kind": "text",
-          "props": {
-            "color": "primitive:atoms.color.rgba",
-            "content": "Clipped overflow",
-            "fontSize": 13,
-            "overflow": "clip",
-            "textOverflow": "clip"
-          }
-        },
-        "Ellipsis": {
-          "id": "Ellipsis",
-          "kind": "text",
-          "props": {
-            "color": "semantic:atoms.color.sem.fromRgba",
-            "content": "Very long label that should ellipsize when constrained",
-            "fontSize": 13,
-            "lineClamp": 2,
-            "overflow": "hidden",
-            "textOverflow": "ellipsis"
-          }
-        }
-      },
-      "name": "AtomTextOverflow",
-      "root": {
-        "kind": "layout",
-        "props": {
-          "background": "semantic:atoms.color.sem.fromRgb",
-          "direction": "column",
-          "gap": "primitive:atoms.space.xs"
-        }
-      }
-    },
     "AtomTextPlain": {
       "childHierarchy": {
         "Root": [
@@ -254,6 +212,56 @@
           "direction": "column"
         }
       }
+    },
+    "AtomTruncateStyle": {
+      "childHierarchy": {
+        "Root": [
+          "Clipped",
+          "Ellipsis"
+        ]
+      },
+      "childNodes": {
+        "Clipped": {
+          "id": "Clipped",
+          "kind": "text",
+          "props": {
+            "color": "primitive:atoms.color.rgba",
+            "content": "Very long label that should hard-clip with no ellipsis glyph when constrained",
+            "fontSize": 13,
+            "lineClamp": 2,
+            "lineHeight": 1.4,
+            "overflow": "clip",
+            "truncateStyle": "clip",
+            "width": {
+              "fixed": 120
+            }
+          }
+        },
+        "Ellipsis": {
+          "id": "Ellipsis",
+          "kind": "text",
+          "props": {
+            "color": "semantic:atoms.color.sem.fromRgba",
+            "content": "Very long label that should ellipsize when constrained",
+            "fontSize": 13,
+            "lineClamp": 2,
+            "overflow": "clip",
+            "truncateStyle": "ellipsis",
+            "width": {
+              "fixed": 120
+            }
+          }
+        }
+      },
+      "name": "AtomTruncateStyle",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "semantic:atoms.color.sem.fromRgb",
+          "direction": "column",
+          "gap": "primitive:atoms.space.xs"
+        }
+      }
     }
   },
   "generatedAt": "2026-08-06T00:33:36.260Z",
@@ -347,27 +355,12 @@
       "name": "atoms.font.ui",
       "tokenType": "FontFamily"
     },
-    "atoms.radius.mixed": {
+    "atoms.radius.md": {
       "definition": {
-        "bl": {
-          "kind": "number",
-          "value": 2
-        },
-        "br": {
-          "kind": "number",
-          "value": 2
-        },
-        "kind": "corner",
-        "tl": {
-          "kind": "number",
-          "value": 8
-        },
-        "tr": {
-          "kind": "number",
-          "value": 8
-        }
+        "kind": "number",
+        "value": 8
       },
-      "name": "atoms.radius.mixed",
+      "name": "atoms.radius.md",
       "tokenType": "Radius"
     },
     "atoms.radius.sm": {
@@ -401,6 +394,54 @@
       },
       "name": "atoms.space.xs",
       "tokenType": "Distance"
+    },
+    "atoms.type.letterSpacing.normal": {
+      "definition": {
+        "kind": "number",
+        "value": 0
+      },
+      "name": "atoms.type.letterSpacing.normal",
+      "tokenType": "LetterSpacing"
+    },
+    "atoms.type.letterSpacing.tight": {
+      "definition": {
+        "kind": "number",
+        "value": -0.01
+      },
+      "name": "atoms.type.letterSpacing.tight",
+      "tokenType": "LetterSpacing"
+    },
+    "atoms.type.letterSpacing.wide": {
+      "definition": {
+        "kind": "number",
+        "value": 0.02
+      },
+      "name": "atoms.type.letterSpacing.wide",
+      "tokenType": "LetterSpacing"
+    },
+    "atoms.type.lineHeight.body": {
+      "definition": {
+        "kind": "number",
+        "value": 1.35
+      },
+      "name": "atoms.type.lineHeight.body",
+      "tokenType": "LineHeight"
+    },
+    "atoms.type.lineHeight.loose": {
+      "definition": {
+        "kind": "number",
+        "value": 1.5
+      },
+      "name": "atoms.type.lineHeight.loose",
+      "tokenType": "LineHeight"
+    },
+    "atoms.type.lineHeight.tight": {
+      "definition": {
+        "kind": "number",
+        "value": 1.2
+      },
+      "name": "atoms.type.lineHeight.tight",
+      "tokenType": "LineHeight"
     },
     "atoms.type.size.body": {
       "definition": {
@@ -488,7 +529,7 @@
       "tokenType": "Color"
     },
     "atoms.radius.card": {
-      "definition": "primitive:atoms.radius.mixed",
+      "definition": "primitive:atoms.radius.md",
       "name": "atoms.radius.card",
       "tokenType": "Radius"
     },
@@ -505,7 +546,9 @@
         "color": "primitive:atoms.color.textPrimary",
         "fontFamily": "primitive:atoms.font.ui",
         "fontSize": "primitive:atoms.type.size.body",
-        "fontWeight": "primitive:atoms.type.weight.regular"
+        "fontWeight": "primitive:atoms.type.weight.regular",
+        "letterSpacing": "primitive:atoms.type.letterSpacing.normal",
+        "lineHeight": "primitive:atoms.type.lineHeight.body"
       }
     },
     "AtomCaption": {
@@ -514,7 +557,9 @@
         "color": "primitive:atoms.color.textMuted",
         "fontFamily": "primitive:atoms.font.ui",
         "fontSize": "primitive:atoms.type.size.caption",
-        "fontWeight": "primitive:atoms.type.weight.medium"
+        "fontWeight": "primitive:atoms.type.weight.medium",
+        "letterSpacing": "primitive:atoms.type.letterSpacing.wide",
+        "lineHeight": "primitive:atoms.type.lineHeight.tight"
       }
     },
     "AtomMono": {
@@ -523,7 +568,9 @@
         "color": "primitive:atoms.color.textPrimary",
         "fontFamily": "primitive:atoms.font.mono",
         "fontSize": "primitive:atoms.type.size.caption",
-        "fontWeight": "primitive:atoms.type.weight.regular"
+        "fontWeight": "primitive:atoms.type.weight.regular",
+        "letterSpacing": "primitive:atoms.type.letterSpacing.normal",
+        "lineHeight": "primitive:atoms.type.lineHeight.body"
       }
     },
     "AtomTitle": {
@@ -532,7 +579,9 @@
         "color": "primitive:atoms.color.textPrimary",
         "fontFamily": "primitive:atoms.font.ui",
         "fontSize": "primitive:atoms.type.size.title",
-        "fontWeight": "primitive:atoms.type.weight.bold"
+        "fontWeight": "primitive:atoms.type.weight.bold",
+        "letterSpacing": "primitive:atoms.type.letterSpacing.tight",
+        "lineHeight": "primitive:atoms.type.lineHeight.tight"
       }
     }
   }

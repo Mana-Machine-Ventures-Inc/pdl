@@ -1,0 +1,31 @@
+// Optional TypeName.case sugar for frame enums (same as leading-dot form).
+
+component AtomQualifiedEnums() layout {
+  direction = Direction.row
+  wrap = Wrap.nowrap
+  justify = Justify.center
+  align = Align.stretch
+  overflow = Overflow.clip
+  borderPosition = BorderPosition.inside
+  width = Sizing.fill
+  height = Sizing.hug
+
+  let Label: text = {
+    content = "qualified"
+    justify = Justify.center
+    align = Align.start
+    truncateStyle = TruncateStyle.ellipsis
+    width = .fill
+  }
+
+  let Child: layout = {
+    position = Position.flow
+    alignSelf = AlignSelf.stretch
+    width = .fill
+    height = .fixed(8)
+    background = #112233
+    children = []
+  }
+
+  children = [Label, Child]
+}

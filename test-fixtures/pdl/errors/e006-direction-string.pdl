@@ -1,0 +1,3 @@
+component BadDir() layout {
+  direction = "row"
+}

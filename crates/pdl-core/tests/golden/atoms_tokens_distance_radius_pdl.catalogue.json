@@ -2,27 +2,12 @@
   "generatedAt": "2026-08-06T00:33:36.545Z",
   "kind": "componentCatalogue",
   "primitives": {
-    "atoms.radius.mixed": {
+    "atoms.radius.md": {
       "definition": {
-        "bl": {
-          "kind": "number",
-          "value": 2
-        },
-        "br": {
-          "kind": "number",
-          "value": 2
-        },
-        "kind": "corner",
-        "tl": {
-          "kind": "number",
-          "value": 8
-        },
-        "tr": {
-          "kind": "number",
-          "value": 8
-        }
+        "kind": "number",
+        "value": 8
       },
-      "name": "atoms.radius.mixed",
+      "name": "atoms.radius.md",
       "tokenType": "Radius"
     },
     "atoms.radius.sm": {
@@ -61,7 +46,7 @@
   "schemaVersion": "1.0.0-beta",
   "semantics": {
     "atoms.radius.card": {
-      "definition": "primitive:atoms.radius.mixed",
+      "definition": "primitive:atoms.radius.md",
       "name": "atoms.radius.card",
       "tokenType": "Radius"
     },

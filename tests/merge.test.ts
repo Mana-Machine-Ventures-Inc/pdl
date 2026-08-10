@@ -8,9 +8,11 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const fx = (...p: string[]) => resolve(__dirname, "../test-fixtures/pdl", ...p);
 
 describe("import merge", () => {
-  it("later modules override earlier token declarations", () => {
+  it("keeps distinct token names across the merge chain", () => {
     const d = loadDesign(fx("integration/merge_entry.pdl"));
     const m = buildResolvedTokenMap(d);
+    expect(m.get("color.merge.fromB")).toBe("#111111");
+    expect(m.get("color.merge.fromA")).toBe("#222222");
     expect(m.get("color.merge.token")).toBe("#333333");
   });
 

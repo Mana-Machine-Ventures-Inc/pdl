@@ -17,6 +17,8 @@ Documented in **`docs/full-spec.md`** banner + body:
 
 **Additive (slot compose):** Single-slot dotted overrides (`simple.content = …` / `simple.title = …`) classify param vs root-frame prop (§4b). `ForEach` is binder overrides / emit capture only — lists mount via `children = [list]` (**PDL-E035**); array dotted overrides are **PDL-E034**.
 
+**Additive (2026-08-09):** Frame **`overflow`** is **`.visible` | `.scroll` | `.clip`** only (no **`.hidden`** / **`.auto`**). Hard crop without scroll = **`.clip`**. See **`full-spec` §6 §Overflow** and `shared/frame-props.json` `enumOverflow`.
+
 Rust B4b/B5 + host-protocol validation + `self.<channel> = { … }` parse landed; `interaction` keyword rejected. TS oracle still has legacy `expose` and lags some protocols/emits/ForEach (Playground uses Rust bake).
 
 ## Accepted proposals (status)

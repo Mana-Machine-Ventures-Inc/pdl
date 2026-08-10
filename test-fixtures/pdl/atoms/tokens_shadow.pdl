@@ -1,4 +1,4 @@
-// Shadow tokens (CSS string form per §3)
+// Shadow tokens — declarative Shadow(…) constructor (§3 / §6)
 
-primitive atoms.shadow.soft: Shadow = "0 2px 8px rgba(0,0,0,0.12)"
-primitive atoms.shadow.hard: Shadow = "0 1px 3px 0 rgba(0,0,0,0.35)"
+primitive atoms.shadow.soft: Shadow = Shadow(x: 0, y: 2, blurRadius: 8, color: #000000 @ 0.12)
+primitive atoms.shadow.hard: Shadow = Shadow(x: 0, y: 1, blurRadius: 3, spread: 0, color: #000000 @ 0.35)

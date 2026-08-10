@@ -1,0 +1,2 @@
+// PDL-E005 — `@` opacity literals must be in 0…1
+primitive bad.shadow: Shadow = Shadow(x: 6, y: 6, blurRadius: 12, spread: 0, color: #000000 @ 1.5)

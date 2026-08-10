@@ -1,0 +1,2 @@
+primitive red: Color = #FF0000
+semantic bad: Opacity = red

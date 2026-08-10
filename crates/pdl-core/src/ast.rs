@@ -80,6 +80,11 @@ pub enum ValueExpr {
     Number {
         value: f64,
     },
+    /// `16:9` aspect-ratio sugar — evaluates to `width / height`.
+    Ratio {
+        width: f64,
+        height: f64,
+    },
     Boolean {
         value: bool,
     },
@@ -113,6 +118,14 @@ pub enum ValueExpr {
         tr: Box<ValueExpr>,
         br: Box<ValueExpr>,
         bl: Box<ValueExpr>,
+    },
+    /// `Shadow(x:, y:, blurRadius:, color: [, spread:])` — drop shadow (not a CSS string).
+    Shadow {
+        x: Box<ValueExpr>,
+        y: Box<ValueExpr>,
+        blur_radius: Box<ValueExpr>,
+        color: Box<ValueExpr>,
+        spread: Option<Box<ValueExpr>>,
     },
     Array {
         items: Vec<ValueExpr>,

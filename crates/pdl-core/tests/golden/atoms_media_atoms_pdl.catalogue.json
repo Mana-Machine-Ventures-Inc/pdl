@@ -186,27 +186,12 @@
       "name": "atoms.media.hero",
       "tokenType": "MediaSource"
     },
-    "atoms.radius.mixed": {
+    "atoms.radius.md": {
       "definition": {
-        "bl": {
-          "kind": "number",
-          "value": 2
-        },
-        "br": {
-          "kind": "number",
-          "value": 2
-        },
-        "kind": "corner",
-        "tl": {
-          "kind": "number",
-          "value": 8
-        },
-        "tr": {
-          "kind": "number",
-          "value": 8
-        }
+        "kind": "number",
+        "value": 8
       },
-      "name": "atoms.radius.mixed",
+      "name": "atoms.radius.md",
       "tokenType": "Radius"
     },
     "atoms.radius.sm": {
@@ -216,6 +201,15 @@
       },
       "name": "atoms.radius.sm",
       "tokenType": "Radius"
+    },
+    "atoms.ratio.photo": {
+      "definition": {
+        "height": 3,
+        "kind": "ratio",
+        "width": 4
+      },
+      "name": "atoms.ratio.photo",
+      "tokenType": "Ratio"
     },
     "atoms.ratio.square": {
       "definition": {
@@ -227,8 +221,9 @@
     },
     "atoms.ratio.video": {
       "definition": {
-        "kind": "number",
-        "value": 1.777
+        "height": 9,
+        "kind": "ratio",
+        "width": 16
       },
       "name": "atoms.ratio.video",
       "tokenType": "Ratio"
@@ -295,7 +290,7 @@
       "tokenType": "Color"
     },
     "atoms.radius.card": {
-      "definition": "primitive:atoms.radius.mixed",
+      "definition": "primitive:atoms.radius.md",
       "name": "atoms.radius.card",
       "tokenType": "Radius"
     },

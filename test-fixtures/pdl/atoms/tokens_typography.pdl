@@ -1,4 +1,4 @@
-// FontFamily, Size, Weight
+// FontFamily, Size, Weight, LineHeight, LetterSpacing
 
 primitive atoms.font.ui: FontFamily = "system-ui, sans-serif"
 primitive atoms.font.mono: FontFamily = "ui-monospace, monospace"
@@ -8,3 +8,9 @@ primitive atoms.type.size.title: Size = 22
 primitive atoms.type.weight.regular: Weight = 400
 primitive atoms.type.weight.medium: Weight = 600
 primitive atoms.type.weight.bold: Weight = 700
+primitive atoms.type.lineHeight.tight: LineHeight = 1.2
+primitive atoms.type.lineHeight.body: LineHeight = 1.35
+primitive atoms.type.lineHeight.loose: LineHeight = 1.5
+primitive atoms.type.letterSpacing.tight: LetterSpacing = -0.01
+primitive atoms.type.letterSpacing.normal: LetterSpacing = 0
+primitive atoms.type.letterSpacing.wide: LetterSpacing = 0.02
