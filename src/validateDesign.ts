@@ -584,6 +584,13 @@ function assertTokenRhsCompatible(
   tokenType: string,
   value: ValueExpr,
 ): void {
+  if (value.kind === "null") {
+    throw new PdlError(
+      "PDL-E005",
+      `Token \`${name}\` has type ${tokenType} and must be ${tokenRhsExpectation(tokenType)} (got null); \`null\` unsets frame properties, not token values`,
+      { path: design.entryPath },
+    );
+  }
   if (value.kind === "ident") return;
 
   if (tokenType === "Radius" && value.kind === "corner") {

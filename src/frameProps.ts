@@ -256,6 +256,9 @@ export function assertFramePropCompatible(
     );
   }
 
+  // `null` = unset this property (revert to default / absent). Legal on any known frame prop.
+  if (value.kind === "null") return;
+
   if (value.kind === "ident") {
     if (typeId === "styleRef" || typeId === "booleanOrCondition") return;
     if (vk.tokenTypes?.length) {

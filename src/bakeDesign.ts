@@ -68,6 +68,7 @@ function expandTypeStyleIntoFrame(
     if (decl) {
       const fromStyle: Record<string, unknown> = {};
       for (const [k, expr] of Object.entries(decl.props)) {
+        if (expr.kind === "null") continue;
         const v = evaluateValue(expr, {
           design,
           tokens,
@@ -75,14 +76,23 @@ function expandTypeStyleIntoFrame(
           paramValues: {},
           paramMeta: new Map(),
         });
+        if (v === null) continue;
         fromStyle[k] = coerceFramePropValue(k, v, design.entryPath);
       }
       const { typeStyle: _drop, ...frameRest } = props;
-      Object.assign(props, fromStyle, frameRest);
+      Object.assign(props, fromStyle);
+      for (const [k, v] of Object.entries(frameRest)) {
+        if (v === null) delete props[k];
+        else props[k] = v;
+      }
       delete props.typeStyle;
     } else if (Object.keys(props).length > 1) {
       delete props.typeStyle;
     }
+  }
+  // Strip any remaining null sentinels (unset → absent default).
+  for (const k of Object.keys(props)) {
+    if (props[k] === null) delete props[k];
   }
   return {
     id: frame.id,

@@ -1076,6 +1076,7 @@ fn value_expr_kind_name(value: &ValueExpr) -> &'static str {
         ValueExpr::Number { .. } => "number",
         ValueExpr::Ratio { .. } => "ratio",
         ValueExpr::Boolean { .. } => "boolean",
+        ValueExpr::Null => "null",
         ValueExpr::Condition { .. } => "condition",
         ValueExpr::Ident { .. } => "ident",
         ValueExpr::SelfRef => "self",
@@ -1222,6 +1223,16 @@ fn assert_token_rhs_compatible(
     token_type: &str,
     value: &ValueExpr,
 ) -> Result<(), PdlError> {
+    if matches!(value, ValueExpr::Null) {
+        return Err(err(
+            "PDL-E005",
+            format!(
+                "Token `{name}` has type {token_type} and must be {} (got null); `null` unsets frame properties, not token values",
+                token_rhs_expectation(token_type)
+            ),
+            design,
+        ));
+    }
     if matches!(value, ValueExpr::Ident { .. }) {
         return Ok(());
     }

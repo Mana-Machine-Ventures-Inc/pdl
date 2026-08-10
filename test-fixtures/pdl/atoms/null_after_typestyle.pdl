@@ -1,0 +1,10 @@
+typeStyle Body {
+  fontSize = 14
+  color = #112233
+}
+
+component NullAfterTypeStyle() text {
+  style = Body
+  color = null
+  content = "Hi"
+}

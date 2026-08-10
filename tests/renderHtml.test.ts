@@ -180,6 +180,49 @@ describe("renderHtml", () => {
     expect(html).not.toMatch(/<div class="[^"]*pdl-canvas--fill-height/);
   });
 
+  it("hug text in a row with a .fill sibling does not flex-shrink below content", () => {
+    const doc = {
+      schemaKind: "bakedDesign" as const,
+      schemaVersion: "1.0.0-beta",
+      generatedAt: "2026-01-01T00:00:00.000Z",
+      provenance: {
+        entryPath: "/x.pdl",
+        bakedTheme: null,
+        bakeProfile: "component-explicit" as const,
+      },
+      components: {
+        Row: {
+          name: "Row",
+          rootKind: "layout",
+          bakedParams: {},
+          root: {
+            id: "Root",
+            kind: "layout",
+            props: { direction: "row", width: { fixed: 400 } },
+            children: [
+              {
+                id: "A",
+                kind: "text",
+                props: { content: "Hello", width: "fill", background: "#0000004D" },
+                children: [],
+              },
+              {
+                id: "B",
+                kind: "text",
+                props: { content: "Hello", fontSize: 12, background: "#0000004D" },
+                children: [],
+              },
+            ],
+          },
+        },
+      },
+    };
+    const frag = renderBakedComponentToHtmlFragment(doc.components.Row!);
+    expect(frag).toMatch(/data-pdl-id="A"[^>]*width:100%/);
+    expect(frag).toMatch(/data-pdl-id="B"[^>]*flex-shrink:0/);
+    expect(frag).toMatch(/data-pdl-id="B"[^>]*min-width:min-content/);
+  });
+
   it("reverseStack paints first child above later siblings", () => {
     const doc = {
       schemaKind: "bakedDesign" as const,
@@ -362,7 +405,7 @@ describe("renderHtml", () => {
     expect(frag).toContain("row-gap:10px");
   });
 
-  it("emits border and box-shadow from baked Shadow object", () => {
+  it("emits outside border as outer box-shadow ring with drop Shadow (paint-only)", () => {
     const doc = {
       schemaKind: "bakedDesign" as const,
       schemaVersion: "1.0.0-beta",
@@ -399,8 +442,8 @@ describe("renderHtml", () => {
       },
     };
     const frag = renderBakedComponentToHtmlFragment(doc.components.B!);
-    expect(frag).toContain("border:2px solid #112233");
-    expect(frag).toContain("box-shadow:0px 2px 4px 0px #00000033");
+    expect(frag).toContain("box-shadow:0 0 0 2px #112233, 0px 2px 4px 0px #00000033");
+    expect(frag).not.toContain("border:2px solid");
   });
 
   it("maps inside borderPosition to inset box-shadow with Shadow object", () => {
@@ -428,9 +471,33 @@ describe("renderHtml", () => {
         children: [],
       },
     });
-    expect(frag).toContain("inset 0 0 0 3px #ff0000");
-    expect(frag).toContain("0px 1px 2px 0px #00000033");
+    expect(frag).toContain("box-shadow:inset 0 0 0 3px #ff0000, 0px 1px 2px 0px #00000033");
     expect(frag).not.toContain("border:3px solid");
+  });
+
+  it("outside border keeps fixed width/height and does not emit CSS border", () => {
+    const frag = renderBakedComponentToHtmlFragment({
+      name: "FixedBorder",
+      rootKind: "layout",
+      bakedParams: {},
+      root: {
+        id: "Root",
+        kind: "layout",
+        props: {
+          direction: "column",
+          width: { fixed: 100 },
+          height: { fixed: 100 },
+          borderWidth: 4,
+          borderColor: "#00aa00",
+          borderPosition: "outside",
+        },
+        children: [],
+      },
+    });
+    expect(frag).toContain("width:100px");
+    expect(frag).toContain("height:100px");
+    expect(frag).toContain("box-shadow:0 0 0 4px #00aa00");
+    expect(frag).not.toMatch(/border:\s*4px/);
   });
 
   it("maps media aspectRatio and objectPosition", () => {

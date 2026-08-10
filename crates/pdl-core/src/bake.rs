@@ -7,7 +7,7 @@ use std::collections::HashSet;
 
 use serde_json::{Map, Value};
 
-use crate::ast::{ComponentDecl, RootKind};
+use crate::ast::{ComponentDecl, RootKind, ValueExpr};
 use crate::design::DesignDefinition;
 use crate::error::PdlError;
 use crate::evaluate::{build_resolved_token_map, evaluate_value, Eval, Tokens};
@@ -44,6 +44,9 @@ fn expand_type_style_into_frame(
         if let Some(decl) = design.type_styles.get(name) {
             let mut from_style = Map::new();
             for (k, expr) in &decl.props {
+                if matches!(expr, ValueExpr::Null) {
+                    continue;
+                }
                 let mut visiting = HashSet::new();
                 let mut ev = Eval {
                     design,
@@ -54,6 +57,9 @@ fn expand_type_style_into_frame(
                     use_string_placeholders: false,
                 };
                 let v = evaluate_value(expr, &mut ev)?;
+                if v.is_null() {
+                    continue;
+                }
                 from_style.insert(k.clone(), v);
             }
             let frame_rest = {
@@ -63,13 +69,19 @@ fn expand_type_style_into_frame(
             };
             props = from_style;
             for (k, v) in frame_rest {
-                props.insert(k, v);
+                if v.is_null() {
+                    props.remove(&k);
+                } else {
+                    props.insert(k, v);
+                }
             }
             props.remove("typeStyle");
         } else if props.len() > 1 {
             props.remove("typeStyle");
         }
     }
+    // Strip remaining null sentinels (unset → absent default).
+    props.retain(|_, v| !v.is_null());
     let mut children = Vec::with_capacity(frame.children.len());
     for ch in &frame.children {
         children.push(expand_type_style_into_frame(design, tokens, ch)?);

@@ -100,6 +100,8 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
       return expr.width / expr.height;
     case "boolean":
       return expr.value;
+    case "null":
+      return null;
     case "condition": {
       const pv = opts.paramValues;
       if (!pv) {

@@ -68,6 +68,7 @@ export function collectDeclaredTokenNamesFromValueExpr(
     case "number":
     case "ratio":
     case "boolean":
+    case "null":
     case "dotEnum":
     case "condition":
     case "vibrancyTuple":

@@ -1,0 +1,12 @@
+// `null` unsets a prior frame prop (absent default after bake).
+component NullUnset() layout {
+  width = 120
+  height = 80
+  background = #EEEEEE
+  borderWidth = 2
+  borderColor = #112233
+  borderColor = null
+  gap = 8
+  columnGap = 4
+  gap = null
+}

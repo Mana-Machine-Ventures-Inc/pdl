@@ -1252,13 +1252,15 @@ Row.children = [IconA, IconB]
 | `shadow` | shadow | `Shadow(…)` constructor, or `Shadow` token |
 | `borderWidth` | number | |
 | `borderColor` | color | |
-| `borderPosition` | enum | `inside`, `outside` |
+| `borderPosition` | enum | `inside`, `outside` (default **`.outside`** when omitted) |
+
+**Borders are paint-only (normative):** **`borderWidth` / `borderColor` / `borderPosition`** **MUST NOT** change the frame’s layout box size or flex/grid placement. A frame with **`width` / `height` = 100** stays **100×100** whether the stroke is **`.inside`** or **`.outside`**. **`.outside`** paints the stroke outside the border box; **`.inside`** paints it inside. Emitters **MUST NOT** use a CSS (or platform) border that grows or shrinks the laid-out box for this purpose.
 
 **`justify = .stretch`:** Emitters map to **`justify-content: stretch`** where the platform supports it; otherwise approximate with **`align-items: stretch`** on the container and **`justify-content: flex-start`**, and document the downgrade.
 
 **Gaps (normative):** **`gap`** is spacing on the **main** axis between in-flow children. **`columnGap`** and **`rowGap`** refine spacing on the **column** vs **row** axes when **`wrap = .wrap`**; if **`rowGap`** is omitted, **`gap`** applies to **both** axes (see **`rowGap`** in the **`layout`** property table above).
 
-**Gap cascade (declaration order):** on a given frame, a later **`gap = …`** **clears** any earlier **`columnGap`** / **`rowGap`** on that frame (uniform gap replaces per-axis overrides). A later **`columnGap`** / **`rowGap`** after **`gap`** still overrides that axis only.
+**Gap cascade (declaration order):** on a given frame, a later **`gap = …`** **clears** any earlier **`columnGap`** / **`rowGap`** on that frame (uniform gap replaces per-axis overrides). A later **`columnGap`** / **`rowGap`** after **`gap`** still overrides that axis only. **`gap = null`** unsets **`gap` only** — it does **not** clear **`columnGap`** / **`rowGap`**.
 
 **Child-only properties** (on **`let`** frames that are **children** of a `layout`, or on root when parent is layout — scoping is **parent layout**):
 
@@ -1455,6 +1457,27 @@ aspectRatio = 4:3
 ```pdl
 background = color.surface.card
 color = #1E293B
+```
+
+---
+
+## `null` (unset a property)
+
+The reserved word **`null`** means **pretend this property was never set** on the current frame (or override chain). It is **not** a Color, Opacity, or other token value.
+
+**Normative:**
+
+1. On a **frame property** (or **`typeStyle`** text prop), **`prop = null`** clears that key so the **domain default** applies — often **absent** (no border color, no shadow), sometimes a numeric default such as **`0`** when the emitter treats missing and zero the same.
+2. After a **`style = TypeStyle`**, a later **`color = null`** (etc.) clears that property even if the type style contributed it (bake applies style defaults first, then applies frame **`null`** as delete).
+3. **`style = null`** clears the type-style binding (`typeStyle` / `style` markers) without inventing typography literals.
+4. **`gap = null`** unsets **`gap` only**; it does **not** clear **`columnGap`** / **`rowGap`** (unlike a later non-null **`gap = …`**, which does).
+5. **`null` MUST NOT** appear as a **`primitive` / `semantic`** RHS or other token definition (**PDL-E005**). Prefer domain empties where natural (e.g. **`borderWidth = 0`**); use **`null`** when an override must erase a prior set value.
+
+```pdl
+layout {
+  borderColor = #0066FF
+  borderColor = null   // no border color (absent default)
+}
 ```
 
 ---
@@ -3922,6 +3945,7 @@ Literal and composite RHS values from PDL appear as nested JSON objects. Every n
 | **`string`** | `{ "kind": "string", "value": "…" }` | |
 | **`number`** | `{ "kind": "number", "value": <number> }` | |
 | **`boolean`** | `{ "kind": "boolean", "value": true \| false }` | |
+| **`null`** | `{ "kind": "null" }` | Unset a frame property (see §6 §`null`). Not a Color/Opacity value. |
 | **`condition`** | `{ "kind": "condition", "expr": ConditionExpr }` | Variant / boolean conditions in values. |
 | **`ident`** | `{ "kind": "ident", "name": "…" }` | In **`serialiseValueExpr`** output: authored identifier. In **token graph** slots (**`serialiseValueExprWithTokenRefs`**), a bare **`primitive` / `semantic`** token name is **not** emitted as **`ident`** — it becomes a **`primitive:`** / **`semantic:`** string instead; other idents remain as **`ident`** objects. |
 | **`dotEnum`** | `{ "kind": "dotEnum", "value": ".caseName" }` | Includes leading `.` in reference output. |
@@ -3977,7 +4001,7 @@ The reference CLI emits **two graph-shaped JSON artefacts** (rich, reference-hea
 
 **Serialization:** **`bakeSystem`** and **`bakeComponent`** use the same **`stableStringify(..., { omitEmpty: true })`** rules as graph output — **§16a** (e.g. **`BakedFrame.children`** may be absent when there are no visible children).
 
-**HTML preview (`pdl renderHtml`):** The reference CLI can turn the same in-memory **`bakedDesign`** into a minimal **HTML5** document for Studio iframes and static reference pages (`src/renderHtml.ts`). When present, root **`previewBackground`** (resolved CSS color from bake) sets document chrome via **`--pdl-preview-background`**. The emitter maps **`layout`** (flex including **`.rowReverse` / `.columnReverse`**, **`.stack` / `.reverseStack`** as overlapping CSS grid cells with matching z-order, **`gap` / `columnGap` / `rowGap`**, **`.flex` sizing** with evaluated **`min` / `max` / `preferred`**, **`alignSelf` / `grow` / `shrink` / `position` + `inset`**, **`justify`** including **`.stretch`**, scalar or first-color **`background`**, **`foreground`** as an inset overlay **`box-shadow`**, **`borderWidth`/`borderColor`** with **`borderPosition`** (**outside** → CSS border; **inside** → inset **`box-shadow`**), **`shadow`**, **`overflow`** (**`.visible`** / **`.scroll`** / **`.clip`**; preview maps **`.clip`** → CSS `overflow: hidden` — §6 §Overflow), asymmetric **`Corner`** radii, approximate **Blur** / **Vibrancy** via **`backdrop-filter`**), **`text`** (typography, **`lineHeight`** ratio, **`letterSpacing`** in px from em×`fontSize`, **`justify`** / **`align`** via a flex column shell + **`text-align`**, clamp / ellipsis / opacity / overflow), **`spacer`**, **`icon`** (color swatch + name label — not a real glyph set), and **`media`** ( **`<img>`** when **`source`** looks like a URL/path; **`contentMode`** → **`object-fit`**; **`aspectRatio`** / **`objectPosition`**) to flexbox- and grid-oriented markup. **Ramp**, full **layer** compositing fidelity, stack+**`spaceBetween`**, custom **`@font-face`** loading, and non-raster **media** remain approximated or omitted. Closed-set params from **`variant`** or **`enum`** are keyword-agnostic (bake IR uses **`"type": "variant"`**). The mapping is **best-effort** and versioned with the toolchain, not part of the **`bakedDesign`** schema contract.
+**HTML preview (`pdl renderHtml`):** The reference CLI can turn the same in-memory **`bakedDesign`** into a minimal **HTML5** document for Studio iframes and static reference pages (`src/renderHtml.ts`). When present, root **`previewBackground`** (resolved CSS color from bake) sets document chrome via **`--pdl-preview-background`**. The emitter maps **`layout`** (flex including **`.rowReverse` / `.columnReverse`**, **`.stack` / `.reverseStack`** as overlapping CSS grid cells with matching z-order, **`gap` / `columnGap` / `rowGap`**, **`.flex` sizing** with evaluated **`min` / `max` / `preferred`**, **`alignSelf` / `grow` / `shrink` / `position` + `inset`**, **`justify`** including **`.stretch`**, scalar or first-color **`background`**, **`foreground`** as an inset overlay **`box-shadow`**, **`borderWidth`/`borderColor`** with **`borderPosition`** (**outside** → outer **`box-shadow`** ring; **inside** → inset ring; both paint-only and composed with **`shadow`** — not CSS **`border`**, which would change layout size), **`shadow`**, **`overflow`** (**`.visible`** / **`.scroll`** / **`.clip`**; preview maps **`.clip`** → CSS `overflow: hidden` — §6 §Overflow), asymmetric **`Corner`** radii, approximate **Blur** / **Vibrancy** via **`backdrop-filter`**), **`text`** (typography, **`lineHeight`** ratio, **`letterSpacing`** in px from em×`fontSize`, **`justify`** / **`align`** via a flex column shell + **`text-align`**, clamp / ellipsis / opacity / overflow), **`spacer`**, **`icon`** (color swatch + name label — not a real glyph set), and **`media`** ( **`<img>`** when **`source`** looks like a URL/path; **`contentMode`** → **`object-fit`**; **`aspectRatio`** / **`objectPosition`**) to flexbox- and grid-oriented markup. **Ramp**, full **layer** compositing fidelity, stack+**`spaceBetween`**, custom **`@font-face`** loading, and non-raster **media** remain approximated or omitted. Closed-set params from **`variant`** or **`enum`** are keyword-agnostic (bake IR uses **`"type": "variant"`**). The mapping is **best-effort** and versioned with the toolchain, not part of the **`bakedDesign`** schema contract.
 
 ### `bakedDesign` — root document
 
@@ -4391,7 +4415,7 @@ primitive  semantic  theme  typeStyle  variant  enum  component
 protocol  requires  host  emits  emit  interaction  fixtures  usage  rules  extend
 import  previewBackground  let  if  else  on  for  in  ForEach
 before  between  after
-true  false  self
+true  false  null  self
 ```
 
 `enum` is a reserved word and a **surface alias** of `variant` (§4). API protocols declare **`protocol P: component`**; **`host`** marks host-role protocols (§4a). `before` / `between` / `after` are reserved for **B6** list chrome inside `ForEach` (§4e). **`in`** introduces the required `ForEach` item binder. Layout emit capture is handler assignment (`chip.select(…) = { … }` / `Field.change(…) = { … }`); list-param `chips.select` is **PDL-E036**. Keyword `on` is **not** used for declared emits. **`expose` is not a keyword** (removed). **`self`** in layout/interaction means the enclosing component instance (§22.2); in `rules` queries it is the rules evaluation root (§12).

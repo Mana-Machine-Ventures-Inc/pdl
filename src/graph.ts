@@ -27,6 +27,8 @@ export function serialiseValueExpr(e: ValueExpr): unknown {
     case "number":
     case "boolean":
       return { kind: e.kind, value: (e as { value: unknown }).value };
+    case "null":
+      return { kind: "null" };
     case "ratio":
       return { kind: "ratio", width: e.width, height: e.height };
     case "condition":
@@ -118,6 +120,8 @@ export function serialiseValueExprWithTokenRefs(expr: ValueExpr, design: DesignD
     case "number":
     case "boolean":
       return { kind: expr.kind, value: (expr as { value: unknown }).value };
+    case "null":
+      return { kind: "null" };
     case "ratio":
       return { kind: "ratio", width: expr.width, height: expr.height };
     case "condition":

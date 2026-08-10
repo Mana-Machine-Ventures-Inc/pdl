@@ -171,3 +171,7 @@ npm run preview -- <entry.pdl> --system
 | icon | `icon` (token/name) |
 
 **Overflow:** use **`.clip`** to hard-crop (no scroll). There is no `.hidden` / `.auto`. Optional sugar: `Overflow.clip`, `Overflow.scroll`, `Overflow.visible`.
+
+**Unset:** `prop = null` means “pretend we didn’t set this” (revert to default / absent). Prefer `borderWidth = 0` when zero is the natural empty; use `null` to erase a prior override. Not valid on token RHS.
+
+**Borders:** `borderPosition` `.inside` / `.outside` (default) is paint-only — does not change layout size.

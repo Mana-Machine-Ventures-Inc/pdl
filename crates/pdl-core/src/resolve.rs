@@ -247,7 +247,13 @@ fn coerce_frame_prop_value(prop: &str, value: Value, entry_path: &str) -> Result
 }
 
 /// Later `gap = …` clears prior `columnGap` / `rowGap` (uniform gap replaces per-axis overrides).
+/// `null` is stored as a sentinel so bake can clear typeStyle contributions too;
+/// final bake omits null keys (`gap = null` does **not** clear columnGap/rowGap).
 fn assign_frame_prop(props: &mut Map<String, Value>, name: &str, value: Value) {
+    if value.is_null() {
+        props.insert(name.to_string(), Value::Null);
+        return;
+    }
     props.insert(name.to_string(), value);
     if name == "gap" {
         props.remove("columnGap");
@@ -488,6 +494,16 @@ fn process_frame_items(
                     }
                     continue;
                 }
+                if matches!(value, ValueExpr::Null) {
+                    let f = frames.get_mut(default_target).unwrap();
+                    if name == "style" {
+                        f.props.remove("style");
+                        f.props.remove("typeStyle");
+                    } else {
+                        assign_frame_prop(&mut f.props, name, Value::Null);
+                    }
+                    continue;
+                }
                 let v = eval_prop(value, design, tokens, param_values, param_meta, opts)?;
                 if name == "style" {
                     let f = frames.get_mut(default_target).unwrap();
@@ -530,6 +546,16 @@ fn process_frame_items(
                         fr.props.insert("hidden".to_string(), Value::Bool(true));
                     } else {
                         fr.props.remove("hidden");
+                    }
+                    continue;
+                }
+                if matches!(value, ValueExpr::Null) {
+                    let fr = frames.get_mut(frame).unwrap();
+                    if name == "style" {
+                        fr.props.remove("style");
+                        fr.props.remove("typeStyle");
+                    } else {
+                        assign_frame_prop(&mut fr.props, name, Value::Null);
                     }
                     continue;
                 }

@@ -1266,6 +1266,10 @@ export class Parser {
       this.advance();
       return { kind: "boolean", value: t.kind === "true" };
     }
+    if (t.kind === "null") {
+      this.advance();
+      return { kind: "null" };
+    }
     if (t.kind === "DOT_ENUM") {
       this.advance();
       const v = t.value;

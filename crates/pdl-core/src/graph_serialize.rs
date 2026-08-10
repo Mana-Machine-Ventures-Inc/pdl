@@ -79,6 +79,7 @@ fn scalar_value(expr: &ValueExpr) -> Value {
         ValueExpr::Hex { value } | ValueExpr::String { value } => Value::String(value.clone()),
         ValueExpr::Number { value } => number_value(*value),
         ValueExpr::Boolean { value } => Value::Bool(*value),
+        ValueExpr::Null => Value::Null,
         _ => Value::Null,
     }
 }
@@ -89,6 +90,7 @@ fn scalar_kind(expr: &ValueExpr) -> &'static str {
         ValueExpr::String { .. } => "string",
         ValueExpr::Number { .. } => "number",
         ValueExpr::Boolean { .. } => "boolean",
+        ValueExpr::Null => "null",
         _ => "unknown",
     }
 }
@@ -129,6 +131,7 @@ pub fn serialise_value_expr(e: &ValueExpr) -> Value {
             ("kind", Value::String(scalar_kind(e).to_string())),
             ("value", scalar_value(e)),
         ]),
+        ValueExpr::Null => obj(vec![("kind", Value::String("null".to_string()))]),
         ValueExpr::Ratio { width, height } => obj(vec![
             ("kind", Value::String("ratio".to_string())),
             ("width", number_value(*width)),
@@ -313,6 +316,7 @@ pub fn serialise_value_expr_with_token_refs(expr: &ValueExpr, design: &DesignDef
             ("kind", Value::String(scalar_kind(expr).to_string())),
             ("value", scalar_value(expr)),
         ]),
+        ValueExpr::Null => obj(vec![("kind", Value::String("null".to_string()))]),
         ValueExpr::Ratio { width, height } => obj(vec![
             ("kind", Value::String("ratio".to_string())),
             ("width", number_value(*width)),
@@ -545,6 +549,7 @@ pub fn collect_declared_token_names_from_value_expr(
         | ValueExpr::Number { .. }
         | ValueExpr::Ratio { .. }
         | ValueExpr::Boolean { .. }
+        | ValueExpr::Null
         | ValueExpr::DotEnum { .. }
         | ValueExpr::Condition { .. }
         | ValueExpr::VibrancyTuple { .. }

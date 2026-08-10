@@ -203,6 +203,8 @@ function hoistLetInstanceFrames(
 /**
  * Assign a frame property. Later `gap = …` clears prior `columnGap` / `rowGap`
  * so uniform gap replaces per-axis overrides (declaration order wins).
+ * `null` is stored as a sentinel so bake can clear typeStyle contributions too;
+ * final bake/HTML omit null keys (pretend unset → default).
  */
 function assignFrameProp(
   props: Record<string, unknown>,
@@ -210,6 +212,10 @@ function assignFrameProp(
   value: unknown,
   entryPath: string,
 ): void {
+  if (value === null) {
+    props[name] = null;
+    return;
+  }
   props[name] = coerceFramePropValue(name, value, entryPath);
   if (name === "gap") {
     delete props.columnGap;
@@ -237,6 +243,15 @@ function processFrameItems(
           applyHiddenProp(f, item.value, ctx);
           break;
         }
+        if (item.value.kind === "null") {
+          if (item.name === "style") {
+            delete f.props.style;
+            delete f.props.typeStyle;
+          } else {
+            assignFrameProp(f.props, item.name, null, ctx.design.entryPath);
+          }
+          break;
+        }
         const v = evalProp(item.value, ctx);
         if (item.name === "style") mergeStyleProps(f.props, v, ctx.design.entryPath, ctx.catalogueTokenRefs);
         else assignFrameProp(f.props, item.name, v, ctx.design.entryPath);
@@ -246,6 +261,15 @@ function processFrameItems(
         const fr = ensureFrame(frames, item.frame, frames.get(item.frame)?.kind ?? "layout");
         if (item.name === "hidden") {
           applyHiddenProp(fr, item.value, ctx);
+          break;
+        }
+        if (item.value.kind === "null") {
+          if (item.name === "style") {
+            delete fr.props.style;
+            delete fr.props.typeStyle;
+          } else {
+            assignFrameProp(fr.props, item.name, null, ctx.design.entryPath);
+          }
           break;
         }
         const pv = evalProp(item.value, ctx);

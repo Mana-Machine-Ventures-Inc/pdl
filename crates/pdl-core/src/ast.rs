@@ -88,6 +88,8 @@ pub enum ValueExpr {
     Boolean {
         value: bool,
     },
+    /// Unset a frame property (`prop = null`) — pretend it was never set.
+    Null,
     /// Only on `hidden = …` — same grammar as `if` conditions
     /// (variant comparisons).
     Condition {

@@ -87,6 +87,7 @@ fn value_kind_name(value: &ValueExpr) -> &'static str {
         ValueExpr::Number { .. } => "number",
         ValueExpr::Ratio { .. } => "ratio",
         ValueExpr::Boolean { .. } => "boolean",
+        ValueExpr::Null => "null",
         ValueExpr::Condition { .. } => "condition",
         ValueExpr::Ident { .. } => "ident",
         ValueExpr::SelfRef => "self",
@@ -276,6 +277,11 @@ pub fn assert_frame_prop_compatible(
             design,
         ));
     };
+
+    // `null` = unset this property (revert to default / absent). Legal on any known frame prop.
+    if matches!(value, ValueExpr::Null) {
+        return Ok(());
+    }
 
     if let ValueExpr::Ident { name } = value {
         if type_id == "styleRef" || type_id == "booleanOrCondition" {

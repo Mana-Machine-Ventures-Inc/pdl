@@ -1719,6 +1719,10 @@ impl Parser {
                     value: t.kind == TokenKind::True,
                 });
             }
+            TokenKind::Null => {
+                self.advance();
+                return Ok(ValueExpr::Null);
+            }
             TokenKind::DotEnum => {
                 self.advance();
                 let v = t.value;

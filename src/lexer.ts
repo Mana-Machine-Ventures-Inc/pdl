@@ -31,6 +31,7 @@ export type TokenKind =
   | "in"
   | "true"
   | "false"
+  | "null"
   | "self"
   | "case"
   | "example"
@@ -133,6 +134,7 @@ const KEYWORDS = new Map<string, TokenKind>([
   ["in", "in"],
   ["true", "true"],
   ["false", "false"],
+  ["null", "null"],
   ["self", "self"],
   ["case", "case"],
   ["example", "example"],

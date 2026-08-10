@@ -280,6 +280,10 @@ describe("invalid PDL — catalogue & theme (PDL-E005 / PDL-E010)", () => {
     expectPdl(() => loadDesign(err("e005-color-number.pdl")), "PDL-E005", /Color.*hex|Color.*color/);
   });
 
+  it("PDL-E005 when token RHS is null", () => {
+    expectPdl(() => loadDesign(err("e005-token-null.pdl")), "PDL-E005", /null.*frame properties|got null/);
+  });
+
   it("PDL-E005 when Opacity token uses a string", () => {
     expectPdl(() => loadDesign(err("e005-opacity-string.pdl")), "PDL-E005", /Opacity.*0…1|Opacity.*number/);
   });

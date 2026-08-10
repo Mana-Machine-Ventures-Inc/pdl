@@ -18,6 +18,8 @@ export type ValueExpr =
   /** `16:9` aspect-ratio sugar — evaluates to `width / height`. */
   | { kind: "ratio"; width: number; height: number }
   | { kind: "boolean"; value: boolean }
+  /** Frame/typeStyle prop clear — "pretend we didn't set this" (resolve deletes the key). */
+  | { kind: "null" }
   /** Only on `hidden = …` — same grammar as `if` conditions (variant comparisons). */
   | { kind: "condition"; expr: ConditionExpr }
   | { kind: "ident"; name: string }

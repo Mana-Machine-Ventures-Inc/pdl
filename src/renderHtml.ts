@@ -426,14 +426,14 @@ function shadowLayerCss(shadow: unknown): string | undefined {
   return `${x}px ${y}px ${blur}px ${spread}px ${color}`;
 }
 
-/** Drop shadow only when not combining with inside border (see {@link combinedBoxShadowCss}). */
+/**
+ * Paint-only border ring + drop shadow as one `box-shadow`.
+ * Borders never use CSS `border` — they must not change layout size
+ * (`borderPosition` inside or outside). Ring layer is listed first so it
+ * paints above the drop shadow.
+ */
 function dropShadowCss(props: Record<string, unknown>): string | undefined {
-  const posRaw = props.borderPosition;
-  const pos =
-    typeof posRaw === "string" ? posRaw : (dotEnumValue(posRaw) ?? "outside");
-  if (pos === "inside") return combinedBoxShadowCss(props);
-  const drop = shadowLayerCss(props.shadow);
-  return drop ? `box-shadow:${drop}` : undefined;
+  return combinedBoxShadowCss(props);
 }
 
 function overflowCss(overflow: unknown): string | undefined {
@@ -451,37 +451,24 @@ function overflowCss(overflow: unknown): string | undefined {
   return v ? `overflow:${v}` : undefined;
 }
 
-/**
- * Border paint. `borderPosition = outside` (default) → CSS border.
- * `inside` → inset box-shadow ring (does not grow the layout box).
- * Returns style fragments (may include both border:none and box-shadow).
- */
-function borderDecls(props: Record<string, unknown>): string[] {
-  const w = finiteNum(props.borderWidth);
-  const c = props.borderColor;
-  if (w === undefined || w <= 0 || typeof c !== "string" || c.length === 0) return [];
-  const posRaw = props.borderPosition;
-  const pos =
-    typeof posRaw === "string" ? posRaw : (dotEnumValue(posRaw) ?? "outside");
-  if (pos === "inside") {
-    return [`box-shadow:inset 0 0 0 ${String(w)}px ${c}`];
-  }
-  return [`border:${w}px solid ${c}`];
-}
-
-/** Merge drop shadow + optional inside-border inset shadow into one box-shadow. */
+/** Border ring + optional drop `shadow` → single `box-shadow` (paint-only). */
 function combinedBoxShadowCss(props: Record<string, unknown>): string | undefined {
   const parts: string[] = [];
-  const drop = shadowLayerCss(props.shadow);
-  if (drop) parts.push(drop);
   const w = finiteNum(props.borderWidth);
   const c = props.borderColor;
   const posRaw = props.borderPosition;
   const pos =
     typeof posRaw === "string" ? posRaw : (dotEnumValue(posRaw) ?? "outside");
-  if (pos === "inside" && w !== undefined && w > 0 && typeof c === "string" && c.length > 0) {
-    parts.push(`inset 0 0 0 ${String(w)}px ${c}`);
+  if (w !== undefined && w > 0 && typeof c === "string" && c.length > 0) {
+    if (pos === "inside") {
+      parts.push(`inset 0 0 0 ${String(w)}px ${c}`);
+    } else {
+      // outside (default): outer ring; does not affect layout box size.
+      parts.push(`0 0 0 ${String(w)}px ${c}`);
+    }
   }
+  const drop = shadowLayerCss(props.shadow);
+  if (drop) parts.push(drop);
   if (parts.length === 0) return undefined;
   return `box-shadow:${parts.join(", ")}`;
 }
@@ -674,15 +661,9 @@ function boxMetricsStyle(
     const bg = backgroundCssDecl(props);
     if (bg) parts.push(bg);
   }
+  // Border (inside/outside) + drop shadow — paint-only via box-shadow.
   const sh = dropShadowCss(props);
   if (sh) parts.push(sh);
-  const posRaw = props.borderPosition;
-  const pos =
-    typeof posRaw === "string" ? posRaw : (dotEnumValue(posRaw) ?? "outside");
-  // Inside border is folded into box-shadow via dropShadowCss/combinedBoxShadowCss.
-  if (pos !== "inside") {
-    for (const bd of borderDecls(props)) parts.push(bd);
-  }
   const ov = overflowCss(props.overflow);
   if (ov) parts.push(ov);
   return parts.join(";");
@@ -780,11 +761,40 @@ function textLineClamp(props: Record<string, unknown>): number | undefined {
   return lc !== undefined && lc > 0 ? lc : undefined;
 }
 
+/** True when width/height is unset or explicitly `.hug` (intrinsic size). */
+function sizingAxisIsHug(props: Record<string, unknown>, axis: "width" | "height"): boolean {
+  const v = props[axis];
+  return v === undefined || v === null || v === "hug";
+}
+
+/**
+ * Hug text must not flex-shrink below glyph width (preview used to force min-width:0).
+ * Fill / fixed / truncating text may still shrink into a bounded box.
+ */
+function textMayShrinkBelowContent(props: Record<string, unknown>): boolean {
+  if (textLineClamp(props) !== undefined) return true;
+  if (truncateStyleKind(props) !== undefined) return true;
+  return !sizingAxisIsHug(props, "width");
+}
+
+function textMainAxisMinDecls(props: Record<string, unknown>): string[] {
+  return textMayShrinkBelowContent(props) ? ["min-width:0"] : ["min-width:min-content"];
+}
+
+/** Flex-item decls for text: hug width defaults to no shrink so siblings with `.fill` don't squash glyphs. */
+function textFlexItemDecls(props: Record<string, unknown>): string[] {
+  const out = flexItemDecls(props);
+  if (!textMayShrinkBelowContent(props) && finiteNum(props.shrink) === undefined) {
+    out.push("flex-shrink:0");
+  }
+  return out;
+}
+
 /** Font / color / tracking / text-align (no frame overflow, sizing, or clamp). */
 function textTypographyStyle(props: Record<string, unknown>): string {
   // Do not force width:100% here — that stretches hug text to the parent and breaks
   // stack place-items centering. Width comes from textMetricsShellStyle (fill → 100%).
-  const parts: string[] = ["min-width:0", "box-sizing:border-box"];
+  const parts: string[] = [...textMainAxisMinDecls(props), "box-sizing:border-box"];
   if (typeof props.color === "string") parts.push(`color:${props.color}`);
   if (typeof props.fontSize === "number") parts.push(`font-size:${props.fontSize}px`);
   if (typeof props.fontWeight === "number") parts.push(`font-weight:${String(props.fontWeight)}`);
@@ -1019,7 +1029,7 @@ function renderFrame(
           ? "value"
           : undefined;
     const itemStack = mergeInlineStyles(
-      ...flexItemDecls(props),
+      ...textFlexItemDecls(props),
       ...(opts.stackChild ? stackCellDecls(opts.stackZ) : []),
     );
     if (editableBind) {
@@ -1045,7 +1055,7 @@ function renderFrame(
         overflowCss(props.overflow),
         "position:relative",
         "vertical-align:top",
-        "min-width:0",
+        ...textMainAxisMinDecls(props),
         itemStack,
       );
       const innerStyle = mergeInlineStyles(

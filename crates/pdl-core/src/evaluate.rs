@@ -151,6 +151,7 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
         ValueExpr::Number { value } => Ok(number_value(*value)),
         ValueExpr::Ratio { width, height } => Ok(number_value(width / height)),
         ValueExpr::Boolean { value } => Ok(Value::Bool(*value)),
+        ValueExpr::Null => Ok(Value::Null),
         ValueExpr::Condition { expr } => {
             let pv = ev.param_values.ok_or_else(|| {
                 PdlError::new(
