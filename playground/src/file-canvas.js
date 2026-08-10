@@ -177,6 +177,139 @@ function tokenCount(t) {
 }
 
 /**
+ * @param {string} source
+ * @returns {boolean}
+ */
+export function fileHasPreviewableDecls(source) {
+  return extractComponentNames(source).length > 0 || tokenCount(extractTokenDecls(source)) > 0;
+}
+
+/**
+ * Import closure from an entry module (relative paths as stored in `files`).
+ * @param {string} entry
+ * @param {Record<string, string>} files
+ * @returns {Set<string>}
+ */
+export function collectImportClosure(entry, files) {
+  /** @type {Set<string>} */
+  const out = new Set();
+  /** @param {string} path */
+  function walk(path) {
+    const key = path.replace(/\\/g, "/");
+    if (out.has(key)) return;
+    const source = files[key] ?? files[path];
+    if (source === undefined) return;
+    out.add(key);
+    for (const imp of extractImportPaths(source)) {
+      walk(resolveImportPath(key, imp));
+    }
+  }
+  walk(entry);
+  return out;
+}
+
+/**
+ * Workspace `.pdl` files with decls that are outside the entry import graph.
+ * @param {Record<string, string>} files
+ * @param {string} entry
+ * @returns {string[]}
+ */
+export function unreachableWorkspaceModules(files, entry) {
+  if (!entry) return [];
+  const closure = collectImportClosure(entry, files);
+  /** @type {string[]} */
+  const orphans = [];
+  for (const [path, source] of Object.entries(files)) {
+    const key = path.replace(/\\/g, "/");
+    if (!key.endsWith(".pdl")) continue;
+    if (closure.has(key)) continue;
+    if (!fileHasPreviewableDecls(source)) continue;
+    orphans.push(key);
+  }
+  orphans.sort();
+  return orphans;
+}
+
+/**
+ * Suggest an import string from entry → orphan (same-dir basename when possible).
+ * @param {string} entry
+ * @param {string} orphanPath
+ */
+export function importHintFromEntry(entry, orphanPath) {
+  const ent = entry.replace(/\\/g, "/");
+  const orphan = orphanPath.replace(/\\/g, "/");
+  const dir = ent.includes("/") ? ent.slice(0, ent.lastIndexOf("/") + 1) : "";
+  if (dir && orphan.startsWith(dir)) return orphan.slice(dir.length);
+  return orphan.includes("/") ? orphan.slice(orphan.lastIndexOf("/") + 1) : orphan;
+}
+
+/**
+ * @param {string} orphanPath
+ * @param {string} entry
+ * @returns {{ code: string; message: string }}
+ */
+export function formatUnreachableModuleWarning(orphanPath, entry) {
+  const short = orphanPath.replace(/\\/g, "/").split("/").pop() ?? orphanPath;
+  const hint = importHintFromEntry(entry, orphanPath);
+  const entryShort = entry.replace(/\\/g, "/").split("/").pop() ?? entry;
+  return {
+    code: "PLAYGROUND-W001",
+    message: `${short} is not imported from entry ${entryShort} — declarations here won’t appear in that design’s catalogue until you \`import "${hint}"\`.`,
+  };
+}
+
+/**
+ * @param {Record<string, string>} files
+ * @param {string} componentName
+ * @returns {string[]}
+ */
+export function findFilesDeclaringComponent(files, componentName) {
+  if (!componentName) return [];
+  /** @type {string[]} */
+  const hits = [];
+  for (const [path, source] of Object.entries(files)) {
+    if (!path.replace(/\\/g, "/").endsWith(".pdl")) continue;
+    if (extractComponentNames(source).includes(componentName)) {
+      hits.push(path.replace(/\\/g, "/"));
+    }
+  }
+  hits.sort();
+  return hits;
+}
+
+/**
+ * Whether `source` declares `component Name`.
+ * @param {string} source
+ * @param {string} componentName
+ */
+export function sourceDeclaresComponent(source, componentName) {
+  return Boolean(componentName) && extractComponentNames(source).includes(componentName);
+}
+
+/**
+ * Augment PDL-E037 / "Unknown component" when the name exists in an unimported file.
+ * @param {string} message
+ * @param {Record<string, string>} files
+ * @param {string} entry Bake/analyze entry used when the error was produced
+ * @returns {string}
+ */
+export function augmentUnknownComponentMessage(message, files, entry) {
+  const text = String(message ?? "");
+  if (!/Unknown component/i.test(text) && !/PDL-E037/.test(text)) return text;
+  const m = text.match(/Unknown component\s+`?([A-Za-z_][A-Za-z0-9_]*)`?/);
+  if (!m) return text;
+  const name = m[1];
+  const closure = entry ? collectImportClosure(entry, files) : new Set();
+  const found = findFilesDeclaringComponent(files, name).filter((p) => !closure.has(p));
+  if (found.length === 0) return text;
+  const locs = found.map((p) => `\`${p}\``).join(", ");
+  const hint = importHintFromEntry(entry || "design.pdl", found[0]);
+  const entryLabel = entry ? `\`${entry.replace(/\\/g, "/")}\`` : "the entry";
+  const base = text.trim().replace(/\s+$/, "");
+  return `${base} Found in ${locs} (not in import graph of ${entryLabel}). Add \`import "${hint}"\` to the entry, or open that file to preview it alone.`;
+}
+
+/**
  * Cartesian product of variant axes. Caps at `max` combinations.
  * @param {Array<{ name: string, cases: string[] }>} axes
  * @param {number} [max]

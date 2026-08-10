@@ -8,7 +8,13 @@ import {
   inferFrameKindAt,
   PROPERTIES_BY_KIND,
 } from "./add-property.js";
-import { resolveCanvasTarget } from "./file-canvas.js";
+import {
+  augmentUnknownComponentMessage,
+  formatUnreachableModuleWarning,
+  resolveCanvasTarget,
+  sourceDeclaresComponent,
+  unreachableWorkspaceModules,
+} from "./file-canvas.js";
 import { pdlCompletionSource as buildPdlCompletionSource } from "./pdl-completions.js";
 import { formatTemplateInsert, PDL_TEMPLATES } from "./pdl-templates.js";
 import { loadWasmBake, virtualizeSources } from "./wasm-bake.js";
@@ -2067,13 +2073,42 @@ function insertPdlTemplate(templateId) {
   scheduleDebouncedRender();
 }
 
+/** Pack / scratch entry from the UI (import-graph root for advisories). */
+function designatedEntryPath() {
+  const disk = diskRootMode();
+  const ent = entryPath.value.trim();
+  if (ent && files[ent] !== undefined) return ent;
+  if (activePath && files[activePath] !== undefined) return activePath;
+  const pdl = sortedFilePaths().filter((p) => p.endsWith(".pdl"));
+  if (pdl.length) return pdl[0];
+  return ent || (disk ? "test-fixtures/pdl/molecules/design.pdl" : "lab.pdl");
+}
+
+function selectedComponentForBake() {
+  return (
+    primaryComponent ||
+    component.value ||
+    preferredComponent ||
+    lastCanvas?.primaryComponent ||
+    ""
+  );
+}
+
 /**
  * Bake/analyze entry: in disk packs, use the open file so partial modules
  * (e.g. companion_extend_entry.pdl) resolve their own components — not only pack design.pdl.
+ * Blank canvas: if the open file declares the selected component, bake that module
+ * so unimported authoring files preview without a false PDL-E037.
  */
 function bakeEntryPath() {
   const disk = diskRootMode();
   if (disk && activePath && activePath.endsWith(".pdl")) return activePath;
+  if (!disk && activePath && activePath.endsWith(".pdl") && files[activePath] !== undefined) {
+    const name = selectedComponentForBake();
+    if (name && sourceDeclaresComponent(files[activePath] ?? "", name)) {
+      return activePath;
+    }
+  }
   if (!disk) {
     const ent = entryPath.value.trim();
     if (ent && files[ent] !== undefined) return ent;
@@ -2085,6 +2120,29 @@ function bakeEntryPath() {
     entryPath.value.trim() ||
     (disk ? "test-fixtures/pdl/molecules/design.pdl" : "lab.pdl")
   );
+}
+
+/**
+ * @param {string} message
+ * @param {string} [entry]
+ */
+function withUnknownComponentHint(message, entry = bakeEntryPath()) {
+  syncEditorToFiles();
+  return augmentUnknownComponentMessage(message, files, entry);
+}
+
+/** Soft advisories for workspace modules outside the designated entry import graph. */
+function unreachableModuleConsoleEntries() {
+  syncEditorToFiles();
+  const entry = designatedEntryPath();
+  return unreachableWorkspaceModules(files, entry).map((path) => {
+    const w = formatUnreachableModuleWarning(path, entry);
+    return {
+      phase: "Workspace",
+      component: w.code,
+      message: w.message,
+    };
+  });
 }
 
 /**
@@ -2254,10 +2312,13 @@ async function runAnalyze() {
       body: JSON.stringify(getBodyBase()),
     });
     const data = await res.json();
+    const workspaceWarn = unreachableModuleConsoleEntries();
     if (!data.ok) {
-      showError(data.error || "Analyze failed");
+      const errMsg = withUnknownComponentHint(data.error || "Analyze failed", bakeEntryPath());
+      showError(errMsg);
       updateRenderConsole([
-        { phase: "Analyze (load / parse)", message: data.error || "Analyze failed" },
+        { phase: "Analyze (load / parse)", message: errMsg },
+        ...workspaceWarn,
       ]);
       setStatus("");
       lastDesignSummary = null;
@@ -2275,14 +2336,25 @@ async function runAnalyze() {
     storeControlsFromData(data);
     setCompletionSymbolsFromAnalyze(data);
     refreshCanvasHint();
-    setStatus(`OK — ${data.components?.length ?? 0} components · ${selectedEngine()}`);
+    const nComp = data.components?.length ?? 0;
+    if (workspaceWarn.length > 0) {
+      updateRenderConsole(workspaceWarn);
+      setStatus(
+        `OK — ${nComp} components · ${selectedEngine()} · ${workspaceWarn.length} workspace warning(s)`,
+      );
+    } else {
+      setStatus(`OK — ${nComp} components · ${selectedEngine()}`);
+    }
     lastDesignSummary = data.designSummary ?? null;
     renderDesignSummary(data.designSummary);
     return true;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     showError(msg);
-    updateRenderConsole([{ phase: "Analyze (network / JSON)", message: msg, stack: e instanceof Error ? e.stack : undefined }]);
+    updateRenderConsole([
+      { phase: "Analyze (network / JSON)", message: msg, stack: e instanceof Error ? e.stack : undefined },
+      ...unreachableModuleConsoleEntries(),
+    ]);
     setStatus("");
     lastDesignSummary = null;
     renderDesignSummary(null);
@@ -2318,9 +2390,14 @@ async function runRender({ debounced = false } = {}) {
       const loadData = await loadRes.json();
       if (id !== latestRenderId) return;
       if (!loadData.ok) {
-        showError(loadData.error || "Token preview failed");
+        const errMsg = withUnknownComponentHint(
+          loadData.error || "Token preview failed",
+          bakeEntryPath(),
+        );
+        showError(errMsg);
         updateRenderConsole([
-          { phase: "Tokens (load / parse)", message: loadData.error || "Token preview failed" },
+          { phase: "Tokens (load / parse)", message: errMsg },
+          ...unreachableModuleConsoleEntries(),
         ]);
         lastDesignSummary = null;
         frame.srcdoc = tokensPreviewHtml(canvas.tokens, null);
@@ -2393,13 +2470,27 @@ async function runRender({ debounced = false } = {}) {
       const data = await res.json();
       if (id !== latestRenderId) return;
       if (!data.ok) {
-        showError(data.error || "WASM HTML render failed");
+        const errMsg = withUnknownComponentHint(
+          data.error || "WASM HTML render failed",
+          entry,
+        );
+        showError(errMsg);
+        updateRenderConsole([
+          { phase: "WASM bake / render", message: errMsg },
+          ...unreachableModuleConsoleEntries(),
+        ]);
         frame.removeAttribute("srcdoc");
         setStatus("");
         return;
       }
       frame.srcdoc = data.html;
-      setStatus(`Preview updated · wasm · bake ${bakeMs}ms`);
+      const workspaceWarn = unreachableModuleConsoleEntries();
+      if (workspaceWarn.length > 0) updateRenderConsole(workspaceWarn);
+      setStatus(
+        workspaceWarn.length > 0
+          ? `Preview updated · wasm · bake ${bakeMs}ms · ${workspaceWarn.length} workspace warning(s)`
+          : `Preview updated · wasm · bake ${bakeMs}ms`,
+      );
       return;
     }
 
@@ -2437,28 +2528,38 @@ async function runRender({ debounced = false } = {}) {
     const data = await res.json();
     if (id !== latestRenderId) return;
     if (!data.ok) {
-      const errMsg = data.error || "Render failed";
+      const errMsg = withUnknownComponentHint(data.error || "Render failed", bakeEntryPath());
       showError(errMsg);
-      updateRenderConsole([{ phase: "Bake or render (server)", message: errMsg }]);
+      updateRenderConsole([
+        { phase: "Bake or render (server)", message: errMsg },
+        ...unreachableModuleConsoleEntries(),
+      ]);
       frame.removeAttribute("srcdoc");
       setStatus("");
       return;
     }
     frame.srcdoc = data.html;
     const failures = Array.isArray(data.renderFailures) ? data.renderFailures : [];
+    const workspaceWarn = unreachableModuleConsoleEntries();
     const engLabel = data.engine ? ` · ${data.engine}` : "";
     const ms = data.durationMs != null ? ` · ${data.durationMs}ms` : "";
     const varN = data.variantCount != null ? ` · ${data.variantCount} variants` : "";
     if (failures.length > 0) {
-      updateRenderConsole(
-        failures.map((f) => ({
+      updateRenderConsole([
+        ...failures.map((f) => ({
           phase: "HTML render",
           component: f.component,
-          message: f.message,
+          message: withUnknownComponentHint(f.message, bakeEntryPath()),
           stack: f.stack,
         })),
-      );
+        ...workspaceWarn,
+      ]);
       setStatus(`Preview updated${engLabel}${ms}${varN} — ${failures.length} HTML issue(s)`);
+    } else if (workspaceWarn.length > 0) {
+      updateRenderConsole(workspaceWarn);
+      setStatus(
+        `Preview updated${engLabel}${ms}${varN} · ${workspaceWarn.length} workspace warning(s)`,
+      );
     } else {
       updateRenderConsole([]);
       setStatus(`Preview updated${engLabel}${ms}${varN}`);
@@ -2476,7 +2577,8 @@ async function runRender({ debounced = false } = {}) {
     }
   } catch (e) {
     if (id !== latestRenderId) return;
-    const msg = e instanceof Error ? e.message : String(e);
+    const raw = e instanceof Error ? e.message : String(e);
+    const msg = withUnknownComponentHint(raw, bakeEntryPath());
     showError(msg);
     updateRenderConsole([
       {
@@ -2484,6 +2586,7 @@ async function runRender({ debounced = false } = {}) {
         message: msg,
         stack: e instanceof Error ? e.stack : undefined,
       },
+      ...unreachableModuleConsoleEntries(),
     ]);
     frame.removeAttribute("srcdoc");
     setStatus("");
