@@ -36,12 +36,38 @@ export type ValueExpr =
       color: ValueExpr;
       spread?: ValueExpr;
     }
+  /** `Icon(file: "…")` or `Icon(system: .sfSymbols, name: "…")`. */
+  | { kind: "iconRef"; source: "file"; path: ValueExpr }
+  | { kind: "iconRef"; source: "system"; system: ValueExpr; name: ValueExpr }
+  /** `MediaSource(file: "…" [, kind:, format:])` or `MediaSource(url: "…" [, kind:, format:])`. */
+  | {
+      kind: "mediaSourceRef";
+      source: "file";
+      path: ValueExpr;
+      /** Author `kind:` (.raster|.vector|.video) — baked as `mediaKind`. */
+      mediaKind?: ValueExpr;
+      format?: ValueExpr;
+    }
+  | {
+      kind: "mediaSourceRef";
+      source: "url";
+      url: ValueExpr;
+      mediaKind?: ValueExpr;
+      format?: ValueExpr;
+    }
   | { kind: "array"; items: ValueExpr[] }
   | { kind: "instance"; component: string; kwargs: Record<string, ValueExpr> }
   | { kind: "transition"; duration: ValueExpr; easing: ValueExpr; delay?: ValueExpr }
   | { kind: "vibrancyTuple"; saturation: number; brightness: number }
   | { kind: "rampInline"; direction: string; stops: ValueExpr[] }
-  | { kind: "sizing"; mode: "hug" | "fill" | "fixed" | "flex"; fixed?: number; flexArgs?: Record<string, ValueExpr> }
+  | {
+      kind: "sizing";
+      mode: "hug" | "fill" | "fixed" | "flex" | "aspect";
+      fixed?: number;
+      /** `.aspect(16:9)` / `.aspect(n)` / `.aspect(ratioToken)` — W/H; this axis is derived from the other. */
+      aspect?: ValueExpr;
+      flexArgs?: Record<string, ValueExpr>;
+    }
   | { kind: "call"; callee: "Color" | "Ramp" | "Blur" | "Media" | "Vibrancy"; args: Record<string, ValueExpr> }
   | { kind: "gradientStop"; fields: Record<string, ValueExpr> };
 

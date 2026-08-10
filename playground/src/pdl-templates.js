@@ -405,7 +405,7 @@ semantic atoms.color.pageBg: Color = atoms.color.surface
   padding = EdgeInsets(x: 10, y: 6)
 
   let Glyph: icon = {
-    icon = "check"
+    icon = Icon(system: .sfSymbols, name: "checkmark")
     size = 18
     color = #444444
   }

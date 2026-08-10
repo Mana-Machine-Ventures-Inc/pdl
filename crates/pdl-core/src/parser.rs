@@ -1726,16 +1726,9 @@ impl Parser {
             TokenKind::DotEnum => {
                 self.advance();
                 let v = t.value;
-                if v == ".hug" {
-                    return Ok(ValueExpr::Sizing {
-                        mode: SizingMode::Hug,
-                    });
-                }
-                if v == ".fill" {
-                    return Ok(ValueExpr::Sizing {
-                        mode: SizingMode::Fill,
-                    });
-                }
+                // Bare `.hug` / `.fill` stay as DotEnum so ContentMode.fill and Sizing.fill
+                // share spelling. Qualified `Sizing.hug` / `Sizing.fill` still produce sizing
+                // literals on the Sizing keyword branch below.
                 if v == ".fixed" {
                     if !self.is(TokenKind::LParen) {
                         return Err(self.err(
@@ -1767,6 +1760,21 @@ impl Parser {
                     self.consume(TokenKind::RParen)?;
                     return Ok(ValueExpr::Sizing {
                         mode: SizingMode::Flex { flex_args },
+                    });
+                }
+                if v == ".aspect" {
+                    if !self.is(TokenKind::LParen) {
+                        return Err(self.err(
+                            "`.aspect` requires a ratio argument, e.g. `.aspect(16:9)` or `.aspect(1.5)`",
+                        ));
+                    }
+                    self.consume(TokenKind::LParen)?;
+                    let aspect = self.parse_aspect_arg()?;
+                    self.consume(TokenKind::RParen)?;
+                    return Ok(ValueExpr::Sizing {
+                        mode: SizingMode::Aspect {
+                            aspect: Box::new(aspect),
+                        },
                     });
                 }
                 return Ok(ValueExpr::DotEnum { value: v });
@@ -1819,8 +1827,23 @@ impl Parser {
                         mode: SizingMode::Flex { flex_args },
                     });
                 }
+                if mode == "aspect" {
+                    if !self.is(TokenKind::LParen) {
+                        return Err(self.err(
+                            "`Sizing.aspect` requires a ratio argument, e.g. `Sizing.aspect(16:9)`",
+                        ));
+                    }
+                    self.consume(TokenKind::LParen)?;
+                    let aspect = self.parse_aspect_arg()?;
+                    self.consume(TokenKind::RParen)?;
+                    return Ok(ValueExpr::Sizing {
+                        mode: SizingMode::Aspect {
+                            aspect: Box::new(aspect),
+                        },
+                    });
+                }
                 return Err(self.err(format!(
-                    "Unknown Sizing mode `{mode}`; expected hug, fill, fixed, or flex"
+                    "Unknown Sizing mode `{mode}`; expected hug, fill, fixed, flex, or aspect"
                 )));
             }
             TokenKind::LParen => {
@@ -2030,6 +2053,66 @@ impl Parser {
                 }
             }
         }
+        if name == "Icon" {
+            let mut fields = self.parse_labelled_args()?;
+            self.consume(TokenKind::RParen)?;
+            let file = fields.swap_remove("file");
+            let system = fields.swap_remove("system");
+            let name_f = fields.swap_remove("name");
+            match (file, system, name_f) {
+                (Some(path), None, None) => {
+                    return Ok(ValueExpr::IconFile {
+                        path: Box::new(path),
+                    });
+                }
+                (None, Some(system), Some(name_f)) => {
+                    return Ok(ValueExpr::IconSystem {
+                        system: Box::new(system),
+                        name: Box::new(name_f),
+                    });
+                }
+                _ => {
+                    return Err(self.err(
+                        "Icon requires `file: \"…\"` or `system: .sfSymbols|.materialSymbols, name: \"…\"`",
+                    ));
+                }
+            }
+        }
+        if name == "MediaSource" {
+            let mut fields = self.parse_labelled_args()?;
+            self.consume(TokenKind::RParen)?;
+            let file = fields.swap_remove("file");
+            let url = fields.swap_remove("url");
+            let media_kind = fields.swap_remove("kind").map(Box::new);
+            let format = fields.swap_remove("format").map(Box::new);
+            if !fields.is_empty() {
+                let unknown = fields.keys().cloned().collect::<Vec<_>>().join(", ");
+                return Err(self.err(format!(
+                    "MediaSource unknown label(s): {unknown} (expected file|url, optional kind, format)"
+                )));
+            }
+            match (file, url) {
+                (Some(path), None) => {
+                    return Ok(ValueExpr::MediaSourceFile {
+                        path: Box::new(path),
+                        media_kind,
+                        format,
+                    });
+                }
+                (None, Some(url)) => {
+                    return Ok(ValueExpr::MediaSourceUrl {
+                        url: Box::new(url),
+                        media_kind,
+                        format,
+                    });
+                }
+                _ => {
+                    return Err(self.err(
+                        "MediaSource requires `file: \"…\"` or `url: \"https://…\"` (optional `kind:`, `format:`)",
+                    ));
+                }
+            }
+        }
         if name == "GradientStop" {
             let fields = self.parse_labelled_args()?;
             self.consume(TokenKind::RParen)?;
@@ -2073,6 +2156,39 @@ impl Parser {
             self.consume(TokenKind::Comma)?;
         }
         Ok(args)
+    }
+
+    /// `.aspect(…)` arg: number, `W:H` sugar, or Ratio token ident.
+    fn parse_aspect_arg(&mut self) -> Result<ValueExpr, PdlError> {
+        if self.is(TokenKind::Number) {
+            let w_tok = self.consume(TokenKind::Number)?;
+            if self.is(TokenKind::Colon) && self.peek_ahead_kind(1) == TokenKind::Number {
+                self.advance();
+                let h_tok = self.consume(TokenKind::Number)?;
+                let width = self.num(&w_tok.value);
+                let height = self.num(&h_tok.value);
+                if !(height > 0.0) || !width.is_finite() || !height.is_finite() {
+                    return Err(self.err(
+                        "`.aspect(W:H)` requires a positive finite height (e.g. `.aspect(16:9)`)",
+                    ));
+                }
+                return Ok(ValueExpr::Ratio { width, height });
+            }
+            let n = self.num(&w_tok.value);
+            if !(n > 0.0) || !n.is_finite() {
+                return Err(self.err(
+                    "`.aspect(n)` requires a positive finite ratio (width/height)",
+                ));
+            }
+            return Ok(ValueExpr::Number { value: n });
+        }
+        if self.is(TokenKind::Ident) {
+            let name = self.parse_qualified_name()?;
+            return Ok(ValueExpr::Ident { name });
+        }
+        Err(self.err(
+            "`.aspect` expects a positive ratio number, `W:H` sugar, or a Ratio token (e.g. `.aspect(16:9)`)",
+        ))
     }
 
     fn parse_flex_args(&mut self) -> Result<indexmap::IndexMap<String, ValueExpr>, PdlError> {
@@ -2262,6 +2378,8 @@ fn is_kw_call_start(kind: TokenKind) -> bool {
         TokenKind::EdgeInsets
             | TokenKind::Corner
             | TokenKind::Shadow
+            | TokenKind::Icon
+            | TokenKind::MediaSource
             | TokenKind::GradientStop
             | TokenKind::Color
             | TokenKind::Ramp

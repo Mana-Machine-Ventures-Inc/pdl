@@ -2,6 +2,13 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { FrameBodyItem, ValueExpr } from "./ast.js";
+import {
+  isHttpUrl,
+  isPackRelativeFilePath,
+  mediaKindForFormat,
+  normalizeMediaFormatName,
+  normalizeMediaKindName,
+} from "./assetRefs.js";
 import type { DesignDefinition } from "./designModel.js";
 import { PdlError } from "./errors.js";
 
@@ -130,7 +137,13 @@ function valueKindExpectation(typeId: string): string {
   return parts.join(" | ");
 }
 
-function literalOk(vk: ValueKindDef, value: ValueExpr): boolean {
+function literalOk(vk: ValueKindDef, value: ValueExpr, typeId?: string): boolean {
+  // Bare `.hug` / `.fill` parse as dotEnum (shared with ContentMode.fill); only those cases
+  // are valid for sizing props.
+  if (typeId === "sizing" && value.kind === "dotEnum") {
+    const c = enumCaseName(value);
+    return c === "hug" || c === "fill";
+  }
   if (!vk.accept.includes(value.kind)) return false;
   if (value.kind === "number") {
     if (vk.nonNegativeNumber && value.value < 0) return false;
@@ -142,6 +155,16 @@ function literalOk(vk: ValueKindDef, value: ValueExpr): boolean {
   }
   if (value.kind === "ratio") {
     if (!(value.width > 0 && value.height > 0)) return false;
+  }
+  if (value.kind === "string") {
+    if (typeId === "icon" && !isPackRelativeFilePath(value.value)) return false;
+    if (
+      typeId === "mediaSource" &&
+      !isHttpUrl(value.value) &&
+      !isPackRelativeFilePath(value.value)
+    ) {
+      return false;
+    }
   }
   if (vk.cases?.length) {
     const c = enumCaseName(value);
@@ -290,9 +313,15 @@ export function assertFramePropCompatible(
     );
   }
 
-  if (literalOk(vk, value)) {
+  if (literalOk(vk, value, typeId)) {
     if (typeId === "colorOrLayers") {
       assertLayerStackValue(design, value, `${context}: property \`${prop}\``);
+    }
+    if (typeId === "sizing" && value.kind === "sizing" && value.mode === "aspect") {
+      assertAspectSizingArg(design, value.aspect, `${context}: property \`${prop}\``);
+    }
+    if (typeId === "mediaSource" && value.kind === "mediaSourceRef") {
+      assertMediaSourceMeta(design, value, `${context}: property \`${prop}\``);
     }
     return;
   }
@@ -302,6 +331,176 @@ export function assertFramePropCompatible(
     `${context}: property \`${prop}\` expects ${valueKindExpectation(typeId)} (got ${value.kind})`,
     { path: design.entryPath },
   );
+}
+
+function assertMediaSourceMeta(
+  design: DesignDefinition,
+  value: Extract<ValueExpr, { kind: "mediaSourceRef" }>,
+  context: string,
+): void {
+  if (value.mediaKind !== undefined) {
+    const raw =
+      value.mediaKind.kind === "dotEnum"
+        ? value.mediaKind.value
+        : value.mediaKind.kind === "ident"
+          ? value.mediaKind.name
+          : undefined;
+    if (!raw || !normalizeMediaKindName(raw)) {
+      throw new PdlError(
+        "PDL-E006",
+        `${context}: MediaSource kind must be .raster, .vector, or .video`,
+        { path: design.entryPath },
+      );
+    }
+  }
+  if (value.format !== undefined) {
+    const raw =
+      value.format.kind === "dotEnum"
+        ? value.format.value
+        : value.format.kind === "ident"
+          ? value.format.name
+          : undefined;
+    if (!raw || !normalizeMediaFormatName(raw)) {
+      throw new PdlError(
+        "PDL-E006",
+        `${context}: MediaSource format must be one of .webp|.jpeg|.png|.gif|.svg|.mp4|.webm|.pdf`,
+        { path: design.entryPath },
+      );
+    }
+  }
+  const mk = value.mediaKind
+    ? normalizeMediaKindName(
+        value.mediaKind.kind === "dotEnum"
+          ? value.mediaKind.value
+          : value.mediaKind.kind === "ident"
+            ? value.mediaKind.name
+            : "",
+      )
+    : undefined;
+  const fmt = value.format
+    ? normalizeMediaFormatName(
+        value.format.kind === "dotEnum"
+          ? value.format.value
+          : value.format.kind === "ident"
+            ? value.format.name
+            : "",
+      )
+    : undefined;
+  if (mk && fmt && mediaKindForFormat(fmt) !== mk) {
+    throw new PdlError(
+      "PDL-E006",
+      `${context}: MediaSource kind \`.${mk}\` is incompatible with format \`.${fmt}\``,
+      { path: design.entryPath },
+    );
+  }
+}
+
+function assertAspectSizingArg(
+  design: DesignDefinition,
+  aspect: ValueExpr | undefined,
+  context: string,
+): void {
+  if (!aspect) {
+    throw new PdlError("PDL-E006", `${context}: \`.aspect\` requires a ratio argument`, {
+      path: design.entryPath,
+    });
+  }
+  if (aspect.kind === "number") {
+    if (!(aspect.value > 0) || !Number.isFinite(aspect.value)) {
+      throw new PdlError(
+        "PDL-E006",
+        `${context}: \`.aspect(n)\` requires a positive finite ratio`,
+        { path: design.entryPath },
+      );
+    }
+    return;
+  }
+  if (aspect.kind === "ratio") {
+    if (!(aspect.height > 0) || !Number.isFinite(aspect.width) || !Number.isFinite(aspect.height)) {
+      throw new PdlError(
+        "PDL-E006",
+        `${context}: \`.aspect(W:H)\` requires a positive finite height`,
+        { path: design.entryPath },
+      );
+    }
+    return;
+  }
+  if (aspect.kind === "ident") {
+    const refType = tokenTypeOf(design, aspect.name);
+    if (refType && refType !== "Ratio") {
+      throw new PdlError(
+        "PDL-E006",
+        `${context}: \`.aspect\` expects a Ratio token (\`${aspect.name}\` has type ${refType})`,
+        { path: design.entryPath },
+      );
+    }
+    return;
+  }
+  throw new PdlError(
+    "PDL-E006",
+    `${context}: \`.aspect\` expects a positive ratio, \`W:H\` sugar, or Ratio token (got ${aspect.kind})`,
+    { path: design.entryPath },
+  );
+}
+
+function isAspectSizingExpr(value: ValueExpr | undefined): boolean {
+  return value?.kind === "sizing" && value.mode === "aspect";
+}
+
+/** Axis is authoritatively sized (not derived from aspect / hug / unset). */
+function isClosedSizingExpr(value: ValueExpr | undefined): boolean {
+  if (!value || value.kind === "null") return false;
+  if (value.kind === "number") return true;
+  if (value.kind === "sizing") {
+    return value.mode === "fill" || value.mode === "fixed" || value.mode === "flex";
+  }
+  // Bare `.fill` is a closed sizing enum (`.hug` is free).
+  if (value.kind === "dotEnum") {
+    const c = enumCaseName(value);
+    return c === "fill";
+  }
+  if (value.kind === "ident") return true;
+  return false;
+}
+
+/**
+ * Width/height/aspectRatio consistency:
+ * - `.aspect` marks the *derived* axis (W/H = ratio).
+ * - Frame `aspectRatio` is sugar when exactly one axis is closed (or both free for intrinsic).
+ * - Both axes closed + `aspectRatio`, or `.aspect` on both axes, is overconstrained.
+ */
+export function assertAspectBoxConsistent(
+  design: DesignDefinition,
+  props: Map<string, ValueExpr>,
+  context: string,
+): void {
+  const width = props.get("width");
+  const height = props.get("height");
+  const aspectRatio = props.get("aspectRatio");
+  const wAspect = isAspectSizingExpr(width);
+  const hAspect = isAspectSizingExpr(height);
+
+  if (wAspect && hAspect) {
+    throw new PdlError(
+      "PDL-E006",
+      `${context}: cannot set \`.aspect\` on both \`width\` and \`height\` — put \`.aspect(…)\` on the derived axis only`,
+      { path: design.entryPath },
+    );
+  }
+  if (aspectRatio && (wAspect || hAspect)) {
+    throw new PdlError(
+      "PDL-E006",
+      `${context}: use either \`aspectRatio\` or \`.aspect(…)\` on one axis, not both`,
+      { path: design.entryPath },
+    );
+  }
+  if (aspectRatio && isClosedSizingExpr(width) && isClosedSizingExpr(height)) {
+    throw new PdlError(
+      "PDL-E006",
+      `${context}: \`aspectRatio\` conflicts with both \`width\` and \`height\` set — leave one axis free or use \`height = .aspect(…)\` / \`width = .aspect(…)\``,
+      { path: design.entryPath },
+    );
+  }
 }
 
 function validatePropOnKind(
@@ -329,12 +528,15 @@ export function validateFramePropsInBody(
   componentName: string,
   currentFrameKind: string,
   letKinds: Map<string, string>,
+  inheritedProps: Map<string, ValueExpr> = new Map(),
 ): void {
   const ctx = `component ${componentName}`;
+  const propsOnFrame = new Map(inheritedProps);
   for (const item of items) {
     switch (item.kind) {
       case "prop":
         validatePropOnKind(design, currentFrameKind, item.name, item.value, ctx);
+        propsOnFrame.set(item.name, item.value);
         break;
       case "frameProp": {
         const fk = letKinds.get(item.frame);
@@ -347,16 +549,31 @@ export function validateFramePropsInBody(
         break;
       case "if":
         for (const br of item.chain.branches) {
-          validateFramePropsInBody(design, br.body, componentName, currentFrameKind, letKinds);
+          validateFramePropsInBody(
+            design,
+            br.body,
+            componentName,
+            currentFrameKind,
+            letKinds,
+            propsOnFrame,
+          );
         }
         if (item.chain.elseBody) {
-          validateFramePropsInBody(design, item.chain.elseBody, componentName, currentFrameKind, letKinds);
+          validateFramePropsInBody(
+            design,
+            item.chain.elseBody,
+            componentName,
+            currentFrameKind,
+            letKinds,
+            propsOnFrame,
+          );
         }
         break;
       default:
         break;
     }
   }
+  assertAspectBoxConsistent(design, propsOnFrame, ctx);
 }
 
 /** typeStyle bodies may only use valid `text` frame property names (§3 / §5), excluding `style`. */

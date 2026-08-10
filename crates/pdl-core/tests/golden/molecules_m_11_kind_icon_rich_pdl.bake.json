@@ -11,7 +11,12 @@
                 "kind": "icon",
                 "props": {
                   "color": "#222222",
-                  "icon": "star",
+                  "icon": {
+                    "kind": "iconRef",
+                    "name": "star",
+                    "source": "system",
+                    "system": "sfSymbols"
+                  },
                   "size": 22
                 }
               },
@@ -57,7 +62,12 @@
                 "kind": "icon",
                 "props": {
                   "color": "#222222",
-                  "icon": "chevron-right",
+                  "icon": {
+                    "kind": "iconRef",
+                    "name": "chevron.right",
+                    "source": "system",
+                    "system": "sfSymbols"
+                  },
                   "size": 22
                 }
               },
@@ -103,7 +113,12 @@
                 "kind": "icon",
                 "props": {
                   "color": "#222222",
-                  "icon": "close",
+                  "icon": {
+                    "kind": "iconRef",
+                    "name": "xmark",
+                    "source": "system",
+                    "system": "sfSymbols"
+                  },
                   "size": 22
                 }
               },
@@ -171,7 +186,12 @@
             "kind": "icon",
             "props": {
               "color": "#222222",
-              "icon": "star",
+              "icon": {
+                "kind": "iconRef",
+                "name": "star",
+                "source": "system",
+                "system": "sfSymbols"
+              },
               "size": 22
             }
           },

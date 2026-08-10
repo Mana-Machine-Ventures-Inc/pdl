@@ -1,0 +1,18 @@
+// `.aspect(…)` on the derived axis; aspectRatio sugar when one axis is free
+
+import "tokens_color.pdl"
+import "tokens_icon_media_ratio.pdl"
+
+component AtomAspectExplicit() media {
+  source = "https://example.com/hero.png"
+  width = 300
+  height = .aspect(16:9)
+  contentMode = .cover
+}
+
+component AtomAspectSugar() media {
+  source = "https://example.com/hero.png"
+  width = .fill
+  aspectRatio = atoms.ratio.video
+  contentMode = .contain
+}

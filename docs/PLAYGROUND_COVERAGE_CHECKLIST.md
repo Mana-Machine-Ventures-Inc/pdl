@@ -279,7 +279,7 @@ Put LabLayout as parent; child `let Box: layout` or text:
 
 ```pdl
 component LabIcon() icon {
-  icon = "star"
+  icon = Icon(system: .sfSymbols, name: "star")
   size = 24
   color = color.text.primary
 }
@@ -304,7 +304,8 @@ component LabMedia() media {
 - [ ] Raster URL shows `<img>`  
 - [ ] `contentMode = .cover` / `.contain` / `.fill` / `.scaleDown` — visible difference  
 - [ ] `aspectRatio` holds box shape  
-- [ ] `objectPosition` variants — **note HTML fidelity**  
+- [ ] media `justify` / `align` (content position) — **note HTML fidelity**  
+
 - [ ] `cornerRadius` / `opacity` / background under media  
 - [ ] Bad/missing source → placeholder, not crash
 
@@ -659,7 +660,7 @@ Updated **2026-08-07** after emitter fixes. Remaining caveats only.
 | `previewBackground` | **Fixed** — bake resolves CSS color; HTML sets `--pdl-preview-background` on body |
 | Text `align` / `justify` | **Fixed** — flex column shell + `text-align` (line-clamp still uses `-webkit-box`) |
 | `borderPosition` inside/outside | **Fixed** — outside = CSS border; inside = inset `box-shadow` |
-| `aspectRatio` / `objectPosition` | **Fixed** on media (+ layer images) |
+| `aspectRatio` / media `justify`+`align` | **Fixed** on media (+ layer images) |
 | `justify = .stretch` | **Fixed** → `justify-content: stretch` |
 | Layout `position: relative` | **Fixed** — absolute children resolve correctly |
 | Vibrancy layers | **Fixed** (approx) — `backdrop-filter: saturate() brightness()`; still needs backdrop content |

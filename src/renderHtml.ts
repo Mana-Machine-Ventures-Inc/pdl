@@ -1,3 +1,9 @@
+import {
+  iconRefLabel,
+  isEvaluatedIconRef,
+  isEvaluatedMediaSourceRef,
+  isPackRelativeFilePath,
+} from "./assetRefs.js";
 import type { BakedComponentJson, BakedDesignDocument, BakedFrame } from "./bakeDesign.js";
 
 export function escapeHtml(text: string): string {
@@ -10,6 +16,15 @@ export function escapeHtml(text: string): string {
 
 function escapeAttr(text: string): string {
   return escapeHtml(text);
+}
+
+/** Baked `source` → href for `<img>` (url / pack-relative file). */
+function mediaSourceHref(source: unknown): string {
+  if (typeof source === "string") return source;
+  if (isEvaluatedMediaSourceRef(source)) {
+    return source.source === "url" ? source.url : source.path;
+  }
+  return "";
 }
 
 /** Allow double-quoted HTML `style=""` without breaking on `"` inside generated CSS values (e.g. `font-family`). */
@@ -242,22 +257,26 @@ function backgroundSizeFromContentMode(mode: unknown): string | undefined {
   return m[mode];
 }
 
-/** Maps baked `objectPosition` enum to CSS `object-position` / `background-position`. */
-function objectPositionCss(pos: unknown): string | undefined {
-  const raw = typeof pos === "string" ? pos : dotEnumValue(pos);
-  if (!raw) return undefined;
-  const m: Record<string, string> = {
-    center: "center",
-    top: "top",
-    bottom: "bottom",
-    left: "left",
-    right: "right",
-    topLeft: "top left",
-    topRight: "top right",
-    bottomLeft: "bottom left",
-    bottomRight: "bottom right",
+/**
+ * Media / layer image content position from `justify` (horizontal) + `align` (vertical).
+ * Same start/center/end cases as text; maps to CSS `object-position` / `background-position`.
+ */
+function mediaContentPositionCss(justify: unknown, align: unknown): string | undefined {
+  const axis = (v: unknown, start: string, end: string): string | undefined => {
+    const raw = typeof v === "string" ? v : dotEnumValue(v);
+    if (!raw) return undefined;
+    if (raw === "start") return start;
+    if (raw === "center") return "center";
+    if (raw === "end") return end;
+    return undefined;
   };
-  return m[raw];
+  const x = axis(justify, "left", "right");
+  const y = axis(align, "top", "bottom");
+  if (!x && !y) return undefined;
+  const xx = x ?? "center";
+  const yy = y ?? "center";
+  if (xx === "center" && yy === "center") return "center";
+  return `${xx} ${yy}`;
 }
 
 function flattenLayerOps(fill: unknown): LayerOp[] {
@@ -300,7 +319,7 @@ function flattenLayerOps(fill: unknown): LayerOp[] {
       const src = typeof o.source === "string" ? o.source : "";
       if (src.length > 0 && isResolvableImageUrl(src)) {
         const objectFit = backgroundSizeFromContentMode(o.contentMode) ?? "cover";
-        const objectPosition = objectPositionCss(o.objectPosition);
+        const objectPosition = mediaContentPositionCss(o.justify, o.align);
         const opacity = finiteNum(o.opacity);
         out.push({
           kind: "image",
@@ -497,6 +516,18 @@ function gridPlaceItems(align: unknown, justify: unknown): string {
   return `place-items:${a} ${j}`;
 }
 
+/** Resolved `{ aspect: n }` on width or height → CSS aspect-ratio (W/H). */
+function aspectRatioFromSizingAxes(props: Record<string, unknown>): number | undefined {
+  for (const axis of ["width", "height"] as const) {
+    const v = props[axis];
+    if (v !== null && typeof v === "object" && !Array.isArray(v)) {
+      const n = finiteNum((v as { aspect?: unknown }).aspect);
+      if (n !== undefined && n > 0) return n;
+    }
+  }
+  return undefined;
+}
+
 /** Sizing for one axis: returns `width:…` / `min-width:…` style fragments (no `border-radius` etc.). */
 function sizingAxisDecls(props: Record<string, unknown>, axis: "width" | "height"): string[] {
   const v = props[axis];
@@ -508,6 +539,10 @@ function sizingAxisDecls(props: Record<string, unknown>, axis: "width" | "height
   if (typeof v === "number" && Number.isFinite(v)) return [`${dim}:${v}px`];
   if (v !== null && typeof v === "object" && !Array.isArray(v)) {
     const o = v as Record<string, unknown>;
+    if ("aspect" in o) {
+      // Derived from the cross-axis via CSS `aspect-ratio` (set at box level).
+      return [`${dim}:auto`];
+    }
     if ("fixed" in o) {
       const n = finiteNum(o.fixed);
       if (n !== undefined) return [`${dim}:${n}px`];
@@ -650,7 +685,7 @@ function boxMetricsStyle(
   if (mar) parts.push(`margin:${mar}`);
   parts.push(...sizingAxisDecls(props, "width"));
   parts.push(...sizingAxisDecls(props, "height"));
-  const ar = finiteNum(props.aspectRatio);
+  const ar = finiteNum(props.aspectRatio) ?? aspectRatioFromSizingAxes(props);
   if (ar !== undefined && ar > 0) parts.push(`aspect-ratio:${String(ar)}`);
   const rad = cornerRadiusToCss(props.cornerRadius);
   if (rad) parts.push(rad);
@@ -933,9 +968,13 @@ function iconFrameStyle(props: Record<string, unknown>, opts: FrameRenderOpts): 
   const sz = finiteNum(props.size) ?? 24;
   const col = typeof props.color === "string" && props.color.length > 0 ? props.color : "#94a3b8";
   const box = frameBoxStyle(props, "icon", opts);
+  // `size` is the square glyph default for any axis not set via `width` / `height`.
+  // Do not overwrite explicit sizing (e.g. width=24 height=48).
+  const sizeFallback: string[] = [];
+  if (props.width === undefined || props.width === null) sizeFallback.push(`width:${sz}px`);
+  if (props.height === undefined || props.height === null) sizeFallback.push(`height:${sz}px`);
   const iconBox = [
-    `width:${sz}px`,
-    `height:${sz}px`,
+    ...sizeFallback,
     `background-color:${col}`,
     "flex-shrink:0",
     "display:flex",
@@ -949,7 +988,7 @@ function iconFrameStyle(props: Record<string, unknown>, opts: FrameRenderOpts): 
 function mediaFrameStyle(props: Record<string, unknown>, opts: FrameRenderOpts): string {
   const box = frameBoxStyle(props, "media", opts);
   const ob = objectFitFromContentMode(props.contentMode);
-  const op = objectPositionCss(props.objectPosition);
+  const op = mediaContentPositionCss(props.justify, props.align);
   const parts = [box, "max-width:100%", "display:block"];
   if (ob) parts.push(ob);
   if (op) parts.push(`object-position:${op}`);
@@ -1106,18 +1145,52 @@ function renderFrame(
 
   if (kind === "icon") {
     const style = iconFrameStyle(props, opts);
-    const label = typeof props.icon === "string" ? props.icon : id;
+    const iconVal = props.icon;
+    const label = isEvaluatedIconRef(iconVal)
+      ? iconRefLabel(iconVal)
+      : typeof iconVal === "string"
+        ? iconVal
+        : id;
     const sz = finiteNum(props.size) ?? 24;
     const fontPx = Math.max(8, Math.min(11, Math.round(sz * 0.28)));
+    // Pack-relative file icons: try <img>; system icons stay swatch + label (host maps SF/Material).
+    const fileSrc =
+      isEvaluatedIconRef(iconVal) && iconVal.source === "file"
+        ? iconVal.path
+        : typeof iconVal === "string" && isPackRelativeFilePath(iconVal)
+          ? iconVal
+          : "";
+    if (fileSrc && /\.(svg|png|webp|jpg|jpeg|gif)$/i.test(fileSrc)) {
+      const imgStyle = mergeInlineStyles(
+        style,
+        "background-color:transparent",
+        "padding:0",
+        "object-fit:contain",
+      );
+      return `<img class="pdl-frame pdl-icon pdl-icon--file"${dataId}${instAttrs} src="${escapeAttr(fileSrc)}" alt="${escapeAttr(label)}" style="${escapeStyleAttr(imgStyle)}" />`;
+    }
+    const sysHint =
+      isEvaluatedIconRef(iconVal) && iconVal.source === "system"
+        ? ` data-pdl-icon-system="${escapeAttr(iconVal.system)}" data-pdl-icon-name="${escapeAttr(iconVal.name)}"`
+        : "";
     const caption = `<span class="pdl-icon__name" style="color:#fff;font-size:${fontPx}px;font-weight:600;line-height:1.1;text-align:center;padding:1px;text-shadow:0 0 2px rgba(0,0,0,0.55);word-break:break-all">${escapeHtml(label)}</span>`;
-    return `<div class="pdl-frame pdl-icon"${dataId}${instAttrs} style="${escapeStyleAttr(style)}" role="img" aria-label="${escapeAttr(label)}">${caption}</div>`;
+    return `<div class="pdl-frame pdl-icon"${dataId}${instAttrs}${sysHint} style="${escapeStyleAttr(style)}" role="img" aria-label="${escapeAttr(label)}">${caption}</div>`;
   }
 
   if (kind === "media") {
-    const src = typeof props.source === "string" ? props.source : "";
+    const src = mediaSourceHref(props.source);
     const label = typeof props.label === "string" ? props.label : id;
     const style = mediaFrameStyle(props, opts);
-    const isRasterUrl = /^https?:\/\//i.test(src) || src.startsWith("/") || src.startsWith("./");
+    const mediaKind =
+      isEvaluatedMediaSourceRef(props.source) && props.source.mediaKind
+        ? props.source.mediaKind
+        : undefined;
+    const isAddress =
+      /^https?:\/\//i.test(src) ||
+      src.startsWith("/") ||
+      src.startsWith("./") ||
+      isPackRelativeFilePath(src);
+    const hasSrc = isAddress && src.length > 0;
     const layered = layoutLayerBandsActive(props);
     if (layered) {
       const wrapStyle = mergeInlineStyles(
@@ -1130,12 +1203,32 @@ function renderFrame(
       );
       const under = renderLayerBandHtml(flattenLayerOps(props.background), 0);
       const over = renderLayerBandHtml(flattenLayerOps(props.foreground), 2);
-      const mediaInner = isRasterUrl && src.length > 0
-        ? `<img class="pdl-media__img" src="${escapeAttr(src)}" alt="${escapeAttr(label)}" style="${escapeStyleAttr(mergeInlineStyles("position:relative", "z-index:1", "width:100%", "height:100%", "display:block", objectFitFromContentMode(props.contentMode), objectPositionCss(props.objectPosition) ? `object-position:${objectPositionCss(props.objectPosition)}` : undefined))}" />`
-        : `<div class="pdl-media__placeholder" style="position:relative;z-index:1;width:100%;height:100%;min-height:24px" role="img" aria-label="${escapeAttr(label)}"></div>`;
+      const innerStyle = mergeInlineStyles(
+        "position:relative",
+        "z-index:1",
+        "width:100%",
+        "height:100%",
+        "display:block",
+        objectFitFromContentMode(props.contentMode),
+        (() => {
+          const pos = mediaContentPositionCss(props.justify, props.align);
+          return pos ? `object-position:${pos}` : undefined;
+        })(),
+      );
+      let mediaInner: string;
+      if (!hasSrc) {
+        mediaInner = `<div class="pdl-media__placeholder" style="${escapeStyleAttr(innerStyle)};min-height:24px" role="img" aria-label="${escapeAttr(label)}"></div>`;
+      } else if (mediaKind === "video") {
+        mediaInner = `<video class="pdl-media__img" src="${escapeAttr(src)}" style="${escapeStyleAttr(innerStyle)}" playsinline muted loop aria-label="${escapeAttr(label)}"></video>`;
+      } else {
+        mediaInner = `<img class="pdl-media__img" src="${escapeAttr(src)}" alt="${escapeAttr(label)}" style="${escapeStyleAttr(innerStyle)}" />`;
+      }
       return `<div class="pdl-frame pdl-media pdl-media--layers"${dataId}${instAttrs} style="${escapeStyleAttr(wrapStyle)}">${under}${mediaInner}${over}</div>`;
     }
-    if (isRasterUrl && src.length > 0) {
+    if (hasSrc && mediaKind === "video") {
+      return `<video class="pdl-frame pdl-media"${dataId}${instAttrs} src="${escapeAttr(src)}" style="${escapeStyleAttr(style)}" playsinline muted loop aria-label="${escapeAttr(label)}"></video>`;
+    }
+    if (hasSrc) {
       return `<img class="pdl-frame pdl-media"${dataId}${instAttrs} src="${escapeAttr(src)}" alt="${escapeAttr(label)}" style="${escapeStyleAttr(style)}" />`;
     }
     return `<div class="pdl-frame pdl-media"${dataId}${instAttrs} style="${escapeStyleAttr(style)}" role="img" aria-label="${escapeAttr(label)}"></div>`;

@@ -1,4 +1,4 @@
-// media: source, contentMode, objectPosition, aspectRatio
+// media: source, contentMode, justify/align (content position), aspect sizing
 
 import "tokens_color.pdl"
 import "tokens_distance_radius.pdl"
@@ -11,8 +11,10 @@ component AtomMediaCover() layout {
   let M: media = {
     source = atoms.media.hero
     contentMode = .cover
-    objectPosition = .center
-    aspectRatio = atoms.ratio.video
+    justify = .center
+    align = .center
+    width = .fill
+    height = .aspect(atoms.ratio.video)
     cornerRadius = atoms.radius.sm
   }
 
@@ -26,7 +28,8 @@ component AtomMediaContainCorners() layout {
   let M: media = {
     source = "https://example.com/poster.jpg"
     contentMode = .contain
-    objectPosition = .topLeft
+    justify = .start
+    align = .start
     width = .fill
     height = .fixed(180)
     background = atoms.color.rgb
@@ -40,10 +43,25 @@ component AtomMediaScaleDown() layout {
   background = atoms.color.rgba
 
   let M: media = {
-    source = "asset://local.png"
+    source = "media/local.png"
     contentMode = .scaleDown
-    objectPosition = .bottomRight
+    justify = .end
+    align = .end
     opacity = 0.92
+  }
+
+  children = [M]
+}
+
+component AtomMediaVideoKind() layout {
+  direction = .column
+  background = atoms.color.rgb
+
+  let M: media = {
+    source = atoms.media.opaqueClip
+    contentMode = .cover
+    width = .fill
+    height = .aspect(16:9)
   }
 
   children = [M]

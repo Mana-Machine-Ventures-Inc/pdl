@@ -60,13 +60,15 @@ pub enum CallCallee {
     Vibrancy,
 }
 
-/// Sizing mode for `.hug` / `.fill` / `.fixed(n)` / `.flex(...)`.
+/// Sizing mode for `.hug` / `.fill` / `.fixed(n)` / `.flex(...)` / `.aspect(...)`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SizingMode {
     Hug,
     Fill,
     Fixed { fixed: f64 },
     Flex { flex_args: IndexMap<String, ValueExpr> },
+    /// Derive this axis from the other so width/height = ratio (`W:H`, number, or Ratio token).
+    Aspect { aspect: Box<ValueExpr> },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -128,6 +130,28 @@ pub enum ValueExpr {
         blur_radius: Box<ValueExpr>,
         color: Box<ValueExpr>,
         spread: Option<Box<ValueExpr>>,
+    },
+    /// `Icon(file: "…")`.
+    IconFile {
+        path: Box<ValueExpr>,
+    },
+    /// `Icon(system: .sfSymbols, name: "…")`.
+    IconSystem {
+        system: Box<ValueExpr>,
+        name: Box<ValueExpr>,
+    },
+    /// `MediaSource(file: "…" [, kind:, format:])`.
+    MediaSourceFile {
+        path: Box<ValueExpr>,
+        /// Author `kind:` (.raster|.vector|.video) — baked as `mediaKind`.
+        media_kind: Option<Box<ValueExpr>>,
+        format: Option<Box<ValueExpr>>,
+    },
+    /// `MediaSource(url: "https://…" [, kind:, format:])`.
+    MediaSourceUrl {
+        url: Box<ValueExpr>,
+        media_kind: Option<Box<ValueExpr>>,
+        format: Option<Box<ValueExpr>>,
     },
     Array {
         items: Vec<ValueExpr>,

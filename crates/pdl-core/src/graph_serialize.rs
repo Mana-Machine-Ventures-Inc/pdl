@@ -101,6 +101,7 @@ fn sizing_mode_str(mode: &SizingMode) -> &'static str {
         SizingMode::Fill => "fill",
         SizingMode::Fixed { .. } => "fixed",
         SizingMode::Flex { .. } => "flex",
+        SizingMode::Aspect { .. } => "aspect",
     }
 }
 
@@ -193,6 +194,53 @@ pub fn serialise_value_expr(e: &ValueExpr) -> Value {
             }
             obj(entries)
         }
+        ValueExpr::IconFile { path } => obj(vec![
+            ("kind", Value::String("iconRef".to_string())),
+            ("source", Value::String("file".to_string())),
+            ("path", serialise_value_expr(path)),
+        ]),
+        ValueExpr::IconSystem { system, name } => obj(vec![
+            ("kind", Value::String("iconRef".to_string())),
+            ("source", Value::String("system".to_string())),
+            ("system", serialise_value_expr(system)),
+            ("name", serialise_value_expr(name)),
+        ]),
+        ValueExpr::MediaSourceFile {
+            path,
+            media_kind,
+            format,
+        } => {
+            let mut entries = vec![
+                ("kind", Value::String("mediaSourceRef".to_string())),
+                ("source", Value::String("file".to_string())),
+                ("path", serialise_value_expr(path)),
+            ];
+            if let Some(k) = media_kind {
+                entries.push(("mediaKind", serialise_value_expr(k)));
+            }
+            if let Some(f) = format {
+                entries.push(("format", serialise_value_expr(f)));
+            }
+            obj(entries)
+        }
+        ValueExpr::MediaSourceUrl {
+            url,
+            media_kind,
+            format,
+        } => {
+            let mut entries = vec![
+                ("kind", Value::String("mediaSourceRef".to_string())),
+                ("source", Value::String("url".to_string())),
+                ("url", serialise_value_expr(url)),
+            ];
+            if let Some(k) = media_kind {
+                entries.push(("mediaKind", serialise_value_expr(k)));
+            }
+            if let Some(f) = format {
+                entries.push(("format", serialise_value_expr(f)));
+            }
+            obj(entries)
+        }
         ValueExpr::Array { items } => obj(vec![
             ("kind", Value::String("array".to_string())),
             (
@@ -271,6 +319,9 @@ fn serialise_sizing(mode: &SizingMode, f: impl Fn(&ValueExpr) -> Value) -> Value
     match mode {
         SizingMode::Fixed { fixed } => {
             entries.push(("fixed".to_string(), number_value(*fixed)));
+        }
+        SizingMode::Aspect { aspect } => {
+            entries.push(("aspect".to_string(), f(aspect)));
         }
         SizingMode::Flex { flex_args } => {
             let mut m = Map::new();
@@ -372,6 +423,59 @@ pub fn serialise_value_expr_with_token_refs(expr: &ValueExpr, design: &DesignDef
             ];
             if let Some(s) = spread {
                 entries.push(("spread", serialise_value_expr_with_token_refs(s, design)));
+            }
+            obj(entries)
+        }
+        ValueExpr::IconFile { path } => obj(vec![
+            ("kind", Value::String("iconRef".to_string())),
+            ("source", Value::String("file".to_string())),
+            ("path", serialise_value_expr_with_token_refs(path, design)),
+        ]),
+        ValueExpr::IconSystem { system, name } => obj(vec![
+            ("kind", Value::String("iconRef".to_string())),
+            ("source", Value::String("system".to_string())),
+            ("system", serialise_value_expr_with_token_refs(system, design)),
+            ("name", serialise_value_expr_with_token_refs(name, design)),
+        ]),
+        ValueExpr::MediaSourceFile {
+            path,
+            media_kind,
+            format,
+        } => {
+            let mut entries = vec![
+                ("kind", Value::String("mediaSourceRef".to_string())),
+                ("source", Value::String("file".to_string())),
+                ("path", serialise_value_expr_with_token_refs(path, design)),
+            ];
+            if let Some(k) = media_kind {
+                entries.push((
+                    "mediaKind",
+                    serialise_value_expr_with_token_refs(k, design),
+                ));
+            }
+            if let Some(f) = format {
+                entries.push(("format", serialise_value_expr_with_token_refs(f, design)));
+            }
+            obj(entries)
+        }
+        ValueExpr::MediaSourceUrl {
+            url,
+            media_kind,
+            format,
+        } => {
+            let mut entries = vec![
+                ("kind", Value::String("mediaSourceRef".to_string())),
+                ("source", Value::String("url".to_string())),
+                ("url", serialise_value_expr_with_token_refs(url, design)),
+            ];
+            if let Some(k) = media_kind {
+                entries.push((
+                    "mediaKind",
+                    serialise_value_expr_with_token_refs(k, design),
+                ));
+            }
+            if let Some(f) = format {
+                entries.push(("format", serialise_value_expr_with_token_refs(f, design)));
             }
             obj(entries)
         }
@@ -501,6 +605,39 @@ pub fn collect_declared_token_names_from_value_expr(
                 collect_declared_token_names_from_value_expr(s, design, sink);
             }
         }
+        ValueExpr::IconFile { path } => {
+            collect_declared_token_names_from_value_expr(path, design, sink);
+        }
+        ValueExpr::IconSystem { system, name } => {
+            collect_declared_token_names_from_value_expr(system, design, sink);
+            collect_declared_token_names_from_value_expr(name, design, sink);
+        }
+        ValueExpr::MediaSourceFile {
+            path,
+            media_kind,
+            format,
+        } => {
+            collect_declared_token_names_from_value_expr(path, design, sink);
+            if let Some(k) = media_kind {
+                collect_declared_token_names_from_value_expr(k, design, sink);
+            }
+            if let Some(f) = format {
+                collect_declared_token_names_from_value_expr(f, design, sink);
+            }
+        }
+        ValueExpr::MediaSourceUrl {
+            url,
+            media_kind,
+            format,
+        } => {
+            collect_declared_token_names_from_value_expr(url, design, sink);
+            if let Some(k) = media_kind {
+                collect_declared_token_names_from_value_expr(k, design, sink);
+            }
+            if let Some(f) = format {
+                collect_declared_token_names_from_value_expr(f, design, sink);
+            }
+        }
         ValueExpr::Array { items } => {
             for it in items {
                 collect_declared_token_names_from_value_expr(it, design, sink);
@@ -522,13 +659,17 @@ pub fn collect_declared_token_names_from_value_expr(
                 collect_declared_token_names_from_value_expr(s, design, sink);
             }
         }
-        ValueExpr::Sizing { mode } => {
-            if let SizingMode::Flex { flex_args } = mode {
+        ValueExpr::Sizing { mode } => match mode {
+            SizingMode::Aspect { aspect } => {
+                collect_declared_token_names_from_value_expr(aspect, design, sink);
+            }
+            SizingMode::Flex { flex_args } => {
                 for v in flex_args.values() {
                     collect_declared_token_names_from_value_expr(v, design, sink);
                 }
             }
-        }
+            _ => {}
+        },
         ValueExpr::Call { args, .. } => {
             for v in args.values() {
                 collect_declared_token_names_from_value_expr(v, design, sink);

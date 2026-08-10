@@ -8,7 +8,7 @@ component AtomParamsKitchenSink(
   label: String = "Label",
   count: Number = 2,
   enabled: Boolean = true,
-  glyph: Icon = "dot",
+  glyph: Icon = Icon(system: .sfSymbols, name: "circle.fill"),
   density: AtomsDensity = .comfortable
 ) layout {
   direction = .column

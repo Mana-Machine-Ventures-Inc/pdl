@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "valueKinds": {
     "sizing": {
-      "accept": ["sizing", "number"],
+      "accept": ["sizing", "number", "dotEnum"],
       "numberSugar": "fixed",
       "tokenTypes": ["Sizing"],
       "nonNegativeNumber": true
@@ -71,10 +71,14 @@
     },
     "string": {
       "accept": ["string"],
-      "tokenTypes": ["FontFamily", "Icon", "MediaSource", "Easing"]
+      "tokenTypes": ["FontFamily", "Easing"]
+    },
+    "icon": {
+      "accept": ["string", "iconRef"],
+      "tokenTypes": ["Icon"]
     },
     "mediaSource": {
-      "accept": ["string"],
+      "accept": ["string", "mediaSourceRef"],
       "tokenTypes": ["MediaSource"]
     },
     "styleRef": {
@@ -132,21 +136,6 @@
       "accept": ["dotEnum"],
       "typeName": "ContentMode",
       "cases": ["cover", "contain", "fill", "scaleDown"]
-    },
-    "enumObjectPosition": {
-      "accept": ["dotEnum"],
-      "typeName": "ObjectPosition",
-      "cases": [
-        "center",
-        "top",
-        "bottom",
-        "left",
-        "right",
-        "topLeft",
-        "topRight",
-        "bottomLeft",
-        "bottomRight"
-      ]
     },
     "enumAlignSelf": {
       "accept": ["dotEnum"],
@@ -215,7 +204,7 @@
     },
     "icon": {
       "props": {
-        "icon": { "type": "string" },
+        "icon": { "type": "icon" },
         "size": { "type": "size" },
         "color": { "type": "color" },
         "width": { "type": "sizing" },
@@ -230,7 +219,8 @@
         "height": { "type": "sizing" },
         "aspectRatio": { "type": "ratio" },
         "contentMode": { "type": "enumContentMode" },
-        "objectPosition": { "type": "enumObjectPosition" },
+        "justify": { "type": "enumJustifyText" },
+        "align": { "type": "enumAlignText" },
         "background": { "type": "colorOrLayers" },
         "foreground": { "type": "colorOrLayers" },
         "cornerRadius": { "type": "cornerRadius" },

@@ -39,8 +39,8 @@
     },
     "atoms.sizing.hug": {
       "definition": {
-        "kind": "sizing",
-        "mode": "hug"
+        "kind": "dotEnum",
+        "value": ".hug"
       },
       "name": "atoms.sizing.hug",
       "tokenType": "Sizing"

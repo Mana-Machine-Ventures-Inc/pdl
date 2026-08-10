@@ -13,7 +13,12 @@
           "kind": "icon",
           "props": {
             "color": "primitive:atoms.color.rgba",
-            "icon": "check",
+            "icon": {
+              "kind": "iconRef",
+              "name": "checkmark",
+              "source": "system",
+              "system": "sfSymbols"
+            },
             "size": 20
           }
         },
@@ -22,7 +27,12 @@
           "kind": "icon",
           "props": {
             "color": "primitive:atoms.color.rgb",
-            "icon": "close",
+            "icon": {
+              "kind": "iconRef",
+              "name": "xmark",
+              "source": "system",
+              "system": "sfSymbols"
+            },
             "opacity": "primitive:atoms.opacity.mid",
             "size": 24
           }
@@ -54,7 +64,12 @@
             "height": {
               "fixed": 32
             },
-            "icon": "menu",
+            "icon": {
+              "kind": "iconRef",
+              "name": "line.3.horizontal",
+              "source": "system",
+              "system": "sfSymbols"
+            },
             "width": {
               "fixed": 32
             }

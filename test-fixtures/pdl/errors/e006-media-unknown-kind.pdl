@@ -1,0 +1,4 @@
+primitive bad: MediaSource = MediaSource(
+  file: "media/hero.jpg",
+  kind: .bitmap
+)

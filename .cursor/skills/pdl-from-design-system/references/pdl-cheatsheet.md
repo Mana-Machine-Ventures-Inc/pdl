@@ -165,9 +165,9 @@ npm run preview -- <entry.pdl> --system
 
 | Area | Typical props |
 |---|---|
-| layout | `direction`, `gap`, `align`, `justify`, `padding`, `width`/`height` (`.hug`/`.fill`/`.fixed(n)`), `background`, `cornerRadius`, `borderWidth`, `overflow` (`.visible` / `.scroll` / `.clip`) |
+| layout | `direction`, `gap`, `align`, `justify`, `padding`, `width`/`height` (`.hug`/`.fill`/`.fixed(n)`/`.aspect(16:9)`), `background`, `cornerRadius`, `borderWidth`, `overflow` (`.visible` / `.scroll` / `.clip`) |
 | text | `content`, `style`, `color`, `fontSize`, `fontWeight`, `lineHeight`, `letterSpacing`, `overflow` (same three), `truncateStyle` (`.clip` = hard end, `.ellipsis` = `…`) |
-| media | `source`, `contentMode`, `aspectRatio` |
+| media | `source`, `contentMode`, `justify`/`align` (content position), `aspectRatio` (sugar) or `height = .aspect(16:9)` |
 | icon | `icon` (token/name) |
 
 **Overflow:** use **`.clip`** to hard-crop (no scroll). There is no `.hidden` / `.auto`. Optional sugar: `Overflow.clip`, `Overflow.scroll`, `Overflow.visible`.
@@ -175,3 +175,5 @@ npm run preview -- <entry.pdl> --system
 **Unset:** `prop = null` means “pretend we didn’t set this” (revert to default / absent). Prefer `borderWidth = 0` when zero is the natural empty; use `null` to erase a prior override. Not valid on token RHS.
 
 **Borders:** `borderPosition` `.inside` / `.outside` (default) is paint-only — does not change layout size.
+
+**Icons / media:** Prefer tokens. Concrete refs: `Icon(system: .sfSymbols, name: "star")`, `Icon(file: "icons/star.svg")`, or path sugar `"icons/star.svg"`. Bare `"star"` is invalid. Media: `MediaSource(url: "https://…")` / path / http(s) string; optional `kind: .raster|.vector|.video` and `format: .jpeg|.png|.webp|.gif|.svg|.mp4|.webm|.pdf` (inferred from extension when clear).

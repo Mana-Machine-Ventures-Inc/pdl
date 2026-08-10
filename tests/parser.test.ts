@@ -38,6 +38,28 @@ describe("parser", () => {
     });
   });
 
+  it("parses bare .hug / .fill as dotEnum (shared with ContentMode.fill)", () => {
+    const m = parseModule(
+      `component C() media {
+         width = .fill
+         height = .hug
+         contentMode = .fill
+         source = "photo.jpg"
+         children = []
+       }`,
+      "x.pdl",
+    );
+    const body = (
+      m.declarations[0] as {
+        body: { kind: string; name?: string; value?: unknown }[];
+      }
+    ).body;
+    const prop = (name: string) => body.find((b) => b.kind === "prop" && b.name === name)?.value;
+    expect(prop("width")).toEqual({ kind: "dotEnum", value: ".fill" });
+    expect(prop("height")).toEqual({ kind: "dotEnum", value: ".hug" });
+    expect(prop("contentMode")).toEqual({ kind: "dotEnum", value: ".fill" });
+  });
+
   it("parses direction = .reverseStack", () => {
     const m = parseModule(
       `component C() layout {

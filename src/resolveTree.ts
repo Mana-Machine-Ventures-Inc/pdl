@@ -4,6 +4,7 @@ import type { DesignDefinition } from "./designModel.js";
 import { PdlError } from "./errors.js";
 import type { ParamEvalMeta } from "./evaluate.js";
 import { evaluateCondition, evaluateValue, type EvalOptions } from "./evaluate.js";
+import { coerceIconValue, coerceMediaSourceValue } from "./assetRefs.js";
 import { coerceFramePropValue } from "./frameNumericSugar.js";
 
 export type CatalFrame = {
@@ -206,6 +207,20 @@ function hoistLetInstanceFrames(
  * `null` is stored as a sentinel so bake can clear typeStyle contributions too;
  * final bake/HTML omit null keys (pretend unset → default).
  */
+/**
+ * Placeholder / catalogue ref strings must not be coerced to asset refs
+ * (`primitive:…`, `semantic:…`, `typeStyle:…`, `param:…`).
+ */
+function isUnresolvedRefString(value: unknown): boolean {
+  return (
+    typeof value === "string" &&
+    (value.startsWith("primitive:") ||
+      value.startsWith("semantic:") ||
+      value.startsWith("typeStyle:") ||
+      value.startsWith("param:"))
+  );
+}
+
 function assignFrameProp(
   props: Record<string, unknown>,
   name: string,
@@ -216,7 +231,12 @@ function assignFrameProp(
     props[name] = null;
     return;
   }
-  props[name] = coerceFramePropValue(name, value, entryPath);
+  let next = value;
+  if (!isUnresolvedRefString(value)) {
+    if (name === "icon") next = coerceIconValue(value, entryPath);
+    else if (name === "source") next = coerceMediaSourceValue(value, entryPath);
+  }
+  props[name] = coerceFramePropValue(name, next, entryPath);
   if (name === "gap") {
     delete props.columnGap;
     delete props.rowGap;
@@ -368,7 +388,90 @@ export function resolveComponentTree(
     catalogueTokenRefs: options.catalogueTokenRefs,
   };
   processFrameItems(c.body, "Root", frames, ctx);
+  for (const mf of frames.values()) {
+    normalizeAspectBoxProps(mf.props, design.entryPath);
+  }
   return materialize("Root", frames, design, tokens, new Set(), options);
+}
+
+function isResolvedAspectSizing(v: unknown): boolean {
+  return (
+    !!v &&
+    typeof v === "object" &&
+    !Array.isArray(v) &&
+    typeof (v as { aspect?: unknown }).aspect === "number" &&
+    Number.isFinite((v as { aspect: number }).aspect) &&
+    (v as { aspect: number }).aspect > 0
+  );
+}
+
+/** Axis has an authoritative size (not hug / unset / aspect-derived). */
+function isResolvedClosedSizing(v: unknown): boolean {
+  if (v === undefined || v === null || v === "hug") return false;
+  if (typeof v === "number" && Number.isFinite(v)) return true;
+  if (v === "fill") return true;
+  if (v !== null && typeof v === "object" && !Array.isArray(v)) {
+    const o = v as Record<string, unknown>;
+    if ("aspect" in o) return false;
+    if ("fixed" in o || "flex" in o) return true;
+  }
+  if (typeof v === "string") {
+    // Catalogue / param placeholders still count as closed (token-backed sizing).
+    if (
+      v.startsWith("primitive:") ||
+      v.startsWith("semantic:") ||
+      v.startsWith("param:")
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Prefer bake IR `{ aspect: n }` on the free axis; reject overconstrained boxes.
+ * When both axes are free, leave numeric `aspectRatio` for CSS intrinsic sizing.
+ */
+function normalizeAspectBoxProps(props: Record<string, unknown>, entryPath: string): void {
+  const wAspect = isResolvedAspectSizing(props.width);
+  const hAspect = isResolvedAspectSizing(props.height);
+  if (wAspect && hAspect) {
+    throw new PdlError(
+      "PDL-E006",
+      "Cannot set `.aspect` on both `width` and `height` — put `.aspect(…)` on the derived axis only",
+      { path: entryPath },
+    );
+  }
+  const ar =
+    typeof props.aspectRatio === "number" &&
+    Number.isFinite(props.aspectRatio) &&
+    props.aspectRatio > 0
+      ? props.aspectRatio
+      : undefined;
+  if (ar === undefined) return;
+  if (wAspect || hAspect) {
+    throw new PdlError(
+      "PDL-E006",
+      "Use either `aspectRatio` or `.aspect(…)` on one axis, not both",
+      { path: entryPath },
+    );
+  }
+  const wClosed = isResolvedClosedSizing(props.width);
+  const hClosed = isResolvedClosedSizing(props.height);
+  if (wClosed && hClosed) {
+    throw new PdlError(
+      "PDL-E006",
+      "`aspectRatio` conflicts with both `width` and `height` set — leave one axis free or use `height = .aspect(…)` / `width = .aspect(…)`",
+      { path: entryPath },
+    );
+  }
+  if (wClosed && !hClosed) {
+    props.height = { aspect: ar };
+    delete props.aspectRatio;
+  } else if (hClosed && !wClosed) {
+    props.width = { aspect: ar };
+    delete props.aspectRatio;
+  }
 }
 
 function materialize(

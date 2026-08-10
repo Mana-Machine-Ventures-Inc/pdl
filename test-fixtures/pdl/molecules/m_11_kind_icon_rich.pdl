@@ -22,7 +22,7 @@ component MoleculeKindRichRow(kind: MoleculeMatrixKind = .primary) layout {
     } else if kind == .secondary {
       icon = atoms.icon.chevron
     } else {
-      icon = "close"
+      icon = Icon(system: .sfSymbols, name: "xmark")
     }
   }
 

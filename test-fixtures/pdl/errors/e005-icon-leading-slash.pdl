@@ -1,0 +1,2 @@
+// PDL-E005 — pack-relative Icon paths must not start with /
+primitive bad.icon: Icon = "/icons/star.svg"

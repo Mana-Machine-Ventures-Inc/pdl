@@ -307,8 +307,8 @@ primitive <name>: <TokenType> = <value>
 | `Distance` | spacing | Gaps, padding axes | Non-negative number (px), or (on **`semantic`**) a `Distance` token alias — not a string | `primitive spacing.primitive.md: Distance = 12` |
 | `Radius` | shape | Uniform corner radius | Non-negative number, or (on **`semantic`**) a `Radius` token alias — **not** `Corner(…)` | `primitive radius.primitive.md: Radius = 10` |
 | `Shadow` | effect | Drop shadows | **`Shadow(x:, y:, blurRadius:, color: [, spread:])`** constructor (§6). Axes are numbers (or numeric token refs); `color` is a `Color` (hex / token / `color @ opacity`). Optional `spread` defaults to `0`. Resolved IR is a JSON object `{ kind: "shadow", x, y, blurRadius, spread, color }` — emitters map fields to the platform (HTML → CSS `box-shadow`). A CSS box-shadow **string** on a `Shadow` token is **PDL-E005**. | `primitive shadow.card: Shadow = Shadow(x: 0, y: 4, blurRadius: 12, color: #000000 @ 0.15)` |
-| `Icon` | asset | Glyph id | String | `primitive icon.primitive.star: Icon = "star"` |
-| `MediaSource` | asset | **Raster, vector, video, or other media ref** — today often a **string** URL/path (raster); evolves to a tagged union per emitter (§5 §`media`). | `primitive media.hero: MediaSource = "https://example.com/hero.jpg"` |
+| `Icon` | asset | Tintable glyph / symbol ref | **`Icon(system: .sfSymbols\|.materialSymbols, name: "…")`**, **`Icon(file: "icons/…")`**, or pack-relative path string sugar (must contain `/` and/or a known extension). Bare names like `"star"` are **invalid** (ambiguous). | `primitive icon.primitive.star: Icon = Icon(system: .sfSymbols, name: "star")` |
+| `MediaSource` | asset | Raster / vector / video / path ref | **`MediaSource(file: "…" [, kind:, format:])`**, **`MediaSource(url: "…" [, kind:, format:])`**, pack-relative path string, or http(s) URL string (§5 §`media`, §6 §Asset refs). | `primitive media.hero: MediaSource = MediaSource(url: "https://cdn.example/abc", kind: .raster, format: .jpeg)` |
 | `Ratio` | layout | Aspect ratio | Positive number, or **`W:H` sugar** (e.g. `16:9` → `16/9`) | `primitive ratio.video: Ratio = 16:9` |
 | `FontFamily` | typography | Font stack | String | `primitive font.body: FontFamily = "Inter, system-ui, sans-serif"` |
 | `Size` | typography | Font size (px / design units) | Number | `primitive type.size.body: Size = 16` |
@@ -1332,16 +1332,17 @@ Normatively, **`source`** is a **`MediaSource`** value — today often a **quote
 | **Video** | File or stream URL; poster frame, loop, muted, controls — **emitter-defined** optional props in a future `schemaVersion`. |
 | **Path / procedural** | Vector path data or shader-backed fill where the platform supports it. |
 
-**`MediaSource` literals (v1):** **`source`** is either a **quoted string** (URI or path, interpreted as **raster** unless the manifest declares broader **`capabilities.media`**) or a reference to a **`MediaSource`** token. **Tagged-union** surface syntax for vector / video **may** be added in a minor revision; until then, those variants are carried by **typed tokens** and **`capabilities.media`** lists what the build supports (`raster`, `vector`, `video`, …).
+**`MediaSource` literals (v1):** **`source`** is a **`MediaSource`** token, **`MediaSource(file: "…" [, kind:, format:])` / `MediaSource(url: "…" [, kind:, format:])`**, a **pack-relative path** string, or an **http(s) URL** string. Pack paths have **no** leading `/` (e.g. `media/hero.jpg`). Optional **`kind:`** is **`.raster`** / **`.vector`** / **`.video`** (media role). Optional **`format:`** is a closed case **`.webp`** / **`.jpeg`** (`.jpg` alias) / **`.png`** / **`.gif`** / **`.svg`** / **`.mp4`** / **`.webm`** / **`.pdf`**. When omitted, bake **MAY** infer both from a known address extension; when both are set they **MUST** agree (**PDL-E006**). Opaque CDN URLs without an extension **SHOULD** set **`kind:`** (and **`format:`** when known). Bake IR stores the role as **`mediaKind`** (not **`kind`**, which is the IR tag). **`capabilities.media`** lists what the build supports (`raster`, `vector`, `video`, …).
 
 | Property | Type | Enum / notes |
 |----------|------|----------------|
 | `source` | `MediaSource` \| string | **Primary media ref** — string treated as **raster** URL/path unless **`capabilities.media`** declares broader support; token typed **`MediaSource`** when declared in the token map (§3). |
 | `width` | sizing | Same **`sizing`** literals and **scalar sugar** as **`layout`** (§6 §Sizing) |
 | `height` | sizing | Same as **`width`** |
-| `aspectRatio` | number | |
+| `aspectRatio` | number | Sugar for deriving the free axis (§6 §Sizing **`.aspect`**). Prefer `height = .aspect(16:9)` when one axis is closed. |
 | `contentMode` | enum | **`.cover`**, **`.contain`**, **`.fill`**, **`.scaleDown`** — applies to **raster** and **vector** boxes; **video** mapping is **emitter-defined**. |
-| `objectPosition` | enum | **`.center`**, **`.top`**, **`.bottom`**, **`.left`**, **`.right`**, **`.topLeft`**, **`.topRight`**, **`.bottomLeft`**, **`.bottomRight`** |
+| `justify` | enum | **`.start`**, **`.center`**, **`.end`** — horizontal content position within the media box (same cases as **`text.justify`**; maps to CSS **`object-position`** X). |
+| `align` | enum | **`.start`**, **`.center`**, **`.end`** — vertical content position within the media box (same cases as **`text.align`**; maps to CSS **`object-position`** Y). |
 | `background` | color \| layers | Under-content stack (§15). |
 | **`foreground`** | color \| layers | Same grammar as `background` (§15). |
 | `cornerRadius` | cornerRadius | |
@@ -1417,6 +1418,7 @@ PDL properties accept **literals**, **token references**, or (where grammar allo
 | `.hug` | Size to content (where supported). |
 | `.fill` | Grow to fill parent axis. |
 | `.fixed(n)` | Fixed pixel size. |
+| `.aspect(r)` | Derive this axis from the **other** axis so **width/height = r** (`r` is a positive number, **`W:H`** sugar, or **`Ratio`** token). Put `.aspect` on the **free** axis only. |
 | `.flex(min: a, max: b)` | Flexible bounds; `min` / `max` optional. |
 | `.flex(min: a, preferred: p, max: b)` | Flexible bounds with a preferred (ideal) size; `min`, `preferred`, and `max` are all optional individually. |
 
@@ -1429,6 +1431,9 @@ width = .fill
 height = .flex(min: 44)
 width = .flex(min: 200, max: 400)
 width = .flex(min: 120, preferred: 200, max: 480)
+width = 300
+height = .aspect(16:9)
+height = .aspect(atoms.ratio.video)
 ```
 
 **Scalar numeric sugar (sizing):** Where a property’s type is **`sizing`**, a **single non-negative number** literal (or any expression that evaluates to a finite non-negative number) is shorthand for **`.fixed(n)`**. The resolver **MUST** rewrite it to the same resolved shape as **`.fixed(n)`** (e.g. `{ fixed: n }` in JSON interchange). **Non-finite** or **negative** numbers **MUST** be rejected with the same severity as invalid explicit sizing. This applies to every **`sizing`** property in §5 (**`layout`**, **`text`**, **`icon`**, **`media`**, **`spacer`**) on **`width`** and **`height`**. It **MUST NOT** apply to **`icon.size`** (already a plain **`number`** meaning the symbol box), **`gap`**, **`aspectRatio`**, or other numeric props whose scalar meaning is not fixed-axis size.
@@ -1438,13 +1443,29 @@ width = 200
 height = 100
 ```
 
+**Aspect vs fixed axes:** `.aspect(r)` marks the **derived** axis. Bake evaluates to **`{ "aspect": r }`** on that axis (r = width/height). Emitters / HTML preview map this to CSS **`aspect-ratio`** and leave the derived axis auto.
+
+Frame **`aspectRatio`** (media) is **sugar**: when exactly one of **`width`** / **`height`** is closed (`.fill` / `.fixed` / `.flex` / number) and the other is free (unset / `.hug`), resolve **MUST** rewrite the free axis to **`{ aspect: r }`** and drop **`aspectRatio`**. When **both** axes are free, **`aspectRatio`** may remain for intrinsic media sizing. **PDL-E006** when:
+
+- both axes are closed **and** **`aspectRatio`** is set, or  
+- **`.aspect`** is set on **both** axes, or  
+- **`aspectRatio`** is combined with **`.aspect`** on an axis.
+
+Prefer the explicit form for new authoring:
+
+```pdl
+width = .fill
+height = .aspect(16:9)
+```
+
 ## Ratio (`W:H` sugar)
 
-**`Ratio`** tokens and **`aspectRatio`** accept a positive number, or **`W:H`** sugar (`16:9`, `4:3`, …). The parser keeps `{ kind: "ratio", width, height }`; evaluation yields **`W / H`**. Height **MUST** be positive and finite (**PDL-E001** otherwise). Prefer sugar for common media ratios so intent stays readable.
+**`Ratio`** tokens, **`.aspect(…)`** arguments, and **`aspectRatio`** accept a positive number, or **`W:H`** sugar (`16:9`, `4:3`, …). The parser keeps `{ kind: "ratio", width, height }`; evaluation yields **`W / H`**. Height **MUST** be positive and finite (**PDL-E001** otherwise). Prefer sugar for common media ratios so intent stays readable.
 
 ```pdl
 primitive atoms.ratio.video: Ratio = 16:9
 aspectRatio = 4:3
+height = .aspect(16:9)
 ```
 
 ---
@@ -1524,7 +1545,6 @@ justify = .spaceBetween
 align = .stretch
 wrap = .wrap
 contentMode = .cover
-objectPosition = .center
 overflow = .visible
 overflow = .scroll
 overflow = .clip
@@ -1538,7 +1558,6 @@ justify = Justify.spaceBetween
 align = Align.stretch
 wrap = Wrap.wrap
 contentMode = ContentMode.cover
-objectPosition = ObjectPosition.center
 overflow = Overflow.clip
 truncateStyle = TruncateStyle.ellipsis
 borderPosition = BorderPosition.outside
@@ -1681,8 +1700,35 @@ See §14.
 
 ```pdl
 content = "Hello, world"
-icon = "star"
-source = mediaSrc
+icon = icon.action.favorite          // prefer Icon tokens
+icon = Icon(system: .sfSymbols, name: "star")
+icon = "icons/star.svg"              // pack-relative file sugar
+source = media.hero
+```
+
+---
+
+## Asset refs (`Icon` / `MediaSource`)
+
+**Normative:** Components bind **semantic tokens**; primitives carry concrete refs. Emitters / preview hosts resolve refs to platform assets.
+
+| Form | Meaning |
+|------|---------|
+| `"icons/star.svg"` | Pack-relative **file** sugar (must include `/` and/or `.svg`/`.png`/`.pdf`/`.webp`/…) |
+| `Icon(file: "icons/star.svg")` | Same, explicit |
+| `Icon(system: .sfSymbols, name: "star")` | iOS SF Symbol |
+| `Icon(system: .materialSymbols, name: "star")` | Material Symbols |
+| `MediaSource(file: "media/hero.jpg")` / path string | Pack file (kind/format inferred from extension when known) |
+| `MediaSource(url: "https://…")` / http(s) string | Remote URL |
+| `MediaSource(url: "https://cdn/…/abc", kind: .video, format: .mp4)` | Opaque address + explicit role/format |
+| `MediaSource(file: "assets/clip", kind: .raster, format: .webp)` | Extension-less pack path |
+
+Bare glyph ids (`"star"`) are **PDL-E005**. Leading `/` on pack files is **rejected** (avoids site-root vs pack-root confusion). Bake IR uses tagged objects `{ "kind": "iconRef", … }` / `{ "kind": "mediaSourceRef", "source": "file"|"url", …, "mediaKind"?, "format"? }` (§16b).
+
+```pdl
+primitive icon.primitive.star: Icon = Icon(system: .sfSymbols, name: "star")
+semantic icon.action.favorite: Icon = icon.primitive.star
+primitive media.clip: MediaSource = MediaSource(url: "https://cdn.example/abc", kind: .video, format: .mp4)
 ```
 
 ---
@@ -1937,7 +1983,7 @@ component ArticleHero() layout {
     direction = .row
     gap = 8
   }
-  let StatusIcon: icon = { icon = "clock", size = 16 }
+  let StatusIcon: icon = { icon = Icon(system: .sfSymbols, name: "clock"), size = 16 }
   let Caption: text = { content = "Updated today" }
 
   MetaRow.children = [StatusIcon, Caption]
@@ -2310,8 +2356,8 @@ name: VariantName = .case
 ## Common literals
 
 ```txt
-.hug  .fill  .fixed(120)  .flex(min: 40, max: 200)
-Sizing.hug  Sizing.fill  Sizing.fixed(120)  Sizing.flex(min: 40, max: 200)
+.hug  .fill  .fixed(120)  .flex(min: 40, max: 200)  .aspect(16:9)
+Sizing.hug  Sizing.fill  Sizing.fixed(120)  Sizing.flex(min: 40, max: 200)  Sizing.aspect(16:9)
 .row .column .rowReverse .columnReverse .stack .reverseStack
 Direction.row  Direction.column  …
 .wrap .nowrap
@@ -2324,7 +2370,7 @@ Position.flow  Position.absolute
 .visible .scroll .clip
 Overflow.visible  Overflow.scroll  Overflow.clip
 ContentMode.cover  TruncateStyle.ellipsis  TruncateStyle.clip
-BorderPosition.inside  ObjectPosition.topLeft
+BorderPosition.inside  Align.start  Justify.end
 #RRGGBB   (hex never quoted)   "string"   (other string literals)
 color.token @ opacity.semantic.name
 color.token @ 0.5
@@ -2386,7 +2432,7 @@ Ramp(direction: .bottomToTop, stops: [ GradientStop(position: 0, opacity: 1) …
 Blur(blur: blurToken)
 Blur(blur: blurToken, vibrancy: vibrancyToken)
 Media(source: "url", contentMode: .cover)
-Media(source: mediaToken, contentMode: .cover, opacity: opacityToken)
+Media(source: mediaToken, contentMode: .cover, justify: .start, align: .end, opacity: opacityToken)
 Vibrancy(vibrancy: vibrancyToken)
 ```
 
@@ -3246,7 +3292,7 @@ Valid in **`background`** or **`foreground`** unless noted.
 | **`Color`** | `color:` (token or `#hex`) | Solid fill; a bare token / `#hex` in a layer array is **sugar** for `Color(color: …)`. |
 | **`Ramp`** | `direction:` (enum), `stops:` (array of `GradientStop`) | Linear or radial ramp. |
 | **`Blur`** | `blur:` (`Blur` token), `vibrancy:` (`Vibrancy` token, optional) | Backdrop-style when in **`background`**; content blur when in **`foreground`** — **emitter interprets** position. |
-| **`Media`** | `source:` (`MediaSource` or string), `contentMode:` (enum), `opacity:` (number or `Opacity` token, optional) | Raster / vector / video fill. |
+| **`Media`** | `source:` (`MediaSource` or string), `contentMode:` (enum), `justify:` / `align:` (`.start`\|`.center`\|`.end`, optional), `opacity:` (number or `Opacity` token, optional) | Raster / vector / video fill; justify/align position content like media frames. |
 | **`Vibrancy`** | `vibrancy:` (`Vibrancy` token) | Saturation / brightness pass **without** blur; compose with **`Blur`** when both apply. |
 
 **Examples (keyword form — normative):**
@@ -3948,6 +3994,8 @@ Literal and composite RHS values from PDL appear as nested JSON objects. Every n
 | **`number`** | `{ "kind": "number", "value": <number> }` | |
 | **`boolean`** | `{ "kind": "boolean", "value": true \| false }` | |
 | **`null`** | `{ "kind": "null" }` | Unset a frame property (see §6 §`null`). Not a Color/Opacity value. |
+| **`iconRef`** | `{ "kind": "iconRef", "source": "file", "path": … }` or `{ "kind": "iconRef", "source": "system", "system": …, "name": … }` | Nested fields are `SerialisedValueExpr` in catalogue graphs; bake evaluates to literal `path` / `system` / `name` strings. |
+| **`mediaSourceRef`** | `{ "kind": "mediaSourceRef", "source": "file", "path": …, "mediaKind"?, "format"? }` or `{ "kind": "mediaSourceRef", "source": "url", "url": …, "mediaKind"?, "format"? }` | Same nesting rules as **`iconRef`**. Author **`kind:`** bakes as **`mediaKind`** (`raster`\|`vector`\|`video`). **`format`** is a closed extension case (`jpeg`, `png`, …). Both may be inferred from the address when omitted. |
 | **`condition`** | `{ "kind": "condition", "expr": ConditionExpr }` | Variant / boolean conditions in values. |
 | **`ident`** | `{ "kind": "ident", "name": "…" }` | In **`serialiseValueExpr`** output: authored identifier. In **token graph** slots (**`serialiseValueExprWithTokenRefs`**), a bare **`primitive` / `semantic`** token name is **not** emitted as **`ident`** — it becomes a **`primitive:`** / **`semantic:`** string instead; other idents remain as **`ident`** objects. |
 | **`dotEnum`** | `{ "kind": "dotEnum", "value": ".caseName" }` | Includes leading `.` in reference output. |
@@ -3958,7 +4006,7 @@ Literal and composite RHS values from PDL appear as nested JSON objects. Every n
 | **`transition`** | `{ "kind": "transition", "duration", "easing", "delay"? }` | **TODO:** Confirm where transitions appear in catalogue-only paths. |
 | **`vibrancyTuple`** | `{ "kind": "vibrancyTuple", "saturation": number, "brightness": number }` | Inline vibrancy tuple. |
 | **`rampInline`** | `{ "kind": "rampInline", "direction": string, "stops": [ … ] }` | **`direction`** stores the parsed enum lexeme. **TODO:** Normalise to bare string vs dot form. |
-| **`sizing`** | `{ "kind": "sizing", "mode": "hug" \| "fill" \| "fixed" \| "flex", "fixed"?, "flexArgs"? }` | For `.fixed(n)`, `fixed` is numeric. For `.flex(…)`, `flexArgs` maps argument labels → `SerialisedValueExpr`. **TODO:** Document full flex argument set (`min`, `max`, `preferred`). |
+| **`sizing`** | `{ "kind": "sizing", "mode": "hug" \| "fill" \| "fixed" \| "flex" \| "aspect", "fixed"?, "aspect"?, "flexArgs"? }` | For `.fixed(n)`, `fixed` is numeric. For `.aspect(…)`, `aspect` is a `SerialisedValueExpr` (number / ratio / Ratio token). For `.flex(…)`, `flexArgs` maps argument labels → `SerialisedValueExpr`. Bake evaluates `.aspect` to `{ "aspect": number }` on the axis. |
 | **`call`** | `{ "kind": "call", "callee": "Color" \| "Ramp" \| "Blur" \| "Media" \| "Vibrancy", "args": { … } }` | Layer constructors and similar keyword calls; **`args`** values are `SerialisedValueExpr`. |
 | **`gradientStop`** | `{ "kind": "gradientStop", "fields": { … } }` | **TODO:** List allowed field keys (`position`, `opacity`, `color`, …) normatively. |
 | **`unknown`** | `{ "kind": "unknown" }` | **`serialiseValueExpr`** only: fallback when a **`ValueExpr`** kind is not handled (should be rare). **`serialiseValueExprWithTokenRefs`** does **not** emit this — it **throws** on an unhandled kind so catalogue token graphs cannot silently degrade. |
@@ -4003,7 +4051,7 @@ The reference CLI emits **two graph-shaped JSON artefacts** (rich, reference-hea
 
 **Serialization:** **`bakeSystem`** and **`bakeComponent`** use the same **`stableStringify(..., { omitEmpty: true })`** rules as graph output — **§16a** (e.g. **`BakedFrame.children`** may be absent when there are no visible children).
 
-**HTML preview (`pdl renderHtml`):** The reference CLI can turn the same in-memory **`bakedDesign`** into a minimal **HTML5** document for Studio iframes and static reference pages (`src/renderHtml.ts`). When present, root **`previewBackground`** (resolved CSS color from bake) sets document chrome via **`--pdl-preview-background`**. The emitter maps **`layout`** (flex including **`.rowReverse` / `.columnReverse`**, **`.stack` / `.reverseStack`** as overlapping CSS grid cells with matching z-order, **`gap` / `columnGap` / `rowGap`**, **`.flex` sizing** with evaluated **`min` / `max` / `preferred`**, **`alignSelf` / `grow` / `shrink` / `position` + `inset`**, **`justify`** including **`.stretch`**, scalar or first-color **`background`**, **`foreground`** as an inset overlay **`box-shadow`**, **`borderWidth`/`borderColor`** with **`borderPosition`** (**outside** → outer **`box-shadow`** ring; **inside** → inset ring; both paint-only and composed with **`shadow`** — not CSS **`border`**, which would change layout size), **`shadow`**, **`overflow`** (**`.visible`** / **`.scroll`** / **`.clip`**; preview maps **`.clip`** → CSS `overflow: hidden` — §6 §Overflow), asymmetric **`Corner`** radii, approximate **Blur** / **Vibrancy** via **`backdrop-filter`**), **`text`** (typography, **`lineHeight`** ratio, **`letterSpacing`** in px from em×`fontSize`, **`justify`** / **`align`** via a flex column shell + **`text-align`**, clamp / ellipsis / opacity / overflow), **`spacer`**, **`icon`** (color swatch + name label — not a real glyph set), and **`media`** ( **`<img>`** when **`source`** looks like a URL/path; **`contentMode`** → **`object-fit`**; **`aspectRatio`** / **`objectPosition`**) to flexbox- and grid-oriented markup. **Ramp**, full **layer** compositing fidelity, stack+**`spaceBetween`**, custom **`@font-face`** loading, and non-raster **media** remain approximated or omitted. Closed-set params from **`variant`** or **`enum`** are keyword-agnostic (bake IR uses **`"type": "variant"`**). The mapping is **best-effort** and versioned with the toolchain, not part of the **`bakedDesign`** schema contract.
+**HTML preview (`pdl renderHtml`):** The reference CLI can turn the same in-memory **`bakedDesign`** into a minimal **HTML5** document for Studio iframes and static reference pages (`src/renderHtml.ts`). When present, root **`previewBackground`** (resolved CSS color from bake) sets document chrome via **`--pdl-preview-background`**. The emitter maps **`layout`** (flex including **`.rowReverse` / `.columnReverse`**, **`.stack` / `.reverseStack`** as overlapping CSS grid cells with matching z-order, **`gap` / `columnGap` / `rowGap`**, **`.flex` sizing** with evaluated **`min` / `max` / `preferred`**, **`alignSelf` / `grow` / `shrink` / `position` + `inset`**, **`justify`** including **`.stretch`**, scalar or first-color **`background`**, **`foreground`** as an inset overlay **`box-shadow`**, **`borderWidth`/`borderColor`** with **`borderPosition`** (**outside** → outer **`box-shadow`** ring; **inside** → inset ring; both paint-only and composed with **`shadow`** — not CSS **`border`**, which would change layout size), **`shadow`**, **`overflow`** (**`.visible`** / **`.scroll`** / **`.clip`**; preview maps **`.clip`** → CSS `overflow: hidden` — §6 §Overflow), asymmetric **`Corner`** radii, approximate **Blur** / **Vibrancy** via **`backdrop-filter`**), **`text`** (typography, **`lineHeight`** ratio, **`letterSpacing`** in px from em×`fontSize`, **`justify`** / **`align`** via a flex column shell + **`text-align`**, clamp / ellipsis / opacity / overflow), **`spacer`**, **`icon`** (color swatch + name label — not a real glyph set), and **`media`** ( **`<img>`** / **`<video>`** when **`source`** looks like a URL/path; **`contentMode`** → **`object-fit`**; **`justify`** / **`align`** → **`object-position`**; **`aspectRatio`**) to flexbox- and grid-oriented markup. **Ramp**, full **layer** compositing fidelity, stack+**`spaceBetween`**, custom **`@font-face`** loading, and non-raster **media** remain approximated or omitted. Closed-set params from **`variant`** or **`enum`** are keyword-agnostic (bake IR uses **`"type": "variant"`**). The mapping is **best-effort** and versioned with the toolchain, not part of the **`bakedDesign`** schema contract.
 
 ### `bakedDesign` — root document
 
@@ -4950,7 +4998,7 @@ ratio-literal
 
 (* Optional TypeName.case → same as DOT_ENUM `.case`. TypeName from frame-props SoT
    (Direction, Wrap, Align, Justify, Overflow, BorderPosition, TruncateStyle,
-   ContentMode, ObjectPosition, AlignSelf, Position). Not used for user variants. *)
+   ContentMode, AlignSelf, Position). Not used for user variants. *)
 qualified-enum-literal
   ::= IDENT '.' IDENT
     ;
@@ -4960,10 +5008,17 @@ sizing-literal
     | '.fill'
     | '.fixed' '(' NUMBER ')'
     | '.flex' '(' [ flex-arg { ',' flex-arg } ] ')'
+    | '.aspect' '(' aspect-arg ')'
     | 'Sizing' '.' 'hug'
     | 'Sizing' '.' 'fill'
     | 'Sizing' '.' 'fixed' '(' NUMBER ')'
     | 'Sizing' '.' 'flex' '(' [ flex-arg { ',' flex-arg } ] ')'
+    | 'Sizing' '.' 'aspect' '(' aspect-arg ')'
+
+aspect-arg
+  ::= NUMBER
+    | NUMBER ':' NUMBER
+    | IDENT
     ;
 
 flex-arg
@@ -5169,7 +5224,7 @@ When a token is declared with a `TokenType`, the RHS value **MUST** be compatibl
 | `Vibrancy` | vibrancy tuple `(saturation: …, brightness: …)`, or `Vibrancy` token |
 | `Ramp` | ramp literal `(direction: …, stops: […])`, or `Ramp` token |
 | `Background` / `Foreground` | scalar `Color`, layer list `[…]`, or token of the same type |
-| `Sizing` | sizing literal (`.hug` / `Sizing.hug`, `.fill` / `Sizing.fill`, `.fixed(n)` / `Sizing.fixed(n)`, `.flex(…)` / `Sizing.flex(…)`) — strings like `".hug"` are **PDL-E005** |
+| `Sizing` | sizing literal (`.hug` / `Sizing.hug`, `.fill`, `.fixed(n)`, `.flex(…)`, `.aspect(16:9)` / `Sizing.aspect(…)`) — strings like `".hug"` are **PDL-E005** |
 | `FontFamily` / `Icon` / `MediaSource` | `STRING` |
 | `Size` / `Weight` | `NUMBER` |
 | `LineHeight` | positive `NUMBER` (unitless ratio) |

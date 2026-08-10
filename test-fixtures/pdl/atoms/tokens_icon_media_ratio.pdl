@@ -1,8 +1,13 @@
 // Icon, MediaSource, Ratio
 
-primitive atoms.icon.star: Icon = "star"
-primitive atoms.icon.chevron: Icon = "chevron-right"
+primitive atoms.icon.star: Icon = Icon(system: .sfSymbols, name: "star")
+primitive atoms.icon.chevron: Icon = Icon(system: .sfSymbols, name: "chevron.right")
 primitive atoms.media.hero: MediaSource = "https://example.com/hero.png"
+primitive atoms.media.opaqueClip: MediaSource = MediaSource(
+  url: "https://cdn.example.com/abc123",
+  kind: .video,
+  format: .mp4
+)
 primitive atoms.ratio.video: Ratio = 16:9
 primitive atoms.ratio.square: Ratio = 1
 primitive atoms.ratio.photo: Ratio = 4:3

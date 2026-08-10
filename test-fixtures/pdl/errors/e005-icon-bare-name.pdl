@@ -1,0 +1,2 @@
+// PDL-E005 — bare Icon names are ambiguous (SF Symbol vs file vs Material)
+primitive bad.icon: Icon = "star"

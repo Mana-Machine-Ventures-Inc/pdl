@@ -1273,8 +1273,8 @@ export class Parser {
     if (t.kind === "DOT_ENUM") {
       this.advance();
       const v = t.value;
-      if (v === ".hug") return { kind: "sizing", mode: "hug" };
-      if (v === ".fill") return { kind: "sizing", mode: "fill" };
+      // Bare `.hug` / `.fill` stay as dotEnum so ContentMode.fill and Sizing.fill share spelling.
+      // Qualified `Sizing.hug` / `Sizing.fill` still produce sizing literals below.
       if (v === ".fixed") {
         if (!this.is("(")) {
           throw this.err(
@@ -1302,9 +1302,20 @@ export class Parser {
         this.consume(")");
         return { kind: "sizing", mode: "flex", flexArgs };
       }
+      if (v === ".aspect") {
+        if (!this.is("(")) {
+          throw this.err(
+            "`.aspect` requires a ratio argument, e.g. `.aspect(16:9)` or `.aspect(1.5)`",
+          );
+        }
+        this.consume("(");
+        const aspect = this.parseAspectArg();
+        this.consume(")");
+        return { kind: "sizing", mode: "aspect", aspect };
+      }
       return { kind: "dotEnum", value: v };
     }
-    // Qualified sizing: `Sizing.hug` / `Sizing.fill` / `Sizing.fixed(n)` / `Sizing.flex(…)`
+    // Qualified sizing: `Sizing.hug` / `Sizing.fill` / `Sizing.fixed(n)` / `Sizing.flex(…)` / `Sizing.aspect(…)`
     if (t.kind === "Sizing") {
       this.advance();
       this.consume(".");
@@ -1338,8 +1349,19 @@ export class Parser {
         this.consume(")");
         return { kind: "sizing", mode: "flex", flexArgs };
       }
+      if (mode === "aspect") {
+        if (!this.is("(")) {
+          throw this.err(
+            "`Sizing.aspect` requires a ratio argument, e.g. `Sizing.aspect(16:9)`",
+          );
+        }
+        this.consume("(");
+        const aspect = this.parseAspectArg();
+        this.consume(")");
+        return { kind: "sizing", mode: "aspect", aspect };
+      }
       throw this.err(
-        `Unknown Sizing mode \`${mode}\`; expected hug, fill, fixed, or flex`,
+        `Unknown Sizing mode \`${mode}\`; expected hug, fill, fixed, flex, or aspect`,
       );
     }
     if (t.kind === "(") {
@@ -1383,6 +1405,8 @@ export class Parser {
       "EdgeInsets",
       "Corner",
       "Shadow",
+      "Icon",
+      "MediaSource",
       "GradientStop",
       "Color",
       "Ramp",
@@ -1504,6 +1528,54 @@ export class Parser {
         ...(fields.spread ? { spread: fields.spread } : {}),
       };
     }
+    if (name === "Icon") {
+      const fields = this.parseLabelledArgs();
+      this.consume(")");
+      if (fields.file && !fields.system && !fields.name) {
+        return { kind: "iconRef", source: "file", path: fields.file };
+      }
+      if (fields.system && fields.name && !fields.file) {
+        return { kind: "iconRef", source: "system", system: fields.system, name: fields.name };
+      }
+      throw this.err(
+        "Icon requires `file: \"…\"` or `system: .sfSymbols|.materialSymbols, name: \"…\"`",
+      );
+    }
+    if (name === "MediaSource") {
+      const fields = this.parseLabelledArgs();
+      this.consume(")");
+      const mediaKind = fields.kind;
+      const format = fields.format;
+      const unknown = Object.keys(fields).filter(
+        (k) => k !== "file" && k !== "url" && k !== "kind" && k !== "format",
+      );
+      if (unknown.length) {
+        throw this.err(
+          `MediaSource unknown label(s): ${unknown.join(", ")} (expected file|url, optional kind, format)`,
+        );
+      }
+      if (fields.file && !fields.url) {
+        return {
+          kind: "mediaSourceRef",
+          source: "file",
+          path: fields.file,
+          ...(mediaKind ? { mediaKind } : {}),
+          ...(format ? { format } : {}),
+        };
+      }
+      if (fields.url && !fields.file) {
+        return {
+          kind: "mediaSourceRef",
+          source: "url",
+          url: fields.url,
+          ...(mediaKind ? { mediaKind } : {}),
+          ...(format ? { format } : {}),
+        };
+      }
+      throw this.err(
+        'MediaSource requires `file: "…"` or `url: "https://…"` (optional `kind:`, `format:`)',
+      );
+    }
     if (name === "GradientStop") {
       const fields = this.parseLabelledArgs();
       this.consume(")");
@@ -1531,6 +1603,35 @@ export class Parser {
       this.consume(",");
     }
     return args;
+  }
+
+  /** `.aspect(…)` arg: number, `W:H` sugar, or Ratio token ident. */
+  private parseAspectArg(): ValueExpr {
+    if (this.is("NUMBER")) {
+      const wTok = this.consume("NUMBER");
+      if (this.is(":") && this.peekAheadKind(1) === "NUMBER") {
+        this.advance();
+        const hTok = this.consume("NUMBER");
+        const width = Number(wTok.value);
+        const height = Number(hTok.value);
+        if (!(height > 0) || !Number.isFinite(width) || !Number.isFinite(height)) {
+          throw this.err("`.aspect(W:H)` requires a positive finite height (e.g. `.aspect(16:9)`)");
+        }
+        return { kind: "ratio", width, height };
+      }
+      const n = Number(wTok.value);
+      if (!(n > 0) || !Number.isFinite(n)) {
+        throw this.err("`.aspect(n)` requires a positive finite ratio (width/height)");
+      }
+      return { kind: "number", value: n };
+    }
+    if (this.is("IDENT")) {
+      const name = this.parseQualifiedName();
+      return { kind: "ident", name };
+    }
+    throw this.err(
+      "`.aspect` expects a positive ratio number, `W:H` sugar, or a Ratio token (e.g. `.aspect(16:9)`)",
+    );
   }
 
   private parseFlexArgs(): Record<string, ValueExpr> {

@@ -29,11 +29,11 @@ component MoleculeCardArticle <PointerInput>(
   let Hero: media = {
     source = atoms.media.hero
     contentMode = .cover
-    objectPosition = .center
-    aspectRatio = atoms.ratio.video
+    justify = .center
+    align = .center
     cornerRadius = atoms.radius.sm
     width = .fill
-    height = .fixed(120)
+    height = .aspect(atoms.ratio.video)
   }
 
   let Title: text = {

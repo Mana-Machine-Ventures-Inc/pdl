@@ -309,7 +309,12 @@
           "kind": "icon",
           "props": {
             "color": "primitive:atoms.color.rgba",
-            "icon": "check",
+            "icon": {
+              "kind": "iconRef",
+              "name": "checkmark",
+              "source": "system",
+              "system": "sfSymbols"
+            },
             "size": 20
           }
         },
@@ -318,7 +323,12 @@
           "kind": "icon",
           "props": {
             "color": "primitive:atoms.color.rgb",
-            "icon": "close",
+            "icon": {
+              "kind": "iconRef",
+              "name": "xmark",
+              "source": "system",
+              "system": "sfSymbols"
+            },
             "opacity": "primitive:atoms.opacity.mid",
             "size": 24
           }
@@ -350,7 +360,12 @@
             "height": {
               "fixed": 32
             },
-            "icon": "menu",
+            "icon": {
+              "kind": "iconRef",
+              "name": "line.3.horizontal",
+              "source": "system",
+              "system": "sfSymbols"
+            },
             "width": {
               "fixed": 32
             }
@@ -666,13 +681,20 @@
           "id": "M",
           "kind": "media",
           "props": {
+            "align": "start",
             "background": "primitive:atoms.color.rgb",
             "contentMode": "contain",
             "height": {
               "fixed": 180
             },
-            "objectPosition": "topLeft",
-            "source": "https://example.com/poster.jpg",
+            "justify": "start",
+            "source": {
+              "format": "jpeg",
+              "kind": "mediaSourceRef",
+              "mediaKind": "raster",
+              "source": "url",
+              "url": "https://example.com/poster.jpg"
+            },
             "width": "fill"
           }
         }
@@ -697,11 +719,15 @@
           "id": "M",
           "kind": "media",
           "props": {
-            "aspectRatio": "primitive:atoms.ratio.video",
+            "align": "center",
             "contentMode": "cover",
             "cornerRadius": "primitive:atoms.radius.sm",
-            "objectPosition": "center",
-            "source": "primitive:atoms.media.hero"
+            "height": {
+              "aspect": 1.7777777777777777
+            },
+            "justify": "center",
+            "source": "primitive:atoms.media.hero",
+            "width": "fill"
           }
         }
       },
@@ -725,10 +751,17 @@
           "id": "M",
           "kind": "media",
           "props": {
+            "align": "end",
             "contentMode": "scaleDown",
-            "objectPosition": "bottomRight",
+            "justify": "end",
             "opacity": 0.92,
-            "source": "asset://local.png"
+            "source": {
+              "format": "png",
+              "kind": "mediaSourceRef",
+              "mediaKind": "raster",
+              "path": "media/local.png",
+              "source": "file"
+            }
           }
         }
       },
@@ -737,6 +770,35 @@
         "kind": "layout",
         "props": {
           "background": "primitive:atoms.color.rgba",
+          "direction": "column"
+        }
+      }
+    },
+    "AtomMediaVideoKind": {
+      "childHierarchy": {
+        "Root": [
+          "M"
+        ]
+      },
+      "childNodes": {
+        "M": {
+          "id": "M",
+          "kind": "media",
+          "props": {
+            "contentMode": "cover",
+            "height": {
+              "aspect": 1.7777777777777777
+            },
+            "source": "primitive:atoms.media.opaqueClip",
+            "width": "fill"
+          }
+        }
+      },
+      "name": "AtomMediaVideoKind",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "primitive:atoms.color.rgb",
           "direction": "column"
         }
       }
@@ -825,7 +887,7 @@
         "count": "2",
         "density": "comfortable",
         "enabled": "true",
-        "glyph": "dot",
+        "glyph": "{\"kind\":\"iconRef\",\"source\":\"system\",\"system\":\"sfSymbols\",\"name\":\"circle.fill\"}",
         "label": "Label"
       },
       "expose": [
@@ -853,7 +915,12 @@
           "type": "Boolean"
         },
         {
-          "default": "dot",
+          "default": {
+            "kind": "iconRef",
+            "name": "circle.fill",
+            "source": "system",
+            "system": "sfSymbols"
+          },
           "name": "glyph",
           "type": "Icon"
         },
@@ -1456,13 +1523,13 @@
           "id": "Hero",
           "kind": "media",
           "props": {
-            "aspectRatio": "primitive:atoms.ratio.video",
+            "align": "center",
             "contentMode": "cover",
             "cornerRadius": "primitive:atoms.radius.sm",
             "height": {
-              "fixed": 120
+              "aspect": 1.7777777777777777
             },
-            "objectPosition": "center",
+            "justify": "center",
             "source": "primitive:atoms.media.hero",
             "width": "fill"
           }
@@ -1735,7 +1802,7 @@
           "changes": [
             {
               "frameId": "Hero",
-              "prop": "aspectRatio",
+              "prop": "align",
               "value": null
             },
             {
@@ -1755,7 +1822,7 @@
             },
             {
               "frameId": "Hero",
-              "prop": "objectPosition",
+              "prop": "justify",
               "value": null
             },
             {
@@ -1960,13 +2027,13 @@
           "id": "C1__Hero",
           "kind": "media",
           "props": {
-            "aspectRatio": "primitive:atoms.ratio.video",
+            "align": "center",
             "contentMode": "cover",
             "cornerRadius": "primitive:atoms.radius.sm",
             "height": {
-              "fixed": 120
+              "aspect": 1.7777777777777777
             },
-            "objectPosition": "center",
+            "justify": "center",
             "source": "primitive:atoms.media.hero",
             "width": "fill"
           }
@@ -3594,7 +3661,12 @@
           "kind": "icon",
           "props": {
             "color": "primitive:atoms.color.rgba",
-            "icon": "close",
+            "icon": {
+              "kind": "iconRef",
+              "name": "xmark",
+              "source": "system",
+              "system": "sfSymbols"
+            },
             "size": 22
           }
         },
@@ -3694,7 +3766,12 @@
             {
               "frameId": "G",
               "prop": "icon",
-              "value": "close"
+              "value": {
+                "kind": "iconRef",
+                "name": "xmark",
+                "source": "system",
+                "system": "sfSymbols"
+              }
             },
             {
               "frameId": "L",
@@ -5422,16 +5499,32 @@
     },
     "atoms.icon.chevron": {
       "definition": {
-        "kind": "string",
-        "value": "chevron-right"
+        "kind": "iconRef",
+        "name": {
+          "kind": "string",
+          "value": "chevron.right"
+        },
+        "source": "system",
+        "system": {
+          "kind": "dotEnum",
+          "value": ".sfSymbols"
+        }
       },
       "name": "atoms.icon.chevron",
       "tokenType": "Icon"
     },
     "atoms.icon.star": {
       "definition": {
-        "kind": "string",
-        "value": "star"
+        "kind": "iconRef",
+        "name": {
+          "kind": "string",
+          "value": "star"
+        },
+        "source": "system",
+        "system": {
+          "kind": "dotEnum",
+          "value": ".sfSymbols"
+        }
       },
       "name": "atoms.icon.star",
       "tokenType": "Icon"
@@ -5442,6 +5535,26 @@
         "value": "https://example.com/hero.png"
       },
       "name": "atoms.media.hero",
+      "tokenType": "MediaSource"
+    },
+    "atoms.media.opaqueClip": {
+      "definition": {
+        "format": {
+          "kind": "dotEnum",
+          "value": ".mp4"
+        },
+        "kind": "mediaSourceRef",
+        "mediaKind": {
+          "kind": "dotEnum",
+          "value": ".video"
+        },
+        "source": "url",
+        "url": {
+          "kind": "string",
+          "value": "https://cdn.example.com/abc123"
+        }
+      },
+      "name": "atoms.media.opaqueClip",
       "tokenType": "MediaSource"
     },
     "atoms.motion.ease.linear": {
@@ -5679,8 +5792,8 @@
     },
     "atoms.sizing.hug": {
       "definition": {
-        "kind": "sizing",
-        "mode": "hug"
+        "kind": "dotEnum",
+        "value": ".hug"
       },
       "name": "atoms.sizing.hug",
       "tokenType": "Sizing"

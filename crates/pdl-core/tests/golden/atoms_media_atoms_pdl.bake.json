@@ -8,13 +8,20 @@
             "id": "M",
             "kind": "media",
             "props": {
+              "align": "start",
               "background": "#D3D3D3",
               "contentMode": "contain",
               "height": {
                 "fixed": 180
               },
-              "objectPosition": "topLeft",
-              "source": "https://example.com/poster.jpg",
+              "justify": "start",
+              "source": {
+                "format": "jpeg",
+                "kind": "mediaSourceRef",
+                "mediaKind": "raster",
+                "source": "url",
+                "url": "https://example.com/poster.jpg"
+              },
               "width": "fill"
             }
           }
@@ -36,11 +43,21 @@
             "id": "M",
             "kind": "media",
             "props": {
-              "aspectRatio": 1.7777777777777777,
+              "align": "center",
               "contentMode": "cover",
               "cornerRadius": 4,
-              "objectPosition": "center",
-              "source": "https://example.com/hero.png"
+              "height": {
+                "aspect": 1.7777777777777777
+              },
+              "justify": "center",
+              "source": {
+                "format": "png",
+                "kind": "mediaSourceRef",
+                "mediaKind": "raster",
+                "source": "url",
+                "url": "https://example.com/hero.png"
+              },
+              "width": "fill"
             }
           }
         ],
@@ -61,10 +78,17 @@
             "id": "M",
             "kind": "media",
             "props": {
+              "align": "end",
               "contentMode": "scaleDown",
-              "objectPosition": "bottomRight",
+              "justify": "end",
               "opacity": 0.92,
-              "source": "asset://local.png"
+              "source": {
+                "format": "png",
+                "kind": "mediaSourceRef",
+                "mediaKind": "raster",
+                "path": "media/local.png",
+                "source": "file"
+              }
             }
           }
         ],
@@ -72,6 +96,38 @@
         "kind": "layout",
         "props": {
           "background": "#222222",
+          "direction": "column"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomMediaVideoKind": {
+      "name": "AtomMediaVideoKind",
+      "root": {
+        "children": [
+          {
+            "id": "M",
+            "kind": "media",
+            "props": {
+              "contentMode": "cover",
+              "height": {
+                "aspect": 1.7777777777777777
+              },
+              "source": {
+                "format": "mp4",
+                "kind": "mediaSourceRef",
+                "mediaKind": "video",
+                "source": "url",
+                "url": "https://cdn.example.com/abc123"
+              },
+              "width": "fill"
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": "#D3D3D3",
           "direction": "column"
         }
       },

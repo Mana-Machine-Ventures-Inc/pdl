@@ -188,13 +188,13 @@
           "id": "Hero",
           "kind": "media",
           "props": {
-            "aspectRatio": "primitive:atoms.ratio.video",
+            "align": "center",
             "contentMode": "cover",
             "cornerRadius": "primitive:atoms.radius.sm",
             "height": {
-              "fixed": 120
+              "aspect": 1.7777777777777777
             },
-            "objectPosition": "center",
+            "justify": "center",
             "source": "primitive:atoms.media.hero",
             "width": "fill"
           }
@@ -467,7 +467,7 @@
           "changes": [
             {
               "frameId": "Hero",
-              "prop": "aspectRatio",
+              "prop": "align",
               "value": null
             },
             {
@@ -487,7 +487,7 @@
             },
             {
               "frameId": "Hero",
-              "prop": "objectPosition",
+              "prop": "justify",
               "value": null
             },
             {
@@ -692,13 +692,13 @@
           "id": "C1__Hero",
           "kind": "media",
           "props": {
-            "aspectRatio": "primitive:atoms.ratio.video",
+            "align": "center",
             "contentMode": "cover",
             "cornerRadius": "primitive:atoms.radius.sm",
             "height": {
-              "fixed": 120
+              "aspect": 1.7777777777777777
             },
-            "objectPosition": "center",
+            "justify": "center",
             "source": "primitive:atoms.media.hero",
             "width": "fill"
           }
@@ -2126,16 +2126,32 @@
     },
     "atoms.icon.chevron": {
       "definition": {
-        "kind": "string",
-        "value": "chevron-right"
+        "kind": "iconRef",
+        "name": {
+          "kind": "string",
+          "value": "chevron.right"
+        },
+        "source": "system",
+        "system": {
+          "kind": "dotEnum",
+          "value": ".sfSymbols"
+        }
       },
       "name": "atoms.icon.chevron",
       "tokenType": "Icon"
     },
     "atoms.icon.star": {
       "definition": {
-        "kind": "string",
-        "value": "star"
+        "kind": "iconRef",
+        "name": {
+          "kind": "string",
+          "value": "star"
+        },
+        "source": "system",
+        "system": {
+          "kind": "dotEnum",
+          "value": ".sfSymbols"
+        }
       },
       "name": "atoms.icon.star",
       "tokenType": "Icon"
@@ -2146,6 +2162,26 @@
         "value": "https://example.com/hero.png"
       },
       "name": "atoms.media.hero",
+      "tokenType": "MediaSource"
+    },
+    "atoms.media.opaqueClip": {
+      "definition": {
+        "format": {
+          "kind": "dotEnum",
+          "value": ".mp4"
+        },
+        "kind": "mediaSourceRef",
+        "mediaKind": {
+          "kind": "dotEnum",
+          "value": ".video"
+        },
+        "source": "url",
+        "url": {
+          "kind": "string",
+          "value": "https://cdn.example.com/abc123"
+        }
+      },
+      "name": "atoms.media.opaqueClip",
       "tokenType": "MediaSource"
     },
     "atoms.opacity.full": {

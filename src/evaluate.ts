@@ -1,4 +1,14 @@
 import type { ConditionExpr, ValueExpr } from "./ast.js";
+import {
+  coerceIconValue,
+  coerceMediaSourceValue,
+  finalizeMediaSourceRef,
+  normalizeIconSystemName,
+  normalizeMediaFormatName,
+  normalizeMediaKindName,
+  type MediaFormat,
+  type MediaKind,
+} from "./assetRefs.js";
 import type { DesignDefinition } from "./designModel.js";
 import { PdlError } from "./errors.js";
 
@@ -142,8 +152,12 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
       if (prim) {
         if (visiting.has(name)) throw new PdlError("PDL-E004", `Circular token reference ${name}`);
         visiting.add(name);
-        const ev = evaluateValue(prim.value, opts);
+        let ev = evaluateValue(prim.value, opts);
         visiting.delete(name);
+        if (prim.tokenType === "Icon") ev = coerceIconValue(ev, opts.design.entryPath);
+        else if (prim.tokenType === "MediaSource") {
+          ev = coerceMediaSourceValue(ev, opts.design.entryPath);
+        }
         opts.tokens.set(name, ev);
         return ev;
       }
@@ -151,8 +165,12 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
       if (sem) {
         if (visiting.has(name)) throw new PdlError("PDL-E004", `Circular token reference ${name}`);
         visiting.add(name);
-        const ev = evaluateValue(sem.value, opts);
+        let ev = evaluateValue(sem.value, opts);
         visiting.delete(name);
+        if (sem.tokenType === "Icon") ev = coerceIconValue(ev, opts.design.entryPath);
+        else if (sem.tokenType === "MediaSource") {
+          ev = coerceMediaSourceValue(ev, opts.design.entryPath);
+        }
         opts.tokens.set(name, ev);
         return ev;
       }
@@ -209,6 +227,84 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
       const spread = expr.spread !== undefined ? evaluateValue(expr.spread, opts) : 0;
       return { kind: "shadow", x, y, blurRadius, spread, color };
     }
+    case "iconRef": {
+      if (expr.source === "file") {
+        const path = evaluateValue(expr.path, opts);
+        if (typeof path !== "string") {
+          throw new PdlError("PDL-E003", "Icon(file:) path must evaluate to a string", {
+            path: opts.design.entryPath,
+          });
+        }
+        return { kind: "iconRef", source: "file", path };
+      }
+      const systemRaw = evaluateValue(expr.system, opts);
+      const name = evaluateValue(expr.name, opts);
+      if (typeof systemRaw !== "string" || typeof name !== "string") {
+        throw new PdlError("PDL-E003", "Icon(system:, name:) requires string system and name", {
+          path: opts.design.entryPath,
+        });
+      }
+      const system = normalizeIconSystemName(systemRaw);
+      if (!system) {
+        throw new PdlError(
+          "PDL-E006",
+          `Unknown Icon system \`${systemRaw}\` (expected .sfSymbols or .materialSymbols)`,
+          { path: opts.design.entryPath },
+        );
+      }
+      return { kind: "iconRef", source: "system", system, name };
+    }
+    case "mediaSourceRef": {
+      const mediaKindRaw =
+        expr.mediaKind !== undefined ? evaluateValue(expr.mediaKind, opts) : undefined;
+      const formatRaw = expr.format !== undefined ? evaluateValue(expr.format, opts) : undefined;
+      let mediaKind: MediaKind | undefined;
+      let format: MediaFormat | undefined;
+      if (mediaKindRaw !== undefined) {
+        const raw = typeof mediaKindRaw === "string" ? mediaKindRaw : String(mediaKindRaw);
+        mediaKind = normalizeMediaKindName(raw);
+        if (!mediaKind) {
+          throw new PdlError(
+            "PDL-E006",
+            `Unknown MediaSource kind \`${raw}\` (expected .raster, .vector, or .video)`,
+            { path: opts.design.entryPath },
+          );
+        }
+      }
+      if (formatRaw !== undefined) {
+        const raw = typeof formatRaw === "string" ? formatRaw : String(formatRaw);
+        format = normalizeMediaFormatName(raw);
+        if (!format) {
+          throw new PdlError(
+            "PDL-E006",
+            `Unknown MediaSource format \`${raw}\` (expected .webp|.jpeg|.png|.gif|.svg|.mp4|.webm|.pdf)`,
+            { path: opts.design.entryPath },
+          );
+        }
+      }
+      if (expr.source === "file") {
+        const path = evaluateValue(expr.path, opts);
+        if (typeof path !== "string") {
+          throw new PdlError("PDL-E003", "MediaSource(file:) path must evaluate to a string", {
+            path: opts.design.entryPath,
+          });
+        }
+        return finalizeMediaSourceRef(
+          { kind: "mediaSourceRef", source: "file", path, mediaKind, format },
+          opts.design.entryPath,
+        );
+      }
+      const url = evaluateValue(expr.url, opts);
+      if (typeof url !== "string") {
+        throw new PdlError("PDL-E003", "MediaSource(url:) must evaluate to a string", {
+          path: opts.design.entryPath,
+        });
+      }
+      return finalizeMediaSourceRef(
+        { kind: "mediaSourceRef", source: "url", url, mediaKind, format },
+        opts.design.entryPath,
+      );
+    }
     case "array":
       return expr.items.map((i) => evaluateValue(i, opts));
     case "instance": {
@@ -236,6 +332,22 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
       if (expr.mode === "hug") return "hug";
       if (expr.mode === "fill") return "fill";
       if (expr.mode === "fixed") return { fixed: expr.fixed };
+      if (expr.mode === "aspect") {
+        if (!expr.aspect) {
+          throw new PdlError("PDL-E003", "`.aspect` requires a ratio argument", {
+            path: opts.design.entryPath,
+          });
+        }
+        const ar = evaluateValue(expr.aspect, opts);
+        if (typeof ar !== "number" || !(ar > 0) || !Number.isFinite(ar)) {
+          throw new PdlError(
+            "PDL-E005",
+            "`.aspect(…)` must evaluate to a positive finite ratio (width/height)",
+            { path: opts.design.entryPath },
+          );
+        }
+        return { aspect: ar };
+      }
       const raw = expr.flexArgs ?? {};
       const flex: Record<string, unknown> = {};
       for (const [k, ve] of Object.entries(raw)) {
@@ -254,6 +366,8 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
           kind: "media",
           source: ev("source"),
           ...(args.contentMode ? { contentMode: ev("contentMode") } : {}),
+          ...(args.justify ? { justify: ev("justify") } : {}),
+          ...(args.align ? { align: ev("align") } : {}),
           ...(args.opacity ? { opacity: ev("opacity") } : {}),
         };
       if (expr.callee === "Vibrancy") return { kind: "vibrancy", vibrancy: ev("vibrancy") };
@@ -299,7 +413,12 @@ export function buildResolvedTokenMap(
       throw new PdlError("PDL-E005", `Unknown theme ${name}`, { path: design.entryPath });
     }
     for (const [tok, rhs] of Object.entries(th.overrides)) {
-      m.set(tok, evaluateValue(rhs, optsBase));
+      let ev = evaluateValue(rhs, optsBase);
+      const tokType =
+        design.primitives.get(tok)?.tokenType ?? design.semantics.get(tok)?.tokenType;
+      if (tokType === "Icon") ev = coerceIconValue(ev, design.entryPath);
+      else if (tokType === "MediaSource") ev = coerceMediaSourceValue(ev, design.entryPath);
+      m.set(tok, ev);
     }
   };
 

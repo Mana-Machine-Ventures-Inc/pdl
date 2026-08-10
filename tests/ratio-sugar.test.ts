@@ -133,16 +133,20 @@ describe("Ratio W:H sugar — design load / catalogue / bake", () => {
     });
   });
 
-  it("bakes media aspectRatio = 16:9 to a numeric prop", () => {
+  it("desugars aspectRatio = 16:9 onto the free height axis when width is closed", () => {
     const design = loadDesign(fx("atoms/ratio_wh_sugar.pdl"));
     const doc = buildBakedDesignComponent(design, { componentName: "RatioSugarMedia" });
-    expect(doc.components.RatioSugarMedia!.root.props.aspectRatio).toBeCloseTo(16 / 9, 10);
+    const props = doc.components.RatioSugarMedia!.root.props;
+    expect(props.aspectRatio).toBeUndefined();
+    expect(props.height).toEqual({ aspect: expect.closeTo(16 / 9, 10) });
   });
 
-  it("bakes aspectRatio token ref that was declared with W:H sugar", () => {
+  it("desugars aspectRatio token ref onto free height when width is closed", () => {
     const design = loadDesign(fx("atoms/ratio_wh_sugar.pdl"));
     const doc = buildBakedDesignComponent(design, { componentName: "RatioSugarTokenRef" });
-    expect(doc.components.RatioSugarTokenRef!.root.props.aspectRatio).toBeCloseTo(4 / 3, 10);
+    const props = doc.components.RatioSugarTokenRef!.root.props;
+    expect(props.aspectRatio).toBeUndefined();
+    expect(props.height).toEqual({ aspect: expect.closeTo(4 / 3, 10) });
   });
 
   it("atoms tokens_icon_media_ratio.pdl uses 16:9 for video", () => {
@@ -153,6 +157,55 @@ describe("Ratio W:H sugar — design load / catalogue / bake", () => {
       height: 9,
     });
     expect(buildResolvedTokenMap(design).get("atoms.ratio.video")).toBeCloseTo(16 / 9, 10);
+  });
+});
+
+describe("Sizing .aspect", () => {
+  it("parses .aspect(16:9) and Sizing.aspect(n)", () => {
+    const m = parseModule(
+      `
+      component A() media {
+        width = 300
+        height = .aspect(16:9)
+      }
+      component B() media {
+        width = Sizing.aspect(1.5)
+        height = 100
+      }
+      `,
+      "x.pdl",
+    );
+    const decls = m.declarations.filter(
+      (d): d is Extract<typeof d, { kind: "component" }> => d.kind === "component",
+    );
+    const h = decls[0]!.body.find((i) => i.kind === "prop" && i.name === "height");
+    expect(h).toMatchObject({
+      kind: "prop",
+      value: { kind: "sizing", mode: "aspect", aspect: { kind: "ratio", width: 16, height: 9 } },
+    });
+    const w = decls[1]!.body.find((i) => i.kind === "prop" && i.name === "width");
+    expect(w).toMatchObject({
+      kind: "prop",
+      value: { kind: "sizing", mode: "aspect", aspect: { kind: "number", value: 1.5 } },
+    });
+  });
+
+  it("bakes height = .aspect(16:9) to { aspect: number }", () => {
+    const design = loadDesign(fx("atoms/aspect_sizing.pdl"));
+    const doc = buildBakedDesignComponent(design, { componentName: "AtomAspectExplicit" });
+    expect(doc.components.AtomAspectExplicit!.root.props).toMatchObject({
+      width: { fixed: 300 },
+      height: { aspect: expect.closeTo(16 / 9, 10) },
+    });
+  });
+
+  it("desugars aspectRatio sugar on AtomAspectSugar", () => {
+    const design = loadDesign(fx("atoms/aspect_sizing.pdl"));
+    const doc = buildBakedDesignComponent(design, { componentName: "AtomAspectSugar" });
+    const props = doc.components.AtomAspectSugar!.root.props;
+    expect(props.aspectRatio).toBeUndefined();
+    expect(props.width).toBe("fill");
+    expect(props.height).toEqual({ aspect: expect.closeTo(16 / 9, 10) });
   });
 });
 

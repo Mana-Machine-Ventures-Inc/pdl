@@ -11,13 +11,13 @@ component AtomIconDefault() layout {
   background = atoms.color.sem.fromRgb
 
   let A: icon = {
-    icon = "check"
+    icon = Icon(system: .sfSymbols, name: "checkmark")
     size = 20
     color = atoms.color.rgba
   }
 
   let B: icon = {
-    icon = "close"
+    icon = Icon(system: .sfSymbols, name: "xmark")
     size = 24
     color = atoms.color.rgb
     opacity = atoms.opacity.mid
@@ -32,7 +32,7 @@ component AtomIconSizing() layout {
   background = atoms.color.sem.fromRgba
 
   let W: icon = {
-    icon = "menu"
+    icon = Icon(system: .sfSymbols, name: "line.3.horizontal")
     width = .fixed(32)
     height = .fixed(32)
     color = atoms.color.sem.fromRgb

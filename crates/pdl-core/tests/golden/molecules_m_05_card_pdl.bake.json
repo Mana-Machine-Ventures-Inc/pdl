@@ -149,14 +149,20 @@
             "id": "Hero",
             "kind": "media",
             "props": {
-              "aspectRatio": 1.7777777777777777,
+              "align": "center",
               "contentMode": "cover",
               "cornerRadius": 4,
               "height": {
-                "fixed": 120
+                "aspect": 1.7777777777777777
               },
-              "objectPosition": "center",
-              "source": "https://example.com/hero.png",
+              "justify": "center",
+              "source": {
+                "format": "png",
+                "kind": "mediaSourceRef",
+                "mediaKind": "raster",
+                "source": "url",
+                "url": "https://example.com/hero.png"
+              },
               "width": "fill"
             }
           },
@@ -242,7 +248,12 @@
                     "kind": "icon",
                     "props": {
                       "color": "#222222",
-                      "icon": "chevron-right",
+                      "icon": {
+                        "kind": "iconRef",
+                        "name": "chevron.right",
+                        "source": "system",
+                        "system": "sfSymbols"
+                      },
                       "size": 18
                     }
                   }
@@ -326,14 +337,20 @@
                 "id": "C1__Hero",
                 "kind": "media",
                 "props": {
-                  "aspectRatio": 1.7777777777777777,
+                  "align": "center",
                   "contentMode": "cover",
                   "cornerRadius": 4,
                   "height": {
-                    "fixed": 120
+                    "aspect": 1.7777777777777777
                   },
-                  "objectPosition": "center",
-                  "source": "https://example.com/hero.png",
+                  "justify": "center",
+                  "source": {
+                    "format": "png",
+                    "kind": "mediaSourceRef",
+                    "mediaKind": "raster",
+                    "source": "url",
+                    "url": "https://example.com/hero.png"
+                  },
                   "width": "fill"
                 }
               },
@@ -419,7 +436,12 @@
                         "kind": "icon",
                         "props": {
                           "color": "#222222",
-                          "icon": "chevron-right",
+                          "icon": {
+                            "kind": "iconRef",
+                            "name": "chevron.right",
+                            "source": "system",
+                            "system": "sfSymbols"
+                          },
                           "size": 18
                         }
                       }
@@ -581,7 +603,12 @@
                         "kind": "icon",
                         "props": {
                           "color": "#222222",
-                          "icon": "chevron-right",
+                          "icon": {
+                            "kind": "iconRef",
+                            "name": "chevron.right",
+                            "source": "system",
+                            "system": "sfSymbols"
+                          },
                           "size": 18
                         }
                       }
@@ -723,7 +750,12 @@
                 "kind": "icon",
                 "props": {
                   "color": "#222222",
-                  "icon": "star",
+                  "icon": {
+                    "kind": "iconRef",
+                    "name": "star",
+                    "source": "system",
+                    "system": "sfSymbols"
+                  },
                   "size": 20
                 }
               },
@@ -777,7 +809,12 @@
                 "kind": "icon",
                 "props": {
                   "color": "#222222",
-                  "icon": "chevron-right",
+                  "icon": {
+                    "kind": "iconRef",
+                    "name": "chevron.right",
+                    "source": "system",
+                    "system": "sfSymbols"
+                  },
                   "size": 18
                 }
               }
@@ -811,7 +848,12 @@
                 "kind": "icon",
                 "props": {
                   "color": "#222222",
-                  "icon": "star",
+                  "icon": {
+                    "kind": "iconRef",
+                    "name": "star",
+                    "source": "system",
+                    "system": "sfSymbols"
+                  },
                   "size": 20
                 }
               },
@@ -830,7 +872,12 @@
                 "kind": "icon",
                 "props": {
                   "color": "#222222",
-                  "icon": "chevron-right",
+                  "icon": {
+                    "kind": "iconRef",
+                    "name": "chevron.right",
+                    "source": "system",
+                    "system": "sfSymbols"
+                  },
                   "size": 18
                 }
               }

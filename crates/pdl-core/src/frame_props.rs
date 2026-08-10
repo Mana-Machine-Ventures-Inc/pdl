@@ -5,6 +5,10 @@ use std::sync::OnceLock;
 
 use serde::Deserialize;
 
+use crate::asset_refs::{
+    is_http_url, is_pack_relative_file_path, media_kind_for_format, normalize_media_format_name,
+    normalize_media_kind_name,
+};
 use crate::ast::*;
 use crate::design::DesignDefinition;
 use crate::error::PdlError;
@@ -97,6 +101,8 @@ fn value_kind_name(value: &ValueExpr) -> &'static str {
         ValueExpr::EdgeInsets { .. } => "edgeInsets",
         ValueExpr::Corner { .. } => "corner",
         ValueExpr::Shadow { .. } => "shadow",
+        ValueExpr::IconFile { .. } | ValueExpr::IconSystem { .. } => "iconRef",
+        ValueExpr::MediaSourceFile { .. } | ValueExpr::MediaSourceUrl { .. } => "mediaSourceRef",
         ValueExpr::Array { .. } => "array",
         ValueExpr::Transition { .. } => "transition",
         ValueExpr::VibrancyTuple { .. } => "vibrancyTuple",
@@ -225,7 +231,15 @@ fn value_kind_expectation(type_id: &str) -> String {
     parts.join(" | ")
 }
 
-fn literal_ok(vk: &ValueKindDef, value: &ValueExpr) -> bool {
+fn literal_ok(vk: &ValueKindDef, value: &ValueExpr, type_id: &str) -> bool {
+    // Bare `.hug` / `.fill` parse as DotEnum (shared with ContentMode.fill); only those
+    // cases are valid for sizing props.
+    if type_id == "sizing" {
+        if let ValueExpr::DotEnum { value: v } = value {
+            let c = v.strip_prefix('.').unwrap_or(v.as_str());
+            return c == "hug" || c == "fill";
+        }
+    }
     let kind = value_kind_name(value);
     if !vk.accept.iter().any(|a| a == kind) {
         return false;
@@ -245,6 +259,14 @@ fn literal_ok(vk: &ValueKindDef, value: &ValueExpr) -> bool {
     }
     if let ValueExpr::Ratio { width, height } = value {
         if !(*width > 0.0 && *height > 0.0) {
+            return false;
+        }
+    }
+    if let ValueExpr::String { value: s } = value {
+        if type_id == "icon" && !is_pack_relative_file_path(s) {
+            return false;
+        }
+        if type_id == "mediaSource" && !is_http_url(s) && !is_pack_relative_file_path(s) {
             return false;
         }
     }
@@ -325,9 +347,20 @@ pub fn assert_frame_prop_compatible(
         ));
     }
 
-    if literal_ok(vk, value) {
+    if literal_ok(vk, value, &type_id) {
         if type_id == "colorOrLayers" {
             assert_layer_stack_value(design, value, &format!("{context}: property `{prop}`"))?;
+        }
+        if type_id == "sizing" {
+            if let ValueExpr::Sizing {
+                mode: SizingMode::Aspect { aspect },
+            } = value
+            {
+                assert_aspect_sizing_arg(design, aspect, &format!("{context}: property `{prop}`"))?;
+            }
+        }
+        if type_id == "mediaSource" {
+            assert_media_source_meta_frame(design, value, &format!("{context}: property `{prop}`"))?;
         }
         return Ok(());
     }
@@ -340,6 +373,205 @@ pub fn assert_frame_prop_compatible(
         ),
         design,
     ))
+}
+
+fn assert_media_source_meta_frame(
+    design: &DesignDefinition,
+    value: &ValueExpr,
+    context: &str,
+) -> Result<(), PdlError> {
+    let (media_kind, format) = match value {
+        ValueExpr::MediaSourceFile {
+            media_kind,
+            format,
+            ..
+        }
+        | ValueExpr::MediaSourceUrl {
+            media_kind,
+            format,
+            ..
+        } => (media_kind, format),
+        _ => return Ok(()),
+    };
+    let mk = if let Some(k) = media_kind {
+        let raw = match k.as_ref() {
+            ValueExpr::DotEnum { value } | ValueExpr::Ident { name: value } => value.as_str(),
+            _ => {
+                return Err(err(
+                    "PDL-E006",
+                    format!("{context}: MediaSource kind must be .raster, .vector, or .video"),
+                    design,
+                ))
+            }
+        };
+        let Some(n) = normalize_media_kind_name(raw) else {
+            return Err(err(
+                "PDL-E006",
+                format!("{context}: MediaSource kind must be .raster, .vector, or .video"),
+                design,
+            ));
+        };
+        Some(n)
+    } else {
+        None
+    };
+    let fmt = if let Some(f) = format {
+        let raw = match f.as_ref() {
+            ValueExpr::DotEnum { value } | ValueExpr::Ident { name: value } => value.as_str(),
+            _ => {
+                return Err(err(
+                    "PDL-E006",
+                    format!(
+                        "{context}: MediaSource format must be one of .webp|.jpeg|.png|.gif|.svg|.mp4|.webm|.pdf"
+                    ),
+                    design,
+                ))
+            }
+        };
+        let Some(n) = normalize_media_format_name(raw) else {
+            return Err(err(
+                "PDL-E006",
+                format!(
+                    "{context}: MediaSource format must be one of .webp|.jpeg|.png|.gif|.svg|.mp4|.webm|.pdf"
+                ),
+                design,
+            ));
+        };
+        Some(n)
+    } else {
+        None
+    };
+    if let (Some(mk), Some(fmt)) = (mk, fmt) {
+        let expected = media_kind_for_format(fmt).unwrap_or("");
+        if mk != expected {
+            return Err(err(
+                "PDL-E006",
+                format!(
+                    "{context}: MediaSource kind `.{mk}` is incompatible with format `.{fmt}`"
+                ),
+                design,
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn assert_aspect_sizing_arg(
+    design: &DesignDefinition,
+    aspect: &ValueExpr,
+    context: &str,
+) -> Result<(), PdlError> {
+    match aspect {
+        ValueExpr::Number { value: n } => {
+            if !(*n > 0.0) || !n.is_finite() {
+                return Err(err(
+                    "PDL-E006",
+                    format!("{context}: `.aspect(n)` requires a positive finite ratio"),
+                    design,
+                ));
+            }
+            Ok(())
+        }
+        ValueExpr::Ratio { width, height } => {
+            if !(*height > 0.0) || !width.is_finite() || !height.is_finite() {
+                return Err(err(
+                    "PDL-E006",
+                    format!("{context}: `.aspect(W:H)` requires a positive finite height"),
+                    design,
+                ));
+            }
+            Ok(())
+        }
+        ValueExpr::Ident { name } => {
+            if let Some(ref_type) = token_type_of(design, name) {
+                if ref_type != "Ratio" {
+                    return Err(err(
+                        "PDL-E006",
+                        format!(
+                            "{context}: `.aspect` expects a Ratio token (`{name}` has type {ref_type})"
+                        ),
+                        design,
+                    ));
+                }
+            }
+            Ok(())
+        }
+        _ => Err(err(
+            "PDL-E006",
+            format!(
+                "{context}: `.aspect` expects a positive ratio, `W:H` sugar, or Ratio token (got {})",
+                value_kind_name(aspect)
+            ),
+            design,
+        )),
+    }
+}
+
+fn is_aspect_sizing_expr(value: Option<&ValueExpr>) -> bool {
+    matches!(
+        value,
+        Some(ValueExpr::Sizing {
+            mode: SizingMode::Aspect { .. },
+        })
+    )
+}
+
+fn is_closed_sizing_expr(value: Option<&ValueExpr>) -> bool {
+    match value {
+        None | Some(ValueExpr::Null) => false,
+        Some(ValueExpr::Number { .. }) => true,
+        Some(ValueExpr::Sizing { mode }) => matches!(
+            mode,
+            SizingMode::Fill | SizingMode::Fixed { .. } | SizingMode::Flex { .. }
+        ),
+        // Bare `.fill` is a closed sizing enum (`.hug` is free).
+        Some(ValueExpr::DotEnum { value }) => {
+            value.strip_prefix('.').unwrap_or(value.as_str()) == "fill"
+        }
+        Some(ValueExpr::Ident { .. }) => true,
+        _ => false,
+    }
+}
+
+pub fn assert_aspect_box_consistent(
+    design: &DesignDefinition,
+    props: &HashMap<String, ValueExpr>,
+    context: &str,
+) -> Result<(), PdlError> {
+    let width = props.get("width");
+    let height = props.get("height");
+    let aspect_ratio = props.get("aspectRatio");
+    let w_aspect = is_aspect_sizing_expr(width);
+    let h_aspect = is_aspect_sizing_expr(height);
+
+    if w_aspect && h_aspect {
+        return Err(err(
+            "PDL-E006",
+            format!(
+                "{context}: cannot set `.aspect` on both `width` and `height` — put `.aspect(…)` on the derived axis only"
+            ),
+            design,
+        ));
+    }
+    if aspect_ratio.is_some() && (w_aspect || h_aspect) {
+        return Err(err(
+            "PDL-E006",
+            format!(
+                "{context}: use either `aspectRatio` or `.aspect(…)` on one axis, not both"
+            ),
+            design,
+        ));
+    }
+    if aspect_ratio.is_some() && is_closed_sizing_expr(width) && is_closed_sizing_expr(height) {
+        return Err(err(
+            "PDL-E006",
+            format!(
+                "{context}: `aspectRatio` conflicts with both `width` and `height` set — leave one axis free or use `height = .aspect(…)` / `width = .aspect(…)`"
+            ),
+            design,
+        ));
+    }
+    Ok(())
 }
 
 /// Token types valid as a whole layer entry (`Ramp` is a full paint shape; `Blur`/`Opacity` are inputs).
@@ -444,11 +676,31 @@ pub fn validate_frame_props_in_body(
     current_frame_kind: &str,
     let_kinds: &HashMap<String, String>,
 ) -> Result<(), PdlError> {
+    validate_frame_props_in_body_with_props(
+        design,
+        items,
+        component_name,
+        current_frame_kind,
+        let_kinds,
+        &HashMap::new(),
+    )
+}
+
+fn validate_frame_props_in_body_with_props(
+    design: &DesignDefinition,
+    items: &[FrameBodyItem],
+    component_name: &str,
+    current_frame_kind: &str,
+    let_kinds: &HashMap<String, String>,
+    inherited: &HashMap<String, ValueExpr>,
+) -> Result<(), PdlError> {
     let ctx = format!("component {component_name}");
+    let mut props_on_frame = inherited.clone();
     for item in items {
         match item {
             FrameBodyItem::Prop { name, value } => {
                 validate_prop_on_kind(design, current_frame_kind, name, value, &ctx)?;
+                props_on_frame.insert(name.clone(), value.clone());
             }
             FrameBodyItem::FrameProp { frame, name, value } => {
                 if let Some(fk) = let_kinds.get(frame) {
@@ -462,28 +714,30 @@ pub fn validate_frame_props_in_body(
             }
             FrameBodyItem::If { chain } => {
                 for br in &chain.branches {
-                    validate_frame_props_in_body(
+                    validate_frame_props_in_body_with_props(
                         design,
                         &br.body,
                         component_name,
                         current_frame_kind,
                         let_kinds,
+                        &props_on_frame,
                     )?;
                 }
                 if let Some(else_body) = &chain.else_body {
-                    validate_frame_props_in_body(
+                    validate_frame_props_in_body_with_props(
                         design,
                         else_body,
                         component_name,
                         current_frame_kind,
                         let_kinds,
+                        &props_on_frame,
                     )?;
                 }
             }
             _ => {}
         }
     }
-    Ok(())
+    assert_aspect_box_consistent(design, &props_on_frame, &ctx)
 }
 
 pub fn validate_type_style_props(design: &DesignDefinition) -> Result<(), PdlError> {

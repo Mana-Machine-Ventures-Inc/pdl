@@ -500,7 +500,7 @@ describe("renderHtml", () => {
     expect(frag).not.toMatch(/border:\s*4px/);
   });
 
-  it("maps media aspectRatio and objectPosition", () => {
+  it("maps media aspectRatio and justify/align to object-position", () => {
     const frag = renderBakedComponentToHtmlFragment({
       name: "M",
       rootKind: "media",
@@ -513,14 +513,64 @@ describe("renderHtml", () => {
           width: { fixed: 240 },
           aspectRatio: 1.5,
           contentMode: "cover",
-          objectPosition: "topLeft",
+          justify: "start",
+          align: "start",
         },
         children: [],
       },
     });
     expect(frag).toContain("aspect-ratio:1.5");
     expect(frag).toContain("object-fit:cover");
-    expect(frag).toContain("object-position:top left");
+    expect(frag).toContain("object-position:left top");
+  });
+
+  it("renders mediaSourceRef mediaKind=video as <video>", () => {
+    const frag = renderBakedComponentToHtmlFragment({
+      name: "M",
+      rootKind: "media",
+      bakedParams: {},
+      root: {
+        id: "Root",
+        kind: "media",
+        props: {
+          source: {
+            kind: "mediaSourceRef",
+            source: "url",
+            url: "https://cdn.example.com/clip.mp4",
+            mediaKind: "video",
+            format: "mp4",
+          },
+          width: { fixed: 320 },
+          height: { aspect: 16 / 9 },
+        },
+        children: [],
+      },
+    });
+    expect(frag).toContain("<video");
+    expect(frag).toContain('src="https://cdn.example.com/clip.mp4"');
+    expect(frag).not.toContain("<img");
+  });
+
+  it("maps height = { aspect } sizing to CSS aspect-ratio", () => {
+    const frag = renderBakedComponentToHtmlFragment({
+      name: "M",
+      rootKind: "media",
+      bakedParams: {},
+      root: {
+        id: "Root",
+        kind: "media",
+        props: {
+          source: "https://example.com/a.jpg",
+          width: { fixed: 300 },
+          height: { aspect: 16 / 9 },
+          contentMode: "cover",
+        },
+        children: [],
+      },
+    });
+    expect(frag).toContain("aspect-ratio:");
+    expect(frag).toContain("width:300px");
+    expect(frag).toContain("height:auto");
   });
 
   it("vertically aligns text via align on a fixed-height text root", () => {
@@ -603,13 +653,62 @@ describe("renderHtml", () => {
       root: {
         id: "Root",
         kind: "icon",
-        props: { icon: "star", size: 32, color: "#336699" },
+        props: {
+          icon: { kind: "iconRef", source: "system", system: "sfSymbols", name: "star" },
+          size: 32,
+          color: "#336699",
+        },
         children: [],
       },
     });
     expect(frag).toContain("pdl-icon__name");
-    expect(frag).toContain("star");
+    expect(frag).toContain("sfSymbols:star");
+    expect(frag).toContain('data-pdl-icon-system="sfSymbols"');
     expect(frag).toContain("#336699");
+    expect(frag).toContain("width:32px");
+    expect(frag).toContain("height:32px");
+  });
+
+  it("honors icon width/height over default square size", () => {
+    const frag = renderBakedComponentToHtmlFragment({
+      name: "TallIcon",
+      rootKind: "icon",
+      bakedParams: {},
+      root: {
+        id: "Root",
+        kind: "icon",
+        props: {
+          icon: { kind: "iconRef", source: "system", system: "sfSymbols", name: "star" },
+          width: { fixed: 24 },
+          height: { fixed: 48 },
+          color: "#FF0000",
+        },
+        children: [],
+      },
+    });
+    expect(frag).toContain("width:24px");
+    expect(frag).toContain("height:48px");
+    expect(frag).not.toContain("height:24px");
+  });
+
+  it("renders pack-relative icon file refs as img", () => {
+    const frag = renderBakedComponentToHtmlFragment({
+      name: "FileIcon",
+      rootKind: "icon",
+      bakedParams: {},
+      root: {
+        id: "Root",
+        kind: "icon",
+        props: {
+          icon: { kind: "iconRef", source: "file", path: "icons/star.svg" },
+          size: 24,
+          color: "#FF0000",
+        },
+        children: [],
+      },
+    });
+    expect(frag).toContain("pdl-icon--file");
+    expect(frag).toContain('src="icons/star.svg"');
   });
 
   it("keeps layered background chrome outside the overflow scrollport", () => {

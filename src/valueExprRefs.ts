@@ -36,6 +36,23 @@ export function collectDeclaredTokenNamesFromValueExpr(
       collectDeclaredTokenNamesFromValueExpr(expr.color, design, sink);
       if (expr.spread) collectDeclaredTokenNamesFromValueExpr(expr.spread, design, sink);
       return;
+    case "iconRef":
+      if (expr.source === "file") {
+        collectDeclaredTokenNamesFromValueExpr(expr.path, design, sink);
+      } else {
+        collectDeclaredTokenNamesFromValueExpr(expr.system, design, sink);
+        collectDeclaredTokenNamesFromValueExpr(expr.name, design, sink);
+      }
+      return;
+    case "mediaSourceRef":
+      collectDeclaredTokenNamesFromValueExpr(
+        expr.source === "file" ? expr.path : expr.url,
+        design,
+        sink,
+      );
+      if (expr.mediaKind) collectDeclaredTokenNamesFromValueExpr(expr.mediaKind, design, sink);
+      if (expr.format) collectDeclaredTokenNamesFromValueExpr(expr.format, design, sink);
+      return;
     case "array":
       for (const it of expr.items) collectDeclaredTokenNamesFromValueExpr(it, design, sink);
       return;
@@ -53,6 +70,7 @@ export function collectDeclaredTokenNamesFromValueExpr(
       for (const s of expr.stops) collectDeclaredTokenNamesFromValueExpr(s, design, sink);
       return;
     case "sizing":
+      if (expr.aspect) collectDeclaredTokenNamesFromValueExpr(expr.aspect, design, sink);
       if (expr.flexArgs) {
         for (const v of Object.values(expr.flexArgs)) collectDeclaredTokenNamesFromValueExpr(v, design, sink);
       }

@@ -1,0 +1,2 @@
+// PDL-E006 — unknown IconSystem
+primitive bad.icon: Icon = Icon(system: .lucide, name: "star")

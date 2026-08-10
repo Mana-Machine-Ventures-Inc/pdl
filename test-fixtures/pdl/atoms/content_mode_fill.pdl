@@ -1,0 +1,8 @@
+// Bare `.fill` must work for ContentMode (object-fit) and Sizing (axis fill).
+component AtomContentModeFill() media {
+  width = .fill
+  height = .hug
+  contentMode = .fill
+  source = "photo.jpg"
+  children = []
+}

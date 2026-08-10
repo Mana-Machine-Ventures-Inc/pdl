@@ -1,0 +1,7 @@
+// PDL-E006 — aspectRatio with both width and height closed
+component BadAspect() media {
+  source = "https://example.com/a.png"
+  width = 300
+  height = 50
+  aspectRatio = 16:9
+}

@@ -1,0 +1,5 @@
+primitive bad: MediaSource = MediaSource(
+  url: "https://cdn.example.com/x",
+  kind: .video,
+  format: .png
+)

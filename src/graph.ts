@@ -62,6 +62,24 @@ export function serialiseValueExpr(e: ValueExpr): unknown {
         color: serialiseValueExpr(e.color),
         ...(e.spread ? { spread: serialiseValueExpr(e.spread) } : {}),
       };
+    case "iconRef":
+      return e.source === "file"
+        ? { kind: "iconRef", source: "file", path: serialiseValueExpr(e.path) }
+        : {
+            kind: "iconRef",
+            source: "system",
+            system: serialiseValueExpr(e.system),
+            name: serialiseValueExpr(e.name),
+          };
+    case "mediaSourceRef": {
+      const meta = {
+        ...(e.mediaKind ? { mediaKind: serialiseValueExpr(e.mediaKind) } : {}),
+        ...(e.format ? { format: serialiseValueExpr(e.format) } : {}),
+      };
+      return e.source === "file"
+        ? { kind: "mediaSourceRef", source: "file", path: serialiseValueExpr(e.path), ...meta }
+        : { kind: "mediaSourceRef", source: "url", url: serialiseValueExpr(e.url), ...meta };
+    }
     case "array":
       return { kind: "array", items: e.items.map(serialiseValueExpr) };
     case "instance":
@@ -88,6 +106,7 @@ export function serialiseValueExpr(e: ValueExpr): unknown {
         kind: "sizing",
         mode: e.mode,
         ...(e.fixed !== undefined ? { fixed: e.fixed } : {}),
+        ...(e.aspect ? { aspect: serialiseValueExpr(e.aspect) } : {}),
         ...(e.flexArgs ? { flexArgs: Object.fromEntries(Object.entries(e.flexArgs).map(([k, v]) => [k, serialiseValueExpr(v)])) } : {}),
       };
     case "call":
@@ -161,6 +180,40 @@ export function serialiseValueExprWithTokenRefs(expr: ValueExpr, design: DesignD
           ? { spread: serialiseValueExprWithTokenRefs(expr.spread, design) }
           : {}),
       };
+    case "iconRef":
+      return expr.source === "file"
+        ? {
+            kind: "iconRef",
+            source: "file",
+            path: serialiseValueExprWithTokenRefs(expr.path, design),
+          }
+        : {
+            kind: "iconRef",
+            source: "system",
+            system: serialiseValueExprWithTokenRefs(expr.system, design),
+            name: serialiseValueExprWithTokenRefs(expr.name, design),
+          };
+    case "mediaSourceRef": {
+      const meta = {
+        ...(expr.mediaKind
+          ? { mediaKind: serialiseValueExprWithTokenRefs(expr.mediaKind, design) }
+          : {}),
+        ...(expr.format ? { format: serialiseValueExprWithTokenRefs(expr.format, design) } : {}),
+      };
+      return expr.source === "file"
+        ? {
+            kind: "mediaSourceRef",
+            source: "file",
+            path: serialiseValueExprWithTokenRefs(expr.path, design),
+            ...meta,
+          }
+        : {
+            kind: "mediaSourceRef",
+            source: "url",
+            url: serialiseValueExprWithTokenRefs(expr.url, design),
+            ...meta,
+          };
+    }
     case "array":
       return { kind: "array", items: expr.items.map((it) => serialiseValueExprWithTokenRefs(it, design)) };
     case "instance":
@@ -194,6 +247,7 @@ export function serialiseValueExprWithTokenRefs(expr: ValueExpr, design: DesignD
         kind: "sizing",
         mode: expr.mode,
         ...(expr.fixed !== undefined ? { fixed: expr.fixed } : {}),
+        ...(expr.aspect ? { aspect: serialiseValueExprWithTokenRefs(expr.aspect, design) } : {}),
         ...(expr.flexArgs
           ? {
               flexArgs: Object.fromEntries(

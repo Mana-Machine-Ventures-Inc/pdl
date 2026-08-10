@@ -5,7 +5,12 @@
         "count": 2,
         "density": "comfortable",
         "enabled": true,
-        "glyph": "dot",
+        "glyph": {
+          "kind": "iconRef",
+          "name": "circle.fill",
+          "source": "system",
+          "system": "sfSymbols"
+        },
         "label": "Label"
       },
       "name": "AtomParamsKitchenSink",
@@ -26,7 +31,12 @@
             "kind": "icon",
             "props": {
               "color": "#222222",
-              "icon": "dot",
+              "icon": {
+                "kind": "iconRef",
+                "name": "circle.fill",
+                "source": "system",
+                "system": "sfSymbols"
+              },
               "size": 18
             }
           }

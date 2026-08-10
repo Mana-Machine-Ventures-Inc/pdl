@@ -32,7 +32,7 @@
         "count": "2",
         "density": "comfortable",
         "enabled": "true",
-        "glyph": "dot",
+        "glyph": "{\"kind\":\"iconRef\",\"source\":\"system\",\"system\":\"sfSymbols\",\"name\":\"circle.fill\"}",
         "label": "Label"
       },
       "expose": [
@@ -60,7 +60,12 @@
           "type": "Boolean"
         },
         {
-          "default": "dot",
+          "default": {
+            "kind": "iconRef",
+            "name": "circle.fill",
+            "source": "system",
+            "system": "sfSymbols"
+          },
           "name": "glyph",
           "type": "Icon"
         },

@@ -7,6 +7,14 @@ import type {
   ValueExpr,
 } from "./ast.js";
 import type { DesignDefinition } from "./designModel.js";
+import {
+  isHttpUrl,
+  isPackRelativeFilePath,
+  mediaKindForFormat,
+  normalizeIconSystemName,
+  normalizeMediaFormatName,
+  normalizeMediaKindName,
+} from "./assetRefs.js";
 import { PdlError } from "./errors.js";
 import {
   assertLayerStackValue,
@@ -462,10 +470,12 @@ function tokenRhsExpectation(tokenType: string): string {
     case "Blur":
       return "a non-negative number";
     case "FontFamily":
-    case "Icon":
-    case "MediaSource":
     case "Easing":
       return "a string";
+    case "Icon":
+      return '`Icon(file: "…")`, `Icon(system: .sfSymbols|.materialSymbols, name: "…")`, or a pack-relative path string';
+    case "MediaSource":
+      return '`MediaSource(file: "…" [, kind:, format:])`, `MediaSource(url: "…" [, kind:, format:])`, an http(s) URL, or a pack-relative path string';
     case "Transition":
       return "a transition tuple `(duration: …, easing: …)`";
     case "Vibrancy":
@@ -473,7 +483,7 @@ function tokenRhsExpectation(tokenType: string): string {
     case "Ramp":
       return "a ramp literal `(direction: …, stops: […])`";
     case "Sizing":
-      return "a sizing literal (`.hug` / `Sizing.hug`, `.fill`, `.fixed(n)`, `.flex(…)`)";
+      return "a sizing literal (`.hug` / `Sizing.hug`, `.fill`, `.fixed(n)`, `.flex(…)`, `.aspect(16:9)`)";
     case "Background":
     case "Foreground":
       return "a color, layer list `[…]`, or layer constructor";
@@ -574,6 +584,134 @@ function assertShadowConstructorFields(
   assertShadowColorField(design, tokenName, value.color);
 }
 
+function assertIconRefFields(
+  design: DesignDefinition,
+  tokenName: string,
+  value: Extract<ValueExpr, { kind: "iconRef" }>,
+): void {
+  if (value.source === "file") {
+    if (value.path.kind !== "string" || !isPackRelativeFilePath(value.path.value)) {
+      const got = value.path.kind === "string" ? value.path.value : value.path.kind;
+      const hint =
+        value.path.kind === "string" && value.path.value.startsWith("/")
+          ? " — no leading `/` (pack-relative, not site root)"
+          : "";
+      throw new PdlError(
+        "PDL-E005",
+        `Icon \`${tokenName}\` file path must be pack-relative (e.g. \`icons/star.svg\`); got \`${got}\`${hint}`,
+        { path: design.entryPath },
+      );
+    }
+    return;
+  }
+  if (value.name.kind !== "string" || value.name.value.length === 0) {
+    throw new PdlError(
+      "PDL-E005",
+      `Icon \`${tokenName}\` system ref requires a non-empty name string`,
+      { path: design.entryPath },
+    );
+  }
+  const sysRaw =
+    value.system.kind === "dotEnum"
+      ? value.system.value
+      : value.system.kind === "ident"
+        ? value.system.name
+        : value.system.kind === "string"
+          ? value.system.value
+          : "";
+  if (!normalizeIconSystemName(sysRaw)) {
+    throw new PdlError(
+      "PDL-E006",
+      `Icon \`${tokenName}\` unknown system (expected .sfSymbols or .materialSymbols)`,
+      { path: design.entryPath },
+    );
+  }
+}
+
+function assertMediaSourceMetaFields(
+  design: DesignDefinition,
+  tokenName: string,
+  value: Extract<ValueExpr, { kind: "mediaSourceRef" }>,
+): void {
+  if (value.mediaKind !== undefined) {
+    if (value.mediaKind.kind !== "dotEnum" && value.mediaKind.kind !== "ident") {
+      throw new PdlError(
+        "PDL-E006",
+        `MediaSource \`${tokenName}\` kind must be .raster, .vector, or .video`,
+        { path: design.entryPath },
+      );
+    }
+    const raw =
+      value.mediaKind.kind === "dotEnum" ? value.mediaKind.value : value.mediaKind.name;
+    if (!normalizeMediaKindName(raw)) {
+      throw new PdlError(
+        "PDL-E006",
+        `MediaSource \`${tokenName}\` unknown kind \`${raw}\` (expected .raster, .vector, or .video)`,
+        { path: design.entryPath },
+      );
+    }
+  }
+  if (value.format !== undefined) {
+    if (value.format.kind !== "dotEnum" && value.format.kind !== "ident") {
+      throw new PdlError(
+        "PDL-E006",
+        `MediaSource \`${tokenName}\` format must be a closed case (.webp|.jpeg|.png|.gif|.svg|.mp4|.webm|.pdf)`,
+        { path: design.entryPath },
+      );
+    }
+    const raw = value.format.kind === "dotEnum" ? value.format.value : value.format.name;
+    if (!normalizeMediaFormatName(raw)) {
+      throw new PdlError(
+        "PDL-E006",
+        `MediaSource \`${tokenName}\` unknown format \`${raw}\``,
+        { path: design.entryPath },
+      );
+    }
+  }
+  const mk = value.mediaKind
+    ? normalizeMediaKindName(
+        value.mediaKind.kind === "dotEnum" ? value.mediaKind.value : value.mediaKind.name,
+      )
+    : undefined;
+  const fmt = value.format
+    ? normalizeMediaFormatName(
+        value.format.kind === "dotEnum" ? value.format.value : value.format.name,
+      )
+    : undefined;
+  if (mk && fmt && mediaKindForFormat(fmt) !== mk) {
+    throw new PdlError(
+      "PDL-E006",
+      `MediaSource \`${tokenName}\` kind \`.${mk}\` is incompatible with format \`.${fmt}\` (expected \`.${mediaKindForFormat(fmt)}\`)`,
+      { path: design.entryPath },
+    );
+  }
+}
+
+function assertMediaSourceRefFields(
+  design: DesignDefinition,
+  tokenName: string,
+  value: Extract<ValueExpr, { kind: "mediaSourceRef" }>,
+): void {
+  assertMediaSourceMetaFields(design, tokenName, value);
+  if (value.source === "file") {
+    if (value.path.kind !== "string" || !isPackRelativeFilePath(value.path.value)) {
+      throw new PdlError(
+        "PDL-E005",
+        `MediaSource \`${tokenName}\` file path must be a pack-relative string (e.g. \`media/hero.jpg\`)`,
+        { path: design.entryPath },
+      );
+    }
+    return;
+  }
+  if (value.url.kind !== "string" || !isHttpUrl(value.url.value)) {
+    throw new PdlError(
+      "PDL-E005",
+      `MediaSource \`${tokenName}\` url must be an http(s) string`,
+      { path: design.entryPath },
+    );
+  }
+}
+
 /**
  * Full-spec §23.2: one gate for every TokenType RHS shape.
  * Bare `ident` is accepted here; primitive/semantic alias rules run separately.
@@ -635,10 +773,17 @@ function assertTokenRhsCompatible(
       case "Blur":
         return value.kind === "number" && value.value >= 0;
       case "FontFamily":
-      case "Icon":
-      case "MediaSource":
       case "Easing":
         return value.kind === "string";
+      case "Icon":
+        if (value.kind === "iconRef") return true;
+        return value.kind === "string" && isPackRelativeFilePath(value.value);
+      case "MediaSource":
+        if (value.kind === "mediaSourceRef") return true;
+        return (
+          value.kind === "string" &&
+          (isHttpUrl(value.value) || isPackRelativeFilePath(value.value))
+        );
       case "Transition":
         return value.kind === "transition";
       case "Vibrancy":
@@ -646,7 +791,13 @@ function assertTokenRhsCompatible(
       case "Ramp":
         return value.kind === "rampInline";
       case "Sizing":
-        return value.kind === "sizing";
+        if (value.kind === "sizing") return true;
+        // Bare `.hug` / `.fill` parse as dotEnum (same spelling as ContentMode.fill).
+        if (value.kind === "dotEnum") {
+          const c = value.value.startsWith(".") ? value.value.slice(1) : value.value;
+          return c === "hug" || c === "fill";
+        }
+        return false;
       case "Background":
       case "Foreground":
         return (
@@ -661,7 +812,7 @@ function assertTokenRhsCompatible(
   })();
 
   if (!ok) {
-    const detail =
+    let detail =
       tokenType === "Opacity" && value.kind === "number"
         ? " (out of range 0…1)"
         : (tokenType === "Distance" ||
@@ -671,6 +822,20 @@ function assertTokenRhsCompatible(
             value.kind === "number"
           ? " (must be non-negative)"
           : ` (got ${value.kind})`;
+    if (
+      tokenType === "Icon" &&
+      value.kind === "string" &&
+      value.value.startsWith("/")
+    ) {
+      detail =
+        ` (got \`${value.value}\` — pack-relative Icon paths must not start with \`/\`; use \`icons/star.svg\`)`;
+    } else if (
+      tokenType === "Icon" &&
+      value.kind === "string" &&
+      !isPackRelativeFilePath(value.value)
+    ) {
+      detail = ` (got \`${value.value}\` — bare names are ambiguous; use \`Icon(system: .sfSymbols, name: "…")\` or a pack path like \`icons/star.svg\`)`;
+    }
     throw new PdlError(
       "PDL-E005",
       `Token \`${name}\` has type ${tokenType} and must be ${tokenRhsExpectation(tokenType)}${detail}`,
@@ -680,6 +845,12 @@ function assertTokenRhsCompatible(
 
   if (tokenType === "Shadow" && value.kind === "shadow") {
     assertShadowConstructorFields(design, name, value);
+  }
+  if (tokenType === "Icon" && value.kind === "iconRef") {
+    assertIconRefFields(design, name, value);
+  }
+  if (tokenType === "MediaSource" && value.kind === "mediaSourceRef") {
+    assertMediaSourceRefFields(design, name, value);
   }
   if ((tokenType === "Background" || tokenType === "Foreground") && ok) {
     try {

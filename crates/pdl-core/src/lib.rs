@@ -3,6 +3,7 @@
 //! Skeleton only (implementation plan step A0). Public API will grow behind
 //! stable bake/catalogue JSON contracts shared with the TypeScript oracle.
 
+pub mod asset_refs;
 pub mod ast;
 pub mod bake;
 pub mod catalogue;

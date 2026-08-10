@@ -5,6 +5,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use crate::asset_refs::{is_http_url, is_pack_relative_file_path, normalize_icon_system_name};
 use crate::ast::*;
 use crate::design::{effective_params, DesignDefinition};
 use crate::error::PdlError;
@@ -1057,12 +1058,18 @@ fn token_rhs_expectation(token_type: &str) -> &'static str {
         "LetterSpacing" => "a number (em units, e.g. `0.01` or `-0.02`)",
         "Ratio" => "a positive number or `W:H` ratio sugar (e.g. `16:9`)",
         "Duration" | "Blur" => "a non-negative number",
-        "FontFamily" | "Icon" | "MediaSource" | "Easing" => "a string",
+        "FontFamily" | "Easing" => "a string",
+        "Icon" => {
+            "`Icon(file: \"…\")`, `Icon(system: .sfSymbols|.materialSymbols, name: \"…\")`, or a pack-relative path string"
+        }
+        "MediaSource" => {
+            "`MediaSource(file: \"…\" [, kind:, format:])`, `MediaSource(url: \"…\" [, kind:, format:])`, an http(s) URL, or a pack-relative path string"
+        }
         "Transition" => "a transition tuple `(duration: …, easing: …)`",
         "Vibrancy" => "a vibrancy tuple `(saturation: …, brightness: …)`",
         "Ramp" => "a ramp literal `(direction: …, stops: […])`",
         "Sizing" => {
-            "a sizing literal (`.hug` / `Sizing.hug`, `.fill`, `.fixed(n)`, `.flex(…)`)"
+            "a sizing literal (`.hug` / `Sizing.hug`, `.fill`, `.fixed(n)`, `.flex(…)`, `.aspect(16:9)`)"
         }
         "Background" | "Foreground" => "a color, layer list `[…]`, or layer constructor",
         _ => "a value compatible with the declared TokenType",
@@ -1086,6 +1093,8 @@ fn value_expr_kind_name(value: &ValueExpr) -> &'static str {
         ValueExpr::EdgeInsets { .. } => "edgeInsets",
         ValueExpr::Corner { .. } => "corner",
         ValueExpr::Shadow { .. } => "shadow",
+        ValueExpr::IconFile { .. } | ValueExpr::IconSystem { .. } => "iconRef",
+        ValueExpr::MediaSourceFile { .. } | ValueExpr::MediaSourceUrl { .. } => "mediaSourceRef",
         ValueExpr::Array { .. } => "array",
         ValueExpr::Instance { .. } => "instance",
         ValueExpr::Transition { .. } => "transition",
@@ -1215,6 +1224,182 @@ fn assert_shadow_constructor_fields(
     assert_shadow_color_field(design, token_name, color)
 }
 
+fn assert_icon_ref_fields(
+    design: &DesignDefinition,
+    token_name: &str,
+    value: &ValueExpr,
+) -> Result<(), PdlError> {
+    match value {
+        ValueExpr::IconFile { path } => match path.as_ref() {
+            ValueExpr::String { value: s } if is_pack_relative_file_path(s) => Ok(()),
+            ValueExpr::String { value: s } => {
+                let hint = if s.starts_with('/') {
+                    " — no leading `/` (pack-relative, not site root)"
+                } else {
+                    ""
+                };
+                Err(err(
+                    "PDL-E005",
+                    format!(
+                        "Icon `{token_name}` file path must be pack-relative (e.g. `icons/star.svg`); got `{s}`{hint}"
+                    ),
+                    design,
+                ))
+            }
+            _ => Err(err(
+                "PDL-E005",
+                format!(
+                    "Icon `{token_name}` file path must be a pack-relative string (e.g. `icons/star.svg`)"
+                ),
+                design,
+            )),
+        },
+        ValueExpr::IconSystem { system, name } => {
+            match name.as_ref() {
+                ValueExpr::String { value: s } if !s.is_empty() => {}
+                _ => {
+                    return Err(err(
+                        "PDL-E005",
+                        format!("Icon `{token_name}` system ref requires a non-empty name string"),
+                        design,
+                    ));
+                }
+            }
+            let sys_raw = match system.as_ref() {
+                ValueExpr::DotEnum { value } => value.as_str(),
+                ValueExpr::Ident { name } => name.as_str(),
+                ValueExpr::String { value } => value.as_str(),
+                _ => "",
+            };
+            if normalize_icon_system_name(sys_raw).is_none() {
+                return Err(err(
+                    "PDL-E006",
+                    format!(
+                        "Icon `{token_name}` unknown system (expected .sfSymbols or .materialSymbols)"
+                    ),
+                    design,
+                ));
+            }
+            Ok(())
+        }
+        _ => Ok(()),
+    }
+}
+
+fn assert_media_source_meta(
+    design: &DesignDefinition,
+    token_name: &str,
+    media_kind: &Option<Box<ValueExpr>>,
+    format: &Option<Box<ValueExpr>>,
+) -> Result<(), PdlError> {
+    use crate::asset_refs::{
+        media_kind_for_format, normalize_media_format_name, normalize_media_kind_name,
+    };
+    let mk = if let Some(k) = media_kind {
+        let raw = match k.as_ref() {
+            ValueExpr::DotEnum { value } | ValueExpr::Ident { name: value } => value.as_str(),
+            _ => {
+                return Err(err(
+                    "PDL-E006",
+                    format!("MediaSource `{token_name}` kind must be .raster, .vector, or .video"),
+                    design,
+                ))
+            }
+        };
+        let Some(n) = normalize_media_kind_name(raw) else {
+            return Err(err(
+                "PDL-E006",
+                format!(
+                    "MediaSource `{token_name}` unknown kind `{raw}` (expected .raster, .vector, or .video)"
+                ),
+                design,
+            ));
+        };
+        Some(n)
+    } else {
+        None
+    };
+    let fmt = if let Some(f) = format {
+        let raw = match f.as_ref() {
+            ValueExpr::DotEnum { value } | ValueExpr::Ident { name: value } => value.as_str(),
+            _ => {
+                return Err(err(
+                    "PDL-E006",
+                    format!(
+                        "MediaSource `{token_name}` format must be a closed case (.webp|.jpeg|.png|.gif|.svg|.mp4|.webm|.pdf)"
+                    ),
+                    design,
+                ))
+            }
+        };
+        let Some(n) = normalize_media_format_name(raw) else {
+            return Err(err(
+                "PDL-E006",
+                format!("MediaSource `{token_name}` unknown format `{raw}`"),
+                design,
+            ));
+        };
+        Some(n)
+    } else {
+        None
+    };
+    if let (Some(mk), Some(fmt)) = (mk, fmt) {
+        let expected = media_kind_for_format(fmt).unwrap_or("");
+        if mk != expected {
+            return Err(err(
+                "PDL-E006",
+                format!(
+                    "MediaSource `{token_name}` kind `.{mk}` is incompatible with format `.{fmt}` (expected `.{expected}`)"
+                ),
+                design,
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn assert_media_source_ref_fields(
+    design: &DesignDefinition,
+    token_name: &str,
+    value: &ValueExpr,
+) -> Result<(), PdlError> {
+    match value {
+        ValueExpr::MediaSourceFile {
+            path,
+            media_kind,
+            format,
+        } => {
+            assert_media_source_meta(design, token_name, media_kind, format)?;
+            match path.as_ref() {
+                ValueExpr::String { value: s } if is_pack_relative_file_path(s) => Ok(()),
+                _ => Err(err(
+                    "PDL-E005",
+                    format!(
+                        "MediaSource `{token_name}` file path must be a pack-relative string (e.g. `media/hero.jpg`)"
+                    ),
+                    design,
+                )),
+            }
+        }
+        ValueExpr::MediaSourceUrl {
+            url,
+            media_kind,
+            format,
+        } => {
+            assert_media_source_meta(design, token_name, media_kind, format)?;
+            match url.as_ref() {
+                ValueExpr::String { value: s } if is_http_url(s) => Ok(()),
+                _ => Err(err(
+                    "PDL-E005",
+                    format!("MediaSource `{token_name}` url must be an http(s) string"),
+                    design,
+                )),
+            }
+        }
+        _ => Ok(()),
+    }
+}
+
 /// Full-spec §23.2: one gate for every TokenType RHS shape.
 /// Bare `Ident` is accepted here; primitive/semantic alias rules run separately.
 fn assert_token_rhs_compatible(
@@ -1272,13 +1457,29 @@ fn assert_token_rhs_compatible(
             _ => false,
         },
         "Duration" | "Blur" => matches!(value, ValueExpr::Number { value: n } if *n >= 0.0),
-        "FontFamily" | "Icon" | "MediaSource" | "Easing" => {
-            matches!(value, ValueExpr::String { .. })
-        }
+        "FontFamily" | "Easing" => matches!(value, ValueExpr::String { .. }),
+        "Icon" => match value {
+            ValueExpr::IconFile { .. } | ValueExpr::IconSystem { .. } => true,
+            ValueExpr::String { value: s } => is_pack_relative_file_path(s),
+            _ => false,
+        },
+        "MediaSource" => match value {
+            ValueExpr::MediaSourceFile { .. } | ValueExpr::MediaSourceUrl { .. } => true,
+            ValueExpr::String { value: s } => is_http_url(s) || is_pack_relative_file_path(s),
+            _ => false,
+        },
         "Transition" => matches!(value, ValueExpr::Transition { .. }),
         "Vibrancy" => matches!(value, ValueExpr::VibrancyTuple { .. }),
         "Ramp" => matches!(value, ValueExpr::RampInline { .. }),
-        "Sizing" => matches!(value, ValueExpr::Sizing { .. }),
+        "Sizing" => match value {
+            ValueExpr::Sizing { .. } => true,
+            // Bare `.hug` / `.fill` parse as DotEnum (same spelling as ContentMode.fill).
+            ValueExpr::DotEnum { value: v } => {
+                let c = v.strip_prefix('.').unwrap_or(v.as_str());
+                c == "hug" || c == "fill"
+            }
+            _ => false,
+        },
         "Background" | "Foreground" => matches!(
             value,
             ValueExpr::Hex { .. }
@@ -1295,6 +1496,16 @@ fn assert_token_rhs_compatible(
             ("Distance" | "Radius" | "Duration" | "Blur", ValueExpr::Number { .. }) => {
                 " (must be non-negative)".to_string()
             }
+            ("Icon", ValueExpr::String { value: s }) if s.starts_with('/') => {
+                format!(
+                    " (got `{s}` — pack-relative Icon paths must not start with `/`; use `icons/star.svg`)"
+                )
+            }
+            ("Icon", ValueExpr::String { value: s }) if !is_pack_relative_file_path(s) => {
+                format!(
+                    " (got `{s}` — bare names are ambiguous; use `Icon(system: .sfSymbols, name: \"…\")` or a pack path like `icons/star.svg`)"
+                )
+            }
             _ => format!(" (got {})", value_expr_kind_name(value)),
         };
         return Err(err(
@@ -1309,6 +1520,19 @@ fn assert_token_rhs_compatible(
 
     if token_type == "Shadow" {
         assert_shadow_constructor_fields(design, name, value)?;
+    }
+    if token_type == "Icon"
+        && matches!(value, ValueExpr::IconFile { .. } | ValueExpr::IconSystem { .. })
+    {
+        assert_icon_ref_fields(design, name, value)?;
+    }
+    if token_type == "MediaSource"
+        && matches!(
+            value,
+            ValueExpr::MediaSourceFile { .. } | ValueExpr::MediaSourceUrl { .. }
+        )
+    {
+        assert_media_source_ref_fields(design, name, value)?;
     }
     if ok && (token_type == "Background" || token_type == "Foreground") {
         if let Err(e) = crate::frame_props::assert_layer_stack_value(

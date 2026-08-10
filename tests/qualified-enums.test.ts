@@ -24,3 +24,18 @@ describe("qualified frame enums (TypeName.case)", () => {
     expect(root?.props?.height).toBe("hug");
   });
 });
+
+describe("contentMode = .fill (shared spelling with Sizing.fill)", () => {
+  it("bakes contentMode=.fill and width=.fill without PDL-E006", () => {
+    const design = loadDesign(fx("atoms/content_mode_fill.pdl"));
+    const baked = buildBakedDesignComponent(design, {
+      componentName: "AtomContentModeFill",
+    });
+    const root = baked.components.AtomContentModeFill?.root as {
+      props?: Record<string, unknown>;
+    };
+    expect(root?.props?.contentMode).toBe("fill");
+    expect(root?.props?.width).toBe("fill");
+    expect(root?.props?.height).toBe("hug");
+  });
+});

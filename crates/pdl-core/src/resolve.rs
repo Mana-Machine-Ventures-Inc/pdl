@@ -12,6 +12,7 @@ use crate::ast::*;
 use crate::design::{effective_params, DesignDefinition};
 use crate::error::PdlError;
 use crate::evaluate::{evaluate_condition, evaluate_value, Eval, ParamMeta, ParamValues, Tokens};
+use crate::stable_json::number_value;
 
 /// Resolve options (subset used by bake / catalogue paths).
 #[derive(Debug, Clone, Copy)]
@@ -216,10 +217,29 @@ fn assert_scalar_sugar_number(name: &str, n: f64, entry_path: &str) -> Result<()
     Ok(())
 }
 
+fn is_unresolved_ref_string(value: &Value) -> bool {
+    matches!(
+        value.as_str(),
+        Some(s) if s.starts_with("primitive:")
+            || s.starts_with("semantic:")
+            || s.starts_with("typeStyle:")
+            || s.starts_with("param:")
+    )
+}
+
 fn coerce_frame_prop_value(prop: &str, value: Value, entry_path: &str) -> Result<Value, PdlError> {
     if value.is_null() {
         return Ok(value);
     }
+    let value = if is_unresolved_ref_string(&value) {
+        value
+    } else if prop == "icon" {
+        crate::asset_refs::coerce_icon_value(value, entry_path)?
+    } else if prop == "source" {
+        crate::asset_refs::coerce_media_source_value(value, entry_path)?
+    } else {
+        value
+    };
     if is_uniform_edge_inset(prop) {
         if let Value::Number(n) = &value {
             let f = n.as_f64().unwrap_or(0.0);
@@ -244,6 +264,104 @@ fn coerce_frame_prop_value(prop: &str, value: Value, entry_path: &str) -> Result
         return Ok(value);
     }
     Ok(value)
+}
+
+fn is_resolved_aspect_sizing(v: &Value) -> bool {
+    v.as_object()
+        .and_then(|o| o.get("aspect"))
+        .and_then(|a| a.as_f64())
+        .is_some_and(|n| n > 0.0 && n.is_finite())
+}
+
+fn is_resolved_closed_sizing(v: Option<&Value>) -> bool {
+    let Some(v) = v else {
+        return false;
+    };
+    if v.is_null() {
+        return false;
+    }
+    if v.as_str() == Some("hug") {
+        return false;
+    }
+    if v.as_f64().is_some() {
+        return true;
+    }
+    if v.as_str() == Some("fill") {
+        return true;
+    }
+    if let Some(o) = v.as_object() {
+        if o.contains_key("aspect") {
+            return false;
+        }
+        if o.contains_key("fixed") || o.contains_key("flex") {
+            return true;
+        }
+    }
+    if let Some(s) = v.as_str() {
+        if s.starts_with("primitive:") || s.starts_with("semantic:") || s.starts_with("param:") {
+            return true;
+        }
+    }
+    false
+}
+
+fn normalize_aspect_box_props(props: &mut Map<String, Value>, entry_path: &str) -> Result<(), PdlError> {
+    let w_aspect = props
+        .get("width")
+        .is_some_and(is_resolved_aspect_sizing);
+    let h_aspect = props
+        .get("height")
+        .is_some_and(is_resolved_aspect_sizing);
+    if w_aspect && h_aspect {
+        return Err(PdlError::new(
+            "PDL-E006",
+            "Cannot set `.aspect` on both `width` and `height` — put `.aspect(…)` on the derived axis only"
+                .to_string(),
+            Some(entry_path.to_string()),
+            None,
+            None,
+        ));
+    }
+    let ar = props
+        .get("aspectRatio")
+        .and_then(|v| v.as_f64())
+        .filter(|n| *n > 0.0 && n.is_finite());
+    let Some(ar) = ar else {
+        return Ok(());
+    };
+    if w_aspect || h_aspect {
+        return Err(PdlError::new(
+            "PDL-E006",
+            "Use either `aspectRatio` or `.aspect(…)` on one axis, not both".to_string(),
+            Some(entry_path.to_string()),
+            None,
+            None,
+        ));
+    }
+    let w_closed = is_resolved_closed_sizing(props.get("width"));
+    let h_closed = is_resolved_closed_sizing(props.get("height"));
+    if w_closed && h_closed {
+        return Err(PdlError::new(
+            "PDL-E006",
+            "`aspectRatio` conflicts with both `width` and `height` set — leave one axis free or use `height = .aspect(…)` / `width = .aspect(…)`"
+                .to_string(),
+            Some(entry_path.to_string()),
+            None,
+            None,
+        ));
+    }
+    if w_closed && !h_closed {
+        let mut o = Map::new();
+        o.insert("aspect".to_string(), number_value(ar));
+        props.insert("height".to_string(), Value::Object(o));
+        props.remove("aspectRatio");
+    } else if h_closed && !w_closed {
+        let mut o = Map::new();
+        o.insert("aspect".to_string(), number_value(ar));
+        props.insert("width".to_string(), Value::Object(o));
+        props.remove("aspectRatio");
+    }
+    Ok(())
 }
 
 /// Later `gap = …` clears prior `columnGap` / `rowGap` (uniform gap replaces per-axis overrides).
@@ -713,6 +831,9 @@ pub fn resolve_component_tree(
         &mut slot_ctx,
         options,
     )?;
+    for mf in frames.values_mut() {
+        normalize_aspect_box_props(&mut mf.props, &design.entry_path)?;
+    }
     materialize(
         "Root",
         &frames,

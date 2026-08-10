@@ -9,6 +9,10 @@ use std::collections::{HashMap, HashSet};
 use indexmap::IndexMap;
 use serde_json::{Map, Value};
 
+use crate::asset_refs::{
+    coerce_icon_value, coerce_media_source_value, normalize_icon_system_name,
+    normalize_media_format_name, normalize_media_kind_name,
+};
 use crate::ast::*;
 use crate::design::DesignDefinition;
 use crate::error::PdlError;
@@ -144,6 +148,73 @@ fn is_placeholder_type(t: &str) -> bool {
     t == "String" || t == "Icon" || t == "MediaSource"
 }
 
+fn eval_media_kind_opt(
+    media_kind: Option<&ValueExpr>,
+    ev: &mut Eval,
+) -> Result<Option<String>, PdlError> {
+    let Some(expr) = media_kind else {
+        return Ok(None);
+    };
+    let v = evaluate_value(expr, ev)?;
+    let raw = match &v {
+        Value::String(s) => s.as_str(),
+        _ => {
+            return Err(PdlError::new(
+                "PDL-E006",
+                "MediaSource kind must be .raster, .vector, or .video".to_string(),
+                Some(ev.design.entry_path.clone()),
+                None,
+                None,
+            ))
+        }
+    };
+    let Some(k) = normalize_media_kind_name(raw) else {
+        return Err(PdlError::new(
+            "PDL-E006",
+            format!("Unknown MediaSource kind `{raw}` (expected .raster, .vector, or .video)"),
+            Some(ev.design.entry_path.clone()),
+            None,
+            None,
+        ));
+    };
+    Ok(Some(k.to_string()))
+}
+
+fn eval_media_format_opt(
+    format: Option<&ValueExpr>,
+    ev: &mut Eval,
+) -> Result<Option<String>, PdlError> {
+    let Some(expr) = format else {
+        return Ok(None);
+    };
+    let v = evaluate_value(expr, ev)?;
+    let raw = match &v {
+        Value::String(s) => s.as_str(),
+        _ => {
+            return Err(PdlError::new(
+                "PDL-E006",
+                "MediaSource format must be a closed case (.webp|.jpeg|.png|.gif|.svg|.mp4|.webm|.pdf)"
+                    .to_string(),
+                Some(ev.design.entry_path.clone()),
+                None,
+                None,
+            ))
+        }
+    };
+    let Some(f) = normalize_media_format_name(raw) else {
+        return Err(PdlError::new(
+            "PDL-E006",
+            format!(
+                "Unknown MediaSource format `{raw}` (expected .webp|.jpeg|.png|.gif|.svg|.mp4|.webm|.pdf)"
+            ),
+            Some(ev.design.entry_path.clone()),
+            None,
+            None,
+        ));
+    };
+    Ok(Some(f.to_string()))
+}
+
 pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError> {
     match expr {
         ValueExpr::Hex { value } => Ok(Value::String(expand_hex(value))),
@@ -269,6 +340,114 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
                 ("color", color),
             ]))
         }
+        ValueExpr::IconFile { path } => {
+            let path = evaluate_value(path, ev)?;
+            if !path.is_string() {
+                return Err(PdlError::new(
+                    "PDL-E003",
+                    "Icon(file:) path must evaluate to a string".to_string(),
+                    Some(ev.design.entry_path.clone()),
+                    None,
+                    None,
+                ));
+            }
+            Ok(obj(vec![
+                ("kind", Value::String("iconRef".to_string())),
+                ("source", Value::String("file".to_string())),
+                ("path", path),
+            ]))
+        }
+        ValueExpr::IconSystem { system, name } => {
+            let system_raw = evaluate_value(system, ev)?;
+            let name = evaluate_value(name, ev)?;
+            let Some(system_str) = system_raw.as_str() else {
+                return Err(PdlError::new(
+                    "PDL-E003",
+                    "Icon(system:, name:) requires string system and name".to_string(),
+                    Some(ev.design.entry_path.clone()),
+                    None,
+                    None,
+                ));
+            };
+            if !name.is_string() {
+                return Err(PdlError::new(
+                    "PDL-E003",
+                    "Icon(system:, name:) requires string system and name".to_string(),
+                    Some(ev.design.entry_path.clone()),
+                    None,
+                    None,
+                ));
+            }
+            let Some(system) = normalize_icon_system_name(system_str) else {
+                return Err(PdlError::new(
+                    "PDL-E006",
+                    format!(
+                        "Unknown Icon system `{system_str}` (expected .sfSymbols or .materialSymbols)"
+                    ),
+                    Some(ev.design.entry_path.clone()),
+                    None,
+                    None,
+                ));
+            };
+            Ok(obj(vec![
+                ("kind", Value::String("iconRef".to_string())),
+                ("source", Value::String("system".to_string())),
+                ("system", Value::String(system.to_string())),
+                ("name", name),
+            ]))
+        }
+        ValueExpr::MediaSourceFile {
+            path,
+            media_kind,
+            format,
+        } => {
+            let path = evaluate_value(path, ev)?;
+            if !path.is_string() {
+                return Err(PdlError::new(
+                    "PDL-E003",
+                    "MediaSource(file:) path must evaluate to a string".to_string(),
+                    Some(ev.design.entry_path.clone()),
+                    None,
+                    None,
+                ));
+            }
+            let mk = eval_media_kind_opt(media_kind.as_deref(), ev)?;
+            let fmt = eval_media_format_opt(format.as_deref(), ev)?;
+            crate::asset_refs::media_source_ref_json(
+                "file",
+                "path",
+                path,
+                mk,
+                fmt,
+                &ev.design.entry_path,
+            )
+        }
+        ValueExpr::MediaSourceUrl {
+            url,
+            media_kind,
+            format,
+        } => {
+            let url = evaluate_value(url, ev)?;
+            if !url.is_string() {
+                return Err(PdlError::new(
+                    "PDL-E003",
+                    "MediaSource(url:) must evaluate to a string".to_string(),
+                    Some(ev.design.entry_path.clone()),
+                    None,
+                    None,
+                ));
+            }
+            let mk = eval_media_kind_opt(media_kind.as_deref(), ev)?;
+            let fmt = eval_media_format_opt(format.as_deref(), ev)?;
+            crate::asset_refs::media_source_ref_json(
+                "url",
+                "url",
+                url,
+                mk,
+                fmt,
+                &ev.design.entry_path,
+            )
+        }
         ValueExpr::Array { items } => {
             let mut out = Vec::with_capacity(items.len());
             for it in items {
@@ -322,6 +501,30 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
             SizingMode::Hug => Ok(Value::String("hug".to_string())),
             SizingMode::Fill => Ok(Value::String("fill".to_string())),
             SizingMode::Fixed { fixed } => Ok(obj(vec![("fixed", number_value(*fixed))])),
+            SizingMode::Aspect { aspect } => {
+                let ar = evaluate_value(aspect, ev)?;
+                let Some(n) = ar.as_f64() else {
+                    return Err(PdlError::new(
+                        "PDL-E005",
+                        "`.aspect(…)` must evaluate to a positive finite ratio (width/height)"
+                            .to_string(),
+                        Some(ev.design.entry_path.clone()),
+                        None,
+                        None,
+                    ));
+                };
+                if !(n > 0.0) || !n.is_finite() {
+                    return Err(PdlError::new(
+                        "PDL-E005",
+                        "`.aspect(…)` must evaluate to a positive finite ratio (width/height)"
+                            .to_string(),
+                        Some(ev.design.entry_path.clone()),
+                        None,
+                        None,
+                    ));
+                }
+                Ok(obj(vec![("aspect", number_value(n))]))
+            }
             SizingMode::Flex { flex_args } => {
                 let mut flex = Map::new();
                 for (k, ve) in flex_args {
@@ -382,6 +585,12 @@ fn evaluate_call(
             if args.contains_key("contentMode") {
                 entries.push(("contentMode", get("contentMode")?));
             }
+            if args.contains_key("justify") {
+                entries.push(("justify", get("justify")?));
+            }
+            if args.contains_key("align") {
+                entries.push(("align", get("align")?));
+            }
             if args.contains_key("opacity") {
                 entries.push(("opacity", get("opacity")?));
             }
@@ -422,11 +631,15 @@ fn evaluate_ident(name: &str, ev: &mut Eval) -> Result<Value, PdlError> {
     if let Some(cached) = ev.tokens.get(name) {
         return Ok(cached.clone());
     }
-    if let Some(prim_expr) = ev.design.primitives.get(name).map(|p| p.value.clone()) {
-        return resolve_token(name, &prim_expr, ev);
+    if let Some(prim) = ev.design.primitives.get(name) {
+        let token_type = prim.token_type.clone();
+        let prim_expr = prim.value.clone();
+        return resolve_token(name, &prim_expr, Some(&token_type), ev);
     }
-    if let Some(sem_expr) = ev.design.semantics.get(name).map(|s| s.value.clone()) {
-        return resolve_token(name, &sem_expr, ev);
+    if let Some(sem) = ev.design.semantics.get(name) {
+        let token_type = sem.token_type.clone();
+        let sem_expr = sem.value.clone();
+        return resolve_token(name, &sem_expr, Some(&token_type), ev);
     }
     if ev.design.type_styles.contains_key(name) {
         return Ok(obj(vec![("__typeStyle", Value::String(name.to_string()))]));
@@ -440,7 +653,12 @@ fn evaluate_ident(name: &str, ev: &mut Eval) -> Result<Value, PdlError> {
     ))
 }
 
-fn resolve_token(name: &str, value_expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError> {
+fn resolve_token(
+    name: &str,
+    value_expr: &ValueExpr,
+    token_type: Option<&str>,
+    ev: &mut Eval,
+) -> Result<Value, PdlError> {
     if ev.visiting.contains(name) {
         return Err(PdlError::new(
             "PDL-E004",
@@ -451,8 +669,13 @@ fn resolve_token(name: &str, value_expr: &ValueExpr, ev: &mut Eval) -> Result<Va
         ));
     }
     ev.visiting.insert(name.to_string());
-    let evaluated = evaluate_value(value_expr, ev)?;
+    let mut evaluated = evaluate_value(value_expr, ev)?;
     ev.visiting.remove(name);
+    if token_type == Some("Icon") {
+        evaluated = coerce_icon_value(evaluated, &ev.design.entry_path)?;
+    } else if token_type == Some("MediaSource") {
+        evaluated = coerce_media_source_value(evaluated, &ev.design.entry_path)?;
+    }
     ev.tokens.insert(name.to_string(), evaluated.clone());
     Ok(evaluated)
 }

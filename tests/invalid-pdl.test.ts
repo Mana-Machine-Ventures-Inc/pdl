@@ -208,6 +208,38 @@ describe("invalid PDL — catalogue & theme (PDL-E005 / PDL-E010)", () => {
     );
   });
 
+  it("PDL-E005 when Icon token uses a bare name", () => {
+    expectPdl(
+      () => loadDesign(err("e005-icon-bare-name.pdl")),
+      "PDL-E005",
+      /bare names|pack-relative|Icon/,
+    );
+  });
+
+  it("PDL-E005 when Icon token path has a leading slash", () => {
+    expectPdl(
+      () => loadDesign(err("e005-icon-leading-slash.pdl")),
+      "PDL-E005",
+      /pack-relative|Icon/,
+    );
+  });
+
+  it("PDL-E006 when Icon system is unknown", () => {
+    expectPdl(
+      () => loadDesign(err("e006-icon-unknown-system.pdl")),
+      "PDL-E006",
+      /unknown system|sfSymbols|materialSymbols/,
+    );
+  });
+
+  it("PDL-E006 when aspectRatio conflicts with both axes closed", () => {
+    expectPdl(
+      () => loadDesign(err("e006-aspect-overconstrained.pdl")),
+      "PDL-E006",
+      /aspectRatio.*conflicts|both `width` and `height`/,
+    );
+  });
+
   it("PDL-E005 when Shadow axis is a string", () => {
     expectPdl(
       () => loadDesign(err("e005-shadow-axis-string.pdl")),
