@@ -263,6 +263,88 @@ function collectUniqueFrameIdsFromBody(
   }
 }
 
+/**
+ * § Forward visibility / PDL-E019: `let` / `letInstance` must appear earlier in source
+ * order than any `children` frame-id ref or `FrameId.prop` that names it.
+ * Component params (including slots) may appear without a prior `let`.
+ * Ids that are never declared in the component are left to other validators (e.g. PDL-E012).
+ */
+function assertForwardFrameVisibility(
+  design: DesignDefinition,
+  items: FrameBodyItem[],
+  declared: Set<string>,
+  allFrameIds: Set<string>,
+  paramNames: Set<string>,
+  componentName: string,
+): void {
+  const requireDeclared = (id: string, context: string) => {
+    if (declared.has(id) || paramNames.has(id)) return;
+    if (!allFrameIds.has(id)) return;
+    throw new PdlError(
+      "PDL-E019",
+      `Frame \`${id}\` is referenced ${context} before it is declared with \`let\` (component ${componentName}) — declare frames before assigning \`children\` or \`FrameId.prop\``,
+      { path: design.entryPath },
+    );
+  };
+
+  for (const it of items) {
+    switch (it.kind) {
+      case "children": {
+        if (it.target !== "root") {
+          requireDeclared(it.target.letId, `as \`${it.target.letId}.children\``);
+        }
+        for (const entry of it.entries) {
+          if (entry.kind === "frameRef") {
+            requireDeclared(entry.id, `in a children list`);
+          }
+        }
+        break;
+      }
+      case "frameProp":
+        requireDeclared(it.frame, `in \`${it.frame}.${it.name}\``);
+        break;
+      case "let":
+        declared.add(it.id);
+        assertForwardFrameVisibility(
+          design,
+          it.body,
+          declared,
+          allFrameIds,
+          paramNames,
+          componentName,
+        );
+        break;
+      case "letInstance":
+        declared.add(it.id);
+        break;
+      case "if":
+        for (const br of it.chain.branches) {
+          assertForwardFrameVisibility(
+            design,
+            br.body,
+            declared,
+            allFrameIds,
+            paramNames,
+            componentName,
+          );
+        }
+        if (it.chain.elseBody) {
+          assertForwardFrameVisibility(
+            design,
+            it.chain.elseBody,
+            declared,
+            allFrameIds,
+            paramNames,
+            componentName,
+          );
+        }
+        break;
+      default:
+        break;
+    }
+  }
+}
+
 function validateCompanionSymbols(design: DesignDefinition): void {
   for (const name of design.usage.keys()) {
     if (!design.components.has(name)) {
@@ -906,8 +988,11 @@ export function validateMergedDesign(design: DesignDefinition): void {
   validateTokenDeclarations(design);
   validateTypeStyleProps(design);
   for (const c of design.components.values()) {
-    collectUniqueFrameIdsFromBody(c.body, new Set(), c.name, design);
+    const allFrameIds = new Set<string>();
+    collectUniqueFrameIdsFromBody(c.body, allFrameIds, c.name, design);
     const paramByName = new Map(c.params.map((p) => [p.name, { typeName: p.typeName }]));
+    const paramNames = new Set(c.params.map((p) => p.name));
+    assertForwardFrameVisibility(design, c.body, new Set(), allFrameIds, paramNames, c.name);
     validateIfConditionsInBody(design, c.body, paramByName, c.name);
     const letKinds = collectLetFrameKinds(c.body);
     validateHiddenInBody(design, c.body, paramByName, c.name, c.rootKind, letKinds);

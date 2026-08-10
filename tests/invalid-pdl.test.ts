@@ -160,6 +160,24 @@ describe("invalid PDL — frame & hidden rules (PDL-E012)", () => {
   });
 });
 
+describe("invalid PDL — forward visibility (PDL-E019)", () => {
+  it("rejects children = [Title] before let Title", () => {
+    expectPdl(
+      () => loadDesign(err("e019-children-before-let.pdl")),
+      "PDL-E019",
+      /Title.*before it is declared|declare frames before/i,
+    );
+  });
+
+  it("rejects FrameId.prop before let FrameId", () => {
+    expectPdl(
+      () => loadDesign(err("e019-frameprop-before-let.pdl")),
+      "PDL-E019",
+      /Title.*before it is declared|declare frames before/i,
+    );
+  });
+});
+
 describe("invalid PDL — token graph (PDL-E004)", () => {
   it("circular semantic definitions", () => {
     const d = loadDesign(err("e004-circular-primitives.pdl"));

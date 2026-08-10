@@ -345,7 +345,7 @@ component LabCard(title: String = "Title") layout {
 
 ### 6.2 Spacer & instances-as-children (still one file)
 
-- [ ] `children = [Left, .spacer, Right]` — Right pushed to trailing edge in a row  
+- [ ] `children = [Left, Spacer(), Right]` — Right pushed to trailing edge in a row  
 - [ ] Child component instance later (Phase 8); for now two text lets + spacer
 
 ### 6.3 Text / layout props as children

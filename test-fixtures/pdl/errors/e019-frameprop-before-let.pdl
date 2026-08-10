@@ -1,0 +1,10 @@
+// FrameId.prop before let FrameId — PDL-E019
+component C() layout {
+  Title.content = "Hi"
+
+  let Title: text = {
+    content = "x"
+  }
+
+  children = [Title]
+}

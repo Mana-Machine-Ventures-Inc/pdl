@@ -94,6 +94,8 @@ component Row() layout {
 - `let Name: kind = { … }` — nested frame
 - `let Name = Comp(…)` — component instance
 - Bare `children = […]` attaches to the enclosing frame (nested `let` or root)
+- `Spacer()` — flex grow pseudo-child in `children` (not `.spacer`)
+- Declare `let` **before** referencing the id in `children` / `FrameId.prop` (E019)
 - Nested `let` **ids unique within one component** (E021)
 
 ## Conditionals

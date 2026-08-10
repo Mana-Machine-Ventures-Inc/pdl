@@ -596,6 +596,120 @@ fn collect_unique_frame_ids_from_body(
     Ok(())
 }
 
+/// § Forward visibility / PDL-E019: `let` / `letInstance` must appear earlier in source
+/// order than any `children` frame-id ref or `FrameId.prop` that names it.
+/// Component params (including slots) may appear without a prior `let`.
+/// Ids that are never declared in the component are left to other validators (e.g. PDL-E012).
+fn forward_ref_error(
+    design: &DesignDefinition,
+    id: &str,
+    context: &str,
+    component_name: &str,
+) -> PdlError {
+    err(
+        "PDL-E019",
+        format!(
+            "Frame `{id}` is referenced {context} before it is declared with `let` (component {component_name}) — declare frames before assigning `children` or `FrameId.prop`"
+        ),
+        design,
+    )
+}
+
+fn assert_forward_frame_visibility(
+    design: &DesignDefinition,
+    items: &[FrameBodyItem],
+    declared: &mut HashSet<String>,
+    all_frame_ids: &HashSet<String>,
+    param_names: &HashSet<String>,
+    component_name: &str,
+) -> Result<(), PdlError> {
+    for it in items {
+        match it {
+            FrameBodyItem::Children { target, entries } => {
+                if let ChildrenTarget::Let { let_id } = target {
+                    if !declared.contains(let_id)
+                        && !param_names.contains(let_id)
+                        && all_frame_ids.contains(let_id)
+                    {
+                        return Err(forward_ref_error(
+                            design,
+                            let_id,
+                            &format!("as `{let_id}.children`"),
+                            component_name,
+                        ));
+                    }
+                }
+                for entry in entries {
+                    if let ChildEntry::FrameRef { id } = entry {
+                        if !declared.contains(id)
+                            && !param_names.contains(id)
+                            && all_frame_ids.contains(id)
+                        {
+                            return Err(forward_ref_error(
+                                design,
+                                id,
+                                "in a children list",
+                                component_name,
+                            ));
+                        }
+                    }
+                }
+            }
+            FrameBodyItem::FrameProp { frame, name, .. } => {
+                if !declared.contains(frame)
+                    && !param_names.contains(frame)
+                    && all_frame_ids.contains(frame)
+                {
+                    return Err(forward_ref_error(
+                        design,
+                        frame,
+                        &format!("in `{frame}.{name}`"),
+                        component_name,
+                    ));
+                }
+            }
+            FrameBodyItem::Let { id, body, .. } => {
+                declared.insert(id.clone());
+                assert_forward_frame_visibility(
+                    design,
+                    body,
+                    declared,
+                    all_frame_ids,
+                    param_names,
+                    component_name,
+                )?;
+            }
+            FrameBodyItem::LetInstance { id, .. } => {
+                declared.insert(id.clone());
+            }
+            FrameBodyItem::If { chain } => {
+                for br in &chain.branches {
+                    assert_forward_frame_visibility(
+                        design,
+                        &br.body,
+                        declared,
+                        all_frame_ids,
+                        param_names,
+                        component_name,
+                    )?;
+                }
+                if let Some(else_body) = &chain.else_body {
+                    assert_forward_frame_visibility(
+                        design,
+                        else_body,
+                        declared,
+                        all_frame_ids,
+                        param_names,
+                        component_name,
+                    )?;
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 fn validate_companion_symbols(design: &DesignDefinition) -> Result<(), PdlError> {
     let check = |names: Vec<&String>, what: &str| -> Result<(), PdlError> {
         for name in names {
@@ -1617,9 +1731,22 @@ pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError>
             }
         }
         validate_host_protocol_not_slot_type(design, c)?;
-        let mut seen = HashSet::new();
-        collect_unique_frame_ids_from_body(&c.body, &mut seen, &c.name, design)?;
+        let mut all_frame_ids = HashSet::new();
+        collect_unique_frame_ids_from_body(&c.body, &mut all_frame_ids, &c.name, design)?;
         let param_by_name = param_by_name_map(design, c)?;
+        let param_names: HashSet<String> = effective_params(design, c)?
+            .into_iter()
+            .map(|p| p.name)
+            .collect();
+        let mut declared = HashSet::new();
+        assert_forward_frame_visibility(
+            design,
+            &c.body,
+            &mut declared,
+            &all_frame_ids,
+            &param_names,
+            &c.name,
+        )?;
         let array_params: HashSet<String> = effective_params(design, c)?
             .into_iter()
             .filter(|p| p.is_array)

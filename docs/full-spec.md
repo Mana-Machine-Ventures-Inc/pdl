@@ -1358,13 +1358,13 @@ Each element is one of:
 
 1. **Frame id** — string matching a `let` in the same component.  
 2. **Component instance** — `OtherComponent(arg: value, …)`.  
-3. **Spacer** — **`.spacer`** — expands on the **main axis** to fill remaining free space (emitter maps to flex `1 1 auto` or equivalent).  
+3. **Spacer** — **`Spacer()`** — expands on the **main axis** to fill remaining free space (emitter maps to flex `1 1 auto` or equivalent).  
 
 ```pdl
-children = [Logo, .spacer, NavItems]
+children = [Logo, Spacer(), NavItems]
 ```
 
-**Normative:** `.spacer` is **not** a frame id; it is a reserved **child keyword**.
+**Normative:** **`Spacer()`** is a zero-argument **child constructor** (not a frame id and not a component instance). Bare **`Spacer`** (no parentheses) is a normal frame-id / param reference. The legacy form **`.spacer`** is **rejected**.
 
 ```pdl
 children = [Header, Footer]
@@ -1775,7 +1775,7 @@ stagger = 30
 
 ## Spacer pseudo-child
 
-**`.spacer`** appears only inside **`children = [ … ]`** arrays (§5).
+**`Spacer()`** appears only inside **`children = [ … ]`** arrays (§5). It takes **no** arguments. Legacy **`.spacer`** is rejected.
 ---
 
 ## 7 — Conditional Overrides, `let`, and Composition
@@ -1818,7 +1818,7 @@ if <param> == .case {
 1. **First match wins** — for a given `if … else if … else` **chain**, the resolver evaluates conditions **top to bottom** and applies **only** the first matching branch. There is no “fall through” to later branches.  
 2. **Several assignments per branch** — a branch can update many properties (and, where allowed, **`children`**) in one go.  
 3. **Chains nest with `let`** — a nested **`let StatusIcon: icon = { … }`** may contain its **own** `if` chain that only affects **`StatusIcon`**. Root-level and nested chains are independent.  
-4. **Forward visibility** — assignments that target **`FrameId.prop`** require that **`let FrameId`** appears **earlier** in the component body than the `if` block (same rule as elsewhere: you cannot reference a frame before it is declared).
+4. **Forward visibility** — assignments that target **`FrameId.prop`**, and **`children`** lists that name a frame id, require that **`let FrameId`** (or **`letInstance`**) appears **earlier** in the component body than the reference (**PDL-E019**). You cannot put `children = [Title]` before `let Title: …`. Component **params** (including slots) may appear in `children` without a prior `let`.
 
 ### What each assignment targets
 
@@ -1943,10 +1943,10 @@ children = [Overlay, Content, BackgroundLayer]  // Overlay still on top
 
 ### 4. Spacer
 
-**Idea:** **`.spacer`** is a **reserved child** (not a frame id) that **absorbs remaining free space** on the parent’s **main axis**—e.g. push **`NavItems`** to the trailing edge after **`Logo`**.
+**Idea:** **`Spacer()`** is a **child constructor** (not a frame id) that **absorbs remaining free space** on the parent’s **main axis**—e.g. push **`NavItems`** to the trailing edge after **`Logo`**.
 
 ```pdl
-children = [Logo, .spacer, NavItems]
+children = [Logo, Spacer(), NavItems]
 ```
 
 See §5 for normative rules.
@@ -1969,7 +1969,7 @@ children = [CardA]
 
 ### 7. Mutating `children` after the fact
 
-**Idea:** **`children = [ … ]`** is a **normal property**. You may assign **`MetaRow.children`** and then assign the **root** **`children`** in two steps—as long as every **id** in each list already exists. That lets you **declare** all **`let`** frames first (with static props), then **wire** inner layouts, then **wire** the root.
+**Idea:** **`children = [ … ]`** is a **normal property**. You may assign **`MetaRow.children`** and then assign the **root** **`children`** in two steps—as long as every **id** in each list was **declared earlier** with **`let`** / **`letInstance`** (**PDL-E019** if not). That lets you **declare** all **`let`** frames first (with static props), then **wire** inner layouts, then **wire** the root.
 
 **Bare `children`** → the **root** frame’s child list. **`SomeLayoutId.children`** → that **`let`** layout’s list.
 
@@ -2405,7 +2405,7 @@ let Id: text = { … }
 let Id: icon = { … }
 let Id: media = { … }
 
-children = [A, B, .spacer, C]
+children = [A, B, Spacer(), C]
 A.children = [X, Y]
 ```
 
@@ -3525,7 +3525,7 @@ In §5, **`background`** and **`foreground`** on `layout` / `text` / `media` eac
 1. **Root `layout` + nested frames** for most UIs.  
 2. **Order `let` before `children`** when readable; mutate `Frame.children` when order is fixed late.  
 3. **Thin parameters** — pass copy as params, not hard-coded strings, unless fixed marketing text.  
-4. **Use `.spacer`** instead of empty flex hack divs in hand-authored flex rows (§5).  
+4. **Use `Spacer()`** instead of empty flex hack divs in hand-authored flex rows (§5).  
 
 ## Overrides
 
@@ -4249,7 +4249,7 @@ This checklist orders work so a **greenfield implementation** (or a full port to
 
 4. **Maps** — tokens, themes, variants, typeStyles, components, interactions, emits; companion maps for **fixtures**, **usage**, **rules**, **extend merge** (§16, §11).  
 5. **Value expressions** — literal / token ref / param ref; literals include sizing, insets, corners, **layer arrays**, **motion tuples** (§6, §15).  
-6. **Children** — frame id string, component instance, **`.spacer`** (§5).  
+6. **Children** — frame id string, component instance, **`Spacer()`** (§5).  
 7. **Conditions** — variant compare, `and`, `or` (§7).
 
 **Acceptance:** in-memory design definition can be serialised to the Component Catalogue without data loss.
@@ -4290,7 +4290,7 @@ This checklist orders work so a **greenfield implementation** (or a full port to
 16. **Override chains** — first matching branch, frame targeting, **children replacement** in overrides (§7, §16).  
 17. **Value resolution** — tokens, params, literals; **layer list** resolution (§6, §15).  
 18. **Embedded instances** — recursive resolution of nested component instances.  
-19. **`.spacer`** — resolved to a flex-grow marker in the catalogue tree.
+19. **`Spacer()`** — resolved to a flex-grow marker in the catalogue tree.
 
 **Acceptance:** generated catalogue matches expected golden JSON per fixture.
 
@@ -4788,12 +4788,12 @@ children-list
 
 child-entry
   ::= IDENT
-    | '.spacer'
+    | 'Spacer' '(' ')'
     | component-instance
     ;
 
 component-instance
-  ::= IDENT '(' [ kwarg-list ] ')' ;
+  ::= IDENT '(' [ kwarg-list ] ')' ;   (* IDENT ≠ Spacer when the argument list is empty — that form is the Spacer child constructor *)
 
 kwarg-list
   ::= kwarg { ',' kwarg } [ ',' ] ;
@@ -5307,7 +5307,7 @@ Future additions must use codes not in this list. Codes are never reused after r
 | **PDL-E016** | `extend-unknown-target` | An `extend` block names a component that does not exist in the merged definition. |
 | **PDL-E017** | `quoted-hex-color` | A string literal is used where a `Color` value is expected and the string content matches the hex color pattern — hex colors must be unquoted. |
 | **PDL-E018** | `reserved-word-as-identifier` | A reserved word (§20.4) is used as a user-defined identifier. |
-| **PDL-E019** | `invalid-override-target` | An `if` branch assignment targets a frame id (`FrameId.prop`) that has not been declared with `let` earlier in the component body. |
+| **PDL-E019** | `invalid-override-target` | A `children` frame-id ref or `FrameId.prop` / `FrameId.children` assignment names a frame that has not been declared with `let` / `letInstance` earlier in the component body (forward reference). |
 | **PDL-E020** | `missing-required-arg` | A constructor call (e.g. `EdgeInsets`, `GradientStop`, `Blur`) omits a required keyword argument. |
 | **PDL-E021** | `duplicate-let-frame-id` | Two **`let`** or **`letInstance`** frames in the same component reuse the same **`id`** (names must be unique across the whole component body, including all **`if`** branches and sibling nested frames). |
 | **PDL-E022** | `unknown-protocol` | A `component C <P>` or protocol-typed param references an undeclared protocol `P`. |
@@ -5446,7 +5446,7 @@ The following fixture files are **normative** — a conforming parser **MUST** a
 | `test-fixtures/pdl/01_tokens_and_themes.pdl` | Token declarations, theme overrides, composite tokens |
 | `test-fixtures/pdl/02_type_styles.pdl` | `typeStyle` declarations and `style =` references |
 | `test-fixtures/pdl/03_variants_and_overrides.pdl` | Variant declarations, `if`/`else if`/`else` chains |
-| `test-fixtures/pdl/04_composition_and_nesting.pdl` | `let`, `children`, embedded instances, `.spacer` |
+| `test-fixtures/pdl/04_composition_and_nesting.pdl` | `let`, `children`, embedded instances, `Spacer()` |
 | `test-fixtures/pdl/05_icon_and_image_props.pdl` | `icon` and `media` frame kinds, all property types |
 | `test-fixtures/pdl/06_interaction_states.pdl` | `interaction` blocks, all event types, `animate` |
 | `test-fixtures/pdl/07_motion_and_layers.pdl` | `Transition` tokens, layer constructors, `from`/`to` |

@@ -1674,14 +1674,20 @@ export class Parser {
 
   private parseChildEntry(): ChildEntry {
     if (this.is("DOT_ENUM") && this.peek().value === ".spacer") {
-      this.advance();
-      return { kind: "spacer" };
+      throw this.err("`.spacer` was renamed to `Spacer()` (zero-arg child constructor)");
     }
     if (this.is("IDENT")) {
       const id = this.peek().value;
       if (this.peekAheadKind(1) === "(") {
         this.advance();
         this.consume("(");
+        if (id === "Spacer") {
+          if (!this.is(")")) {
+            throw this.err("`Spacer()` takes no arguments");
+          }
+          this.consume(")");
+          return { kind: "spacer" };
+        }
         const kwargs = this.parseKwArgs();
         this.consume(")");
         return { kind: "instance", component: id, kwargs };

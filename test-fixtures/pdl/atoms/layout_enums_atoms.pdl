@@ -117,7 +117,7 @@ component AtomLayoutSpacerRow() layout {
   align = .center
   gap = atoms.space.sm
   background = atoms.color.sem.fromRgb
-  children = [.spacer]
+  children = [Spacer()]
 }
 
 component AtomLayoutChrome() layout {

@@ -23,6 +23,7 @@ export const PDL_KEYWORDS = [
   "icon",
   "media",
   "spacer",
+  "Spacer",
   "children",
   "let",
   "if",

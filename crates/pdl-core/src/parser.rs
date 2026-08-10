@@ -2236,14 +2236,22 @@ impl Parser {
 
     fn parse_child_entry(&mut self) -> Result<ChildEntry, PdlError> {
         if self.is(TokenKind::DotEnum) && self.peek().value == ".spacer" {
-            self.advance();
-            return Ok(ChildEntry::Spacer);
+            return Err(self.err(
+                "`.spacer` was renamed to `Spacer()` (zero-arg child constructor)",
+            ));
         }
         if self.is(TokenKind::Ident) {
             let id = self.peek().value.clone();
             if self.peek_ahead_kind(1) == TokenKind::LParen {
                 self.advance();
                 self.consume(TokenKind::LParen)?;
+                if id == "Spacer" {
+                    if !self.is(TokenKind::RParen) {
+                        return Err(self.err("`Spacer()` takes no arguments"));
+                    }
+                    self.consume(TokenKind::RParen)?;
+                    return Ok(ChildEntry::Spacer);
+                }
                 let kwargs = self.parse_kw_args()?;
                 self.consume(TokenKind::RParen)?;
                 return Ok(ChildEntry::Instance {

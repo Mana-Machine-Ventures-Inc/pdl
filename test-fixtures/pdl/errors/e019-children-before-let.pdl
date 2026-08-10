@@ -1,0 +1,16 @@
+// children = [Title] before let Title — PDL-E019
+component LabCard(
+  title: String = "Title"
+) layout {
+  direction = .column
+  gap = 8
+  padding = 16
+  cornerRadius = 12
+  background = #000000 @ 0.1
+
+  children = [Title]
+
+  let Title: text = {
+    content = title
+  }
+}

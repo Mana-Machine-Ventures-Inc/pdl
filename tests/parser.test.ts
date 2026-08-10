@@ -60,6 +60,35 @@ describe("parser", () => {
     expect(prop("contentMode")).toEqual({ kind: "dotEnum", value: ".fill" });
   });
 
+  it("parses Spacer() in children and rejects legacy .spacer", () => {
+    const m = parseModule(
+      `component C() layout {
+         children = [A, Spacer(), B]
+         let A: text = { content = "a" }
+         let B: text = { content = "b" }
+       }`,
+      "x.pdl",
+    );
+    const body = (
+      m.declarations[0] as {
+        body: { kind: string; entries?: { kind: string }[] }[];
+      }
+    ).body;
+    const kids = body.find((b) => b.kind === "children");
+    expect(kids?.entries).toEqual([
+      { kind: "frameRef", id: "A" },
+      { kind: "spacer" },
+      { kind: "frameRef", id: "B" },
+    ]);
+    try {
+      parseModule(`component C() layout { children = [.spacer] }`, "x.pdl");
+      throw new Error("expected throw");
+    } catch (e) {
+      expect(e).toBeInstanceOf(PdlError);
+      expect((e as PdlError).message).toMatch(/Spacer\(\)/);
+    }
+  });
+
   it("parses direction = .reverseStack", () => {
     const m = parseModule(
       `component C() layout {
