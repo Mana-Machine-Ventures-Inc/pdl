@@ -149,7 +149,7 @@ fn split_instance_overrides(
 
 fn apply_root_frame_overrides(frame: &mut CatalFrame, props: Map<String, Value>) {
     for (k, v) in props {
-        frame.props.insert(k, v);
+        assign_frame_prop(&mut frame.props, &k, v);
     }
 }
 
@@ -244,6 +244,15 @@ fn coerce_frame_prop_value(prop: &str, value: Value, entry_path: &str) -> Result
         return Ok(value);
     }
     Ok(value)
+}
+
+/// Later `gap = …` clears prior `columnGap` / `rowGap` (uniform gap replaces per-axis overrides).
+fn assign_frame_prop(props: &mut Map<String, Value>, name: &str, value: Value) {
+    props.insert(name.to_string(), value);
+    if name == "gap" {
+        props.remove("columnGap");
+        props.remove("rowGap");
+    }
 }
 
 // ---- evaluation helpers ----------------------------------------------------
@@ -486,7 +495,7 @@ fn process_frame_items(
                 } else {
                     let coerced = coerce_frame_prop_value(name, v, &entry_path)?;
                     let f = frames.get_mut(default_target).unwrap();
-                    f.props.insert(name.clone(), coerced);
+                    assign_frame_prop(&mut f.props, name, coerced);
                 }
             }
             FrameBodyItem::FrameProp { frame, name, value } => {
@@ -527,7 +536,7 @@ fn process_frame_items(
                 let pv = eval_prop(value, design, tokens, param_values, param_meta, opts)?;
                 let coerced = coerce_frame_prop_value(name, pv, &entry_path)?;
                 let fr = frames.get_mut(frame).unwrap();
-                fr.props.insert(name.clone(), coerced);
+                assign_frame_prop(&mut fr.props, name, coerced);
             }
             FrameBodyItem::Children { target, entries } => {
                 let tid = match target {

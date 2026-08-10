@@ -578,8 +578,18 @@ function flexItemDecls(props: Record<string, unknown>): string[] {
   return out;
 }
 
-function stackCellDecls(stackIndex: number): string[] {
-  return ["grid-area:1 / 1 / 2 / 2", `z-index:${String(stackIndex + 1)}`, "min-width:0", "min-height:0"];
+function isStackDirection(direction: unknown): boolean {
+  return direction === "stack" || direction === "reverseStack";
+}
+
+/** Painter’s order: `.stack` last-on-top; `.reverseStack` first-on-top. */
+function stackZIndex(index: number, childCount: number, reverse: boolean): number {
+  if (childCount <= 0) return 1;
+  return reverse ? childCount - index : index + 1;
+}
+
+function stackCellDecls(zIndex: number): string[] {
+  return ["grid-area:1 / 1 / 2 / 2", `z-index:${String(zIndex)}`, "min-width:0", "min-height:0"];
 }
 
 function textAlignFromJustify(justify: unknown): string | undefined {
@@ -680,7 +690,7 @@ function boxMetricsStyle(
 
 /** Flex / grid container only; merge with `boxMetricsStyle` for full `layout` box. */
 function layoutFlexGridStyle(props: Record<string, unknown>): string {
-  const isStack = props.direction === "stack";
+  const isStack = isStackDirection(props.direction);
   const parts: string[] = [];
   if (isStack) {
     parts.push("display:grid");
@@ -721,10 +731,10 @@ function layoutContainerStyle(props: Record<string, unknown>): string {
 function frameBoxStyle(
   props: Record<string, unknown>,
   kind: string,
-  opts: { stackChild: boolean; stackIndex: number },
+  opts: { stackChild: boolean; stackZ: number },
 ): string {
   const item = mergeInlineStyles(...flexItemDecls(props));
-  const stack = opts.stackChild ? mergeInlineStyles(...stackCellDecls(opts.stackIndex)) : "";
+  const stack = opts.stackChild ? mergeInlineStyles(...stackCellDecls(opts.stackZ)) : "";
   if (kind === "text") {
     return mergeInlineStyles(textOwnStyle(props), item, stack);
   }
@@ -746,6 +756,19 @@ function frameBoxStyle(
   return mergeInlineStyles(layoutContainerStyle(props), item, stack);
 }
 
+function stackChildOpts(
+  parentDirection: unknown,
+  index: number,
+  childCount: number,
+): FrameRenderOpts {
+  const isStack = isStackDirection(parentDirection);
+  if (!isStack) return { stackChild: false, stackZ: 0 };
+  return {
+    stackChild: true,
+    stackZ: stackZIndex(index, childCount, parentDirection === "reverseStack"),
+  };
+}
+
 function truncateStyleKind(props: Record<string, unknown>): "ellipsis" | "clip" | undefined {
   if (props.truncateStyle === "ellipsis") return "ellipsis";
   if (props.truncateStyle === "clip") return "clip";
@@ -759,7 +782,9 @@ function textLineClamp(props: Record<string, unknown>): number | undefined {
 
 /** Font / color / tracking / text-align (no frame overflow, sizing, or clamp). */
 function textTypographyStyle(props: Record<string, unknown>): string {
-  const parts: string[] = ["min-width:0", "width:100%", "box-sizing:border-box"];
+  // Do not force width:100% here — that stretches hug text to the parent and breaks
+  // stack place-items centering. Width comes from textMetricsShellStyle (fill → 100%).
+  const parts: string[] = ["min-width:0", "box-sizing:border-box"];
   if (typeof props.color === "string") parts.push(`color:${props.color}`);
   if (typeof props.fontSize === "number") parts.push(`font-size:${props.fontSize}px`);
   if (typeof props.fontWeight === "number") parts.push(`font-weight:${String(props.fontWeight)}`);
@@ -878,7 +903,8 @@ function textInlineStyle(props: Record<string, unknown>): string {
 
 type FrameRenderOpts = {
   stackChild: boolean;
-  stackIndex: number;
+  /** Absolute CSS z-index when `stackChild` (from `.stack` / `.reverseStack`). */
+  stackZ: number;
   /** When true, omit data-pdl-instance-* (used for inst-state inner bodies). */
   omitInstanceAttrs?: boolean;
 };
@@ -918,7 +944,7 @@ function mediaFrameStyle(props: Record<string, unknown>, opts: FrameRenderOpts):
 
 function renderFrame(
   frame: BakedFrame,
-  opts: FrameRenderOpts = { stackChild: false, stackIndex: 0 },
+  opts: FrameRenderOpts = { stackChild: false, stackZ: 0 },
   instCtx?: InstanceRenderCtx,
 ): string {
   const { id, kind } = frame;
@@ -942,7 +968,7 @@ function renderFrame(
       const restInner = renderFrame(frame, { ...opts, omitInstanceAttrs: true }, instCtx);
       let blocks = `<div class="pdl-inst-state" data-pdl-state="rest">${restInner}</div>`;
       for (const [stateName, stateComp] of Object.entries(extra)) {
-        const frag = renderFrame(stateComp.root, { stackChild: false, stackIndex: 0 });
+        const frag = renderFrame(stateComp.root, { stackChild: false, stackZ: 0 });
         blocks += `<div class="pdl-inst-state" data-pdl-state="${escapeAttr(stateName)}" hidden>${frag}</div>`;
       }
       return `<div class="pdl-instance"${inst}${kwargsAttr} data-pdl-instance-key="${escapeAttr(key)}">${blocks}</div>`;
@@ -950,7 +976,7 @@ function renderFrame(
   }
 
   if (kind === "layout") {
-    const isStack = props.direction === "stack";
+    const isStack = isStackDirection(props.direction);
     const layered = layoutLayerBandsActive(props);
     if (layered) {
       const style = mergeInlineStyles(
@@ -969,7 +995,7 @@ function renderFrame(
       const under = renderLayerBandHtml(flattenLayerOps(props.background), 0);
       const over = renderLayerBandHtml(flattenLayerOps(props.foreground), 2);
       const innerKids = kids
-        .map((ch, i) => renderFrame(ch, { stackChild: isStack, stackIndex: i }, instCtx))
+        .map((ch, i) => renderFrame(ch, stackChildOpts(props.direction, i, kids.length), instCtx))
         .join("");
       const inner = `<div class="pdl-layout__content" style="${escapeStyleAttr(innerStyle)}">${innerKids}</div>`;
       return `<div class="pdl-frame pdl-layout pdl-layout--layers"${dataId}${instAttrs} style="${escapeStyleAttr(style)}">${under}${inner}${over}</div>`;
@@ -979,7 +1005,7 @@ function renderFrame(
       isStack ? "position:relative" : "",
     );
     const inner = kids
-      .map((ch, i) => renderFrame(ch, { stackChild: isStack, stackIndex: i }, instCtx))
+      .map((ch, i) => renderFrame(ch, stackChildOpts(props.direction, i, kids.length), instCtx))
       .join("");
     return `<div class="pdl-frame pdl-layout"${dataId}${instAttrs} style="${escapeStyleAttr(style)}">${inner}</div>`;
   }
@@ -994,7 +1020,7 @@ function renderFrame(
           : undefined;
     const itemStack = mergeInlineStyles(
       ...flexItemDecls(props),
-      ...(opts.stackChild ? stackCellDecls(opts.stackIndex) : []),
+      ...(opts.stackChild ? stackCellDecls(opts.stackZ) : []),
     );
     if (editableBind) {
       const style = mergeInlineStyles(
@@ -1045,7 +1071,7 @@ function renderFrame(
     const style = mergeInlineStyles(
       boxMetricsStyle(props),
       ...flexItemDecls(props),
-      ...(opts.stackChild ? stackCellDecls(opts.stackIndex) : []),
+      ...(opts.stackChild ? stackCellDecls(opts.stackZ) : []),
       "flex:1 1 auto",
       "min-height:0",
       "min-width:0",
@@ -1072,7 +1098,7 @@ function renderFrame(
       const wrapStyle = mergeInlineStyles(
         boxMetricsStyle(props, { omitBackground: true }),
         ...flexItemDecls(props),
-        ...(opts.stackChild ? stackCellDecls(opts.stackIndex) : []),
+        ...(opts.stackChild ? stackCellDecls(opts.stackZ) : []),
         "position:relative",
         "overflow:hidden",
         "max-width:100%",
@@ -1091,12 +1117,14 @@ function renderFrame(
   }
 
   const fallbackStyle = frameBoxStyle(props, kind, opts);
-  const inner = kids.map((ch, i) => renderFrame(ch, { stackChild: false, stackIndex: i }, instCtx)).join("");
+  const inner = kids
+    .map((ch) => renderFrame(ch, { stackChild: false, stackZ: 0 }, instCtx))
+    .join("");
   return `<div class="pdl-frame pdl-unknown" data-pdl-kind="${escapeAttr(kind)}"${dataId}${instAttrs} style="${escapeStyleAttr(fallbackStyle)}">${inner}</div>`;
 }
 
 function renderComponentBody(comp: BakedComponentJson, instCtx?: InstanceRenderCtx): string {
-  return renderFrame(comp.root, { stackChild: false, stackIndex: 0 }, instCtx);
+  return renderFrame(comp.root, { stackChild: false, stackZ: 0 }, instCtx);
 }
 
 const BASE_CSS = `

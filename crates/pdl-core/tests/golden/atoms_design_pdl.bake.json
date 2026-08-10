@@ -412,6 +412,39 @@
       },
       "rootKind": "layout"
     },
+    "AtomLayoutGapReset": {
+      "name": "AtomLayoutGapReset",
+      "root": {
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": "#F7F7F7",
+          "direction": "row",
+          "gap": 8,
+          "wrap": "wrap"
+        }
+      },
+      "rootKind": "layout"
+    },
+    "AtomLayoutReverseStack": {
+      "name": "AtomLayoutReverseStack",
+      "root": {
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "background": "#EBEBEB",
+          "direction": "reverseStack",
+          "gap": 0,
+          "padding": {
+            "bottom": 8,
+            "left": 8,
+            "right": 8,
+            "top": 8
+          }
+        }
+      },
+      "rootKind": "layout"
+    },
     "AtomLayoutRowAround": {
       "name": "AtomLayoutRowAround",
       "root": {

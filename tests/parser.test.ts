@@ -38,6 +38,21 @@ describe("parser", () => {
     });
   });
 
+  it("parses direction = .reverseStack", () => {
+    const m = parseModule(
+      `component C() layout {
+         direction = .reverseStack
+         children = []
+       }`,
+      "x.pdl",
+    );
+    const comp = m.declarations[0] as {
+      body: { kind: string; name?: string; value?: { kind: string; value?: string } }[];
+    };
+    const dir = comp.body.find((b) => b.kind === "prop" && b.name === "direction");
+    expect(dir?.value).toEqual({ kind: "dotEnum", value: ".reverseStack" });
+  });
+
   it("parses TypeName.case as the same dot-enum as .case", () => {
     const m = parseModule(
       `component C() layout {

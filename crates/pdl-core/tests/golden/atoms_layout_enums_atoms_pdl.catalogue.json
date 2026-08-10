@@ -72,6 +72,35 @@
         }
       }
     },
+    "AtomLayoutGapReset": {
+      "name": "AtomLayoutGapReset",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "semantic:atoms.color.sem.fromRgb",
+          "direction": "row",
+          "gap": 8,
+          "wrap": "wrap"
+        }
+      }
+    },
+    "AtomLayoutReverseStack": {
+      "name": "AtomLayoutReverseStack",
+      "root": {
+        "kind": "layout",
+        "props": {
+          "background": "semantic:atoms.color.sem.fromRgba",
+          "direction": "reverseStack",
+          "gap": 0,
+          "padding": {
+            "bottom": 8,
+            "left": 8,
+            "right": 8,
+            "top": 8
+          }
+        }
+      }
+    },
     "AtomLayoutRowAround": {
       "name": "AtomLayoutRowAround",
       "root": {
@@ -227,7 +256,7 @@
       }
     }
   },
-  "generatedAt": "2026-08-06T00:33:36.130Z",
+  "generatedAt": "2026-08-10T01:48:04.182Z",
   "kind": "componentCatalogue",
   "primitives": {
     "atoms.color.brandPrimary": {

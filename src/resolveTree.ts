@@ -200,6 +200,23 @@ function hoistLetInstanceFrames(
   }
 }
 
+/**
+ * Assign a frame property. Later `gap = …` clears prior `columnGap` / `rowGap`
+ * so uniform gap replaces per-axis overrides (declaration order wins).
+ */
+function assignFrameProp(
+  props: Record<string, unknown>,
+  name: string,
+  value: unknown,
+  entryPath: string,
+): void {
+  props[name] = coerceFramePropValue(name, value, entryPath);
+  if (name === "gap") {
+    delete props.columnGap;
+    delete props.rowGap;
+  }
+}
+
 function processFrameItems(
   items: FrameBodyItem[],
   defaultTarget: string,
@@ -222,7 +239,7 @@ function processFrameItems(
         }
         const v = evalProp(item.value, ctx);
         if (item.name === "style") mergeStyleProps(f.props, v, ctx.design.entryPath, ctx.catalogueTokenRefs);
-        else f.props[item.name] = coerceFramePropValue(item.name, v, ctx.design.entryPath);
+        else assignFrameProp(f.props, item.name, v, ctx.design.entryPath);
         break;
       }
       case "frameProp": {
@@ -232,7 +249,7 @@ function processFrameItems(
           break;
         }
         const pv = evalProp(item.value, ctx);
-        fr.props[item.name] = coerceFramePropValue(item.name, pv, ctx.design.entryPath);
+        assignFrameProp(fr.props, item.name, pv, ctx.design.entryPath);
         break;
       }
       case "children": {

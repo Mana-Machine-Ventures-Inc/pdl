@@ -1350,6 +1350,36 @@ component BadGap() layout {
 }
 
 #[test]
+fn later_gap_clears_column_and_row_gap() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::bake::build_baked_design_component;
+    use pdl_core::SourceMap;
+    use serde_json::Map;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/ok.pdl".to_string(),
+        r#"
+component GapReset() layout {
+  direction = .row
+  wrap = .wrap
+  columnGap = 12
+  rowGap = 64
+  gap = 8
+  children = []
+}
+"#
+        .to_string(),
+    );
+    let design = load_design_from_sources("/v/ok.pdl", &sources).expect("load");
+    let doc = build_baked_design_component(&design, "GapReset", None, &Map::new(), None)
+        .expect("bake");
+    let props = &doc["components"]["GapReset"]["root"]["props"];
+    assert_eq!(props["gap"], 8);
+    assert!(props.get("columnGap").is_none(), "{props:?}");
+    assert!(props.get("rowGap").is_none(), "{props:?}");
+}
+
+#[test]
 fn bare_opacity_token_as_layer_is_e006() {
     use pdl_core::design::load_design_from_sources;
     use pdl_core::SourceMap;

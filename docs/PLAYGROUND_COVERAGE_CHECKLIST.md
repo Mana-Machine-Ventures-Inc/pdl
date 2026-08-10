@@ -217,7 +217,8 @@ For empty shells, set explicit `width`/`height` + `background` so you can **see*
 - [ ] `direction = .row`  
 - [ ] `direction = .rowReverse`  
 - [ ] `direction = .columnReverse`  
-- [ ] `direction = .stack` — children overlap; **later child on top**
+- [ ] `direction = .stack` — children overlap; **later child on top**  
+- [ ] `direction = .reverseStack` — same overlap; **first child on top**
 
 ### 4.2 Align & justify
 

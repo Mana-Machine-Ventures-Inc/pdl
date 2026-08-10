@@ -180,6 +180,83 @@ describe("renderHtml", () => {
     expect(html).not.toMatch(/<div class="[^"]*pdl-canvas--fill-height/);
   });
 
+  it("reverseStack paints first child above later siblings", () => {
+    const doc = {
+      schemaKind: "bakedDesign" as const,
+      schemaVersion: "1.0.0-beta",
+      generatedAt: "2026-01-01T00:00:00.000Z",
+      provenance: {
+        entryPath: "/x.pdl",
+        bakedTheme: null,
+        bakeProfile: "component-explicit" as const,
+      },
+      components: {
+        Rev: {
+          name: "Rev",
+          rootKind: "layout",
+          bakedParams: {},
+          root: {
+            id: "Root",
+            kind: "layout",
+            props: { direction: "reverseStack", align: "center", justify: "center" },
+            children: [
+              { id: "A", kind: "text", props: { content: "front" }, children: [] },
+              { id: "B", kind: "text", props: { content: "back" }, children: [] },
+            ],
+          },
+        },
+      },
+    };
+    const frag = renderBakedComponentToHtmlFragment(doc.components.Rev!);
+    expect(frag).toContain("display:grid");
+    expect(frag).toMatch(/data-pdl-id="A"[^>]*z-index:2/);
+    expect(frag).toMatch(/data-pdl-id="B"[^>]*z-index:1/);
+  });
+
+  it("stack-centered hug text does not force width:100% (so place-items can center)", () => {
+    const doc = {
+      schemaKind: "bakedDesign" as const,
+      schemaVersion: "1.0.0-beta",
+      generatedAt: "2026-01-01T00:00:00.000Z",
+      provenance: {
+        entryPath: "/x.pdl",
+        bakedTheme: null,
+        bakeProfile: "component-explicit" as const,
+      },
+      components: {
+        StackText: {
+          name: "StackText",
+          rootKind: "layout",
+          bakedParams: {},
+          root: {
+            id: "Root",
+            kind: "layout",
+            props: {
+              direction: "stack",
+              align: "center",
+              justify: "center",
+              width: { fixed: 200 },
+              height: { fixed: 200 },
+            },
+            children: [
+              {
+                id: "A",
+                kind: "text",
+                props: { content: "Hello", color: "#f00", fontSize: 32 },
+                children: [],
+              },
+            ],
+          },
+        },
+      },
+    };
+    const frag = renderBakedComponentToHtmlFragment(doc.components.StackText!);
+    expect(frag).toContain("place-items:center center");
+    expect(frag).toMatch(/data-pdl-id="A"[^>]*>/);
+    const textOpen = frag.match(/data-pdl-id="A"[^>]*>/)?.[0] ?? "";
+    expect(textOpen).not.toContain("width:100%");
+  });
+
   it("escapes text content for HTML safety", () => {
     const doc = {
       schemaKind: "bakedDesign" as const,

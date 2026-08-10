@@ -76,7 +76,7 @@ Root kind after `) `: `layout` | `text` | `icon` | `media`.
 ```pdl
 component Row() layout {
   direction = .row
-  // also: Direction.row, Justify.center, Align.stretch, Sizing.fill, …
+  // also: .stack / .reverseStack, Direction.row, Justify.center, Align.stretch, Sizing.fill, …
   gap = 8
   padding = EdgeInsets(x: 12, y: 8)
 

@@ -66,8 +66,27 @@ component AtomLayoutWrap() layout {
   children = []
 }
 
+// Later `gap` clears prior columnGap/rowGap (uniform reset).
+component AtomLayoutGapReset() layout {
+  direction = .row
+  wrap = .wrap
+  columnGap = 12
+  rowGap = 64
+  gap = 8
+  background = atoms.color.sem.fromRgb
+  children = []
+}
+
 component AtomLayoutStack() layout {
   direction = .stack
+  gap = 0
+  padding = EdgeInsets(x: 8, y: 8)
+  background = atoms.color.sem.fromRgba
+  children = []
+}
+
+component AtomLayoutReverseStack() layout {
+  direction = .reverseStack
   gap = 0
   padding = EdgeInsets(x: 8, y: 8)
   background = atoms.color.sem.fromRgba

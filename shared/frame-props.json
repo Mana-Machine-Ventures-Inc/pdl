@@ -86,7 +86,7 @@
     "enumDirection": {
       "accept": ["dotEnum"],
       "typeName": "Direction",
-      "cases": ["row", "column", "rowReverse", "columnReverse", "stack"]
+      "cases": ["row", "column", "rowReverse", "columnReverse", "stack", "reverseStack"]
     },
     "enumWrap": {
       "accept": ["dotEnum"],

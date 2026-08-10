@@ -1235,7 +1235,7 @@ Row.children = [IconA, IconB]
 |----------|------|----------------|
 | `width` | sizing | **`.hug`**, **`.fill`**, **`.fixed(n)`**, **`.flex(…)`**, or **scalar sugar** — a non-negative **number** means **`.fixed(n)`** (§6 §Sizing) |
 | `height` | sizing | same |
-| `direction` | enum | `.row`, `.column`, `.rowReverse`, `.columnReverse`, **`.stack`** (or `Direction.<case>`) — overlap; z-order = array order, last on top |
+| `direction` | enum | `.row`, `.column`, `.rowReverse`, `.columnReverse`, **`.stack`**, **`.reverseStack`** (or `Direction.<case>`) — overlap; `.stack` last-on-top, `.reverseStack` first-on-top |
 | **`wrap`** | enum | **`.nowrap`**, **`.wrap`** (or `Wrap.<case>`) — main-axis wrapping |
 | `align` | enum | `.start`, `.center`, `.end`, **`.stretch`** (or `Align.<case>`) — cross axis |
 | `justify` | enum | `.start`, `.center`, `.end`, **`.stretch`**, **`.spaceBetween`**, **`.spaceAround`** (or `Justify.<case>`) — main axis |
@@ -1257,6 +1257,8 @@ Row.children = [IconA, IconB]
 **`justify = .stretch`:** Emitters map to **`justify-content: stretch`** where the platform supports it; otherwise approximate with **`align-items: stretch`** on the container and **`justify-content: flex-start`**, and document the downgrade.
 
 **Gaps (normative):** **`gap`** is spacing on the **main** axis between in-flow children. **`columnGap`** and **`rowGap`** refine spacing on the **column** vs **row** axes when **`wrap = .wrap`**; if **`rowGap`** is omitted, **`gap`** applies to **both** axes (see **`rowGap`** in the **`layout`** property table above).
+
+**Gap cascade (declaration order):** on a given frame, a later **`gap = …`** **clears** any earlier **`columnGap`** / **`rowGap`** on that frame (uniform gap replaces per-axis overrides). A later **`columnGap`** / **`rowGap`** after **`gap`** still overrides that axis only.
 
 **Child-only properties** (on **`let`** frames that are **children** of a `layout`, or on root when parent is layout — scoping is **parent layout**):
 
@@ -1856,11 +1858,16 @@ children = [Header, Body, Footer]
 
 **Idea:** **`direction = .stack`** places children in the **same** layout box; **painter’s order** is the **array order**—first entry at the **back**, last at the **front**.
 
-**Typical use:** background plate, main content, then a dimmed **overlay** or **stroke** on top. Emitters may use absolute positioning or z-index; the **language** guarantee is **declaration order** = back-to-front.
+**`.reverseStack`** is the same overlap model with **reversed** painter’s order—first entry at the **front**, last at the **back** (handy when the “base” plate is authored last).
+
+**Typical use:** background plate, main content, then a dimmed **overlay** or **stroke** on top. Emitters may use absolute positioning or z-index; the **language** guarantee is **declaration order** → z-order per the chosen stack mode.
 
 ```pdl
 direction = .stack
 children = [BackgroundLayer, Content, Overlay]
+
+direction = .reverseStack
+children = [Overlay, Content, BackgroundLayer]  // Overlay still on top
 ```
 
 ### 4. Spacer
@@ -2280,7 +2287,7 @@ name: VariantName = .case
 ```txt
 .hug  .fill  .fixed(120)  .flex(min: 40, max: 200)
 Sizing.hug  Sizing.fill  Sizing.fixed(120)  Sizing.flex(min: 40, max: 200)
-.row .column .rowReverse .columnReverse .stack
+.row .column .rowReverse .columnReverse .stack .reverseStack
 Direction.row  Direction.column  …
 .wrap .nowrap
 Wrap.wrap  Wrap.nowrap
@@ -3970,7 +3977,7 @@ The reference CLI emits **two graph-shaped JSON artefacts** (rich, reference-hea
 
 **Serialization:** **`bakeSystem`** and **`bakeComponent`** use the same **`stableStringify(..., { omitEmpty: true })`** rules as graph output — **§16a** (e.g. **`BakedFrame.children`** may be absent when there are no visible children).
 
-**HTML preview (`pdl renderHtml`):** The reference CLI can turn the same in-memory **`bakedDesign`** into a minimal **HTML5** document for Studio iframes and static reference pages (`src/renderHtml.ts`). When present, root **`previewBackground`** (resolved CSS color from bake) sets document chrome via **`--pdl-preview-background`**. The emitter maps **`layout`** (flex including **`.rowReverse` / `.columnReverse`**, **`.stack`** as overlapping CSS grid cells, **`gap` / `columnGap` / `rowGap`**, **`.flex` sizing** with evaluated **`min` / `max` / `preferred`**, **`alignSelf` / `grow` / `shrink` / `position` + `inset`**, **`justify`** including **`.stretch`**, scalar or first-color **`background`**, **`foreground`** as an inset overlay **`box-shadow`**, **`borderWidth`/`borderColor`** with **`borderPosition`** (**outside** → CSS border; **inside** → inset **`box-shadow`**), **`shadow`**, **`overflow`** (**`.visible`** / **`.scroll`** / **`.clip`**; preview maps **`.clip`** → CSS `overflow: hidden` — §6 §Overflow), asymmetric **`Corner`** radii, approximate **Blur** / **Vibrancy** via **`backdrop-filter`**), **`text`** (typography, **`lineHeight`** ratio, **`letterSpacing`** in px from em×`fontSize`, **`justify`** / **`align`** via a flex column shell + **`text-align`**, clamp / ellipsis / opacity / overflow), **`spacer`**, **`icon`** (color swatch + name label — not a real glyph set), and **`media`** ( **`<img>`** when **`source`** looks like a URL/path; **`contentMode`** → **`object-fit`**; **`aspectRatio`** / **`objectPosition`**) to flexbox- and grid-oriented markup. **Ramp**, full **layer** compositing fidelity, stack+**`spaceBetween`**, custom **`@font-face`** loading, and non-raster **media** remain approximated or omitted. Closed-set params from **`variant`** or **`enum`** are keyword-agnostic (bake IR uses **`"type": "variant"`**). The mapping is **best-effort** and versioned with the toolchain, not part of the **`bakedDesign`** schema contract.
+**HTML preview (`pdl renderHtml`):** The reference CLI can turn the same in-memory **`bakedDesign`** into a minimal **HTML5** document for Studio iframes and static reference pages (`src/renderHtml.ts`). When present, root **`previewBackground`** (resolved CSS color from bake) sets document chrome via **`--pdl-preview-background`**. The emitter maps **`layout`** (flex including **`.rowReverse` / `.columnReverse`**, **`.stack` / `.reverseStack`** as overlapping CSS grid cells with matching z-order, **`gap` / `columnGap` / `rowGap`**, **`.flex` sizing** with evaluated **`min` / `max` / `preferred`**, **`alignSelf` / `grow` / `shrink` / `position` + `inset`**, **`justify`** including **`.stretch`**, scalar or first-color **`background`**, **`foreground`** as an inset overlay **`box-shadow`**, **`borderWidth`/`borderColor`** with **`borderPosition`** (**outside** → CSS border; **inside** → inset **`box-shadow`**), **`shadow`**, **`overflow`** (**`.visible`** / **`.scroll`** / **`.clip`**; preview maps **`.clip`** → CSS `overflow: hidden` — §6 §Overflow), asymmetric **`Corner`** radii, approximate **Blur** / **Vibrancy** via **`backdrop-filter`**), **`text`** (typography, **`lineHeight`** ratio, **`letterSpacing`** in px from em×`fontSize`, **`justify`** / **`align`** via a flex column shell + **`text-align`**, clamp / ellipsis / opacity / overflow), **`spacer`**, **`icon`** (color swatch + name label — not a real glyph set), and **`media`** ( **`<img>`** when **`source`** looks like a URL/path; **`contentMode`** → **`object-fit`**; **`aspectRatio`** / **`objectPosition`**) to flexbox- and grid-oriented markup. **Ramp**, full **layer** compositing fidelity, stack+**`spaceBetween`**, custom **`@font-face`** loading, and non-raster **media** remain approximated or omitted. Closed-set params from **`variant`** or **`enum`** are keyword-agnostic (bake IR uses **`"type": "variant"`**). The mapping is **best-effort** and versioned with the toolchain, not part of the **`bakedDesign`** schema contract.
 
 ### `bakedDesign` — root document
 
@@ -4197,7 +4204,7 @@ This checklist orders work so a **greenfield implementation** (or a full port to
 ## Phase E — Frame validation
 
 13. **Frame property registry** — per-kind allowed props and enum values (§5).  
-14. **Layout extensions** — `wrap`, `justify`/`align` extended enums, `columnGap`, `direction = .stack`, flex child props, `position`, `inset` (§5).
+14. **Layout extensions** — `wrap`, `justify`/`align` extended enums, `columnGap`, `direction = .stack` / `.reverseStack`, flex child props, `position`, `inset` (§5).
 
 **Acceptance:** reject invalid prop on kind with stable error codes.
 
@@ -4301,7 +4308,7 @@ Emitters **must** document approximation for:
 
 - **`Blur`** / **`Vibrancy`** layer constructors vs **`Blur`** / **`Vibrancy`** token types on Web vs native.  
 - **`Easing`** string → SwiftUI / Compose mapping.  
-- **`direction = .stack`** z-order vs CSS stacking contexts.  
+- **`direction = .stack` / `.reverseStack`** z-order vs CSS stacking contexts.  
 
 ---
 
