@@ -612,6 +612,45 @@ describe("renderHtml", () => {
     expect(frag).toContain("#336699");
   });
 
+  it("keeps layered background chrome outside the overflow scrollport", () => {
+    const frag = renderBakedComponentToHtmlFragment({
+      name: "ScrollChrome",
+      rootKind: "layout",
+      bakedParams: {},
+      root: {
+        id: "Root",
+        kind: "layout",
+        props: {
+          direction: "row",
+          width: { fixed: 200 },
+          height: { fixed: 100 },
+          background: "#9999994D",
+          overflow: "scroll",
+          cornerRadius: { tl: 12, tr: 32, br: 12, bl: 0 },
+        },
+        children: [
+          {
+            id: "A",
+            kind: "text",
+            props: { content: "Hello" },
+            children: [],
+          },
+        ],
+      },
+    });
+    expect(frag).toContain("pdl-layout--layers");
+    expect(frag).toContain("pdl-layer-band");
+    expect(frag).toContain("pdl-layout__content");
+    // Overflow scrolls children only — not the shell that owns the background band.
+    expect(frag).toMatch(/pdl-layout__content"[^>]*overflow:scroll/);
+    expect(frag).not.toMatch(/pdl-layout--layers"[^>]*overflow:scroll/);
+    // Band precedes the content scrollport in the shell.
+    const bandAt = frag.indexOf("pdl-layer-band");
+    const contentAt = frag.indexOf("pdl-layout__content");
+    expect(bandAt).toBeGreaterThan(-1);
+    expect(contentAt).toBeGreaterThan(bandAt);
+  });
+
   it("renders multi-layer background and foreground as bands (not inset foreground box-shadow)", () => {
     const doc = {
       schemaKind: "bakedDesign" as const,

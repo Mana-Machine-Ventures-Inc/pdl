@@ -1564,7 +1564,9 @@ There is **no** **`.hidden`** or **`.auto`**. Authors who want CSS-like “crop 
 
 **`truncateStyle`** is orthogonal to frame **`overflow`**: **`.ellipsis`** paints a trailing `…`; **`.clip`** ends flush with no `…`. Pair with **`overflow = .clip`** (and optional **`lineClamp`**) when truncating.
 
-**HTML preview mapping** (`src/renderHtml.ts`): **`.scroll`** → CSS `overflow: scroll`; **`.clip`** → CSS `overflow: hidden` (Chromium often fails to crop with CSS `overflow: clip` on flex-centered text shells). Native emitters **MAY** map **`.clip`** to a true non-scroll clip.
+**Chrome vs content (normative):** Frame **`background`**, **`foreground`**, **`border*`**, **`shadow`**, and **`cornerRadius`** are **viewport chrome**. They **MUST NOT** scroll or move with overflowing children under **`.scroll`** / **`.clip`**. Only **`children`** (and their own paints) are overflowable content.
+
+**HTML preview mapping** (`src/renderHtml.ts`): **`.scroll`** → CSS `overflow: scroll` on the content scrollport (not the chrome shell that owns layer bands); **`.clip`** → CSS `overflow: hidden` on that scrollport (Chromium often fails to crop with CSS `overflow: clip` on flex-centered text shells). Native emitters **MAY** map **`.clip`** to a true non-scroll clip.
 
 ```pdl
 overflow = .visible

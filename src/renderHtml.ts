@@ -641,7 +641,7 @@ function mergeInlineStyles(...chunks: (string | undefined)[]): string {
 /** Padding, margin, sizing, radius, opacity, flat background / shadow / border / overflow (no flex/grid). */
 function boxMetricsStyle(
   props: Record<string, unknown>,
-  opts?: { omitBackground?: boolean },
+  opts?: { omitBackground?: boolean; omitOverflow?: boolean },
 ): string {
   const parts: string[] = [];
   const pad = paddingToCss(props, "padding");
@@ -664,8 +664,12 @@ function boxMetricsStyle(
   // Border (inside/outside) + drop shadow — paint-only via box-shadow.
   const sh = dropShadowCss(props);
   if (sh) parts.push(sh);
-  const ov = overflowCss(props.overflow);
-  if (ov) parts.push(ov);
+  // Layered layouts apply overflow on the content scrollport so background/foreground
+  // chrome stays viewport-fixed (see layout `--layers` branch).
+  if (!opts?.omitOverflow) {
+    const ov = overflowCss(props.overflow);
+    if (ov) parts.push(ov);
+  }
   return parts.join(";");
 }
 
@@ -724,7 +728,7 @@ function frameBoxStyle(
   }
   if (kind === "layout" && layoutLayerBandsActive(props)) {
     return mergeInlineStyles(
-      boxMetricsStyle(props, { omitBackground: true }),
+      boxMetricsStyle(props, { omitBackground: true, omitOverflow: true }),
       "display:flex",
       "flex-direction:column",
       "position:relative",
@@ -989,18 +993,23 @@ function renderFrame(
     const isStack = isStackDirection(props.direction);
     const layered = layoutLayerBandsActive(props);
     if (layered) {
+      // Shell holds chrome (radius, shadow, border rings, layer bands). Overflow lives on
+      // `__content` so background/foreground do not scroll with children.
       const style = mergeInlineStyles(
         frameBoxStyle(props, "layout", opts),
         isStack ? "position:relative" : "",
       );
       const innerStyle = mergeInlineStyles(
         layoutFlexGridStyle(props),
+        overflowCss(props.overflow),
         "flex:1 1 auto",
         "width:100%",
+        "height:100%",
         "min-width:0",
         "min-height:0",
         "position:relative",
         "z-index:1",
+        "border-radius:inherit",
       );
       const under = renderLayerBandHtml(flattenLayerOps(props.background), 0);
       const over = renderLayerBandHtml(flattenLayerOps(props.foreground), 2);
@@ -1048,11 +1057,11 @@ function renderFrame(
     }
     const clamped = textLineClamp(props) !== undefined;
     if (textLayerBandsActive(props)) {
+      // Same chrome/scroll split as layered layout: bands on the shell, overflow on inner.
       const wrapStyle = mergeInlineStyles(
         textMetricsShellStyle(props),
         dropShadowCss(props),
         textBoxAlignStyle(props),
-        overflowCss(props.overflow),
         "position:relative",
         "vertical-align:top",
         ...textMainAxisMinDecls(props),
@@ -1060,8 +1069,14 @@ function renderFrame(
       );
       const innerStyle = mergeInlineStyles(
         clamped ? textClampInnerStyle(props) : textGlyphAndFlowStyle(props),
+        overflowCss(props.overflow),
         "position:relative",
         "z-index:1",
+        "border-radius:inherit",
+        "display:block",
+        "width:100%",
+        "height:100%",
+        "box-sizing:border-box",
       );
       const under = renderLayerBandHtml(flattenLayerOps(props.background), 0);
       const over = renderLayerBandHtml(flattenLayerOps(props.foreground), 2);
