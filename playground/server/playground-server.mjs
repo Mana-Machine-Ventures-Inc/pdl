@@ -1328,18 +1328,83 @@ async function handleRenderFromBake(body) {
     typeof body.component === "string" && body.component.trim()
       ? body.component.trim()
       : undefined;
-  const { html, renderFailures } = renderBakedDesignToHtmlDocumentWithReport(bake, {
-    title: "PDL Playground preview (WASM bake)",
-    singleComponent: component,
-  });
-  return {
-    ok: true,
-    html,
-    // Hot-path IR reconcile fallback (same bake the WASM client already has).
-    baked: bake,
-    renderFailures,
-    engine: "wasm",
-  };
+  /** @type {string[] | undefined} */
+  const componentNames = Array.isArray(body.componentNames)
+    ? body.componentNames.map(String).filter(Boolean)
+    : undefined;
+  const wantInteractive = body.interactiveHost !== false;
+
+  /** @type {Record<string, unknown> | undefined} */
+  let interactionsByComponent =
+    body.interactionsByComponent && typeof body.interactionsByComponent === "object"
+      ? /** @type {Record<string, unknown>} */ (body.interactionsByComponent)
+      : undefined;
+  /** @type {Record<string, unknown> | undefined} */
+  let emitCapturesByComponent =
+    body.emitCapturesByComponent && typeof body.emitCapturesByComponent === "object"
+      ? /** @type {Record<string, unknown>} */ (body.emitCapturesByComponent)
+      : undefined;
+
+  // WASM bake is IR-only — enrich host/emit decls from the workspace so Edit/press
+  // (PointerInput) and NoteField emits bind the same as the Rust CLI path.
+  /** @type {string | undefined} */
+  let tmp;
+  try {
+    if (
+      wantInteractive &&
+      (!interactionsByComponent || !emitCapturesByComponent) &&
+      typeof body.entry === "string" &&
+      body.entry.trim()
+    ) {
+      const useDisk = body.diskRoot === true;
+      /** @type {string} */
+      let entryAbs;
+      /** @type {string} */
+      let summaryRoot;
+      if (useDisk) {
+        entryAbs = resolveRepoPath(REPO_ROOT, body.entry);
+        assertUnderRepo(entryAbs);
+        summaryRoot = dirname(entryAbs);
+      } else {
+        if (!body.files || typeof body.files !== "object") {
+          throw new Error('interactive WASM HTML needs "files" (or diskRoot: true)');
+        }
+        assertSafeRelativePath(body.entry);
+        tmp = mkdtempSync(join(tmpdir(), "pdl-playground-wasm-"));
+        writeWorkspace(tmp, body.files);
+        entryAbs = resolve(tmp, body.entry);
+        summaryRoot = tmp;
+      }
+      const enriched = await enrichDesignAt(entryAbs, summaryRoot);
+      interactionsByComponent = {
+        ...(interactionsByComponent ?? {}),
+        ...(enriched.interactionsByComponent ?? {}),
+      };
+      emitCapturesByComponent = {
+        ...(emitCapturesByComponent ?? {}),
+        ...(enriched.emitCapturesByComponent ?? {}),
+      };
+    }
+
+    const { html, renderFailures } = renderBakedDesignToHtmlDocumentWithReport(bake, {
+      title: "PDL Playground preview (WASM bake)",
+      singleComponent: component,
+      componentNames,
+      interactiveHost: wantInteractive,
+      interactionsByComponent,
+      emitCapturesByComponent,
+    });
+    return {
+      ok: true,
+      html,
+      // Hot-path IR reconcile fallback (same bake the WASM client already has).
+      baked: bake,
+      renderFailures,
+      engine: "wasm",
+    };
+  } finally {
+    if (tmp) rmSync(tmp, { recursive: true, force: true });
+  }
 }
 
 function serveStatic(pathname, res) {

@@ -2663,6 +2663,10 @@ async function runRender({ debounced = false } = {}) {
         body: JSON.stringify({
           bake,
           component: names.length === 1 ? owner || canvasPrimary : undefined,
+          componentNames: names.length > 1 ? names : undefined,
+          // Same interactive host as Rust CLI — Edit/press/emits need catalogue decls.
+          interactiveHost: true,
+          ...getBodyBase(),
         }),
       });
       const data = await res.json();
