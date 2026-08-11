@@ -53,6 +53,109 @@ describe("applyEmitCapture", () => {
     ]);
   });
 
+  it("funnels shell SoT through Input.began / finished / cancelled captures", () => {
+    const captures = [
+      {
+        qualifier: "Input",
+        channel: "began",
+        payload: [{ name: "value", type: "String" }],
+        body: [
+          { kind: "assign", param: "draft", value: { kind: "ident", name: "value" } },
+          { kind: "assign", param: "editing", value: { kind: "boolean", value: true } },
+          {
+            kind: "assign",
+            param: "status",
+            value: { kind: "string", value: "Editing — Done / Enter save; Cancel / Esc discard" },
+          },
+        ],
+      },
+      {
+        qualifier: "Input",
+        channel: "finished",
+        payload: [{ name: "value", type: "String" }],
+        body: [
+          { kind: "assign", param: "draft", value: { kind: "ident", name: "value" } },
+          { kind: "assign", param: "committed", value: { kind: "ident", name: "value" } },
+          { kind: "assign", param: "editing", value: { kind: "boolean", value: false } },
+          { kind: "assign", param: "status", value: { kind: "string", value: "Saved" } },
+        ],
+      },
+      {
+        qualifier: "Input",
+        channel: "cancelled",
+        payload: [{ name: "value", type: "String" }],
+        body: [
+          { kind: "assign", param: "draft", value: { kind: "ident", name: "committed" } },
+          { kind: "assign", param: "editing", value: { kind: "boolean", value: false } },
+          {
+            kind: "assign",
+            param: "status",
+            value: { kind: "string", value: "Cancelled — committed text unchanged" },
+          },
+        ],
+      },
+    ];
+    const began = applyEmitCapture(
+      {
+        committed: "Ship",
+        draft: "Ship",
+        editing: false,
+        status: "Idle",
+      },
+      captures,
+      "began",
+      ["value"],
+      { value: "Ship" },
+      "Input",
+    );
+    expect(began.params).toMatchObject({
+      draft: "Ship",
+      editing: true,
+      status: "Editing — Done / Enter save; Cancel / Esc discard",
+    });
+
+    const saved = applyEmitCapture(
+      {
+        committed: "Ship",
+        draft: "Ship draft",
+        editing: true,
+        status: "Editing",
+      },
+      captures,
+      "finished",
+      ["value"],
+      { value: "Ship EditableText" },
+      "Input",
+    );
+    expect(saved.handled).toBe(true);
+    expect(saved.params).toMatchObject({
+      draft: "Ship EditableText",
+      committed: "Ship EditableText",
+      editing: false,
+      status: "Saved",
+    });
+
+    const cancelled = applyEmitCapture(
+      {
+        committed: "Ship",
+        draft: "Ship draft",
+        editing: true,
+        status: "Editing",
+      },
+      captures,
+      "cancelled",
+      ["value"],
+      { value: "Ship" },
+      "Input",
+    );
+    expect(cancelled.params).toMatchObject({
+      draft: "Ship",
+      committed: "Ship",
+      editing: false,
+      status: "Cancelled — committed text unchanged",
+    });
+  });
+
   it("disambiguates multiple same-channel captures by let qualifier", () => {
     const captures = [
       {

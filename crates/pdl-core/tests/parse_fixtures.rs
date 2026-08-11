@@ -1165,23 +1165,35 @@ component Btn <PointerInput>() layout {
   pressEnd = { emit tap() }
 } emits { tap() }
 
-component Field <EditableText>() text {
+component Field <EditableText>(
+  activatesOn: TextFieldActivation = .press
+) text {
   content = value
+  editingBegan = {
+    emit began(value)
+  }
   editingFinished = {
     finishEditing()
-    emit change(value)
+    emit finished(value)
   }
-} emits { change(value: String) }
+  editingCancelled = {
+    cancelEditing()
+    emit cancelled(value)
+  }
+} emits {
+  began(value: String)
+  finished(value: String)
+  cancelled(value: String)
+}
 
-component Editor(draft: String = "", editing: Bool = false) layout {
+component Editor(draft: String = "", editing: Bool = false, committed: String = "") layout {
   let Input = Field(value: draft, isEditing: editing)
   let Edit = Btn()
   let Done = Btn()
   let Cancel = Btn()
   children = [Input, Edit, Done, Cancel]
   Edit.tap() = {
-    editing = true
-    Input.beginEditing(draft)
+    Input.beginEditing(committed)
   }
   Done.tap() = {
     Input.finishEditing()
@@ -1189,8 +1201,18 @@ component Editor(draft: String = "", editing: Bool = false) layout {
   Cancel.tap() = {
     Input.cancelEditing()
   }
-  Input.change(value: String) = {
+  Input.began(value: String) = {
     draft = value
+    editing = true
+  }
+  Input.finished(value: String) = {
+    draft = value
+    committed = value
+    editing = false
+  }
+  Input.cancelled(value: String) = {
+    draft = committed
+    editing = false
   }
 }
 "#

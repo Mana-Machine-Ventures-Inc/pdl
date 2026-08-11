@@ -2121,6 +2121,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     var vargs = hv.args || [];
     var changed = false;
     var localChrome = false;
+    var skipEagerFocus = false;
     if (vname === 'beginEditing') {
       var seedName = (vargs[0] || 'value').replace(/^self\./, '');
       var seed = Object.prototype.hasOwnProperty.call(parentParams, seedName)
@@ -2132,6 +2133,21 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       bag.isEmpty = seed.length === 0;
       changed = true;
       localChrome = showInstEditingChrome(node, true);
+      // Same as finish/cancel: verb delivers session inbound so parent emit captures run
+      // (e.g. Input.began → editing = true).
+      if (childBy.editingBegan) {
+        var br = applyEvent(bag, childDecls, 'editingBegan');
+        bag = br.params;
+        (br.emits || []).forEach(function(em){
+          var capB = applyEmitCapture(parentParams, parentCaptures, em.name, em.args || [], bag, q);
+          if (capB.handled && capB.changed) {
+            parentParams = capB.params;
+            changed = true;
+            // Parent shell will rebake — don't focus a node about to be torn down.
+            skipEagerFocus = true;
+          }
+        });
+      }
     } else if (vname === 'finishEditing' || vname === 'commitEditing') {
       bag.isEditing = false;
       bag.isEmpty = String(bag.value == null ? '' : bag.value).length === 0;
@@ -2170,7 +2186,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     var vis = node.querySelector('.pdl-inst-state:not([hidden]) input.pdl-text--editable, :scope > input.pdl-text--editable');
     if (vis) {
       try { vis.value = String(bag.value == null ? '' : bag.value); } catch (e) {}
-      if (bag.isEditing === true || bag.isEditing === 'true') {
+      if (!skipEagerFocus && (bag.isEditing === true || bag.isEditing === 'true')) {
         try { vis.focus(); } catch (e) {}
       }
     }
@@ -2487,26 +2503,19 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           syncHitTarget();
           var localChrome = nested ? showInstEditing(true) : false;
           if (nested) {
+            var beginEmits = [];
+            var beginNeedRebake = false;
             if (eventBy.pressEnd) {
               var pr = dispatchNested('pressEnd');
-              if (pr.needRebake) {
-                postMsg({
-                  type: 'pdl-interaction',
-                  component: name,
-                  event: 'pressEnd',
-                  childComponent: childType,
-                  params: liveParams,
-                  childParams: childBag,
-                  emits: pr.emits,
-                  handled: true,
-                  changed: true,
-                  previewHandled: false
-                });
-                return;
-              }
+              beginEmits = pr.emits || [];
+              beginNeedRebake = Boolean(pr.needRebake);
             } else if (eventBy.editingBegan) {
-              dispatchNested('editingBegan');
+              var brn = dispatchNested('editingBegan');
+              beginEmits = brn.emits || [];
+              beginNeedRebake = Boolean(brn.needRebake);
             }
+            // Parent shell SoT (e.g. editing = true via emit began) must rebake even when
+            // nested inst-state chrome swapped locally.
             postMsg({
               type: 'pdl-interaction',
               component: name,
@@ -2514,10 +2523,10 @@ export function renderBakedDesignToHtmlDocumentWithReport(
               childComponent: childType,
               params: liveParams,
               childParams: childBag,
-              emits: [],
+              emits: beginEmits,
               handled: true,
-              changed: !localChrome,
-              previewHandled: localChrome
+              changed: beginNeedRebake || !localChrome,
+              previewHandled: beginNeedRebake ? false : localChrome
             });
             return;
           }
@@ -2635,19 +2644,25 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           persistBag();
         });
         input.addEventListener('blur', function(ev){
-          if (!isEditingNow()) {
-            syncHitTarget();
-            return;
-          }
-          // Chrome swap hides the rest <input> and focuses the editing tree —
-          // that blur must not commit the session.
-          if (nested && instNode) {
-            var rt = ev.relatedTarget;
-            if (rt && instNode.contains(rt)) return;
-            var st = input.closest('.pdl-inst-state');
-            if (st && st.hidden) return;
-          }
-          finishSession('finished');
+          // Defer: Playground rebake replaces iframe srcdoc in the same turn as
+          // Edit/began. A sync blur-commit was finishing the new session and
+          // snapping parent editing back to false. After teardown, the input
+          // is disconnected and we no-op.
+          var blurSt = input.closest('.pdl-inst-state');
+          setTimeout(function(){
+            if (!input.isConnected) return;
+            if (!isEditingNow()) {
+              syncHitTarget();
+              return;
+            }
+            if (nested && instNode) {
+              var active = document.activeElement;
+              if (active && instNode.contains(active)) return;
+              if (blurSt && blurSt.hidden) return;
+            }
+            if (document.activeElement === input) return;
+            finishSession('finished');
+          }, 0);
         });
         input.addEventListener('keydown', function(ev){
           if (ev.key === 'Escape') {

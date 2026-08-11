@@ -313,15 +313,32 @@ component NoteField <EditableText, PointerInput>(
 
 ### 6.2 Multi-field / toolbar (no ctor sugar)
 
-Authors nest a real EditableText component and target it with let-qualified verbs — **not** a `TextField()` desugar:
+Authors nest a real EditableText component and target it with let-qualified verbs — **not** a `TextField()` desugar.
+
+**Shell open/close funnel:** Edit / field click / Done / Enter / Cancel / Esc must share parent paths. Put shell SoT in emit captures (`began` / `finished` / `cancelled`); buttons only request verbs. Prefer **`activatesOn = .press`** on the nested field so a click begins the session without bare-focus races against sibling chrome.
 
 ```pdl
+// On the field (activatesOn = .press)
+editingBegan = { emit began(value) }
+editingFinished = { finishEditing(); emit finished(value) }
+editingCancelled = { cancelEditing(); emit cancelled(value) }
+// emits { began(value: String); finished(value: String); cancelled(value: String) }
+
 let Input = NoteField(value: draft, isEditing: editing)
 …
-Edit.tap() = { Input.beginEditing(draft) }
-Done.tap() = { Input.finishEditing() }
-Input.change(value: String) = { draft = value }
+Edit.tap() = { Input.beginEditing(committed) }  // field click → same began path
+Done.tap() = { Input.finishEditing() }          // Enter → finished
+Cancel.tap() = { Input.cancelEditing() }        // Esc → cancelled
+Input.began(value: String) = { draft = value; editing = true }
+Input.finished(value: String) = {
+  draft = value; committed = value; editing = false
+}
+Input.cancelled(value: String) = {
+  draft = committed; editing = false
+}
 ```
+
+Do **not** put `editing = true` / `false` only in button bodies — keyboard and field activation never run those.
 
 **Rejected:** `let Input = TextField()` (or any World A ctor that implies a parallel “control class”). Kind stays `text` / `layout`; power comes from `<EditableText>`.
 

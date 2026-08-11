@@ -1,10 +1,10 @@
-// EditableText sessions — try each component in Playground HTML preview.
+// EditableText sessioaans — try each component in Playground HTML preview.
 //
 // MyTextField       — default .focus; handlers optional
 // PressOnlyField    — .press: click begins; bare focus does not
 // ProgramOnlyField  — .none: click does nothing; fixture / param isEditing
-// NoteEditor        — intricate: parent-owned session + Edit / Done / Cancel
-//                     (activatesOn=.none; committed vs draft SoT)
+// NoteEditor        — parent-owned session; field .press or Edit opens
+//                     (began / finished / cancelled emit funnel)
 
 component MyTextField <EditableText>() text {
   fontSize = 16
@@ -72,9 +72,11 @@ component ProgramOnlyField <EditableText>(
   }
 }
 
-// --- NoteEditor: parent orchestrates the session (Done / Cancel) ----------------
-// Parent SoT: committed / draft / editing (shell chrome). Session verbs target Input:
-//   Input.beginEditing(draft) / Input.finishEditing() / Input.cancelEditing()
+// --- NoteEditor: parent orchestrates the session --------------------------------
+// Parent SoT: committed / draft / editing (shell chrome).
+// Open / close funnel through NoteField emits (began / finished / cancelled):
+//   Edit click + field .press → began; Done/Enter → finished; Cancel/Esc → cancelled.
+//   Buttons only request Input.beginEditing / finishEditing / cancelEditing.
 
 variant EditorBtnTone {
   case primary
@@ -109,7 +111,7 @@ component EditorBtn <PointerInput>(
 }
 
 component NoteField <EditableText>(
-  activatesOn: TextFieldActivation = .none
+  activatesOn: TextFieldActivation = .press
 ) text {
   fontSize = 16
   padding = EdgeInsets(x: 12, y: 10)
@@ -128,23 +130,28 @@ component NoteField <EditableText>(
     color = #A1A1AA
   }
 
+  editingBegan = {
+    emit began(value)
+  }
   editingFinished = {
     finishEditing()
-    emit change(value)
+    emit finished(value)
   }
   editingCancelled = {
     cancelEditing()
-    emit change(value)
+    emit cancelled(value)
   }
 } emits {
-  change(value: String)
+  began(value: String)
+  finished(value: String)
+  cancelled(value: String)
 }
 
 component NoteEditor(
   committed: String = "Ship EditableText",
   draft: String = "Ship EditableText",
   editing: Bool = false,
-  status: String = "Idle — press Edit to start a session"
+  status: String = "Idle — click the field or Edit to start"
 ) layout {
   direction = .column
   gap = 10
@@ -158,7 +165,7 @@ component NoteEditor(
   let Eyebrow = Text(content: "Committed title", fontSize: 11, color: #A1A1AA)
   let Title = Text(content: committed, fontSize: 18, color: #18181B)
   let Hint = Text(
-    content: "activatesOn=.none — Edit opens the session; Done / Cancel close it",
+    content: "activatesOn=.press — field click or Edit opens; Done/Enter save; Cancel/Esc discard",
     fontSize: 11,
     color: #71717A
   )
@@ -176,26 +183,25 @@ component NoteEditor(
     children = [Eyebrow, Title, Hint, Input, Edit, Status]
   }
 
-  Edit.tap() = {
-    draft = committed
+  // Thin verb wrappers — shell SoT updates in began / finished / cancelled captures.
+  Edit.tap() = { Input.beginEditing(committed) }
+  Done.tap() = { Input.finishEditing() }
+  Cancel.tap() = { Input.cancelEditing() }
+  Input.began(value: String) = {
+    draft = value
     editing = true
-    Input.beginEditing(draft)
-    status = "Editing — Done keeps the draft, Cancel restores committed"
+    status = "Editing — Done / Enter save; Cancel / Esc discard"
   }
-  Done.tap() = {
-    Input.finishEditing()
-    committed = draft
+  Input.finished(value: String) = {
+    draft = value
+    committed = value
     editing = false
     status = "Saved"
   }
-  Cancel.tap() = {
-    Input.cancelEditing()
+  Input.cancelled(value: String) = {
     draft = committed
     editing = false
     status = "Cancelled — committed text unchanged"
-  }
-  Input.change(value: String) = {
-    draft = value
   }
 }
 
@@ -224,7 +230,7 @@ fixtures NoteEditor {
     committed = "Ship EditableText"
     draft = "Ship EditableText"
     editing = false
-    status = "Idle — press Edit to start a session"
+    status = "Idle — click the field or Edit to start"
   }
   example "Mid-edit" {
     committed = "Ship EditableText"
