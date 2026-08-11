@@ -83,6 +83,38 @@ describe("patchFrameProps", () => {
     const el = document.body.firstElementChild!;
     expect(patchFrameProps(el, prev, next)).toBe("needsRemount");
   });
+
+  it("patches layered Blur foreground without remounting children", () => {
+    const child = textFrame("Label", "Hi");
+    const prev: BakedFrame = {
+      id: "LabLayers",
+      kind: "layout",
+      props: {
+        width: 240,
+        height: 240,
+        background: ["#FFFFFF"],
+        foreground: { kind: "blur", radius: 12 },
+        direction: "vertical",
+      },
+      children: [child],
+    };
+    const next: BakedFrame = {
+      ...prev,
+      props: {
+        ...prev.props,
+        foreground: { kind: "blur", radius: 48 },
+      },
+    };
+    const html = renderFrameForReconcile(prev, { stackChild: false, stackZ: 0 });
+    document.body.innerHTML = html;
+    const el = document.body.firstElementChild!;
+    const labelBefore = el.querySelector('[data-pdl-id="Label"]')!;
+    expect(el.querySelectorAll(":scope > .pdl-layer-band").length).toBeGreaterThan(0);
+    expect(patchFrameProps(el, prev, next)).toBe("patched");
+    expect(el.querySelector('[data-pdl-id="Label"]')).toBe(labelBefore);
+    const over = Array.from(el.querySelectorAll(":scope > .pdl-layer-band")).pop()!;
+    expect(over.innerHTML).toContain("blur(48px)");
+  });
 });
 
 describe("reconcileBakedComponentIntoCanvas NoteEditor-shaped", () => {

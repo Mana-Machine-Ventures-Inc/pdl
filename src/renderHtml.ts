@@ -1496,27 +1496,80 @@ export function patchFrameProps(
     mergeSessionAttrs(el, nextSession, next.instanceKwargs);
   }
 
-  // Layered layout: keep content scrollport style in sync (overflow lives there).
-  if (next.kind === "layout" && layoutLayerBandsActive(nextProps)) {
-    const content = el.querySelector(":scope > .pdl-layout__content");
-    if (content) {
-      const innerStyle = mergeInlineStyles(
-        layoutFlexGridStyle(nextProps),
-        overflowCss(nextProps.overflow),
-        "flex:1 1 auto",
-        "width:100%",
-        "height:100%",
-        "min-width:0",
-        "min-height:0",
-        "position:relative",
-        "z-index:1",
-        "border-radius:inherit",
-      );
-      content.setAttribute("style", innerStyle);
+  // Layered layout/text: keep content scrollport + background/foreground bands in sync.
+  // Blur/ramp/media fills live in `.pdl-layer-band` siblings — not on shell style.
+  if (
+    (next.kind === "layout" || next.kind === "text" || next.kind === "media") &&
+    (layoutLayerBandsActive(nextProps) || layoutLayerBandsActive((prev.props ?? {}) as Record<string, unknown>))
+  ) {
+    const prevProps = (prev.props ?? {}) as Record<string, unknown>;
+    if (
+      !deepEqualJson(prevProps.background, nextProps.background) ||
+      !deepEqualJson(prevProps.foreground, nextProps.foreground)
+    ) {
+      syncLayerBands(el, nextProps);
+    }
+    if (next.kind === "layout" && layoutLayerBandsActive(nextProps)) {
+      const content = el.querySelector(":scope > .pdl-layout__content");
+      if (content) {
+        const innerStyle = mergeInlineStyles(
+          layoutFlexGridStyle(nextProps),
+          overflowCss(nextProps.overflow),
+          "flex:1 1 auto",
+          "width:100%",
+          "height:100%",
+          "min-width:0",
+          "min-height:0",
+          "position:relative",
+          "z-index:1",
+          "border-radius:inherit",
+        );
+        content.setAttribute("style", innerStyle);
+      }
     }
   }
 
   return "patched";
+}
+
+/**
+ * Replace `.pdl-layer-band` under/over chrome without remounting children / media.
+ * Order: under band → content/inner → over band → optional inside border.
+ */
+function syncLayerBands(el: Element, props: Record<string, unknown>): void {
+  const doc = el.ownerDocument;
+  if (!doc) return;
+  const underHtml = renderLayerBandHtml(flattenLayerOps(props.background), 0);
+  const overHtml = renderLayerBandHtml(flattenLayerOps(props.foreground), 2);
+
+  for (const band of Array.from(el.querySelectorAll(":scope > .pdl-layer-band"))) {
+    band.remove();
+  }
+
+  const content =
+    el.querySelector(":scope > .pdl-layout__content") ||
+    el.querySelector(":scope > .pdl-text__inner") ||
+    el.querySelector(":scope > .pdl-media__img") ||
+    el.querySelector(":scope > .pdl-media__placeholder");
+  const border = el.querySelector(":scope > .pdl-border-inside");
+
+  const mount = (html: string, before: Element | null) => {
+    if (!html) return;
+    const wrap = doc.createElement("div");
+    wrap.innerHTML = html.trim();
+    const node = wrap.firstElementChild;
+    if (!node) return;
+    if (before) el.insertBefore(node, before);
+    else el.appendChild(node);
+  };
+
+  if (content) {
+    mount(underHtml, content);
+    mount(overHtml, border);
+  } else {
+    mount(underHtml, border);
+    mount(overHtml, border);
+  }
 }
 
 function renderFrame(

@@ -379,7 +379,7 @@ function renderFixtureChips() {
       const owner = name || primaryComponent || component.value;
       setKvForComponent(owner, { ...examples[label] });
       renderFixtureChips();
-      scheduleDebouncedRender(0, { incremental: true });
+      scheduleDebouncedRender(0, { incremental: true, ownerOnly: true });
     });
     fixtureChips.append(b);
   }
@@ -416,7 +416,8 @@ function mountEditor() {
           if (update.docChanged) {
             files[activePath] = getEditorText();
             scheduleDraftSave();
-            scheduleDebouncedRender();
+            // Live preview: rebake canvas IR + reconcile deltas (not srcdoc remount).
+            scheduleDebouncedRender(undefined, { incremental: true });
           }
         }),
       ],
@@ -2198,13 +2199,20 @@ let previewDocumentLive = false;
 let lastBakedDesign = null;
 /** When true, next runRender tries identity apply instead of srcdoc remount. */
 let nextRenderIncremental = false;
+/**
+ * When true with incremental: bake only the param owner (knobs/emits/fixtures).
+ * Source/theme ticks use incremental without ownerOnly → rebake whole canvas IR,
+ * reconcile only changed components (avoids remounting siblings / reloading media).
+ */
+let nextRenderOwnerOnly = false;
 
 /**
  * @param {number} [delayMs]
- * @param {{ incremental?: boolean }} [opts]
+ * @param {{ incremental?: boolean, ownerOnly?: boolean }} [opts]
  */
 function scheduleDebouncedRender(delayMs = RENDER_DEBOUNCE_MS, opts = {}) {
   if (opts.incremental) nextRenderIncremental = true;
+  if (opts.ownerOnly) nextRenderOwnerOnly = true;
   if (renderDebounceTimer) {
     clearTimeout(renderDebounceTimer);
     renderDebounceTimer = null;
@@ -2528,7 +2536,9 @@ async function runAnalyze() {
 async function runRender({ debounced = false } = {}) {
   const id = ++latestRenderId;
   const incremental = nextRenderIncremental;
+  const ownerOnly = nextRenderOwnerOnly;
   nextRenderIncremental = false;
+  nextRenderOwnerOnly = false;
   showError("");
   updateRenderConsole([]);
   if (!debounced && renderDebounceTimer) {
@@ -2604,9 +2614,10 @@ async function runRender({ debounced = false } = {}) {
       const sourceFiles = await sourcesForWasmBake(entry);
       const { filesJson, entry: virtEntry } = virtualizeSources(sourceFiles, entry);
       const t0 = performance.now();
-      // Hot path + multi-canvas: bake only the dirty owner (minimize IR + DOM).
+      // Param/emit hot path: bake only the dirty owner. Source/theme: whole canvas IR.
       const dirtyOnly =
         incremental &&
+        ownerOnly &&
         previewDocumentLive &&
         !!lastBakedDesign?.components &&
         names.length > 1 &&
@@ -2700,8 +2711,8 @@ async function runRender({ debounced = false } = {}) {
       body.variantMatrix = true;
     } else if (
       names.length === 1 ||
-      // Hot path: bake only the dirty owner; merge + reconcile that section.
-      (body.bakeOnly && (owner || canvasPrimary))
+      // Param/emit: bake only the dirty owner; merge + reconcile that section.
+      (body.bakeOnly && ownerOnly && (owner || canvasPrimary))
     ) {
       body.mode = "component";
       body.component = owner || canvasPrimary;
@@ -2898,7 +2909,8 @@ updateWorkspaceUi();
 
 themeInput.addEventListener("input", () => {
   scheduleDraftSave();
-  scheduleDebouncedRender();
+  // Theme can affect every canvas component — full IR rebake, reconcile deltas.
+  scheduleDebouncedRender(undefined, { incremental: true });
 });
 kvJson.addEventListener("input", () => {
   if (syncingKnobs) return;
@@ -2912,8 +2924,8 @@ kvJson.addEventListener("input", () => {
   }
   refreshControlsUi();
   scheduleDraftSave();
-  // Param knobs: hot path — live morph/reconcile (no srcdoc remount).
-  scheduleDebouncedRender(undefined, { incremental: true });
+  // Param knobs: dirty-owner bake + reconcile.
+  scheduleDebouncedRender(undefined, { incremental: true, ownerOnly: true });
 });
 entryPath.addEventListener("input", () => {
   scheduleDraftSave();
@@ -2964,7 +2976,7 @@ window.addEventListener("message", (ev) => {
       component.value = primaryComponent;
     }
     setKvForComponent(primaryComponent, /** @type {Record<string, unknown>} */ (data.kv));
-    scheduleDebouncedRender(0, { incremental: true });
+    scheduleDebouncedRender(0, { incremental: true, ownerOnly: true });
     return;
   }
   if (data.type === "pdl-interaction") {
@@ -2989,7 +3001,7 @@ window.addEventListener("message", (ev) => {
       // Rebake when emit capture changed parent SoT (or no local state-tree swap).
       // Param-only: identity-preserving live apply (no iframe srcdoc remount).
       if (data.previewHandled !== true && data.changed) {
-        scheduleDebouncedRender(0, { incremental: true });
+        scheduleDebouncedRender(0, { incremental: true, ownerOnly: true });
       }
     }
   }

@@ -3,7 +3,7 @@
 **Status:** ideal hot path implemented (Playground)  
 **Assumptions:** Rust owns bake/resolve; HTML remains the interactive preview surface.
 
-**Shipped:** Param/interaction/fixture ticks use **bake IR → DOM reconcile** as the primary engine (`src/bakeReconcile.ts` + `patchFrameProps` in `src/renderHtml.ts`). WASM skips HTML serialization when the iframe is live; server accepts `bakeOnly`. On a multi-component canvas, hot ticks **bake + reconcile only the dirty owner**; equal IR is a DOM no-op; child lists move in place (no clear/reappend). HTML morph (`playground/src/preview-apply.js`) is fallback only. Cold path (source/theme/engine) still remounts via `srcdoc` (dual-bake hover trees included). Status shows `· live apply` (`dataset.pdlLastApply` = `ir` | `morph`).
+**Shipped:** Param/interaction/fixture ticks use **bake IR → DOM reconcile** as the primary engine (`src/bakeReconcile.ts` + `patchFrameProps` in `src/renderHtml.ts`). WASM skips HTML serialization when the iframe is live; server accepts `bakeOnly`. Param ticks **bake only the dirty owner**; **source/theme** ticks rebake the canvas IR and reconcile only changed components (no `srcdoc` remount — siblings/media stay mounted). Layer bands (`Blur` / ramp / fills) patch in place. Equal IR is a DOM no-op; child lists move in place. HTML morph is fallback only. Engine/pack switches still remount. Status shows `· live apply` (`dataset.pdlLastApply` = `ir` | `morph`).
 
 **Still non-goals:** ForEach row identity keys; dual-bake as the hot-path engine; React host emitter.
 
