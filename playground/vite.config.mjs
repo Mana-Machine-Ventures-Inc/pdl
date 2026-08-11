@@ -5,6 +5,12 @@ import { fileURLToPath } from "node:url";
 const playgroundDir = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      // Hot-path IR reconcile (src → bundled into playground-app.js)
+      "@pdl": resolve(playgroundDir, "../src"),
+    },
+  },
   build: {
     lib: {
       entry: resolve(playgroundDir, "src/main.js"),

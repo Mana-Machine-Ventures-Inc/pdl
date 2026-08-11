@@ -1288,6 +1288,8 @@ async function handleRender(body) {
       return {
         ...enriched,
         html,
+        // Hot-path IR reconcile: bake scene graph without forcing srcdoc remount.
+        baked: result.baked ?? null,
         renderFailures: rerender.renderFailures?.length
           ? rerender.renderFailures
           : result.renderFailures,
@@ -1317,6 +1319,8 @@ async function handleRenderFromBake(body) {
   return {
     ok: true,
     html,
+    // Hot-path IR reconcile fallback (same bake the WASM client already has).
+    baked: bake,
     renderFailures,
     engine: "wasm",
   };

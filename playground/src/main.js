@@ -18,6 +18,13 @@ import {
 import { pdlCompletionSource as buildPdlCompletionSource } from "./pdl-completions.js";
 import { formatTemplateInsert, PDL_TEMPLATES } from "./pdl-templates.js";
 import { loadWasmBake, virtualizeSources } from "./wasm-bake.js";
+import {
+  applyPreviewHtml,
+  capturePreviewEphemerals,
+  restorePreviewEphemerals,
+  requestInteractiveRebind,
+} from "./preview-apply.js";
+import { reconcileBakedComponentIntoCanvas } from "@pdl/bakeReconcile.ts";
 
 /** Synthetic pack id for browser-only scratch (never mixed with disk fixture packs). */
 const SCRATCH_PACK_ID = "__scratch__";
@@ -369,7 +376,7 @@ function renderFixtureChips() {
       const owner = name || primaryComponent || component.value;
       setKvForComponent(owner, { ...examples[label] });
       renderFixtureChips();
-      scheduleDebouncedRender(0);
+      scheduleDebouncedRender(0, { incremental: true });
     });
     fixtureChips.append(b);
   }
@@ -2182,7 +2189,19 @@ function getBodyBase() {
 /**
  * @param {number} [delayMs] — `0` runs render on the next task (e.g. mode / component change); default debounces editor typing.
  */
-function scheduleDebouncedRender(delayMs = RENDER_DEBOUNCE_MS) {
+/** @type {boolean} */
+let previewDocumentLive = false;
+/** @type {object | null} */
+let lastBakedDesign = null;
+/** When true, next runRender tries identity apply instead of srcdoc remount. */
+let nextRenderIncremental = false;
+
+/**
+ * @param {number} [delayMs]
+ * @param {{ incremental?: boolean }} [opts]
+ */
+function scheduleDebouncedRender(delayMs = RENDER_DEBOUNCE_MS, opts = {}) {
+  if (opts.incremental) nextRenderIncremental = true;
   if (renderDebounceTimer) {
     clearTimeout(renderDebounceTimer);
     renderDebounceTimer = null;
@@ -2195,6 +2214,89 @@ function scheduleDebouncedRender(delayMs = RENDER_DEBOUNCE_MS) {
     renderDebounceTimer = null;
     void runRender({ debounced: true });
   }, delayMs);
+}
+
+/**
+ * Param-driven updates: morph/reconcile into the live iframe. Source/theme/engine
+ * changes still assign srcdoc (cold path).
+ * @param {object} data
+ * @param {{ incremental: boolean }} opts
+ * @returns {'incremental' | 'remount'}
+ */
+function applyPreviewUpdate(data, opts) {
+  const html = typeof data.html === "string" ? data.html : "";
+  const doc = frame.contentDocument;
+  const wantIncremental =
+    opts.incremental &&
+    previewDocumentLive &&
+    !!doc?.querySelector?.(".pdl-gallery") &&
+    html.length > 0;
+
+  if (wantIncremental) {
+    const ephem = capturePreviewEphemerals(doc);
+    const nextBaked = data.baked && typeof data.baked === "object" ? data.baked : null;
+    // Prefer HTML identity morph (keeps dual-bake chrome). Fall back to bake-IR reconcile.
+    let applied = applyPreviewHtml(doc, html);
+    let applyKind = applied ? "morph" : "";
+    if (!applied && nextBaked?.components && lastBakedDesign?.components) {
+      applied = tryIncrementalBakeReconcile(doc, lastBakedDesign, nextBaked);
+      if (applied) applyKind = "ir";
+    }
+    if (applied) {
+      if (nextBaked) lastBakedDesign = nextBaked;
+      restorePreviewEphemerals(doc, ephem);
+      requestInteractiveRebind(frame);
+      // Stash for status line
+      frame.dataset.pdlLastApply = applyKind;
+      return "incremental";
+    }
+  }
+
+  previewDocumentLive = false;
+  lastBakedDesign = data.baked && typeof data.baked === "object" ? data.baked : null;
+  frame.srcdoc = html;
+  frame.addEventListener(
+    "load",
+    () => {
+      previewDocumentLive = true;
+    },
+    { once: true },
+  );
+  return "remount";
+}
+
+/**
+ * @param {Document} doc
+ * @param {object} prevBake
+ * @param {object} nextBake
+ */
+function tryIncrementalBakeReconcile(doc, prevBake, nextBake) {
+  try {
+    const names = Object.keys(nextBake.components || {});
+    if (names.length === 0) return false;
+    for (const name of names) {
+      const section = doc.querySelector(
+        `section.pdl-preview[data-pdl-component="${CSS.escape(name)}"]`,
+      );
+      if (!section) return false;
+      const canvas =
+        section.querySelector(".pdl-state:not([hidden]) .pdl-canvas") ||
+        section.querySelector(".pdl-canvas");
+      if (!canvas) return false;
+      const prevComp = prevBake.components?.[name];
+      const nextComp = nextBake.components?.[name];
+      if (!nextComp?.root) return false;
+      const ok = reconcileBakedComponentIntoCanvas(canvas, prevComp, nextComp, {});
+      if (!ok) return false;
+      const paramsEl = section.querySelector(".pdl-preview-params");
+      if (paramsEl && nextComp.bakedParams) {
+        paramsEl.textContent = JSON.stringify(nextComp.bakedParams);
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function fillComponentSelect(names) {
@@ -2365,6 +2467,8 @@ async function runAnalyze() {
 
 async function runRender({ debounced = false } = {}) {
   const id = ++latestRenderId;
+  const incremental = nextRenderIncremental;
+  nextRenderIncremental = false;
   showError("");
   updateRenderConsole([]);
   if (!debounced && renderDebounceTimer) {
@@ -2483,13 +2587,16 @@ async function runRender({ debounced = false } = {}) {
         setStatus("");
         return;
       }
-      frame.srcdoc = data.html;
+      // Client already holds bake IR; attach for IR reconcile fallback.
+      if (!data.baked) data.baked = bake;
+      const mode = applyPreviewUpdate(data, { incremental });
       const workspaceWarn = unreachableModuleConsoleEntries();
       if (workspaceWarn.length > 0) updateRenderConsole(workspaceWarn);
+      const applyBit = mode === "incremental" ? " · live apply" : "";
       setStatus(
         workspaceWarn.length > 0
-          ? `Preview updated · wasm · bake ${bakeMs}ms · ${workspaceWarn.length} workspace warning(s)`
-          : `Preview updated · wasm · bake ${bakeMs}ms`,
+          ? `Preview updated · wasm · bake ${bakeMs}ms${applyBit} · ${workspaceWarn.length} workspace warning(s)`
+          : `Preview updated · wasm · bake ${bakeMs}ms${applyBit}`,
       );
       return;
     }
@@ -2538,12 +2645,13 @@ async function runRender({ debounced = false } = {}) {
       setStatus("");
       return;
     }
-    frame.srcdoc = data.html;
+    const mode = applyPreviewUpdate(data, { incremental });
     const failures = Array.isArray(data.renderFailures) ? data.renderFailures : [];
     const workspaceWarn = unreachableModuleConsoleEntries();
     const engLabel = data.engine ? ` · ${data.engine}` : "";
     const ms = data.durationMs != null ? ` · ${data.durationMs}ms` : "";
     const varN = data.variantCount != null ? ` · ${data.variantCount} variants` : "";
+    const applyBit = mode === "incremental" ? " · live apply" : "";
     if (failures.length > 0) {
       updateRenderConsole([
         ...failures.map((f) => ({
@@ -2554,15 +2662,15 @@ async function runRender({ debounced = false } = {}) {
         })),
         ...workspaceWarn,
       ]);
-      setStatus(`Preview updated${engLabel}${ms}${varN} — ${failures.length} HTML issue(s)`);
+      setStatus(`Preview updated${engLabel}${ms}${varN}${applyBit} — ${failures.length} HTML issue(s)`);
     } else if (workspaceWarn.length > 0) {
       updateRenderConsole(workspaceWarn);
       setStatus(
-        `Preview updated${engLabel}${ms}${varN} · ${workspaceWarn.length} workspace warning(s)`,
+        `Preview updated${engLabel}${ms}${varN}${applyBit} · ${workspaceWarn.length} workspace warning(s)`,
       );
     } else {
       updateRenderConsole([]);
-      setStatus(`Preview updated${engLabel}${ms}${varN}`);
+      setStatus(`Preview updated${engLabel}${ms}${varN}${applyBit}`);
     }
     if (data.components) fillComponentSelect(data.components);
     if (data.fixturesByComponent || data.componentParams) {
@@ -2683,7 +2791,8 @@ kvJson.addEventListener("input", () => {
   }
   refreshControlsUi();
   scheduleDraftSave();
-  scheduleDebouncedRender();
+  // Param knobs: hot path — live morph/reconcile (no srcdoc remount).
+  scheduleDebouncedRender(undefined, { incremental: true });
 });
 entryPath.addEventListener("input", () => {
   scheduleDraftSave();
@@ -2734,7 +2843,7 @@ window.addEventListener("message", (ev) => {
       component.value = primaryComponent;
     }
     setKvForComponent(primaryComponent, /** @type {Record<string, unknown>} */ (data.kv));
-    scheduleDebouncedRender(0);
+    scheduleDebouncedRender(0, { incremental: true });
     return;
   }
   if (data.type === "pdl-interaction") {
@@ -2757,8 +2866,9 @@ window.addEventListener("message", (ev) => {
       activeFixtureLabel = null;
       refreshControlsUi();
       // Rebake when emit capture changed parent SoT (or no local state-tree swap).
+      // Param-only: identity-preserving live apply (no iframe srcdoc remount).
       if (data.previewHandled !== true && data.changed) {
-        scheduleDebouncedRender(0);
+        scheduleDebouncedRender(0, { incremental: true });
       }
     }
   }

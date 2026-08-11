@@ -20,7 +20,7 @@
     "resolve": "tsc && node dist/cli.js resolve",
     "catalogue": "tsc && node dist/cli.js catalogue",
     "manifest": "tsc && node dist/cli.js manifest",
-    "playground": "npm run build --prefix playground && node playground/server/playground-server.mjs",
+    "playground": "npm run build && npm run build --prefix playground && node playground/server/playground-server.mjs",
     "build:wasm": "./scripts/build-pdl-wasm.sh",
     "build:rust": "cargo build -p pdl-cli",
     "pdl:rust": "cargo run -q -p pdl-cli --",
@@ -34,6 +34,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
+    "happy-dom": "^20.11.2",
     "typescript": "^5.8.2",
     "vitest": "^3.1.1"
   }
