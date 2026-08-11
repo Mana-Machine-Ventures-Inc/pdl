@@ -53,18 +53,32 @@ fn host_protocol_prelude_decl(name: &str) -> ProtocolDecl {
             name: name.to_string(),
             role: ProtocolRole::Host,
             requires: Vec::new(),
+            // Well-known state is injected via `editable_text_injected_params` —
+            // host protocols must not declare `params` (PDL-E032).
             params: Vec::new(),
             emits: Vec::new(),
-            inbound: vec!["keyboardDismissed".into(), "keyboardCancelled".into()],
+            inbound: vec![
+                "editingBegan".into(),
+                "editingFinished".into(),
+                "editingCancelled".into(),
+                // Migration aliases
+                "keyboardDismissed".into(),
+                "keyboardCancelled".into(),
+            ],
             verbs: vec![
                 crate::ast::HostVerbDecl {
                     name: "beginEditing".into(),
-                    params: vec!["value".into()],
+                    params: vec!["startingValue".into()],
+                },
+                crate::ast::HostVerbDecl {
+                    name: "finishEditing".into(),
+                    params: Vec::new(),
                 },
                 crate::ast::HostVerbDecl {
                     name: "cancelEditing".into(),
                     params: Vec::new(),
                 },
+                // Migration alias for finishEditing
                 crate::ast::HostVerbDecl {
                     name: "commitEditing".into(),
                     params: Vec::new(),
@@ -106,6 +120,19 @@ pub fn inject_host_protocol_prelude(protocols: &mut IndexMap<String, ProtocolDec
             }
         }
     }
+}
+
+/// Prelude variant for EditableText `activatesOn` (always in scope).
+pub const TEXT_FIELD_ACTIVATION_VARIANT: &str = "TextFieldActivation";
+
+/// Inject `TextFieldActivation` if missing (`.focus` / `.press` / `.none`).
+pub fn inject_editable_text_prelude_variants(variants: &mut IndexMap<String, VariantDecl>) {
+    variants
+        .entry(TEXT_FIELD_ACTIVATION_VARIANT.to_string())
+        .or_insert_with(|| VariantDecl {
+            name: TEXT_FIELD_ACTIVATION_VARIANT.to_string(),
+            cases: vec!["focus".into(), "press".into(), "none".into()],
+        });
 }
 
 /// Fully merged design (import closure + entry), pre-resolution.
@@ -211,8 +238,50 @@ pub fn effective_emits(
     merged.into_values().collect()
 }
 
+/// Well-known EditableText session state injected into conforming components.
+/// Documented in `host_protocols.pdl` / §4a′; not host-protocol `params` (E032).
+pub fn editable_text_injected_params() -> Vec<ComponentParam> {
+    vec![
+        ComponentParam {
+            name: "value".into(),
+            type_name: "String".into(),
+            is_array: false,
+            default_value: ValueExpr::String {
+                value: String::new(),
+            },
+        },
+        ComponentParam {
+            name: "isEditing".into(),
+            type_name: "Bool".into(),
+            is_array: false,
+            default_value: ValueExpr::Boolean { value: false },
+        },
+        ComponentParam {
+            name: "isEmpty".into(),
+            type_name: "Bool".into(),
+            is_array: false,
+            default_value: ValueExpr::Boolean { value: true },
+        },
+        ComponentParam {
+            name: "isOverLimit".into(),
+            type_name: "Bool".into(),
+            is_array: false,
+            default_value: ValueExpr::Boolean { value: false },
+        },
+        ComponentParam {
+            name: "activatesOn".into(),
+            type_name: TEXT_FIELD_ACTIVATION_VARIANT.into(),
+            is_array: false,
+            default_value: ValueExpr::DotEnum {
+                value: ".focus".into(),
+            },
+        },
+    ]
+}
+
 /// Effective parameter list for a component: protocol params ∪ own params
-/// (own params with the same name replace protocol defaults / types).
+/// (own params with the same name replace protocol defaults / types), plus
+/// EditableText well-known state when the component effectively has that host.
 pub fn effective_params(
     design: &DesignDefinition,
     c: &ComponentDecl,
@@ -237,6 +306,16 @@ pub fn effective_params(
     }
     for p in &c.params {
         merged.insert(p.name.clone(), p.clone());
+    }
+    // Host well-known state fills gaps only — author/API params win on name clash
+    // (e.g. FormField that still declares `value: String` for migration).
+    if effective_host_protocols(design, c)?
+        .iter()
+        .any(|h| h == "EditableText")
+    {
+        for p in editable_text_injected_params() {
+            merged.entry(p.name.clone()).or_insert(p);
+        }
     }
     Ok(merged.into_values().collect())
 }
@@ -573,6 +652,7 @@ fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefin
     }
 
     inject_host_protocol_prelude(&mut protocols);
+    inject_editable_text_prelude_variants(&mut variants);
 
     Ok(DesignDefinition {
         entry_path: resolved_entry,

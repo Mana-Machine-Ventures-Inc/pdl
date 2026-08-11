@@ -1096,14 +1096,203 @@ fn stdlib_host_protocols_file_parses_inbound_and_verbs() {
     assert_eq!(ptr.inbound.len(), 10);
     assert!(ptr.verbs.is_empty());
     let edit = design.protocols.get("EditableText").expect("EditableText");
-    assert!(edit.inbound.iter().any(|c| c == "keyboardDismissed"));
+    assert!(edit.inbound.iter().any(|c| c == "editingFinished"));
+    assert!(edit.inbound.iter().any(|c| c == "editingCancelled"));
+    assert!(edit.inbound.iter().any(|c| c == "keyboardDismissed")); // alias
     assert!(
-        edit.verbs.iter().any(|v| v.name == "beginEditing" && v.params == ["value"]),
-        "beginEditing(value): {:?}",
+        edit.verbs
+            .iter()
+            .any(|v| v.name == "beginEditing" && v.params == ["startingValue"]),
+        "beginEditing(startingValue): {:?}",
         edit.verbs
     );
+    assert!(edit.verbs.iter().any(|v| v.name == "finishEditing" && v.params.is_empty()));
     assert!(edit.verbs.iter().any(|v| v.name == "cancelEditing" && v.params.is_empty()));
     assert!(edit.verbs.iter().any(|v| v.name == "commitEditing" && v.params.is_empty()));
+}
+
+#[test]
+fn editable_text_injects_value_and_facts() {
+    use pdl_core::design::{effective_params, load_design_from_sources};
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/field.pdl".to_string(),
+        r#"
+protocol FormField: component {
+  requires EditableText
+  requires PointerInput
+  placeholder: String = ""
+}
+component SearchField <FormField>(placeholder: String = "Search") text {
+  content = placeholder
+  if isEditing {
+    content = value
+  }
+  self.pressEnd = { beginEditing(value) }
+  self.editingFinished = { finishEditing() }
+}
+"#
+        .to_string(),
+    );
+    let design = load_design_from_sources("/v/field.pdl", &sources).expect("load");
+    let c = design.components.get("SearchField").expect("SearchField");
+    let params = effective_params(&design, c).expect("params");
+    let names: Vec<&str> = params.iter().map(|p| p.name.as_str()).collect();
+    assert!(names.contains(&"value"), "{names:?}");
+    assert!(names.contains(&"isEditing"), "{names:?}");
+    assert!(names.contains(&"isEmpty"), "{names:?}");
+    assert!(names.contains(&"isOverLimit"), "{names:?}");
+    assert!(names.contains(&"placeholder"), "{names:?}");
+    assert!(names.contains(&"activatesOn"), "{names:?}");
+    assert!(
+        design.variants.contains_key("TextFieldActivation"),
+        "prelude TextFieldActivation"
+    );
+}
+
+#[test]
+fn parses_let_qualified_host_verbs_in_emit_capture() {
+    use pdl_core::ast::LayoutOnBodyItem;
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/note.pdl".to_string(),
+        r#"
+component Btn <PointerInput>() layout {
+  children = []
+  pressEnd = { emit tap() }
+} emits { tap() }
+
+component Field <EditableText>() text {
+  content = value
+  editingFinished = {
+    finishEditing()
+    emit change(value)
+  }
+} emits { change(value: String) }
+
+component Editor(draft: String = "", editing: Bool = false) layout {
+  let Input = Field(value: draft, isEditing: editing)
+  let Edit = Btn()
+  let Done = Btn()
+  let Cancel = Btn()
+  children = [Input, Edit, Done, Cancel]
+  Edit.tap() = {
+    editing = true
+    Input.beginEditing(draft)
+  }
+  Done.tap() = {
+    Input.finishEditing()
+  }
+  Cancel.tap() = {
+    Input.cancelEditing()
+  }
+  Input.change(value: String) = {
+    draft = value
+  }
+}
+"#
+        .to_string(),
+    );
+    let design = load_design_from_sources("/v/note.pdl", &sources).expect("load");
+    let editor = design.components.get("Editor").expect("Editor");
+    let captures: Vec<_> = editor
+        .body
+        .iter()
+        .filter_map(|i| match i {
+            pdl_core::ast::FrameBodyItem::LayoutOn { handler } => Some(handler),
+            _ => None,
+        })
+        .collect();
+    assert!(captures.len() >= 3, "expected Edit/Done/Cancel captures, got {}", captures.len());
+    let edit = captures
+        .iter()
+        .find(|h| h.qualifier.as_deref() == Some("Edit"))
+        .expect("Edit.tap");
+    assert!(
+        edit.body.iter().any(|b| matches!(
+            b,
+            LayoutOnBodyItem::HostVerb {
+                qualifier: Some(q),
+                name,
+                ..
+            } if q == "Input" && name == "beginEditing"
+        )),
+        "body: {:?}",
+        edit.body
+    );
+}
+
+#[test]
+fn editable_text_is_empty_true_clears_stale_value() {
+    use pdl_core::bake::build_baked_design_component;
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::evaluate::build_resolved_token_map;
+    use pdl_core::resolve::{resolve_component_tree, RESOLVE_OPTIONS_LITERAL_BAKE};
+    use pdl_core::SourceMap;
+    use serde_json::{Map, Value};
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/empty.pdl".to_string(),
+        r#"
+component MyTextField <EditableText>() text {
+  content = value
+  if isEditing {
+    content = value
+  } else if isEmpty {
+    content = "Type here…"
+  }
+}
+"#
+        .to_string(),
+    );
+    let design = load_design_from_sources("/v/empty.pdl", &sources).expect("load");
+    let mut tokens = build_resolved_token_map(&design, None, &[]).expect("tokens");
+
+    // Non-empty value alone: default isEmpty=true must NOT wipe value.
+    let mut value_only = Map::new();
+    value_only.insert("value".into(), Value::String("Hello".into()));
+    let tree_hello = resolve_component_tree(
+        &design,
+        "MyTextField",
+        &mut tokens,
+        &value_only,
+        RESOLVE_OPTIONS_LITERAL_BAKE,
+    )
+    .expect("resolve value-only");
+    assert_eq!(
+        tree_hello.props.get("content").and_then(|v| v.as_str()),
+        Some("Hello"),
+        "tree props: {:?}",
+        tree_hello.props
+    );
+
+    // Explicit isEmpty=true clears stale value so placeholder chrome wins.
+    let mut overrides = Map::new();
+    overrides.insert("value".into(), Value::String("Hello".into()));
+    overrides.insert("isEmpty".into(), Value::Bool(true));
+    let tree = resolve_component_tree(
+        &design,
+        "MyTextField",
+        &mut tokens,
+        &overrides,
+        RESOLVE_OPTIONS_LITERAL_BAKE,
+    )
+    .expect("resolve");
+    let content = tree
+        .props
+        .get("content")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    assert_eq!(content, "Type here…", "tree props: {:?}", tree.props);
+
+    let baked = build_baked_design_component(&design, "MyTextField", None, &overrides, None)
+        .expect("bake");
+    let bp = &baked["components"]["MyTextField"]["bakedParams"];
+    assert_eq!(bp["isEmpty"], Value::Bool(true));
+    assert_eq!(bp["value"], Value::String("".into()), "bakedParams: {bp:?}");
 }
 
 #[test]
@@ -1373,7 +1562,12 @@ component Bar(
             assert_eq!(handlers[0].channel, "select");
             assert!(handlers[0].qualifier.is_none());
             assert_eq!(handlers[0].payload[0].name, "filter_id");
-            assert_eq!(handlers[0].body[0].param, "currentFilter");
+            match &handlers[0].body[0] {
+                pdl_core::ast::LayoutOnBodyItem::Assign(a) => {
+                    assert_eq!(a.param, "currentFilter");
+                }
+                other => panic!("expected assign, got {other:?}"),
+            }
         }
         other => panic!("expected ForEach, got {other:?}"),
     }

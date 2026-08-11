@@ -163,14 +163,24 @@ fn serialise_interaction_handler_item(item: &InteractionHandlerItem) -> Value {
                 Value::Array(args.iter().map(|a| Value::String(a.clone())).collect()),
             ),
         ]),
-        InteractionHandlerItem::HostVerb { name, args } => obj(vec![
-            ("kind", Value::String("hostVerb".to_string())),
-            ("name", Value::String(name.clone())),
-            (
-                "args",
-                Value::Array(args.iter().map(|a| Value::String(a.clone())).collect()),
-            ),
-        ]),
+        InteractionHandlerItem::HostVerb {
+            qualifier,
+            name,
+            args,
+        } => {
+            let mut entries = vec![
+                ("kind", Value::String("hostVerb".to_string())),
+                ("name", Value::String(name.clone())),
+                (
+                    "args",
+                    Value::Array(args.iter().map(|a| Value::String(a.clone())).collect()),
+                ),
+            ];
+            if let Some(q) = qualifier {
+                entries.insert(1, ("qualifier", Value::String(q.clone())));
+            }
+            obj(entries)
+        }
         InteractionHandlerItem::If { chain } => obj(vec![
             ("kind", Value::String("if".to_string())),
             ("chain", serialise_interaction_if_chain(chain)),
@@ -242,12 +252,30 @@ fn serialise_layout_on_handler(handler: &LayoutOnHandler, default_qualifier: Opt
     let body: Vec<Value> = handler
         .body
         .iter()
-        .map(|a| {
-            obj(vec![
+        .map(|item| match item {
+            crate::ast::LayoutOnBodyItem::Assign(a) => obj(vec![
                 ("kind", Value::String("assign".to_string())),
                 ("param", Value::String(a.param.clone())),
                 ("value", serialise_value_expr(&a.value)),
-            ])
+            ]),
+            crate::ast::LayoutOnBodyItem::HostVerb {
+                qualifier,
+                name,
+                args,
+            } => {
+                let mut entries = vec![
+                    ("kind", Value::String("hostVerb".to_string())),
+                    ("name", Value::String(name.clone())),
+                    (
+                        "args",
+                        Value::Array(args.iter().map(|a| Value::String(a.clone())).collect()),
+                    ),
+                ];
+                if let Some(q) = qualifier {
+                    entries.insert(1, ("qualifier", Value::String(q.clone())));
+                }
+                obj(entries)
+            }
         })
         .collect();
     let qualifier = handler

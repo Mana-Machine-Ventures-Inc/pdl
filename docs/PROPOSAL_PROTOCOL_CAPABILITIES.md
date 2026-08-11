@@ -279,7 +279,7 @@ protocol SomeExclusiveEditor {
 ## 9. Relationship to frame kinds
 
 **Kinds are not protocols.**  
-`layout` / `text` / `icon` / `media` remain exclusive draw roles. Host protocols **refine** kinds (`text` + `EditableText`). Optional future sugar (`field`) may desugar to `text` + `EditableText` without a new IR kind.
+`layout` / `text` / `icon` / `media` remain exclusive draw roles. Host protocols **refine** kinds (`text` + `EditableText`). No ctor / kind sugar (`TextField()`, `field`, …) — that reads like a parallel object class; authors opt in with `<EditableText>` on ordinary `text` (or layout-shell) components.
 
 ---
 

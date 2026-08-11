@@ -7,7 +7,8 @@
 //
 // These are NOT child→parent `emits`. Host protocols declare:
 //   • inbound channels  — environment → component  (`self.<channel> = { … }`)
-//   • host verbs        — component → environment  (`beginEditing(value)` in handlers)
+//   • host verbs        — component → environment  (`beginEditing(…)` in handlers)
+//   • well-known state  — injected into conforming components (see EditableText)
 //
 // Authors opt in with `component C <PointerInput>` or API `requires PointerInput`
 // (PDL-E030 if a host channel/verb is used without effective conformance).
@@ -30,17 +31,47 @@ protocol PointerInput {
   dismiss
 }
 
-// ── Editable text (pair with kind `text` + `editable = param`) ──────
+// ── Editable text (pair with kind `text` — implies editable root) ───
+//
+// Well-known state (injected into components with effective EditableText —
+// not protocol `params`, which host protocols may not declare — PDL-E032):
+//   value: String = ""     — session String (peer name to Toggle/Slider value)
+//   isEditing: Bool = false
+//   isEmpty: Bool = true   — derived from value (idle / editing policy)
+//   isOverLimit: Bool = false
+//   contentLimit / contentLimitStyle — limits (host policy; see proposal)
+//
+// Authors map presentation separately: `content = self.value` (or a mask).
+//
+// Default activation (text-root): hosts begin editing on click/tap/focus of the
+// leaf — no PointerInput / pressEnd required. Explicit beginEditing() remains
+// for custom chrome. Not an implicit PointerInput conformance.
+//
+// activatesOn (injected; prelude variant TextFieldActivation):
+//   .focus — default — click/tap/focus begins editing
+//   .press — begin on press/click only (not bare focus)
+//   .none  — program-only (beginEditing / isEditing); leaf hit-test does not begin
+//
+// Prefer session inbound below; `keyboardDismissed` / `keyboardCancelled` /
+// `commitEditing` remain as migration aliases.
 
 protocol EditableText {
   host
 
-  // Inbound
+  // Inbound — session lifecycle
+  editingBegan
+  editingFinished
+  editingCancelled
+
+  // Migration aliases (same host delivery as finished / cancelled)
   keyboardDismissed
   keyboardCancelled
 
-  // Host verbs (calls inside handler bodies — not assignable channels)
-  beginEditing(value)
+  // Host verbs
+  beginEditing(startingValue)
+  finishEditing()
   cancelEditing()
+
+  // Migration alias for finishEditing
   commitEditing()
 }

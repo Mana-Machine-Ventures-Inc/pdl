@@ -892,10 +892,14 @@ async function bakeInstanceInteractionStates({
     const key = `i${idx++}`;
     const params = enriched.componentParams?.[inst.component] ?? [];
     const stateParam = params.find((p) => p.name === "interactionState");
-    if (!stateParam) continue;
-    const cases = enriched.variantCases?.[stateParam.typeName] ?? [];
+    const hasEditableSession = params.some(
+      (p) => p?.name === "isEditing" || p?.name === "activatesOn",
+    );
+    const cases = stateParam
+      ? enriched.variantCases?.[stateParam.typeName] ?? []
+      : [];
     const extraStates = cases.filter((c) => c && c !== "rest");
-    if (!extraStates.length) continue;
+    if (!extraStates.length && !hasEditableSession) continue;
 
     /** @type {Record<string, unknown>} */
     const trees = {};
@@ -926,6 +930,34 @@ async function bakeInstanceInteractionStates({
             inst.component
           ];
         if (tree) trees[stateName] = tree;
+      }
+    }
+    // Nested EditableText: prebake isEditing chrome (parent rebake cannot carry child session).
+    if (hasEditableSession) {
+      const outPath = join(
+        REPO_ROOT,
+        ".tmp",
+        `playground-inst-${inst.component}-${key}-editing.bake.json`,
+      );
+      const stateBake = await bakeAndRender({
+        repoRoot: REPO_ROOT,
+        entry: entryAbs,
+        engine,
+        mode: "component",
+        component: inst.component,
+        theme: typeof theme === "string" ? theme : undefined,
+        paramOverrides: { ...baseKw, isEditing: true },
+        bakeOutPath: outPath,
+        title: `${inst.component}-editing`,
+        singleComponent: inst.component,
+        interactiveHost: false,
+      });
+      if (stateBake.ok && stateBake.baked) {
+        const tree =
+          /** @type {{ components?: Record<string, unknown> }} */ (stateBake.baked).components?.[
+            inst.component
+          ];
+        if (tree) trees.editing = tree;
       }
     }
     if (Object.keys(trees).length) instanceStateTrees[key] = trees;

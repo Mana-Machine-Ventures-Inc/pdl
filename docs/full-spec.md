@@ -587,7 +587,13 @@ Catalogue lists a prelude protocol only when a component **`conformsTo`** it or 
 
 ### Editable text (host)
 
-Stay on kind **`text`**. Opt into prelude **`EditableText`** (direct or via `requires`). Bind with **`editable = value`** (param name). Prefer orthogonal **`editing: Bool`**. Wire inbound with `self.keyboardDismissed = { … }` / `self.keyboardCancelled = { … }`. Host verbs: see §4a′. Host writes the bound param on commit; `emit change` is optional parent notification.
+Stay on kind **`text`**. Opt into prelude **`EditableText`** (direct or via `requires`) — conformance **implies** the text root is editable (no author `editable = true` required; compilers inject it). Also **injects** well-known session state: **`value: String`**, **`isEditing`**, **`isEmpty`**, **`isOverLimit`** (see §4a′). Authors map presentation with **`content = self.value`** (or a mask). Wire session inbound (`editingFinished` / `editingCancelled`; `keyboardDismissed` / `keyboardCancelled` remain aliases). Host verbs: `beginEditing(startingValue)` / `finishEditing()` / `cancelEditing()`. Optional `emit change` notifies parents.
+
+**Default activation (normative for text-root EditableText):** hosts **shall** begin an editing session on primary activation (click / tap) or focus of the editable leaf, seeding from current `value` and setting `isEditing`. Authors do **not** need `PointerInput` / `pressEnd` for that default. Custom start paths still call `beginEditing` explicitly (e.g. from a sibling under `PointerInput`). This is EditableText host policy, not an implicit PointerInput conformance.
+
+**`activatesOn`:** well-known injected config (prelude variant **`TextFieldActivation`**: `.focus` | `.press` | `.none`). Default **`.focus`**. HTML / preview hosts honor all three. See `docs/PROPOSAL_TEXTFIELD_EDITING_SESSIONS.md` §2.
+
+**Session inbound handlers are optional.** Hosts still begin/finish/cancel the session (keep `value` on finish; restore checkpoint on cancel). Wire `editingFinished` / `editingCancelled` only for side effects (`emit`, extra params).
 
 Array/slot params typed as an **API** protocol (`[ModalContent]`) are **§4b**. Injection packs are **§4c**. Layout emit capture / ForEach are **§4e**.
 
@@ -622,21 +628,28 @@ protocol PointerInput {
 protocol EditableText {
   host
 
-  // Inbound
+  // Inbound — session lifecycle
+  editingBegan
+  editingFinished
+  editingCancelled
+  // Migration aliases
   keyboardDismissed
   keyboardCancelled
 
-  // Host verbs (calls inside handler bodies; not assignable channels)
-  beginEditing(value)
+  // Host verbs
+  beginEditing(startingValue)
+  finishEditing()
   cancelEditing()
-  commitEditing()
+  commitEditing()   // alias → finishEditing
 }
 ```
+
+**Injected well-known state** (conforming components only; not host-protocol `params` — **PDL-E032**): `value: String = ""` (session String — same control name as Toggle/Slider), `isEditing: Bool = false`, `isEmpty: Bool = true`, `isOverLimit: Bool = false`. Presentation stays on the text frame’s **`content`** (`content = self.value` while editing).
 
 | Prelude | Inbound channels (`self.<name> = { … }`) | Host verbs | Notes |
 |---------|------------------------------------------|------------|--------|
 | **`PointerInput`** | `hoverStart`, `hoverEnd`, `pressStart`, `pressEnd`, `pressCancel`, `focusStart`, `focusEnd`, `activate`, `appear`, `dismiss` | — | Pointer / focus / lifecycle. Playground wires hover/press today. |
-| **`EditableText`** | `keyboardDismissed`, `keyboardCancelled` | `beginEditing(value)`, `cancelEditing()`, `commitEditing()` | Pair with kind **`text`** + `editable = param`. |
+| **`EditableText`** | `editingBegan`, `editingFinished`, `editingCancelled` (+ `keyboardDismissed` / `keyboardCancelled` aliases) | `beginEditing(startingValue)`, `finishEditing()`, `cancelEditing()` (+ `commitEditing` alias) | Text-root: implies editable leaf + **default activate→begin** host policy. Injected `value` / facts. |
 
 ### Host handler assignment (canonical)
 
@@ -646,41 +659,36 @@ Handlers live in the component **kind body** (same enclosure as layout props / `
 protocol FormField: component {
   requires EditableText
   requires PointerInput
-  value: String = ""
+  // `value` / `isEditing` / `isEmpty` / `isOverLimit` come from EditableText
   placeholder: String = ""
   emits { change(value: String) }
 }
 
 component SearchField <FormField>(
-  value: String = "",
-  placeholder: String = "Search",
-  editing: Bool = false
+  placeholder: String = "Search"
 ) text {
-  editable = value
   content = placeholder
   fontSize = 15
   color = #111111
 
-  if editing {
-    content = value
+  if isEditing {
+    content = self.value
     borderColor = #0066FF
     borderWidth = 1
+  } else if !isEmpty {
+    content = self.value
   }
 
   self.pressEnd = {
-    if editing {
-      // already editing — host owns the session
-    } else {
-      editing = true
+    if !isEditing {
       beginEditing(value)
     }
   }
-  self.keyboardDismissed = {
-    editing = false
+  self.editingFinished = {
+    finishEditing()
     emit change(value)
   }
-  self.keyboardCancelled = {
-    editing = false
+  self.editingCancelled = {
     cancelEditing()
   }
 }

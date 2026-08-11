@@ -384,7 +384,7 @@
             "props": {
               "color": "#111111",
               "content": "Search",
-              "editable": "",
+              "editable": true,
               "fontSize": 15
             }
           }
@@ -407,7 +407,10 @@
     },
     "SearchField": {
       "bakedParams": {
-        "editing": false,
+        "activatesOn": "focus",
+        "isEditing": false,
+        "isEmpty": true,
+        "isOverLimit": false,
         "placeholder": "Search"
       },
       "name": "SearchField",
@@ -417,7 +420,7 @@
         "props": {
           "color": "#111111",
           "content": "Search",
-          "editable": "",
+          "editable": true,
           "fontSize": 15
         }
       },

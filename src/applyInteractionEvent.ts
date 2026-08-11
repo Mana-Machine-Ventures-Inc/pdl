@@ -11,6 +11,8 @@ export type HandlerItem = {
   value?: unknown;
   name?: string;
   args?: string[];
+  /** Nested let target for `Input.beginEditing(…)` */
+  qualifier?: string;
   chain?: {
     branches?: Array<{ condition: unknown; body: HandlerItem[] }>;
     elseBody?: HandlerItem[];
@@ -135,7 +137,36 @@ function runHandlerBody(
       emits.push({ name: item.name, args: Array.isArray(item.args) ? item.args.map(String) : [] });
       continue;
     }
-    if (item.kind === "animate" || item.kind === "hostVerb") {
+    if (item.kind === "animate") {
+      continue;
+    }
+    if (item.kind === "hostVerb" && typeof item.name === "string") {
+      // Let-qualified verbs target a nested instance — handled by the HTML host.
+      if (item.qualifier) continue;
+      const args = Array.isArray(item.args) ? item.args.map(String) : [];
+      if (item.name === "beginEditing") {
+        const seedName = args[0]?.replace(/^self\./, "") ?? "value";
+        const seed =
+          seedName && Object.prototype.hasOwnProperty.call(params, seedName)
+            ? String(params[seedName] ?? "")
+            : "";
+        params._editCheckpoint = String(params.value ?? seed);
+        params.value = seed;
+        params.isEditing = true;
+        params.isEmpty = seed.length === 0;
+        changed = true;
+      } else if (item.name === "finishEditing" || item.name === "commitEditing") {
+        params.isEditing = false;
+        params.isEmpty = String(params.value ?? "").length === 0;
+        changed = true;
+      } else if (item.name === "cancelEditing") {
+        if (params._editCheckpoint !== undefined) {
+          params.value = params._editCheckpoint;
+        }
+        params.isEditing = false;
+        params.isEmpty = String(params.value ?? "").length === 0;
+        changed = true;
+      }
       continue;
     }
     if (item.kind === "if" && item.chain) {

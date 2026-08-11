@@ -8,17 +8,29 @@ import {
   type ParamMap,
 } from "./applyInteractionEvent.js";
 
+export type EmitCaptureBodyItem =
+  | { kind?: "assign"; param: string; value: unknown }
+  | { kind: "hostVerb"; name: string; args?: string[]; qualifier?: string };
+
 export type EmitCaptureJson = {
   qualifier?: string;
   channel: string;
   payload?: Array<{ name: string; type?: string }>;
-  body?: Array<{ kind?: string; param: string; value: unknown }>;
+  body?: EmitCaptureBodyItem[];
+};
+
+export type HostVerbCall = {
+  qualifier?: string;
+  name: string;
+  args: string[];
 };
 
 export type ApplyEmitCaptureResult = {
   params: ParamMap;
   changed: boolean;
   handled: boolean;
+  /** Let-qualified host verbs to run against nested EditableText sessions. */
+  hostVerbs: HostVerbCall[];
 };
 
 /**
@@ -36,16 +48,23 @@ export function applyEmitCapture(
   qualifier?: string | null,
 ): ApplyEmitCaptureResult {
   if (!Array.isArray(captures) || !captures.length) {
-    return { params: { ...parentParams }, changed: false, handled: false };
+    return { params: { ...parentParams }, changed: false, handled: false, hostVerbs: [] };
   }
   let capture: EmitCaptureJson | undefined;
+  const wantQual = qualifier != null && String(qualifier).length > 0 ? String(qualifier) : null;
   for (const c of captures) {
     if (c.channel !== channel) continue;
-    if (qualifier && c.qualifier && c.qualifier !== qualifier) continue;
+    if (wantQual) {
+      // Let-qualified emits (`Edit.tap`) must not fall through to Done/Cancel.
+      if ((c.qualifier ?? null) !== wantQual) continue;
+      capture = c;
+      break;
+    }
+    // Legacy / ForEach: no qualifier supplied — last channel match wins.
     capture = c;
   }
   if (!capture) {
-    return { params: { ...parentParams }, changed: false, handled: false };
+    return { params: { ...parentParams }, changed: false, handled: false, hostVerbs: [] };
   }
 
   const scope: ParamMap = { ...parentParams };
@@ -61,22 +80,34 @@ export function applyEmitCapture(
 
   const next: ParamMap = { ...parentParams };
   let changed = false;
+  const hostVerbs: HostVerbCall[] = [];
   for (const a of capture.body ?? []) {
-    if (!a?.param) continue;
-    let resolved = evaluateSerialisedAssignValue(a.value, scope);
+    if (a && (a as { kind?: string }).kind === "hostVerb") {
+      const hv = a as { name: string; args?: string[]; qualifier?: string };
+      hostVerbs.push({
+        qualifier: hv.qualifier,
+        name: hv.name,
+        args: Array.isArray(hv.args) ? hv.args.map(String) : [],
+      });
+      changed = true;
+      continue;
+    }
+    const assign = a as { param?: string; value?: unknown };
+    if (!assign?.param) continue;
+    let resolved = evaluateSerialisedAssignValue(assign.value, scope);
     if (
-      a.value &&
-      typeof a.value === "object" &&
-      (a.value as { kind?: string }).kind === "ident"
+      assign.value &&
+      typeof assign.value === "object" &&
+      (assign.value as { kind?: string }).kind === "ident"
     ) {
-      const name = String((a.value as { name?: string }).name ?? "");
+      const name = String((assign.value as { name?: string }).name ?? "");
       if (Object.prototype.hasOwnProperty.call(scope, name)) {
         resolved = scope[name];
       }
     }
-    if (next[a.param] !== resolved) changed = true;
-    next[a.param] = resolved;
-    scope[a.param] = resolved;
+    if (next[assign.param] !== resolved) changed = true;
+    next[assign.param] = resolved;
+    scope[assign.param] = resolved;
   }
-  return { params: next, changed, handled: true };
+  return { params: next, changed, handled: true, hostVerbs };
 }

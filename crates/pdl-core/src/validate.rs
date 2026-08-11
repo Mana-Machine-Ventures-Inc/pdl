@@ -359,6 +359,10 @@ fn ambient_event(name: &str) -> bool {
             | "activate"
             | "appear"
             | "dismiss"
+            | "editingBegan"
+            | "editingFinished"
+            | "editingCancelled"
+            // Migration aliases
             | "keyboardDismissed"
             | "keyboardCancelled"
     )
@@ -369,14 +373,20 @@ fn host_protocol_for_ambient(event: &str) -> Option<&'static str> {
     match event {
         "hoverStart" | "hoverEnd" | "pressStart" | "pressEnd" | "pressCancel"
         | "focusStart" | "focusEnd" | "activate" | "appear" | "dismiss" => Some("PointerInput"),
-        "keyboardDismissed" | "keyboardCancelled" => Some("EditableText"),
+        "editingBegan"
+        | "editingFinished"
+        | "editingCancelled"
+        | "keyboardDismissed"
+        | "keyboardCancelled" => Some("EditableText"),
         _ => None,
     }
 }
 
 fn host_protocol_for_verb(name: &str) -> Option<&'static str> {
     match name {
-        "beginEditing" | "cancelEditing" | "commitEditing" => Some("EditableText"),
+        "beginEditing" | "finishEditing" | "cancelEditing" | "commitEditing" => {
+            Some("EditableText")
+        }
         _ => None,
     }
 }
@@ -411,13 +421,137 @@ fn validate_layout_on_handler(
             ));
         }
     }
-    for a in &handler.body {
-        if !param_by_name.contains_key(&a.param) {
+    for item in &handler.body {
+        match item {
+            crate::ast::LayoutOnBodyItem::Assign(a) => {
+                if !param_by_name.contains_key(&a.param) {
+                    return Err(err(
+                        "PDL-E007",
+                        format!(
+                            "Unknown parameter `{}` in layout emit capture (component {})",
+                            a.param, component_name
+                        ),
+                        design,
+                    ));
+                }
+            }
+            crate::ast::LayoutOnBodyItem::HostVerb {
+                qualifier,
+                name,
+                args,
+            } => {
+                validate_host_verb_call(
+                    design,
+                    component_name,
+                    qualifier.as_deref(),
+                    name,
+                    args,
+                    param_by_name,
+                )?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Resolve `let Input = NoteField(…)` → component name `NoteField`.
+fn let_instance_component<'a>(
+    design: &'a DesignDefinition,
+    owner: &str,
+    let_id: &str,
+) -> Option<&'a str> {
+    let c = design.components.get(owner)?;
+    fn walk<'a>(items: &'a [crate::ast::FrameBodyItem], let_id: &str) -> Option<&'a str> {
+        for item in items {
+            match item {
+                crate::ast::FrameBodyItem::LetInstance { id, component, .. } if id == let_id => {
+                    return Some(component.as_str());
+                }
+                crate::ast::FrameBodyItem::Let { body, .. } => {
+                    if let Some(c) = walk(body, let_id) {
+                        return Some(c);
+                    }
+                }
+                crate::ast::FrameBodyItem::If { chain } => {
+                    for br in &chain.branches {
+                        if let Some(c) = walk(&br.body, let_id) {
+                            return Some(c);
+                        }
+                    }
+                    if let Some(else_body) = &chain.else_body {
+                        if let Some(c) = walk(else_body, let_id) {
+                            return Some(c);
+                        }
+                    }
+                }
+                crate::ast::FrameBodyItem::ForEach { body, .. } => {
+                    if let Some(c) = walk(body, let_id) {
+                        return Some(c);
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+    walk(&c.body, let_id)
+}
+
+fn validate_host_verb_call(
+    design: &DesignDefinition,
+    component_name: &str,
+    qualifier: Option<&str>,
+    name: &str,
+    args: &[String],
+    param_by_name: &HashMap<String, String>,
+) -> Result<(), PdlError> {
+    if host_protocol_for_verb(name).is_none() {
+        return Err(err(
+            "PDL-E033",
+            format!(
+                "Unknown host verb `{name}` in interaction (component {component_name}); expected beginEditing / finishEditing / cancelEditing (commitEditing alias)"
+            ),
+            design,
+        ));
+    }
+    for a in args {
+        let base = a.strip_prefix("self.").unwrap_or(a);
+        if base != "self" && !param_by_name.contains_key(base) {
             return Err(err(
                 "PDL-E007",
                 format!(
-                    "Unknown parameter `{}` in layout emit capture (component {})",
-                    a.param, component_name
+                    "Unknown parameter `{a}` in host verb `{name}` (component {component_name})"
+                ),
+                design,
+            ));
+        }
+    }
+    if let Some(q) = qualifier {
+        let Some(child_comp) = let_instance_component(design, component_name, q) else {
+            return Err(err(
+                "PDL-E012",
+                format!(
+                    "Unknown let `{q}` in host verb `{q}.{name}(…)` (component {component_name})"
+                ),
+                design,
+            ));
+        };
+        let Some(child) = design.components.get(child_comp) else {
+            return Err(err(
+                "PDL-E037",
+                format!(
+                    "Unknown component `{child_comp}` for let `{q}` in host verb `{q}.{name}(…)` (component {component_name})"
+                ),
+                design,
+            ));
+        };
+        let need = host_protocol_for_verb(name).unwrap();
+        let hosts = crate::design::effective_host_protocols(design, child)?;
+        if !hosts.iter().any(|h| h == need) {
+            return Err(err(
+                "PDL-E030",
+                format!(
+                    "Host verb `{q}.{name}(…)` requires `{child_comp}` to conform to `{need}` (component {component_name})"
                 ),
                 design,
             ));
@@ -894,28 +1028,19 @@ fn validate_interaction_body(
                     ));
                 }
             }
-            InteractionHandlerItem::HostVerb { name, args } => {
-                if host_protocol_for_verb(name).is_none() {
-                    return Err(err(
-                        "PDL-E033",
-                        format!(
-                            "Unknown host verb `{name}` in interaction (component {component_name}); expected beginEditing / cancelEditing / commitEditing"
-                        ),
-                        design,
-                    ));
-                }
-                for a in args {
-                    let base = a.strip_prefix("self.").unwrap_or(a.as_str());
-                    if base != "self" && !param_by_name.contains_key(base) {
-                        return Err(err(
-                            "PDL-E007",
-                            format!(
-                                "Unknown parameter `{a}` in host verb `{name}` (component {component_name})"
-                            ),
-                            design,
-                        ));
-                    }
-                }
+            InteractionHandlerItem::HostVerb {
+                qualifier,
+                name,
+                args,
+            } => {
+                validate_host_verb_call(
+                    design,
+                    component_name,
+                    qualifier.as_deref(),
+                    name,
+                    args,
+                    param_by_name,
+                )?;
             }
             InteractionHandlerItem::If { chain } => {
                 for br in &chain.branches {
@@ -938,9 +1063,17 @@ fn collect_needed_host_protocols_from_body(
 ) {
     for it in items {
         match it {
-            InteractionHandlerItem::HostVerb { name, .. } => {
-                if let Some(p) = host_protocol_for_verb(name) {
-                    needed.insert(p);
+            InteractionHandlerItem::HostVerb {
+                qualifier,
+                name,
+                ..
+            } => {
+                // Bare verbs require this component's host protocol; let-qualified
+                // verbs are validated against the target let (see validate_host_verb_call).
+                if qualifier.is_none() {
+                    if let Some(p) = host_protocol_for_verb(name) {
+                        needed.insert(p);
+                    }
                 }
             }
             InteractionHandlerItem::If { chain } => {

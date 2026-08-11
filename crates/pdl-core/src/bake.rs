@@ -184,8 +184,15 @@ pub fn build_baked_design_system(
     sorted.sort_by(|a, b| a.name.cmp(&b.name));
 
     let mut components = Map::new();
+    let empty_overrides = Map::new();
     for c in sorted {
-        let baked_params = resolve_default_param_values(design, &mut token_map, c)?;
+        let mut baked_params = resolve_default_param_values(design, &mut token_map, c)?;
+        crate::resolve::sync_editable_text_facts(
+            design,
+            c,
+            &mut baked_params,
+            &empty_overrides,
+        )?;
         let raw = resolve_component_tree(design, &c.name, &mut token_map, &Map::new(), opts)?;
         components.insert(
             c.name.clone(),
@@ -237,6 +244,8 @@ pub fn build_baked_design_component(
     for (k, v) in param_overrides {
         baked_params.insert(k.clone(), v.clone());
     }
+    // Same EditableText fact sync as resolve — HTML session host reads bakedParams.value.
+    crate::resolve::sync_editable_text_facts(design, &c, &mut baked_params, param_overrides)?;
     let raw = resolve_component_tree(
         design,
         component_name,

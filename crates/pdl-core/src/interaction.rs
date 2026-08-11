@@ -59,8 +59,62 @@ fn run_body(
             InteractionHandlerItem::Emit { name, args } => {
                 emits.push((name.clone(), args.clone()));
             }
-            InteractionHandlerItem::HostVerb { .. } => {
-                // Host verbs are executed by the preview/app runtime, not the bake IR.
+            InteractionHandlerItem::HostVerb {
+                qualifier,
+                name,
+                args,
+            } => {
+                // Let-qualified verbs target a nested instance — not this component bag.
+                if qualifier.is_some() {
+                    continue;
+                }
+                // Mirror preview host session verbs so apply_interaction_event can simulate.
+                match name.as_str() {
+                    "beginEditing" => {
+                        let seed_name = args
+                            .first()
+                            .map(|a| a.strip_prefix("self.").unwrap_or(a.as_str()))
+                            .unwrap_or("value");
+                        let seed = params
+                            .get(seed_name)
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let checkpoint = params
+                            .get("value")
+                            .cloned()
+                            .unwrap_or_else(|| Value::String(seed.clone()));
+                        params.insert("_editCheckpoint".into(), checkpoint);
+                        params.insert("value".into(), Value::String(seed.clone()));
+                        params.insert("isEditing".into(), Value::Bool(true));
+                        params.insert("isEmpty".into(), Value::Bool(seed.is_empty()));
+                        changed = true;
+                    }
+                    "finishEditing" | "commitEditing" => {
+                        let empty = params
+                            .get("value")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.is_empty())
+                            .unwrap_or(true);
+                        params.insert("isEditing".into(), Value::Bool(false));
+                        params.insert("isEmpty".into(), Value::Bool(empty));
+                        changed = true;
+                    }
+                    "cancelEditing" => {
+                        if let Some(cp) = params.get("_editCheckpoint").cloned() {
+                            params.insert("value".into(), cp);
+                        }
+                        let empty = params
+                            .get("value")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.is_empty())
+                            .unwrap_or(true);
+                        params.insert("isEditing".into(), Value::Bool(false));
+                        params.insert("isEmpty".into(), Value::Bool(empty));
+                        changed = true;
+                    }
+                    _ => {}
+                }
             }
             InteractionHandlerItem::Animate { .. } => {}
             InteractionHandlerItem::If { chain } => {
@@ -149,19 +203,27 @@ pub fn apply_emit_capture(
     let mut next = parent_params.clone();
     let emits = vec![];
     let mut changed = false;
-    for a in &handler.body {
-        let val = eval_assign_value(&a.value, &scope);
-        // Prefer payload-local idents from scope when RHS is ident
-        let resolved = match &a.value {
-            ValueExpr::Ident { name } => scope.get(name).cloned().unwrap_or(val),
-            _ => val,
-        };
-        if next.get(&a.param) != Some(&resolved) {
-            changed = true;
+    for item in &handler.body {
+        match item {
+            crate::ast::LayoutOnBodyItem::Assign(a) => {
+                let val = eval_assign_value(&a.value, &scope);
+                // Prefer payload-local idents from scope when RHS is ident
+                let resolved = match &a.value {
+                    ValueExpr::Ident { name } => scope.get(name).cloned().unwrap_or(val),
+                    _ => val,
+                };
+                if next.get(&a.param) != Some(&resolved) {
+                    changed = true;
+                }
+                next.insert(a.param.clone(), resolved.clone());
+                // Keep scope in sync for multi-assign
+                scope.insert(a.param.clone(), resolved);
+            }
+            crate::ast::LayoutOnBodyItem::HostVerb { .. } => {
+                // Executed by the HTML/preview host against the nested let session bag.
+                changed = true;
+            }
         }
-        next.insert(a.param.clone(), resolved.clone());
-        // Keep scope in sync for multi-assign
-        scope.insert(a.param.clone(), resolved);
     }
     ApplyInteractionResult {
         params: next,
@@ -272,7 +334,7 @@ mod tests {
 
     #[test]
     fn library_subnav_emit_capture_rebinds_current_filter() {
-        use crate::ast::{EmitArgDecl, LayoutOnAssign, LayoutOnHandler};
+        use crate::ast::{EmitArgDecl, LayoutOnAssign, LayoutOnBodyItem, LayoutOnHandler};
         let handler = LayoutOnHandler {
             qualifier: Some("chips".into()),
             channel: "select".into(),
@@ -280,12 +342,12 @@ mod tests {
                 name: "filter_id".into(),
                 type_name: "FilterId".into(),
             }],
-            body: vec![LayoutOnAssign {
+            body: vec![LayoutOnBodyItem::Assign(LayoutOnAssign {
                 param: "currentFilter".into(),
                 value: ValueExpr::Ident {
                     name: "filter_id".into(),
                 },
-            }],
+            })],
         };
         let mut parent = ParamValues::new();
         parent.insert("currentFilter".into(), Value::String("all".into()));

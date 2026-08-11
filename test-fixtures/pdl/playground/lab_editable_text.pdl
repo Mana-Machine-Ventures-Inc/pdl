@@ -1,0 +1,241 @@
+// EditableText sessions — try each component in Playground HTML preview.
+//
+// MyTextField       — default .focus; handlers optional
+// PressOnlyField    — .press: click begins; bare focus does not
+// ProgramOnlyField  — .none: click does nothing; fixture / param isEditing
+// NoteEditor        — intricate: parent-owned session + Edit / Done / Cancel
+//                     (activatesOn=.none; committed vs draft SoT)
+
+component MyTextField <EditableText>() text {
+  fontSize = 16
+  padding = EdgeInsets(x: 12, y: 10)
+  cornerRadius = 8
+  background = #F4F4F5
+  borderWidth = 1
+  borderColor = #E4E4E7
+  width = 320
+  content = value
+
+  if isEditing {
+    background = #FFFFFF
+    borderColor = #2563EB
+    borderWidth = 2
+  } else if isEmpty {
+    content = "Type here… (.focus)"
+    color = #A1A1AA
+  }
+}
+
+component PressOnlyField <EditableText>(
+  activatesOn: TextFieldActivation = .press
+) text {
+  fontSize = 16
+  padding = EdgeInsets(x: 12, y: 10)
+  cornerRadius = 8
+  background = #F4F4F5
+  borderWidth = 1
+  borderColor = #E4E4E7
+  width = 320
+  content = value
+
+  if isEditing {
+    background = #FFFFFF
+    borderColor = #16A34A
+    borderWidth = 2
+  } else if isEmpty {
+    content = "Click to edit (.press)"
+    color = #A1A1AA
+  }
+}
+
+component ProgramOnlyField <EditableText>(
+  activatesOn: TextFieldActivation = .none
+) text {
+  fontSize = 16
+  padding = EdgeInsets(x: 12, y: 10)
+  cornerRadius = 8
+  background = #F4F4F5
+  borderWidth = 1
+  borderColor = #E4E4E7
+  width = 320
+  content = value
+
+  if isEditing {
+    background = #FFFFFF
+    borderColor = #C026D3
+    borderWidth = 2
+  } else if isEmpty {
+    content = "Set isEditing in params (.none)"
+    color = #A1A1AA
+  } else {
+    content = value
+  }
+}
+
+// --- NoteEditor: parent orchestrates the session (Done / Cancel) ----------------
+// Parent SoT: committed / draft / editing (shell chrome). Session verbs target Input:
+//   Input.beginEditing(draft) / Input.finishEditing() / Input.cancelEditing()
+
+variant EditorBtnTone {
+  case primary
+  case secondary
+}
+
+component EditorBtn <PointerInput>(
+  label: String = "Go",
+  tone: EditorBtnTone = .primary
+) layout {
+  direction = .row
+  padding = EdgeInsets(x: 14, y: 8)
+  cornerRadius = 6
+
+  if tone == .primary {
+    background = #2563EB
+  } else {
+    background = #E4E4E7
+  }
+
+  let L = Text(content: label, fontSize: 13)
+  if tone == .primary {
+    L.color = #FFFFFF
+  } else {
+    L.color = #18181B
+  }
+  children = [L]
+
+  pressEnd = { emit tap() }
+} emits {
+  tap()
+}
+
+component NoteField <EditableText>(
+  activatesOn: TextFieldActivation = .none
+) text {
+  fontSize = 16
+  padding = EdgeInsets(x: 12, y: 10)
+  content = value
+  background = #FFFFFF
+  borderWidth = 1
+  borderColor = #E4E4E7
+  cornerRadius = 8
+  width = 328
+
+  if isEditing {
+    borderColor = #2563EB
+    borderWidth = 2
+  } else if isEmpty {
+    content = "Write a note…"
+    color = #A1A1AA
+  }
+
+  editingFinished = {
+    finishEditing()
+    emit change(value)
+  }
+  editingCancelled = {
+    cancelEditing()
+    emit change(value)
+  }
+} emits {
+  change(value: String)
+}
+
+component NoteEditor(
+  committed: String = "Ship EditableText",
+  draft: String = "Ship EditableText",
+  editing: Bool = false,
+  status: String = "Idle — press Edit to start a session"
+) layout {
+  direction = .column
+  gap = 10
+  padding = 16
+  width = 360
+  background = #FAFAFA
+  cornerRadius = 12
+  borderWidth = 1
+  borderColor = #E4E4E7
+
+  let Eyebrow = Text(content: "Committed title", fontSize: 11, color: #A1A1AA)
+  let Title = Text(content: committed, fontSize: 18, color: #18181B)
+  let Hint = Text(
+    content: "activatesOn=.none — Edit opens the session; Done / Cancel close it",
+    fontSize: 11,
+    color: #71717A
+  )
+  let Input = NoteField(value: draft, isEditing: editing)
+  let Edit = EditorBtn(label: "Edit", tone: .primary)
+  let Cancel = EditorBtn(label: "Cancel", tone: .secondary)
+  let Done = EditorBtn(label: "Done", tone: .primary)
+  let Status = Text(content: status, fontSize: 12, color: #52525B)
+
+  if editing {
+    Eyebrow.content = "Draft (session buffer)"
+    Title.content = draft
+    children = [Eyebrow, Title, Hint, Input, Cancel, Done, Status]
+  } else {
+    children = [Eyebrow, Title, Hint, Input, Edit, Status]
+  }
+
+  Edit.tap() = {
+    draft = committed
+    editing = true
+    Input.beginEditing(draft)
+    status = "Editing — Done keeps the draft, Cancel restores committed"
+  }
+  Done.tap() = {
+    Input.finishEditing()
+    committed = draft
+    editing = false
+    status = "Saved"
+  }
+  Cancel.tap() = {
+    Input.cancelEditing()
+    draft = committed
+    editing = false
+    status = "Cancelled — committed text unchanged"
+  }
+  Input.change(value: String) = {
+    draft = value
+  }
+}
+
+fixtures MyTextField {
+  example "Empty" { value = "" }
+  example "Seeded" { value = "Hello" }
+}
+
+fixtures PressOnlyField {
+  example "Seeded" { value = "Press-only" }
+}
+
+fixtures ProgramOnlyField {
+  example "Idle" {
+    value = "Program-only"
+    isEditing = false
+  }
+  example "Force edit" {
+    value = "Program-only"
+    isEditing = true
+  }
+}
+
+fixtures NoteEditor {
+  example "Idle" {
+    committed = "Ship EditableText"
+    draft = "Ship EditableText"
+    editing = false
+    status = "Idle — press Edit to start a session"
+  }
+  example "Mid-edit" {
+    committed = "Ship EditableText"
+    draft = "Ship EditableText with Done/Cancel"
+    editing = true
+    status = "Fixture forced editing session"
+  }
+  example "Empty draft" {
+    committed = "Untitled"
+    draft = ""
+    editing = true
+    status = "Empty session — placeholder on NoteField"
+  }
+}

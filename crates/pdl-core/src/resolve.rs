@@ -501,6 +501,83 @@ fn merge_style_props(
     Ok(())
 }
 
+/// Text-root + EditableText → set root `editable = true` unless the author set it.
+fn imply_editable_text_root(
+    design: &DesignDefinition,
+    c: &ComponentDecl,
+    frames: &mut HashMap<String, MutableFrame>,
+) -> Result<(), PdlError> {
+    if root_kind_str(c.root_kind) != "text" {
+        return Ok(());
+    }
+    let hosts = crate::design::effective_host_protocols(design, c)?;
+    if !hosts.iter().any(|h| h == "EditableText") {
+        return Ok(());
+    }
+    let Some(root) = frames.get_mut("Root") else {
+        return Ok(());
+    };
+    if !root.props.contains_key("editable") {
+        root.props.insert("editable".into(), Value::Bool(true));
+    }
+    Ok(())
+}
+
+fn is_truthy_bool_param(v: &Value) -> bool {
+    match v {
+        Value::Bool(true) => true,
+        Value::String(s) => s == "true" || s == "1",
+        _ => false,
+    }
+}
+
+fn value_param_is_empty(param_values: &ParamValues) -> bool {
+    match param_values.get("value") {
+        Some(Value::String(s)) => s.is_empty(),
+        Some(Value::Null) | None => true,
+        Some(v) => match v.as_str() {
+            Some(s) => s.is_empty(),
+            None => true,
+        },
+    }
+}
+
+/// Keep EditableText derived facts aligned with `value` after defaults / overrides.
+///
+/// `explicit_overrides` are author/preview knobs only — the injected default
+/// `isEmpty = true` must not be treated as “force empty” or it clears every
+/// non-empty `value` before sync can derive the fact.
+pub(crate) fn sync_editable_text_facts(
+    design: &DesignDefinition,
+    c: &ComponentDecl,
+    param_values: &mut ParamValues,
+    explicit_overrides: &Map<String, Value>,
+) -> Result<(), PdlError> {
+    let hosts = crate::design::effective_host_protocols(design, c)?;
+    if !hosts.iter().any(|h| h == "EditableText") {
+        return Ok(());
+    }
+    // Preview / pack knobs: explicit `isEmpty = true` means "show empty chrome"
+    // — clear a stale non-empty `value` so layout and session buffer agree.
+    if explicit_overrides
+        .get("isEmpty")
+        .is_some_and(is_truthy_bool_param)
+        && !value_param_is_empty(param_values)
+    {
+        param_values.insert("value".into(), Value::String(String::new()));
+    }
+    let empty = value_param_is_empty(param_values);
+    param_values.insert("isEmpty".into(), Value::Bool(empty));
+    // isOverLimit stays false until contentLimit lands in the host.
+    if !param_values.contains_key("isOverLimit") {
+        param_values.insert("isOverLimit".into(), Value::Bool(false));
+    }
+    if !param_values.contains_key("isEditing") {
+        param_values.insert("isEditing".into(), Value::Bool(false));
+    }
+    Ok(())
+}
+
 /// Resolve component default parameter values (variant → bare string, else evaluated literal).
 pub fn resolve_default_param_values(
     design: &DesignDefinition,
@@ -926,6 +1003,7 @@ pub fn resolve_component_tree(
     for (k, v) in param_overrides {
         param_values.insert(k.clone(), v.clone());
     }
+    sync_editable_text_facts(design, &c, &mut param_values, param_overrides)?;
     let param_meta = build_param_meta(design, &c)?;
     let mut frames: HashMap<String, MutableFrame> = HashMap::new();
     frames.insert(
@@ -953,6 +1031,9 @@ pub fn resolve_component_tree(
         options,
         "Root",
     )?;
+    // EditableText on a text-root component implies an editable leaf — no author
+    // `editable = true` required (session bind is always protocol `value`).
+    imply_editable_text_root(design, &c, &mut frames)?;
     for mf in frames.values_mut() {
         normalize_aspect_box_props(&mut mf.props, &design.entry_path)?;
     }

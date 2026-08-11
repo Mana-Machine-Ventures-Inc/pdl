@@ -249,7 +249,7 @@ export type InteractionHandlerItem =
   | { kind: "assign"; param: string; value: ValueExpr }
   | { kind: "animate"; value: ValueExpr }
   | { kind: "emit"; name: string; args: string[] }
-  | { kind: "hostVerb"; name: string; args: string[] }
+  | { kind: "hostVerb"; name: string; args: string[]; qualifier?: string }
   | { kind: "if"; chain: InteractionIfChain };
 
 export type InteractionDecl = {

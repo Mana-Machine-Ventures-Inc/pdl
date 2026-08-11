@@ -878,6 +878,121 @@ describe("renderHtml", () => {
     expect(frag).toContain("#f7f7f79e");
   });
 
+  it("marks EditableText interactive even with zero author handlers", () => {
+    const doc = {
+      schemaKind: "bakedDesign" as const,
+      schemaVersion: "1.0.0-beta",
+      generatedAt: "2026-01-01T00:00:00.000Z",
+      provenance: {
+        entryPath: "/x.pdl",
+        bakedTheme: null,
+        bakeProfile: "component-explicit" as const,
+      },
+      components: {
+        MyTextField: {
+          name: "MyTextField",
+          rootKind: "text",
+          bakedParams: {
+            value: "",
+            isEditing: false,
+            isEmpty: true,
+            activatesOn: "focus",
+          },
+          root: {
+            id: "Root",
+            kind: "text",
+            props: {
+              content: "Type here…",
+              editable: true,
+            },
+            children: [],
+          },
+        },
+      },
+    };
+    const html = renderBakedDesignToHtmlDocument(doc, {
+      singleComponent: "MyTextField",
+      interactiveHost: true,
+      // No interactions — session host must still attach for isEditing chrome.
+      interactionsByComponent: {},
+    });
+    expect(html).toContain('data-pdl-component="MyTextField"');
+    expect(html).toContain('data-pdl-interactive="1"');
+    expect(html).toContain("pdl-text--editable");
+    // Session value is empty; placeholder copy must not seed the input value.
+    expect(html).toMatch(/value=""/);
+    expect(html).toContain('placeholder="Type here…');
+  });
+
+  it("seeds nested EditableText session params and empty input value", () => {
+    const doc = {
+      schemaKind: "bakedDesign" as const,
+      schemaVersion: "1.0.0-beta",
+      generatedAt: "2026-01-01T00:00:00.000Z",
+      provenance: {
+        entryPath: "/x.pdl",
+        bakedTheme: null,
+        bakeProfile: "component-explicit" as const,
+      },
+      components: {
+        SearchField: {
+          name: "SearchField",
+          rootKind: "text",
+          bakedParams: {
+            // omitEmpty-style: no value key
+            isEditing: false,
+            isEmpty: true,
+            activatesOn: "focus",
+            placeholder: "Search",
+          },
+          root: {
+            id: "Root",
+            kind: "text",
+            props: { content: "Search", editable: true },
+            children: [],
+          },
+        },
+        SearchBar: {
+          name: "SearchBar",
+          rootKind: "layout",
+          bakedParams: { query: "" },
+          root: {
+            id: "Root",
+            kind: "layout",
+            props: { direction: "row" },
+            children: [
+              {
+                id: "Field",
+                kind: "text",
+                instanceOf: "SearchField",
+                props: { content: "Search", editable: true },
+                children: [],
+              },
+            ],
+          },
+        },
+      },
+    };
+    const html = renderBakedDesignToHtmlDocument(doc, {
+      singleComponent: "SearchBar",
+      interactiveHost: true,
+      interactionsByComponent: {
+        SearchField: [
+          {
+            name: "default",
+            handlers: [{ event: "editingFinished", body: [] }],
+          },
+        ],
+      },
+    });
+    expect(html).toContain('data-pdl-interactive="1"');
+    expect(html).toContain('data-pdl-instance-of="SearchField"');
+    expect(html).toContain("data-pdl-session-params");
+    expect(html).toContain('data-pdl-instance-let="Field"');
+    expect(html).toMatch(/value=""/);
+    expect(html).toContain('placeholder="Search"');
+  });
+
   it("marks parent interactive when nested instances have host handlers", () => {
     const doc = {
       schemaKind: "bakedDesign" as const,

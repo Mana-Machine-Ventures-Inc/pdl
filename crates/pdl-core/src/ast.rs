@@ -294,13 +294,25 @@ pub struct LayoutOnHandler {
     pub qualifier: Option<String>,
     pub channel: String,
     pub payload: Vec<EmitArgDecl>,
-    pub body: Vec<LayoutOnAssign>,
+    pub body: Vec<LayoutOnBodyItem>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct LayoutOnAssign {
     pub param: String,
     pub value: ValueExpr,
+}
+
+/// Body of an emit-capture handler: parent assigns and/or let-qualified host verbs.
+#[derive(Debug, Clone, PartialEq)]
+pub enum LayoutOnBodyItem {
+    Assign(LayoutOnAssign),
+    /// `Input.beginEditing(draft)` / `Input.finishEditing()` — target a nested EditableText let.
+    HostVerb {
+        qualifier: Option<String>,
+        name: String,
+        args: Vec<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -652,8 +664,10 @@ pub enum InteractionHandlerItem {
         name: String,
         args: Vec<String>,
     },
-    /// Host verb: `beginEditing(value)` / `cancelEditing()` (EditableText).
+    /// Host verb: `beginEditing(value)` / `Input.finishEditing()` (EditableText).
+    /// `qualifier` is a nested let id when present (`Input` in `Input.beginEditing(draft)`).
     HostVerb {
+        qualifier: Option<String>,
         name: String,
         args: Vec<String>,
     },

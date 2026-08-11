@@ -113,7 +113,12 @@ function serialiseInteractionHandlerItem(item: InteractionHandlerItem): unknown 
     case "emit":
       return { kind: "emit", name: item.name, args: item.args };
     case "hostVerb":
-      return { kind: "hostVerb", name: item.name, args: item.args };
+      return {
+        kind: "hostVerb",
+        name: item.name,
+        args: item.args,
+        ...(item.qualifier ? { qualifier: item.qualifier } : {}),
+      };
     case "if":
       return { kind: "if", chain: serialiseInteractionIfChain(item.chain) };
     default: {

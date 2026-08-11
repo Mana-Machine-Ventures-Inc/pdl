@@ -828,12 +828,15 @@ function stackChildOpts(
   parentDirection: unknown,
   index: number,
   childCount: number,
+  parentOpts?: FrameRenderOpts,
 ): FrameRenderOpts {
   const isStack = isStackDirection(parentDirection);
-  if (!isStack) return { stackChild: false, stackZ: 0 };
+  const sessionParams = parentOpts?.sessionParams;
+  if (!isStack) return { stackChild: false, stackZ: 0, sessionParams };
   return {
     stackChild: true,
     stackZ: stackZIndex(index, childCount, parentDirection === "reverseStack"),
+    sessionParams,
   };
 }
 
@@ -1004,7 +1007,25 @@ type FrameRenderOpts = {
   stackZ: number;
   /** When true, omit data-pdl-instance-* (used for inst-state inner bodies). */
   omitInstanceAttrs?: boolean;
+  /**
+   * Enclosing component baked params (EditableText `activatesOn` / `isEditing`).
+   * Propagated for root text fields so `.none` can render as non-interactive text.
+   */
+  sessionParams?: Record<string, unknown>;
 };
+
+function textFieldActivationMode(
+  params: Record<string, unknown> | undefined,
+): "focus" | "press" | "none" {
+  const raw = params?.activatesOn;
+  const s = raw == null ? "focus" : String(raw).replace(/^\./, "");
+  if (s === "press" || s === "none" || s === "focus") return s;
+  return "focus";
+}
+
+function sessionParamIsEditing(params: Record<string, unknown> | undefined): boolean {
+  return params?.isEditing === true || params?.isEditing === "true";
+}
 
 type InstanceRenderCtx = {
   nextKey: number;
@@ -1012,7 +1033,30 @@ type InstanceRenderCtx = {
   stateTrees: Record<string, Record<string, BakedComponentJson>>;
   /** Component types that declare PointerInput host channels (hover/press). */
   pointerInputTypes?: ReadonlySet<string>;
+  /** EditableText baked defaults by component type (`isEditing`, `value`, …). */
+  editableSessionDefaults?: Readonly<Record<string, Record<string, unknown>>>;
 };
+
+function editableSessionDefaultsFromDoc(
+  doc: BakedDesignDocument,
+): Record<string, Record<string, unknown>> {
+  const out: Record<string, Record<string, unknown>> = {};
+  for (const [name, comp] of Object.entries(doc.components ?? {})) {
+    const bp = (comp.bakedParams ?? {}) as Record<string, unknown>;
+    if (
+      Object.prototype.hasOwnProperty.call(bp, "isEditing") ||
+      Object.prototype.hasOwnProperty.call(bp, "activatesOn")
+    ) {
+      // omitEmpty bake JSON drops `value: ""` — restore so inputs don't seed from placeholder content.
+      out[name] = {
+        value: "",
+        ...bp,
+      };
+      if (out[name].value == null) out[name].value = "";
+    }
+  }
+  return out;
+}
 
 /** True when catalogue interaction decls include hover/press host channels. */
 function declsHavePointerInput(decls: unknown): boolean {
@@ -1102,20 +1146,40 @@ function renderFrame(
     instCtx?.pointerInputTypes?.has(frame.instanceOf)
       ? ` data-pdl-pointer-input="1"`
       : "";
-  const instAttrs = `${inst}${kwargsAttr}${pointerAttr}`;
+  // Nested EditableText: seed session bag from type defaults ∪ kwargs.
+  let frameOpts = opts;
+  let sessionAttr = "";
+  if (wantInst && frame.instanceOf && instCtx?.editableSessionDefaults?.[frame.instanceOf]) {
+    const childSession: Record<string, unknown> = {
+      ...instCtx.editableSessionDefaults[frame.instanceOf],
+      ...(frame.instanceKwargs ?? {}),
+    };
+    frameOpts = { ...opts, sessionParams: childSession };
+    sessionAttr = ` data-pdl-session-params="${escapeAttr(JSON.stringify(childSession))}"`;
+  }
+  const letAttr = wantInst && id ? ` data-pdl-instance-let="${escapeAttr(id)}"` : "";
+  const instAttrs = `${inst}${kwargsAttr}${pointerAttr}${sessionAttr}${letAttr}`;
 
   // Nested interactive instances: wrap with per-kwargs state fragments for local swap.
   if (wantInst && instCtx && frame.instanceOf) {
     const key = `i${instCtx.nextKey++}`;
     const extra = instCtx.stateTrees[key];
     if (extra && Object.keys(extra).length > 0) {
-      const restInner = renderFrame(frame, { ...opts, omitInstanceAttrs: true }, instCtx);
+      const restInner = renderFrame(
+        frame,
+        { ...frameOpts, omitInstanceAttrs: true },
+        instCtx,
+      );
       let blocks = `<div class="pdl-inst-state" data-pdl-state="rest">${restInner}</div>`;
       for (const [stateName, stateComp] of Object.entries(extra)) {
-        const frag = renderFrame(stateComp.root, { stackChild: false, stackZ: 0 });
+        const frag = renderFrame(stateComp.root, {
+          stackChild: false,
+          stackZ: 0,
+          sessionParams: frameOpts.sessionParams,
+        });
         blocks += `<div class="pdl-inst-state" data-pdl-state="${escapeAttr(stateName)}" hidden>${frag}</div>`;
       }
-      return `<div class="pdl-instance"${inst}${kwargsAttr}${pointerAttr} data-pdl-instance-key="${escapeAttr(key)}">${blocks}</div>`;
+      return `<div class="pdl-instance"${inst}${kwargsAttr}${pointerAttr}${sessionAttr}${letAttr} data-pdl-instance-key="${escapeAttr(key)}">${blocks}</div>`;
     }
   }
 
@@ -1127,7 +1191,7 @@ function renderFrame(
       // Inside border is an overlay above bands/content. Overflow lives on
       // `__content` so background/foreground do not scroll with children.
       const shellStyle = mergeInlineStyles(
-        frameBoxStyle(props, "layout", opts),
+        frameBoxStyle(props, "layout", frameOpts),
         isStack ? "position:relative" : "",
       );
       const innerStyle = mergeInlineStyles(
@@ -1145,18 +1209,22 @@ function renderFrame(
       const under = renderLayerBandHtml(flattenLayerOps(props.background), 0);
       const over = renderLayerBandHtml(flattenLayerOps(props.foreground), 2);
       const innerKids = kids
-        .map((ch, i) => renderFrame(ch, stackChildOpts(props.direction, i, kids.length), instCtx))
+        .map((ch, i) =>
+          renderFrame(ch, stackChildOpts(props.direction, i, kids.length, frameOpts), instCtx),
+        )
         .join("");
       const inner = `<div class="pdl-layout__content" style="${escapeStyleAttr(innerStyle)}">${innerKids}</div>`;
       const { style, html } = withInsideBorderOverlay(shellStyle, props, `${under}${inner}${over}`);
       return `<div class="pdl-frame pdl-layout pdl-layout--layers"${dataId}${instAttrs} style="${escapeStyleAttr(style)}">${html}</div>`;
     }
     const shellStyle = mergeInlineStyles(
-      frameBoxStyle(props, "layout", opts),
+      frameBoxStyle(props, "layout", frameOpts),
       isStack ? "position:relative" : "",
     );
     const inner = kids
-      .map((ch, i) => renderFrame(ch, stackChildOpts(props.direction, i, kids.length), instCtx))
+      .map((ch, i) =>
+        renderFrame(ch, stackChildOpts(props.direction, i, kids.length, frameOpts), instCtx),
+      )
       .join("");
     const { style, html } = withInsideBorderOverlay(shellStyle, props, inner);
     return `<div class="pdl-frame pdl-layout"${dataId}${instAttrs} style="${escapeStyleAttr(style)}">${html}</div>`;
@@ -1172,9 +1240,27 @@ function renderFrame(
           : undefined;
     const itemStack = mergeInlineStyles(
       ...textFlexItemDecls(props),
-      ...(opts.stackChild ? stackCellDecls(opts.stackZ) : []),
+      ...(frameOpts.stackChild ? stackCellDecls(frameOpts.stackZ) : []),
     );
-    if (editableBind) {
+    // activatesOn=.none and not editing → paint as inert text (not an <input>).
+    const suppressEditableHitTarget =
+      Boolean(editableBind) &&
+      textFieldActivationMode(frameOpts.sessionParams) === "none" &&
+      !sessionParamIsEditing(frameOpts.sessionParams);
+    if (editableBind && !suppressEditableHitTarget) {
+      // Session `value` is the input buffer; baked `content` is presentation
+      // (placeholder / mask). Never seed the DOM value from placeholder copy.
+      const hasSessionValue =
+        frameOpts.sessionParams != null &&
+        Object.prototype.hasOwnProperty.call(frameOpts.sessionParams, "value");
+      const sessionVal = hasSessionValue
+        ? String(frameOpts.sessionParams!.value ?? "")
+        : content;
+      const editing = sessionParamIsEditing(frameOpts.sessionParams);
+      const placeholderAttr =
+        hasSessionValue && !editing && sessionVal === "" && content !== ""
+          ? ` placeholder="${escapeAttr(content)}"`
+          : "";
       const style = mergeInlineStyles(
         textInlineStyle(props),
         itemStack,
@@ -1186,7 +1272,7 @@ function renderFrame(
         "width:100%",
         "box-sizing:border-box",
       );
-      return `<input class="pdl-frame pdl-text pdl-text--editable" type="text"${dataId}${instAttrs} data-pdl-editable="${escapeAttr(editableBind)}" value="${escapeAttr(content)}" style="${escapeStyleAttr(style)}" />`;
+      return `<input class="pdl-frame pdl-text pdl-text--editable" type="text"${dataId}${instAttrs} data-pdl-editable="${escapeAttr(editableBind)}" value="${escapeAttr(sessionVal)}"${placeholderAttr} style="${escapeStyleAttr(style)}" />`;
     }
     const clamped = textLineClamp(props) !== undefined;
     if (textLayerBandsActive(props)) {
@@ -1368,15 +1454,37 @@ function renderFrame(
     return `<div class="pdl-frame pdl-media"${dataId}${instAttrs} style="${escapeStyleAttr(mediaStyle)}" role="img" aria-label="${escapeAttr(label)}">${mediaHtml}</div>`;
   }
 
-  const fallbackStyle = frameBoxStyle(props, kind, opts);
+  const fallbackStyle = frameBoxStyle(props, kind, frameOpts);
   const inner = kids
-    .map((ch) => renderFrame(ch, { stackChild: false, stackZ: 0 }, instCtx))
+    .map((ch) =>
+      renderFrame(
+        ch,
+        { stackChild: false, stackZ: 0, sessionParams: frameOpts.sessionParams },
+        instCtx,
+      ),
+    )
     .join("");
   return `<div class="pdl-frame pdl-unknown" data-pdl-kind="${escapeAttr(kind)}"${dataId}${instAttrs} style="${escapeStyleAttr(fallbackStyle)}">${inner}</div>`;
 }
 
 function renderComponentBody(comp: BakedComponentJson, instCtx?: InstanceRenderCtx): string {
-  return renderFrame(comp.root, { stackChild: false, stackZ: 0 }, instCtx);
+  const bp = { ...((comp.bakedParams ?? {}) as Record<string, unknown>) };
+  if (
+    (Object.prototype.hasOwnProperty.call(bp, "isEditing") ||
+      Object.prototype.hasOwnProperty.call(bp, "activatesOn")) &&
+    bp.value == null
+  ) {
+    bp.value = "";
+  }
+  return renderFrame(
+    comp.root,
+    {
+      stackChild: false,
+      stackZ: 0,
+      sessionParams: bp,
+    },
+    instCtx,
+  );
 }
 
 const BASE_CSS = `
@@ -1444,6 +1552,7 @@ body { margin: 0; padding: 16px; background: var(--pdl-preview-background, #f6f6
 .pdl-instance[data-pdl-pointer-input] {
   cursor: pointer;
 }
+.pdl-text--editable::placeholder { opacity: 1; color: inherit; }
 .pdl-text--editable {
   cursor: text;
 }
@@ -1670,12 +1779,16 @@ export function renderBakedDesignToHtmlDocumentWithReport(
   }
   const renderFailures: ComponentRenderFailure[] = [];
   const pointerInputTypes = pointerInputTypesFromInteractions(opts.interactionsByComponent);
+  const editableSessionDefaults = editableSessionDefaultsFromDoc(doc);
   const instCtx: InstanceRenderCtx | undefined =
-    opts.instanceStateTrees || pointerInputTypes.size > 0
+    opts.instanceStateTrees ||
+    pointerInputTypes.size > 0 ||
+    Object.keys(editableSessionDefaults).length > 0
       ? {
           nextKey: 0,
           stateTrees: opts.instanceStateTrees ?? {},
           pointerInputTypes,
+          editableSessionDefaults,
         }
       : undefined;
 
@@ -1725,8 +1838,44 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           };
           return walk(comp.root?.children ?? (comp as { children?: unknown }).children);
         })();
+        // EditableText injects isEditing / activatesOn even with zero author handlers.
+        // Without this, the native <input> still accepts typing but the session host
+        // never attaches — isEditing stays false and layout chrome never updates.
+        const hasEditableTextSession = (() => {
+          const bp = (comp.bakedParams ?? {}) as Record<string, unknown>;
+          if (
+            Object.prototype.hasOwnProperty.call(bp, "isEditing") ||
+            Object.prototype.hasOwnProperty.call(bp, "activatesOn")
+          ) {
+            return true;
+          }
+          const walk = (nodes: unknown): boolean => {
+            if (!Array.isArray(nodes)) return false;
+            for (const n of nodes) {
+              if (!n || typeof n !== "object") continue;
+              const rec = n as Record<string, unknown>;
+              const of = rec.instanceOf;
+              if (typeof of === "string") {
+                const nestedBp = (doc.components[of]?.bakedParams ?? {}) as Record<
+                  string,
+                  unknown
+                >;
+                if (
+                  Object.prototype.hasOwnProperty.call(nestedBp, "isEditing") ||
+                  Object.prototype.hasOwnProperty.call(nestedBp, "activatesOn")
+                ) {
+                  return true;
+                }
+              }
+              if (walk(rec.children)) return true;
+            }
+            return false;
+          };
+          return walk(comp.root?.children ?? (comp as { children?: unknown }).children);
+        })();
         const hasInteraction =
-          opts.interactiveHost && (hasOwnIx || hasCaptures || hasNestedIx);
+          opts.interactiveHost &&
+          (hasOwnIx || hasCaptures || hasNestedIx || hasEditableTextSession);
         const interactiveAttr = hasInteraction ? ` data-pdl-interactive="1"` : "";
         const paramBar = renderParamBar(name, opts.paramControlsByComponent?.[name]);
         const sourceLink = renderSourceFileLink(name, opts.componentSourcesByComponent?.[name]);
@@ -1765,6 +1914,12 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         : stripDot(cond.rhs);
       return cond.op === '!=' ? left !== right : left === right;
     }
+    if (cond.kind === 'truthy') {
+      var tv = params[cond.param];
+      if (typeof tv === 'boolean') return tv;
+      var ts = tv == null ? '' : String(tv);
+      return ts === 'true' || ts === '1';
+    }
     if (cond.kind === 'and') return (cond.items || []).every(function(x){ return evalCond(x, params); });
     if (cond.kind === 'or') return (cond.items || []).some(function(x){ return evalCond(x, params); });
     if (cond.kind === 'not') return !evalCond(cond.expr, params);
@@ -1801,6 +1956,31 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       }
       if (item.kind === 'emit' && item.name) {
         emits.push({ name: item.name, args: (item.args || []).map(String) });
+        return;
+      }
+      if (item.kind === 'hostVerb' && item.name) {
+        if (item.qualifier) return; // nested target — HTML session host below
+        var args = (item.args || []).map(String);
+        if (item.name === 'beginEditing') {
+          var seedName = (args[0] || 'value').replace(/^self\./, '');
+          var seed = Object.prototype.hasOwnProperty.call(params, seedName)
+            ? String(params[seedName] == null ? '' : params[seedName])
+            : '';
+          params._editCheckpoint = String(params.value == null ? seed : params.value);
+          params.value = seed;
+          params.isEditing = true;
+          params.isEmpty = seed.length === 0;
+          changed = true;
+        } else if (item.name === 'finishEditing' || item.name === 'commitEditing') {
+          params.isEditing = false;
+          params.isEmpty = String(params.value == null ? '' : params.value).length === 0;
+          changed = true;
+        } else if (item.name === 'cancelEditing') {
+          if (params._editCheckpoint !== undefined) params.value = params._editCheckpoint;
+          params.isEditing = false;
+          params.isEmpty = String(params.value == null ? '' : params.value).length === 0;
+          changed = true;
+        }
         return;
       }
       if (item.kind === 'if' && item.chain) {
@@ -1847,17 +2027,24 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     var el = section.querySelector('.pdl-preview-params');
     if (el) el.textContent = JSON.stringify(params);
   }
-  function applyEmitCapture(parentParams, captures, channel, emitArgNames, childParams, qualifier) {
+  // onHostVerb(hv, nextParams) → { params, changed, localChrome } when provided (ordered body exec).
+  function applyEmitCapture(parentParams, captures, channel, emitArgNames, childParams, qualifier, onHostVerb) {
     if (!captures || !captures.length) {
-      return { params: Object.assign({}, parentParams), changed: false, handled: false };
+      return { params: Object.assign({}, parentParams), changed: false, handled: false, localChrome: false };
     }
     var capture = null;
-    captures.forEach(function(c){
-      if (c.channel !== channel) return;
-      if (qualifier && c.qualifier && c.qualifier !== qualifier) return;
+    var wantQual = qualifier != null && String(qualifier).length ? String(qualifier) : null;
+    for (var ci = 0; ci < captures.length; ci++) {
+      var c = captures[ci];
+      if (!c || c.channel !== channel) continue;
+      if (wantQual) {
+        if ((c.qualifier || null) !== wantQual) continue;
+        capture = c;
+        break;
+      }
       capture = c;
-    });
-    if (!capture) return { params: Object.assign({}, parentParams), changed: false, handled: false };
+    }
+    if (!capture) return { params: Object.assign({}, parentParams), changed: false, handled: false, localChrome: false };
     var scope = Object.assign({}, parentParams);
     (capture.payload || []).forEach(function(p, i){
       var src = emitArgNames[i] || p.name;
@@ -1866,8 +2053,27 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     });
     var next = Object.assign({}, parentParams);
     var changed = false;
+    var localChrome = false;
     (capture.body || []).forEach(function(a){
-      if (!a || !a.param) return;
+      if (!a) return;
+      if (a.kind === 'hostVerb' && a.name) {
+        var hv = {
+          qualifier: a.qualifier || null,
+          name: a.name,
+          args: (a.args || []).map(String)
+        };
+        if (typeof onHostVerb === 'function') {
+          var vr = onHostVerb(hv, next);
+          next = vr.params;
+          scope = Object.assign(scope, next);
+          if (vr.changed) changed = true;
+          if (vr.localChrome) localChrome = true;
+        } else {
+          changed = true;
+        }
+        return;
+      }
+      if (!a.param) return;
       var resolved = evalAssignValue(a.value, scope);
       if (a.value && typeof a.value === 'object' && a.value.kind === 'ident') {
         var nm = String(a.value.name || '');
@@ -1877,7 +2083,98 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       next[a.param] = resolved;
       scope[a.param] = resolved;
     });
-    return { params: next, changed: changed, handled: true };
+    return { params: next, changed: changed, handled: true, localChrome: localChrome };
+  }
+  function showInstEditingChrome(instNode, on) {
+    if (!instNode) return false;
+    var nodes = instNode.querySelectorAll(':scope > .pdl-inst-state');
+    if (!nodes.length) return false;
+    var want = on ? 'editing' : 'rest';
+    var found = false;
+    nodes.forEach(function(n){
+      var match = n.getAttribute('data-pdl-state') === want;
+      n.hidden = !match;
+      if (match) found = true;
+    });
+    if (on && !found) {
+      nodes.forEach(function(n){
+        n.hidden = n.getAttribute('data-pdl-state') !== 'rest';
+      });
+    }
+    return found;
+  }
+  function runQualifiedHostVerb(section, parentParams, parentCaptures, hv) {
+    var q = hv.qualifier;
+    if (!q) return { parentParams: parentParams, changed: false, localChrome: false };
+    var node = section.querySelector('[data-pdl-instance-let="' + q + '"]');
+    if (!node) return { parentParams: parentParams, changed: false, localChrome: false };
+    var bag = {};
+    try { bag = JSON.parse(node.getAttribute('data-pdl-session-params') || '{}'); } catch (e) { bag = {}; }
+    try {
+      var kw = JSON.parse(node.getAttribute('data-pdl-instance-kwargs') || '{}');
+      bag = Object.assign({}, bag, kw);
+    } catch (e) {}
+    var childType = node.getAttribute('data-pdl-instance-of') || '';
+    var childDecls = interactions[childType] || [];
+    var childBy = handlersByEvent(childDecls);
+    var vname = hv.name;
+    var vargs = hv.args || [];
+    var changed = false;
+    var localChrome = false;
+    if (vname === 'beginEditing') {
+      var seedName = (vargs[0] || 'value').replace(/^self\./, '');
+      var seed = Object.prototype.hasOwnProperty.call(parentParams, seedName)
+        ? String(parentParams[seedName] == null ? '' : parentParams[seedName])
+        : String(bag.value == null ? '' : bag.value);
+      bag._editCheckpoint = seed;
+      bag.value = seed;
+      bag.isEditing = true;
+      bag.isEmpty = seed.length === 0;
+      changed = true;
+      localChrome = showInstEditingChrome(node, true);
+    } else if (vname === 'finishEditing' || vname === 'commitEditing') {
+      bag.isEditing = false;
+      bag.isEmpty = String(bag.value == null ? '' : bag.value).length === 0;
+      changed = true;
+      localChrome = showInstEditingChrome(node, false);
+      if (childBy.editingFinished) {
+        var fr = applyEvent(bag, childDecls, 'editingFinished');
+        bag = fr.params;
+        (fr.emits || []).forEach(function(em){
+          var cap = applyEmitCapture(parentParams, parentCaptures, em.name, em.args || [], bag, q);
+          if (cap.handled && cap.changed) {
+            parentParams = cap.params;
+            changed = true;
+          }
+        });
+      }
+    } else if (vname === 'cancelEditing') {
+      if (bag._editCheckpoint !== undefined) bag.value = bag._editCheckpoint;
+      bag.isEditing = false;
+      bag.isEmpty = String(bag.value == null ? '' : bag.value).length === 0;
+      changed = true;
+      localChrome = showInstEditingChrome(node, false);
+      if (childBy.editingCancelled) {
+        var cr = applyEvent(bag, childDecls, 'editingCancelled');
+        bag = cr.params;
+        (cr.emits || []).forEach(function(em){
+          var cap2 = applyEmitCapture(parentParams, parentCaptures, em.name, em.args || [], bag, q);
+          if (cap2.handled && cap2.changed) {
+            parentParams = cap2.params;
+            changed = true;
+          }
+        });
+      }
+    }
+    node.setAttribute('data-pdl-session-params', JSON.stringify(bag));
+    var vis = node.querySelector('.pdl-inst-state:not([hidden]) input.pdl-text--editable, :scope > input.pdl-text--editable');
+    if (vis) {
+      try { vis.value = String(bag.value == null ? '' : bag.value); } catch (e) {}
+      if (bag.isEditing === true || bag.isEditing === 'true') {
+        try { vis.focus(); } catch (e) {}
+      }
+    }
+    return { parentParams: parentParams, changed: changed, localChrome: localChrome };
   }
   function postHeight() {
     try {
@@ -1937,6 +2234,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           var childDecls = interactions[childType] || [];
           var childBy = handlersByEvent(childDecls);
           if (!Object.keys(childBy).length) return;
+          var childQualifier = node.getAttribute('data-pdl-instance-let') || null;
           var childParams = {};
           try { childParams = JSON.parse(node.getAttribute('data-pdl-instance-kwargs') || '{}'); } catch (e) {}
           var childLive = Object.assign({}, childParams);
@@ -1958,19 +2256,35 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             var result = applyEvent(childLive, childDecls, event);
             childLive = result.params;
             var needRebake = false;
+            var localVerbChrome = false;
             (result.emits || []).forEach(function(em){
-              var cap = applyEmitCapture(liveParams, captures, em.name, em.args || [], childLive, null);
+              var cap = applyEmitCapture(
+                liveParams,
+                captures,
+                em.name,
+                em.args || [],
+                childLive,
+                childQualifier,
+                function(hv, parentBag){
+                  var vr = runQualifiedHostVerb(section, parentBag, captures, hv);
+                  if (vr.localChrome) localVerbChrome = true;
+                  return { params: vr.parentParams, changed: vr.changed, localChrome: vr.localChrome };
+                }
+              );
               if (cap.handled && cap.changed) {
                 liveParams = cap.params;
                 writeParams(section, liveParams);
                 needRebake = true;
               }
+              if (cap.localChrome) localVerbChrome = true;
             });
             // Local chrome swap for nested interactionState (hover/press).
             // Rebake cannot restore ephemeral child interactionState — parent SoT only.
             var stateKey = childLive.interactionState != null ? String(childLive.interactionState) : 'rest';
             var localHandled = showInstState(stateKey);
             if (!localHandled && stateKey === 'rest') localHandled = showInstState('rest');
+            // Let-qualified begin/finish may swap EditableText inst-state locally.
+            if (localVerbChrome) localHandled = true;
             postMsg({
               type: 'pdl-interaction',
               component: name,
@@ -2040,32 +2354,325 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             dispatchSelf('pressEnd');
           });
         }
-        if (canvas) canvas.style.cursor = 'pointer';
+        // Only PointerInput hit targets get the pointer cursor — not EditableText alone.
+        if (
+          canvas &&
+          (byEvent.hoverStart || byEvent.hoverEnd || byEvent.pressStart || byEvent.pressEnd || byEvent.pressCancel)
+        ) {
+          canvas.style.cursor = 'pointer';
+        }
       }
-      // EditableText host: bind <input data-pdl-editable> → param; blur/Enter → keyboardDismissed; Esc → cancelled.
+      // EditableText host: activatesOn (.focus|.press|.none); blur/Enter finish; Esc cancel.
+      // Nested instances own a child session bag (data-pdl-session-params); parent SoT via emits.
+      // Note: activatesOn=.none + !isEditing renders as inert text (no <input>) at bake time.
       section.querySelectorAll('input.pdl-text--editable[data-pdl-editable]').forEach(function(input){
-        var bind = input.getAttribute('data-pdl-editable');
-        input.addEventListener('mousedown', function(ev){ ev.stopPropagation(); });
-        input.addEventListener('click', function(ev){
-          ev.stopPropagation();
-          if (byEvent.pressEnd) dispatchSelf('pressEnd');
-          try { input.focus(); } catch (e) {}
-        });
-        input.addEventListener('blur', function(){
-          if (bind) {
-            liveParams[bind] = input.value;
+        var bind = input.getAttribute('data-pdl-editable') || 'value';
+        var instNode = input.closest('[data-pdl-instance-of]');
+        var childType = instNode ? (instNode.getAttribute('data-pdl-instance-of') || '') : '';
+        var childDecls = childType ? (interactions[childType] || []) : [];
+        var childBy = handlersByEvent(childDecls);
+        var childQualifier = instNode
+          ? (instNode.getAttribute('data-pdl-instance-let') || null)
+          : null;
+        var sessionParams = null;
+        if (instNode) {
+          try {
+            sessionParams = JSON.parse(instNode.getAttribute('data-pdl-session-params') || '{}');
+          } catch (e) { sessionParams = {}; }
+          try {
+            var kw = JSON.parse(instNode.getAttribute('data-pdl-instance-kwargs') || '{}');
+            sessionParams = Object.assign({}, sessionParams || {}, kw);
+          } catch (e) {}
+        }
+        var nested = Boolean(instNode && (
+          Object.prototype.hasOwnProperty.call(sessionParams || {}, 'isEditing') ||
+          Object.prototype.hasOwnProperty.call(sessionParams || {}, 'activatesOn') ||
+          childBy.editingFinished ||
+          childBy.editingCancelled ||
+          childBy.editingBegan
+        ));
+        var childBag = nested ? (sessionParams || {}) : null;
+        var eventBy = nested ? childBy : byEvent;
+        function bag() {
+          return nested ? childBag : liveParams;
+        }
+        var hasEditableSession =
+          Object.prototype.hasOwnProperty.call(bag(), 'isEditing') ||
+          Object.prototype.hasOwnProperty.call(bag(), 'activatesOn') ||
+          eventBy.editingFinished ||
+          eventBy.editingCancelled ||
+          eventBy.keyboardDismissed ||
+          eventBy.keyboardCancelled ||
+          nested;
+        function activationMode() {
+          var raw = bag().activatesOn;
+          var s = raw == null ? 'focus' : String(raw).replace(/^\./, '');
+          if (s === 'press' || s === 'none' || s === 'focus') return s;
+          return 'focus';
+        }
+        function isEditingNow() {
+          var b = bag();
+          return b.isEditing === true || b.isEditing === 'true';
+        }
+        function persistBag() {
+          if (nested && instNode) {
+            instNode.setAttribute('data-pdl-session-params', JSON.stringify(childBag));
+          } else {
             writeParams(section, liveParams);
           }
-          if (byEvent.keyboardDismissed) dispatchSelf('keyboardDismissed');
+        }
+        function showInstEditing(on) {
+          if (!instNode) return false;
+          var nodes = instNode.querySelectorAll(':scope > .pdl-inst-state');
+          if (!nodes.length) return false;
+          var want = on ? 'editing' : 'rest';
+          var found = false;
+          nodes.forEach(function(n){
+            var match = n.getAttribute('data-pdl-state') === want;
+            n.hidden = !match;
+            if (match) found = true;
+          });
+          if (on && !found) {
+            // Fall back to rest if no prebaked editing tree.
+            nodes.forEach(function(n){
+              n.hidden = n.getAttribute('data-pdl-state') !== 'rest';
+            });
+          }
+          return found;
+        }
+        function syncHitTarget() {
+          var mode = activationMode();
+          var editing = isEditingNow();
+          // .none: fully inert until program begins. .press: read-only until click begins
+          // (still focusable/clickable — unlike .none which blocks pointer events).
+          var blocked = mode === 'none' && !editing;
+          var readOnly = !editing && (mode === 'none' || mode === 'press');
+          input.readOnly = readOnly;
+          input.tabIndex = blocked ? -1 : 0;
+          input.style.pointerEvents = blocked ? 'none' : '';
+          input.style.cursor = blocked ? 'default' : '';
+          input.style.userSelect = readOnly ? 'none' : '';
+          if (blocked) input.setAttribute('aria-disabled', 'true');
+          else input.removeAttribute('aria-disabled');
+        }
+        function dispatchNested(event) {
+          if (!eventBy[event]) return { emits: [], changed: false, handled: false, needRebake: false };
+          var result = applyEvent(childBag, childDecls, event);
+          childBag = result.params;
+          persistBag();
+          var needRebake = false;
+          (result.emits || []).forEach(function(em){
+            var cap = applyEmitCapture(liveParams, captures, em.name, em.args || [], childBag, childQualifier);
+            if (cap.handled && cap.changed) {
+              liveParams = cap.params;
+              writeParams(section, liveParams);
+              needRebake = true;
+            }
+          });
+          return { emits: result.emits, changed: result.changed || needRebake, handled: result.handled, needRebake: needRebake };
+        }
+        function beginSession(from) {
+          if (!hasEditableSession) return;
+          if (isEditingNow()) return;
+          var mode = activationMode();
+          if (mode === 'none') return;
+          if (mode === 'press' && from === 'focus') return;
+          var b = bag();
+          var seed = String(b.value == null ? '' : b.value);
+          b._editCheckpoint = seed;
+          b.value = seed;
+          b.isEditing = true;
+          b.isEmpty = seed.length === 0;
+          persistBag();
+          syncHitTarget();
+          var localChrome = nested ? showInstEditing(true) : false;
+          if (nested) {
+            if (eventBy.pressEnd) {
+              var pr = dispatchNested('pressEnd');
+              if (pr.needRebake) {
+                postMsg({
+                  type: 'pdl-interaction',
+                  component: name,
+                  event: 'pressEnd',
+                  childComponent: childType,
+                  params: liveParams,
+                  childParams: childBag,
+                  emits: pr.emits,
+                  handled: true,
+                  changed: true,
+                  previewHandled: false
+                });
+                return;
+              }
+            } else if (eventBy.editingBegan) {
+              dispatchNested('editingBegan');
+            }
+            postMsg({
+              type: 'pdl-interaction',
+              component: name,
+              event: 'beginEditing',
+              childComponent: childType,
+              params: liveParams,
+              childParams: childBag,
+              emits: [],
+              handled: true,
+              changed: !localChrome,
+              previewHandled: localChrome
+            });
+            return;
+          }
+          if (byEvent.pressEnd) dispatchSelf('pressEnd');
+          else if (byEvent.editingBegan) dispatchSelf('editingBegan');
+          else {
+            postMsg({
+              type: 'pdl-interaction',
+              component: name,
+              event: 'beginEditing',
+              params: liveParams,
+              emits: [],
+              handled: true,
+              changed: true,
+              previewHandled: false
+            });
+          }
+        }
+        function finishSession(kind) {
+          // kind: 'finished' | 'cancelled'
+          var b = bag();
+          if (kind === 'cancelled' && b._editCheckpoint !== undefined) {
+            b.value = b._editCheckpoint;
+            input.value = String(b.value);
+          } else {
+            b[bind] = input.value;
+            b.value = input.value;
+          }
+          b.isEmpty = String(b.value == null ? '' : b.value).length === 0;
+          b.isEditing = false;
+          persistBag();
+          syncHitTarget();
+          if (nested) showInstEditing(false);
+          var evName = kind === 'cancelled' ? 'editingCancelled' : 'editingFinished';
+          var alias = kind === 'cancelled' ? 'keyboardCancelled' : 'keyboardDismissed';
+          if (nested) {
+            var nr = { emits: [], changed: false, needRebake: false, handled: false };
+            if (eventBy[evName]) nr = dispatchNested(evName);
+            else if (eventBy[alias]) nr = dispatchNested(alias);
+            postMsg({
+              type: 'pdl-interaction',
+              component: name,
+              event: evName,
+              childComponent: childType,
+              params: liveParams,
+              childParams: childBag,
+              emits: nr.emits || [],
+              handled: true,
+              changed: true,
+              previewHandled: false
+            });
+            return;
+          }
+          if (eventBy[evName]) dispatchSelf(evName);
+          else if (eventBy[alias]) dispatchSelf(alias);
+          else {
+            postMsg({
+              type: 'pdl-interaction',
+              component: name,
+              event: evName,
+              params: liveParams,
+              emits: [],
+              handled: true,
+              changed: true,
+              previewHandled: false
+            });
+          }
+        }
+        syncHitTarget();
+        input.addEventListener('mousedown', function(ev){
+          ev.stopPropagation();
+          if (activationMode() === 'none' && !isEditingNow()) {
+            ev.preventDefault();
+          }
+        });
+        function focusSessionInput() {
+          var target = input;
+          if (instNode) {
+            var visible = instNode.querySelector(
+              '.pdl-inst-state:not([hidden]) input.pdl-text--editable, :scope > input.pdl-text--editable'
+            );
+            if (visible) target = visible;
+          }
+          try {
+            target.value = String(bag().value == null ? '' : bag().value);
+            target.focus();
+            var len = target.value.length;
+            if (typeof target.setSelectionRange === 'function') target.setSelectionRange(len, len);
+          } catch (e) {}
+        }
+        input.addEventListener('click', function(ev){
+          ev.stopPropagation();
+          if (activationMode() === 'none' && !isEditingNow()) {
+            ev.preventDefault();
+            return;
+          }
+          beginSession('press');
+          focusSessionInput();
+        });
+        input.addEventListener('focus', function(){
+          if (activationMode() === 'none' && !isEditingNow()) {
+            try { input.blur(); } catch (e) {}
+            syncHitTarget();
+            return;
+          }
+          beginSession('focus');
+          syncHitTarget();
+        });
+        input.addEventListener('input', function(){
+          if (input.readOnly) return;
+          var b = bag();
+          b[bind] = input.value;
+          b.value = input.value;
+          b.isEmpty = input.value.length === 0;
+          persistBag();
+        });
+        input.addEventListener('blur', function(ev){
+          if (!isEditingNow()) {
+            syncHitTarget();
+            return;
+          }
+          // Chrome swap hides the rest <input> and focuses the editing tree —
+          // that blur must not commit the session.
+          if (nested && instNode) {
+            var rt = ev.relatedTarget;
+            if (rt && instNode.contains(rt)) return;
+            var st = input.closest('.pdl-inst-state');
+            if (st && st.hidden) return;
+          }
+          finishSession('finished');
         });
         input.addEventListener('keydown', function(ev){
           if (ev.key === 'Escape') {
-            if (byEvent.keyboardCancelled) dispatchSelf('keyboardCancelled');
+            finishSession('cancelled');
             try { input.blur(); } catch (e) {}
           } else if (ev.key === 'Enter') {
             try { input.blur(); } catch (e) {}
           }
         });
+        // isEditing=true (param bar / fixture) ⇒ first responder: accept keystrokes.
+        if (hasEditableSession && isEditingNow()) {
+          var hiddenState = input.closest('.pdl-inst-state[hidden]');
+          if (hiddenState) {
+            // Listeners still attach on prebaked editing trees; only the visible leaf autofocuses.
+          } else {
+            var b0 = bag();
+            if (b0._editCheckpoint === undefined) {
+              b0._editCheckpoint = String(b0.value == null ? '' : b0.value);
+              persistBag();
+            }
+            if (nested) showInstEditing(true);
+            syncHitTarget();
+            requestAnimationFrame(function(){ focusSessionInput(); });
+          }
+        }
       });
     });
   }

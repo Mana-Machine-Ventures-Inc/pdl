@@ -878,7 +878,7 @@
           "props": {
             "color": "#111111",
             "content": "param:placeholder",
-            "editable": "param:value",
+            "editable": true,
             "fontSize": 15
           }
         }
@@ -936,7 +936,10 @@
     "SearchField": {
       "conformsTo": "FormField",
       "defaultParams": {
-        "editing": "false",
+        "activatesOn": "focus",
+        "isEditing": "false",
+        "isEmpty": "true",
+        "isOverLimit": "false",
         "placeholder": "Search"
       },
       "emits": [
@@ -951,9 +954,12 @@
         }
       ],
       "expose": [
-        "value",
         "placeholder",
-        "editing"
+        "value",
+        "isEditing",
+        "isEmpty",
+        "isOverLimit",
+        "activatesOn"
       ],
       "hostProtocols": [
         "EditableText",
@@ -971,19 +977,11 @@
                       {
                         "condition": {
                           "kind": "truthy",
-                          "param": "editing"
+                          "param": "isEditing"
                         }
                       }
                     ],
                     "elseBody": [
-                      {
-                        "kind": "assign",
-                        "param": "editing",
-                        "value": {
-                          "kind": "boolean",
-                          "value": true
-                        }
-                      },
                       {
                         "args": [
                           "value"
@@ -1001,12 +999,8 @@
             {
               "body": [
                 {
-                  "kind": "assign",
-                  "param": "editing",
-                  "value": {
-                    "kind": "boolean",
-                    "value": false
-                  }
+                  "kind": "hostVerb",
+                  "name": "finishEditing"
                 },
                 {
                   "args": [
@@ -1016,24 +1010,16 @@
                   "name": "change"
                 }
               ],
-              "event": "keyboardDismissed"
+              "event": "editingFinished"
             },
             {
               "body": [
-                {
-                  "kind": "assign",
-                  "param": "editing",
-                  "value": {
-                    "kind": "boolean",
-                    "value": false
-                  }
-                },
                 {
                   "kind": "hostVerb",
                   "name": "cancelEditing"
                 }
               ],
-              "event": "keyboardCancelled"
+              "event": "editingCancelled"
             }
           ],
           "name": "default"
@@ -1042,18 +1028,34 @@
       "name": "SearchField",
       "params": [
         {
-          "name": "value",
-          "type": "String"
-        },
-        {
           "default": "Search",
           "name": "placeholder",
           "type": "String"
         },
         {
+          "name": "value",
+          "type": "String"
+        },
+        {
           "default": false,
-          "name": "editing",
+          "name": "isEditing",
           "type": "Bool"
+        },
+        {
+          "default": true,
+          "name": "isEmpty",
+          "type": "Bool"
+        },
+        {
+          "default": false,
+          "name": "isOverLimit",
+          "type": "Bool"
+        },
+        {
+          "default": "focus",
+          "name": "activatesOn",
+          "type": "variant",
+          "variantTypeName": "TextFieldActivation"
         }
       ],
       "root": {
@@ -1061,7 +1063,7 @@
         "props": {
           "color": "#111111",
           "content": "param:placeholder",
-          "editable": "param:value",
+          "editable": true,
           "fontSize": 15
         }
       }
@@ -1175,13 +1177,6 @@
           "default": {
             "kind": "string"
           },
-          "name": "value",
-          "type": "String"
-        },
-        {
-          "default": {
-            "kind": "string"
-          },
           "name": "placeholder",
           "type": "String"
         }
@@ -1277,6 +1272,14 @@
         "hosts"
       ],
       "name": "FilterId"
+    },
+    "TextFieldActivation": {
+      "cases": [
+        "focus",
+        "press",
+        "none"
+      ],
+      "name": "TextFieldActivation"
     }
   }
 }

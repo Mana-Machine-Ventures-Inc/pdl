@@ -398,6 +398,22 @@ impl Parser {
             } else {
                 self.consume(TokenKind::Ident)?.value
             };
+            // Let-qualified host verb: `Input.beginEditing(draft)` / `Input.finishEditing()`.
+            if !self_prefixed && self.is(TokenKind::Dot) && self.peek_ahead_kind(1) == TokenKind::Ident
+            {
+                let after_ident = self.peek_ahead_kind(2);
+                if after_ident == TokenKind::LParen {
+                    self.advance(); // .
+                    let verb = self.consume(TokenKind::Ident)?.value;
+                    let args = self.parse_host_verb_args()?;
+                    items.push(InteractionHandlerItem::HostVerb {
+                        qualifier: Some(param),
+                        name: verb,
+                        args,
+                    });
+                    continue;
+                }
+            }
             // `Label.content = …` — frame-prop assign; handlers only mutate params.
             if self.is(TokenKind::Dot) {
                 self.advance();
@@ -413,30 +429,9 @@ impl Parser {
             }
             // Host verb: `beginEditing(value)` / `cancelEditing()`
             if self.is(TokenKind::LParen) {
-                self.advance();
-                let mut args = Vec::new();
-                if !self.is(TokenKind::RParen) {
-                    loop {
-                        if self.is(TokenKind::SelfKw) {
-                            self.advance();
-                            if self.is(TokenKind::Dot) {
-                                self.advance();
-                                let m = self.consume(TokenKind::Ident)?.value;
-                                args.push(format!("self.{m}"));
-                            } else {
-                                args.push("self".to_string());
-                            }
-                        } else {
-                            args.push(self.consume(TokenKind::Ident)?.value);
-                        }
-                        if self.is(TokenKind::RParen) {
-                            break;
-                        }
-                        self.consume(TokenKind::Comma)?;
-                    }
-                }
-                self.consume(TokenKind::RParen)?;
+                let args = self.parse_host_verb_args()?;
                 items.push(InteractionHandlerItem::HostVerb {
+                    qualifier: None,
                     name: param,
                     args,
                 });
@@ -1538,16 +1533,44 @@ impl Parser {
         self.consume(TokenKind::LBrace)?;
         let mut body = Vec::new();
         while !self.is(TokenKind::RBrace) {
-            let param = if self.is(TokenKind::SelfKw) {
+            let first = if self.is(TokenKind::SelfKw) {
                 self.advance();
                 self.consume(TokenKind::Dot)?;
                 self.consume(TokenKind::Ident)?.value
             } else {
                 self.consume(TokenKind::Ident)?.value
             };
+            // `Input.beginEditing(draft)` / `Input.finishEditing()`
+            if self.is(TokenKind::Dot)
+                && self.peek_ahead_kind(1) == TokenKind::Ident
+                && self.peek_ahead_kind(2) == TokenKind::LParen
+            {
+                self.advance();
+                let verb = self.consume(TokenKind::Ident)?.value;
+                let args = self.parse_host_verb_args()?;
+                body.push(LayoutOnBodyItem::HostVerb {
+                    qualifier: Some(first),
+                    name: verb,
+                    args,
+                });
+                continue;
+            }
+            // Bare host verb (unusual in emit captures, but allowed).
+            if self.is(TokenKind::LParen) {
+                let args = self.parse_host_verb_args()?;
+                body.push(LayoutOnBodyItem::HostVerb {
+                    qualifier: None,
+                    name: first,
+                    args,
+                });
+                continue;
+            }
             self.consume(TokenKind::Eq)?;
             let value = self.parse_value_expr()?;
-            body.push(LayoutOnAssign { param, value });
+            body.push(LayoutOnBodyItem::Assign(LayoutOnAssign {
+                param: first,
+                value,
+            }));
         }
         self.consume(TokenKind::RBrace)?;
         Ok(LayoutOnHandler {
@@ -1556,6 +1579,34 @@ impl Parser {
             payload,
             body,
         })
+    }
+
+    /// `(draft)` / `(value, …)` / `()` after a host verb name.
+    fn parse_host_verb_args(&mut self) -> Result<Vec<String>, PdlError> {
+        self.consume(TokenKind::LParen)?;
+        let mut args = Vec::new();
+        if !self.is(TokenKind::RParen) {
+            loop {
+                if self.is(TokenKind::SelfKw) {
+                    self.advance();
+                    if self.is(TokenKind::Dot) {
+                        self.advance();
+                        let m = self.consume(TokenKind::Ident)?.value;
+                        args.push(format!("self.{m}"));
+                    } else {
+                        args.push("self".to_string());
+                    }
+                } else {
+                    args.push(self.consume(TokenKind::Ident)?.value);
+                }
+                if self.is(TokenKind::RParen) {
+                    break;
+                }
+                self.consume(TokenKind::Comma)?;
+            }
+        }
+        self.consume(TokenKind::RParen)?;
+        Ok(args)
     }
 
     fn parse_let(&mut self) -> Result<FrameBodyItem, PdlError> {

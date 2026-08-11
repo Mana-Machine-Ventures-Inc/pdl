@@ -28,8 +28,9 @@ pub mod world_a;
 pub use catalogue::{build_catalogue_component_row, build_component_catalogue};
 pub use design::{
     effective_emits, effective_host_protocols, effective_params, host_protocols_for_protocol,
-    inject_host_protocol_prelude, is_host_protocol_prelude, load_design, load_design_from_sources,
-    DesignDefinition, SourceMap, HOST_PROTOCOL_PRELUDE,
+    inject_editable_text_prelude_variants, inject_host_protocol_prelude, is_host_protocol_prelude,
+    load_design, load_design_from_sources, DesignDefinition, SourceMap, HOST_PROTOCOL_PRELUDE,
+    TEXT_FIELD_ACTIVATION_VARIANT,
 };
 pub use error::PdlError;
 pub use interaction::{

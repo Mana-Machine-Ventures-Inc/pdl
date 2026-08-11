@@ -380,6 +380,19 @@ export class Parser {
       } else {
         param = this.consume("IDENT").value;
       }
+      // Let-qualified host verb: `Input.beginEditing(draft)`
+      if (
+        !selfPrefixed &&
+        this.is(".") &&
+        this.lookaheadKind(1) === "IDENT" &&
+        this.lookaheadKind(2) === "("
+      ) {
+        this.advance();
+        const verb = this.consume("IDENT").value;
+        const args = this.parseHostVerbArgs();
+        items.push({ kind: "hostVerb", qualifier: param, name: verb, args });
+        continue;
+      }
       // `Label.content = …` — frame-prop assign; handlers only mutate params.
       if (this.is(".")) {
         this.advance();
@@ -391,26 +404,7 @@ export class Parser {
       }
       // Host verb: `beginEditing(value)` / `cancelEditing()`
       if (this.is("(")) {
-        this.advance();
-        const args: string[] = [];
-        if (!this.is(")")) {
-          while (true) {
-            if (this.is("self")) {
-              this.advance();
-              if (this.is(".")) {
-                this.advance();
-                args.push(`self.${this.consume("IDENT").value}`);
-              } else {
-                args.push("self");
-              }
-            } else {
-              args.push(this.consume("IDENT").value);
-            }
-            if (this.is(")")) break;
-            this.consume(",");
-          }
-        }
-        this.consume(")");
+        const args = this.parseHostVerbArgs();
         items.push({ kind: "hostVerb", name: param, args });
         continue;
       }
@@ -1988,6 +1982,34 @@ export class Parser {
 
   private peek(): Token {
     return this.tokens[this.index] ?? { kind: "EOF", value: "", line: 1, column: 1 };
+  }
+
+  private lookaheadKind(n: number): TokenKind {
+    return (this.tokens[this.index + n] ?? this.tokens[this.tokens.length - 1]!).kind;
+  }
+
+  private parseHostVerbArgs(): string[] {
+    this.consume("(");
+    const args: string[] = [];
+    if (!this.is(")")) {
+      while (true) {
+        if (this.is("self")) {
+          this.advance();
+          if (this.is(".")) {
+            this.advance();
+            args.push(`self.${this.consume("IDENT").value}`);
+          } else {
+            args.push("self");
+          }
+        } else {
+          args.push(this.consume("IDENT").value);
+        }
+        if (this.is(")")) break;
+        this.consume(",");
+      }
+    }
+    this.consume(")");
+    return args;
   }
 
   private advance(): Token {
