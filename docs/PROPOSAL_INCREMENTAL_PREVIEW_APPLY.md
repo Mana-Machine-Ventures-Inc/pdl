@@ -155,6 +155,16 @@ Typing: host session only. Done/Enter: params → resolve → reconcile (structu
 
 Target: interactive ticks in **ms of resolve+diff**, not full document parse.
 
+### Dual-bake is a cold cache (not the IR hot path)
+
+Pointer hover/press chrome today mounts pre-baked hidden `.pdl-inst-state` trees and swaps them in the host. That snapshot is **correctness-critical** for paint that exists only under non-rest chrome cases (`if state == .hovering { background = … }`): rest IR often does not change when those branches are edited, and IR reconcile only patches the visible fragment.
+
+Playground policy ([`playground/src/dual-bake-policy.js`](../playground/src/dual-bake-policy.js)):
+
+- **Param/emit ticks** (`ownerOnly`): IR-only is fine — nested chrome SoT is ephemeral; dual-bake swap stays valid.
+- **Source/theme ticks** with dual-bake present: **invalidate** — skip `bakeOnly` / IR-only early return; remount HTML so `bakeInstanceInteractionStates` rebuilds hovering/pressed trees.
+- **Follow-on:** resolve-on-hover (hot-resolve instance with overridden chrome kwargs + IR patch) so dual-bake is optional prefetch, not required for correctness.
+
 ---
 
 ## Pragmatic bridge (landed)
@@ -165,7 +175,7 @@ Ordered on-ramps — status in Playground:
 2. **Hot resolve API** — WASM in-browser bake; server `bakeOnly` returns IR without HTML.
 3. **IR reconciler v1** — primary for param ticks; `srcdoc` for cold path.
 4. **Session/focus registry** — ephemeral capture/restore + session merge by instance-let.
-5. **HTML morph** — retained as fallback when IR cannot apply; dual-bake remains cold-path / `previewHandled` only.
+5. **HTML morph** — retained as fallback when IR cannot apply; dual-bake remains a **cold chrome cache** (invalidated on source/theme when present), not the long-term paint engine.
 
 ---
 

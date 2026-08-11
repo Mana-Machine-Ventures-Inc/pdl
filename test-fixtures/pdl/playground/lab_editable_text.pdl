@@ -83,9 +83,15 @@ variant EditorBtnTone {
   case secondary
 }
 
+variant EditorBtnState {
+  case idle
+  case hovering
+}
+
 component EditorBtn <PointerInput>(
   label: String = "Go",
-  tone: EditorBtnTone = .primary
+  tone: EditorBtnTone = .primary,
+  state: EditorBtnState = .idle
 ) layout {
   direction = .row
   padding = EdgeInsets(x: 14, y: 8)
@@ -97,15 +103,24 @@ component EditorBtn <PointerInput>(
     background = #E4E4E7
   }
 
+  if state == .hovering {
+    background = #FFFFFF
+  }
+
   let L = Text(content: label, fontSize: 13)
   if tone == .primary {
     L.color = #FFFFFF
   } else {
     L.color = #18181B
   }
+  if state == .hovering {
+    L.color = #18181B
+  }
   children = [L]
 
   pressEnd = { emit tap() }
+  hoverStart = { state = .hovering }
+  hoverEnd = { state = .idle }
 } emits {
   tap()
 }

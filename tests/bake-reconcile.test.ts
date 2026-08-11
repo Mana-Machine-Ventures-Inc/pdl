@@ -254,4 +254,103 @@ describe("reconcileBakedComponentIntoCanvas NoteEditor-shaped", () => {
     const kwargs = JSON.parse(inputAfter.getAttribute("data-pdl-instance-kwargs") || "{}");
     expect(kwargs.isEditing).toBe(true);
   });
+
+  it("ends Input session on Done bake (does not keep prev isEditing:true)", () => {
+    const editableDefaults = {
+      NoteField: { isEditing: false, value: "", activatesOn: "focus" },
+    };
+    const prevInput: BakedFrame = {
+      id: "Input",
+      kind: "text",
+      props: { content: "Title", editable: "value" },
+      children: [],
+      instanceOf: "NoteField",
+      instanceKwargs: { isEditing: true, value: "hello" },
+    };
+    const nextInput: BakedFrame = {
+      ...prevInput,
+      instanceKwargs: { isEditing: false, value: "hello saved" },
+    };
+    const prevRoot = layoutRoot("Root", [prevInput]);
+    const nextRoot = layoutRoot("Root", [nextInput]);
+    const html = renderFrameForReconcile(
+      prevRoot,
+      { stackChild: false, stackZ: 0 },
+      {
+        nextKey: 0,
+        stateTrees: {},
+        editableSessionDefaults: editableDefaults,
+      },
+    );
+    document.body.innerHTML = `<div class="pdl-canvas">${html}</div>`;
+    const canvas = document.querySelector(".pdl-canvas")!;
+    const inputEl = canvas.querySelector('[data-pdl-instance-let="Input"]')!;
+    inputEl.setAttribute(
+      "data-pdl-session-params",
+      JSON.stringify({
+        isEditing: true,
+        value: "hello typed",
+        _editCheckpoint: "hello",
+      }),
+    );
+
+    expect(
+      reconcileBakedComponentIntoCanvas(
+        canvas,
+        { name: "NoteEditor", rootKind: "layout", root: prevRoot },
+        { name: "NoteEditor", rootKind: "layout", root: nextRoot },
+        { instCtx: { editableSessionDefaults: editableDefaults } },
+      ),
+    ).toBe(true);
+
+    const session = JSON.parse(
+      canvas.querySelector('[data-pdl-instance-let="Input"]')!.getAttribute("data-pdl-session-params") ||
+        "{}",
+    );
+    expect(session.isEditing).toBe(false);
+    expect(session.value).toBe("hello saved");
+  });
+
+  it("remounts Input when NoteField activatesOn flips none↔press (equal IR)", () => {
+    const inputFrame: BakedFrame = {
+      id: "Input",
+      kind: "text",
+      props: { content: "Title", editable: "value" },
+      children: [],
+      instanceOf: "NoteField",
+      // Bake omits activatesOn from kwargs — it lives on the type default.
+      instanceKwargs: { isEditing: false, value: "hello" },
+    };
+    const root = layoutRoot("Root", [inputFrame]);
+    const prevDefaults = {
+      NoteField: { isEditing: false, value: "", activatesOn: "none" },
+    };
+    const nextDefaults = {
+      NoteField: { isEditing: false, value: "", activatesOn: "press" },
+    };
+    const html = renderFrameForReconcile(
+      root,
+      { stackChild: false, stackZ: 0 },
+      { nextKey: 0, stateTrees: {}, editableSessionDefaults: prevDefaults },
+    );
+    document.body.innerHTML = `<div class="pdl-canvas">${html}</div>`;
+    const canvas = document.querySelector(".pdl-canvas")!;
+    // .none + !editing → inert text, not <input>
+    expect(canvas.querySelector("input.pdl-text--editable")).toBeFalsy();
+    expect(canvas.querySelector('[data-pdl-instance-let="Input"]')).toBeTruthy();
+
+    const comp: BakedComponentJson = {
+      name: "NoteEditor",
+      rootKind: "layout",
+      root,
+    };
+    expect(
+      reconcileBakedComponentIntoCanvas(canvas, comp, structuredClone(comp), {
+        instCtx: { editableSessionDefaults: nextDefaults },
+        prevInstCtx: { editableSessionDefaults: prevDefaults },
+      }),
+    ).toBe(true);
+
+    expect(canvas.querySelector("input.pdl-text--editable")).toBeTruthy();
+  });
 });

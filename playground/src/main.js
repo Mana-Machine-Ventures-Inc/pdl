@@ -25,9 +25,16 @@ import {
   requestInteractiveRebind,
 } from "./preview-apply.js";
 import {
+  allowIrOnlyPreviewApply,
+  shouldInvalidateDualBakeOnSourceTick,
+} from "./dual-bake-policy.js";
+import {
   bakedComponentTreesEqual,
+  changedEditableSessionTypes,
+  frameTreeNestsInstanceTypes,
   reconcileBakedComponentIntoCanvas,
 } from "@pdl/bakeReconcile.ts";
+import { collectEditableSessionDefaults } from "@pdl/renderHtml.ts";
 
 /** Synthetic pack id for browser-only scratch (never mixed with disk fixture packs). */
 const SCRATCH_PACK_ID = "__scratch__";
@@ -2315,44 +2322,68 @@ function tryIncrementalBakeReconcile(doc, prevBake, nextBake) {
   try {
     const names = Object.keys(nextBake.components || {});
     if (names.length === 0) return false;
-    /** @type {Record<string, Record<string, unknown>>} */
-    const editableSessionDefaults = {};
-    // Defaults from full live design + dirty patch (nested EditableText types).
+    // Defaults from full live design + dirty patch (includes nested instanceOf types
+    // like NoteField inside NoteEditor — parent-only bake omits them from components).
     const defaultsSource = mergeBakedDesign(prevBake, nextBake);
-    for (const [name, comp] of Object.entries(defaultsSource.components || {})) {
-      const bp = /** @type {{ bakedParams?: Record<string, unknown> }} */ (comp).bakedParams ?? {};
-      if (
-        Object.prototype.hasOwnProperty.call(bp, "isEditing") ||
-        Object.prototype.hasOwnProperty.call(bp, "activatesOn")
-      ) {
-        editableSessionDefaults[name] = { value: "", ...bp };
-        if (editableSessionDefaults[name].value == null) {
-          editableSessionDefaults[name].value = "";
+    const editableSessionDefaults = collectEditableSessionDefaults(defaultsSource);
+    const prevEditableDefaults = collectEditableSessionDefaults(prevBake);
+    const changedEditableTypes = changedEditableSessionTypes(
+      prevEditableDefaults,
+      editableSessionDefaults,
+    );
+    // Also refresh parents that nest EditableText types whose defaults changed
+    // (e.g. NoteField.activatesOn) even when that parent isn't in the dirty bake set.
+    const liveNames = new Set(names);
+    if (changedEditableTypes.size > 0) {
+      for (const [name, comp] of Object.entries(defaultsSource.components || {})) {
+        if (
+          comp?.root &&
+          frameTreeNestsInstanceTypes(comp.root, changedEditableTypes)
+        ) {
+          liveNames.add(name);
         }
       }
     }
-    for (const name of names) {
+    for (const name of liveNames) {
       const section = doc.querySelector(
         `section.pdl-preview[data-pdl-component="${CSS.escape(name)}"]`,
       );
-      if (!section) return false;
+      if (!section) {
+        // Dirty patch may omit siblings; only require sections for names we intend to patch.
+        if (names.includes(name)) return false;
+        continue;
+      }
       const canvas =
         section.querySelector(".pdl-state:not([hidden]) .pdl-canvas") ||
         section.querySelector(".pdl-canvas");
-      if (!canvas) return false;
+      if (!canvas) {
+        if (names.includes(name)) return false;
+        continue;
+      }
       const prevComp = prevBake.components?.[name];
-      const nextComp = nextBake.components?.[name];
+      const nextComp = defaultsSource.components?.[name] || nextBake.components?.[name];
       if (!nextComp?.root) return false;
-      if (bakedComponentTreesEqual(prevComp, nextComp)) {
+      const nestsChangedDefaults =
+        changedEditableTypes.size > 0 &&
+        frameTreeNestsInstanceTypes(nextComp.root, changedEditableTypes);
+      if (bakedComponentTreesEqual(prevComp, nextComp) && !nestsChangedDefaults) {
         continue;
       }
       const bp = nextComp.bakedParams && typeof nextComp.bakedParams === "object"
         ? { ...nextComp.bakedParams }
         : undefined;
+      const prevBp =
+        prevComp?.bakedParams && typeof prevComp.bakedParams === "object"
+          ? { ...prevComp.bakedParams }
+          : undefined;
       const ok = reconcileBakedComponentIntoCanvas(canvas, prevComp, nextComp, {
         sessionParams: bp,
+        prevSessionParams: prevBp,
         instCtx: {
           editableSessionDefaults,
+        },
+        prevInstCtx: {
+          editableSessionDefaults: prevEditableDefaults,
         },
       });
       if (!ok) return false;
@@ -2643,7 +2674,21 @@ async function runRender({ debounced = false } = {}) {
         bake.components = filtered;
       }
       // Hot path: bake IR in-browser → reconcile (skip HTML round-trip).
-      if (incremental && previewDocumentLive && lastBakedDesign?.components) {
+      // Source/theme ticks with dual-bake chrome must fall through — rest IR often
+      // does not change when only a hover/press branch is edited, and IR never
+      // refreshes hidden `.pdl-inst-state` snapshots.
+      const liveDoc = frame.contentDocument;
+      const dualBakeRefresh = shouldInvalidateDualBakeOnSourceTick({
+        incremental,
+        ownerOnly,
+        doc: liveDoc,
+      });
+      if (
+        incremental &&
+        previewDocumentLive &&
+        lastBakedDesign?.components &&
+        allowIrOnlyPreviewApply({ incremental, ownerOnly, doc: liveDoc })
+      ) {
         const mode = applyPreviewUpdate({ baked: bake, ok: true }, { incremental: true });
         if (mode === "incremental") {
           const workspaceWarn = unreachableModuleConsoleEntries();
@@ -2686,7 +2731,10 @@ async function runRender({ debounced = false } = {}) {
         return;
       }
       if (!data.baked) data.baked = bake;
-      const mode = applyPreviewUpdate(data, { incremental });
+      // Dual-bake refresh must remount — incremental IR would no-op equal rest trees.
+      const mode = applyPreviewUpdate(data, {
+        incremental: dualBakeRefresh ? false : incremental,
+      });
       const workspaceWarn = unreachableModuleConsoleEntries();
       if (workspaceWarn.length > 0) updateRenderConsole(workspaceWarn);
       const applyBit = mode === "incremental" ? " · live apply" : "";
@@ -2698,6 +2746,13 @@ async function runRender({ debounced = false } = {}) {
       return;
     }
 
+    const liveDoc = frame.contentDocument;
+    const dualBakeRefresh = shouldInvalidateDualBakeOnSourceTick({
+      incremental,
+      ownerOnly,
+      doc: liveDoc,
+    });
+
     /** @type {Record<string, unknown>} */
     const body = {
       ...getBodyBase(),
@@ -2705,8 +2760,9 @@ async function runRender({ debounced = false } = {}) {
       interactiveHost: true,
       kv,
       componentSources: buildComponentSources(names),
-      // Hot path: bake IR only (no HTML / dual-bake) when the iframe is live.
-      bakeOnly: incremental && previewDocumentLive,
+      // Hot path: bake IR only when iframe is live — except source/theme ticks that
+      // must rebuild dual-bake chrome HTML.
+      bakeOnly: incremental && previewDocumentLive && !dualBakeRefresh,
     };
 
     if (variantView === "grid" && (owner || canvasPrimary)) {
@@ -2749,7 +2805,10 @@ async function runRender({ debounced = false } = {}) {
       setStatus("");
       return;
     }
-    let mode = applyPreviewUpdate(data, { incremental });
+    // Dual-bake refresh must remount — incremental IR leaves hidden chrome trees stale.
+    let mode = applyPreviewUpdate(data, {
+      incremental: dualBakeRefresh ? false : incremental,
+    });
     // bakeOnly IR miss → cold remount with full HTML (restore full canvas bake).
     if (mode === "remount" && body.bakeOnly && !data.html) {
       body.bakeOnly = false;

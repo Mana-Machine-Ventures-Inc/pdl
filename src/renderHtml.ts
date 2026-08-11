@@ -1031,11 +1031,51 @@ export type InstanceRenderCtx = {
   nextKey: number;
   /** Prebaked non-rest trees keyed by instance key (`i0`, …) then state name. */
   stateTrees: Record<string, Record<string, BakedComponentJson>>;
+  /**
+   * Per-instance chrome SoT param (`interactionState`, or author `state`, …)
+   * used by the host to swap `data-pdl-state` fragments on hover/press.
+   */
+  chromeStateParams?: Readonly<Record<string, string>>;
   /** Component types that declare PointerInput host channels (hover/press). */
   pointerInputTypes?: ReadonlySet<string>;
   /** EditableText baked defaults by component type (`isEditing`, `value`, …). */
   editableSessionDefaults?: Readonly<Record<string, Record<string, unknown>>>;
 };
+
+function frameLooksEditableSession(params: Record<string, unknown> | null | undefined): boolean {
+  if (!params) return false;
+  return (
+    Object.prototype.hasOwnProperty.call(params, "isEditing") ||
+    Object.prototype.hasOwnProperty.call(params, "activatesOn")
+  );
+}
+
+function seedEditableSessionDefault(
+  out: Record<string, Record<string, unknown>>,
+  typeName: string,
+  params: Record<string, unknown>,
+): void {
+  if (!frameLooksEditableSession(params)) return;
+  if (out[typeName]) return;
+  // Type-level seed only — instance kwargs overlay per frame at paint time.
+  out[typeName] = {
+    value: "",
+    isEditing: false,
+    activatesOn: params.activatesOn ?? "focus",
+  };
+}
+
+/**
+ * EditableText session defaults by component type. Includes nested `instanceOf`
+ * targets (e.g. NoteField inside NoteEditor) — bakeComponent of the parent alone
+ * omits child types from `doc.components`, which previously skipped session attrs
+ * and left instance lets on the bare `<input>`.
+ */
+export function collectEditableSessionDefaults(
+  doc: Pick<BakedDesignDocument, "components"> | { components?: BakedDesignDocument["components"] },
+): Record<string, Record<string, unknown>> {
+  return editableSessionDefaultsFromDoc(doc as BakedDesignDocument);
+}
 
 function editableSessionDefaultsFromDoc(
   doc: BakedDesignDocument,
@@ -1043,10 +1083,7 @@ function editableSessionDefaultsFromDoc(
   const out: Record<string, Record<string, unknown>> = {};
   for (const [name, comp] of Object.entries(doc.components ?? {})) {
     const bp = (comp.bakedParams ?? {}) as Record<string, unknown>;
-    if (
-      Object.prototype.hasOwnProperty.call(bp, "isEditing") ||
-      Object.prototype.hasOwnProperty.call(bp, "activatesOn")
-    ) {
+    if (frameLooksEditableSession(bp)) {
       // omitEmpty bake JSON drops `value: ""` — restore so inputs don't seed from placeholder content.
       out[name] = {
         value: "",
@@ -1054,8 +1091,25 @@ function editableSessionDefaultsFromDoc(
       };
       if (out[name].value == null) out[name].value = "";
     }
+    const walk = (frame: BakedFrame | null | undefined): void => {
+      if (!frame) return;
+      if (frame.instanceOf && frame.instanceKwargs) {
+        seedEditableSessionDefault(out, frame.instanceOf, frame.instanceKwargs as Record<string, unknown>);
+      }
+      for (const ch of frame.children ?? []) walk(ch);
+    };
+    walk(comp.root);
   }
   return out;
+}
+
+/** Live editable `<input>` — the instance node may *be* the input (no wrapper). */
+function liveEditableInputEl(root: Element | null | undefined): HTMLInputElement | null {
+  if (!root) return null;
+  if (root.matches?.("input.pdl-text--editable")) return root as HTMLInputElement;
+  return root.querySelector(
+    ".pdl-inst-state:not([hidden]) input.pdl-text--editable, :scope > input.pdl-text--editable, input.pdl-text--editable",
+  ) as HTMLInputElement | null;
 }
 
 /** True when catalogue interaction decls include hover/press host channels. */
@@ -1350,6 +1404,32 @@ function patchTextContentLive(el: Element, content: string): void {
   else el.appendChild(textNode);
 }
 
+/**
+ * Merge bake/SoT session params with a live EditableText session bag.
+ * Bake wins for session end (`isEditing: false`); while still editing, keep
+ * in-flight text from the focused input or previous bag.
+ */
+export function mergeEditableSessionParams(
+  next: Record<string, unknown>,
+  prev: Record<string, unknown> | null | undefined,
+  liveValue?: string | null,
+): Record<string, unknown> {
+  if (!prev) return { ...next };
+  // Bake/SoT must win on finish/cancel — previous `{ ...next, ...prev }` left
+  // isEditing:true stuck after Done/Cancel and could discard the committed value.
+  const merged: Record<string, unknown> = { ...prev, ...next };
+  const nextEditing = next.isEditing === true || next.isEditing === "true";
+  if (nextEditing) {
+    merged.isEditing = true;
+    if (liveValue != null) merged.value = liveValue;
+    else if (prev.value !== undefined) merged.value = prev.value;
+  } else if (next.isEditing === false || next.isEditing === "false") {
+    merged.isEditing = false;
+    if (next.value !== undefined) merged.value = next.value;
+  }
+  return merged;
+}
+
 function mergeSessionAttrs(
   el: Element,
   nextSession: Record<string, unknown> | null,
@@ -1366,26 +1446,17 @@ function mergeSessionAttrs(
   if (raw) {
     try {
       const prev = JSON.parse(raw) as Record<string, unknown>;
-      merged = { ...nextSession, ...prev };
-      const liveInput = el.querySelector("input.pdl-text--editable") as HTMLInputElement | null;
+      const liveInput = liveEditableInputEl(el);
       const doc = el.ownerDocument;
-      if (liveInput && doc?.activeElement === liveInput) {
-        merged.value = liveInput.value;
-      } else if (
-        prev.value !== undefined &&
-        (nextSession.isEditing === true || nextSession.isEditing === "true")
-      ) {
-        merged.value = prev.value;
-      }
-      if (nextSession.isEditing === true || nextSession.isEditing === "true") {
-        merged.isEditing = true;
-      }
+      const liveValue =
+        liveInput && doc?.activeElement === liveInput ? liveInput.value : null;
+      merged = mergeEditableSessionParams(nextSession, prev, liveValue);
     } catch {
       merged = { ...nextSession };
     }
   }
   el.setAttribute("data-pdl-session-params", JSON.stringify(merged));
-  const input = el.querySelector("input.pdl-text--editable") as HTMLInputElement | null;
+  const input = liveEditableInputEl(el);
   if (input && typeof merged.value === "string") {
     const doc = el.ownerDocument;
     if (doc?.activeElement !== input) input.value = merged.value;
@@ -1402,9 +1473,18 @@ export function patchFrameProps(
   next: BakedFrame,
   opts: FrameRenderOpts = { stackChild: false, stackZ: 0 },
   instCtx?: InstanceRenderCtx,
+  /** Prior EditableText defaults / session — required so activatesOn none↔press remounts. */
+  prevInstCtx?: InstanceRenderCtx,
+  prevOpts?: FrameRenderOpts,
 ): PatchFrameResult {
   if (prev.kind !== next.kind || prev.instanceOf !== next.instanceOf) return "needsRemount";
-  if (framePaintStructureKey(prev, opts, instCtx) !== framePaintStructureKey(next, opts, instCtx)) {
+  // Prev key must use prior session defaults; sharing `instCtx` made none→press look unchanged.
+  const prevPaintOpts = prevOpts ?? opts;
+  const prevPaintCtx = prevInstCtx ?? instCtx;
+  if (
+    framePaintStructureKey(prev, prevPaintOpts, prevPaintCtx) !==
+    framePaintStructureKey(next, opts, instCtx)
+  ) {
     return "needsRemount";
   }
 
@@ -1620,6 +1700,7 @@ function renderFrame(
       );
       let blocks = `<div class="pdl-inst-state" data-pdl-state="rest">${restInner}</div>`;
       for (const [stateName, stateComp] of Object.entries(extra)) {
+        if (!stateComp?.root) continue;
         const frag = renderFrame(stateComp.root, {
           stackChild: false,
           stackZ: 0,
@@ -1627,7 +1708,9 @@ function renderFrame(
         });
         blocks += `<div class="pdl-inst-state" data-pdl-state="${escapeAttr(stateName)}" hidden>${frag}</div>`;
       }
-      return `<div class="pdl-instance"${inst}${kwargsAttr}${pointerAttr}${sessionAttr}${letAttr} data-pdl-instance-key="${escapeAttr(key)}">${blocks}</div>`;
+      const chromeParam = instCtx.chromeStateParams?.[key] || "interactionState";
+      const chromeAttr = ` data-pdl-chrome-state-param="${escapeAttr(chromeParam)}"`;
+      return `<div class="pdl-instance"${inst}${kwargsAttr}${pointerAttr}${sessionAttr}${letAttr}${chromeAttr} data-pdl-instance-key="${escapeAttr(key)}">${blocks}</div>`;
     }
   }
 
@@ -2194,6 +2277,10 @@ export function renderBakedDesignToHtmlDocumentWithReport(
      * document order (`i0`, `i1`, …) matching `[data-pdl-instance-key]`.
      */
     instanceStateTrees?: Record<string, Record<string, BakedComponentJson>>;
+    /** Parallel to `instanceStateTrees`: which param drives chrome (`state`, `interactionState`, …). */
+    instanceChromeStateParams?: Record<string, string>;
+    /** Per top-level component chrome SoT param (when `stateTrees` are present). */
+    componentChromeStateParams?: Record<string, string>;
     /**
      * Resolved CSS color for document chrome (`previewBackground` token).
      * Falls back to `doc.previewBackground` when set by bake.
@@ -2235,6 +2322,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       ? {
           nextKey: 0,
           stateTrees: opts.instanceStateTrees ?? {},
+          chromeStateParams: opts.instanceChromeStateParams,
           pointerInputTypes,
           editableSessionDefaults,
         }
@@ -2291,12 +2379,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         // never attaches — isEditing stays false and layout chrome never updates.
         const hasEditableTextSession = (() => {
           const bp = (comp.bakedParams ?? {}) as Record<string, unknown>;
-          if (
-            Object.prototype.hasOwnProperty.call(bp, "isEditing") ||
-            Object.prototype.hasOwnProperty.call(bp, "activatesOn")
-          ) {
-            return true;
-          }
+          if (frameLooksEditableSession(bp)) return true;
           const walk = (nodes: unknown): boolean => {
             if (!Array.isArray(nodes)) return false;
             for (const n of nodes) {
@@ -2308,9 +2391,13 @@ export function renderBakedDesignToHtmlDocumentWithReport(
                   string,
                   unknown
                 >;
+                if (frameLooksEditableSession(nestedBp)) return true;
+                // Parent-only bake (e.g. NoteEditor) omits NoteField from doc.components —
+                // detect EditableText via instance kwargs on the nested frame.
                 if (
-                  Object.prototype.hasOwnProperty.call(nestedBp, "isEditing") ||
-                  Object.prototype.hasOwnProperty.call(nestedBp, "activatesOn")
+                  frameLooksEditableSession(
+                    (rec.instanceKwargs ?? {}) as Record<string, unknown>,
+                  )
                 ) {
                   return true;
                 }
@@ -2325,9 +2412,16 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           opts.interactiveHost &&
           (hasOwnIx || hasCaptures || hasNestedIx || hasEditableTextSession);
         const interactiveAttr = hasInteraction ? ` data-pdl-interactive="1"` : "";
+        const chromeParamName = opts.componentChromeStateParams?.[name];
+        const chromeAttr =
+          stateExtra && chromeParamName
+            ? ` data-pdl-chrome-state-param="${escapeAttr(chromeParamName)}"`
+            : stateExtra
+              ? ` data-pdl-chrome-state-param="interactionState"`
+              : "";
         const paramBar = renderParamBar(name, opts.paramControlsByComponent?.[name]);
         const sourceLink = renderSourceFileLink(name, opts.componentSourcesByComponent?.[name]);
-        return `<section class="pdl-preview" data-pdl-component="${escapeAttr(name)}"${interactiveAttr}><div class="pdl-preview-head"><h2 class="pdl-preview-title">${escapeHtml(name)}</h2>${sourceLink}</div>${paramBar}<p class="pdl-preview-params mono">${paramsJson}</p>${restWrap}</section>`;
+        return `<section class="pdl-preview" data-pdl-component="${escapeAttr(name)}"${interactiveAttr}${chromeAttr}><div class="pdl-preview-head"><h2 class="pdl-preview-title">${escapeHtml(name)}</h2>${sourceLink}</div>${paramBar}<p class="pdl-preview-params mono">${paramsJson}</p>${restWrap}</section>`;
       } catch (err) {
         const message = formatThrownMessage(err);
         const stack = formatThrownStack(err);
@@ -2551,17 +2645,25 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     }
     return found;
   }
+  // Instance let may be the <input> itself (no wrapper) — querySelector misses self.
+  function liveEditableInput(root) {
+    if (!root) return null;
+    if (root.matches && root.matches('input.pdl-text--editable')) return root;
+    return root.querySelector(
+      '.pdl-inst-state:not([hidden]) input.pdl-text--editable, :scope > input.pdl-text--editable, input.pdl-text--editable'
+    );
+  }
   function runQualifiedHostVerb(section, parentParams, parentCaptures, hv) {
     var q = hv.qualifier;
     if (!q) return { parentParams: parentParams, changed: false, localChrome: false };
     var node = section.querySelector('[data-pdl-instance-let="' + q + '"]');
     if (!node) return { parentParams: parentParams, changed: false, localChrome: false };
     var bag = {};
+    var kw = {};
+    try { kw = JSON.parse(node.getAttribute('data-pdl-instance-kwargs') || '{}'); } catch (e) { kw = {}; }
     try { bag = JSON.parse(node.getAttribute('data-pdl-session-params') || '{}'); } catch (e) { bag = {}; }
-    try {
-      var kw = JSON.parse(node.getAttribute('data-pdl-instance-kwargs') || '{}');
-      bag = Object.assign({}, bag, kw);
-    } catch (e) {}
+    // Live session bag wins over bake kwargs (typed text must not be wiped).
+    bag = Object.assign({}, kw, bag);
     var childType = node.getAttribute('data-pdl-instance-of') || '';
     var childDecls = interactions[childType] || [];
     var childBy = handlersByEvent(childDecls);
@@ -2597,6 +2699,12 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         });
       }
     } else if (vname === 'finishEditing' || vname === 'commitEditing') {
+      // Done/Cancel buttons finish via host verb — not input blur. Sync live
+      // DOM text into the session bag first (finishSession does this for Enter).
+      var finishVis = liveEditableInput(node);
+      if (finishVis && typeof finishVis.value === 'string') {
+        bag.value = finishVis.value;
+      }
       bag.isEditing = false;
       bag.isEmpty = String(bag.value == null ? '' : bag.value).length === 0;
       changed = true;
@@ -2631,7 +2739,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       }
     }
     node.setAttribute('data-pdl-session-params', JSON.stringify(bag));
-    var vis = node.querySelector('.pdl-inst-state:not([hidden]) input.pdl-text--editable, :scope > input.pdl-text--editable');
+    var vis = liveEditableInput(node);
     if (vis) {
       try { vis.value = String(bag.value == null ? '' : bag.value); } catch (e) {}
       if (!skipEagerFocus && (bag.isEditing === true || bag.isEditing === 'true')) {
@@ -2667,9 +2775,16 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         var result = applyEvent(liveParams, decls, event);
         liveParams = result.params;
         writeParams(section, liveParams);
-        var stateKey = liveParams.interactionState != null ? String(liveParams.interactionState) : 'rest';
+        var chromeParam = section.getAttribute('data-pdl-chrome-state-param') || 'interactionState';
+        var stateKey =
+          liveParams[chromeParam] != null
+            ? String(liveParams[chromeParam])
+            : liveParams.interactionState != null
+              ? String(liveParams.interactionState)
+              : 'rest';
         var previewHandled = showState(section, stateKey);
-        if (!previewHandled && stateKey === 'rest') previewHandled = showState(section, 'rest');
+        // Default paint is data-pdl-state="rest" even when SoT case is idle/…
+        if (!previewHandled) previewHandled = showState(section, 'rest');
         var needRebake = false;
         if (result.emits && result.emits.length && captures.length) {
           result.emits.forEach(function(em){
@@ -2719,6 +2834,13 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             });
             return found;
           }
+          function chromeStateKey(params) {
+            var chromeParam =
+              node.getAttribute('data-pdl-chrome-state-param') || 'interactionState';
+            if (params && params[chromeParam] != null) return String(params[chromeParam]);
+            if (params && params.interactionState != null) return String(params.interactionState);
+            return 'rest';
+          }
           function childDispatch(event) {
             if (!childBy[event]) return;
             liveParams = readParams(section);
@@ -2747,11 +2869,13 @@ export function renderBakedDesignToHtmlDocumentWithReport(
               }
               if (cap.localChrome) localVerbChrome = true;
             });
-            // Local chrome swap for nested interactionState (hover/press).
-            // Rebake cannot restore ephemeral child interactionState — parent SoT only.
-            var stateKey = childLive.interactionState != null ? String(childLive.interactionState) : 'rest';
+            // Local chrome swap for nested pointer chrome (hover/press).
+            // Rebake cannot restore ephemeral child chrome — parent SoT only.
+            var stateKey = chromeStateKey(childLive);
+            var hasDualBake = !!node.querySelector(':scope > .pdl-inst-state');
             var localHandled = showInstState(stateKey);
-            if (!localHandled && stateKey === 'rest') localHandled = showInstState('rest');
+            // Default paint lives in data-pdl-state="rest" (idle / rest / …).
+            if (!localHandled) localHandled = showInstState('rest');
             // Let-qualified begin/finish may swap EditableText inst-state locally.
             if (localVerbChrome) localHandled = true;
             postMsg({
@@ -2764,7 +2888,9 @@ export function renderBakedDesignToHtmlDocumentWithReport(
               emits: result.emits,
               handled: result.handled,
               changed: result.changed || needRebake,
-              previewHandled: needRebake ? false : true
+              // Parent rebake cannot paint nested hover chrome — only dual-bake swaps can.
+              // Without dual-bake fragments, suppress rebake (still need a cold Render once).
+              previewHandled: needRebake ? false : (localHandled || !hasDualBake)
             });
           }
           if (childBy.hoverStart || childBy.hoverEnd) {
@@ -2852,8 +2978,9 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             sessionParams = JSON.parse(instNode.getAttribute('data-pdl-session-params') || '{}');
           } catch (e) { sessionParams = {}; }
           try {
-            var kw = JSON.parse(instNode.getAttribute('data-pdl-instance-kwargs') || '{}');
-            sessionParams = Object.assign({}, sessionParams || {}, kw);
+            var kw0 = JSON.parse(instNode.getAttribute('data-pdl-instance-kwargs') || '{}');
+            // Live session wins over bake kwargs (same as runQualifiedHostVerb).
+            sessionParams = Object.assign({}, kw0, sessionParams || {});
           } catch (e) {}
         }
         var nested = Boolean(instNode && (
@@ -2866,7 +2993,15 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         var childBag = nested ? (sessionParams || {}) : null;
         var eventBy = nested ? childBy : byEvent;
         function bag() {
-          return nested ? childBag : liveParams;
+          if (!nested || !instNode) return liveParams;
+          // Re-read after IR reconcile updates activatesOn / isEditing on the attribute
+          // (listeners stay bound via data-pdl-listening and would otherwise keep a stale bag).
+          try {
+            var liveBag = JSON.parse(instNode.getAttribute('data-pdl-session-params') || '{}');
+            var kwLive = JSON.parse(instNode.getAttribute('data-pdl-instance-kwargs') || '{}');
+            childBag = Object.assign({}, kwLive, liveBag);
+          } catch (e) {}
+          return childBag;
         }
         var hasEditableSession =
           Object.prototype.hasOwnProperty.call(bag(), 'isEditing') ||
@@ -3062,9 +3197,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         function focusSessionInput() {
           var target = input;
           if (instNode) {
-            var visible = instNode.querySelector(
-              '.pdl-inst-state:not([hidden]) input.pdl-text--editable, :scope > input.pdl-text--editable'
-            );
+            var visible = liveEditableInput(instNode);
             if (visible) target = visible;
           }
           try {
