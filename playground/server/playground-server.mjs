@@ -1288,6 +1288,8 @@ async function handleRender(body) {
       return {
         ...enriched,
         html,
+        // Hot-path IR reconcile: bake scene graph without forcing srcdoc remount.
+        baked: result.baked ?? null,
         renderFailures: rerender.renderFailures?.length
           ? rerender.renderFailures
           : result.renderFailures,

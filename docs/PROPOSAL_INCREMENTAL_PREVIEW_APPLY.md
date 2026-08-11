@@ -1,7 +1,9 @@
 # Proposal: Incremental preview apply (ideal IR reconciler)
 
-**Status:** design sketch  
+**Status:** implemented (Playground hot path)  
 **Assumptions:** Rust owns bake/resolve; HTML remains the interactive preview surface.
+
+**Shipped:** Param/interaction updates use identity-preserving live apply (HTML morph + optional bake-IR reconcile) instead of `iframe.srcdoc` remount. Source/theme/engine changes still remount. See `playground/src/preview-apply.js`, `src/bakeReconcile.ts`, Playground status `· live apply`.
 
 ## Summary
 
