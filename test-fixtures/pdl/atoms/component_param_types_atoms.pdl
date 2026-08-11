@@ -1,4 +1,4 @@
-// Component parameter types: String, Number, Boolean, Icon, user variant
+// Component parameter types: String, Number, Bool, Icon, user variant
 
 import "variant_atoms.pdl"
 import "tokens_color.pdl"
@@ -7,26 +7,22 @@ import "tokens_distance_radius.pdl"
 component AtomParamsKitchenSink(
   label: String = "Label",
   count: Number = 2,
-  enabled: Boolean = true,
-  glyph: Icon = Icon(system: .sfSymbols, name: "circle.fill"),
+  enabled: Bool = true,
+  glyph: Icon = IconRef(system: .sfSymbols, name: "circle.fill"),
   density: AtomsDensity = .comfortable
 ) layout {
   direction = .column
   gap = atoms.space.sm
   padding = EdgeInsets(x: atoms.space.md, y: atoms.space.sm)
 
-  let Flag: text = {
-    content = label
-    fontSize = 14
-    fontWeight = 500
-    color = atoms.color.sem.fromRgb
-  }
+  let Flag = Text(
+    content: label,
+    fontSize: 14,
+    fontWeight: 500,
+    color: atoms.color.sem.fromRgb
+  )
 
-  let Glyph: icon = {
-    icon = glyph
-    size = 18
-    color = atoms.color.rgba
-  }
+  let Glyph = Icon(icon: glyph, size: 18, color: atoms.color.rgba)
 
   children = [Flag, Glyph]
 }

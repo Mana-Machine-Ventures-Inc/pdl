@@ -34,8 +34,13 @@
 
 use crate::ast::*;
 use crate::error::PdlError;
-use crate::frame_props::is_frame_enum_type_name;
+use crate::frame_props::looks_like_qualified_enum_type_name;
 use crate::lexer::{tokenize, Token, TokenKind};
+use crate::param_types::infer_value_let_type;
+use crate::world_a::{
+    frame_ctor_kwargs_to_body, frame_ctor_to_kind, is_frame_ctor_name, lower_world_a_body,
+    RESERVED_FRAME_CTOR_COMPONENT_NAMES,
+};
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -132,25 +137,6 @@ impl Parser {
         Ok(PreviewBackgroundDecl { token })
     }
 
-    fn consume_frame_kind_keyword(&mut self) -> Result<String, PdlError> {
-        let t = self.peek().clone();
-        if t.kind != TokenKind::Ident {
-            return Err(self.err(format!(
-                "Expected frame kind layout|text|icon|media, got {:?}",
-                t.kind
-            )));
-        }
-        let v = t.value;
-        if v == "layout" || v == "text" || v == "icon" || v == "media" {
-            self.advance();
-            return Ok(v);
-        }
-        Err(self.err(format!(
-            "Expected frame kind layout|text|icon|media, got IDENT {}",
-            v
-        )))
-    }
-
     /// Dotted token paths (`color.surface.primary`) and other qualified names.
     fn parse_qualified_name(&mut self) -> Result<String, PdlError> {
         let first = self.consume(TokenKind::Ident)?.value;
@@ -192,6 +178,9 @@ impl Parser {
 
     fn consume_token_type_name(&mut self) -> Result<String, PdlError> {
         let t = self.peek().clone();
+        if t.kind == TokenKind::Ident {
+            return Ok(self.consume(TokenKind::Ident)?.value);
+        }
         if is_type_keyword(t.kind) {
             return Ok(self.advance().value);
         }
@@ -400,13 +389,28 @@ impl Parser {
                     "from/to/stagger in interaction handlers are not implemented yet",
                 ));
             }
+            let mut self_prefixed = false;
             let param = if self.is(TokenKind::SelfKw) {
                 self.advance();
                 self.consume(TokenKind::Dot)?;
+                self_prefixed = true;
                 self.consume(TokenKind::Ident)?.value
             } else {
                 self.consume(TokenKind::Ident)?.value
             };
+            // `Label.content = …` — frame-prop assign; handlers only mutate params.
+            if self.is(TokenKind::Dot) {
+                self.advance();
+                let prop = self.consume(TokenKind::Ident)?.value;
+                let lhs = if self_prefixed {
+                    format!("self.{param}.{prop}")
+                } else {
+                    format!("{param}.{prop}")
+                };
+                return Err(self.err(format!(
+                    "Interaction handlers can only assign component parameters (e.g. `interactionState = .hovered`), not frame props like `{lhs}`. Put `{param}.{prop} = …` in the layout body / `if` branch instead (handlers set params; layout `if` updates chrome)"
+                )));
+            }
             // Host verb: `beginEditing(value)` / `cancelEditing()`
             if self.is(TokenKind::LParen) {
                 self.advance();
@@ -923,7 +927,7 @@ impl Parser {
                 CallCallee::Color => "Color",
                 CallCallee::Ramp => "Ramp",
                 CallCallee::Blur => "Blur",
-                CallCallee::Media => "Media",
+                CallCallee::MediaLayer => "Media",
                 CallCallee::Vibrancy => "Vibrancy",
             }),
             _ => None,
@@ -1058,6 +1062,11 @@ impl Parser {
     fn parse_component(&mut self) -> Result<ComponentDecl, PdlError> {
         self.consume(TokenKind::Component)?;
         let name = self.consume(TokenKind::Ident)?.value;
+        if RESERVED_FRAME_CTOR_COMPONENT_NAMES.contains(&name.as_str()) {
+            return Err(self.err(format!(
+                "Component name `{name}` is reserved for the World A frame constructor; rename the component"
+            )));
+        }
         // Optional `component Name <Protocol>(…)`
         let conforms_to = if self.is(TokenKind::Lt) {
             self.advance();
@@ -1114,7 +1123,7 @@ impl Parser {
             }
         };
         self.consume(TokenKind::LBrace)?;
-        let body = self.parse_frame_body_until_close()?;
+        let body = lower_world_a_body(self.parse_frame_body_until_close()?);
         self.consume(TokenKind::RBrace)?;
         Ok(ComponentDecl {
             name,
@@ -1151,16 +1160,33 @@ impl Parser {
             ));
         }
 
-        // Host inbound: `self.pressEnd = { … }` (`self.` optional / clarifying)
+        // `self.IDENT = …`:
+        // - `{ … }` → host inbound handler
+        // - otherwise → prop on the enclosing **component root** (not a nested let)
         if self.is(TokenKind::SelfKw) {
             self.advance();
             self.consume(TokenKind::Dot)?;
-            let event = self.consume(TokenKind::Ident)?.value;
+            let field = self.consume(TokenKind::Ident)?.value;
             self.consume(TokenKind::Eq)?;
-            self.consume(TokenKind::LBrace)?;
-            let body = self.parse_interaction_handler_body()?;
-            self.consume(TokenKind::RBrace)?;
-            return Ok(FrameBodyItem::HostHandler { event, body });
+            if self.is(TokenKind::LBrace) {
+                self.consume(TokenKind::LBrace)?;
+                let body = self.parse_interaction_handler_body()?;
+                self.consume(TokenKind::RBrace)?;
+                return Ok(FrameBodyItem::HostHandler {
+                    event: field,
+                    body,
+                });
+            }
+            let value = if field == "hidden" {
+                self.parse_hidden_rhs()?
+            } else {
+                self.parse_value_expr()?
+            };
+            return Ok(FrameBodyItem::FrameProp {
+                frame: "self".to_string(),
+                name: field,
+                value,
+            });
         }
 
         let id = self.peek().clone();
@@ -1252,60 +1278,128 @@ impl Parser {
             )));
         }
         self.advance(); // `in`
-        let mut binds = indexmap::IndexMap::new();
-        let mut handlers = Vec::new();
-        while !self.is(TokenKind::RBrace) {
-            if self.is(TokenKind::On) {
-                return Err(self.err(format!(
-                    "Layout `on` is not allowed inside ForEach; use \
-                     `{item}.channel(…) = {{ … }}` for declared emit capture (§4e)."
-                )));
-            }
-            if self.looks_like_emit_capture_assign() {
-                let mut handler = self.parse_emit_capture_handler()?;
-                match handler.qualifier.as_deref() {
-                    Some(q) if q == item => {
-                        // Binder-qualified capture → catalogue uses the list name.
-                        handler.qualifier = None;
-                    }
-                    Some(q) => {
-                        return Err(self.err(format!(
-                            "ForEach(`{list}`) emit capture qualifier `{q}` must be the \
-                             item binder `{item}` (write `{item}.{}(…) = {{ … }}`)",
-                            handler.channel
-                        )));
-                    }
-                    None => {
-                        return Err(self.err(format!(
-                            "ForEach(`{list}`) emit capture must be binder-qualified: \
-                             `{item}.{}(…) = {{ … }}` (§4e)",
-                            handler.channel
-                        )));
-                    }
-                }
-                handlers.push(handler);
-                continue;
-            }
-            // Item override: `item.field = expr`
-            let qual = self.consume(TokenKind::Ident)?.value;
-            if qual != item {
-                return Err(self.err(format!(
-                    "ForEach(`{list}`) body must qualify overrides with binder `{item}` \
-                     (got `{qual}`); write `{item}.… = …`"
-                )));
-            }
-            self.consume(TokenKind::Dot)?;
-            let param = self.consume(TokenKind::Ident)?.value;
-            self.consume(TokenKind::Eq)?;
-            let value = self.parse_value_expr()?;
-            binds.insert(param, value);
-        }
+        let body = self.parse_foreach_body_until_close(&list, &item)?;
         self.consume(TokenKind::RBrace)?;
-        Ok(FrameBodyItem::ForEach {
-            list,
-            item,
-            binds,
-            handlers,
+        Ok(FrameBodyItem::ForEach { list, item, body })
+    }
+
+    fn parse_foreach_body_until_close(
+        &mut self,
+        list: &str,
+        item: &str,
+    ) -> Result<Vec<FrameBodyItem>, PdlError> {
+        let mut body = Vec::new();
+        while !self.is(TokenKind::RBrace) {
+            body.push(self.parse_foreach_body_item(list, item)?);
+        }
+        Ok(body)
+    }
+
+    fn parse_foreach_body_item(
+        &mut self,
+        list: &str,
+        item: &str,
+    ) -> Result<FrameBodyItem, PdlError> {
+        if self.is(TokenKind::If) {
+            return Ok(FrameBodyItem::If {
+                chain: self.parse_foreach_if_chain(list, item)?,
+            });
+        }
+        if self.is(TokenKind::On) {
+            return Err(self.err(format!(
+                "Layout `on` is not allowed inside ForEach; use \
+                 `{item}.channel(…) = {{ … }}` for declared emit capture (§4e)."
+            )));
+        }
+        if self.is(TokenKind::Let) {
+            return Err(self.err(format!(
+                "ForEach(`{list}`) cannot declare `let` bindings; only `{item}.field = …`, \
+                 `{item}.channel(…) = {{ … }}`, and `if` / `else` (§4e)"
+            )));
+        }
+        if self.looks_like_emit_capture_assign() {
+            let mut handler = self.parse_emit_capture_handler()?;
+            match handler.qualifier.as_deref() {
+                Some(q) if q == item => {
+                    // Binder-qualified capture → catalogue uses the list name.
+                    handler.qualifier = None;
+                }
+                Some(q) => {
+                    return Err(self.err(format!(
+                        "ForEach(`{list}`) emit capture qualifier `{q}` must be the \
+                         item binder `{item}` (write `{item}.{}(…) = {{ … }}`)",
+                        handler.channel
+                    )));
+                }
+                None => {
+                    return Err(self.err(format!(
+                        "ForEach(`{list}`) emit capture must be binder-qualified: \
+                         `{item}.{}(…) = {{ … }}` (§4e)",
+                        handler.channel
+                    )));
+                }
+            }
+            return Ok(FrameBodyItem::LayoutOn { handler });
+        }
+        // Item override: `item.field = expr`
+        let qual = self.consume(TokenKind::Ident)?.value;
+        if qual != item {
+            return Err(self.err(format!(
+                "ForEach(`{list}`) body must qualify overrides with binder `{item}` \
+                 (got `{qual}`); write `{item}.… = …`"
+            )));
+        }
+        self.consume(TokenKind::Dot)?;
+        let param = self.consume(TokenKind::Ident)?.value;
+        self.consume(TokenKind::Eq)?;
+        let value = self.parse_value_expr()?;
+        Ok(FrameBodyItem::FrameProp {
+            frame: item.to_string(),
+            name: param,
+            value,
+        })
+    }
+
+    fn parse_foreach_if_chain(
+        &mut self,
+        list: &str,
+        item: &str,
+    ) -> Result<IfChain, PdlError> {
+        let mut branches: Vec<IfBranch> = Vec::new();
+        self.consume(TokenKind::If)?;
+        let c0 = self.parse_condition_expr()?;
+        self.consume(TokenKind::LBrace)?;
+        let b0 = self.parse_foreach_body_until_close(list, item)?;
+        self.consume(TokenKind::RBrace)?;
+        branches.push(IfBranch {
+            condition: c0,
+            body: b0,
+        });
+        while self.is(TokenKind::Else) {
+            self.advance();
+            if self.is(TokenKind::If) {
+                self.advance();
+                let c = self.parse_condition_expr()?;
+                self.consume(TokenKind::LBrace)?;
+                let b = self.parse_foreach_body_until_close(list, item)?;
+                self.consume(TokenKind::RBrace)?;
+                branches.push(IfBranch {
+                    condition: c,
+                    body: b,
+                });
+            } else {
+                self.consume(TokenKind::LBrace)?;
+                let else_body = self.parse_foreach_body_until_close(list, item)?;
+                self.consume(TokenKind::RBrace)?;
+                return Ok(IfChain {
+                    branches,
+                    else_body: Some(else_body),
+                });
+            }
+        }
+        Ok(IfChain {
+            branches,
+            else_body: None,
         })
     }
 
@@ -1421,26 +1515,71 @@ impl Parser {
         let id = self.consume(TokenKind::Ident)?.value;
         if self.is(TokenKind::Eq) {
             self.advance();
-            let comp = self.consume(TokenKind::Ident)?.value;
-            self.consume(TokenKind::LParen)?;
-            let kwargs = self.parse_kw_args()?;
-            self.consume(TokenKind::RParen)?;
-            return Ok(FrameBodyItem::LetInstance {
-                id,
-                component: comp,
+            // World A: `let title = Text(…)` / `Layout(…)` / `Icon(…)` / `Media(…)`
+            if let Some(ctor) = self.peek_frame_ctor_name() {
+                self.advance(); // ctor name (Ident or Icon/Media keyword)
+                self.consume(TokenKind::LParen)?;
+                let (props, child_entries) = self.parse_frame_ctor_args()?;
+                self.consume(TokenKind::RParen)?;
+                let frame_kind = frame_ctor_to_kind(ctor)
+                    .expect("peek_frame_ctor_name only returns known ctors")
+                    .to_string();
+                return Ok(FrameBodyItem::Let {
+                    id,
+                    frame_kind,
+                    body: frame_ctor_kwargs_to_body(&props, child_entries),
+                });
+            }
+            // `let x = Comp(…)` → instance; `let blur = Blur(…)` → value let (inferred)
+            let value = self.parse_value_expr()?;
+            if let ValueExpr::Instance {
+                component,
                 kwargs,
+            } = value
+            {
+                return Ok(FrameBodyItem::LetInstance {
+                    id,
+                    component,
+                    kwargs,
+                });
+            }
+            let Some(type_name) = infer_value_let_type(&value) else {
+                return Err(self.err(format!(
+                    "Value let `{id}` requires a type annotation (`let {id}: Type = …`); could not infer type from RHS"
+                )));
+            };
+            return Ok(FrameBodyItem::LetValue {
+                id,
+                type_name: type_name.to_string(),
+                value,
             });
         }
         self.consume(TokenKind::Colon)?;
-        let frame_kind = self.consume_frame_kind_keyword()?;
+        // Classic frame let removed — World A only: `let Id = Text|Layout|Icon|Media(…)`
+        // Value let: `let ramp: Ramp = Ramp(…)`
+        let t = self.peek().clone();
+        let is_frame_kind = t.kind == TokenKind::Ident
+            && matches!(t.value.as_str(), "layout" | "text" | "icon" | "media");
+        if is_frame_kind {
+            let frame_kind = t.value.as_str();
+            let ctor = match frame_kind {
+                "text" => "Text",
+                "layout" => "Layout",
+                "icon" => "Icon",
+                "media" => "Media",
+                _ => unreachable!(),
+            };
+            return Err(self.err(format!(
+                "Classic frame let `let {id}: {frame_kind} = {{ … }}` was removed; use `let {id} = {ctor}(…)` (World A — see docs/PROPOSAL_WORLD_A_EXPRESSION_TREES.md)"
+            )));
+        }
+        let type_name = self.consume_param_type_name()?;
         self.consume(TokenKind::Eq)?;
-        self.consume(TokenKind::LBrace)?;
-        let body = self.parse_frame_body_until_close()?;
-        self.consume(TokenKind::RBrace)?;
-        Ok(FrameBodyItem::Let {
+        let value = self.parse_value_expr()?;
+        Ok(FrameBodyItem::LetValue {
             id,
-            frame_kind,
-            body,
+            type_name,
+            value,
         })
     }
 
@@ -1632,6 +1771,23 @@ impl Parser {
                 rhs,
                 rhs_is_param: false,
             })
+        } else if self.is(TokenKind::Ident)
+            && looks_like_qualified_enum_type_name(&self.peek().value)
+            && self.peek_ahead_kind(1) == TokenKind::Dot
+            && self.peek_ahead_kind(2) == TokenKind::Ident
+            && self.peek_ahead_kind(3) != TokenKind::Dot
+            && self.peek_ahead_kind(3) != TokenKind::LParen
+        {
+            // `Tone.primary` → same as `.primary` (frame enums / user variants)
+            self.advance();
+            self.consume(TokenKind::Dot)?;
+            let case_name = self.consume(TokenKind::Ident)?.value;
+            Ok(ConditionExpr::Cmp {
+                param,
+                op,
+                rhs: format!(".{case_name}"),
+                rhs_is_param: false,
+            })
         } else if self.is(TokenKind::Ident) {
             let rhs = self.advance().value;
             Ok(ConditionExpr::Cmp {
@@ -1675,12 +1831,78 @@ impl Parser {
         if self.is(TokenKind::At) {
             self.advance();
             let op = self.parse_primary_value()?;
-            return Ok(ValueExpr::OpacityOf {
-                base: Box::new(lhs),
-                opacity: Box::new(op),
-            });
+            return self.apply_opacity_sugar(lhs, op);
         }
         Ok(lhs)
+    }
+
+    /// Postfix `@ Opacity`: colors → OpacityOf; MediaLayer → `opacity:`; Color → wrap `color:`.
+    fn apply_opacity_sugar(&self, lhs: ValueExpr, opacity: ValueExpr) -> Result<ValueExpr, PdlError> {
+        match lhs {
+            ValueExpr::Call {
+                callee: CallCallee::MediaLayer,
+                mut args,
+            } => {
+                if args.contains_key("opacity") {
+                    return Err(self.err(
+                        "`MediaLayer(…)` already has `opacity:`; cannot also apply postfix `@` (PDL-E020)",
+                    ));
+                }
+                args.insert("opacity".to_string(), opacity);
+                Ok(ValueExpr::Call {
+                    callee: CallCallee::MediaLayer,
+                    args,
+                })
+            }
+            ValueExpr::Call {
+                callee: CallCallee::Color,
+                mut args,
+            } => {
+                let Some(color) = args.swap_remove("color") else {
+                    return Err(self.err("`Color(…)` requires `color:` before postfix `@`"));
+                };
+                args.insert(
+                    "color".to_string(),
+                    ValueExpr::OpacityOf {
+                        base: Box::new(color),
+                        opacity: Box::new(opacity),
+                    },
+                );
+                Ok(ValueExpr::Call {
+                    callee: CallCallee::Color,
+                    args,
+                })
+            }
+            ValueExpr::Call { callee, .. } => {
+                let name = match callee {
+                    CallCallee::Ramp => "Ramp",
+                    CallCallee::Blur => "Blur",
+                    CallCallee::Vibrancy => "Vibrancy",
+                    CallCallee::Color => "Color",
+                    CallCallee::MediaLayer => "MediaLayer",
+                };
+                Err(self.err(format!(
+                    "Cannot apply `@` opacity to `{name}(…)` (not opacity-bearing; use a Color/Media layer or frame opacity)"
+                )))
+            }
+            ValueExpr::Hex { .. } | ValueExpr::Ident { .. } | ValueExpr::OpacityOf { .. } => {
+                Ok(ValueExpr::OpacityOf {
+                    base: Box::new(lhs),
+                    opacity: Box::new(opacity),
+                })
+            }
+            other => Err(self.err(format!(
+                "Cannot apply `@` opacity to {other:?} (expected a Color, MediaLayer(…), or color token)"
+            ))),
+        }
+    }
+
+    fn parse_optional_child_opacity(&mut self) -> Result<Option<ValueExpr>, PdlError> {
+        if !self.is(TokenKind::At) {
+            return Ok(None);
+        }
+        self.advance();
+        Ok(Some(self.parse_primary_value()?))
     }
 
     fn parse_primary_value(&mut self) -> Result<ValueExpr, PdlError> {
@@ -1865,9 +2087,9 @@ impl Parser {
                 return Ok(ValueExpr::Array { items });
             }
             TokenKind::Ident => {
-                // Qualified frame enum: `Justify.center` → same AST as `.center`
+                // Qualified enum: `Justify.center` / `Tone.primary` → same AST as `.center` / `.primary`
                 // (Sizing.* stays on the Sizing keyword branch above.)
-                if is_frame_enum_type_name(&t.value)
+                if looks_like_qualified_enum_type_name(&t.value)
                     && self.peek_ahead_kind(1) == TokenKind::Dot
                     && self.peek_ahead_kind(2) == TokenKind::Ident
                     && self.peek_ahead_kind(3) != TokenKind::Dot
@@ -1935,24 +2157,9 @@ impl Parser {
             });
         }
         if first == "saturation" {
-            let sat = self.parse_value_expr()?;
-            self.consume(TokenKind::Comma)?;
-            self.consume(TokenKind::Ident)?;
-            self.consume(TokenKind::Colon)?;
-            let bright = self.parse_value_expr()?;
-            self.consume(TokenKind::RParen)?;
-            let (saturation, brightness) = match (&sat, &bright) {
-                (ValueExpr::Number { value: s }, ValueExpr::Number { value: b }) => (*s, *b),
-                _ => {
-                    return Err(
-                        self.err("Vibrancy tuple expects numeric saturation/brightness")
-                    );
-                }
-            };
-            return Ok(ValueExpr::VibrancyTuple {
-                saturation,
-                brightness,
-            });
+            return Err(self.err(
+                "Naked `(saturation:, brightness:)` is not allowed; use `Vibrancy(saturation: …, brightness: …)`",
+            ));
         }
         if first == "direction" {
             let dir = self.parse_value_expr()?;
@@ -2054,6 +2261,11 @@ impl Parser {
             }
         }
         if name == "Icon" {
+            return Err(self.err(
+                "`Icon(…)` is the World A frame constructor; asset refs use `IconRef(file: …)` or `IconRef(system: …, name: …)`",
+            ));
+        }
+        if name == "IconRef" {
             let mut fields = self.parse_labelled_args()?;
             self.consume(TokenKind::RParen)?;
             let file = fields.swap_remove("file");
@@ -2073,7 +2285,7 @@ impl Parser {
                 }
                 _ => {
                     return Err(self.err(
-                        "Icon requires `file: \"…\"` or `system: .sfSymbols|.materialSymbols, name: \"…\"`",
+                        "IconRef requires `file: \"…\"` or `system: .sfSymbols|.materialSymbols, name: \"…\"`",
                     ));
                 }
             }
@@ -2118,18 +2330,79 @@ impl Parser {
             self.consume(TokenKind::RParen)?;
             return Ok(ValueExpr::GradientStop { fields });
         }
+        if name == "Media" {
+            return Err(self.err(
+                "`Media(…)` is the World A frame constructor; layer fills use `MediaLayer(source:, contentMode: …)`",
+            ));
+        }
         let callee = match name.as_str() {
             "Color" => Some(CallCallee::Color),
             "Ramp" => Some(CallCallee::Ramp),
             "Blur" => Some(CallCallee::Blur),
-            "Media" => Some(CallCallee::Media),
+            "MediaLayer" => Some(CallCallee::MediaLayer),
             "Vibrancy" => Some(CallCallee::Vibrancy),
             _ => None,
         };
         if let Some(callee) = callee {
             let args = self.parse_labelled_args()?;
             self.consume(TokenKind::RParen)?;
+            if matches!(callee, CallCallee::Blur) {
+                let has_radius = args.contains_key("radius");
+                let has_blur = args.contains_key("blur");
+                if has_blur && !has_radius {
+                    return Err(self.err(
+                        "`Blur(…)` takes `radius:` (a Radius / number), not `blur:`; e.g. `Blur(radius: 16)` or `Blur(radius: blurRadiusToken)`",
+                    ));
+                }
+                if !has_radius {
+                    return Err(self.err(
+                        "`Blur(…)` requires `radius:` (optional `style:`, `vibrancy:`)",
+                    ));
+                }
+                let unknown: Vec<_> = args
+                    .keys()
+                    .filter(|k| *k != "radius" && *k != "style" && *k != "vibrancy")
+                    .cloned()
+                    .collect();
+                if !unknown.is_empty() {
+                    return Err(self.err(format!(
+                        "Blur unknown label(s): {} (expected radius, optional style, vibrancy)",
+                        unknown.join(", ")
+                    )));
+                }
+            }
+            if matches!(callee, CallCallee::Vibrancy) {
+                let has_sat = args.contains_key("saturation");
+                let has_bri = args.contains_key("brightness");
+                let has_wrap = args.contains_key("vibrancy");
+                if has_wrap && !has_sat {
+                    return Err(self.err(
+                        "`Vibrancy(…)` takes `saturation:` and `brightness:` (e.g. `Vibrancy(saturation: 1.2, brightness: 1.05)`); bare Vibrancy tokens are layers — not `Vibrancy(vibrancy: …)`",
+                    ));
+                }
+                if !has_sat || !has_bri {
+                    return Err(self.err(
+                        "`Vibrancy(…)` requires `saturation:` and `brightness:`",
+                    ));
+                }
+                let unknown: Vec<_> = args
+                    .keys()
+                    .filter(|k| *k != "saturation" && *k != "brightness")
+                    .cloned()
+                    .collect();
+                if !unknown.is_empty() {
+                    return Err(self.err(format!(
+                        "Vibrancy unknown label(s): {} (expected saturation, brightness)",
+                        unknown.join(", ")
+                    )));
+                }
+            }
             return Ok(ValueExpr::Call { callee, args });
+        }
+        if is_frame_ctor_name(&name) {
+            return Err(self.err(format!(
+                "`{name}(…)` is a World A frame constructor — use `let id = {name}(…)` or mount it in `children`, not as a value/layer expression"
+            )));
         }
         // Component instance literal: Name() / Name(param: value, …)
         let kwargs = self.parse_labelled_args()?;
@@ -2213,7 +2486,8 @@ impl Parser {
     fn parse_children_rhs(&mut self) -> Result<Vec<ChildEntry>, PdlError> {
         if self.is(TokenKind::Ident) && self.peek_ahead_kind(1) != TokenKind::LParen {
             let id = self.consume(TokenKind::Ident)?.value;
-            return Ok(vec![ChildEntry::FrameRef { id }]);
+            let opacity = self.parse_optional_child_opacity()?;
+            return Ok(vec![ChildEntry::FrameRef { id, opacity }]);
         }
         self.parse_children_list()
     }
@@ -2240,6 +2514,23 @@ impl Parser {
                 "`.spacer` was renamed to `Spacer()` (zero-arg child constructor)",
             ));
         }
+        // World A frame ctors: Ident (`Text`/`Layout`) or keywords (`Icon`/`Media`).
+        if let Some(ctor) = self.peek_frame_ctor_name() {
+            self.advance();
+            self.consume(TokenKind::LParen)?;
+            let (props, child_entries) = self.parse_frame_ctor_args()?;
+            self.consume(TokenKind::RParen)?;
+            let opacity = self.parse_optional_child_opacity()?;
+            let frame_kind = frame_ctor_to_kind(ctor)
+                .expect("peek_frame_ctor_name only returns known ctors")
+                .to_string();
+            return Ok(ChildEntry::FrameCtor {
+                frame_kind,
+                props,
+                child_entries,
+                opacity,
+            });
+        }
         if self.is(TokenKind::Ident) {
             let id = self.peek().value.clone();
             if self.peek_ahead_kind(1) == TokenKind::LParen {
@@ -2250,19 +2541,76 @@ impl Parser {
                         return Err(self.err("`Spacer()` takes no arguments"));
                     }
                     self.consume(TokenKind::RParen)?;
+                    if self.is(TokenKind::At) {
+                        return Err(self.err(
+                            "`Spacer()` is not opacity-bearing; cannot apply postfix `@`",
+                        ));
+                    }
                     return Ok(ChildEntry::Spacer);
                 }
                 let kwargs = self.parse_kw_args()?;
                 self.consume(TokenKind::RParen)?;
+                let opacity = self.parse_optional_child_opacity()?;
                 return Ok(ChildEntry::Instance {
                     component: id,
                     kwargs,
+                    opacity,
                 });
             }
             self.advance();
-            return Ok(ChildEntry::FrameRef { id });
+            let opacity = self.parse_optional_child_opacity()?;
+            return Ok(ChildEntry::FrameRef { id, opacity });
         }
         Err(self.err("Invalid child entry"))
+    }
+
+    /// Peek a World A frame ctor name when the next token is `Name(`.
+    fn peek_frame_ctor_name(&self) -> Option<&'static str> {
+        let t = self.peek();
+        let name = match t.kind {
+            TokenKind::Ident => t.value.as_str(),
+            TokenKind::Icon => "Icon",
+            TokenKind::Media => "Media",
+            _ => return None,
+        };
+        if !is_frame_ctor_name(name) {
+            return None;
+        }
+        if self.peek_ahead_kind(1) != TokenKind::LParen {
+            return None;
+        }
+        frame_ctor_to_kind(name).map(|_| match name {
+            "Text" => "Text",
+            "Layout" => "Layout",
+            "Icon" => "Icon",
+            "Media" => "Media",
+            _ => unreachable!(),
+        })
+    }
+
+    /// Frame ctor kwargs; `children:` is a child-entry list, not a ValueExpr.
+    fn parse_frame_ctor_args(
+        &mut self,
+    ) -> Result<(indexmap::IndexMap<String, ValueExpr>, Option<Vec<ChildEntry>>), PdlError> {
+        let mut props: indexmap::IndexMap<String, ValueExpr> = indexmap::IndexMap::new();
+        let mut child_entries: Option<Vec<ChildEntry>> = None;
+        if self.is(TokenKind::RParen) {
+            return Ok((props, None));
+        }
+        loop {
+            let lab = self.consume(TokenKind::Ident)?.value;
+            self.consume(TokenKind::Colon)?;
+            if lab == "children" {
+                child_entries = Some(self.parse_children_list()?);
+            } else {
+                props.insert(lab, self.parse_value_expr()?);
+            }
+            if self.is(TokenKind::RParen) {
+                break;
+            }
+            self.consume(TokenKind::Comma)?;
+        }
+        Ok((props, child_entries))
     }
 
     fn peek_ahead_kind(&self, n: usize) -> TokenKind {
@@ -2377,6 +2725,11 @@ fn is_type_keyword(kind: TokenKind) -> bool {
             | TokenKind::Ramp
             | TokenKind::Background
             | TokenKind::Foreground
+            | TokenKind::EdgeInsets
+            | TokenKind::CornerRadii
+            | TokenKind::GradientStop
+            | TokenKind::Media
+            | TokenKind::BlurStyle
     )
 }
 

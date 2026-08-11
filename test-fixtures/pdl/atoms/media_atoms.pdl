@@ -8,15 +8,15 @@ component AtomMediaCover() layout {
   direction = .column
   background = atoms.color.sem.fromRgb
 
-  let M: media = {
-    source = atoms.media.hero
-    contentMode = .cover
-    justify = .center
-    align = .center
-    width = .fill
-    height = .aspect(atoms.ratio.video)
-    cornerRadius = atoms.radius.sm
-  }
+  let M = Media(
+    source: atoms.media.hero,
+    contentMode: .cover,
+    justify: .center,
+    align: .center,
+    width: .fill,
+    height: .aspect(atoms.ratio.video),
+    cornerRadius: atoms.radius.sm
+  )
 
   children = [M]
 }
@@ -25,15 +25,15 @@ component AtomMediaContainCorners() layout {
   direction = .column
   background = atoms.color.sem.fromRgba
 
-  let M: media = {
-    source = "https://example.com/poster.jpg"
-    contentMode = .contain
-    justify = .start
-    align = .start
-    width = .fill
-    height = .fixed(180)
-    background = atoms.color.rgb
-  }
+  let M = Media(
+    source: "https://example.com/poster.jpg",
+    contentMode: .contain,
+    justify: .start,
+    align: .start,
+    width: .fill,
+    height: .fixed(180),
+    background: atoms.color.rgb
+  )
 
   children = [M]
 }
@@ -42,13 +42,13 @@ component AtomMediaScaleDown() layout {
   direction = .column
   background = atoms.color.rgba
 
-  let M: media = {
-    source = "media/local.png"
-    contentMode = .scaleDown
-    justify = .end
-    align = .end
-    opacity = 0.92
-  }
+  let M = Media(
+    source: "media/local.png",
+    contentMode: .scaleDown,
+    justify: .end,
+    align: .end,
+    opacity: 0.92
+  )
 
   children = [M]
 }
@@ -57,12 +57,12 @@ component AtomMediaVideoKind() layout {
   direction = .column
   background = atoms.color.rgb
 
-  let M: media = {
-    source = atoms.media.opaqueClip
-    contentMode = .cover
-    width = .fill
-    height = .aspect(16:9)
-  }
+  let M = Media(
+    source: atoms.media.opaqueClip,
+    contentMode: .cover,
+    width: .fill,
+    height: .aspect(16:9)
+  )
 
   children = [M]
 }

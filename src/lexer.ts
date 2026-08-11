@@ -46,7 +46,9 @@ export type TokenKind =
   | "tags"
   | "EdgeInsets"
   | "Corner"
+  | "CornerRadii"
   | "GradientStop"
+  | "BlurStyle"
   | "Color"
   | "Opacity"
   | "Distance"
@@ -149,7 +151,9 @@ const KEYWORDS = new Map<string, TokenKind>([
   ["tags", "tags"],
   ["EdgeInsets", "EdgeInsets"],
   ["Corner", "Corner"],
+  ["CornerRadii", "CornerRadii"],
   ["GradientStop", "GradientStop"],
+  ["BlurStyle", "BlurStyle"],
   ["Color", "Color"],
   ["Opacity", "Opacity"],
   ["Distance", "Distance"],

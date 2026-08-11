@@ -157,11 +157,11 @@
       "patterns": [
         {
           "name": "support.type.pdl",
-          "match": "\\b(?:Color|Opacity|Distance|Radius|Shadow|Icon|MediaSource|Ratio|FontFamily|Size|Weight|Sizing|Duration|Easing|Transition|String|Number|Bool|Boolean)\\b"
+          "match": "\\b(?:Color|Opacity|Distance|Radius|Shadow|Icon|MediaSource|Ratio|FontFamily|Size|Weight|Sizing|Duration|Easing|Transition|String|Number|Bool)\\b"
         },
         {
           "name": "support.function.constructor.pdl",
-          "match": "\\b(?:EdgeInsets|Corner|GradientStop|Ramp|Blur|Media|Vibrancy|Background|Foreground|Color|Transition)\\b"
+          "match": "\\b(?:EdgeInsets|Corner|CornerRadii|GradientStop|Ramp|Blur|BlurStyle|Media|Vibrancy|Background|Foreground|Color|Transition)\\b"
         }
       ]
     },

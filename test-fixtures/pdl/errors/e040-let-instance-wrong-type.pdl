@@ -1,0 +1,17 @@
+variant Tone {
+  case primary
+  case secondary
+}
+
+component LabCard(
+  title: String = "Card"
+) layout {
+  children = []
+}
+
+component Host(
+  tone: Tone = .primary
+) layout {
+  let Card = LabCard(title: tone)
+  children = [Card]
+}

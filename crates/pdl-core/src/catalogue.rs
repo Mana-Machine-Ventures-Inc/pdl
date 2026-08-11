@@ -268,10 +268,8 @@ fn serialise_layout_on_handler(handler: &LayoutOnHandler, default_qualifier: Opt
 fn collect_emit_captures_from_body(items: &[FrameBodyItem], out: &mut Vec<Value>) {
     for item in items {
         match item {
-            FrameBodyItem::ForEach {
-                list, handlers, ..
-            } => {
-                for h in handlers {
+            FrameBodyItem::ForEach { list, body, .. } => {
+                for h in crate::ast::foreach_layout_handlers(body) {
                     out.push(serialise_layout_on_handler(h, Some(list.as_str())));
                 }
             }

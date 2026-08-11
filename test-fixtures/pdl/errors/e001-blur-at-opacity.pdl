@@ -1,0 +1,6 @@
+import "../atoms/tokens_blur_vibrancy_ramp.pdl"
+
+component Bad() layout {
+  background = [Blur(radius: atoms.blur.light.radius) @ 0.5]
+  children = []
+}

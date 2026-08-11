@@ -17,10 +17,23 @@ import {
 } from "./assetRefs.js";
 import { PdlError } from "./errors.js";
 import {
+  assertBlurCallCompatible,
   assertLayerStackValue,
+  assertVibrancyCallCompatible,
   validateFramePropsInBody,
   validateTypeStyleProps,
 } from "./frameProps.js";
+import {
+  assertParamValueCompatible,
+  validateComponentParamDefaults,
+  validateParamBindingsInBody,
+} from "./paramBindings.js";
+import {
+  hostEnumCases,
+  isBoolParamType,
+  isBuiltinParamType,
+  unwrapParamTypeName,
+} from "./paramTypes.js";
 
 function validateConditionExpr(
   design: DesignDefinition,
@@ -48,10 +61,10 @@ function validateConditionExpr(
           { path: design.entryPath },
         );
       }
-      if (p.typeName !== "Boolean" && p.typeName !== "Bool") {
+      if (!isBoolParamType(p.typeName)) {
         throw new PdlError(
           "PDL-E010",
-          `Bare \`if ${paramName}\` requires a Boolean parameter (got type ${p.typeName}); use \`${paramName} == …\` for variants`,
+          `Bare \`if ${paramName}\` requires a Bool parameter (got type ${p.typeName}); use \`${paramName} == …\` for variants`,
           { path: design.entryPath },
         );
       }
@@ -68,11 +81,11 @@ function validateConditionExpr(
         );
       }
       const rhsRaw = expr.rhs.startsWith(".") ? expr.rhs.slice(1) : expr.rhs;
-      if (p.typeName === "Boolean" || p.typeName === "Bool") {
+      if (isBoolParamType(p.typeName)) {
         if (rhsRaw !== "true" && rhsRaw !== "false") {
           throw new PdlError(
             "PDL-E010",
-            `Boolean condition on \`${paramName}\` expected \`true\` / \`false\` (or \`.true\` / \`.false\`)`,
+            `Bool condition on \`${paramName}\` expected \`true\` / \`false\` (or \`.true\` / \`.false\`)`,
             { path: design.entryPath },
           );
         }
@@ -156,7 +169,10 @@ function validateHiddenInBody(
       }
     }
     if (item.kind === "frameProp" && item.name === "hidden") {
-      const fk = letKinds.get(item.frame);
+      const fk =
+        item.frame === "self"
+          ? design.components.get(componentName)?.rootKind
+          : letKinds.get(item.frame);
       if (!fk) {
         throw new PdlError(
           "PDL-E012",
@@ -221,42 +237,102 @@ function validateIfConditionsInBody(
   }
 }
 
-function collectUniqueFrameIdsFromBody(
-  items: FrameBodyItem[],
-  seen: Set<string>,
+function assertUniqueLetId(
+  id: string,
+  frameIds: Set<string>,
+  valueIds: Set<string>,
   componentName: string,
   design: DesignDefinition,
+): void {
+  if (frameIds.has(id) || valueIds.has(id)) {
+    throw new PdlError(
+      "PDL-E021",
+      `Duplicate id \`${id}\` in component ${componentName} (\`let\` / \`letInstance\` / value \`let\` names must be unique across the whole component body, including all \`if\` branches)`,
+      { path: design.entryPath },
+    );
+  }
+}
+
+/** Collect frame `let` / `letInstance` ids and typed value `let` ids (separate sets). */
+function collectUniqueFrameIdsFromBody(
+  items: FrameBodyItem[],
+  frameIds: Set<string>,
+  componentName: string,
+  design: DesignDefinition,
+  valueIds: Set<string> = new Set(),
 ): void {
   for (const it of items) {
     switch (it.kind) {
       case "let": {
-        if (seen.has(it.id)) {
-          throw new PdlError(
-            "PDL-E021",
-            `Duplicate frame id \`${it.id}\` in component ${componentName} (\`let\` / \`letInstance\` names must be unique across the whole component body, including all \`if\` branches)`,
-            { path: design.entryPath },
-          );
-        }
-        seen.add(it.id);
-        collectUniqueFrameIdsFromBody(it.body, seen, componentName, design);
+        assertUniqueLetId(it.id, frameIds, valueIds, componentName, design);
+        frameIds.add(it.id);
+        collectUniqueFrameIdsFromBody(it.body, frameIds, componentName, design, valueIds);
         break;
       }
       case "letInstance": {
-        if (seen.has(it.id)) {
-          throw new PdlError(
-            "PDL-E021",
-            `Duplicate frame id \`${it.id}\` in component ${componentName} (\`let\` / \`letInstance\` names must be unique across the whole component body, including all \`if\` branches)`,
-            { path: design.entryPath },
-          );
-        }
-        seen.add(it.id);
+        assertUniqueLetId(it.id, frameIds, valueIds, componentName, design);
+        frameIds.add(it.id);
+        break;
+      }
+      case "letValue": {
+        assertUniqueLetId(it.id, frameIds, valueIds, componentName, design);
+        valueIds.add(it.id);
         break;
       }
       case "if": {
-        for (const br of it.chain.branches) collectUniqueFrameIdsFromBody(br.body, seen, componentName, design);
-        if (it.chain.elseBody) collectUniqueFrameIdsFromBody(it.chain.elseBody, seen, componentName, design);
+        for (const br of it.chain.branches) {
+          collectUniqueFrameIdsFromBody(br.body, frameIds, componentName, design, valueIds);
+        }
+        if (it.chain.elseBody) {
+          collectUniqueFrameIdsFromBody(it.chain.elseBody, frameIds, componentName, design, valueIds);
+        }
         break;
       }
+      default:
+        break;
+    }
+  }
+}
+
+function validateLetValuesInBody(
+  design: DesignDefinition,
+  items: FrameBodyItem[],
+  callerParams: Map<string, string>,
+  componentName: string,
+): void {
+  for (const it of items) {
+    switch (it.kind) {
+      case "letValue": {
+        if (
+          !isBuiltinParamType(it.typeName) &&
+          !design.variants.has(it.typeName)
+        ) {
+          throw new PdlError(
+            "PDL-E039",
+            `Unknown value-let type \`${it.typeName}\` in component ${componentName}`,
+            { path: design.entryPath },
+          );
+        }
+        assertParamValueCompatible(
+          design,
+          it.typeName,
+          it.value,
+          callerParams,
+          `for value let \`${it.id}\` (component ${componentName})`,
+        );
+        break;
+      }
+      case "let":
+        validateLetValuesInBody(design, it.body, callerParams, componentName);
+        break;
+      case "if":
+        for (const br of it.chain.branches) {
+          validateLetValuesInBody(design, br.body, callerParams, componentName);
+        }
+        if (it.chain.elseBody) {
+          validateLetValuesInBody(design, it.chain.elseBody, callerParams, componentName);
+        }
+        break;
       default:
         break;
     }
@@ -276,6 +352,7 @@ function assertForwardFrameVisibility(
   allFrameIds: Set<string>,
   paramNames: Set<string>,
   componentName: string,
+  valueLetIds: Set<string> = new Set(),
 ): void {
   const requireDeclared = (id: string, context: string) => {
     if (declared.has(id) || paramNames.has(id)) return;
@@ -295,13 +372,23 @@ function assertForwardFrameVisibility(
         }
         for (const entry of it.entries) {
           if (entry.kind === "frameRef") {
+            if (valueLetIds.has(entry.id)) {
+              throw new PdlError(
+                "PDL-E007",
+                `Cannot mount value let \`${entry.id}\` in children (component ${componentName}) — value lets are for props/layers, not the child tree`,
+                { path: design.entryPath },
+              );
+            }
             requireDeclared(entry.id, `in a children list`);
           }
         }
         break;
       }
       case "frameProp":
-        requireDeclared(it.frame, `in \`${it.frame}.${it.name}\``);
+        // `self.prop` targets the enclosing component root — not a `let` id.
+        if (it.frame !== "self") {
+          requireDeclared(it.frame, `in \`${it.frame}.${it.name}\``);
+        }
         break;
       case "let":
         declared.add(it.id);
@@ -312,6 +399,7 @@ function assertForwardFrameVisibility(
           allFrameIds,
           paramNames,
           componentName,
+          valueLetIds,
         );
         break;
       case "letInstance":
@@ -326,6 +414,7 @@ function assertForwardFrameVisibility(
             allFrameIds,
             paramNames,
             componentName,
+            valueLetIds,
           );
         }
         if (it.chain.elseBody) {
@@ -336,6 +425,7 @@ function assertForwardFrameVisibility(
             allFrameIds,
             paramNames,
             componentName,
+            valueLetIds,
           );
         }
         break;
@@ -374,15 +464,24 @@ function validateFixturesForComponent(design: DesignDefinition, componentName: s
   const pmap = new Map(c.params.map((p) => [p.name, p]));
   const fm = design.fixtures.get(componentName);
   if (!fm) return;
+  const callerParams = new Map(c.params.map((p) => [p.name, p.typeName]));
   for (const ex of fm.values()) {
     for (const b of ex.bindings) {
-      if (!pmap.has(b.name)) {
+      const p = pmap.get(b.name);
+      if (!p) {
         throw new PdlError(
           "PDL-E007",
           `Unknown parameter \`${b.name}\` in fixture "${ex.label}" (component ${componentName})`,
           { path: design.entryPath },
         );
       }
+      assertParamValueCompatible(
+        design,
+        p.typeName,
+        b.value,
+        callerParams,
+        `in fixture "${ex.label}" for \`${componentName}.${b.name}\``,
+      );
     }
   }
 }
@@ -549,26 +648,35 @@ function tokenRhsExpectation(tokenType: string): string {
     case "Ratio":
       return "a positive number or `W:H` ratio sugar (e.g. `16:9`)";
     case "Duration":
-    case "Blur":
       return "a non-negative number";
+    case "Blur":
+      return "`Blur(radius: … [, style:] [, vibrancy:])` (radius is a Radius / number — not a bare number token)";
     case "FontFamily":
     case "Easing":
       return "a string";
     case "Icon":
-      return '`Icon(file: "…")`, `Icon(system: .sfSymbols|.materialSymbols, name: "…")`, or a pack-relative path string';
+      return '`IconRef(file: "…")`, `IconRef(system: .sfSymbols|.materialSymbols, name: "…")`, or a pack-relative path string';
     case "MediaSource":
       return '`MediaSource(file: "…" [, kind:, format:])`, `MediaSource(url: "…" [, kind:, format:])`, an http(s) URL, or a pack-relative path string';
     case "Transition":
       return "a transition tuple `(duration: …, easing: …)`";
     case "Vibrancy":
-      return "a vibrancy tuple `(saturation: …, brightness: …)`";
+      return "`Vibrancy(saturation: …, brightness: …)`";
     case "Ramp":
-      return "a ramp literal `(direction: …, stops: […])`";
+      return "a ramp literal `(direction: …, stops: […])` or `Ramp(…)`";
     case "Sizing":
       return "a sizing literal (`.hug` / `Sizing.hug`, `.fill`, `.fixed(n)`, `.flex(…)`, `.aspect(16:9)`)";
     case "Background":
     case "Foreground":
       return "a color, layer list `[…]`, or layer constructor";
+    case "EdgeInsets":
+      return "`EdgeInsets(x:, y:)` or `EdgeInsets(top:, right:, bottom:, left:)`";
+    case "CornerRadii":
+      return "`Corner(tl:, tr:, br:, bl:)`";
+    case "GradientStop":
+      return "`GradientStop(…)`";
+    case "Media":
+      return "`MediaLayer(source:, contentMode: …)`";
     default:
       return `a value compatible with ${tokenType}`;
   }
@@ -582,7 +690,6 @@ const SHADOW_AXIS_TOKEN_TYPES = new Set([
   "Weight",
   "Ratio",
   "Duration",
-  "Blur",
 ]);
 
 /** Shadow axis: number literal or numeric token ident; optional non-negative for blurRadius. */
@@ -852,11 +959,12 @@ function assertTokenRhsCompatible(
           (value.kind === "ratio" && value.width > 0 && value.height > 0)
         );
       case "Duration":
-      case "Blur":
         return value.kind === "number" && value.value >= 0;
+      case "Blur":
+        return value.kind === "call" && value.callee === "Blur";
       case "FontFamily":
       case "Easing":
-        return value.kind === "string";
+        return value.kind === "string" || value.kind === "dotEnum";
       case "Icon":
         if (value.kind === "iconRef") return true;
         return value.kind === "string" && isPackRelativeFilePath(value.value);
@@ -869,9 +977,12 @@ function assertTokenRhsCompatible(
       case "Transition":
         return value.kind === "transition";
       case "Vibrancy":
-        return value.kind === "vibrancyTuple";
+        return value.kind === "call" && value.callee === "Vibrancy";
       case "Ramp":
-        return value.kind === "rampInline";
+        return (
+          value.kind === "rampInline" ||
+          (value.kind === "call" && value.callee === "Ramp")
+        );
       case "Sizing":
         if (value.kind === "sizing") return true;
         // Bare `.hug` / `.fill` parse as dotEnum (same spelling as ContentMode.fill).
@@ -888,8 +999,23 @@ function assertTokenRhsCompatible(
           value.kind === "array" ||
           value.kind === "call"
         );
-      default:
+      case "EdgeInsets":
+        return value.kind === "edgeInsets";
+      case "CornerRadii":
+        return value.kind === "corner";
+      case "GradientStop":
+        return value.kind === "gradientStop";
+      case "Media":
+        return value.kind === "call" && value.callee === "MediaLayer";
+      default: {
+        // Host enums as token types (rare): `.case`
+        const cases = hostEnumCases(tokenType);
+        if (cases && value.kind === "dotEnum") {
+          const c = value.value.startsWith(".") ? value.value.slice(1) : value.value;
+          return cases.includes(c);
+        }
         return false;
+      }
     }
   })();
 
@@ -897,13 +1023,14 @@ function assertTokenRhsCompatible(
     let detail =
       tokenType === "Opacity" && value.kind === "number"
         ? " (out of range 0…1)"
-        : (tokenType === "Distance" ||
-              tokenType === "Radius" ||
-              tokenType === "Duration" ||
-              tokenType === "Blur") &&
-            value.kind === "number"
-          ? " (must be non-negative)"
-          : ` (got ${value.kind})`;
+        : tokenType === "Blur" && value.kind === "number"
+          ? " (use `Blur(radius: n)` — Blur is the layer object; radius amounts use Radius)"
+          : (tokenType === "Distance" ||
+                tokenType === "Radius" ||
+                tokenType === "Duration") &&
+              value.kind === "number"
+            ? " (must be non-negative)"
+            : ` (got ${value.kind})`;
     if (
       tokenType === "Icon" &&
       value.kind === "string" &&
@@ -916,7 +1043,7 @@ function assertTokenRhsCompatible(
       value.kind === "string" &&
       !isPackRelativeFilePath(value.value)
     ) {
-      detail = ` (got \`${value.value}\` — bare names are ambiguous; use \`Icon(system: .sfSymbols, name: "…")\` or a pack path like \`icons/star.svg\`)`;
+      detail = ` (got \`${value.value}\` — bare names are ambiguous; use \`IconRef(system: .sfSymbols, name: "…")\` or a pack path like \`icons/star.svg\`)`;
     }
     throw new PdlError(
       "PDL-E005",
@@ -927,6 +1054,33 @@ function assertTokenRhsCompatible(
 
   if (tokenType === "Shadow" && value.kind === "shadow") {
     assertShadowConstructorFields(design, name, value);
+  }
+  if (tokenType === "Blur" && value.kind === "call" && value.callee === "Blur") {
+    try {
+      assertBlurCallCompatible(design, value.args, `Token \`${name}\``);
+    } catch (e) {
+      if (e instanceof PdlError && (e.code === "PDL-E040" || e.code === "PDL-E020")) {
+        throw new PdlError("PDL-E005", e.message, { path: design.entryPath });
+      }
+      throw e;
+    }
+  }
+  if (tokenType === "Vibrancy" && value.kind === "call" && value.callee === "Vibrancy") {
+    try {
+      assertVibrancyCallCompatible(design, value.args, `Token \`${name}\``);
+    } catch (e) {
+      if (e instanceof PdlError && (e.code === "PDL-E040" || e.code === "PDL-E020")) {
+        throw new PdlError("PDL-E005", e.message, { path: design.entryPath });
+      }
+      throw e;
+    }
+  }
+  if (tokenType === "Vibrancy" && value.kind === "vibrancyTuple") {
+    throw new PdlError(
+      "PDL-E005",
+      `Token \`${name}\` has type Vibrancy and must be \`Vibrancy(saturation: …, brightness: …)\` — naked \`(saturation:, brightness:)\` tuples are not typed Vibrancy values`,
+      { path: design.entryPath },
+    );
   }
   if (tokenType === "Icon" && value.kind === "iconRef") {
     assertIconRefFields(design, name, value);
@@ -982,21 +1136,68 @@ function validateTokenDeclarations(design: DesignDefinition): void {
   }
 }
 
+function unknownParamTypeMessage(typeName: string, where: string): string {
+  if (typeName === "Boolean") {
+    return `Unknown parameter type \`Boolean\` ${where}; use \`Bool\``;
+  }
+  return `Unknown parameter type \`${typeName}\` ${where} (expected a built-in type, declared variant, or component)`;
+}
+
+function assertKnownParamType(
+  design: DesignDefinition,
+  typeName: string,
+  where: string,
+): void {
+  const name = unwrapParamTypeName(typeName);
+  if (
+    isBuiltinParamType(name) ||
+    design.variants.has(name) ||
+    design.components.has(name)
+  ) {
+    return;
+  }
+  throw new PdlError("PDL-E039", unknownParamTypeMessage(name, where), {
+    path: design.entryPath,
+  });
+}
+
+function validateComponentParamTypes(design: DesignDefinition): void {
+  for (const c of design.components.values()) {
+    for (const p of c.params) {
+      assertKnownParamType(design, p.typeName, `on component \`${c.name}\` parameter \`${p.name}\``);
+    }
+  }
+}
+
 /** Semantic checks on merged design (after parse + import merge). */
 export function validateMergedDesign(design: DesignDefinition): void {
   validateCompanionSymbols(design);
   validateTokenDeclarations(design);
   validateTypeStyleProps(design);
+  validateComponentParamTypes(design);
+  validateComponentParamDefaults(design);
   for (const c of design.components.values()) {
     const allFrameIds = new Set<string>();
-    collectUniqueFrameIdsFromBody(c.body, allFrameIds, c.name, design);
+    const valueLetIds = new Set<string>();
+    collectUniqueFrameIdsFromBody(c.body, allFrameIds, c.name, design, valueLetIds);
     const paramByName = new Map(c.params.map((p) => [p.name, { typeName: p.typeName }]));
+    const callerParams = new Map(c.params.map((p) => [p.name, p.typeName]));
     const paramNames = new Set(c.params.map((p) => p.name));
-    assertForwardFrameVisibility(design, c.body, new Set(), allFrameIds, paramNames, c.name);
+    assertForwardFrameVisibility(
+      design,
+      c.body,
+      new Set(),
+      allFrameIds,
+      paramNames,
+      c.name,
+      valueLetIds,
+    );
     validateIfConditionsInBody(design, c.body, paramByName, c.name);
     const letKinds = collectLetFrameKinds(c.body);
     validateHiddenInBody(design, c.body, paramByName, c.name, c.rootKind, letKinds);
     validateFramePropsInBody(design, c.body, c.name, c.rootKind, letKinds);
+    validateLetValuesInBody(design, c.body, callerParams, c.name);
+    validateParamBindingsInBody(design, c.body, callerParams, c.name);
     validateFixturesForComponent(design, c.name);
     validateInteractionsForComponent(design, c.name);
     validateRulesForComponent(design, c.name);

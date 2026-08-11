@@ -34,7 +34,7 @@ Entry files only import; keep tokens in `foundation.pdl` (or split token files i
 | Primitive | `primitive space.md: Distance = 16` |
 | Semantic | `semantic color.fg: Color = color.brand` |
 | Color literal | `#RRGGBB` / `#RRGGBBAA` |
-| Opacity of color | `color.fg @ 0.5` |
+| Opacity (`@`) | `color.fg @ 0.5`, `children = [Pic @ 0.5]`, `Media(…) @ opacity.token` |
 | Radius (scalar) | `primitive radius.md: Radius = 8` — not `Corner(…)` |
 | Theme override | `theme Dark { color.fg = #F8FAFC }` |
 
@@ -69,9 +69,12 @@ component Chip(
 - Conditions: `size == .lg`, `tone != .ghost`
 - All params are public (no `expose`)
 
-## Frames
+## Frames (World A)
 
-Root kind after `) `: `layout` | `text` | `icon` | `media`.
+Root kind after `) `: `layout` | `text` | `icon` | `media` — `(…)` are params; `{ … }` is post-init body.
+
+Frame constructors: **`Text`**, **`Layout`**, **`Icon`**, **`Media`**.  
+Asset refs: **`IconRef(…)`**. Layer fills: **`MediaLayer(…)`**.
 
 ```pdl
 component Row() layout {
@@ -80,23 +83,21 @@ component Row() layout {
   gap = 8
   padding = EdgeInsets(x: 12, y: 8)
 
-  let Title: text = {
-    content = "Hello"
-    style = Body
-  }
-
+  let Title = Text(content: "Hello", style: Body)
   let Child = OtherComponent(label: "X")
 
   children = [Title, Child]
+  // or: children = [Layout(direction: .row, children: [Title, Child])]
 }
 ```
 
-- `let Name: kind = { … }` — nested frame
+- `let Name = Text|Layout|Icon|Media(…)` — nested frame (kwargs = frame props; optional `children:`)
 - `let Name = Comp(…)` — component instance
-- Bare `children = […]` attaches to the enclosing frame (nested `let` or root)
+- Bare `children = […]` attaches to the enclosing frame (root or after desugar)
 - `Spacer()` — flex grow pseudo-child in `children` (not `.spacer`)
 - Declare `let` **before** referencing the id in `children` / `FrameId.prop` (E019)
 - Nested `let` **ids unique within one component** (E021)
+- Classic `let Name: text = { … }` is **removed** (migrate to World A)
 
 ## Conditionals
 
@@ -122,8 +123,8 @@ protocol SubnavItem: component {
   emits { select(filter: FilterId) }
 }
 
-component FilterChip <SubnavItem>(selected: Boolean = false) layout {
-  let Label: text = { content = title }
+component FilterChip <SubnavItem>(selected: Bool = false) layout {
+  let Label = Text(content: title)
   children = [Label]
   self.pressEnd = { emit select(filter) }   // host inbound (§4a′)
 }

@@ -10,7 +10,5 @@ component LabCard(
 
   children = [Title]
 
-  let Title: text = {
-    content = title
-  }
+  let Title = Text(content: title)
 }

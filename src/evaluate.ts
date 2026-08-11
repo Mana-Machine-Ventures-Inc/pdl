@@ -231,7 +231,7 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
       if (expr.source === "file") {
         const path = evaluateValue(expr.path, opts);
         if (typeof path !== "string") {
-          throw new PdlError("PDL-E003", "Icon(file:) path must evaluate to a string", {
+          throw new PdlError("PDL-E003", "IconRef(file:) path must evaluate to a string", {
             path: opts.design.entryPath,
           });
         }
@@ -240,7 +240,7 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
       const systemRaw = evaluateValue(expr.system, opts);
       const name = evaluateValue(expr.name, opts);
       if (typeof systemRaw !== "string" || typeof name !== "string") {
-        throw new PdlError("PDL-E003", "Icon(system:, name:) requires string system and name", {
+        throw new PdlError("PDL-E003", "IconRef(system:, name:) requires string system and name", {
           path: opts.design.entryPath,
         });
       }
@@ -360,8 +360,13 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
       const ev = (k: string) => evaluateValue(args[k]!, opts);
       if (expr.callee === "Color") return ev("color");
       if (expr.callee === "Blur")
-        return { kind: "blur", blur: ev("blur"), ...(args.vibrancy ? { vibrancy: ev("vibrancy") } : {}) };
-      if (expr.callee === "Media")
+        return {
+          kind: "blur",
+          radius: ev("radius"),
+          ...(args.style ? { style: ev("style") } : {}),
+          ...(args.vibrancy ? { vibrancy: ev("vibrancy") } : {}),
+        };
+      if (expr.callee === "MediaLayer")
         return {
           kind: "media",
           source: ev("source"),
@@ -370,7 +375,17 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
           ...(args.align ? { align: ev("align") } : {}),
           ...(args.opacity ? { opacity: ev("opacity") } : {}),
         };
-      if (expr.callee === "Vibrancy") return { kind: "vibrancy", vibrancy: ev("vibrancy") };
+      if (expr.callee === "Vibrancy") {
+        if (args.saturation !== undefined && args.brightness !== undefined) {
+          return {
+            kind: "vibrancy",
+            saturation: ev("saturation"),
+            brightness: ev("brightness"),
+          };
+        }
+        // Legacy wrap form (rejected at validate); keep eval defensive.
+        return { kind: "vibrancy", vibrancy: ev("vibrancy") };
+      }
       if (expr.callee === "Ramp")
         return {
           kind: "ramp",

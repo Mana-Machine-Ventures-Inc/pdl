@@ -15,12 +15,15 @@ pub mod graph_serialize;
 pub mod interaction;
 pub mod lexer;
 pub mod pack;
+pub mod param_bindings;
+pub mod param_types;
 pub mod parser;
 pub mod resolve;
 pub mod resolve_bundle;
 pub mod rules_json;
 pub mod stable_json;
 pub mod validate;
+pub mod world_a;
 
 pub use catalogue::{build_catalogue_component_row, build_component_catalogue};
 pub use design::{

@@ -446,7 +446,7 @@ describe("renderHtml", () => {
     expect(frag).not.toContain("border:2px solid");
   });
 
-  it("maps inside borderPosition to inset box-shadow with Shadow object", () => {
+  it("maps inside borderPosition to overlay inset ring; drop Shadow stays on shell", () => {
     const frag = renderBakedComponentToHtmlFragment({
       name: "In",
       rootKind: "layout",
@@ -471,8 +471,66 @@ describe("renderHtml", () => {
         children: [],
       },
     });
-    expect(frag).toContain("box-shadow:inset 0 0 0 3px #ff0000, 0px 1px 2px 0px #00000033");
+    expect(frag).toContain('class="pdl-border-inside"');
+    expect(frag).toContain("box-shadow:inset 0 0 0 3px #ff0000");
+    // Drop shadow remains on the shell (not combined with the inset overlay).
+    expect(frag).toMatch(/style="[^"]*box-shadow:0px 1px 2px 0px #00000033/);
     expect(frag).not.toContain("border:3px solid");
+  });
+
+  it("keeps inside border visible above layered background bands", () => {
+    const frag = renderBakedComponentToHtmlFragment({
+      name: "SelectedDanger",
+      rootKind: "layout",
+      bakedParams: {},
+      root: {
+        id: "Root",
+        kind: "layout",
+        props: {
+          direction: "row",
+          background: "#F00",
+          borderWidth: 4,
+          borderColor: "#000",
+          borderPosition: "inside",
+          cornerRadius: 8,
+        },
+        children: [],
+      },
+    });
+    expect(frag).toContain("pdl-layout--layers");
+    expect(frag).toContain("pdl-layer-band");
+    expect(frag).toContain('class="pdl-border-inside"');
+    expect(frag).toContain("box-shadow:inset 0 0 0 4px #000");
+    // Overlay must appear after the background band in the shell.
+    const bandAt = frag.indexOf("pdl-layer-band");
+    const borderAt = frag.indexOf("pdl-border-inside");
+    expect(bandAt).toBeGreaterThan(-1);
+    expect(borderAt).toBeGreaterThan(bandAt);
+    // Shell must not carry the inset ring (that would sit under the band).
+    expect(frag).not.toMatch(/pdl-layout--layers"[^>]*box-shadow:inset/);
+  });
+
+  it("keeps outside border on shell when layered (no inside overlay)", () => {
+    const frag = renderBakedComponentToHtmlFragment({
+      name: "OutsideLayered",
+      rootKind: "layout",
+      bakedParams: {},
+      root: {
+        id: "Root",
+        kind: "layout",
+        props: {
+          direction: "column",
+          background: "#0F0",
+          borderWidth: 2,
+          borderColor: "#00F",
+          borderPosition: "outside",
+        },
+        children: [],
+      },
+    });
+    expect(frag).toContain("pdl-layout--layers");
+    expect(frag).not.toContain("pdl-border-inside");
+    expect(frag).toContain("box-shadow:0 0 0 2px #00F");
   });
 
   it("outside border keeps fixed width/height and does not emit CSS border", () => {
@@ -635,7 +693,7 @@ describe("renderHtml", () => {
         props: {
           direction: "column",
           background: [
-            { kind: "blur", blur: 8, vibrancy: { saturation: 1.2, brightness: 0.95 } },
+            { kind: "blur", radius: 8, vibrancy: { saturation: 1.2, brightness: 0.95 } },
             "#ffffff80",
           ],
         },
@@ -807,7 +865,7 @@ describe("renderHtml", () => {
             kind: "layout",
             props: {
               direction: "column",
-              background: [{ kind: "blur", blur: 6 }, "#f7f7f79e"],
+              background: [{ kind: "blur", radius: 6 }, "#f7f7f79e"],
             },
             children: [],
           },
@@ -869,6 +927,10 @@ describe("renderHtml", () => {
     expect(html).toContain('data-pdl-component="LibrarySubnav"');
     expect(html).toContain('data-pdl-interactive="1"');
     expect(html).toContain('data-pdl-instance-of="FilterChip"');
+    expect(html).toContain('data-pdl-pointer-input="1"');
+    expect(html).toMatch(
+      /\.pdl-preview\[data-pdl-interactive\]\s*\.pdl-canvas[\s\S]*cursor:\s*pointer/,
+    );
   });
 
   it("truncateStyle=.clip with lineClamp does not emit ellipsis or -webkit-line-clamp", () => {

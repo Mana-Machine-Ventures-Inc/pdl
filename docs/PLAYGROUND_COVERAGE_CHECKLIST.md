@@ -362,20 +362,24 @@ component LabCard(title: String = "Title") layout {
 **Spec:** §4 variants & params; §7 `if` / `else`.
 
 ```pdl
-variant Tone { case primary, secondary, danger }
+variant Tone {
+  case primary
+  case secondary
+  case danger
+}
 
 component LabButton(
   label: String = "Button",
-  tone: Tone = .primary,
-  selected: Boolean = false
+  tone: Tone = Tone.primary,
+  selected: Bool = false
 ) layout {
   direction = .row
   padding = EdgeInsets(x: 16, y: 10)
   cornerRadius = 8
 
-  if tone == .primary {
+  if tone == Tone.primary {
     background = color.…brand
-  } else if tone == .secondary {
+  } else if tone == Tone.secondary {
     background = color.…muted
   } else {
     background = color.…danger
@@ -398,7 +402,7 @@ component LabButton(
 ### 7.1 Params
 
 - [ ] `String` param → `content = label`  
-- [ ] `Boolean` param  
+- [ ] `Bool` param  
 - [ ] Number param (e.g. padding scale) if you use one  
 - [ ] Default applies when knobs empty  
 - [ ] Playground param controls change bake
@@ -415,7 +419,7 @@ component LabButton(
 
 - [ ] `if tone == .primary`  
 - [ ] `else if` / `else`  
-- [ ] Bare `if selected { }` (Boolean)  
+- [ ] Bare `if selected { }` (Bool)  
 - [ ] `!=`  
 - [ ] `&&` / `||` (no illegal mixed ops)  
 - [ ] `self.param` when a bind name collides (optional)
@@ -443,7 +447,8 @@ component LabRow() layout {
 - [ ] Two instances, **different** labels both correct  
 - [ ] Different tones both correct  
 - [ ] Changing knobs / interaction on one instance must **not** rewrite the sibling’s params  
-- [ ] Nested instance kwargs: `LabButton(label: title)` where `title` is parent param  
+- [x] Nested instance kwargs: `LabButton(label: title)` where `title` is parent param (same type)
+- [x] Instance kwargs type mismatch: `LabCard(title: tone)` / `LabCard(title: selected)` → **PDL-E040**  
 - [ ] (Optional) second file + `import "./buttons.pdl"` merge — same canvas
 
 **Phase 8 gate:** Multi-instance demo is trustworthy (Cancel ≠ Save).
@@ -523,7 +528,7 @@ Parent owns SoT; child emits; ForEach derives Bool (**locked Pattern A**):
 ```pdl
 component LabChip <PointerInput>(
   filter: FilterId = .all,
-  selected: Boolean = false
+  selected: Bool = false
 ) layout {
   // … chrome from selected / interactionState …
   self.pressEnd = { emit select(filter) }

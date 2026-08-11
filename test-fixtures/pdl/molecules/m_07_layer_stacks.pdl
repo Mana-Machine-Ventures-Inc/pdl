@@ -22,24 +22,28 @@ component MoleculeLayerInlineSandwich() layout {
   padding = EdgeInsets(x: 12, y: 12)
   background = atoms.color.sem.fromRgb
 
-  let Left: layout = {
-    direction = .column
-    width = .fill
-    height = .hug
-    padding = EdgeInsets(x: 8, y: 8)
-    background = [atoms.color.sem.fromRgba, atoms.color.rgb @ atoms.opacity.mid]
-    foreground = [atoms.color.rgba @ 0.08]
-    children = []
-  }
+  let Left = Layout(
+    direction: .column,
+    width: .fill,
+    height: .hug,
+    padding: EdgeInsets(x: 8,
+    y: 8),
+    background: [atoms.color.sem.fromRgba,
+    atoms.color.rgb @ atoms.opacity.mid],
+    foreground: [atoms.color.rgba @ 0.08],
+    children: []
+  )
 
-  let Right: layout = {
-    direction = .column
-    width = .hug
-    height = .fill
-    padding = EdgeInsets(x: 10, y: 10)
-    background = [Blur(blur: atoms.blur.light), atoms.color.sem.fromRgb @ atoms.opacity.mid]
-    children = []
-  }
+  let Right = Layout(
+    direction: .column,
+    width: .hug,
+    height: .fill,
+    padding: EdgeInsets(x: 10,
+    y: 10),
+    background: [atoms.blur.light,
+    atoms.color.sem.fromRgb @ atoms.opacity.mid],
+    children: []
+  )
 
   children = [Left, Right]
 }

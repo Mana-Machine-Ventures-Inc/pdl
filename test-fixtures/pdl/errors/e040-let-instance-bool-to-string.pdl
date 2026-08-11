@@ -1,0 +1,12 @@
+component LabCard(
+  title: String = "Card"
+) layout {
+  children = []
+}
+
+component Host(
+  selected: Bool = false
+) layout {
+  let Card = LabCard(title: selected)
+  children = [Card]
+}

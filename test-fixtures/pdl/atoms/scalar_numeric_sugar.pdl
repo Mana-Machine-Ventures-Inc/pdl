@@ -5,10 +5,6 @@ component ScalarNumericSugar() layout {
   height = 100
   direction = .column
 
-  let T: text = {
-    content = "Hi"
-    padding = 4
-    width = 80
-  }
+  let T = Text(content: "Hi", padding: 4, width: 80)
   children = [T]
 }

@@ -1,0 +1,4 @@
+component BadBoolean(
+  selected: Boolean = false
+) layout {
+}

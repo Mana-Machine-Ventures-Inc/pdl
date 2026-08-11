@@ -313,7 +313,8 @@ mod tests {
         let c = design.components.get("LibrarySubnav").expect("LibrarySubnav");
         let mut n = 0usize;
         for item in &c.body {
-            if let crate::ast::FrameBodyItem::ForEach { handlers, .. } = item {
+            if let crate::ast::FrameBodyItem::ForEach { body, .. } = item {
+                let handlers = crate::ast::foreach_layout_handlers(body);
                 n += handlers.len();
                 assert_eq!(handlers[0].channel, "select");
             }

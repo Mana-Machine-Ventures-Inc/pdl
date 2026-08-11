@@ -87,15 +87,23 @@ export type EvaluatedIconRef =
   | { kind: "iconRef"; source: "file"; path: string }
   | { kind: "iconRef"; source: "system"; system: IconSystem; name: string };
 
-export type EvaluatedMediaSourceRef = {
-  kind: "mediaSourceRef";
-  source: "file" | "url";
-  path?: string;
-  url?: string;
-  /** Author `kind:` / inferred role — IR key `mediaKind` (not `kind`, which is the tag). */
-  mediaKind?: MediaKind;
-  format?: MediaFormat;
-};
+export type EvaluatedMediaSourceRef =
+  | {
+      kind: "mediaSourceRef";
+      source: "file";
+      path: string;
+      /** Author `kind:` / inferred role — IR key `mediaKind` (not `kind`, which is the tag). */
+      mediaKind?: MediaKind;
+      format?: MediaFormat;
+    }
+  | {
+      kind: "mediaSourceRef";
+      source: "url";
+      url: string;
+      /** Author `kind:` / inferred role — IR key `mediaKind` (not `kind`, which is the tag). */
+      mediaKind?: MediaKind;
+      format?: MediaFormat;
+    };
 
 export function isEvaluatedIconRef(v: unknown): v is EvaluatedIconRef {
   return (
@@ -136,20 +144,20 @@ export function finalizeMediaSourceRef(
   ref: EvaluatedMediaSourceRef,
   entryPath: string,
 ): EvaluatedMediaSourceRef {
-  const address = ref.source === "url" ? ref.url! : ref.path!;
+  const address = ref.source === "url" ? ref.url : ref.path;
   let mediaKind = ref.mediaKind;
   let format = ref.format;
   const inferred = inferMediaFormatFromAddress(address);
   if (!format && inferred) format = inferred;
   if (!mediaKind && format) mediaKind = mediaKindForFormat(format);
   assertMediaKindFormatConsistent(mediaKind, format, entryPath);
-  return {
-    kind: "mediaSourceRef",
-    source: ref.source,
-    ...(ref.source === "url" ? { url: ref.url } : { path: ref.path }),
+  const meta = {
     ...(mediaKind ? { mediaKind } : {}),
     ...(format ? { format } : {}),
   };
+  return ref.source === "url"
+    ? { kind: "mediaSourceRef", source: "url", url: ref.url, ...meta }
+    : { kind: "mediaSourceRef", source: "file", path: ref.path, ...meta };
 }
 
 /** Coerce evaluated Icon token / frame values to a tagged iconRef (file string sugar → file). */
@@ -176,7 +184,7 @@ export function coerceIconValue(value: unknown, entryPath: string): EvaluatedIco
     if (!isPackRelativeFilePath(value)) {
       throw new PdlError(
         "PDL-E005",
-        `Icon string must be a pack-relative file path (e.g. \`icons/star.svg\`); bare names like \`${value}\` are ambiguous — use \`Icon(system: .sfSymbols, name: "${value}")\` or a file path`,
+        `Icon string must be a pack-relative file path (e.g. \`icons/star.svg\`); bare names like \`${value}\` are ambiguous — use \`IconRef(system: .sfSymbols, name: "${value}")\` or a file path`,
         { path: entryPath },
       );
     }
@@ -184,7 +192,7 @@ export function coerceIconValue(value: unknown, entryPath: string): EvaluatedIco
   }
   throw new PdlError(
     "PDL-E005",
-    "Icon value must be Icon(file: …), Icon(system: …, name: …), a pack-relative path string, or an Icon token",
+    "Icon value must be IconRef(file: …), IconRef(system: …, name: …), a pack-relative path string, or an Icon token",
     { path: entryPath },
   );
 }

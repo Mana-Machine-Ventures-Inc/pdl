@@ -1,0 +1,11 @@
+// World A: Text / Layout frame constructors (desugar to classic lets).
+
+component AtomWorldA() layout {
+  direction = .column
+  gap = 8
+
+  let title = Text(content: "Hello World A", color: #222222, fontSize: 16)
+  let row = Layout(direction: .row, gap: 4, children: [title])
+
+  children = [row]
+}

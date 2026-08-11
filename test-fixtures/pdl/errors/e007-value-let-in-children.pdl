@@ -1,0 +1,4 @@
+component Bad() layout {
+  let ramp: Ramp = Ramp(direction: .bottomToTop, stops: [])
+  children = [ramp]
+}

@@ -345,7 +345,7 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
             if !path.is_string() {
                 return Err(PdlError::new(
                     "PDL-E003",
-                    "Icon(file:) path must evaluate to a string".to_string(),
+                    "IconRef(file:) path must evaluate to a string".to_string(),
                     Some(ev.design.entry_path.clone()),
                     None,
                     None,
@@ -363,7 +363,7 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
             let Some(system_str) = system_raw.as_str() else {
                 return Err(PdlError::new(
                     "PDL-E003",
-                    "Icon(system:, name:) requires string system and name".to_string(),
+                    "IconRef(system:, name:) requires string system and name".to_string(),
                     Some(ev.design.entry_path.clone()),
                     None,
                     None,
@@ -372,7 +372,7 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
             if !name.is_string() {
                 return Err(PdlError::new(
                     "PDL-E003",
-                    "Icon(system:, name:) requires string system and name".to_string(),
+                    "IconRef(system:, name:) requires string system and name".to_string(),
                     Some(ev.design.entry_path.clone()),
                     None,
                     None,
@@ -570,14 +570,17 @@ fn evaluate_call(
         CallCallee::Blur => {
             let mut entries = vec![
                 ("kind", Value::String("blur".to_string())),
-                ("blur", get("blur")?),
+                ("radius", get("radius")?),
             ];
+            if args.contains_key("style") {
+                entries.push(("style", get("style")?));
+            }
             if args.contains_key("vibrancy") {
                 entries.push(("vibrancy", get("vibrancy")?));
             }
             Ok(obj(entries))
         }
-        CallCallee::Media => {
+        CallCallee::MediaLayer => {
             let mut entries = vec![
                 ("kind", Value::String("media".to_string())),
                 ("source", get("source")?),
@@ -596,10 +599,21 @@ fn evaluate_call(
             }
             Ok(obj(entries))
         }
-        CallCallee::Vibrancy => Ok(obj(vec![
-            ("kind", Value::String("vibrancy".to_string())),
-            ("vibrancy", get("vibrancy")?),
-        ])),
+        CallCallee::Vibrancy => {
+            if args.contains_key("saturation") && args.contains_key("brightness") {
+                Ok(obj(vec![
+                    ("kind", Value::String("vibrancy".to_string())),
+                    ("saturation", get("saturation")?),
+                    ("brightness", get("brightness")?),
+                ]))
+            } else {
+                // Legacy wrap form (rejected at validate); keep eval defensive.
+                Ok(obj(vec![
+                    ("kind", Value::String("vibrancy".to_string())),
+                    ("vibrancy", get("vibrancy")?),
+                ]))
+            }
+        }
         CallCallee::Ramp => Ok(obj(vec![
             ("kind", Value::String("ramp".to_string())),
             ("direction", get("direction")?),

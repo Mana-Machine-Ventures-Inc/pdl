@@ -12,33 +12,26 @@ component MoleculeKindRichRow(kind: MoleculeMatrixKind = .primary) layout {
   cornerRadius = atoms.radius.sm
   background = atoms.color.sem.fromRgb
 
-  let G: icon = {
-    icon = atoms.icon.star
-    size = 22
-    color = atoms.color.rgba
+  let G = Icon(icon: atoms.icon.star, size: 22, color: atoms.color.rgba)
 
-    if kind == .primary {
-      icon = atoms.icon.star
-    } else if kind == .secondary {
-      icon = atoms.icon.chevron
-    } else {
-      icon = Icon(system: .sfSymbols, name: "xmark")
-    }
+  if kind == .primary {
+    G.icon = atoms.icon.star
+  } else if kind == .secondary {
+    G.icon = atoms.icon.chevron
+  } else {
+    G.icon = IconRef(system: .sfSymbols, name: "xmark")
   }
 
-  let L: text = {
-    content = "Action"
-    style = AtomBody
+  let L = Text(content: "Action", style: AtomBody)
 
-    if kind == .primary {
-      content = "Save changes"
-      style = AtomCaption
-    } else if kind == .secondary {
-      content = "Learn more about billing"
-    } else {
-      content = "Permanently delete"
-      style = AtomTitle
-    }
+  if kind == .primary {
+    L.content = "Save changes"
+    L.style = AtomCaption
+  } else if kind == .secondary {
+    L.content = "Learn more about billing"
+  } else {
+    L.content = "Permanently delete"
+    L.style = AtomTitle
   }
 
   children = [G, L]

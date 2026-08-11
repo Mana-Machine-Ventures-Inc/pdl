@@ -8,20 +8,11 @@ component MoleculeLabelStack() layout {
   padding = EdgeInsets(x: atoms.space.md, y: atoms.space.md)
   background = atoms.color.sem.fromRgb
 
-  let A: text = {
-    content = "Caption"
-    style = AtomCaption
-  }
+  let A = Text(content: "Caption", style: AtomCaption)
 
-  let B: text = {
-    content = "Title line"
-    style = AtomTitle
-  }
+  let B = Text(content: "Title line", style: AtomTitle)
 
-  let C: text = {
-    content = "Muted supporting copy"
-    style = AtomBody
-  }
+  let C = Text(content: "Muted supporting copy", style: AtomBody)
 
   children = [A, B, C]
 }
@@ -31,49 +22,41 @@ component MoleculeLabelRowJustifySweep() layout {
   gap = atoms.space.md
   background = atoms.color.sem.fromRgba
 
-  let RowStart: layout = {
-    direction = .row
-    justify = .start
-    align = .center
-    gap = atoms.space.sm
-    let LStart: text = {
-      content = "Start"
-      fontSize = 14
-      color = atoms.color.sem.fromRgb
-    }
-    children = [LStart]
-  }
+  let LStart = Text(
+    content: "Start",
+    fontSize: 14,
+    color: atoms.color.sem.fromRgb
+  )
+  let RowStart = Layout(
+    direction: .row,
+    justify: .start,
+    align: .center,
+    gap: atoms.space.sm,
+    children: [LStart]
+  )
 
-  let RowBetween: layout = {
-    direction = .row
-    justify = .spaceBetween
-    align = .center
-    gap = atoms.space.sm
-    let A: text = {
-      content = "A"
-      fontSize = 12
-      color = atoms.color.rgb
-    }
-    let B: text = {
-      content = "B"
-      fontSize = 12
-      color = atoms.color.rgba
-    }
-    children = [A, B]
-  }
+  let A = Text(content: "A", fontSize: 12, color: atoms.color.rgb)
+  let B = Text(content: "B", fontSize: 12, color: atoms.color.rgba)
+  let RowBetween = Layout(
+    direction: .row,
+    justify: .spaceBetween,
+    align: .center,
+    gap: atoms.space.sm,
+    children: [A, B]
+  )
 
-  let RowEnd: layout = {
-    direction = .row
-    justify = .end
-    align = .stretch
-    gap = atoms.space.xs
-    let LEnd: text = {
-      content = "End"
-      fontSize = 14
-      color = atoms.color.sem.fromRgba
-    }
-    children = [LEnd]
-  }
+  let LEnd = Text(
+    content: "End",
+    fontSize: 14,
+    color: atoms.color.sem.fromRgba
+  )
+  let RowEnd = Layout(
+    direction: .row,
+    justify: .end,
+    align: .stretch,
+    gap: atoms.space.xs,
+    children: [LEnd]
+  )
 
   children = [RowStart, RowBetween, RowEnd]
 }
@@ -87,41 +70,37 @@ component MoleculeThreeColumnLabels() layout {
   padding = EdgeInsets(x: 12, y: 12)
   background = atoms.color.rgb
 
-  let Col1: layout = {
-    direction = .column
-    align = .start
-    gap = 4
-    let T1: text = {
-      content = "Column 1"
-      fontSize = 13
-      color = atoms.color.sem.fromRgb
-    }
-    children = [T1]
-  }
+  let T1 = Text(
+    content: "Column 1",
+    fontSize: 13,
+    color: atoms.color.sem.fromRgb
+  )
+  let Col1 = Layout(
+    direction: .column,
+    align: .start,
+    gap: 4,
+    children: [T1]
+  )
 
-  let Col2: layout = {
-    direction = .column
-    align = .center
-    gap = 4
-    let T2: text = {
-      content = "Column 2"
-      fontSize = 13
-      color = atoms.color.sem.fromRgba
-    }
-    children = [T2]
-  }
+  let T2 = Text(
+    content: "Column 2",
+    fontSize: 13,
+    color: atoms.color.sem.fromRgba
+  )
+  let Col2 = Layout(
+    direction: .column,
+    align: .center,
+    gap: 4,
+    children: [T2]
+  )
 
-  let Col3: layout = {
-    direction = .column
-    align = .end
-    gap = 4
-    let T3: text = {
-      content = "Column 3"
-      fontSize = 13
-      color = atoms.color.rgba
-    }
-    children = [T3]
-  }
+  let T3 = Text(content: "Column 3", fontSize: 13, color: atoms.color.rgba)
+  let Col3 = Layout(
+    direction: .column,
+    align: .end,
+    gap: 4,
+    children: [T3]
+  )
 
   children = [Col1, Col2, Col3]
 }

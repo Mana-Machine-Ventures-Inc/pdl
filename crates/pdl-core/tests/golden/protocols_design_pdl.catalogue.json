@@ -178,7 +178,7 @@
         {
           "default": false,
           "name": "selected",
-          "type": "Boolean"
+          "type": "Bool"
         },
         {
           "default": "rest",
@@ -1053,7 +1053,7 @@
         {
           "default": false,
           "name": "editing",
-          "type": "Boolean"
+          "type": "Bool"
         }
       ],
       "root": {

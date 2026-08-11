@@ -28,29 +28,18 @@ component MoleculeNavRow(
     gap = atoms.space.sm
   }
 
-  let Title: text = {
-    content = title
-    style = AtomBody
-  }
+  let Title = Text(content: title, style: AtomBody)
 
-  let Trail: layout = {
-    direction = .row
-    align = .center
-    gap = atoms.space.xs
+  let Meta = Text(content: meta, style: AtomCaption)
 
-    let Meta: text = {
-      content = meta
-      style = AtomCaption
-    }
+  let Chev = Icon(icon: atoms.icon.chevron, size: 16, color: atoms.color.rgba)
 
-    let Chev: icon = {
-      icon = atoms.icon.chevron
-      size = 16
-      color = atoms.color.rgba
-    }
-
-    children = [Meta, Chev]
-  }
+  let Trail = Layout(
+    direction: .row,
+    align: .center,
+    gap: atoms.space.xs,
+    children: [Meta, Chev]
+  )
 
   children = [Title, Trail]
 }

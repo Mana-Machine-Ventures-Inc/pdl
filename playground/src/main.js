@@ -42,12 +42,12 @@ component Button() layout {
   width = .hug
   height = .hug
 
-  let Label: text = {
-    content = "Button"
-    color = atoms.color.labelOnBrand
-    fontSize = 15
-    fontWeight = 600
-  }
+  let Label = Text(
+    content: "Button",
+    color: atoms.color.labelOnBrand,
+    fontSize: 15,
+    fontWeight: 600
+  )
 
   children = [Label]
 }

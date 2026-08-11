@@ -14,7 +14,7 @@ protocol FormField: component {
 component SearchField <FormField> (
   value: String = "",
   placeholder: String = "Search",
-  editing: Boolean = false
+  editing: Bool = false
 ) text {
   editable = value
   content = placeholder

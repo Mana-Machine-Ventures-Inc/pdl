@@ -1,0 +1,17 @@
+// Typed value let: bind a Ramp for reuse in background layers.
+
+component AtomLetValueRamp() layout {
+  width = 200
+  height = 120
+
+  let ramp: Ramp = Ramp(
+    direction: .bottomToTop,
+    stops: [
+      GradientStop(color: #F00, opacity: 1, position: 0.0),
+      GradientStop(color: #00F, opacity: 1, position: 1)
+    ]
+  )
+
+  background = [ramp]
+  children = []
+}

@@ -9,10 +9,7 @@ variant CompanionTone {
 component CompanionBlock <PointerInput>(tone: CompanionTone = .neutral) layout {
   direction = .row
 
-  let L: text = {
-    content = "Hi"
-    style = AtomCaption
-  }
+  let L = Text(content: "Hi", style: AtomCaption)
 
   children = [L]
 

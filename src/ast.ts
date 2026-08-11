@@ -4,7 +4,7 @@
 
 export type ConditionExpr =
   | { kind: "cmp"; param: string; op: "==" | "!="; rhs: string }
-  /** Bare Boolean param: `if selected { … }` / `if editing { … }` (Rust `Truthy`). */
+  /** Bare Bool param: `if selected { … }` / `if editing { … }` (Rust `Truthy`). */
   | { kind: "truthy"; param: string }
   | { kind: "and"; items: ConditionExpr[] }
   | { kind: "or"; items: ConditionExpr[] }
@@ -36,7 +36,7 @@ export type ValueExpr =
       color: ValueExpr;
       spread?: ValueExpr;
     }
-  /** `Icon(file: "…")` or `Icon(system: .sfSymbols, name: "…")`. */
+  /** `IconRef(file: "…")` or `IconRef(system: .sfSymbols, name: "…")`. */
   | { kind: "iconRef"; source: "file"; path: ValueExpr }
   | { kind: "iconRef"; source: "system"; system: ValueExpr; name: ValueExpr }
   /** `MediaSource(file: "…" [, kind:, format:])` or `MediaSource(url: "…" [, kind:, format:])`. */
@@ -68,7 +68,11 @@ export type ValueExpr =
       aspect?: ValueExpr;
       flexArgs?: Record<string, ValueExpr>;
     }
-  | { kind: "call"; callee: "Color" | "Ramp" | "Blur" | "Media" | "Vibrancy"; args: Record<string, ValueExpr> }
+  | {
+      kind: "call";
+      callee: "Color" | "Ramp" | "Blur" | "MediaLayer" | "Vibrancy";
+      args: Record<string, ValueExpr>;
+    }
   | { kind: "gradientStop"; fields: Record<string, ValueExpr> };
 
 export type ComponentParam = {
@@ -79,10 +83,27 @@ export type ComponentParam = {
   defaultValue: ValueExpr;
 };
 
+/** World A frame ctor before desugar (`Text` / `Layout` / `Icon` / `Media`). */
+export type FrameCtorChild = {
+  kind: "frameCtor";
+  frameKind: "layout" | "text" | "icon" | "media";
+  props: Record<string, ValueExpr>;
+  /** Nested `children:` entries (may themselves include frameCtors). */
+  childEntries?: ChildEntry[];
+  opacity?: ValueExpr;
+};
+
 export type ChildEntry =
-  | { kind: "frameRef"; id: string }
+  | { kind: "frameRef"; id: string; /** Mount-time frame `opacity` from `Pic @ …`. */ opacity?: ValueExpr }
   | { kind: "spacer" }
-  | { kind: "instance"; component: string; kwargs: Record<string, ValueExpr> };
+  | FrameCtorChild
+  | {
+      kind: "instance";
+      component: string;
+      kwargs: Record<string, ValueExpr>;
+      /** Mount-time root `opacity` from `Comp(…) @ …`. */
+      opacity?: ValueExpr;
+    };
 
 export type FrameBodyItem =
   | { kind: "prop"; name: string; value: ValueExpr }
@@ -90,6 +111,8 @@ export type FrameBodyItem =
   | { kind: "children"; target: "root" | { letId: string }; entries: ChildEntry[] }
   | { kind: "let"; id: string; frameKind: string; body: FrameBodyItem[] }
   | { kind: "letInstance"; id: string; component: string; kwargs: Record<string, ValueExpr> }
+  /** Local typed value: `let ramp: Ramp = Ramp(…)` — not a frame; reusable in props/layers. */
+  | { kind: "letValue"; id: string; typeName: string; value: ValueExpr }
   | { kind: "if"; chain: IfChain };
 
 export type IfChain = {

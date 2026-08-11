@@ -298,7 +298,7 @@ function flattenLayerOps(fill: unknown): LayerOp[] {
     const o = v as Record<string, unknown>;
     const k = o.kind;
     if (k === "blur") {
-      const px = finiteNum(o.blur);
+      const px = finiteNum(o.radius) ?? finiteNum(o.blur);
       if (px !== undefined && px > 0) {
         const vib = vibrancyFromValue(o.vibrancy);
         out.push({ kind: "blur", px, ...(vib ? { vibrancy: vib } : {}) });
@@ -446,10 +446,10 @@ function shadowLayerCss(shadow: unknown): string | undefined {
 }
 
 /**
- * Paint-only border ring + drop shadow as one `box-shadow`.
- * Borders never use CSS `border` — they must not change layout size
- * (`borderPosition` inside or outside). Ring layer is listed first so it
- * paints above the drop shadow.
+ * Shell chrome: **outside** border ring + drop `shadow` as one `box-shadow`.
+ * Borders never use CSS `border` — they must not change layout size.
+ * Inside borders are a separate overlay (see `insideBorderOverlayHtml`) so layer
+ * bands / children cannot paint over them.
  */
 function dropShadowCss(props: Record<string, unknown>): string | undefined {
   return combinedBoxShadowCss(props);
@@ -470,26 +470,74 @@ function overflowCss(overflow: unknown): string | undefined {
   return v ? `overflow:${v}` : undefined;
 }
 
-/** Border ring + optional drop `shadow` → single `box-shadow` (paint-only). */
+function borderPositionOf(props: Record<string, unknown>): "inside" | "outside" {
+  const posRaw = props.borderPosition;
+  const pos =
+    typeof posRaw === "string" ? posRaw : (dotEnumValue(posRaw) ?? "outside");
+  return pos === "inside" ? "inside" : "outside";
+}
+
+/** Paint-only outside ring + optional drop `shadow` on the frame shell. */
 function combinedBoxShadowCss(props: Record<string, unknown>): string | undefined {
   const parts: string[] = [];
   const w = finiteNum(props.borderWidth);
   const c = props.borderColor;
-  const posRaw = props.borderPosition;
-  const pos =
-    typeof posRaw === "string" ? posRaw : (dotEnumValue(posRaw) ?? "outside");
-  if (w !== undefined && w > 0 && typeof c === "string" && c.length > 0) {
-    if (pos === "inside") {
-      parts.push(`inset 0 0 0 ${String(w)}px ${c}`);
-    } else {
-      // outside (default): outer ring; does not affect layout box size.
-      parts.push(`0 0 0 ${String(w)}px ${c}`);
-    }
+  if (
+    borderPositionOf(props) === "outside" &&
+    w !== undefined &&
+    w > 0 &&
+    typeof c === "string" &&
+    c.length > 0
+  ) {
+    // outside (default): outer ring; does not affect layout box size.
+    parts.push(`0 0 0 ${String(w)}px ${c}`);
   }
   const drop = shadowLayerCss(props.shadow);
   if (drop) parts.push(drop);
   if (parts.length === 0) return undefined;
   return `box-shadow:${parts.join(", ")}`;
+}
+
+/**
+ * Inside border as chrome overlay above background / children / foreground
+ * (typical §14 stack: … → children → foreground → border → shadow).
+ * Parent must be `position:relative` (see `withInsideBorderOverlay`).
+ */
+function insideBorderOverlayHtml(props: Record<string, unknown>): string {
+  const w = finiteNum(props.borderWidth);
+  const c = props.borderColor;
+  if (
+    borderPositionOf(props) !== "inside" ||
+    w === undefined ||
+    !(w > 0) ||
+    typeof c !== "string" ||
+    c.length === 0
+  ) {
+    return "";
+  }
+  const st = [
+    "position:absolute",
+    "inset:0",
+    "border-radius:inherit",
+    "pointer-events:none",
+    "z-index:3",
+    `box-shadow:inset 0 0 0 ${String(w)}px ${c}`,
+  ].join(";");
+  return `<div class="pdl-border-inside" style="${escapeStyleAttr(st)}" aria-hidden="true"></div>`;
+}
+
+/** Ensure positioning context, then append inside-border overlay HTML. */
+function withInsideBorderOverlay(
+  shellStyle: string,
+  props: Record<string, unknown>,
+  innerHtml: string,
+): { style: string; html: string } {
+  const overlay = insideBorderOverlayHtml(props);
+  if (!overlay) return { style: shellStyle, html: innerHtml };
+  const style = /(?:^|;)position\s*:/.test(shellStyle)
+    ? shellStyle
+    : mergeInlineStyles(shellStyle, "position:relative");
+  return { style, html: `${innerHtml}${overlay}` };
 }
 
 function gridPlaceItems(align: unknown, justify: unknown): string {
@@ -962,7 +1010,44 @@ type InstanceRenderCtx = {
   nextKey: number;
   /** Prebaked non-rest trees keyed by instance key (`i0`, …) then state name. */
   stateTrees: Record<string, Record<string, BakedComponentJson>>;
+  /** Component types that declare PointerInput host channels (hover/press). */
+  pointerInputTypes?: ReadonlySet<string>;
 };
+
+/** True when catalogue interaction decls include hover/press host channels. */
+function declsHavePointerInput(decls: unknown): boolean {
+  if (!Array.isArray(decls)) return false;
+  for (const d of decls) {
+    if (!d || typeof d !== "object") continue;
+    const handlers = (d as { handlers?: unknown }).handlers;
+    if (!Array.isArray(handlers)) continue;
+    for (const h of handlers) {
+      if (!h || typeof h !== "object") continue;
+      const event = (h as { event?: unknown }).event;
+      if (
+        event === "hoverStart" ||
+        event === "hoverEnd" ||
+        event === "pressStart" ||
+        event === "pressEnd" ||
+        event === "pressCancel"
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function pointerInputTypesFromInteractions(
+  interactionsByComponent: Record<string, unknown> | undefined,
+): Set<string> {
+  const out = new Set<string>();
+  if (!interactionsByComponent) return out;
+  for (const [name, decls] of Object.entries(interactionsByComponent)) {
+    if (declsHavePointerInput(decls)) out.add(name);
+  }
+  return out;
+}
 
 function iconFrameStyle(props: Record<string, unknown>, opts: FrameRenderOpts): string {
   const sz = finiteNum(props.size) ?? 24;
@@ -1011,7 +1096,13 @@ function renderFrame(
     wantInst && frame.instanceKwargs
       ? ` data-pdl-instance-kwargs="${escapeAttr(JSON.stringify(frame.instanceKwargs))}"`
       : "";
-  const instAttrs = `${inst}${kwargsAttr}`;
+  const pointerAttr =
+    wantInst &&
+    frame.instanceOf &&
+    instCtx?.pointerInputTypes?.has(frame.instanceOf)
+      ? ` data-pdl-pointer-input="1"`
+      : "";
+  const instAttrs = `${inst}${kwargsAttr}${pointerAttr}`;
 
   // Nested interactive instances: wrap with per-kwargs state fragments for local swap.
   if (wantInst && instCtx && frame.instanceOf) {
@@ -1024,7 +1115,7 @@ function renderFrame(
         const frag = renderFrame(stateComp.root, { stackChild: false, stackZ: 0 });
         blocks += `<div class="pdl-inst-state" data-pdl-state="${escapeAttr(stateName)}" hidden>${frag}</div>`;
       }
-      return `<div class="pdl-instance"${inst}${kwargsAttr} data-pdl-instance-key="${escapeAttr(key)}">${blocks}</div>`;
+      return `<div class="pdl-instance"${inst}${kwargsAttr}${pointerAttr} data-pdl-instance-key="${escapeAttr(key)}">${blocks}</div>`;
     }
   }
 
@@ -1032,9 +1123,10 @@ function renderFrame(
     const isStack = isStackDirection(props.direction);
     const layered = layoutLayerBandsActive(props);
     if (layered) {
-      // Shell holds chrome (radius, shadow, border rings, layer bands). Overflow lives on
+      // Shell holds chrome (radius, outside border, drop shadow, layer bands).
+      // Inside border is an overlay above bands/content. Overflow lives on
       // `__content` so background/foreground do not scroll with children.
-      const style = mergeInlineStyles(
+      const shellStyle = mergeInlineStyles(
         frameBoxStyle(props, "layout", opts),
         isStack ? "position:relative" : "",
       );
@@ -1056,16 +1148,18 @@ function renderFrame(
         .map((ch, i) => renderFrame(ch, stackChildOpts(props.direction, i, kids.length), instCtx))
         .join("");
       const inner = `<div class="pdl-layout__content" style="${escapeStyleAttr(innerStyle)}">${innerKids}</div>`;
-      return `<div class="pdl-frame pdl-layout pdl-layout--layers"${dataId}${instAttrs} style="${escapeStyleAttr(style)}">${under}${inner}${over}</div>`;
+      const { style, html } = withInsideBorderOverlay(shellStyle, props, `${under}${inner}${over}`);
+      return `<div class="pdl-frame pdl-layout pdl-layout--layers"${dataId}${instAttrs} style="${escapeStyleAttr(style)}">${html}</div>`;
     }
-    const style = mergeInlineStyles(
+    const shellStyle = mergeInlineStyles(
       frameBoxStyle(props, "layout", opts),
       isStack ? "position:relative" : "",
     );
     const inner = kids
       .map((ch, i) => renderFrame(ch, stackChildOpts(props.direction, i, kids.length), instCtx))
       .join("");
-    return `<div class="pdl-frame pdl-layout"${dataId}${instAttrs} style="${escapeStyleAttr(style)}">${inner}</div>`;
+    const { style, html } = withInsideBorderOverlay(shellStyle, props, inner);
+    return `<div class="pdl-frame pdl-layout"${dataId}${instAttrs} style="${escapeStyleAttr(style)}">${html}</div>`;
   }
 
   if (kind === "text") {
@@ -1119,16 +1213,21 @@ function renderFrame(
       );
       const under = renderLayerBandHtml(flattenLayerOps(props.background), 0);
       const over = renderLayerBandHtml(flattenLayerOps(props.foreground), 2);
-      return `<span class="pdl-frame pdl-text pdl-text--layers"${dataId}${instAttrs} style="${escapeStyleAttr(wrapStyle)}">${under}<span class="pdl-text__inner" style="${escapeStyleAttr(innerStyle)}">${escapeHtml(content)}</span>${over}</span>`;
+      const body = `${under}<span class="pdl-text__inner" style="${escapeStyleAttr(innerStyle)}">${escapeHtml(content)}</span>${over}`;
+      const { style, html } = withInsideBorderOverlay(wrapStyle, props, body);
+      return `<span class="pdl-frame pdl-text pdl-text--layers"${dataId}${instAttrs} style="${escapeStyleAttr(style)}">${html}</span>`;
     }
     if (clamped) {
       // Outer keeps frame size / align / overflow; inner always hides excess lines.
       const outer = mergeInlineStyles(textClampOuterStyle(props), itemStack);
       const inner = textClampInnerStyle(props);
-      return `<span class="pdl-frame pdl-text"${dataId}${instAttrs} style="${escapeStyleAttr(outer)}"><span class="pdl-text__clamp" style="${escapeStyleAttr(inner)}">${escapeHtml(content)}</span></span>`;
+      const body = `<span class="pdl-text__clamp" style="${escapeStyleAttr(inner)}">${escapeHtml(content)}</span>`;
+      const { style, html } = withInsideBorderOverlay(outer, props, body);
+      return `<span class="pdl-frame pdl-text"${dataId}${instAttrs} style="${escapeStyleAttr(style)}">${html}</span>`;
     }
-    const style = mergeInlineStyles(textInlineStyle(props), itemStack);
-    return `<span class="pdl-frame pdl-text"${dataId}${instAttrs} style="${escapeStyleAttr(style)}">${escapeHtml(content)}</span>`;
+    const shellStyle = mergeInlineStyles(textInlineStyle(props), itemStack);
+    const { style, html } = withInsideBorderOverlay(shellStyle, props, escapeHtml(content));
+    return `<span class="pdl-frame pdl-text"${dataId}${instAttrs} style="${escapeStyleAttr(style)}">${html}</span>`;
   }
 
   if (kind === "spacer") {
@@ -1167,6 +1266,16 @@ function renderFrame(
         "padding:0",
         "object-fit:contain",
       );
+      // <img> cannot host an inside-border overlay child; wrap when needed.
+      const overlay = insideBorderOverlayHtml(props);
+      if (overlay) {
+        const { style: wrapStyle, html } = withInsideBorderOverlay(
+          mergeInlineStyles(imgStyle, "display:inline-block"),
+          props,
+          `<img class="pdl-icon__img" src="${escapeAttr(fileSrc)}" alt="${escapeAttr(label)}" style="display:block;width:100%;height:100%;object-fit:contain;border:none" />`,
+        );
+        return `<div class="pdl-frame pdl-icon pdl-icon--file"${dataId}${instAttrs} style="${escapeStyleAttr(wrapStyle)}">${html}</div>`;
+      }
       return `<img class="pdl-frame pdl-icon pdl-icon--file"${dataId}${instAttrs} src="${escapeAttr(fileSrc)}" alt="${escapeAttr(label)}" style="${escapeStyleAttr(imgStyle)}" />`;
     }
     const sysHint =
@@ -1174,7 +1283,8 @@ function renderFrame(
         ? ` data-pdl-icon-system="${escapeAttr(iconVal.system)}" data-pdl-icon-name="${escapeAttr(iconVal.name)}"`
         : "";
     const caption = `<span class="pdl-icon__name" style="color:#fff;font-size:${fontPx}px;font-weight:600;line-height:1.1;text-align:center;padding:1px;text-shadow:0 0 2px rgba(0,0,0,0.55);word-break:break-all">${escapeHtml(label)}</span>`;
-    return `<div class="pdl-frame pdl-icon"${dataId}${instAttrs}${sysHint} style="${escapeStyleAttr(style)}" role="img" aria-label="${escapeAttr(label)}">${caption}</div>`;
+    const { style: iconStyle, html: iconHtml } = withInsideBorderOverlay(style, props, caption);
+    return `<div class="pdl-frame pdl-icon"${dataId}${instAttrs}${sysHint} style="${escapeStyleAttr(iconStyle)}" role="img" aria-label="${escapeAttr(label)}">${iconHtml}</div>`;
   }
 
   if (kind === "media") {
@@ -1223,15 +1333,39 @@ function renderFrame(
       } else {
         mediaInner = `<img class="pdl-media__img" src="${escapeAttr(src)}" alt="${escapeAttr(label)}" style="${escapeStyleAttr(innerStyle)}" />`;
       }
-      return `<div class="pdl-frame pdl-media pdl-media--layers"${dataId}${instAttrs} style="${escapeStyleAttr(wrapStyle)}">${under}${mediaInner}${over}</div>`;
+      const { style: mediaStyle, html } = withInsideBorderOverlay(
+        wrapStyle,
+        props,
+        `${under}${mediaInner}${over}`,
+      );
+      return `<div class="pdl-frame pdl-media pdl-media--layers"${dataId}${instAttrs} style="${escapeStyleAttr(mediaStyle)}">${html}</div>`;
     }
     if (hasSrc && mediaKind === "video") {
+      const overlay = insideBorderOverlayHtml(props);
+      if (overlay) {
+        const { style: wrapStyle, html } = withInsideBorderOverlay(
+          mergeInlineStyles(style, "display:inline-block"),
+          props,
+          `<video class="pdl-media__img" src="${escapeAttr(src)}" style="display:block;width:100%;height:100%;border:none" playsinline muted loop aria-label="${escapeAttr(label)}"></video>`,
+        );
+        return `<div class="pdl-frame pdl-media"${dataId}${instAttrs} style="${escapeStyleAttr(wrapStyle)}">${html}</div>`;
+      }
       return `<video class="pdl-frame pdl-media"${dataId}${instAttrs} src="${escapeAttr(src)}" style="${escapeStyleAttr(style)}" playsinline muted loop aria-label="${escapeAttr(label)}"></video>`;
     }
     if (hasSrc) {
+      const overlay = insideBorderOverlayHtml(props);
+      if (overlay) {
+        const { style: wrapStyle, html } = withInsideBorderOverlay(
+          mergeInlineStyles(style, "display:inline-block"),
+          props,
+          `<img class="pdl-media__img" src="${escapeAttr(src)}" alt="${escapeAttr(label)}" style="display:block;width:100%;height:100%;border:none" />`,
+        );
+        return `<div class="pdl-frame pdl-media"${dataId}${instAttrs} style="${escapeStyleAttr(wrapStyle)}">${html}</div>`;
+      }
       return `<img class="pdl-frame pdl-media"${dataId}${instAttrs} src="${escapeAttr(src)}" alt="${escapeAttr(label)}" style="${escapeStyleAttr(style)}" />`;
     }
-    return `<div class="pdl-frame pdl-media"${dataId}${instAttrs} style="${escapeStyleAttr(style)}" role="img" aria-label="${escapeAttr(label)}"></div>`;
+    const { style: mediaStyle, html: mediaHtml } = withInsideBorderOverlay(style, props, "");
+    return `<div class="pdl-frame pdl-media"${dataId}${instAttrs} style="${escapeStyleAttr(mediaStyle)}" role="img" aria-label="${escapeAttr(label)}">${mediaHtml}</div>`;
   }
 
   const fallbackStyle = frameBoxStyle(props, kind, opts);
@@ -1304,6 +1438,14 @@ body { margin: 0; padding: 16px; background: var(--pdl-preview-background, #f6f6
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+}
+/* PointerInput host — hand cursor over the interactive preview stage / nested instances. */
+.pdl-preview[data-pdl-interactive] .pdl-canvas,
+.pdl-instance[data-pdl-pointer-input] {
+  cursor: pointer;
+}
+.pdl-text--editable {
+  cursor: text;
 }
 /* Preview stage when the root uses height=.fill — scroll view has no intrinsic
    height, so give percentage fill a sensible containing block. */
@@ -1448,7 +1590,7 @@ function renderParamBar(
     .map((c) => {
       const id = `pdl-param-${escapeAttr(componentName)}-${escapeAttr(c.name)}`;
       if (c.cases && c.cases.length > 0) {
-        const boolLike = c.typeName === "Boolean" || c.typeName === "Bool";
+        const boolLike = c.typeName === "Bool";
         const opts = c.cases
           .map((cas) => {
             const sel = String(c.value) === cas ? " selected" : "";
@@ -1527,9 +1669,15 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     list = allNames;
   }
   const renderFailures: ComponentRenderFailure[] = [];
-  const instCtx: InstanceRenderCtx | undefined = opts.instanceStateTrees
-    ? { nextKey: 0, stateTrees: opts.instanceStateTrees }
-    : undefined;
+  const pointerInputTypes = pointerInputTypesFromInteractions(opts.interactionsByComponent);
+  const instCtx: InstanceRenderCtx | undefined =
+    opts.instanceStateTrees || pointerInputTypes.size > 0
+      ? {
+          nextKey: 0,
+          stateTrees: opts.instanceStateTrees ?? {},
+          pointerInputTypes,
+        }
+      : undefined;
 
   const sections = list
     .map((name) => {

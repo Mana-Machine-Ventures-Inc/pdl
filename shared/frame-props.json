@@ -9,8 +9,9 @@
       "nonNegativeNumber": true
     },
     "edgeInsets": {
-      "accept": ["edgeInsets", "number"],
+      "accept": ["edgeInsets", "number", "ident"],
       "numberSugar": "uniformInsets",
+      "tokenTypes": ["EdgeInsets"],
       "nonNegativeNumber": true
     },
     "distance": {
@@ -57,12 +58,12 @@
       "tokenTypes": ["Color"]
     },
     "colorOrLayers": {
-      "accept": ["hex", "opacityOf", "array", "call"],
-      "tokenTypes": ["Color", "Background", "Foreground"]
+      "accept": ["hex", "opacityOf", "array", "call", "ident"],
+      "tokenTypes": ["Color", "Background", "Foreground", "Ramp", "Blur", "Media", "Vibrancy"]
     },
     "cornerRadius": {
-      "accept": ["number", "corner"],
-      "tokenTypes": ["Radius"],
+      "accept": ["number", "corner", "ident"],
+      "tokenTypes": ["Radius", "CornerRadii"],
       "nonNegativeNumber": true
     },
     "shadow": {
@@ -88,63 +89,75 @@
       "accept": ["boolean", "condition", "dotEnum", "ident"]
     },
     "enumDirection": {
-      "accept": ["dotEnum"],
+      "accept": ["dotEnum", "ident"],
       "typeName": "Direction",
+      "tokenTypes": ["Direction"],
       "cases": ["row", "column", "rowReverse", "columnReverse", "stack", "reverseStack"]
     },
     "enumWrap": {
-      "accept": ["dotEnum"],
+      "accept": ["dotEnum", "ident"],
       "typeName": "Wrap",
+      "tokenTypes": ["Wrap"],
       "cases": ["nowrap", "wrap"]
     },
     "enumAlignLayout": {
-      "accept": ["dotEnum"],
+      "accept": ["dotEnum", "ident"],
       "typeName": "Align",
+      "tokenTypes": ["Align"],
       "cases": ["start", "center", "end", "stretch"]
     },
     "enumJustifyLayout": {
-      "accept": ["dotEnum"],
+      "accept": ["dotEnum", "ident"],
       "typeName": "Justify",
+      "tokenTypes": ["Justify"],
       "cases": ["start", "center", "end", "stretch", "spaceBetween", "spaceAround"]
     },
     "enumAlignText": {
-      "accept": ["dotEnum"],
+      "accept": ["dotEnum", "ident"],
       "typeName": "Align",
+      "tokenTypes": ["Align"],
       "cases": ["start", "center", "end"]
     },
     "enumJustifyText": {
-      "accept": ["dotEnum"],
+      "accept": ["dotEnum", "ident"],
       "typeName": "Justify",
+      "tokenTypes": ["Justify"],
       "cases": ["start", "center", "end"]
     },
     "enumOverflow": {
       "accept": ["dotEnum", "ident"],
       "typeName": "Overflow",
+      "tokenTypes": ["Overflow"],
       "cases": ["visible", "scroll", "clip"]
     },
     "enumBorderPosition": {
       "accept": ["dotEnum", "ident"],
       "typeName": "BorderPosition",
+      "tokenTypes": ["BorderPosition"],
       "cases": ["inside", "outside"]
     },
     "enumTruncateStyle": {
-      "accept": ["dotEnum"],
+      "accept": ["dotEnum", "ident"],
       "typeName": "TruncateStyle",
+      "tokenTypes": ["TruncateStyle"],
       "cases": ["clip", "ellipsis"]
     },
     "enumContentMode": {
-      "accept": ["dotEnum"],
+      "accept": ["dotEnum", "ident"],
       "typeName": "ContentMode",
+      "tokenTypes": ["ContentMode"],
       "cases": ["cover", "contain", "fill", "scaleDown"]
     },
     "enumAlignSelf": {
-      "accept": ["dotEnum"],
+      "accept": ["dotEnum", "ident"],
       "typeName": "AlignSelf",
+      "tokenTypes": ["AlignSelf"],
       "cases": ["start", "center", "end", "stretch", "auto"]
     },
     "enumPosition": {
-      "accept": ["dotEnum"],
+      "accept": ["dotEnum", "ident"],
       "typeName": "Position",
+      "tokenTypes": ["Position"],
       "cases": ["flow", "absolute"]
     }
   },

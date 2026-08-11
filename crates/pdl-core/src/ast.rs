@@ -56,7 +56,7 @@ pub enum CallCallee {
     Color,
     Ramp,
     Blur,
-    Media,
+    MediaLayer,
     Vibrancy,
 }
 
@@ -131,11 +131,11 @@ pub enum ValueExpr {
         color: Box<ValueExpr>,
         spread: Option<Box<ValueExpr>>,
     },
-    /// `Icon(file: "…")`.
+    /// `IconRef(file: "…")`.
     IconFile {
         path: Box<ValueExpr>,
     },
-    /// `Icon(system: .sfSymbols, name: "…")`.
+    /// `IconRef(system: .sfSymbols, name: "…")`.
     IconSystem {
         system: Box<ValueExpr>,
         name: Box<ValueExpr>,
@@ -200,11 +200,23 @@ pub struct ComponentParam {
 pub enum ChildEntry {
     FrameRef {
         id: String,
+        /// Mount-time frame `opacity` from `Pic @ …`.
+        opacity: Option<ValueExpr>,
     },
     Spacer,
+    /// World A frame ctor before desugar (`Text` / `Layout` / `Icon` / `Media`).
+    FrameCtor {
+        frame_kind: String,
+        props: IndexMap<String, ValueExpr>,
+        /// Nested `children:` entries (may themselves include frame ctors).
+        child_entries: Option<Vec<ChildEntry>>,
+        opacity: Option<ValueExpr>,
+    },
     Instance {
         component: String,
         kwargs: IndexMap<String, ValueExpr>,
+        /// Mount-time root `opacity` from `Comp(…) @ …`.
+        opacity: Option<ValueExpr>,
     },
     /// Expand `list` param instances with derived kwargs (from `ForEach`).
     ForEach {
@@ -245,16 +257,24 @@ pub enum FrameBodyItem {
         component: String,
         kwargs: IndexMap<String, ValueExpr>,
     },
+    /// Local typed value: `let ramp: Ramp = Ramp(…)` — not a frame.
+    LetValue {
+        id: String,
+        type_name: String,
+        value: ValueExpr,
+    },
     If {
         chain: IfChain,
     },
-    /// `ForEach(listParam) { item in item.selected = …; item.select(…) = { … } }`
+    /// `ForEach(listParam) { item in … }` — body is binder overrides, emit captures,
+    /// and `if`/`else` (same condition grammar as layout). Not a mount site (§4e).
     ForEach {
         list: String,
         /// Required binder for the current element (`chip` in `chip in`).
         item: String,
-        binds: IndexMap<String, ValueExpr>,
-        handlers: Vec<LayoutOnHandler>,
+        /// Only `FrameProp` (binder-qualified), `LayoutOn` (binder-qualified emit
+        /// capture), and nested `If` are legal here — enforced at parse.
+        body: Vec<FrameBodyItem>,
     },
     /// Layout emit capture: `Field.change(…) = { … }` (let/slot) — not list params (§4e).
     LayoutOn {
@@ -293,6 +313,29 @@ pub struct IfBranch {
 pub struct IfChain {
     pub branches: Vec<IfBranch>,
     pub else_body: Option<Vec<FrameBodyItem>>,
+}
+
+/// Emit-capture handlers in a `ForEach` body (walks all `if` / `else` branches).
+pub fn foreach_layout_handlers(body: &[FrameBodyItem]) -> Vec<&LayoutOnHandler> {
+    let mut out = Vec::new();
+    fn walk<'a>(items: &'a [FrameBodyItem], out: &mut Vec<&'a LayoutOnHandler>) {
+        for item in items {
+            match item {
+                FrameBodyItem::LayoutOn { handler } => out.push(handler),
+                FrameBodyItem::If { chain } => {
+                    for br in &chain.branches {
+                        walk(&br.body, out);
+                    }
+                    if let Some(else_body) = &chain.else_body {
+                        walk(else_body, out);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    walk(body, &mut out);
+    out
 }
 
 /// Root frame kind for a `component` declaration.

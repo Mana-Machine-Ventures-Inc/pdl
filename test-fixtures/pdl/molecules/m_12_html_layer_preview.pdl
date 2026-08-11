@@ -11,106 +11,105 @@ component MoleculeHtmlLayerPreview() layout {
   height = .hug
   background = #E8E8ED
 
-  let Hint: text = {
-    content = "HTML check: outer layouts use pdl-layout--layers, pdl-layer-band, backdrop-filter on blur; foreground tints are overlays (not inset box-shadow)."
-    fontSize = 12
-    color = #3F3F46
-    lineHeight = 1.45
-  }
+  let Hint = Text(
+    content: "HTML check: outer layouts use pdl-layout--layers, pdl-layer-band, backdrop-filter on blur; foreground tints are overlays (not inset box-shadow).",
+    fontSize: 12,
+    color: #3F3F46,
+    lineHeight: 1.45
+  )
 
-  let Row: layout = {
-    direction = .row
-    align = .stretch
-    wrap = .wrap
-    gap = atoms.space.md
-    justify = .start
-    width = .fill
-    height = .hug
+  let CardStackT1 = Text(
+    content: "Two fills + fg tint",
+    fontSize: 13,
+    fontWeight: 600,
+    color: #1E1B4B
+  )
+  let CardStackT2 = Text(
+    content: "Under: base + indigo wash. Over: dark veil.",
+    fontSize: 11,
+    color: #312E81
+  )
 
-    let CardStackT1: text = {
-      content = "Two fills + fg tint"
-      fontSize = 13
-      fontWeight = 600
-      color = #1E1B4B
-    }
-    let CardStackT2: text = {
-      content = "Under: base + indigo wash. Over: dark veil."
-      fontSize = 11
-      color = #312E81
-    }
+  let CardStack = Layout(
+    direction: .column,
+    gap: atoms.space.sm,
+    padding: EdgeInsets(x: 12, y: 12),
+    width: .flex(min: 160, preferred: 200),
+    height: .hug,
+    cornerRadius: atoms.radius.sm,
+    background: [#E0E7FF, #4338CA55],
+    foreground: [#00000018],
+    children: [CardStackT1, CardStackT2]
+  )
 
-    let CardStack: layout = {
-      direction = .column
-      gap = atoms.space.sm
-      padding = EdgeInsets(x: 12, y: 12)
-      width = .flex(min: 160, preferred: 200)
-      height = .hug
-      cornerRadius = atoms.radius.sm
-      background = [#E0E7FF, #4338CA55]
-      foreground = [#00000018]
-      children = [CardStackT1, CardStackT2]
-    }
+  let CardBlurT1 = Text(
+    content: "Blur + frosted tint",
+    fontSize: 13,
+    fontWeight: 600,
+    color: #222222
+  )
+  let CardBlurT2 = Text(
+    content: "Expect backdrop-filter on the blur band.",
+    fontSize: 11,
+    color: #444444
+  )
 
-    let CardBlurT1: text = {
-      content = "Blur + frosted tint"
-      fontSize = 13
-      fontWeight = 600
-      color = #222222
-    }
-    let CardBlurT2: text = {
-      content = "Expect backdrop-filter on the blur band."
-      fontSize = 11
-      color = #444444
-    }
+  let CardBlur = Layout(
+    direction: .column,
+    gap: atoms.space.sm,
+    padding: EdgeInsets(x: 12, y: 12),
+    width: .flex(min: 160, preferred: 200),
+    height: .hug,
+    cornerRadius: atoms.radius.sm,
+    background: [Blur(radius: atoms.blur.light.radius), atoms.color.sem.fromRgb @ atoms.opacity.mid],
+    foreground: [atoms.color.rgb @ 0.06],
+    children: [CardBlurT1, CardBlurT2]
+  )
 
-    let CardBlur: layout = {
-      direction = .column
-      gap = atoms.space.sm
-      padding = EdgeInsets(x: 12, y: 12)
-      width = .flex(min: 160, preferred: 200)
-      height = .hug
-      cornerRadius = atoms.radius.sm
-      background = [Blur(blur: atoms.blur.light), atoms.color.sem.fromRgb @ atoms.opacity.mid]
-      foreground = [atoms.color.rgb @ 0.06]
-      children = [CardBlurT1, CardBlurT2]
-    }
+  let CardRampT1 = Text(
+    content: "Ramp + wash",
+    fontSize: 13,
+    fontWeight: 600,
+    color: #0F172A
+  )
+  let CardRampT2 = Text(
+    content: "Token ramp (atoms.ramp.fade) then a second layer.",
+    fontSize: 11,
+    color: #1E293B
+  )
 
-    let CardRampT1: text = {
-      content = "Ramp + wash"
-      fontSize = 13
-      fontWeight = 600
-      color = #0F172A
-    }
-    let CardRampT2: text = {
-      content = "Token ramp (atoms.ramp.fade) then a second layer."
-      fontSize = 11
-      color = #1E293B
-    }
+  let CardRamp = Layout(
+    direction: .column,
+    gap: atoms.space.sm,
+    padding: EdgeInsets(x: 12, y: 12),
+    width: .flex(min: 160, preferred: 200),
+    height: .hug,
+    cornerRadius: atoms.radius.sm,
+    background: [atoms.ramp.fade, #0F172A35],
+    children: [CardRampT1, CardRampT2]
+  )
 
-    let CardRamp: layout = {
-      direction = .column
-      gap = atoms.space.sm
-      padding = EdgeInsets(x: 12, y: 12)
-      width = .flex(min: 160, preferred: 200)
-      height = .hug
-      cornerRadius = atoms.radius.sm
-      background = [atoms.ramp.fade, #0F172A35]
-      children = [CardRampT1, CardRampT2]
-    }
+  let TextLayers = Text(
+    content: "Text with layer bands",
+    fontSize: 13,
+    fontWeight: 600,
+    color: #7F1D1D,
+    padding: EdgeInsets(x: 10, y: 6),
+    cornerRadius: 4,
+    background: [#FECACA, #B91C1C40],
+    foreground: [#00000012]
+  )
 
-    let TextLayers: text = {
-      content = "Text with layer bands"
-      fontSize = 13
-      fontWeight = 600
-      color = #7F1D1D
-      padding = EdgeInsets(x: 10, y: 6)
-      cornerRadius = 4
-      background = [#FECACA, #B91C1C40]
-      foreground = [#00000012]
-    }
-
-    children = [CardStack, CardBlur, CardRamp, TextLayers]
-  }
+  let Row = Layout(
+    direction: .row,
+    align: .stretch,
+    wrap: .wrap,
+    gap: atoms.space.md,
+    justify: .start,
+    width: .fill,
+    height: .hug,
+    children: [CardStack, CardBlur, CardRamp, TextLayers]
+  )
 
   children = [Hint, Row]
 }

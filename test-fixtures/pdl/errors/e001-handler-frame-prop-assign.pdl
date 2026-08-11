@@ -1,0 +1,16 @@
+enum LabState {
+  case idle
+  case hovered
+}
+
+component LabPress <PointerInput>(
+  interactionState: LabState = .idle
+) layout {
+  let Label = Text(content: "Press me")
+  children = [Label]
+
+  self.hoverStart = {
+    interactionState = .hovered
+    Label.content = "Hovered"
+  }
+}

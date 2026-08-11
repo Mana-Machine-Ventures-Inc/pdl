@@ -103,8 +103,8 @@ struct MutableFrame {
 struct SlotResolveCtx {
     /// `simple.title = …` / `simple.content = …` — classified at mount by concrete component.
     slot_overrides: HashMap<String, IndexMap<String, Value>>,
-    /// `ForEach(chips) { chip in chip.selected = … }` binds applied when `children` expands `chips`.
-    foreach_binds: HashMap<String, IndexMap<String, ValueExpr>>,
+    /// `ForEach(chips) { chip in … }` bodies applied when `children` expands `chips`.
+    foreach_bodies: HashMap<String, Vec<crate::ast::FrameBodyItem>>,
 }
 
 fn component_param_names(
@@ -164,7 +164,10 @@ fn insert_catal_tree(frames: &mut HashMap<String, MutableFrame>, catal: &CatalFr
             format!("{id}__{}", ch.id)
         };
         insert_catal_tree(frames, ch, &cid);
-        child_entries.push(ChildEntry::FrameRef { id: cid });
+        child_entries.push(ChildEntry::FrameRef {
+            id: cid,
+            opacity: None,
+        });
     }
     frames.insert(
         id.to_string(),
@@ -381,17 +384,27 @@ fn assign_frame_prop(props: &mut Map<String, Value>, name: &str, value: Value) {
 
 // ---- evaluation helpers ----------------------------------------------------
 
+fn merge_locals(param_values: &ParamValues, local_values: &ParamValues) -> ParamValues {
+    let mut out = param_values.clone();
+    for (k, v) in local_values {
+        out.insert(k.clone(), v.clone());
+    }
+    out
+}
+
 fn eval_prop(
     expr: &ValueExpr,
     design: &DesignDefinition,
     tokens: &mut Tokens,
     param_values: &ParamValues,
     param_meta: &ParamMeta,
+    local_values: &ParamValues,
     opts: ResolveOptions,
 ) -> Result<Value, PdlError> {
+    let scoped = merge_locals(param_values, local_values);
     if opts.catalogue_token_refs {
         if let ValueExpr::Ident { name } = expr {
-            if !param_meta.contains_key(name) {
+            if !param_meta.contains_key(name) && !local_values.contains_key(name) {
                 if design.primitives.contains_key(name) {
                     return Ok(Value::String(format!("primitive:{name}")));
                 }
@@ -406,7 +419,7 @@ fn eval_prop(
         design,
         tokens,
         visiting: &mut visiting,
-        param_values: Some(param_values),
+        param_values: Some(&scoped),
         param_meta: Some(param_meta),
         use_string_placeholders: opts.use_string_placeholders,
     };
@@ -419,10 +432,12 @@ fn eval_hidden_expr(
     tokens: &mut Tokens,
     param_values: &ParamValues,
     param_meta: &ParamMeta,
+    local_values: &ParamValues,
     opts: ResolveOptions,
 ) -> Result<bool, PdlError> {
+    let scoped = merge_locals(param_values, local_values);
     match value {
-        ValueExpr::Condition { expr } => return Ok(evaluate_condition(expr, param_values)),
+        ValueExpr::Condition { expr } => return Ok(evaluate_condition(expr, &scoped)),
         ValueExpr::Boolean { value } => return Ok(*value),
         ValueExpr::DotEnum { value } => {
             let raw = strip_leading_dot(value);
@@ -432,7 +447,15 @@ fn eval_hidden_expr(
         }
         _ => {}
     }
-    let v = eval_prop(value, design, tokens, param_values, param_meta, opts)?;
+    let v = eval_prop(
+        value,
+        design,
+        tokens,
+        param_values,
+        param_meta,
+        local_values,
+        opts,
+    )?;
     if let Value::Bool(b) = v {
         Ok(b)
     } else {
@@ -569,6 +592,52 @@ fn pick_if_body<'a>(chain: &'a IfChain, param_values: &ParamValues) -> &'a [Fram
     }
 }
 
+/// Apply a `ForEach` body against one list item's bind scope (item fields ⊕ parent params).
+fn eval_foreach_overlay(
+    body: &[FrameBodyItem],
+    bind_scope: &ParamValues,
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+    param_meta: &ParamMeta,
+    overlay: &mut IndexMap<String, Value>,
+) -> Result<(), PdlError> {
+    for item in body {
+        match item {
+            FrameBodyItem::FrameProp { name, value, .. } => {
+                let mut visiting = HashSet::new();
+                let mut ev = Eval {
+                    design,
+                    tokens,
+                    visiting: &mut visiting,
+                    param_values: Some(bind_scope),
+                    param_meta: Some(param_meta),
+                    use_string_placeholders: false,
+                };
+                overlay.insert(name.clone(), evaluate_value(value, &mut ev)?);
+            }
+            FrameBodyItem::If { chain } => {
+                let chosen = pick_if_body(chain, bind_scope);
+                eval_foreach_overlay(chosen, bind_scope, design, tokens, param_meta, overlay)?;
+            }
+            FrameBodyItem::LayoutOn { .. } => {
+                // Emit capture is host/runtime metadata; static bake ignores it.
+            }
+            other => {
+                return Err(PdlError::new(
+                    "PDL-E001",
+                    format!(
+                        "Internal: unexpected item in ForEach body during resolve: {other:?}"
+                    ),
+                    Some(design.entry_path.clone()),
+                    None,
+                    None,
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)]
 fn process_frame_items(
     items: &[FrameBodyItem],
@@ -578,8 +647,11 @@ fn process_frame_items(
     tokens: &mut Tokens,
     param_values: &ParamValues,
     param_meta: &ParamMeta,
+    local_values: &mut ParamValues,
     slot_ctx: &mut SlotResolveCtx,
     opts: ResolveOptions,
+    // Enclosing component root id — target of `self.prop` (never an intermediate let).
+    component_root_id: &str,
 ) -> Result<(), PdlError> {
     let root_kind = frames
         .get(default_target)
@@ -603,7 +675,7 @@ fn process_frame_items(
             FrameBodyItem::Prop { name, value } => {
                 if name == "hidden" {
                     let hidden =
-                        eval_hidden_expr(value, design, tokens, param_values, param_meta, opts)?;
+                        eval_hidden_expr(value, design, tokens, param_values, param_meta, local_values, opts)?;
                     let f = frames.get_mut(default_target).unwrap();
                     if hidden {
                         f.props.insert("hidden".to_string(), Value::Bool(true));
@@ -622,7 +694,7 @@ fn process_frame_items(
                     }
                     continue;
                 }
-                let v = eval_prop(value, design, tokens, param_values, param_meta, opts)?;
+                let v = eval_prop(value, design, tokens, param_values, param_meta, local_values, opts)?;
                 if name == "style" {
                     let f = frames.get_mut(default_target).unwrap();
                     merge_style_props(&mut f.props, v, &entry_path, opts.catalogue_token_refs)?;
@@ -633,33 +705,38 @@ fn process_frame_items(
                 }
             }
             FrameBodyItem::FrameProp { frame, name, value } => {
+                let frame_id = if frame == "self" {
+                    component_root_id
+                } else {
+                    frame.as_str()
+                };
                 // Slot / list param: `simple.content = …` — never invent a phantom frame.
-                if let Some(meta) = param_meta.get(frame) {
+                if let Some(meta) = param_meta.get(frame_id) {
                     if meta.is_array {
                         return Err(PdlError::new(
                             "PDL-E034",
                             format!(
-                                "Cannot override `{frame}.{name}` on array slot `{frame}`; use `ForEach({frame}) {{ item in item.{name} = … }}` and `children = [{frame}]`"
+                                "Cannot override `{frame_id}.{name}` on array slot `{frame_id}`; use `ForEach({frame_id}) {{ item in item.{name} = … }}` and `children = [{frame_id}]`"
                             ),
                             Some(entry_path.clone()),
                             None,
                             None,
                         ));
                     }
-                    let pv = eval_prop(value, design, tokens, param_values, param_meta, opts)?;
+                    let pv = eval_prop(value, design, tokens, param_values, param_meta, local_values, opts)?;
                     slot_ctx
                         .slot_overrides
-                        .entry(frame.clone())
+                        .entry(frame_id.to_string())
                         .or_default()
                         .insert(name.clone(), pv);
                     continue;
                 }
-                let kind = frame_kind_or_layout(frames, frame);
-                ensure_frame(frames, frame, &kind);
+                let kind = frame_kind_or_layout(frames, frame_id);
+                ensure_frame(frames, frame_id, &kind);
                 if name == "hidden" {
                     let hidden =
-                        eval_hidden_expr(value, design, tokens, param_values, param_meta, opts)?;
-                    let fr = frames.get_mut(frame).unwrap();
+                        eval_hidden_expr(value, design, tokens, param_values, param_meta, local_values, opts)?;
+                    let fr = frames.get_mut(frame_id).unwrap();
                     if hidden {
                         fr.props.insert("hidden".to_string(), Value::Bool(true));
                     } else {
@@ -668,7 +745,7 @@ fn process_frame_items(
                     continue;
                 }
                 if matches!(value, ValueExpr::Null) {
-                    let fr = frames.get_mut(frame).unwrap();
+                    let fr = frames.get_mut(frame_id).unwrap();
                     if name == "style" {
                         fr.props.remove("style");
                         fr.props.remove("typeStyle");
@@ -677,10 +754,15 @@ fn process_frame_items(
                     }
                     continue;
                 }
-                let pv = eval_prop(value, design, tokens, param_values, param_meta, opts)?;
-                let coerced = coerce_frame_prop_value(name, pv, &entry_path)?;
-                let fr = frames.get_mut(frame).unwrap();
-                assign_frame_prop(&mut fr.props, name, coerced);
+                let pv = eval_prop(value, design, tokens, param_values, param_meta, local_values, opts)?;
+                if name == "style" {
+                    let fr = frames.get_mut(frame_id).unwrap();
+                    merge_style_props(&mut fr.props, pv, &entry_path, opts.catalogue_token_refs)?;
+                } else {
+                    let coerced = coerce_frame_prop_value(name, pv, &entry_path)?;
+                    let fr = frames.get_mut(frame_id).unwrap();
+                    assign_frame_prop(&mut fr.props, name, coerced);
+                }
             }
             FrameBodyItem::Children { target, entries } => {
                 let tid = match target {
@@ -690,6 +772,21 @@ fn process_frame_items(
                 let kind = frame_kind_or_layout(frames, &tid);
                 ensure_frame(frames, &tid, &kind);
                 frames.get_mut(&tid).unwrap().child_entries = entries.clone();
+                // Mount annotations: `Pic @ 0.5` → set child frame opacity (later Pic.opacity wins).
+                for e in entries {
+                    if let ChildEntry::FrameRef {
+                        id: cid,
+                        opacity: Some(op),
+                    } = e
+                    {
+                        let ck = frame_kind_or_layout(frames, cid);
+                        ensure_frame(frames, cid, &ck);
+                        let pv = eval_prop(op, design, tokens, param_values, param_meta, local_values, opts)?;
+                        let coerced = coerce_frame_prop_value("opacity", pv, &entry_path)?;
+                        let fr = frames.get_mut(cid).unwrap();
+                        assign_frame_prop(&mut fr.props, "opacity", coerced);
+                    }
+                }
             }
             FrameBodyItem::Let {
                 id,
@@ -705,9 +802,27 @@ fn process_frame_items(
                     tokens,
                     param_values,
                     param_meta,
+                    local_values,
                     slot_ctx,
                     opts,
+                    component_root_id,
                 )?;
+            }
+            FrameBodyItem::LetValue {
+                id,
+                type_name: _,
+                value,
+            } => {
+                let v = eval_prop(
+                    value,
+                    design,
+                    tokens,
+                    param_values,
+                    param_meta,
+                    local_values,
+                    opts,
+                )?;
+                local_values.insert(id.clone(), v);
             }
             FrameBodyItem::LetInstance {
                 id,
@@ -723,6 +838,7 @@ fn process_frame_items(
                         None,
                     ));
                 }
+                let scoped = merge_locals(param_values, local_values);
                 let mut kw_explicit = Map::new();
                 for (k, expr) in kwargs {
                     let mut visiting = HashSet::new();
@@ -730,7 +846,7 @@ fn process_frame_items(
                         design,
                         tokens,
                         visiting: &mut visiting,
-                        param_values: Some(param_values),
+                        param_values: Some(&scoped),
                         param_meta: Some(param_meta),
                         use_string_placeholders: false,
                     };
@@ -738,6 +854,7 @@ fn process_frame_items(
                 }
                 // Full nested resolve so the child's slot dotted overrides / ForEach
                 // expand against the child's own param_meta (not the parent's).
+                // Child's `self` resolves inside that recursive call to its own Root.
                 let mut sub =
                     resolve_component_tree(design, component, tokens, &kw_explicit, opts)?;
                 sub.instance_of = Some(component.clone());
@@ -745,7 +862,8 @@ fn process_frame_items(
                 insert_catal_tree(frames, &sub, id);
             }
             FrameBodyItem::If { chain } => {
-                let extra = pick_if_body(chain, param_values);
+                let scoped = merge_locals(param_values, local_values);
+                let extra = pick_if_body(chain, &scoped);
                 process_frame_items(
                     extra,
                     default_target,
@@ -754,22 +872,23 @@ fn process_frame_items(
                     tokens,
                     param_values,
                     param_meta,
+                    local_values,
                     slot_ctx,
                     opts,
+                    component_root_id,
                 )?;
             }
             FrameBodyItem::ForEach {
                 list,
                 item: _,
-                binds,
-                handlers: _,
+                body,
             } => {
-                // Binds / handlers only — mount happens via `children = [list]`.
+                // Overlay / handlers only — mount happens via `children = [list]`.
                 slot_ctx
-                    .foreach_binds
+                    .foreach_bodies
                     .entry(list.clone())
                     .or_default()
-                    .extend(binds.iter().map(|(k, v)| (k.clone(), v.clone())));
+                    .extend(body.iter().cloned());
             }
             FrameBodyItem::LayoutOn { .. } => {
                 // Emit capture is host/runtime metadata; static bake ignores it.
@@ -820,6 +939,7 @@ pub fn resolve_component_tree(
         },
     );
     let mut slot_ctx = SlotResolveCtx::default();
+    let mut local_values = Map::new();
     process_frame_items(
         &c.body,
         "Root",
@@ -828,8 +948,10 @@ pub fn resolve_component_tree(
         tokens,
         &param_values,
         &param_meta,
+        &mut local_values,
         &mut slot_ctx,
         options,
+        "Root",
     )?;
     for mf in frames.values_mut() {
         normalize_aspect_box_props(&mut mf.props, &design.entry_path)?;
@@ -892,7 +1014,7 @@ fn expand_slot_items(
     si: &mut usize,
     children: &mut Vec<CatalFrame>,
 ) -> Result<(), PdlError> {
-    let foreach_binds = slot_ctx.foreach_binds.get(slot_name);
+    let foreach_body = slot_ctx.foreach_bodies.get(slot_name);
     let slot_dotted = slot_ctx.slot_overrides.get(slot_name);
 
     for item in items {
@@ -931,26 +1053,22 @@ fn expand_slot_items(
             }
         };
 
-        // Collect evaluated overrides (ForEach binds + single-slot dotted).
+        // Collect evaluated overrides (ForEach body + single-slot dotted).
         let mut overlay: IndexMap<String, Value> = IndexMap::new();
-        if let Some(binds) = foreach_binds {
+        if let Some(body) = foreach_body {
             // §4e: bare idents → item fields first, then enclosing params.
             let mut bind_scope = param_values.clone();
             for (k, v) in &base_params {
                 bind_scope.insert(k.clone(), v.clone());
             }
-            for (k, expr) in binds {
-                let mut visiting = HashSet::new();
-                let mut ev = Eval {
-                    design,
-                    tokens,
-                    visiting: &mut visiting,
-                    param_values: Some(&bind_scope),
-                    param_meta: Some(param_meta),
-                    use_string_placeholders: false,
-                };
-                overlay.insert(k.clone(), evaluate_value(expr, &mut ev)?);
-            }
+            eval_foreach_overlay(
+                body,
+                &bind_scope,
+                design,
+                tokens,
+                param_meta,
+                &mut overlay,
+            )?;
         }
         if let Some(dotted) = slot_dotted {
             for (k, v) in dotted {
@@ -1008,7 +1126,7 @@ fn materialize(
                 });
                 si += 1;
             }
-            ChildEntry::FrameRef { id: cid } => {
+            ChildEntry::FrameRef { id: cid, opacity: _ } => {
                 if frames.contains_key(cid) {
                     children.push(materialize(
                         cid,
@@ -1082,7 +1200,11 @@ fn materialize(
                     ));
                 }
             }
-            ChildEntry::Instance { component, kwargs } => {
+            ChildEntry::Instance {
+                component,
+                kwargs,
+                opacity,
+            } => {
                 let mut kw_overrides = Map::new();
                 for (k, expr) in kwargs {
                     let mut visiting = HashSet::new();
@@ -1096,7 +1218,7 @@ fn materialize(
                     };
                     kw_overrides.insert(k.clone(), evaluate_value(expr, &mut ev)?);
                 }
-                children.push(mount_instance(
+                let mut child = mount_instance(
                     id,
                     component,
                     kw_overrides,
@@ -1105,10 +1227,34 @@ fn materialize(
                     visiting_inst,
                     options,
                     &mut si,
-                )?);
+                )?;
+                if let Some(op) = opacity {
+                    let mut visiting = HashSet::new();
+                    let mut ev = Eval {
+                        design,
+                        tokens,
+                        visiting: &mut visiting,
+                        param_values: Some(param_values),
+                        param_meta: Some(param_meta),
+                        use_string_placeholders: false,
+                    };
+                    let pv = evaluate_value(op, &mut ev)?;
+                    let coerced = coerce_frame_prop_value("opacity", pv, &design.entry_path)?;
+                    assign_frame_prop(&mut child.props, "opacity", coerced);
+                }
+                children.push(child);
             }
             ChildEntry::ForEach { .. } => {
                 // Legacy IR path — ForEach no longer auto-mounts; ignore if present.
+            }
+            ChildEntry::FrameCtor { .. } => {
+                return Err(PdlError::new(
+                    "PDL-E001",
+                    "Internal: World A frameCtor survived past parse lowering".to_string(),
+                    None,
+                    None,
+                    None,
+                ));
             }
         }
     }

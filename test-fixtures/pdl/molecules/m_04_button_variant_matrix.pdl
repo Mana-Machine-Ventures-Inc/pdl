@@ -50,16 +50,16 @@ component MoleculeMatrixButton(
     }
   }
 
-  let L: text = {
-    content = label
-    fontWeight = 600
-    color = atoms.color.sem.fromRgba
+  let L = Text(
+    content: label,
+    fontWeight: 600,
+    color: atoms.color.sem.fromRgba
+  )
 
-    if size == .compact {
-      fontSize = 12
-    } else {
-      fontSize = 16
-    }
+  if size == .compact {
+    L.fontSize = 12
+  } else {
+    L.fontSize = 16
   }
 
   children = [L]

@@ -21,24 +21,16 @@ component MoleculeIconTextRow(
   cornerRadius = atoms.radius.sm
   background = atoms.color.sem.fromRgb
 
-  let T: text = {
-    content = label
-    fontSize = 15
-    fontWeight = 600
-    color = atoms.color.sem.fromRgba
-  }
+  let T = Text(
+    content: label,
+    fontSize: 15,
+    fontWeight: 600,
+    color: atoms.color.sem.fromRgba
+  )
 
-  let Lead: icon = {
-    icon = atoms.icon.star
-    size = 20
-    color = atoms.color.rgba
-  }
+  let Lead = Icon(icon: atoms.icon.star, size: 20, color: atoms.color.rgba)
 
-  let Chev: icon = {
-    icon = atoms.icon.chevron
-    size = 18
-    color = atoms.color.rgba
-  }
+  let Chev = Icon(icon: atoms.icon.chevron, size: 18, color: atoms.color.rgba)
 
   if mode == .textOnly {
     children = [T]

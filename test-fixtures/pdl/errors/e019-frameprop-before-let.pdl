@@ -2,9 +2,7 @@
 component C() layout {
   Title.content = "Hi"
 
-  let Title: text = {
-    content = "x"
-  }
+  let Title = Text(content: "x")
 
   children = [Title]
 }

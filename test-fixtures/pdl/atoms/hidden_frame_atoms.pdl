@@ -10,22 +10,12 @@ variant AtomHiddenFrameMode {
 component AtomHiddenFrame(mode: AtomHiddenFrameMode = .showExtra) layout {
   direction = .column
 
-  let A: text = {
-    content = "Always"
-    style = AtomCaption
-  }
+  let A = Text(content: "Always", style: AtomCaption)
 
-  let B: layout = {
-    hidden = mode == .hideExtra
-    direction = .row
+  let Inner = Text(content: "Sometimes", style: AtomBody)
 
-    let Inner: text = {
-      content = "Sometimes"
-      style = AtomBody
-    }
-
-    children = [Inner]
-  }
+  let B = Layout(direction: .row, children: [Inner])
+  B.hidden = mode == .hideExtra
 
   children = [A, B]
 }

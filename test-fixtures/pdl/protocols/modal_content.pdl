@@ -9,31 +9,24 @@ component UpsellBody <ModalContent>(
 ) layout {
   direction = .column
 
-  let Title: text = {
-    content = title
-  }
-  let Sub: text = {
-    content = subtitle
-  }
-  let Cta: text = {
-    content = cta
-    fontSize = 32
-    background = #009999
-    padding = EdgeInsets(x: 0, y: 12)
-  }
+  let Title = Text(content: title)
+  let Sub = Text(content: subtitle)
+  let Cta = Text(
+    content: cta,
+    fontSize: 32,
+    background: #009999,
+    padding: EdgeInsets(x: 0,
+    y: 12)
+  )
   children = [Title, Sub, Cta]
 }
 
 component ConfirmBody <ModalContent>() layout {
   direction = .column
 
-  let Title: text = {
-    content = title
-  }
+  let Title = Text(content: title)
 
-  let Sub: text = {
-    content = subtitle
-  }
+  let Sub = Text(content: subtitle)
   children = [Title, Sub]
 }
 
@@ -44,8 +37,6 @@ component Modal(
   direction = .column
   gap = 12
 
-  let Header: text = {
-    content = chromeTitle
-  }
+  let Header = Text(content: chromeTitle)
   children = [Header, slots]
 }

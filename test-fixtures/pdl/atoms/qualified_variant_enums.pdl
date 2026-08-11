@@ -1,0 +1,30 @@
+// User variant TypeName.case sugar (same meaning as .case)
+
+variant Tone {
+  case primary
+  case secondary
+  case danger
+}
+
+component AtomQualifiedVariantEnums(
+  label: String = "Button",
+  tone: Tone = .primary
+) layout {
+  direction = .column
+  gap = 8
+  if tone == .primary {
+    background = #2563EB
+  }
+  else if tone == .secondary {
+    background = #64748B
+  }
+  else {
+    background = #DC2626
+  }
+  let Label = Text(
+    content: label,
+    fontSize: 14,
+    color: #FFFFFF
+  )
+  children = [Label]
+}

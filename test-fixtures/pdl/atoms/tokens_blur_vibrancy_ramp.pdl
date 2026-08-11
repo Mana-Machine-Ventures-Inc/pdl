@@ -1,9 +1,12 @@
-// Blur, Vibrancy, Ramp
+// Blur (layer object), Vibrancy, Ramp
+// Blur radius amounts reuse Radius; Blur tokens are the layer objects themselves.
 
-primitive atoms.blur.light: Blur = 6
-primitive atoms.blur.heavy: Blur = 24
-primitive atoms.vibrancy.subtle: Vibrancy = (saturation: 1.05, brightness: 1.02)
-primitive atoms.vibrancy.strong: Vibrancy = (saturation: 1.2, brightness: 0.95)
+primitive atoms.blur.light.radius: Radius = 6
+primitive atoms.blur.heavy.radius: Radius = 24
+primitive atoms.blur.light: Blur = Blur(radius: atoms.blur.light.radius)
+primitive atoms.blur.heavy: Blur = Blur(radius: atoms.blur.heavy.radius)
+primitive atoms.vibrancy.subtle: Vibrancy = Vibrancy(saturation: 1.05, brightness: 1.02)
+primitive atoms.vibrancy.strong: Vibrancy = Vibrancy(saturation: 1.2, brightness: 0.95)
 primitive atoms.ramp.fade: Ramp = (
   direction: .bottomToTop,
   stops: [

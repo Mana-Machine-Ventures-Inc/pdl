@@ -24,16 +24,12 @@ component AbnChip(
     borderColor = abn.color.border
   }
 
-  let T: text = {
-    content = title
-    style = AbnCaption
-    fontWeight = 600
+  let T = Text(content: title, style: AbnCaption, fontWeight: 600)
 
-    if state == .selected {
-      color = abn.color.onBrand
-    } else {
-      color = abn.color.text
-    }
+  if state == .selected {
+    T.color = abn.color.onBrand
+  } else {
+    T.color = abn.color.text
   }
 
   children = [T]

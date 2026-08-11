@@ -4,7 +4,7 @@
 >
 > **Repository path:** `docs/full-spec.md` (normative copy in this repo).
 >
-> **Locked language decisions (2026-08-06; selection revised 2026-08-07; host handlers revised 2026-08-07):** (1) **`expose` removed** — all component params are public; **`emits`** is the public **child→parent** output API. (2) **`self` / `self.param`** means the enclosing component instance; bare `self` may be an emit payload. Rules-query `self` is rules-scoped only. (3) **Selection SoT** — parent owns id/enum SoT; ForEach derives Bool presentation (`chip.selected = …`). (4) **Handler assignment is one family** — declared emits: `item.channel(…) = { … }` / `Field.change(…) = { … }` (not list `chips.select`, **PDL-E036**). Host inbound: **`[self.]channel = { … }`** in the component kind body (`self.` optional — kind-body names already mean this instance; `self.` is clarifying). The `interaction` keyword is **removed** (**PDL-E001**). Same `=` / `{ }` shape; **different direction** (parent vs environment). (5) **`ForEach` requires an item binder** — `ForEach(chips) { chip in … }`. (6) **API protocols** — `protocol P: component { … }`. **Host protocols** — `protocol P { host … inbound channels … }` (no `: component`). (7) **`enum` ≡ `variant`** in v1. (8) Prelude hosts **`PointerInput`** / **`EditableText`** are stubbed in §4a (always in scope). Inline `} interaction { on … }` is **transitional** until compilers accept `self.pressEnd = { … }` as the canonical form. **PDL-E030** / **PDL-E031**. See §4a / §8.
+> **Locked language decisions (2026-08-06; selection revised 2026-08-07; host handlers revised 2026-08-07; World A 2026-08-10; ForEach conditionals 2026-08-10):** (1) **`expose` removed** — all component params are public; **`emits`** is the public **child→parent** output API. (2) **`self`** — in layout / handlers / conditions, the enclosing **component instance**. **`self.param`** in **value / condition** position names that component’s parameter (escape hatch when a nested scope shadows the bare name — especially inside `ForEach`). **`self.prop = value`** (non-brace RHS) assigns a **root frame property**; **`self.channel = { … }`** is a **host inbound** handler (§22.3). Rules-query `self` is rules-scoped only. Bare `self` may be an emit payload. (3) **Selection SoT** — parent owns id/enum SoT; ForEach derives Bool presentation (`chip.selected = …` or `if` / `else` overrides). (4) **Handler assignment is one family** — declared emits: `item.channel(…) = { … }` / `Field.change(…) = { … }` (not list `chips.select`, **PDL-E036**). Host inbound: **`[self.]channel = { … }`** in the component kind body (`self.` optional — kind-body names already mean this instance; `self.` is clarifying). Handler bodies assign **component params only** (not `Label.content = …` — **PDL-E001**; put chrome in layout `if`). The `interaction` keyword is **removed** (**PDL-E001**). (5) **`ForEach` requires an item binder** — `ForEach(chips) { chip in … }`; body may include binder overrides, emit captures, and **`if` / `else`** (same condition grammar as layout). (6) **API protocols** — `protocol P: component { … }`. **Host protocols** — `protocol P { host … inbound channels … }` (no `: component`). (7) **`enum` ≡ `variant`** in v1. (8) Prelude hosts **`PointerInput`** / **`EditableText`** are stubbed in §4a (always in scope). (9) **World A** — expression-tree authoring (`Text` / `Layout` / `Icon` / `Media` frame ctors); classic `let Id: text = { … }` is **removed** (**PDL-E001**); asset ctor is **`IconRef`**, layer fill is **`MediaLayer`**; see `docs/PROPOSAL_WORLD_A_EXPRESSION_TREES.md`. See §4a / §4e / §8 / §10.
 
 ---
 
@@ -87,9 +87,10 @@ A `.pdl` **module** is parsed into a **partial design definition**; the **entry 
 | **Variant** | Named `case` set; used as a **parameter type**. |
 | **Component** | Parameters + **root frame** (`layout`, `text`, `icon`, `media`). |
 | **Frame** | Kind + properties + optional **children**. |
-| **`let` frame** | Nested named frame in a component. |
-| **Fixture (`example`)** | Named **parameter map** for preview/tests/codegen (§12). |
-| **Rule** | **Query + strength** constraint on resolved trees (§13). |
+| **`let` frame** | Nested named frame via World A ctors (`let Title = Text(…)` / `Layout` / `Icon` / `Media`). |
+| **Typed value `let`** | Local typed value reused in props / layers (`let ramp: Ramp = Ramp(…)` — not mountable). |
+| **Fixture (`example`)** | Named **parameter map** for preview/tests/codegen (§11). |
+| **Rule** | **Query + strength** constraint on resolved trees (§12). |
 | **Emitter / compiler target** | Consumer of resolved output (HTML, manifest, …) (§17). |
 | **Design manifest** | Versioned **JSON** summary for tooling and runtimes (§17). |
 
@@ -103,20 +104,20 @@ A `.pdl` **module** is parsed into a **partial design definition**; the **entry 
 - **Strings**: Double quotes; escaping (`\"`, `\\`, …). **Hex colors are not strings** — write `#RRGGBB`, not `"#RRGGBB"` (§3, §6).  
 - **Numbers**: Integer or decimal where allowed.  
 
-Full cheat sheet: §11.
+Full cheat sheet: §10.
 
 ---
 
 ## Frame kinds (four)
 
-| Kind | Role |
-|------|------|
-| `layout` | Flex-like container: direction, gap, padding, **wrap**, **justify** / **align**, **layers**, sizing (§5). |
-| `text` | Typography + optional `typeStyle`. |
-| `icon` | Named icon glyph + size/color. |
-| `media` | **Media** slot: raster, vector, video, etc. via **`source`** (`MediaSource`) + layout props (§5). |
+| Kind (IR / root keyword) | World A ctor | Role |
+|--------------------------|--------------|------|
+| `layout` | `Layout(…)` | Flex-like container: direction, gap, padding, **wrap**, **justify** / **align**, **layers**, sizing (§5). |
+| `text` | `Text(…)` | Typography + optional `typeStyle`. |
+| `icon` | `Icon(…)` | Named icon glyph + size/color (`icon:` takes an **`Icon`** token / **`IconRef(…)`**). |
+| `media` | `Media(…)` | Media **frame**: raster / vector / video via **`source`** (`MediaSource`) + layout props (§5). Distinct from layer fill **`MediaLayer(…)`** (§14). |
 
-Every component declares one root kind: `component Name(…) layout { … }` (or `text`, `icon`, `media`).
+Every component declares one root kind: `component Name(…) layout { … }` (or `text`, `icon`, `media`). Nested frames use the matching World A ctor (`let Row = Layout(…)`).
 
 ---
 
@@ -127,7 +128,7 @@ Every component declares one root kind: `component Name(…) layout { … }` (or
 3. **Themes** — remap semantics (light/dark, **reduced motion**, brand).  
 4. **Components** — semantic tokens and variants; avoid ad-hoc literals except demos.  
 5. **Type styles** — shared typography.  
-6. **Materials** — composite **`Background`** / **`Foreground`** tokens for repeated stacks (§15).  
+6. **Materials** — composite **`Background`** / **`Foreground`** tokens for repeated stacks (§14).  
 7. **`emits` + `fixtures`** — output intents and examples for systems that integrate PDL (§4d / §11).  
 
 ---
@@ -139,9 +140,7 @@ component Greeting(title: String = "Hello") layout {
   direction = .column
   padding = EdgeInsets(x: 16, y: 16)
 
-  let Title: text = {
-    content = title
-  }
+  let Title = Text(content: title)
 
   children = [Title]
 }
@@ -198,7 +197,7 @@ These may appear in any **module** (entry or imported). Order **within** a file 
 | `protocol` | Shared param/emits contract for conforming components (§4a) |
 | `component` | UI definition |
 | *(removed)* `interaction` | Use `[self.]<channel> = { … }` in the kind body (§4a′ / §8) |
-| **`fixtures`** | Example param instances (§12) |
+| **`fixtures`** | Example param instances (§11) |
 | **`usage`** | Human-readable guidance (§12) |
 | **`rules`** | Query constraints (§13) |
 | **`extend`** | Augment an existing component (§12) |
@@ -263,7 +262,7 @@ primitive color.brand: Color = #002fff  // inline
 |---------|-----------|
 | `tokens.pdl` | `primitive` / `semantic` for color, type, space, effects |
 | `motion.pdl` | `Duration`, `Easing`, `Transition` tokens (§14) |
-| `materials.pdl` | `Background` / `Foreground` semantic stacks (§15) |
+| `materials.pdl` | `Background` / `Foreground` semantic stacks (§14) |
 | `typography.pdl` | `typeStyle` |
 | `themes.pdl` | `theme` blocks |
 | `variants.pdl` | Shared `variant` / `enum` closed sets |
@@ -307,7 +306,7 @@ primitive <name>: <TokenType> = <value>
 | `Distance` | spacing | Gaps, padding axes | Non-negative number (px), or (on **`semantic`**) a `Distance` token alias — not a string | `primitive spacing.primitive.md: Distance = 12` |
 | `Radius` | shape | Uniform corner radius | Non-negative number, or (on **`semantic`**) a `Radius` token alias — **not** `Corner(…)` | `primitive radius.primitive.md: Radius = 10` |
 | `Shadow` | effect | Drop shadows | **`Shadow(x:, y:, blurRadius:, color: [, spread:])`** constructor (§6). Axes are numbers (or numeric token refs); `color` is a `Color` (hex / token / `color @ opacity`). Optional `spread` defaults to `0`. Resolved IR is a JSON object `{ kind: "shadow", x, y, blurRadius, spread, color }` — emitters map fields to the platform (HTML → CSS `box-shadow`). A CSS box-shadow **string** on a `Shadow` token is **PDL-E005**. | `primitive shadow.card: Shadow = Shadow(x: 0, y: 4, blurRadius: 12, color: #000000 @ 0.15)` |
-| `Icon` | asset | Tintable glyph / symbol ref | **`Icon(system: .sfSymbols\|.materialSymbols, name: "…")`**, **`Icon(file: "icons/…")`**, or pack-relative path string sugar (must contain `/` and/or a known extension). Bare names like `"star"` are **invalid** (ambiguous). | `primitive icon.primitive.star: Icon = Icon(system: .sfSymbols, name: "star")` |
+| `Icon` | asset | Tintable glyph / symbol ref | **`IconRef(system: .sfSymbols\|.materialSymbols, name: "…")`**, **`IconRef(file: "icons/…")`**, or pack-relative path string sugar (must contain `/` and/or a known extension). Bare names like `"star"` are **invalid** (ambiguous). Frame ctor **`Icon(…)`** builds an icon **frame** — different namespace. | `primitive icon.primitive.star: Icon = IconRef(system: .sfSymbols, name: "star")` |
 | `MediaSource` | asset | Raster / vector / video / path ref | **`MediaSource(file: "…" [, kind:, format:])`**, **`MediaSource(url: "…" [, kind:, format:])`**, pack-relative path string, or http(s) URL string (§5 §`media`, §6 §Asset refs). | `primitive media.hero: MediaSource = MediaSource(url: "https://cdn.example/abc", kind: .raster, format: .jpeg)` |
 | `Ratio` | layout | Aspect ratio | Positive number, or **`W:H` sugar** (e.g. `16:9` → `16/9`) | `primitive ratio.video: Ratio = 16:9` |
 | `FontFamily` | typography | Font stack | String | `primitive font.body: FontFamily = "Inter, system-ui, sans-serif"` |
@@ -319,11 +318,15 @@ primitive <name>: <TokenType> = <value>
 | `Duration` | motion | Animation length | Number (ms) (§14) | `primitive motion.duration.fast: Duration = 150` |
 | `Easing` | motion | Curves | String or enum literal (§14) | `primitive motion.easing.standard: Easing = "cubic-bezier(0.2, 0, 0, 1)"` |
 | `Transition` | motion | duration + easing + optional delay (defaults to 0) | Tuple literal (§14) | `semantic motion.appear: Transition = (duration: motion.duration.fast, easing: motion.easing.standard)` |
-| `Blur` | visual effect | Blur radius | Number (§15) | `primitive blur.standard: Blur = 16` |
-| `Vibrancy` | visual effect | Saturation/brightness intent | Tuple (§15) | `primitive vibrancy.sheet: Vibrancy = (saturation: 1.2, brightness: 1.05)` |
-| `Ramp` | visual effect | Opacity mask ramp | `direction` + `stops` (§15) | `primitive ramp.fade.bottom: Ramp = (direction: .bottomToTop, stops: [GradientStop(opacity: 1, position: 0.5), GradientStop(opacity: 0, position: 1)])` |
-| `Background` | composite | Named layer stack (fills) — **same RHS shape** as **`Foreground`** (scalar color sugar or layer array); composite **under** children (§15); **prefer** `@ opacity…` over raw decimals on colors (§6) | `semantic material.sheet: Background = [Blur(blur: blur.sheet), color.surface.primary @ opacity.surface.tint]` |
-| `Foreground` | composite | Named layer stack (over content) — **same RHS** as **`Background`**; composite **over** children (§15) | `semantic effect.hoverTint: Foreground = [color.primitive.black @ opacity.state.hover]` |
+| `Blur` | visual effect | Blur **layer object** | `Blur(radius: <Radius\|number> [, style: BlurStyle] [, vibrancy: Vibrancy])` (§14). Radius amounts reuse **`Radius`** (not a numeric `Blur` token). Bare `Blur` tokens are valid layer entries. | `primitive blur.sheet.radius: Radius = 16` then `primitive blur.sheet: Blur = Blur(radius: blur.sheet.radius)` |
+| `Vibrancy` | visual effect | Saturation/brightness intent | `Vibrancy(saturation:, brightness:)` (§14). Bare `Vibrancy` tokens are valid layer entries. | `primitive vibrancy.sheet: Vibrancy = Vibrancy(saturation: 1.2, brightness: 1.05)` |
+| `Ramp` | visual effect | Opacity mask ramp | Prefer **`Ramp(direction:, stops:)`**; naked `(direction:, stops:)` tuples remain accepted (§14) | `primitive ramp.fade.bottom: Ramp = Ramp(direction: .bottomToTop, stops: [GradientStop(opacity: 1, position: 0.5), GradientStop(opacity: 0, position: 1)])` |
+| `EdgeInsets` | layout | Padding / margin / inset box | `EdgeInsets(x:, y:)` or TRBL (§6) | `primitive spacing.card.pad: EdgeInsets = EdgeInsets(x: 16, y: 12)` |
+| `CornerRadii` | shape | Asymmetric corners | `Corner(tl:, tr:, br:, bl:)` (§6) — constructor name stays `Corner` | `let corners: CornerRadii = Corner(tl: 8, tr: 8, br: 4, bl: 4)` |
+| `Media` | visual layer | Media **fill layer** value | Construct with **`MediaLayer(source:, contentMode: …)`** (§14) — distinct from `MediaSource` and from the **`Media(…)` frame** ctor | `let hero: Media = MediaLayer(source: media.hero, contentMode: .cover)` |
+| `GradientStop` | visual | Ramp stop | `GradientStop(…)` inside / as reusable value | `let stop: GradientStop = GradientStop(opacity: 0, position: 1)` |
+| `Background` | composite | Named layer stack (fills) — **same RHS shape** as **`Foreground`** (scalar color sugar or layer array); composite **under** children (§14); **prefer** `@ opacity…` over raw decimals on colors (§6) | `semantic material.sheet: Background = [blur.sheet, color.surface.primary @ opacity.surface.tint]` |
+| `Foreground` | composite | Named layer stack (over content) — **same RHS** as **`Background`**; composite **over** children (§14) | `semantic effect.hoverTint: Foreground = [color.primitive.black @ opacity.state.hover]` |
 
 Examples:
 
@@ -353,7 +356,7 @@ semantic motion.instant: Transition = (duration: 0, easing: motion.easing.linear
 
 Declare **reusable alpha** as **`Opacity`** primitives (palette) and **semantic** aliases (intent), e.g. `opacity.primitive.scrim`, then `semantic opacity.state.hover: Opacity = opacity.primitive.scrim` (reference: `opacity.state.hover`). **Do not** embed raw decimals like `0.75` in design-system surfaces when an **`Opacity`** token would communicate intent and participate in theming.
 
-Use those names on the **right-hand side of `@`** after a color (see §6 and §15): **`color.surface.primary @ opacity.surface.tint`** is **preferred** over **`color.surface.primary @ 0.75`**. Numeric literals remain valid for **one-off demos** or generated output.
+Use those names on the **right-hand side of `@`** after a color (see §6 and §14): **`color.surface.primary @ opacity.surface.tint`** is **preferred** over **`color.surface.primary @ 0.75`**. Numeric literals remain valid for **one-off demos** or generated output.
 
 **Same `Opacity` tokens** apply anywhere an **opacity** is configured: frame **`opacity=`**, layer constructor **`opacity:`** arguments, **`GradientStop(opacity: …)`**, **`from` / `to`** animation blocks, etc. — **number or `Opacity` token** (§6).
 
@@ -374,7 +377,7 @@ semantic color.surface.card: Color = color.primitive.gray.050
 semantic color.text.primary: Color = color.primitive.gray.900
 semantic spacing.card.padding: Distance = spacing.primitive.md
 semantic material.sheet: Background = [
-  Blur(blur: blur.sheet, vibrancy: vibrancy.sheet),
+  blur.sheet  // or Blur(radius: blur.standard.radius, vibrancy: vibrancy.sheet),
   color.surface.primary @ opacity.surface.tint
 ]
 ```
@@ -457,11 +460,11 @@ component TypographyShowcase() layout {
   direction = .column
   gap = 8
 
-  let HeadingText: text = {
-    content = "Heading style sample"
-    style = Heading
-    color = color.text.default
-  }
+  let HeadingText = Text(
+    content: "Heading style sample",
+    style: Heading,
+    color: color.text.default
+  )
 
   children = [HeadingText]
 }
@@ -471,7 +474,7 @@ component TypographyShowcase() layout {
 
 ## Cross-reference
 
-- **Layer literals** on tokens and frames: §15  
+- **Layer literals** on tokens and frames: §14  
 - **Manifest token export**: §17  
 - **Property tables** (where tokens attach to frames): §5
 ---
@@ -584,7 +587,7 @@ Catalogue lists a prelude protocol only when a component **`conformsTo`** it or 
 
 ### Editable text (host)
 
-Stay on kind **`text`**. Opt into prelude **`EditableText`** (direct or via `requires`). Bind with **`editable = value`** (param name). Prefer orthogonal **`editing: Boolean`**. Wire inbound with `self.keyboardDismissed = { … }` / `self.keyboardCancelled = { … }`. Host verbs: see §4a′. Host writes the bound param on commit; `emit change` is optional parent notification.
+Stay on kind **`text`**. Opt into prelude **`EditableText`** (direct or via `requires`). Bind with **`editable = value`** (param name). Prefer orthogonal **`editing: Bool`**. Wire inbound with `self.keyboardDismissed = { … }` / `self.keyboardCancelled = { … }`. Host verbs: see §4a′. Host writes the bound param on commit; `emit change` is optional parent notification.
 
 Array/slot params typed as an **API** protocol (`[ModalContent]`) are **§4b**. Injection packs are **§4c**. Layout emit capture / ForEach are **§4e**.
 
@@ -650,7 +653,7 @@ protocol FormField: component {
 component SearchField <FormField>(
   value: String = "",
   placeholder: String = "Search",
-  editing: Boolean = false
+  editing: Bool = false
 ) text {
   editable = value
   content = placeholder
@@ -714,9 +717,10 @@ name: [TypeName] = [Instance(), …]   // array / slot list (§4b)
 
 - **`TypeName`**:  
   - **`String`** — text parameters.  
-  - **`AnyDeclaredVariant`** — use the variant’s name as the type (`BannerTone`, `M3ButtonForm`, …).  
+  - **`Bool`** — boolean parameters (**not** `Boolean` — **PDL-E039**).  
+  - **Token / value builtins** — `Color`, `Opacity`, `Distance`, `Icon`, `MediaSource`, … (§3 / §23.1).  
+  - **Declared `variant` / `enum`** — use the type’s name (`BannerTone`, `FilterId`, …).  
   - **Protocol or component name** — single slot (`content: ModalContent = UpsellBody()`).  
-  - Other identifier types may be accepted by the parser; **string and variant-typed** params are the common, well-supported paths for UI and interactions.  
 - **`[TypeName]`** — array of component/protocol instances (see **§4b**).  
 
 ### Default values
@@ -724,7 +728,8 @@ name: [TypeName] = [Instance(), …]   // array / slot list (§4b)
 | Form | Meaning |
 |------|---------|
 | `"quoted"` | String default |
-| `42` | Numeric default |
+| `true` / `false` | Bool default |
+| `42` / `#RRGGBB` / constructors | Numeric / color / typed-value defaults |
 | `.caseName` | Variant case default |
 | `Name()` / `Name(…)` | Component instance literal (slot defaults) |
 | `[Name(), …]` / `[]` | Array of instances |
@@ -734,6 +739,7 @@ Examples:
 ```pdl
 component Chip(
   label: String = "Chip",
+  selected: Bool = false,
   tone: BannerTone = .success
 ) layout { … }
 ```
@@ -742,14 +748,14 @@ component Chip(
 
 ## 4b — Array params & children expansion (B2)
 
-**Status:** shipped in the **Rust** portable core; TypeScript oracle unchanged for this slice. Proposal: `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` §6.
+**Status:** shipped in the **Rust** portable core; TypeScript oracle may lag this slice. Proposal: `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` §6.
 
 ```pdl
 component Modal(
   chromeTitle: String = "Dialog",
   slots: [ModalContent] = [UpsellBody()]
 ) layout {
-  let Header: text = { content = chromeTitle }
+  let Header = Text(content: chromeTitle)
   children = [Header, slots]
 }
 ```
@@ -768,7 +774,7 @@ component Modal(
 component AbnButton(
   simple: SimpleChip = SimpleChip(title: "Chip")
 ) layout {
-  let L: text = { content = label }
+  let L = Text(content: label)
   simple.content = "Override"   // root text prop on mounted SimpleChip
   simple.padding = 50           // root frame prop
   // simple.title = "X"         // would override the title param
@@ -876,11 +882,11 @@ enum FilterId {
 component FilterChip(
   title: String = "All",
   filter: FilterId = .all,
-  selected: Boolean = false
+  selected: Bool = false
 ) layout {
   direction = .row
   if selected { /* selected chrome */ }
-  let Label: text = { content = title }
+  let Label = Text(content: title)
   children = [Label]
   self.pressEnd = { emit select(filter) }
 } emits {
@@ -926,12 +932,13 @@ component FilterBar(
   ]
 ) layout {
   direction = .row
-  children = [chips]
   ForEach(chips) { chip in
+    chip.selected = self.currentFilter == filter
     chip.select(filter_id: FilterId) = {
       currentFilter = filter_id
     }
   }
+  children = [chips]
 }
 ```
 
@@ -949,23 +956,23 @@ protocol SubnavItem: component {
 }
 
 component FilterChip <SubnavItem>(
-  selected: Boolean = false
+  selected: Bool = false
 ) layout {
   direction = .row
   if selected { /* selected chrome */ }
-  let Label: text = { content = title }
+  let Label = Text(content: title)
   children = [Label]
   self.pressEnd = { emit select(filter) }
 }
 
 component IconFilterChip <SubnavItem>(
   glyph: String = "•",
-  selected: Boolean = false
+  selected: Bool = false
 ) layout {
   direction = .row
   if selected { /* selected chrome */ }
-  let Mark: text = { content = glyph }
-  let Label: text = { content = title }
+  let Mark = Text(content: glyph)
+  let Label = Text(content: title)
   children = [Mark, Label]
   self.pressEnd = { emit select(filter) }
 }
@@ -986,6 +993,7 @@ component LibrarySubnav(
       currentFilter = filter_id
     }
   }
+  children = chips
 }
 ```
 
@@ -1025,7 +1033,7 @@ Host dispatch of **unhandled** emits (no layout handler assignment) is **B7** / 
 
 Parent owns **one** source of truth (SoT). Prefer **ids / enums**, not indexes.
 
-**Selection pattern A (canonical):** the parent owns an id/enum SoT (e.g. `currentFilter: FilterId`). Each child keeps its **identity** (`filter`) and takes a **Bool presentation** param (`selected: Boolean`). The parent **derives** that bool in `ForEach` (`chip.selected = self.currentFilter == filter`); the child draws with `if selected`. Mount with `children = [chips]`.
+**Selection pattern A (canonical):** the parent owns an id/enum SoT (e.g. `currentFilter: FilterId`). Each child keeps its **identity** (`filter`) and takes a **Bool presentation** param (`selected: Bool`). The parent **derives** that bool in `ForEach` (`chip.selected = self.currentFilter == filter`); the child draws with `if selected`. Mount with `children = [chips]`.
 
 `ForEach` is the list analogue of single-slot dotted overrides (`simple.title = …` / `simple.padding = …`). The **item binder** names the current element explicitly — no implied singular of the list name. Emit capture uses the same `=` family on that binder:
 
@@ -1051,12 +1059,31 @@ component LibrarySubnav(
 }
 ```
 
+**Equivalent with layout-style `if` / `else`** (evaluated **per list item** at bake/expand):
+
+```pdl
+ForEach(chips) { chip in
+  if self.currentFilter == filter {
+    chip.selected = true
+  } else {
+    chip.selected = false
+  }
+
+  chip.select(filter_id: FilterId) = {
+    currentFilter = filter_id
+  }
+}
+```
+
+Prefer the short `chip.selected = self.currentFilter == filter` form when a single Bool derivation is enough; use `if` / `else` when branches assign multiple fields or need clearer chrome logic.
+
 `self.currentFilter` names the **enclosing component** param (escape hatch when item fields would shadow). On the RHS, bare identifiers resolve **item fields first**, then enclosing params — so `filter` is the chip’s identity. Prefer `self.` for the parent SoT in `ForEach`.
 
 | Rule | Intent |
 |------|--------|
 | `ForEach(listParam) { item in … }` | Overlay only — **does not** insert children. **`item in` is required** (binder for the current element). `listParam` **MUST** also appear in some `children = […]` / `children = listParam` (**PDL-E035**). |
 | Item override | **`item.name = expr`** (binder-qualified). If `name` is an effective **param** of the concrete item → kwargs; else → **root frame prop** after mount (same classify as §4b slot dotted). Bare `name = expr` inside `ForEach` is a hard error. |
+| `if` / `else` | Same condition grammar as layout (`if self.currentFilter == filter { item.selected = true } else { … }`). Branch bodies may only contain ForEach body items (overrides, emit captures, nested `if`). Evaluated **per list item** at bake/expand using the item bind scope. |
 | RHS name lookup | Bare identifiers: **item fields first**, then **enclosing component params** (item shadows parent). **`self.param`** always means the enclosing component (§22.2). |
 | Emit capture (list) | **`item.select(filter_id: FilterId) = { … }`** inside `ForEach` — binder-qualified; **declared emit channels only** (§8). Catalogue/runtime treat the binder as the enclosing list. |
 | Emit capture (single) | **`Field.change(…) = { … }`** / **`All.select(…) = { … }`** on a let instance or single slot — not on array/list params (**PDL-E036**). |
@@ -1101,10 +1128,7 @@ There is **no** `expose` keyword and no private-param syntax. Studio-only knobs 
 Inside the component body, use the parameter name as a **bare identifier** in value positions:
 
 ```pdl
-let Message: text = {
-  content = label
-  color = color.status.success
-}
+let Message = Text(content: label, color: color.status.success)
 ```
 
 ---
@@ -1142,29 +1166,29 @@ component StatusBanner(
   label: String = "Everything is fine",
   tone: BannerTone = .success
 ) layout {
-  let Message: text = {
-    content = label
-    color = color.status.success
+  let Message = Text(content: label, color: color.status.success)
 
-    if tone == .warning {
-      color = color.status.warning
-      content = "Check this warning"
-    } else if tone == .danger {
-      color = color.status.danger
-      content = "Immediate action required"
-    }
+  if tone == .warning {
+    Message.color = color.status.warning
+    Message.content = "Check this warning"
+  } else if tone == .danger {
+    Message.color = color.status.danger
+    Message.content = "Immediate action required"
   }
 
   children = [Message]
 }
 ```
+
+*(Same pattern: `test-fixtures/pdl/integration/status_banner.pdl`.)*
+
 ---
 
 ## 5 — Components, Frames, and Properties
 
 This chapter is **normative** for allowed **property names**, **types**, and **enum values** on each **frame kind**. A conforming implementation **must** reject unknown properties at validation time.
 
-**Related:** value literal grammar (§6), **background/foreground layers** (§15), **layout flex extensions** below.
+**Related:** value literal grammar (§6), **background/foreground layers** (§14), **layout flex extensions** below.
 
 ---
 
@@ -1176,8 +1200,9 @@ component Name(
   …
 ) <rootKind> {
   // properties on root frame
-  // let blocks for nested frames
-  // optional: if / else if / else on root or lets
+  // World A lets: let Title = Text(…), let Row = Layout(…)
+  // typed value lets: let ramp: Ramp = Ramp(…)
+  // if / else if / else; ForEach; host handlers; emit captures
   children = [ … ]
 }
 ```
@@ -1197,30 +1222,22 @@ component Name <Protocol>(
 ## Nested frames: `let`
 
 ```pdl
-let FrameId: layout = {
-  direction = .column
-  gap = 8
-  children = [ … ]
-}
+let FrameId = Layout(direction: .column, gap: 8, children: [ … ])
 
-let Label: text = {
-  content = "Hello"
-  style = Body
-}
+let Label = Text(content: "Hello", style: Body)
 ```
 
 - **`let` id** unique within the component.  
-- Kind selects the property table below.  
-- **`children`** lists **child entries** ([`children` array](#children-array)).  
+- World A ctor (`Text` / `Layout` / `Icon` / `Media`) selects the property table below.  
+- **`children`** lists **child entries** ([`children` array](#children-array)) — as a ctor kwarg or later `Id.children = […]`.  
+- Classic `let Id: kind = { … }` is **removed** (**PDL-E001**).  
 
 ---
 
 ## Assigning children after declaration
 
 ```pdl
-let Row: layout = {
-  direction = .row
-}
+let Row = Layout(direction: .row)
 
 Row.children = [IconA, IconB]
 ```
@@ -1244,8 +1261,8 @@ Row.children = [IconA, IconB]
 | **`rowGap`** | number / `Distance` | Gap between **wrapped lines** on the main axis when `wrap = .wrap`. If omitted, **`gap`** applies to both axes. Emitters **MUST** map this to CSS `row-gap` or the platform equivalent. Parsers **MUST** accept and validate `rowGap` as a first-class property. |
 | `padding` | edgeInsets | **`EdgeInsets(…)`** or **scalar sugar** — a non-negative **number** means uniform padding on all sides (§6 §`EdgeInsets`) |
 | **`margin`** | edgeInsets | External inset around the frame’s border box in layout flow; **`EdgeInsets(…)`** or **scalar sugar** (same rules as **`padding`**) |
-| `background` | color \| layers | Scalar **color**, **layer array**, or **`Background`** token — same grammar as **`foreground`**, composited **under** children (§15) |
-| **`foreground`** | color \| layers | Same as **`background`** (color sugar, layers, or **`Foreground`** token); composited **over** children (§15) |
+| `background` | color \| layers | Scalar **color**, **layer array**, or **`Background`** token — same grammar as **`foreground`**, composited **under** children (§14) |
+| **`foreground`** | color \| layers | Same as **`background`** (color sugar, layers, or **`Foreground`** token); composited **over** children (§14) |
 | `cornerRadius` | cornerRadius | number, `Corner(…)`, `Radius` token |
 | `opacity` | number \| `Opacity` | **0…1** literal or **`Opacity`** token (§6 §Opacity-valued properties) |
 | `overflow` | enum | **`.visible`**, **`.scroll`**, **`.clip`** (or `Overflow.<case>`) — §6 §Overflow; no `.hidden` / `.auto` |
@@ -1292,8 +1309,8 @@ Row.children = [IconA, IconB]
 | **`margin`** | edgeInsets | **`EdgeInsets(…)`** or **scalar sugar** | `margin = 8` |
 | `justify` | enum | **`.start`**, **`.center`**, **`.end`** only on **`text`** (or `Justify.<case>`) | `justify = .center`, `justify = Justify.center` |
 | `align` | enum | **`.start`**, **`.center`**, **`.end`** only on **`text`** (cross-axis) | `align = .start` |
-| `background` | color \| layers | Scalar color, layer array, or **`Background`** token (§15) | `background = color.surface.subtle` |
-| **`foreground`** | color \| layers | Same grammar as **`background`** + **`Foreground`** token (§15) | `foreground = [color.primitive.black @ opacity.state.hover]` |
+| `background` | color \| layers | Scalar color, layer array, or **`Background`** token (§14) | `background = color.surface.subtle` |
+| **`foreground`** | color \| layers | Same grammar as **`background`** + **`Foreground`** token (§14) | `foreground = [color.primitive.black @ opacity.state.hover]` |
 | `opacity` | number | **0…1** | `opacity = 0.85` |
 | `overflow` | enum | **`.visible`**, **`.scroll`**, **`.clip`** (or `Overflow.<case>`) — §6 §Overflow | `overflow = .clip` |
 | `truncateStyle` | enum | **`.clip`** (hard end, no `…`), **`.ellipsis`** (trailing `…`); or `TruncateStyle.<case>` | `truncateStyle = .ellipsis` |
@@ -1343,8 +1360,8 @@ Normatively, **`source`** is a **`MediaSource`** value — today often a **quote
 | `contentMode` | enum | **`.cover`**, **`.contain`**, **`.fill`**, **`.scaleDown`** — applies to **raster** and **vector** boxes; **video** mapping is **emitter-defined**. |
 | `justify` | enum | **`.start`**, **`.center`**, **`.end`** — horizontal content position within the media box (same cases as **`text.justify`**; maps to CSS **`object-position`** X). |
 | `align` | enum | **`.start`**, **`.center`**, **`.end`** — vertical content position within the media box (same cases as **`text.align`**; maps to CSS **`object-position`** Y). |
-| `background` | color \| layers | Under-content stack (§15). |
-| **`foreground`** | color \| layers | Same grammar as `background` (§15). |
+| `background` | color \| layers | Under-content stack (§14). |
+| **`foreground`** | color \| layers | Same grammar as `background` (§14). |
 | `cornerRadius` | cornerRadius | |
 | `opacity` | number \| `Opacity` | **0…1** or **`Opacity`** token (§6 §Opacity-valued properties) |
 | **`alignSelf`**, **`grow`**, **`shrink`**, **`position`**, **`inset`** | | When parent is `layout` |
@@ -1359,6 +1376,15 @@ Each element is one of:
 1. **Frame id** — string matching a `let` in the same component.  
 2. **Component instance** — `OtherComponent(arg: value, …)`.  
 3. **Spacer** — **`Spacer()`** — expands on the **main axis** to fill remaining free space (emitter maps to flex `1 1 auto` or equivalent).  
+
+A frame id or instance may take postfix **`@` Opacity** (§6) to set that child’s root **`opacity`** at mount time:
+
+```pdl
+children = [Logo, Pic @ 0.5, NavItems]
+children = Pic @ opacity.ui.ghost
+```
+
+**`Spacer() @ …`** is illegal (spacer is not opacity-bearing). Explicit **`Pic.opacity = …`** later in the body overrides a mount annotation (document order / last write wins), same as other frame props.
 
 ```pdl
 children = [Logo, Spacer(), NavItems]
@@ -1386,18 +1412,18 @@ component InfoCard(
   direction = .column
   gap = 8
 
-  let Header: layout = {
-    direction = .column
-    let Title: text = { content = title }
-    let Subtitle: text = { content = subtitle }
-    children = [Title, Subtitle]
-  }
+  let Title = Text(content: title)
+  let Subtitle = Text(content: subtitle)
+  let Header = Layout(
+    direction: .column,
+    children: [Title, Subtitle]
+  )
 
   children = [Header]
 }
 ```
 
-See `test-fixtures/pdl/04_composition_and_nesting.pdl` for larger examples.
+See `test-fixtures/pdl/molecules/` and `test-fixtures/pdl/playground/lab_world_a.pdl` for larger World A examples.
 
 ---
 
@@ -1503,30 +1529,43 @@ layout {
 
 ---
 
-## Inline opacity on colors (`@`)
+## Inline opacity (`@`)
 
-In **layer lists** and anywhere the grammar permits, apply alpha to a color token or hex by writing **`@`** followed by either:
+Postfix **`@`** applies an **Opacity** (token or **0…1** literal) to an **opacity-bearing** left operand. Operand kind selects the meaning:
 
-1. **Preferred:** an **`Opacity`** token (primitive or semantic), e.g. **`color.surface.primary @ opacity.surface.tint`** — same theming and naming rules as other tokens (§3).  
-2. **Allowed (narrow use):** a **numeric literal** in **0…1**, e.g. **`color.surface.primary @ 0.75`** — use for one-offs, generated output, or migration; design-system libraries should **default to (1)**.
+| Left operand | Meaning |
+|--------------|---------|
+| Color (`#hex`, Color token, nested `color @ …`) | Multiply into color alpha (§6 / §14) |
+| Child mount (frame id or `Comp(…)` in `children`) | Set that child’s root frame **`opacity`** |
+| **`MediaLayer(…)`** layer constructor | Fill **`opacity:`** (error if **`opacity:`** already set — **PDL-E020**) |
+| **`Color(…)`** layer constructor | Apply `@` to the **`color:`** argument (same as `Color(color: X @ op)`) |
+| Anything else (`Spacer()`, `Blur(…)`, String, …) | Illegal — clear diagnostic |
+
+RHS of `@`:
+
+1. **Preferred:** an **`Opacity`** token (primitive or semantic), e.g. **`color.surface.primary @ opacity.surface.tint`**.  
+2. **Allowed (narrow use):** a **numeric literal** in **0…1**, e.g. **`Pic @ 0.75`**.
 
 ```pdl
 color.surface.primary @ opacity.surface.tint
 color.surface.primary @ 0.75
+children = [Pic @ 0.5]
+MediaLayer(source: media.hero, contentMode: .cover) @ opacity.surface.tint
+Color(color: color.surface.primary) @ 0.5
 ```
 
-**Semantics:** resolved to a color with multiplied / combined alpha (§15).
+The RHS of frame **`opacity = …`** is already Opacity-valued — do not write `opacity = x @ y`.
 
 ---
 
 ## Opacity-valued properties (frames, layers, motion)
 
-Any property or constructor argument that controls **alpha** (frame **`opacity=`**, **`GradientStop(opacity: …)`** inside **`Ramp`**, **`Media`** / **`Color`** `opacity` arguments where applicable, **`from` / `to`** animation **`opacity`**, etc.) accepts:
+Any property or constructor argument that controls **alpha** (frame **`opacity=`**, **`GradientStop(opacity: …)`** inside **`Ramp`**, **`MediaLayer`** `opacity:` , **`from` / `to`** animation **`opacity`**, etc.) accepts:
 
 1. A **numeric literal** in **0…1**, or  
 2. An **`Opacity`** token reference (primitive or semantic), resolved to **0…1** before emit (§3).
 
-**Prefer (2)** in design systems so themes can retint without hunting literals — same rationale as **`color… @ opacity…`** (§3 §Opacity tokens).
+**Prefer (2)** in design systems so themes can retint without hunting literals — same rationale as postfix **`@`** (§6 §Inline opacity).
 
 ```pdl
 opacity = 0.9
@@ -1659,7 +1698,7 @@ Bake / catalogue resolve to `{ "kind": "shadow", "x", "y", "blurRadius", "spread
 
 ## Background / foreground layer lists
 
-**`background`** and **`foreground`** use the **same** forms: a **scalar color** (sugar for one solid layer) or an **ordered array** of layer constructors. They differ only in **stacking vs children** (under vs over) at composite time (§15).
+**`background`** and **`foreground`** use the **same** forms: a **scalar color** (sugar for one solid layer) or an **ordered array** of layer constructors. They differ only in **stacking vs children** (under vs over) at composite time (§14).
 
 A bare **`Opacity`** token is **not** a layer (**PDL-E006** / **PDL-E005** on tokens): apply it with **`color @ opacity…`** or a constructor **`opacity:`** argument.
 
@@ -1671,7 +1710,7 @@ foreground = color.primitive.black @ opacity.state.hover
 background = [color.surface.primary]
 foreground = [color.primitive.black @ opacity.state.hover]
 background = [
-  Blur(blur: blur.sheet, vibrancy: vibrancy.sheet),
+  blur.sheet  // or Blur(radius: blur.standard.radius, vibrancy: vibrancy.sheet),
   color.surface.primary @ opacity.surface.tint
 ]
 
@@ -1701,23 +1740,23 @@ See §14.
 ```pdl
 content = "Hello, world"
 icon = icon.action.favorite          // prefer Icon tokens
-icon = Icon(system: .sfSymbols, name: "star")
+icon = IconRef(system: .sfSymbols, name: "star")
 icon = "icons/star.svg"              // pack-relative file sugar
 source = media.hero
 ```
 
 ---
 
-## Asset refs (`Icon` / `MediaSource`)
+## Asset refs (`IconRef` / `MediaSource`)
 
 **Normative:** Components bind **semantic tokens**; primitives carry concrete refs. Emitters / preview hosts resolve refs to platform assets.
 
 | Form | Meaning |
 |------|---------|
-| `"icons/star.svg"` | Pack-relative **file** sugar (must include `/` and/or `.svg`/`.png`/`.pdf`/`.webp`/…) |
-| `Icon(file: "icons/star.svg")` | Same, explicit |
-| `Icon(system: .sfSymbols, name: "star")` | iOS SF Symbol |
-| `Icon(system: .materialSymbols, name: "star")` | Material Symbols |
+| `"icons/star.svg"` | Pack-relative **file** sugar (must include `/` and/or `.svg`/`.png`/`.pdf`/`.webp`/…) — type **`Icon`** |
+| `IconRef(file: "icons/star.svg")` | Same, explicit **asset** ctor (not the `Icon(…)` **frame** ctor) |
+| `IconRef(system: .sfSymbols, name: "star")` | iOS SF Symbol |
+| `IconRef(system: .materialSymbols, name: "star")` | Material Symbols |
 | `MediaSource(file: "media/hero.jpg")` / path string | Pack file (kind/format inferred from extension when known) |
 | `MediaSource(url: "https://…")` / http(s) string | Remote URL |
 | `MediaSource(url: "https://cdn/…/abc", kind: .video, format: .mp4)` | Opaque address + explicit role/format |
@@ -1726,7 +1765,7 @@ source = media.hero
 Bare glyph ids (`"star"`) are **PDL-E005**. Leading `/` on pack files is **rejected** (avoids site-root vs pack-root confusion). Bake IR uses tagged objects `{ "kind": "iconRef", … }` / `{ "kind": "mediaSourceRef", "source": "file"|"url", …, "mediaKind"?, "format"? }` (§16b).
 
 ```pdl
-primitive icon.primitive.star: Icon = Icon(system: .sfSymbols, name: "star")
+primitive icon.primitive.star: Icon = IconRef(system: .sfSymbols, name: "star")
 semantic icon.action.favorite: Icon = icon.primitive.star
 primitive media.clip: MediaSource = MediaSource(url: "https://cdn.example/abc", kind: .video, format: .mp4)
 ```
@@ -1753,7 +1792,7 @@ content = title
 source = mediaSrc
 ```
 
-**Fixture bodies** (`fixtures Name { example "…" { … } }`) do **not** have component parameters in scope — see §12.
+**Fixture bodies** (`fixtures Name { example "…" { … } }`) do **not** have component parameters in scope — see §11.
 
 Variant comparisons use `.case` in `if` (§7).
 
@@ -1817,12 +1856,12 @@ if <param> == .case {
 
 1. **First match wins** — for a given `if … else if … else` **chain**, the resolver evaluates conditions **top to bottom** and applies **only** the first matching branch. There is no “fall through” to later branches.  
 2. **Several assignments per branch** — a branch can update many properties (and, where allowed, **`children`**) in one go.  
-3. **Chains nest with `let`** — a nested **`let StatusIcon: icon = { … }`** may contain its **own** `if` chain that only affects **`StatusIcon`**. Root-level and nested chains are independent.  
+3. **Override chains target frames by id** — after `let StatusIcon = Icon(…)`, an `if` at layout scope can assign **`StatusIcon.color = …`**. Prefer dotted assigns on World A lets (nested `if` inside a frame ctor body is not World A surface).  
 4. **Forward visibility** — assignments that target **`FrameId.prop`**, and **`children`** lists that name a frame id, require that **`let FrameId`** (or **`letInstance`**) appears **earlier** in the component body than the reference (**PDL-E019**). You cannot put `children = [Title]` before `let Title: …`. Component **params** (including slots) may appear in `children` without a prior `let`.
 
 ### What each assignment targets
 
-- **Bare `prop = value`** (no frame id) — updates the **frame whose `{ … }` contains this `if` block**. On the **root** `layout { … }`, that is the **root** frame. Inside **`let Message: text = { … }`**, that is **`Message`**.  
+- **Bare `prop = value`** (no frame id) — updates the **enclosing frame** of the `if` (almost always the **component root** when the `if` sits in the kind body). Prefer **`FrameId.prop = …`** for nested World A lets.  
 - **`SomeFrameId.prop = value`** — updates **`SomeFrameId`** when it is a **`let`** / **`letInstance`** frame id. When **`SomeFrameId`** is a **single slot/instance param**, see §4b (param vs root-frame classify). Array slot dotted overrides are **PDL-E034**.  
 
 - **`self` is not a frame id.** In layout/interaction expressions, `self` / `self.param` means the **enclosing component instance** (§22.2), not the root frame.  
@@ -1851,10 +1890,7 @@ component InteractiveChip(
     background = color.button.press
   }
 
-  let Label: text = {
-    content = label
-    color = color.button.text
-  }
+  let Label = Text(content: label, color: color.button.text)
 
   children = [Label]
 }
@@ -1867,38 +1903,32 @@ Here **`StatusIcon`** owns its defaults **and** its own **`if`**: when **`highli
 *(Fragment shown inside a parent component’s `layout { … }`; see `test-fixtures/pdl/05_icon_and_image_props.pdl` for a full file.)*
 
 ```pdl
-let StatusIcon: icon = {
-  icon = icon.status.default
-  color = color.icon.default
+let StatusIcon = Icon(icon: icon.status.default, color: color.icon.default)
 
-  if highlighted == .on {
-    color = color.icon.accent
-  }
+if highlighted == .on {
+  StatusIcon.color = color.icon.accent
 }
 ```
 
 ### Variant-driven copy example
 
-**`Message`** defaults to **`label`** and a success color. **`tone`** selects which branch runs; when neither `.warning` nor `.danger` matches, the frame-level defaults above the `if` already hold — no `else` needed.
+**`Message`** defaults to **`label`** and a success color. **`tone`** selects which branch runs; when neither `.warning` nor `.danger` matches, the ctor defaults already hold — no `else` needed.
 
-*(Same pattern as `StatusBanner` in `test-fixtures/pdl/03_variants_and_overrides.pdl`.)*
+*(Same pattern as `StatusBanner` in `test-fixtures/pdl/integration/status_banner.pdl`.)*
 
 ```pdl
-let Message: text = {
-  content = label
-  color = color.status.success
+let Message = Text(content: label, color: color.status.success)
 
-  if tone == .warning {
-    color = color.status.warning
-    content = "Check this warning"
-  } else if tone == .danger {
-    color = color.status.danger
-    content = "Immediate action required"
-  }
+if tone == .warning {
+  Message.color = color.status.warning
+  Message.content = "Check this warning"
+} else if tone == .danger {
+  Message.color = color.status.danger
+  Message.content = "Immediate action required"
 }
 ```
 
-*(Full component: `test-fixtures/pdl/03_variants_and_overrides.pdl`.)*
+*(Full component: `test-fixtures/pdl/integration/status_banner.pdl`.)*
 
 ---
 
@@ -1913,9 +1943,9 @@ These are **recipes** for structuring **`children`** and **`layout`** props. The
 **Why:** Easier to reason about than one giant anonymous column; **`if`** blocks can target **`Body.padding`** or swap **`Footer`** visibility without touching **`Header`**.
 
 ```pdl
-let Header: layout = { … }
-let Body: layout = { … }
-let Footer: layout = { … }
+let Header = Layout(…)
+let Body = Layout(…)
+let Footer = Layout(…)
 children = [Header, Body, Footer]
 ```
 
@@ -1978,13 +2008,10 @@ component ArticleHero() layout {
   direction = .column
   gap = 12
 
-  let HeroImage: media = { source = "https://example.com/hero.jpg" }
-  let MetaRow: layout = {
-    direction = .row
-    gap = 8
-  }
-  let StatusIcon: icon = { icon = Icon(system: .sfSymbols, name: "clock"), size = 16 }
-  let Caption: text = { content = "Updated today" }
+  let HeroImage = Media(source: "https://example.com/hero.jpg")
+  let MetaRow = Layout(direction: .row, gap: 8)
+  let StatusIcon = Icon(icon: IconRef(system: .sfSymbols, name: "clock"), size: 16)
+  let Caption = Text(content: "Updated today")
 
   MetaRow.children = [StatusIcon, Caption]
   children = [HeroImage, MetaRow]
@@ -2013,11 +2040,11 @@ Conditions always resolve against the **component’s parameter values** (and li
 - §4 — parameters and **`variant`** / **`enum`** types used in **`if`** conditions  
 - §5 — authoritative **property** / **`children`** tables  
 - §6 — **RHS** grammar and **conditions**  
-- §8 — **`on`** handlers (separate from static **`if`**, but often drive the same params)  
+- §8 — host inbound / emit capture handlers (separate from static **`if`**, but often drive the same params)  
 - §16 — how overrides become variant deltas in the catalogue  
-- §12 — example param bundles for previews  
+- §11 — example param bundles for previews  
 
-**Example PDL files:** `test-fixtures/pdl/04_composition_and_nesting.pdl`, `05_icon_and_image_props.pdl`, `03_variants_and_overrides.pdl`
+**Example PDL files:** `test-fixtures/pdl/integration/status_banner.pdl`, `test-fixtures/pdl/protocols/filter_chip.pdl`, `test-fixtures/pdl/playground/lab_world_a.pdl`, `test-fixtures/pdl/molecules/`
 
 ---
 
@@ -2106,12 +2133,13 @@ toneVariant = .active
 
 - LHS: a **parameter** of the target component (all params are public).
 - RHS: type-checks against param type (variants use **`.case`**; `String` params take a quoted string).
+- Frame props on lets (e.g. `Label.content = "Hovered"`) are **not** legal in handlers — **PDL-E001**. Put those assigns in the layout body / `if interactionState == …` branch; handlers only write params that the layout already branches on.
 
 **`self`:**  
 - **`self.<hostChannel> = { … }`** — host handler assignment (§4a′).  
 - **`self.param`** — enclosing component parameter (optional on LHS: `self.interactionState = .hovered` ≡ `interactionState = .hovered`).  
 - Bare **`self`** as a value — enclosing **instance** (valid emit payload when the signature accepts this component or a protocol it conforms to).  
-Rules-query `self` is separate (§12).
+  Rules-query `self` is separate (§12).
 
 ---
 
@@ -2141,7 +2169,7 @@ self.pressEnd = {
 }
 ```
 
-**Normative:** conditions in handlers follow the same `ConditionExpr` grammar as frame overrides (§7) — a **variant-typed parameter** compared to a **`.caseName`**. Only variant equality comparisons are supported in v1; arbitrary string or numeric comparisons in handler `if` conditions are **not** supported.
+**Normative:** conditions in handlers follow the same `ConditionExpr` grammar as layout / `ForEach` (§7 / §23.5) — variant↔case, same-type param↔param, and Bool truthy. Arbitrary string or numeric comparisons are **not** supported in v1 (**PDL-E010**). Handler branch bodies still assign **component params only** (not frame props).
 
 ---
 
@@ -2234,21 +2262,22 @@ This repository is the **compiler and JSON emitters** plus thin **C1 HTML hosts*
 
 ## Documentation ↔ code alignment
 
-1. **`docs/full-spec.md`** (this document) is the **normative** language and JSON-contract spec for the PDL compiler in this repository.  
-2. **`src/ast.ts`** and **`src/parser.ts`** should stay aligned with §5–§7 (frames, props, values) when the grammar changes.  
-3. **`loadDesign`**, **`evaluate`**, **`resolveTree`**, and JSON emitters (**`catalogue`**, **`resolveBundle`**, **`bakeDesign`**, **`manifest`**) should be updated in the **same change** as normative edits here, or the gap recorded in **`docs/SPEC_GAPS.md`** until closed.  
+1. **`docs/full-spec.md`** (this document) is the **normative** language and JSON-contract spec.  
+2. **`crates/pdl-core`** is the **portable core** for parse / validate / bake / ForEach (B1–B5). Keep it aligned with §4–§8 / §21 when the grammar changes.  
+3. The TypeScript oracle (`src/ast.ts`, `src/parser.ts`, `loadDesign`, HTML preview) should track the same surface; where it still lags (notably ForEach expand), Rust/WASM bake is authoritative.  
 4. Add **`test-fixtures/pdl`** examples for new surface syntax (§15).  
 5. **`pdl_spec.html`** (if present) is a **secondary** human-readable view — prefer **`docs/full-spec.md`** for implementers.
 
 ### Implementation parity (reference repo)
 
-Companion blocks (**`fixtures`**, **`usage`**, **`rules`**, **`extend`**, **`interaction`**, **`emits`**) and **`pdl manifest`** are implemented on the catalogue / resolve paths. (**`expose` is removed from the language**; compilers may still emit a legacy `expose` array listing all params until the removal slice lands.) The table below tracks **larger** areas where the prose may still describe more than the reference TypeScript guarantees in every tooling path:
+Companion blocks (**`fixtures`**, **`usage`**, **`rules`**, **`extend`**, **`emits`**) and host handlers in the kind body are implemented on the catalogue / resolve paths. (**`expose`** and top-level **`interaction`** are removed from the language.) Catalogue JSON may still carry transitional fields — treat the language surface as SoT.
 
 | Area | Notes |
 |------|--------|
+| **§4e ForEach** | **Shipped in Rust**; TS oracle may skip/ignore overlays. Prefer WASM/Rust bake in Playground for list selection. |
 | **§12 Rules** | **`query`** objects are serialised on catalogue rows; full evaluator richness vs studio enforcement may differ. |
 | **§13 Motion** | Handler / motion tiers — see §16b TODOs for catalogue-only serialisation. |
-| **§14 Visual layers** | Some composite token / layer forms — keep fixtures and tests aligned with claims. |
+| **§14 Visual layers** | Keep fixtures aligned with `MediaLayer` / `Blur` / `Vibrancy` / `Ramp` constructors. |
 
 Track progress by updating rows or **`docs/SPEC_GAPS.md`** when parity improves.
 
@@ -2349,6 +2378,7 @@ ForEach(chips) { chip in             // §4e — Rust bake expands
 ```txt
 name: String = "default"
 name: VariantName = .case
+name: VariantName = VariantName.case
 ```
 
 ---
@@ -2399,15 +2429,30 @@ columnGap = spacing.sm
 
 ## Frames
 
+**World A** (normative) — expression-tree constructors; see `docs/PROPOSAL_WORLD_A_EXPRESSION_TREES.md`.
+
 ```txt
-let Id: layout = { … }
-let Id: text = { … }
-let Id: icon = { … }
-let Id: media = { … }
+let Id = Layout(…)
+let Id = Text(…)
+let Id = Icon(…)          // frame; asset refs use IconRef(…)
+let Id = Media(…)         // frame; layer fills use MediaLayer(…)
+
+// Typed value let (not a frame) — reuse in props / layer stacks:
+let ramp: Ramp = Ramp(direction: .bottomToTop, stops: [ … ])
+let blurRadius: Radius = 16
+let blur = Blur(radius: blurRadius)   // type inferred from constructor
+let pad: EdgeInsets = EdgeInsets(x: 16, y: 12)
+let dir: Direction = .column          // host enums are named types
+background = [ramp, blur]
+padding = pad
+direction = dir
 
 children = [A, B, Spacer(), C]
+children = [Layout(direction: .row, children: [A, B])]
 A.children = [X, Y]
 ```
+
+Classic `let Id: text = { … }` is **removed** (**PDL-E001** migrate to World A).
 
 ---
 
@@ -2421,7 +2466,7 @@ foreground = color.surface.card
 background = [ color.surface.card ]
 foreground = [ color.primitive.black @ opacity.state.hover ]
 background = [
-  Blur(blur: blur.sheet, vibrancy: vibrancy.sheet),
+  blur.sheet  // or Blur(radius: blur.standard.radius, vibrancy: vibrancy.sheet),
   color.surface.primary @ opacity.surface.tint
 ]
 foreground = [ color.primitive.black @ opacity.state.hover ]
@@ -2429,11 +2474,12 @@ foreground = [ color.primitive.black @ opacity.state.hover ]
 // All constructors use keyword arguments (order does not matter)
 Color(color: <token or #hex>)
 Ramp(direction: .bottomToTop, stops: [ GradientStop(position: 0, opacity: 1) … ])
-Blur(blur: blurToken)
-Blur(blur: blurToken, vibrancy: vibrancyToken)
-Media(source: "url", contentMode: .cover)
-Media(source: mediaToken, contentMode: .cover, justify: .start, align: .end, opacity: opacityToken)
-Vibrancy(vibrancy: vibrancyToken)
+Blur(radius: blurToken)  # prefer Radius token / literal
+Blur(radius: blurToken, vibrancy: vibrancyToken)
+Blur(radius: 12, vibrancy: Vibrancy(saturation: 1.2, brightness: 1.05))
+MediaLayer(source: "url", contentMode: .cover)
+MediaLayer(source: mediaToken, contentMode: .cover, justify: .start, align: .end, opacity: opacityToken)
+Vibrancy(saturation: 1.2, brightness: 1.05)
 ```
 
 ---
@@ -2446,37 +2492,41 @@ let Row = Other(a: "x", v: .primary)
 
 ---
 
-## Conditions (frames)
+## Conditions (frames / ForEach)
 
 ```txt
 if param == .case { … }
 else if param == .other { … }
 else { … }
+
+// Same-type param ↔ param (Pattern A / ForEach):
+if self.currentFilter == filter { chip.selected = true } else { chip.selected = false }
+if selected { … }          // Bool truthy
 ```
 
 ---
 
-## Interaction handler
+## Host inbound handlers
 
 ```txt
-on hoverStart { state = .hovered }
-on appear {
+self.hoverStart = { interactionState = .hovered }
+self.pressEnd = { emit select(filter) }   // declared emit fire
+hoverEnd = { interactionState = .idle }   // self. optional in kind body
+
+// Motion hooks (when supported on the host channel):
+self.appear = {
   animate = motion.appear
   from { opacity = 0 scale = 0.95 }
 }
-on dismiss {
-  animate = motion.dismiss
-  to { opacity = 0 scale = 0.95 }
-}
-stagger = 30
-staggerFrom = .first | .last
 ```
+
+Handler bodies assign **component params** (and `emit …`) only — not `Label.content = …` (**PDL-E001**). Put chrome updates in layout `if`.
 
 ---
 
 ## Rules (abbreviated)
 
-**`tags =` / `tags.add`:** **only** inside **`rules Name { … }`** — never on frames or in `component` bodies (§13 §2).
+**`tags =` / `tags.add`:** **only** inside **`rules Name { … }`** — never on frames or in `component` bodies (§12).
 
 ```txt
 Rule(.must | .mustNot | .should | .shouldNot, <query> [, description: "…"])
@@ -3255,7 +3305,7 @@ foreground = color.primitive.black @ opacity.state.hover
 background = [color.surface.primary]
 foreground = [color.primitive.black @ opacity.state.hover]
 background = [
-  Blur(blur: blur.sheet, vibrancy: vibrancy.sheet),
+  blur.sheet  // or Blur(radius: blur.standard.radius, vibrancy: vibrancy.sheet),
   color.surface.primary @ opacity.surface.tint
 ]
 foreground = [
@@ -3281,7 +3331,9 @@ color.surface.primary @ 0.75
 
 ## 2. Core layer constructors (single namespace)
 
-Normative **layer** constructors are **only** these five names. They share a namespace with **token types** of the same names (`Blur`, `Ramp`, `Vibrancy`, …): a **bare token** in a layer slot is still a **Color** layer (sugar); **`Blur(blur: blur.sheet)`** is the **blur layer** constructor taking a **`Blur`** token.
+Normative **layer** constructors are **only** these five names: **`Color`**, **`Ramp`**, **`Blur`**, **`MediaLayer`**, **`Vibrancy`**. Token **types** may share related names (`Blur`, `Ramp`, `Vibrancy`, `Media`, …) — a **bare token** typed `Color` / `Background` / `Foreground` / `Ramp` / `Blur` / `Media` / `Vibrancy` is a valid layer entry. The **`Media(…)` frame** ctor is **not** a layer constructor. `#hex` / `color @ opacity` remain **Color** sugar.
+
+**`Blur` is the blur layer object** (not a numeric radius). Radius amounts use the **`Radius`** type. Optional **`style:`** is a host enum **`BlurStyle`** (v1: `.standard` only; future: `.gaussian`, `.bokeh`, `.fast`, …). Legacy `Blur(blur: …)` is rejected.
 
 **All constructors use keyword arguments exclusively.** Positional-only forms are not supported. Argument order within a constructor call does not matter.
 
@@ -3291,20 +3343,26 @@ Valid in **`background`** or **`foreground`** unless noted.
 |-------------|----------------------|--------|
 | **`Color`** | `color:` (token or `#hex`) | Solid fill; a bare token / `#hex` in a layer array is **sugar** for `Color(color: …)`. |
 | **`Ramp`** | `direction:` (enum), `stops:` (array of `GradientStop`) | Linear or radial ramp. |
-| **`Blur`** | `blur:` (`Blur` token), `vibrancy:` (`Vibrancy` token, optional) | Backdrop-style when in **`background`**; content blur when in **`foreground`** — **emitter interprets** position. |
-| **`Media`** | `source:` (`MediaSource` or string), `contentMode:` (enum), `justify:` / `align:` (`.start`\|`.center`\|`.end`, optional), `opacity:` (number or `Opacity` token, optional) | Raster / vector / video fill; justify/align position content like media frames. |
-| **`Vibrancy`** | `vibrancy:` (`Vibrancy` token) | Saturation / brightness pass **without** blur; compose with **`Blur`** when both apply. |
+| **`Blur`** | `radius:` (`Radius` / number), `style:` (`BlurStyle`, optional), `vibrancy:` (`Vibrancy`, optional) | Backdrop-style when in **`background`**; content blur when in **`foreground`** — **emitter interprets** position. Bare `Blur` tokens are layers. |
+| **`MediaLayer`** | `source:` (`MediaSource` or string), `contentMode:` (enum), `justify:` / `align:` (`.start`\|`.center`\|`.end`, optional), `opacity:` (number or `Opacity` token, optional) | Raster / vector / video **fill layer**; justify/align position content like media frames. Distinct from frame ctor **`Media(…)`**. |
+| **`Vibrancy`** | `saturation:` (number), `brightness:` (number) | Saturation / brightness pass **without** blur; compose with **`Blur`** via `vibrancy:` or as a bare layer. Naked `(saturation:, brightness:)` tuples are **not** typed Vibrancy values. |
 
 **Examples (keyword form — normative):**
 
 ```pdl
-Blur(blur: blur.sheet)
-Blur(blur: blur.sheet, vibrancy: vibrancy.sheet)
+primitive blur.sheet.radius: Radius = 16
+primitive blur.sheet: Blur = Blur(radius: blur.sheet.radius)
+
+Blur(radius: 16)
+Blur(radius: blur.sheet.radius, style: .standard, vibrancy: vibrancy.sheet)
+Blur(radius: 12, vibrancy: Vibrancy(saturation: 1.2, brightness: 1.05))
+background = [blur.sheet]   // bare Blur token
 Ramp(direction: .bottomToTop, stops: [GradientStop(opacity: 1, position: 0), GradientStop(opacity: 0, position: 1)])
 Color(color: color.surface.primary)
-Media(source: "hero.jpg", contentMode: .cover)
-Media(source: media.hero, contentMode: .cover, opacity: opacity.surface.tint)
-Vibrancy(vibrancy: vibrancy.sheet)
+MediaLayer(source: "hero.jpg", contentMode: .cover)
+MediaLayer(source: media.hero, contentMode: .cover, opacity: opacity.surface.tint)
+Vibrancy(saturation: 1.2, brightness: 1.05)
+foreground = [vibrancy.sheet]   // bare Vibrancy token
 ```
 
 ### 2.1 `GradientStop`
@@ -3360,12 +3418,16 @@ These sections define **token** values (numbers, tuples, named primitives/semant
 ### 4.1 `Blur`
 
 ```pdl
-primitive blur.subtle: Blur = 8
-primitive blur.standard: Blur = 16
-primitive blur.heavy: Blur = 32
+primitive blur.subtle.radius: Radius = 8
+primitive blur.standard.radius: Radius = 16
+primitive blur.heavy.radius: Radius = 32
+primitive blur.subtle: Blur = Blur(radius: blur.subtle.radius)
+primitive blur.standard: Blur = Blur(radius: blur.standard.radius)
+primitive blur.heavy: Blur = Blur(radius: blur.heavy.radius)
 
 semantic blur.sheet: Blur = blur.standard
 semantic blur.overlay: Blur = blur.heavy
+// Prefer bare tokens in stacks: background = [blur.sheet, …]
 ```
 
 Numeric **sigma** (CSS `backdrop-filter` / platform blur radius) unless emitter documents otherwise.
@@ -3373,13 +3435,13 @@ Numeric **sigma** (CSS `backdrop-filter` / platform blur radius) unless emitter 
 ### 4.2 `Vibrancy`
 
 ```pdl
-primitive vibrancy.standard: Vibrancy = (saturation: 1.4, brightness: 1.1)
-primitive vibrancy.subtle: Vibrancy = (saturation: 1.1, brightness: 1.0)
+primitive vibrancy.standard: Vibrancy = Vibrancy(saturation: 1.4, brightness: 1.1)
+primitive vibrancy.subtle: Vibrancy = Vibrancy(saturation: 1.1, brightness: 1.0)
 
 semantic vibrancy.sheet: Vibrancy = vibrancy.standard
 ```
 
-Emitter maps to platform-specific vibrancy APIs or approximates with saturation/brightness filters.
+Naked `(saturation:, brightness:)` tuples are rejected — use the typed `Vibrancy(…)` constructor. Emitter maps to platform-specific vibrancy APIs or approximates with saturation/brightness filters.
 
 ### 4.3 `Ramp`
 
@@ -3414,12 +3476,12 @@ Named **material** stacks:
 
 ```pdl
 semantic material.sheet: Background = [
-  Blur(blur: blur.sheet, vibrancy: vibrancy.sheet),
+  blur.sheet  // or Blur(radius: blur.standard.radius, vibrancy: vibrancy.sheet),
   color.surface.primary @ opacity.surface.tint
 ]
 
 semantic material.overlay: Background = [
-  Blur(blur: blur.overlay),
+  blur.overlay  # bare Blur token,
   color.primitive.black @ opacity.overlay.scrim
 ]
 ```
@@ -3496,7 +3558,7 @@ In §5, **`background`** and **`foreground`** on `layout` / `text` / `media` eac
 1. **Namespace primitives** — `color.primitive.*`, `spacing.primitive.*`, `motion.duration.*`, `blur.*`, etc.  
 2. **Expose semantics for UI** — components consume semantic tokens, not raw palette (except demos).  
 3. **Keep semantic names stable** — migrate in one place.  
-4. **Use the typed token system** — motion and materials as **`Transition`**, **`Background`**, not untyped strings (§3, §15).  
+4. **Use the typed token system** — motion and materials as **`Transition`**, **`Background`**, not untyped strings (§3, §14).  
 5. **Model alpha with `Opacity` tokens** — scrims, sheet tints, hover washes: primitives + semantics, then **`color… @ opacity…`** in layers so themes can retint without literals (§3, §6).  
 
 ## Themes
@@ -3520,23 +3582,32 @@ In §5, **`background`** and **`foreground`** on `layout` / `text` / `media` eac
 4. **Spelling** — use **`variant`** for design-axis combinators (tone × size); **`enum`** for ids and interaction/state (same IR today).  
 5. **No `extend Type`** — declare a new closed set (or map exotic host events onto an existing case) rather than OO-extending an enum.  
 
-## Components
+## Components (World A)
 
-1. **Root `layout` + nested frames** for most UIs.  
+1. **Root `layout` + World A nested frames** — `let Title = Text(…)`, `let Row = Layout(…)`, `let Glyph = Icon(…)`, `let Pic = Media(…)`.  
 2. **Order `let` before `children`** when readable; mutate `Frame.children` when order is fixed late.  
 3. **Thin parameters** — pass copy as params, not hard-coded strings, unless fixed marketing text.  
 4. **Use `Spacer()`** instead of empty flex hack divs in hand-authored flex rows (§5).  
+5. **Typed value lets** for reused composites — `let ramp: Ramp = Ramp(…)`, then `background = [ramp, …]` (locals are not mountable in `children`).  
+6. **Spell booleans `Bool`** — never `Boolean` (**PDL-E039**).  
+
+## Selection & lists (Pattern A)
+
+1. Parent owns the **id/enum SoT** (`currentFilter`); children expose identity + Bool presentation (`filter`, `selected`).  
+2. Derive presentation in **`ForEach`** (`chip.selected = self.currentFilter == filter` or `if` / `else`) and **always mount** with `children = chips` (**PDL-E035**).  
+3. Capture list emits with **`chip.select(…) = { … }`** inside that `ForEach` — not `chips.select` (**PDL-E036**).  
 
 ## Overrides
 
 1. **Specific → general** branch order.  
-2. **Avoid duplicating whole `let` frames** when only props differ.  
-3. **Match variant type** in conditions.  
+2. **Prefer `FrameId.prop = …`** after a World A `let` when only props differ — do not rebuild whole trees.  
+3. Conditions may compare **variant↔case**, **param↔param** (same type), or **Bool truthy** (§23.5).  
 
 ## Interactions
 
-1. **Symmetric events** — pair hover/press/focus start/end (§8).  
-2. **Keep handlers thin** — visuals live in component `if` chains; motion via **`animate`** (§14).  
+1. **Symmetric events** — pair hover/press/focus start/end with `[self.]channel = { … }` (§8).  
+2. **Keep handlers thin** — assign **params** (and `emit …`) only; chrome lives in layout `if` (**PDL-E001** if you write `Label.content = …` in a handler).  
+3. Motion via **`animate`** / `from` / `to` when the host channel supports it (§13 / §14).  
 
 ## `emits` and `fixtures`
 
@@ -3546,13 +3617,15 @@ In §5, **`background`** and **`foreground`** on `layout` / `text` / `media` eac
 
 ## Rules
 
-1. **Start with static-tier** rules only; add geometry later (§13).  
+1. **Start with static-tier** rules only; add geometry later (§12).  
 2. **Prefer `mustNot` + clear description** for one-per-surface constraints.  
+3. **`tags` / `tags.add` only inside `rules { … }`** — never on frames.  
 
 ## Materials and layers
 
-1. **Name repeated stacks** as **`Background`** / **`Foreground`** semantic tokens (§15).  
+1. **Name repeated stacks** as **`Background`** / **`Foreground`** semantic tokens (§14).  
 2. **Inline layers** only for one-offs; otherwise tokens stay testable.  
+3. Asset glyphs use **`IconRef(…)`**; layer fills use **`MediaLayer(…)`** — do not confuse with frame ctors **`Icon` / `Media`**.  
 
 ## Files & velocity
 
@@ -3564,9 +3637,9 @@ In §5, **`background`** and **`foreground`** on `layout` / `text` / `media` eac
 
 When the language changes:
 
-1. Update **`docs/full-spec.md`** (this document) in lockstep with **`src/parser.ts`**, **`src/loadDesign.ts`**, and emitters.  
-2. Extend **`test-fixtures/pdl`** and **`tests/`** (Vitest) for new syntax and JSON contracts.  
-3. Record intentional gaps in **`docs/SPEC_GAPS.md`** until closed.
+1. Update **`docs/full-spec.md`** (this document) in lockstep with **`crates/pdl-core`** (normative portable core for B1–B5 bake / ForEach) and the TypeScript oracle (`src/`) where it still leads HTML preview.  
+2. Extend **`test-fixtures/pdl`** and **`tests/`** / `crates/pdl-core/tests` for new syntax and JSON contracts.  
+3. Record intentional gaps in **`docs/SPEC_GAPS.md`** (or §19) until closed.
 
 ---
 
@@ -4004,7 +4077,7 @@ Literal and composite RHS values from PDL appear as nested JSON objects. Every n
 | **`corner`** | `{ "kind": "corner", "tl", "tr", "br", "bl" }` | Each corner is a `SerialisedValueExpr`. |
 | **`array`** | `{ "kind": "array", "items": [ … ] }` | Layer lists, child literal arrays in values, etc. |
 | **`transition`** | `{ "kind": "transition", "duration", "easing", "delay"? }` | **TODO:** Confirm where transitions appear in catalogue-only paths. |
-| **`vibrancyTuple`** | `{ "kind": "vibrancyTuple", "saturation": number, "brightness": number }` | Inline vibrancy tuple. |
+| **`vibrancyTuple`** | `{ "kind": "vibrancyTuple", "saturation": number, "brightness": number }` | Legacy AST shape — **not** produced by the parser; use `call` with callee `Vibrancy`. |
 | **`rampInline`** | `{ "kind": "rampInline", "direction": string, "stops": [ … ] }` | **`direction`** stores the parsed enum lexeme. **TODO:** Normalise to bare string vs dot form. |
 | **`sizing`** | `{ "kind": "sizing", "mode": "hug" \| "fill" \| "fixed" \| "flex" \| "aspect", "fixed"?, "aspect"?, "flexArgs"? }` | For `.fixed(n)`, `fixed` is numeric. For `.aspect(…)`, `aspect` is a `SerialisedValueExpr` (number / ratio / Ratio token). For `.flex(…)`, `flexArgs` maps argument labels → `SerialisedValueExpr`. Bake evaluates `.aspect` to `{ "aspect": number }` on the axis. |
 | **`call`** | `{ "kind": "call", "callee": "Color" \| "Ramp" \| "Blur" \| "Media" \| "Vibrancy", "args": { … } }` | Layer constructors and similar keyword calls; **`args`** values are `SerialisedValueExpr`. |
@@ -4237,9 +4310,9 @@ This checklist orders work so a **greenfield implementation** (or a full port to
 
 ## Phase A — Surface syntax
 
-1. **Lexer** — comments `//`, strings, numbers, identifiers, punctuation (per §1, §11).  
-2. **Top-level declarations** — `import`, `previewBackground`, `primitive`, `semantic`, `theme`, `typeStyle`, `variant` / **`enum`** (same closed-set construct), `component`, `interaction`, **`emits`**, **`fixtures`**, **`usage`**, **`rules`**, **`extend`** (§2, §4, §11).  
-3. **Component grammar** — header params, root kind block, `let`, `children`, `if` chains (§4, §5, §7).
+1. **Lexer** — comments `//`, strings, numbers, identifiers, punctuation (per §1, §10 / §20).  
+2. **Top-level declarations** — `import`, `previewBackground`, `primitive`, `semantic`, `theme`, `typeStyle`, `variant` / **`enum`**, `protocol`, `component`, **`emits`**, **`fixtures`**, **`usage`**, **`rules`**, **`extend`** (§2, §4, §11). Reject removed `interaction` / `expose` (**PDL-E001**).  
+3. **Component grammar** — header params, root kind block, World A `let` / typed value `let`, `children`, `if` chains, `ForEach`, host handlers, emit captures (§4–§8, §10).
 
 **Acceptance:** parse golden `.pdl` files to AST without loss; unknown top-level → error.
 
@@ -4247,10 +4320,10 @@ This checklist orders work so a **greenfield implementation** (or a full port to
 
 ## Phase B — Semantic model
 
-4. **Maps** — tokens, themes, variants, typeStyles, components, interactions, emits; companion maps for **fixtures**, **usage**, **rules**, **extend merge** (§16, §11).  
-5. **Value expressions** — literal / token ref / param ref; literals include sizing, insets, corners, **layer arrays**, **motion tuples** (§6, §15).  
-6. **Children** — frame id string, component instance, **`Spacer()`** (§5).  
-7. **Conditions** — variant compare, `and`, `or` (§7).
+4. **Maps** — tokens, themes, variants, typeStyles, components, emits, host protocols; companion maps for **fixtures**, **usage**, **rules**, **extend merge** (§16, §11).  
+5. **Value expressions** — literal / token ref / param ref; literals include sizing, insets, corners, **layer arrays**, **motion tuples**, **IconRef** / **MediaLayer** (§6, §14).  
+6. **Children** — frame id, World A frame ctor, component instance, **`Spacer()`**, optional `@` opacity (§5).  
+7. **Conditions** — variant↔case, param↔param, Bool truthy, `&&` / `||` with parentheses rules (§7, §23.5).
 
 **Acceptance:** in-memory design definition can be serialised to the Component Catalogue without data loss.
 
@@ -4259,7 +4332,7 @@ This checklist orders work so a **greenfield implementation** (or a full port to
 ## Phase C — Import merge
 
 8. **DFS imports** — cycle detection, relative resolution (§2).  
-9. **Merge policy** — later wins for same symbol; **`extend`** applied after base component; **`fixtures`** merge by example label; **`usage.description`** `+=` append (§12).
+9. **Merge policy** — later wins for same symbol; **`extend`** applied after base component; **`fixtures`** merge by example label; **`usage.description`** `+=` append (§11).
 
 **Acceptance:** determinism tests — same file order → same merged AST.
 
@@ -4288,7 +4361,7 @@ This checklist orders work so a **greenfield implementation** (or a full port to
 
 15. **Parameter binding** — defaults + call-site overrides.  
 16. **Override chains** — first matching branch, frame targeting, **children replacement** in overrides (§7, §16).  
-17. **Value resolution** — tokens, params, literals; **layer list** resolution (§6, §15).  
+17. **Value resolution** — tokens, params, literals; **layer list** resolution (§6, §14).  
 18. **Embedded instances** — recursive resolution of nested component instances.  
 19. **`Spacer()`** — resolved to a flex-grow marker in the catalogue tree.
 
@@ -4372,7 +4445,7 @@ This chapter lists **optional** follow-ups that are not required for conformance
 | **Formal EBNF / PEG grammar** | The grammar is defined in §21; a standalone `grammar.ebnf` file may be added as a convenience for parser-generator tooling. |
 | **Stable diagnostic codes** | Errors are described in prose (§24); keep codes aligned as compilers catch up (E028/E029, retired E015/W008). |
 | **JSON Schema files** | The Component Catalogue and Design Manifest shapes are defined in prose (§16, §17); **JSON Schema** files may be added as a machine-readable mirror for validators and editors. |
-| **Compiler lag (locked 2026-08-06)** | Spec removed `expose`, added inline `} emits { }`, `self.param`, Pattern A, `on` enclosure errors. Track **B4b** / **B5** in `docs/IMPLEMENTATION_PLAN.md` until Rust/TS match. |
+| **Compiler lag** | **B1–B5** (protocols / arrays / packs / emits / ForEach) are **shipped in Rust** (`crates/pdl-core`); TypeScript oracle still lags ForEach expand / emitCaptures. Track **B6** (list chrome) and **B7** (host emit dispatch) separately. |
 
 ---
 
@@ -4456,7 +4529,7 @@ A dot (`.`) within an identifier acts as a namespace separator and is part of th
 
 A **leading dot** (`.`) followed by an identifier, e.g. `.row`, `.primary`, is a **dot-enum literal** — a distinct token type representing a variant case or built-in enum value. The dot is part of this token.
 
-**Optional qualified form:** for built-in **frame enums** (and **`Sizing`**), authors **MAY** write **`TypeName.case`** instead of **`.case`**. Both forms are equivalent after parse (same AST / evaluation). Examples: `justify = Justify.center`, `direction = Direction.row`, `width = Sizing.fill`. The type name is the PascalCase name from the frame-prop SoT (`shared/frame-props.json` `typeName`); case names remain case-sensitive. User **`variant`** cases still use leading-dot only in v1 (`param == .primary`).
+**Optional qualified form:** for built-in **frame enums**, user **`variant`** types, and **`Sizing`**, authors **MAY** write **`TypeName.case`** instead of **`.case`**. Both forms are equivalent after parse (same AST / evaluation). Examples: `justify = Justify.center`, `direction = Direction.row`, `tone: Tone = Tone.primary`, `if tone == Tone.primary { … }`, `width = Sizing.fill`. Frame-enum type names come from the frame-prop SoT (`shared/frame-props.json` `typeName`); user variants use the declared `variant` name. The type name **MUST** be PascalCase (so lowercase token paths like `color.surface` stay identifiers). Case names remain case-sensitive.
 
 **Reserved words** (may not be used as user-defined identifiers):
 
@@ -4468,7 +4541,7 @@ before  between  after
 true  false  null  self
 ```
 
-`enum` is a reserved word and a **surface alias** of `variant` (§4). API protocols declare **`protocol P: component`**; **`host`** marks host-role protocols (§4a). `before` / `between` / `after` are reserved for **B6** list chrome inside `ForEach` (§4e). **`in`** introduces the required `ForEach` item binder. Layout emit capture is handler assignment (`chip.select(…) = { … }` / `Field.change(…) = { … }`); list-param `chips.select` is **PDL-E036**. Keyword `on` is **not** used for declared emits. **`expose` is not a keyword** (removed). **`self`** in layout/interaction means the enclosing component instance (§22.2); in `rules` queries it is the rules evaluation root (§12).
+`enum` is a reserved word and a **surface alias** of `variant` (§4). API protocols declare **`protocol P: component`**; **`host`** marks host-role protocols (§4a). `before` / `between` / `after` are reserved for **B6** list chrome inside `ForEach` (§4e). **`in`** introduces the required `ForEach` item binder. Layout emit capture is handler assignment (`chip.select(…) = { … }` / `Field.change(…) = { … }`); list-param `chips.select` is **PDL-E036**. Keyword `on` is **not** used for declared emits (still reserved / rejected in layout). **`interaction`** is reserved and **rejected** as a decl (**PDL-E001**). **`expose` is not a keyword** (removed). **`self`** in layout/handlers means the enclosing component instance (§22.2 / §22.3); in `rules` queries it is the rules evaluation root (§12). World A ctor names **`Text` / `Layout` / `Icon` / `Media`** and asset/layer ctors **`IconRef` / `MediaLayer`** are not all lexer keywords — they are resolved as constructors / reserved component names (**PDL-E037** if reused as a `component` name where applicable).
 
 ---
 
@@ -4574,12 +4647,12 @@ top-level-decl
     | protocol-decl
     | component-decl
     | emits-decl
-    | interaction-decl
     | fixtures-decl
     | usage-decl
     | rules-decl
     | extend-decl
     ;
+    (* `interaction-decl` removed — host handlers live in the kind body (§8); keyword is PDL-E001 *)
 
 import-decl
   ::= 'import' STRING ;
@@ -4674,7 +4747,6 @@ component-decl
   ::= 'component' IDENT [ '<' IDENT '>' ] '(' [ param-list ] ')' frame-kind
       '{' { component-body-item } '}'
       [ 'emits' '{' { emit-sig } '}' ]
-      [ 'interaction' '{' { on-handler } '}' ]
     ;
 
 frame-kind
@@ -4704,6 +4776,7 @@ component-body-item
     | children-assignment
     | foreach-stmt
     | emit-capture-handler
+    | host-handler-assignment
     | if-chain
     ;
 
@@ -4714,9 +4787,19 @@ deferred-children-assignment
   ::= IDENT '.' 'children' '=' children-list ;
 
 let-decl
-  ::= 'let' IDENT ':' frame-kind '=' '{' { frame-body-item } '}'
+  ::= 'let' IDENT '=' frame-ctor                (* World A — normative *)
     | 'let' IDENT '=' component-instance
+    | 'let' IDENT ':' type-name '=' value-expr  (* typed value let — not a frame *)
     ;
+    (* Classic `let IDENT ':' frame-kind '=' '{' … '}'` is removed — PDL-E001 *)
+
+frame-ctor
+  ::= ('Text' | 'Layout' | 'Icon' | 'Media') '(' [ kwarg-list ] ')'
+    ;
+
+host-handler-assignment
+  ::= [ 'self' '.' ] IDENT '=' '{' { handler-statement } '}' ;
+    (* ambient / host inbound channel; requires `(…)`-free LHS so emit-capture stays distinct *)
 
 frame-body-item
   ::= prop-assignment
@@ -4733,6 +4816,7 @@ foreach-stmt
 foreach-body-item
   ::= item-override
     | emit-capture-handler
+    | if-chain          (* same condition grammar as layout; body is foreach-body-item *)
     | foreach-chrome   (* B6 — deferred *)
     ;
 
@@ -4787,8 +4871,12 @@ children-list
   ::= '[' [ child-entry { ',' child-entry } [ ',' ] ] ']' ;
 
 child-entry
+  ::= child-entry-base [ '@' ( NUMBER | IDENT ) ] ;   (* mount opacity — not on Spacer *)
+
+child-entry-base
   ::= IDENT
     | 'Spacer' '(' ')'
+    | frame-ctor
     | component-instance
     ;
 
@@ -4831,29 +4919,26 @@ condition-atom
 
 ---
 
-### 21.7 Interactions
+### 21.7 Host handlers & emit fire
 
 ```ebnf
-interaction-decl
-  ::= 'interaction' IDENT 'for' IDENT '{' { on-handler } '}' ;
-
-on-handler
-  ::= 'on' event-name '{' { handler-statement } '}' ;
+(* Top-level `interaction` / layout `on` removed — PDL-E001. Host inbound is host-handler-assignment. *)
 
 event-name
   ::= 'hoverStart' | 'hoverEnd' | 'pressStart' | 'pressEnd'
     | 'pressCancel' | 'focusStart' | 'focusEnd' | 'activate'
     | 'appear' | 'dismiss'
+    | IDENT   (* host-protocol channel names *)
     ;
 
 handler-statement
-  ::= param-assignment
+  ::= param-assignment          (* component params only — not FrameId.prop *)
     | emit-statement
     | animate-statement
     | from-block
     | to-block
     | stagger-statement
-    | if-chain
+    | if-chain                  (* conditions over params; still param assigns only *)
     ;
 
 emit-statement
@@ -4996,9 +5081,8 @@ ratio-literal
   ::= NUMBER ':' NUMBER
     ;
 
-(* Optional TypeName.case → same as DOT_ENUM `.case`. TypeName from frame-props SoT
-   (Direction, Wrap, Align, Justify, Overflow, BorderPosition, TruncateStyle,
-   ContentMode, AlignSelf, Position). Not used for user variants. *)
+(* Optional TypeName.case → same as DOT_ENUM `.case`. TypeName is PascalCase:
+   frame-props SoT enums (Direction, Wrap, Align, Justify, …) or a user `variant` name. *)
 qualified-enum-literal
   ::= IDENT '.' IDENT
     ;
@@ -5059,7 +5143,7 @@ transition-literal
       [ ',' 'delay' ':' value-expr ] ')' ;
 
 vibrancy-literal
-  ::= '(' 'saturation' ':' NUMBER ',' 'brightness' ':' NUMBER ')' ;
+  ::= 'Vibrancy' '(' 'saturation' ':' NUMBER ',' 'brightness' ':' NUMBER ')' ;
 
 ramp-literal
   ::= '(' 'direction' ':' DOT_ENUM ',' 'stops' ':' '[' gradient-stop-list ']' ')' ;
@@ -5092,9 +5176,14 @@ layer-entry
 layer-constructor
   ::= 'Color' '(' 'color' ':' ( HEX_COLOR | IDENT ) ')'
     | 'Ramp' '(' 'direction' ':' DOT_ENUM ',' 'stops' ':' '[' gradient-stop-list ']' ')'
-    | 'Blur' '(' 'blur' ':' IDENT [ ',' 'vibrancy' ':' IDENT ] ')'
-    | 'Media' '(' media-constructor-args ')'
-    | 'Vibrancy' '(' 'vibrancy' ':' IDENT ')'
+    | 'Blur' '(' 'radius' ':' ( NUMBER | IDENT ) [ ',' 'style' ':' DOT_ENUM ] [ ',' 'vibrancy' ':' vibrancy-value ] ')'
+    | 'MediaLayer' '(' media-constructor-args ')'
+    | vibrancy-literal
+    ;
+
+vibrancy-value
+  ::= vibrancy-literal
+    | IDENT
     ;
 
 media-constructor-args
@@ -5155,12 +5244,26 @@ Inside a `component` body (and its `interaction` / layout emit-capture handlers)
 
 ### 22.3 Dotted identifier resolution
 
-Resolution distinguishes **token paths**, **`self.param`**, and **frame property targets**:
+Resolution distinguishes **token paths**, **`self`**, and **frame property targets**:
 
-1. **`self.IDENT`** — member access on the enclosing component: `IDENT` **MUST** be a parameter of that component (or **PDL-E007**).
-2. **`FrameId.IDENT`** in override / assignment position — frame property target (§7); `FrameId` is a `let` id.
-3. **Other `a.b.c` forms** — look up the full string as a single **token** name in the merged token namespace. If found, it is a token reference. If not found, **PDL-E007**.
-4. There is **no** general field-access operator on arbitrary values in v1 — only `self.param`, frame-prop targets, and token paths.
+1. **`self.IDENT` in value / condition position** — member access on the enclosing component: `IDENT` **MUST** be a parameter of that component (or **PDL-E007**).
+2. **`self.IDENT = value` in frame-body assignment position** (RHS is **not** `{ … }`) — assigns a **root frame property** of the enclosing component. This is the escape hatch when a nested `let` also has a property of the same name. **`self` always means the component root** (“me, actually”) — **never** an intermediate `let` parent.
+3. **`self.IDENT = { … }`** — host inbound handler on the enclosing component (§4a′ / §8); disambiguated from (2) by the brace block.
+4. **`FrameId.IDENT`** in override / assignment position — frame property target (§7); `FrameId` is a `let` id (including an ancestor `let`, e.g. `b.background` from inside nested `c`).
+5. **Other `a.b.c` forms** — look up the full string as a single **token** name in the merged token namespace. If found, it is a token reference. If not found, **PDL-E007**.
+6. There is **no** general field-access operator on arbitrary values in v1 — only `self.param`, `self`/frame-prop targets, and token paths.
+
+```pdl
+component A() layout {
+  let c = Layout(background: #111)
+  let b = Layout(children: [c])
+  // Ancestor / root targeting from the kind body:
+  c.background = #111
+  b.background = #222
+  self.background = #333   // A's root — never an intermediate let
+  children = [b]
+}
+```
 
 ---
 
@@ -5173,7 +5276,7 @@ A dot-enum literal like `.primary` is resolved against the **expected type** at 
 - In a **frame property**: resolved against the allowed enum set for that property (§5).
 - As a **frame kind** keyword (`layout`, `text`, `icon`, `media`): these are keywords, not dot-enums; they do not carry a leading dot.
 
-**Qualified sugar:** `TypeName.case` for a built-in frame enum (e.g. `Justify.center`) **MUST** parse to the same value as `.case` and then resolve with the same rules. Invalid cases for the property remain **PDL-E006**. `Sizing.*` remains a sizing literal (§6 / §21), not a `dotEnum` AST node.
+**Qualified sugar:** `TypeName.case` for a built-in frame enum or user `variant` (e.g. `Justify.center`, `Tone.primary`) **MUST** parse to the same value as `.case` and then resolve with the same rules. Invalid cases for the property remain **PDL-E006**; unknown variant cases remain **PDL-E010**. `Sizing.*` remains a sizing literal (§6 / §21), not a `dotEnum` AST node.
 
 ---
 
@@ -5183,9 +5286,9 @@ A dot-enum literal like `.primary` is resolved against the **expected type** at 
 
 ---
 
-### 22.6 Interaction target resolution
+### 22.6 Host handler resolution
 
-An `interaction` block's `for ComponentName` clause must resolve to an existing component in the merged definition. Resolution is by exact name match. If the component does not exist at merge time, this is **PDL-E009** (unresolved interaction target). Forward references are not permitted in v1.
+Host inbound handlers (`[self.]channel = { … }`) resolve `channel` against the effective host protocol(s) the component conforms to (§4a′). Unknown ambient channels are **PDL-E028**. The removed `interaction … for ComponentName` form is **PDL-E001** (not E009).
 
 ---
 
@@ -5196,13 +5299,18 @@ An `interaction` block's `for ComponentName` clause must resolve to an existing 
 PDL has a **structural type system** used exclusively at validation time. There is no runtime type dispatch — all types are resolved before emit. Types fall into two categories:
 
 **Primitive types** — scalar values:
-`Color`, `Opacity`, `Distance`, `Radius`, `Shadow`, `Icon`, `MediaSource`, `Ratio`, `FontFamily`, `Size`, `Weight`, `LineHeight`, `LetterSpacing`, `Duration`, `Easing`, `Boolean`, `String`, `Number`
+`Color`, `Opacity`, `Distance`, `Radius`, `Shadow`, `Icon`, `MediaSource`, `Ratio`, `FontFamily`, `Size`, `Weight`, `LineHeight`, `LetterSpacing`, `Duration`, `Easing`, `Bool`, `String`, `Number`
 
 **Composite types** — structured values:
-`Sizing`, `EdgeInsets`, `CornerRadii`, `Transition`, `Vibrancy`, `Ramp`, `Background`, `Foreground`
+`Sizing`, `EdgeInsets`, `CornerRadii`, `Transition`, `Vibrancy`, `Ramp`, `Blur`, `Media`, `GradientStop`, `Background`, `Foreground`
+
+**Host enum types** (first-class for params / value lets; cases from frame-prop SoT + `BlurStyle`):
+`Direction`, `Wrap`, `Align`, `Justify`, `Overflow`, `BorderPosition`, `TruncateStyle`, `ContentMode`, `AlignSelf`, `Position`, `BlurStyle` (v1: `.standard`)
 
 **User-defined types:**
-- Each declared `variant` is a distinct type whose values are its cases.
+- Each declared `variant` / `enum` is a distinct type whose values are its cases (also valid on value lets).
+
+Reusable values may be bound with **`let name: Type = …`** or inferred **`let name = Constructor(…)`** when the RHS uniquely determines `Type`.
 
 ---
 
@@ -5220,8 +5328,8 @@ When a token is declared with a `TokenType`, the RHS value **MUST** be compatibl
 | `Duration` | non-negative `NUMBER` (ms), or `Duration` token |
 | `Easing` | CSS easing `STRING` or `"linear"`, or `Easing` token |
 | `Transition` | transition tuple `(duration: …, easing: …)`, or `Transition` token |
-| `Blur` | non-negative `NUMBER`, or `Blur` token |
-| `Vibrancy` | vibrancy tuple `(saturation: …, brightness: …)`, or `Vibrancy` token |
+| `Blur` | `Blur(radius: … [, style:] [, vibrancy:])`, or `Blur` token |
+| `Vibrancy` | `Vibrancy(saturation: …, brightness: …)`, or `Vibrancy` token |
 | `Ramp` | ramp literal `(direction: …, stops: […])`, or `Ramp` token |
 | `Background` / `Foreground` | scalar `Color`, layer list `[…]`, or token of the same type |
 | `Sizing` | sizing literal (`.hug` / `Sizing.hug`, `.fill`, `.fixed(n)`, `.flex(…)`, `.aspect(16:9)` / `Sizing.aspect(…)`) — strings like `".hug"` are **PDL-E005** |
@@ -5243,17 +5351,32 @@ Frame properties are type-checked against the allowed types in §5. The machine-
 
 ### 23.4 Parameter type checking
 
-Component parameters are typed as `String` or a declared variant name. The default value **MUST** be type-compatible:
+Component (and protocol / emit) parameters are typed as a **built-in** type from §23.1, a declared **`variant`**, an **API protocol**, or a **component** name (slot / list element). An unknown type name is **PDL-E039**. Boolean parameters **MUST** use **`Bool`** — the spelling **`Boolean`** is **not** a type name (**PDL-E039** with a rename hint).
+
+The default value **MUST** be type-compatible:
 
 - `String` parameters: default must be a `STRING` literal.
-- Variant parameters: default must be a `.caseName` that is a valid case of that variant.
-- Numeric defaults (e.g. `size: Number = 16`) are accepted by the grammar but the type `Number` is not a first-class parameter type in v1. Use `String` or a `variant` for all user-facing parameters; reserve numeric defaults for internal sizing params.
+- `Bool` parameters: default must be `true` / `false` (or `.true` / `.false`).
+- Variant parameters: default must be a `.caseName` (or `VariantName.caseName`) that is a valid case of that variant.
+- `Number` / token-shaped builtins (`Icon`, `Color`, …): default must match the type’s literal / constructor rules.
+
+A type-incompatible default is **PDL-E040**.
+
+**Instance kwargs** (`let Id = Comp(param: value, …)` and inline `Comp(…)` in `children`) **MUST** be type-compatible with the target component’s effective parameters (including protocol params). Passing a parent parameter of the wrong type (e.g. `title: tone` when `title: String` and `tone: Tone`) is **PDL-E040**. An unknown kwarg name is **PDL-E007**. An unknown target component is **PDL-E037**.
+
+When the kwarg value is an identifier, it resolves in this order: enclosing component parameter → token → unresolved (**PDL-E007**). Parameter-to-parameter bindings succeed only when the unwrapped type names match (e.g. both `String`, or both the same `variant`).
 
 ---
 
 ### 23.5 Condition type checking
 
-Conditions in `if` chains (both frame overrides and `rules` blocks) **MUST** compare a variant-typed parameter to a dot-enum case of that variant's type. Comparing a `String` parameter using `==` is **PDL-E010** (invalid condition operand). Numeric comparisons in frame `if` conditions are not supported in v1.
+Conditions in `if` chains (frame overrides, **`ForEach` bodies**, and `rules` blocks) **MUST** use one of:
+
+- **Variant ↔ case:** `param == .case` / `param != .case` (or `TypeName.case`)
+- **Same-type param ↔ param:** `self.currentFilter == filter` (Pattern A / §4e) — both sides variant-typed (or both `Bool` via truthy / equality as supported)
+- **Bool truthy:** `if selected { … }`
+
+Comparing a `String` (or other non-comparable) parameter with `==` is **PDL-E010**. Numeric comparisons in frame `if` conditions are not supported in v1.
 
 ---
 
@@ -5297,10 +5420,10 @@ Future additions must use codes not in this list. Codes are never reused after r
 | **PDL-E006** | `frame-prop-type-mismatch` | A frame property (or `typeStyle` prop) is assigned a value of the wrong type (§23.3 / `shared/frame-props.json`). |
 | **PDL-E007** | `unresolved-reference` | A dotted identifier or bare identifier used as a value does not match any token, parameter, or frame id in scope. |
 | **PDL-E008** | `unresolved-type-style` | A `style = Name` reference does not match any declared `typeStyle` (case-sensitive). |
-| **PDL-E009** | `unresolved-interaction-target` | An `interaction … for ComponentName` block names a component that does not exist in the merged definition. |
+| **PDL-E009** | *(retired)* | Formerly `interaction … for ComponentName`. The `interaction` keyword is **removed** (**PDL-E001**); do not emit E009 for new source. |
 | **PDL-E010** | `invalid-condition-operand` | A condition expression compares a non-variant parameter, or uses an operator not supported for its type (§23.5). |
 | **PDL-E011** | `unknown-frame-property` | A property name is used on a frame kind (or `typeStyle`) that does not define it (§5 / `shared/frame-props.json`). |
-| **PDL-E012** | `param-reference-in-fixture` | A fixture value body contains a `param`-kind reference (§23.6). |
+| **PDL-E012** | `invalid-frame-prop-target` | Unknown frame id in a dotted assign (`Ghost.hidden = …`), a property used on the wrong frame kind (e.g. `hidden` on `text`), or a fixture body that illegally references another param (§23.6). |
 | **PDL-E013** | `circular-token-reference` | A token's RHS resolves to itself directly or through a chain. |
 | **PDL-E014** | `duplicate-fixture-label` | Two `example` blocks within the same `fixtures ComponentName { … }` have identical labels. |
 | **PDL-E015** | *(retired)* | Formerly `expose-unknown-param`. **`expose` removed** from the language — do not emit. |
@@ -5308,7 +5431,7 @@ Future additions must use codes not in this list. Codes are never reused after r
 | **PDL-E017** | `quoted-hex-color` | A string literal is used where a `Color` value is expected and the string content matches the hex color pattern — hex colors must be unquoted. |
 | **PDL-E018** | `reserved-word-as-identifier` | A reserved word (§20.4) is used as a user-defined identifier. |
 | **PDL-E019** | `invalid-override-target` | A `children` frame-id ref or `FrameId.prop` / `FrameId.children` assignment names a frame that has not been declared with `let` / `letInstance` earlier in the component body (forward reference). |
-| **PDL-E020** | `missing-required-arg` | A constructor call (e.g. `EdgeInsets`, `GradientStop`, `Blur`) omits a required keyword argument. |
+| **PDL-E020** | `invalid-constructor-arg` | Constructor / pack argument error: required kw missing, illegal combination (e.g. **`MediaLayer(…)` already has `opacity:` and also uses postfix `@`**), or pack schema violation. (Wrong *types* on known kwargs are often **PDL-E040**.) |
 | **PDL-E021** | `duplicate-let-frame-id` | Two **`let`** or **`letInstance`** frames in the same component reuse the same **`id`** (names must be unique across the whole component body, including all **`if`** branches and sibling nested frames). |
 | **PDL-E022** | `unknown-protocol` | A `component C <P>` or protocol-typed param references an undeclared protocol `P`. |
 | **PDL-E023** | `unknown-foreach-list` | `ForEach(name)` names a parameter that is not an expandable list/slot in the enclosing component (§4e). |
@@ -5327,6 +5450,8 @@ Future additions must use codes not in this list. Codes are never reused after r
 | **PDL-E036** | `list-emit-capture` | Emit capture qualifies an **array/list** param (`chips.select(…) = { … }`); use `ForEach(chips) { chip in chip.select(…) = { … } }` (§4e). |
 | **PDL-E037** | `unknown-component` | A companion block, instance, bake, or resolve path names a component that does not exist in the merged definition. |
 | **PDL-E038** | `mixed-condition-operators` | A condition expression mixes `&&` and `\|\|` at the same precedence level without parentheses (§21.6). |
+| **PDL-E039** | `unknown-param-type` | A component / protocol / emit parameter uses a type name that is not a built-in (§23.1), declared `variant`, API protocol, or component. **`Boolean`** is rejected — use **`Bool`**. |
+| **PDL-E040** | `param-type-mismatch` | A parameter default, instance kwarg, or fixture binding is not type-compatible with the declared parameter type (§23.4 / §23.6). |
 
 ---
 
@@ -5389,7 +5514,7 @@ A conforming resolver MUST:
 3. Implement catalogue generation per §16 — binding parameters, evaluating override chains (first-match), resolving token and param references, computing variant deltas, expanding embedded instances recursively.
 4. Produce a Component Catalogue whose JSON matches the schema in §16.
 5. Evaluate `ConditionExpr` nodes with short-circuit `&&` / `||` semantics.
-6. Treat absent `parent` in rules evaluation as empty/false per §13.
+6. Treat absent `parent` in rules evaluation as empty/false per §12.
 
 ---
 

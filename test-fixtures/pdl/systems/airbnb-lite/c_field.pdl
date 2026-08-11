@@ -10,35 +10,30 @@ component AbnField(
   gap = abn.space.xs
   padding = EdgeInsets(x: 0, y: abn.space.sm)
 
-  let Lab: text = {
-    content = label
-    style = AbnCaption
-    color = abn.color.textMuted
-  }
+  let Lab = Text(
+    content: label,
+    style: AbnCaption,
+    color: abn.color.textMuted
+  )
 
-  let Box: layout = {
-    direction = .row
-    align = .center
-    padding = EdgeInsets(x: 12, y: 12)
-    cornerRadius = abn.radius.sm
-    borderWidth = 1
-    borderColor = abn.color.border
-    background = abn.color.surface
+  let Val = Text(content: value, style: AbnBody, color: abn.color.text)
 
-    let Val: text = {
-      content = value
-      style = AbnBody
-      color = abn.color.text
-    }
+  let Box = Layout(
+    direction: .row,
+    align: .center,
+    padding: EdgeInsets(x: 12, y: 12),
+    cornerRadius: abn.radius.sm,
+    borderWidth: 1,
+    borderColor: abn.color.border,
+    background: abn.color.surface,
+    children: [Val]
+  )
 
-    children = [Val]
-  }
-
-  let Help: text = {
-    content = helper
-    style = AbnCaption
-    color = abn.color.textMuted
-  }
+  let Help = Text(
+    content: helper,
+    style: AbnCaption,
+    color: abn.color.textMuted
+  )
 
   children = [Lab, Box, Help]
 }

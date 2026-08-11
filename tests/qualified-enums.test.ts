@@ -25,6 +25,23 @@ describe("qualified frame enums (TypeName.case)", () => {
   });
 });
 
+describe("qualified user variants (VariantName.case)", () => {
+  it("loads Tone.primary defaults and conditions", () => {
+    const design = loadDesign(fx("atoms/qualified_variant_enums.pdl"));
+    expect(design.components.has("AtomQualifiedVariantEnums")).toBe(true);
+    const comp = design.components.get("AtomQualifiedVariantEnums")!;
+    const tone = comp.params.find((p) => p.name === "tone");
+    expect(tone?.defaultValue).toEqual({ kind: "dotEnum", value: ".primary" });
+    const baked = buildBakedDesignComponent(design, {
+      componentName: "AtomQualifiedVariantEnums",
+    });
+    const root = baked.components.AtomQualifiedVariantEnums?.root as {
+      props?: Record<string, unknown>;
+    };
+    expect(root?.props?.background).toBe("#2563EB");
+  });
+});
+
 describe("contentMode = .fill (shared spelling with Sizing.fill)", () => {
   it("bakes contentMode=.fill and width=.fill without PDL-E006", () => {
     const design = loadDesign(fx("atoms/content_mode_fill.pdl"));

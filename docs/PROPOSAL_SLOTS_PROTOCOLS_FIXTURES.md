@@ -86,7 +86,7 @@ Host handlers are **not** a second styling system. They **feed params** (and fir
 // Canonical — host inbound in the kind body
 component FilterChip(
   filter: FilterId = .all,
-  selected: Boolean = false,
+  selected: Bool = false,
   interactionState: ChipState = .rest
 ) layout {
   if interactionState == .hovered { … }
@@ -139,7 +139,7 @@ protocol SubnavItem {
 }
 
 component FilterChip <SubnavItem>(
-  selected: Boolean = false,
+  selected: Bool = false,
   interactionState: ChipState = .rest
 ) layout {
   if interactionState == .hovered { … }

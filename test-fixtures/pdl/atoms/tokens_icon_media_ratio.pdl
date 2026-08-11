@@ -1,7 +1,7 @@
 // Icon, MediaSource, Ratio
 
-primitive atoms.icon.star: Icon = Icon(system: .sfSymbols, name: "star")
-primitive atoms.icon.chevron: Icon = Icon(system: .sfSymbols, name: "chevron.right")
+primitive atoms.icon.star: Icon = IconRef(system: .sfSymbols, name: "star")
+primitive atoms.icon.chevron: Icon = IconRef(system: .sfSymbols, name: "chevron.right")
 primitive atoms.media.hero: MediaSource = "https://example.com/hero.png"
 primitive atoms.media.opaqueClip: MediaSource = MediaSource(
   url: "https://cdn.example.com/abc123",

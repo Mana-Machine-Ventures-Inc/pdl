@@ -4,19 +4,41 @@
   "primitives": {
     "atoms.blur.heavy": {
       "definition": {
-        "kind": "number",
-        "value": 24
+        "args": {
+          "radius": "primitive:atoms.blur.heavy.radius"
+        },
+        "callee": "Blur",
+        "kind": "call"
       },
       "name": "atoms.blur.heavy",
       "tokenType": "Blur"
     },
+    "atoms.blur.heavy.radius": {
+      "definition": {
+        "kind": "number",
+        "value": 24
+      },
+      "name": "atoms.blur.heavy.radius",
+      "tokenType": "Radius"
+    },
     "atoms.blur.light": {
+      "definition": {
+        "args": {
+          "radius": "primitive:atoms.blur.light.radius"
+        },
+        "callee": "Blur",
+        "kind": "call"
+      },
+      "name": "atoms.blur.light",
+      "tokenType": "Blur"
+    },
+    "atoms.blur.light.radius": {
       "definition": {
         "kind": "number",
         "value": 6
       },
-      "name": "atoms.blur.light",
-      "tokenType": "Blur"
+      "name": "atoms.blur.light.radius",
+      "tokenType": "Radius"
     },
     "atoms.color.brandPrimary": {
       "definition": {
@@ -152,18 +174,36 @@
     },
     "atoms.vibrancy.strong": {
       "definition": {
-        "brightness": 0.95,
-        "kind": "vibrancyTuple",
-        "saturation": 1.2
+        "args": {
+          "brightness": {
+            "kind": "number",
+            "value": 0.95
+          },
+          "saturation": {
+            "kind": "number",
+            "value": 1.2
+          }
+        },
+        "callee": "Vibrancy",
+        "kind": "call"
       },
       "name": "atoms.vibrancy.strong",
       "tokenType": "Vibrancy"
     },
     "atoms.vibrancy.subtle": {
       "definition": {
-        "brightness": 1.02,
-        "kind": "vibrancyTuple",
-        "saturation": 1.05
+        "args": {
+          "brightness": {
+            "kind": "number",
+            "value": 1.02
+          },
+          "saturation": {
+            "kind": "number",
+            "value": 1.05
+          }
+        },
+        "callee": "Vibrancy",
+        "kind": "call"
       },
       "name": "atoms.vibrancy.subtle",
       "tokenType": "Vibrancy"
@@ -174,13 +214,7 @@
     "atoms.bg.blurCard": {
       "definition": {
         "items": [
-          {
-            "args": {
-              "blur": "primitive:atoms.blur.light"
-            },
-            "callee": "Blur",
-            "kind": "call"
-          },
+          "primitive:atoms.blur.light",
           {
             "base": "semantic:atoms.color.sem.fromRgb",
             "kind": "opacityOf",

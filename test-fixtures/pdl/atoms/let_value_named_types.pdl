@@ -1,0 +1,24 @@
+import "tokens_blur_vibrancy_ramp.pdl"
+
+variant Tone {
+  case primary
+  case secondary
+}
+
+component AtomLetValueNamedTypes() layout {
+  width = 220
+  height = 140
+
+  let blurRadius: Radius = 10
+  let blur = Blur(radius: blurRadius)
+  let pad: EdgeInsets = EdgeInsets(x: 12, y: 8)
+  let corners: CornerRadii = Corner(tl: 8, tr: 8, br: 4, bl: 4)
+  let dir: Direction = .column
+  let tone: Tone = .primary
+
+  direction = dir
+  padding = pad
+  cornerRadius = corners
+  background = [blur]
+  children = []
+}

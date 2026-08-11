@@ -1,0 +1,4 @@
+component C() layout {
+  let A = Text(content: "a")
+  children = [A, Spacer() @ 0.5]
+}

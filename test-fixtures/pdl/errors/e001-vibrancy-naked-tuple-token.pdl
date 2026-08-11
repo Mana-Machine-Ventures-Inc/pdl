@@ -1,0 +1,1 @@
+primitive bad.vib: Vibrancy = (saturation: 1.2, brightness: 1.05)

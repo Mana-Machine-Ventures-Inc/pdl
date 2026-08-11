@@ -110,7 +110,7 @@ fn callee_str(callee: CallCallee) -> &'static str {
         CallCallee::Color => "Color",
         CallCallee::Ramp => "Ramp",
         CallCallee::Blur => "Blur",
-        CallCallee::Media => "Media",
+        CallCallee::MediaLayer => "MediaLayer",
         CallCallee::Vibrancy => "Vibrancy",
     }
 }

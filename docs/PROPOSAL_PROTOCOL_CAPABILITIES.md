@@ -135,7 +135,7 @@ protocol FormField: component {
 component SearchField <FormField>(
   value: String = "",
   placeholder: String = "Search",
-  editing: Boolean = false
+  editing: Bool = false
 ) text {
   editable = value
   // content / placeholder via if editing …
@@ -179,7 +179,7 @@ Do **not** invent `parent.doneButtonPressed`. Cross-child dismiss stays **child 
 | Kind | Stay on **`text`** |
 | Host protocol | **`EditableText`** (name TBD) |
 | String SoT | Controlled param (e.g. `value`); frame `editable = value` names the bind target |
-| Chrome state | `editing: Boolean` and/or extend `InteractionState` — prefer **orthogonal `editing`** if hover+focus must coexist; `.editing` case OK for v1 demos with documented precedence |
+| Chrome state | `editing: Bool` and/or extend `InteractionState` — prefer **orthogonal `editing`** if hover+focus must coexist; `.editing` case OK for v1 demos with documented precedence |
 | Placeholder | Author `if`s — not a language primitive |
 | Tree swap idle↔editing | Escape hatch only — **not** the default |
 | Figma / Sketch | Export focused/editing as **variant** + text layer content; binding/session ignored |
@@ -301,7 +301,7 @@ component SearchField <FormField>(
   value: String = "",
   placeholder: String = "Search",
   interactionState: InteractionState = .rest,
-  editing: Boolean = false
+  editing: Bool = false
 ) text {
   editable = value
 
@@ -363,13 +363,13 @@ component SearchBar(query: String = "") layout {
 ## 12. Open questions
 
 1. Exact names: `EditableText` vs `TextInput`; `keyboardCancelled` vs `keyboardExited`.  
-2. `editing: Boolean` vs `InteractionState.editing` vs both.  
+2. `editing: Bool` vs `InteractionState.editing` vs both.  
 3. Spelling of `requires` vs Swift-like `protocol FormField: EditableText`.  
 4. ~~Whether `interaction { }` without host protocol errors~~ → **PDL-E030** (locked).  
 5. Multi-field forms: `beginEditing(value)` vs `beginEditing(Field, value)` when several `editable` texts exist.  
 6. Commit path: **locked** — host writes the bound param; `emit change` is optional parent notification.  
 7. When multi-`<P>` arrives, whether API + host share one list or stay “one API in `<>`, host via `requires` only.”  
-8. Orthogonal `editing: Boolean` preferred over `InteractionState.editing` (locked for demos).
+8. Orthogonal `editing: Bool` preferred over `InteractionState.editing` (locked for demos).
 
 ---
 

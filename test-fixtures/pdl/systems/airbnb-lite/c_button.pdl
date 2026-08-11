@@ -72,16 +72,12 @@ component AbnButton (
     opacity = 1
   }
 
-  let L: text = {
-    content = label
-    fontSize = 15
-    fontWeight = 600
+  let L = Text(content: label, fontSize: 15, fontWeight: 600)
 
-    if tone == .ghost {
-      color = abn.color.text
-    } else {
-      color = abn.color.onBrand
-    }
+  if tone == .ghost {
+    L.color = abn.color.text
+  } else {
+    L.color = abn.color.onBrand
   }
 
   simple.content = "Override content"

@@ -2383,8 +2383,8 @@
                 "props": {
                   "background": [
                     {
-                      "blur": 6,
-                      "kind": "blur"
+                      "kind": "blur",
+                      "radius": 6
                     },
                     "#f7f7f79e"
                   ],
@@ -3329,8 +3329,8 @@
             "props": {
               "background": [
                 {
-                  "blur": 6,
-                  "kind": "blur"
+                  "kind": "blur",
+                  "radius": 6
                 },
                 "#f7f7f79e"
               ],
@@ -3395,8 +3395,8 @@
         "props": {
           "background": [
             {
-              "blur": 6,
-              "kind": "blur"
+              "kind": "blur",
+              "radius": 6
             },
             "#f7f7f79e"
           ],

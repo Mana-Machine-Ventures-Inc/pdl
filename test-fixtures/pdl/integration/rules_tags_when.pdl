@@ -10,10 +10,7 @@ variant RTagMode {
 component RulesTagHost(mode: RTagMode = .ta) layout {
   direction = .column
 
-  let L: text = {
-    content = "r"
-    style = AtomCaption
-  }
+  let L = Text(content: "r", style: AtomCaption)
 
   children = [L]
 }
@@ -32,10 +29,7 @@ variant RElseMode {
 component RulesElseHost(mode: RElseMode = .ea) layout {
   direction = .column
 
-  let L: text = {
-    content = "e"
-    style = AtomCaption
-  }
+  let L = Text(content: "e", style: AtomCaption)
 
   children = [L]
 }
@@ -61,10 +55,7 @@ variant InnerM {
 component RulesNestHost(o: OuterM = .o1, i: InnerM = .i1) layout {
   direction = .column
 
-  let L: text = {
-    content = "n"
-    style = AtomCaption
-  }
+  let L = Text(content: "n", style: AtomCaption)
 
   children = [L]
 }

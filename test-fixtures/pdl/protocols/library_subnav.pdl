@@ -23,16 +23,14 @@ protocol SubnavItem: component {
 }
 
 component FilterChip <SubnavItem>(
-  selected: Boolean = false,
+  selected: Bool = false,
   interactionState: ChipInteraction = .rest
 ) layout {
   direction = .row
   if selected {
     // selected chrome
   }
-  let Label: text = {
-    content = title
-  }
+  let Label = Text(content: title)
   children = [Label]
 
   self.hoverStart = {

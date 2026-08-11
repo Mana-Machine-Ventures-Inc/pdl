@@ -19,32 +19,22 @@ component MoleculeFieldBlock <PointerInput>(
   gap = atoms.space.xs
   padding = EdgeInsets(x: 0, y: atoms.space.sm)
 
-  let Lab: text = {
-    content = label
-    style = AtomCaption
-  }
+  let Lab = Text(content: label, style: AtomCaption)
 
-  let Box: layout = {
-    direction = .row
-    align = .center
-    padding = EdgeInsets(x: 12, y: 10)
-    cornerRadius = atoms.radius.sm
-    borderWidth = 1
-    borderColor = atoms.color.rgba
-    background = atoms.color.sem.fromRgb
+  let Val = Text(content: value, style: AtomBody)
 
-    let Val: text = {
-      content = value
-      style = AtomBody
-    }
+  let Box = Layout(
+    direction: .row,
+    align: .center,
+    padding: EdgeInsets(x: 12, y: 10),
+    cornerRadius: atoms.radius.sm,
+    borderWidth: 1,
+    borderColor: atoms.color.rgba,
+    background: atoms.color.sem.fromRgb,
+    children: [Val]
+  )
 
-    children = [Val]
-  }
-
-  let Help: text = {
-    content = helper
-    style = AtomMono
-  }
+  let Help = Text(content: helper, style: AtomMono)
 
   if layoutMode == .includeHelp {
     children = [Lab, Box, Help]
@@ -71,16 +61,15 @@ component MoleculeFormColumnDemo() layout {
 
   let F0 = MoleculeFieldBlock(label: "Workspace", value: "Design", helper: "Renaming updates the slug.")
   let F1 = MoleculeFieldBlock(label: "Role", value: "Editor", helper: "")
-  let Actions: layout = {
-    direction = .row
-    justify = .end
-    gap = atoms.space.sm
-    padding = EdgeInsets(top: atoms.space.sm, right: 0, bottom: 0, left: 0)
-
-    let Cancel = MoleculeTextButton(label: "Cancel", tone: .secondary, size: .sm)
-    let Save = MoleculeTextButton(label: "Save", tone: .primary, size: .lg)
-    children = [Cancel, Save]
-  }
+  let Cancel = MoleculeTextButton(label: "Cancel", tone: .secondary, size: .sm)
+  let Save = MoleculeTextButton(label: "Save", tone: .primary, size: .lg)
+  let Actions = Layout(
+    direction: .row,
+    justify: .end,
+    gap: atoms.space.sm,
+    padding: EdgeInsets(top: atoms.space.sm, right: 0, bottom: 0, left: 0),
+    children: [Cancel, Save]
+  )
 
   children = [F0, F1, Actions]
 }

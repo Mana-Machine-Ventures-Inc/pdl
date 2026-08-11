@@ -24,7 +24,7 @@ protocol SubnavItem: component {
 }
 
 component FilterChip <SubnavItem>(
-  selected: Boolean = false,
+  selected: Bool = false,
   interactionState: ChipInteraction = .rest
 ) layout {
   direction = .row
@@ -49,16 +49,12 @@ component FilterChip <SubnavItem>(
     borderColor = #D0D0D5
   }
 
-  let Label: text = {
-    content = title
-    fontSize = 13
-    fontWeight = 600
+  let Label = Text(content: title, fontSize: 13, fontWeight: 600)
 
-    if selected {
-      color = #FFFFFF
-    } else {
-      color = #111111
-    }
+  if selected {
+    Label.color = #FFFFFF
+  } else {
+    Label.color = #111111
   }
 
   children = [Label]

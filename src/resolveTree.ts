@@ -56,6 +56,8 @@ type BuildCtx = {
   paramValues: Record<string, unknown>;
   paramMeta: ParamEvalMeta;
   component: ComponentDecl;
+  /** Local `let name: Type = value` bindings (not frames). */
+  localValues: Record<string, unknown>;
   /** Catalogue base trees keep String/Icon/MediaSource as `param:name` while still binding variants for `if`. */
   useStringPlaceholders?: boolean;
   /**
@@ -65,11 +67,15 @@ type BuildCtx = {
   catalogueTokenRefs?: boolean;
 };
 
+function scopedParamValues(ctx: BuildCtx): Record<string, unknown> {
+  return { ...ctx.paramValues, ...ctx.localValues };
+}
+
 function baseEvalOpts(ctx: BuildCtx): EvalOptions {
   return {
     design: ctx.design,
     tokens: ctx.tokens,
-    paramValues: ctx.paramValues,
+    paramValues: scopedParamValues(ctx),
     paramMeta: ctx.paramMeta,
     visiting: new Set(),
     useStringPlaceholders: ctx.useStringPlaceholders,
@@ -77,7 +83,12 @@ function baseEvalOpts(ctx: BuildCtx): EvalOptions {
 }
 
 function evalProp(expr: ValueExpr, ctx: BuildCtx): unknown {
-  if (ctx.catalogueTokenRefs && expr.kind === "ident" && !ctx.paramMeta.has(expr.name)) {
+  if (
+    ctx.catalogueTokenRefs &&
+    expr.kind === "ident" &&
+    !ctx.paramMeta.has(expr.name) &&
+    !(expr.name in ctx.localValues)
+  ) {
     if (ctx.design.primitives.has(expr.name)) return `primitive:${expr.name}`;
     if (ctx.design.semantics.has(expr.name)) return `semantic:${expr.name}`;
   }
@@ -178,7 +189,11 @@ function rewriteNestedChildEntries(
 ): MutableFrame["childEntries"] {
   return entries.map((e) => {
     if (e.kind === "frameRef" && nestedIds.has(e.id) && e.id !== instanceId) {
-      return { kind: "frameRef" as const, id: scopeNestedFrameId(instanceId, e.id) };
+      return {
+        kind: "frameRef" as const,
+        id: scopeNestedFrameId(instanceId, e.id),
+        ...(e.opacity ? { opacity: e.opacity } : {}),
+      };
     }
     return e;
   });
@@ -248,6 +263,8 @@ function processFrameItems(
   defaultTarget: string,
   frames: Map<string, MutableFrame>,
   ctx: BuildCtx,
+  /** Enclosing component root id — target of `self.prop` (never an intermediate let). */
+  componentRootId: string = defaultTarget,
 ): void {
   const rootFrame = frames.get(defaultTarget);
   if (!rootFrame) {
@@ -278,7 +295,8 @@ function processFrameItems(
         break;
       }
       case "frameProp": {
-        const fr = ensureFrame(frames, item.frame, frames.get(item.frame)?.kind ?? "layout");
+        const frameId = item.frame === "self" ? componentRootId : item.frame;
+        const fr = ensureFrame(frames, frameId, frames.get(frameId)?.kind ?? "layout");
         if (item.name === "hidden") {
           applyHiddenProp(fr, item.value, ctx);
           break;
@@ -293,7 +311,11 @@ function processFrameItems(
           break;
         }
         const pv = evalProp(item.value, ctx);
-        assignFrameProp(fr.props, item.name, pv, ctx.design.entryPath);
+        if (item.name === "style") {
+          mergeStyleProps(fr.props, pv, ctx.design.entryPath, ctx.catalogueTokenRefs);
+        } else {
+          assignFrameProp(fr.props, item.name, pv, ctx.design.entryPath);
+        }
         break;
       }
       case "children": {
@@ -302,11 +324,19 @@ function processFrameItems(
         const tid = item.target === "root" ? defaultTarget : item.target.letId;
         const fr = ensureFrame(frames, tid, frames.get(tid)?.kind ?? "layout");
         fr.childEntries = item.entries;
+        // Mount annotations: `Pic @ 0.5` → set child frame opacity (later Pic.opacity wins).
+        for (const e of item.entries) {
+          if (e.kind === "frameRef" && e.opacity) {
+            const child = ensureFrame(frames, e.id, frames.get(e.id)?.kind ?? "layout");
+            const pv = evalProp(e.opacity, ctx);
+            assignFrameProp(child.props, "opacity", pv, ctx.design.entryPath);
+          }
+        }
         break;
       }
       case "let": {
         ensureFrame(frames, item.id, item.frameKind);
-        processFrameItems(item.body, item.id, frames, ctx);
+        processFrameItems(item.body, item.id, frames, ctx, componentRootId);
         break;
       }
       case "letInstance": {
@@ -319,13 +349,7 @@ function processFrameItems(
         const basePv = resolveDefaultParamValues(ctx.design, ctx.tokens, childComp);
         const kwExplicit: Record<string, unknown> = {};
         for (const [k, expr] of Object.entries(item.kwargs)) {
-          const ev = evaluateValue(expr, {
-            design: ctx.design,
-            tokens: ctx.tokens,
-            visiting: new Set(),
-            paramValues: ctx.paramValues,
-            paramMeta: ctx.paramMeta,
-          });
+          const ev = evaluateValue(expr, baseEvalOpts(ctx));
           basePv[k] = ev;
           kwExplicit[k] = ev;
         }
@@ -334,6 +358,7 @@ function processFrameItems(
           component: childComp,
           paramValues: basePv,
           paramMeta: buildParamMeta(childComp),
+          localValues: {},
           useStringPlaceholders: ctx.useStringPlaceholders,
         };
         // Isolate nested lets so sibling instances (Cancel vs Save) don't share `L`.
@@ -345,13 +370,19 @@ function processFrameItems(
           instanceOf: item.component,
           instanceKwargs: kwExplicit,
         });
-        processFrameItems(childComp.body, item.id, nested, subCtx);
+        // Nested component instance: its `self` is this instance root (`item.id`).
+        processFrameItems(childComp.body, item.id, nested, subCtx, item.id);
         hoistLetInstanceFrames(frames, item.id, nested);
         break;
       }
+      case "letValue": {
+        const v = evaluateValue(item.value, baseEvalOpts(ctx));
+        ctx.localValues[item.id] = v;
+        break;
+      }
       case "if": {
-        const extra = pickIfBody(item.chain, ctx.paramValues);
-        processFrameItems(extra, defaultTarget, frames, ctx);
+        const extra = pickIfBody(item.chain, scopedParamValues(ctx));
+        processFrameItems(extra, defaultTarget, frames, ctx, componentRootId);
         break;
       }
       default:
@@ -384,10 +415,11 @@ export function resolveComponentTree(
     paramValues,
     paramMeta,
     component: c,
+    localValues: {},
     useStringPlaceholders: options.useStringPlaceholders,
     catalogueTokenRefs: options.catalogueTokenRefs,
   };
-  processFrameItems(c.body, "Root", frames, ctx);
+  processFrameItems(c.body, "Root", frames, ctx, "Root");
   for (const mf of frames.values()) {
     normalizeAspectBoxProps(mf.props, design.entryPath);
   }
@@ -516,6 +548,14 @@ function materialize(
       sub.id = `${id}_${ch.component}_${si++}`;
       sub.instanceOf = ch.component;
       sub.instanceKwargs = { ...kwOverrides };
+      if (ch.opacity) {
+        assignFrameProp(
+          sub.props,
+          "opacity",
+          evaluateValue(ch.opacity, { design, tokens, visiting: new Set() }),
+          design.entryPath,
+        );
+      }
       children.push(sub);
       continue;
     }

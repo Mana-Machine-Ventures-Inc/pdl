@@ -1,0 +1,2 @@
+// Blur is a layer object — bare numbers are Radius, not Blur.
+primitive bad.blur: Blur = 16

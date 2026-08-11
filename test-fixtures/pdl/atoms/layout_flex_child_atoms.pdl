@@ -11,23 +11,23 @@ component AtomFlexChildGrow() layout {
   gap = atoms.space.sm
   background = atoms.color.sem.fromRgb
 
-  let A: layout = {
-    direction = .column
-    grow = 1
-    shrink = 1
-    alignSelf = .stretch
-    background = atoms.color.rgba
-    children = []
-  }
+  let A = Layout(
+    direction: .column,
+    grow: 1,
+    shrink: 1,
+    alignSelf: .stretch,
+    background: atoms.color.rgba,
+    children: []
+  )
 
-  let B: layout = {
-    direction = .column
-    grow = 0
-    shrink = 0
-    alignSelf = .end
-    background = atoms.color.sem.fromRgba
-    children = []
-  }
+  let B = Layout(
+    direction: .column,
+    grow: 0,
+    shrink: 0,
+    alignSelf: .end,
+    background: atoms.color.sem.fromRgba,
+    children: []
+  )
 
   children = [A, B]
 }
@@ -40,14 +40,17 @@ component AtomFlexChildAbsolute() layout {
   padding = EdgeInsets(x: 16, y: 16)
   background = atoms.color.sem.fromRgb
 
-  let Floated: layout = {
-    direction = .column
-    position = .absolute
-    inset = EdgeInsets(top: 4, right: 4, bottom: 4, left: 4)
-    alignSelf = .auto
-    background = atoms.color.rgb
-    children = []
-  }
+  let Floated = Layout(
+    direction: .column,
+    position: .absolute,
+    inset: EdgeInsets(top: 4,
+    right: 4,
+    bottom: 4,
+    left: 4),
+    alignSelf: .auto,
+    background: atoms.color.rgb,
+    children: []
+  )
 
   children = [Floated]
 }

@@ -1,0 +1,9 @@
+// Inline Vibrancy constructor on Blur.vibrancy (typed, not a naked tuple).
+
+component AtomBlurVibrancyCtor() layout {
+  foreground = Blur(
+    radius: 12,
+    vibrancy: Vibrancy(saturation: 1.2, brightness: 1.05)
+  )
+  children = []
+}

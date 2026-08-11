@@ -1,0 +1,38 @@
+// Child mount `@ Opacity` and Media layer `@` desugar.
+
+import "tokens_color.pdl"
+import "tokens_icon_media_ratio.pdl"
+import "tokens_opacity.pdl"
+
+component LabMedia() media {
+  source = atoms.media.hero
+  contentMode = .cover
+  width = .fill
+  height = .fill
+}
+
+component LabLayers() layout {
+  width = 240
+  height = 240
+  background = #333
+
+  let Pic = LabMedia()
+  children = [Pic @ 0.5]
+}
+
+component LabLayersToken() layout {
+  width = 240
+  height = 240
+  background = [
+    MediaLayer(source: atoms.media.hero, contentMode: .cover) @ atoms.opacity.mid
+  ]
+  children = []
+}
+
+component LabLayersBare() layout {
+  width = 120
+  height = 120
+  background = #222
+  let Pic = LabMedia()
+  children = Pic @ atoms.opacity.mid
+}

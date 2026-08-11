@@ -12,6 +12,8 @@ use crate::asset_refs::{
 use crate::ast::*;
 use crate::design::DesignDefinition;
 use crate::error::PdlError;
+use crate::param_types::host_enum_cases;
+use indexmap::IndexMap;
 
 #[derive(Debug, Deserialize)]
 struct ValueKindDef {
@@ -168,6 +170,18 @@ pub fn is_frame_enum_type_name(name: &str) -> bool {
             .collect()
     })
     .contains(name)
+}
+
+/// PascalCase type name eligible for `TypeName.case` → `.case` sugar
+/// (built-in frame enums and user `variant` types). Excludes lowercase token paths.
+pub fn looks_like_qualified_enum_type_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_uppercase() => {
+            chars.all(|c| c.is_ascii_alphanumeric())
+        }
+        _ => false,
+    }
 }
 
 fn prop_type_id(kind: &str, prop: &str) -> Option<String> {
@@ -574,8 +588,191 @@ pub fn assert_aspect_box_consistent(
     Ok(())
 }
 
-/// Token types valid as a whole layer entry (`Ramp` is a full paint shape; `Blur`/`Opacity` are inputs).
-const LAYER_TOKEN_TYPES: &[&str] = &["Color", "Background", "Foreground", "Ramp"];
+/// Token types valid as a whole layer entry (Blur/Media/Vibrancy/Ramp are layer objects).
+const LAYER_TOKEN_TYPES: &[&str] = &[
+    "Color",
+    "Background",
+    "Foreground",
+    "Ramp",
+    "Blur",
+    "Vibrancy",
+    "Media",
+];
+
+fn strip_dot(s: &str) -> &str {
+    s.strip_prefix('.').unwrap_or(s)
+}
+
+fn is_number_or_numeric_token(design: &DesignDefinition, value: &ValueExpr) -> bool {
+    match value {
+        ValueExpr::Number { .. } => true,
+        ValueExpr::Ident { name } => match token_type_of(design, name) {
+            Some(t) => matches!(t.as_str(), "Number" | "Opacity" | "Ratio"),
+            None => true,
+        },
+        _ => false,
+    }
+}
+
+/// Vibrancy values: `Vibrancy(saturation:, brightness:)` or a Vibrancy token — not naked tuples.
+fn is_vibrancy_expr(design: &DesignDefinition, value: &ValueExpr) -> bool {
+    match value {
+        ValueExpr::Call {
+            callee: CallCallee::Vibrancy,
+            ..
+        } => true,
+        ValueExpr::Ident { name } => match token_type_of(design, name) {
+            Some(t) => t == "Vibrancy",
+            None => true, // unresolved / param
+        },
+        _ => false,
+    }
+}
+
+fn is_blur_style_expr(design: &DesignDefinition, value: &ValueExpr) -> bool {
+    let cases = host_enum_cases("BlurStyle").unwrap_or(&["standard"]);
+    match value {
+        ValueExpr::DotEnum { value } => cases.iter().any(|c| *c == strip_dot(value)),
+        ValueExpr::Ident { name } => match token_type_of(design, name) {
+            Some(t) => t == "BlurStyle",
+            None => true,
+        },
+        _ => false,
+    }
+}
+
+fn is_radius_expr(design: &DesignDefinition, value: &ValueExpr) -> bool {
+    match value {
+        ValueExpr::Number { value: n } if *n >= 0.0 => true,
+        ValueExpr::Ident { name } => match token_type_of(design, name) {
+            Some(t) => t == "Radius",
+            None => true,
+        },
+        _ => false,
+    }
+}
+
+/// Type-check `Blur(radius: … [, style:] [, vibrancy:])` arguments.
+pub fn assert_blur_call_compatible(
+    design: &DesignDefinition,
+    args: &IndexMap<String, ValueExpr>,
+    context: &str,
+) -> Result<(), PdlError> {
+    let Some(radius) = args.get("radius") else {
+        return Err(err(
+            "PDL-E020",
+            format!("{context}: `Blur(…)` requires `radius:` (a Radius / number)"),
+            design,
+        ));
+    };
+    if !is_radius_expr(design, radius) {
+        return Err(err(
+            "PDL-E040",
+            format!(
+                "{context}: `Blur` argument `radius:` expects a Radius / non-negative number (got {})",
+                value_kind_name(radius)
+            ),
+            design,
+        ));
+    }
+    if let Some(style) = args.get("style") {
+        if !is_blur_style_expr(design, style) {
+            return Err(err(
+                "PDL-E040",
+                format!(
+                    "{context}: `Blur` argument `style:` expects BlurStyle (e.g. `.standard`) (got {})",
+                    value_kind_name(style)
+                ),
+                design,
+            ));
+        }
+    }
+    if let Some(vibrancy) = args.get("vibrancy") {
+        if !is_vibrancy_expr(design, vibrancy) {
+            return Err(err(
+                "PDL-E040",
+                format!(
+                    "{context}: `Blur` argument `vibrancy:` expects `Vibrancy(saturation:, brightness:)` or a Vibrancy token — not a naked tuple, number, or BlurStyle case (got {})",
+                    value_kind_name(vibrancy)
+                ),
+                design,
+            ));
+        }
+        if let ValueExpr::Call {
+            callee: CallCallee::Vibrancy,
+            args: inner,
+        } = vibrancy
+        {
+            assert_vibrancy_call_compatible(design, inner, context)?;
+        }
+    }
+    Ok(())
+}
+
+/// Type-check `Vibrancy(saturation:, brightness:)` — the only Vibrancy value constructor.
+pub fn assert_vibrancy_call_compatible(
+    design: &DesignDefinition,
+    args: &IndexMap<String, ValueExpr>,
+    context: &str,
+) -> Result<(), PdlError> {
+    if args.contains_key("vibrancy")
+        && !args.contains_key("saturation")
+        && !args.contains_key("brightness")
+    {
+        return Err(err(
+            "PDL-E020",
+            format!(
+                "{context}: `Vibrancy(…)` takes `saturation:` and `brightness:` (e.g. `Vibrancy(saturation: 1.2, brightness: 1.05)`); use a Vibrancy token bare in a layer stack, not `Vibrancy(vibrancy: …)`"
+            ),
+            design,
+        ));
+    }
+    if !args.contains_key("saturation") || !args.contains_key("brightness") {
+        return Err(err(
+            "PDL-E020",
+            format!("{context}: `Vibrancy(…)` requires `saturation:` and `brightness:`"),
+            design,
+        ));
+    }
+    let unknown: Vec<_> = args
+        .keys()
+        .filter(|k| *k != "saturation" && *k != "brightness")
+        .cloned()
+        .collect();
+    if !unknown.is_empty() {
+        return Err(err(
+            "PDL-E020",
+            format!(
+                "{context}: Vibrancy unknown label(s): {} (expected saturation, brightness)",
+                unknown.join(", ")
+            ),
+            design,
+        ));
+    }
+    let sat = args.get("saturation").unwrap();
+    let bri = args.get("brightness").unwrap();
+    if !is_number_or_numeric_token(design, sat) {
+        return Err(err(
+            "PDL-E040",
+            format!(
+                "{context}: `Vibrancy` argument `saturation:` expects a number (got {})",
+                value_kind_name(sat)
+            ),
+            design,
+        ));
+    }
+    if !is_number_or_numeric_token(design, bri) {
+        return Err(err(
+            "PDL-E040",
+            format!(
+                "{context}: `Vibrancy` argument `brightness:` expects a number (got {})",
+                value_kind_name(bri)
+            ),
+            design,
+        ));
+    }
+    Ok(())
+}
 
 fn assert_layer_entry(
     design: &DesignDefinition,
@@ -583,8 +780,16 @@ fn assert_layer_entry(
     context: &str,
 ) -> Result<(), PdlError> {
     match entry {
-        // Builtin layer constructors are already typed as CallCallee::{Color,Ramp,Blur,Media,Vibrancy}.
-        ValueExpr::Hex { .. } | ValueExpr::OpacityOf { .. } | ValueExpr::Call { .. } => Ok(()),
+        ValueExpr::Hex { .. } | ValueExpr::OpacityOf { .. } => Ok(()),
+        ValueExpr::Call { callee, args } => match callee {
+            CallCallee::Blur => {
+                assert_blur_call_compatible(design, args, &format!("{context}: Blur(…)"))
+            }
+            CallCallee::Vibrancy => {
+                assert_vibrancy_call_compatible(design, args, &format!("{context}: Vibrancy(…)"))
+            }
+            CallCallee::Color | CallCallee::Ramp | CallCallee::MediaLayer => Ok(()),
+        },
         ValueExpr::Ident { name } => {
             let Some(ref_type) = token_type_of(design, name) else {
                 return Ok(());
@@ -601,12 +806,11 @@ fn assert_layer_entry(
                     design,
                 ));
             }
-            if ref_type == "Blur" || ref_type == "Vibrancy" {
-                let arg = if ref_type == "Blur" { "blur" } else { "vibrancy" };
+            if ref_type == "Radius" {
                 return Err(err(
                     "PDL-E006",
                     format!(
-                        "{context}: bare {ref_type} token `{name}` is not a layer; use {ref_type}({arg}: {name})"
+                        "{context}: bare Radius token `{name}` is not a layer; use `Blur(radius: {name})`"
                     ),
                     design,
                 ));
@@ -614,15 +818,15 @@ fn assert_layer_entry(
             Err(err(
                 "PDL-E006",
                 format!(
-                    "{context}: layer entry `{name}` has type {ref_type}; expected a Color / Background / Foreground / Ramp layer, #hex, color @ opacity, or layer constructor"
-                ),
-                design,
-            ))
-        }
-        _ => Err(err(
+                        "{context}: layer entry `{name}` has type {ref_type}; expected a Color / Background / Foreground / Ramp / Blur / Media / Vibrancy layer, #hex, color @ opacity, or layer constructor (Media fills use MediaLayer)"
+                    ),
+                    design,
+                ))
+            }
+            _ => Err(err(
             "PDL-E006",
             format!(
-                "{context}: invalid layer entry (got {}); expected Color / Background / Foreground / Ramp, #hex, color @ opacity, or layer constructor",
+                "{context}: invalid layer entry (got {}); expected Color / Background / Foreground / Ramp / Blur / Media / Vibrancy, #hex, color @ opacity, or layer constructor (Media fills use MediaLayer)",
                 value_kind_name(entry)
             ),
             design,
@@ -703,8 +907,41 @@ fn validate_frame_props_in_body_with_props(
                 props_on_frame.insert(name.clone(), value.clone());
             }
             FrameBodyItem::FrameProp { frame, name, value } => {
-                if let Some(fk) = let_kinds.get(frame) {
+                let fk = if frame == "self" {
+                    design
+                        .components
+                        .get(component_name)
+                        .map(|c| match c.root_kind {
+                            crate::ast::RootKind::Layout => "layout",
+                            crate::ast::RootKind::Text => "text",
+                            crate::ast::RootKind::Icon => "icon",
+                            crate::ast::RootKind::Media => "media",
+                        })
+                } else {
+                    let_kinds.get(frame).map(|s| s.as_str())
+                };
+                if let Some(fk) = fk {
                     validate_prop_on_kind(design, fk, name, value, &ctx)?;
+                }
+            }
+            FrameBodyItem::Children { entries, .. } => {
+                for e in entries {
+                    let opacity = match e {
+                        ChildEntry::FrameRef {
+                            opacity: Some(op), ..
+                        }
+                        | ChildEntry::Instance {
+                            opacity: Some(op), ..
+                        }
+                        | ChildEntry::FrameCtor {
+                            opacity: Some(op), ..
+                        } => Some(op),
+                        _ => None,
+                    };
+                    if let Some(op) = opacity {
+                        // Same rules as frame `opacity =` (0…1 / Opacity token).
+                        validate_prop_on_kind(design, "layout", "opacity", op, &ctx)?;
+                    }
                 }
             }
             FrameBodyItem::Let {

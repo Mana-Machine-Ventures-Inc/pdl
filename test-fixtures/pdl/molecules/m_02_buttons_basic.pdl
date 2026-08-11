@@ -39,16 +39,12 @@ component MoleculeTextButton <PointerInput>(
     padding = EdgeInsets(x: 18, y: 12)
   }
 
-  let L: text = {
-    content = label
-    fontSize = 14
-    fontWeight = 600
+  let L = Text(content: label, fontSize: 14, fontWeight: 600)
 
-    if tone == .ghost {
-      color = atoms.color.textPrimary
-    } else {
-      color = atoms.color.textOnBrand
-    }
+  if tone == .ghost {
+    L.color = atoms.color.textPrimary
+  } else {
+    L.color = atoms.color.textOnBrand
   }
 
   children = [L]

@@ -53,7 +53,7 @@
         {
           "default": false,
           "name": "showBorder",
-          "type": "Boolean"
+          "type": "Bool"
         }
       ],
       "root": {

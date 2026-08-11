@@ -1,0 +1,22 @@
+// self.prop assigns the enclosing component root frame (not the nested let).
+
+component AtomSelfRootProp() layout {
+  direction = .column
+
+  let c = Layout(
+    direction: .column,
+    background: #111111,
+    children: []
+  )
+
+  let b = Layout(
+    direction: .column,
+    background: #222222,
+    children: [c]
+  )
+
+  b.background = #AAAAAA
+  self.background = #FFFFFF
+
+  children = [b]
+}

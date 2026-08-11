@@ -1,0 +1,6 @@
+component Bad() layout {
+  let Label: text = {
+    content = "nope"
+  }
+  children = [Label]
+}

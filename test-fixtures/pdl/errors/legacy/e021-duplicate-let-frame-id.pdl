@@ -3,19 +3,11 @@
 component DupFrameIds() layout {
   direction = .column
 
-  let OuterA: layout = {
-    let Dup: text = {
-      content = "a"
-    }
-    children = [Dup]
-  }
+  let Dup = Text(content: "a")
+  let OuterA = Layout(direction: .column, children: [Dup])
 
-  let OuterB: layout = {
-    let Dup: text = {
-      content = "b"
-    }
-    children = [Dup]
-  }
+  let Dup = Text(content: "b")
+  let OuterB = Layout(direction: .column, children: [Dup])
 
   children = [OuterA, OuterB]
 }

@@ -1,0 +1,7 @@
+component Bad() layout {
+  foreground = Blur(
+    radius: 12,
+    vibrancy: (saturation: 1.2, brightness: 1.05)
+  )
+  children = []
+}

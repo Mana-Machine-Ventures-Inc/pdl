@@ -29,6 +29,7 @@ describe("invalid PDL — lexer & parser (PDL-E001)", () => {
     ["e001-unknown-keyword.pdl", /Unexpected token IDENT at top level|compnonent/],
     ["e001-bad-string-escape.pdl", /Invalid escape/],
     ["e001-invalid-hex.pdl", /Invalid hex color length/],
+    ["e001-classic-frame-let.pdl", /Classic frame let.*World A/],
     ["e012-hidden-disallowed-string.pdl", /Expected IDENT, got STRING/],
   ];
   it.each(cases)("loadDesign(%s) → PDL-E001", (file, re) => {
@@ -59,6 +60,24 @@ describe("invalid PDL — condition grammar (PDL-E038)", () => {
 
   it("rejects mixing && and || without parentheses in hidden = condition", () => {
     expectPdl(() => loadDesign(err("e038-hidden-mixed-and-or.pdl")), "PDL-E038", /Cannot mix `&&` and `\|\|`/);
+  });
+});
+
+describe("invalid PDL — parameter types (PDL-E039)", () => {
+  it("rejects unknown type names like Boo", () => {
+    expectPdl(
+      () => loadDesign(err("e039-unknown-param-type.pdl")),
+      "PDL-E039",
+      /Unknown parameter type `Boo`/,
+    );
+  });
+
+  it("rejects Boolean spelling (use Bool)", () => {
+    expectPdl(
+      () => loadDesign(err("e039-boolean-spelling.pdl")),
+      "PDL-E039",
+      /Unknown parameter type `Boolean`.*use `Bool`/,
+    );
   });
 });
 
@@ -148,9 +167,12 @@ describe("invalid PDL — parameters & identifiers (PDL-E007)", () => {
     expectPdl(() => buildComponentCatalogue(d), "PDL-E007", /Unresolved identifier|thisNameDoesNotExist/);
   });
 
-  it("unknown component in let instance (catalogue)", () => {
-    const d = loadDesign(err("e037-let-instance-unknown-component.pdl"));
-    expectPdl(() => buildComponentCatalogue(d), "PDL-E037", /DefinitelyNotAComponent/);
+  it("unknown component in let instance (load)", () => {
+    expectPdl(
+      () => loadDesign(err("e037-let-instance-unknown-component.pdl")),
+      "PDL-E037",
+      /DefinitelyNotAComponent/,
+    );
   });
 });
 
@@ -207,6 +229,14 @@ describe("invalid PDL — catalogue & theme (PDL-E005 / PDL-E010)", () => {
       () => loadDesign(err("e005-radius-corner-on-token.pdl")),
       "PDL-E005",
       /Radius.*Corner|Corner.*cornerRadius/,
+    );
+  });
+
+  it("PDL-E005 when Blur token uses a bare number (use Blur(radius:))", () => {
+    expectPdl(
+      () => loadDesign(err("e005-blur-number-token.pdl")),
+      "PDL-E005",
+      /Blur\(radius/,
     );
   });
 
@@ -343,9 +373,72 @@ describe("invalid PDL — catalogue & theme (PDL-E005 / PDL-E010)", () => {
     expectPdl(() => buildComponentCatalogue(d, { theme: "NoSuchThemeName" }), "PDL-E005", /Unknown theme/);
   });
 
-  it("PDL-E010 when variant param default is not a dot-enum", () => {
-    const d = loadDesign(err("e010-variant-default-not-enum.pdl"));
-    expectPdl(() => buildComponentCatalogue(d), "PDL-E010", /dot-enum/);
+  it("PDL-E040 when variant param default is not a dot-enum", () => {
+    expectPdl(
+      () => loadDesign(err("e010-variant-default-not-enum.pdl")),
+      "PDL-E040",
+      /Type mismatch.*expected Mode|string literal/,
+    );
+  });
+});
+
+describe("invalid PDL — instance kwargs types (PDL-E040)", () => {
+  it("rejects Tone param passed to String kwarg", () => {
+    expectPdl(
+      () => loadDesign(err("e040-let-instance-wrong-type.pdl")),
+      "PDL-E040",
+      /Type mismatch.*tone.*Tone.*expected String/,
+    );
+  });
+
+  it("rejects Bool param passed to String kwarg", () => {
+    expectPdl(
+      () => loadDesign(err("e040-let-instance-bool-to-string.pdl")),
+      "PDL-E040",
+      /Type mismatch.*selected.*Bool.*expected String/,
+    );
+  });
+
+  it("rejects Blur(vibrancy: number)", () => {
+    expectPdl(
+      () => loadDesign(err("e040-blur-vibrancy-number.pdl")),
+      "PDL-E040",
+      /vibrancy:.*Vibrancy|got number/,
+    );
+  });
+
+  it("rejects Blur(vibrancy: .standard) — BlurStyle is not Vibrancy", () => {
+    expectPdl(
+      () => loadDesign(err("e040-blur-vibrancy-dot-enum.pdl")),
+      "PDL-E040",
+      /vibrancy:.*Vibrancy|got dotEnum/,
+    );
+  });
+
+  it("rejects naked (saturation:, brightness:) on Blur vibrancy:", () => {
+    expectPdl(
+      () => loadDesign(err("e001-blur-vibrancy-naked-tuple.pdl")),
+      "PDL-E001",
+      /Naked.*saturation.*Vibrancy\(saturation/,
+    );
+  });
+
+  it("rejects naked (saturation:, brightness:) as Vibrancy token RHS", () => {
+    expectPdl(
+      () => loadDesign(err("e001-vibrancy-naked-tuple-token.pdl")),
+      "PDL-E001",
+      /Naked.*saturation.*Vibrancy\(saturation/,
+    );
+  });
+});
+
+describe("invalid PDL — interaction handler LHS", () => {
+  it("rejects Let.prop assign in handler with migrate-to-layout-if hint", () => {
+    expectPdl(
+      () => loadDesign(err("e001-handler-frame-prop-assign.pdl")),
+      "PDL-E001",
+      /Interaction handlers can only assign component parameters.*Label\.content.*layout body/,
+    );
   });
 });
 

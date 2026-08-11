@@ -1,0 +1,8 @@
+import "../atoms/tokens_icon_media_ratio.pdl"
+
+component Bad() layout {
+  background = [
+    MediaLayer(source: atoms.media.hero, contentMode: .cover, opacity: 0.3) @ 0.5
+  ]
+  children = []
+}

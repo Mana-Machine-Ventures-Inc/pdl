@@ -34,8 +34,17 @@ import type {
   VariantDecl,
 } from "./ast.js";
 import { PdlError } from "./errors.js";
-import { isFrameEnumTypeName } from "./frameProps.js";
+import { looksLikeQualifiedEnumTypeName } from "./frameProps.js";
 import type { Token, TokenKind } from "./lexer.js";
+import { inferValueLetType } from "./paramTypes.js";
+import {
+  FRAME_CTOR_TO_KIND,
+  frameCtorKwargsToBody,
+  isFrameCtorName,
+  lowerWorldABody,
+  RESERVED_FRAME_CTOR_COMPONENT_NAMES,
+  type FrameCtorName,
+} from "./worldA.js";
 
 export class Parser {
   private readonly tokens: Token[];
@@ -130,19 +139,6 @@ export class Parser {
     return { kind: "previewBackground", token };
   }
 
-  private consumeFrameKindKeyword(): string {
-    const t = this.peek();
-    if (t.kind !== "IDENT") {
-      throw this.err(`Expected frame kind layout|text|icon|media, got ${t.kind}`);
-    }
-    const v = t.value;
-    if (v === "layout" || v === "text" || v === "icon" || v === "media") {
-      this.advance();
-      return v;
-    }
-    throw this.err(`Expected frame kind layout|text|icon|media, got IDENT ${v}`);
-  }
-
   /** Dotted token paths (`color.surface.primary`) and other qualified names. */
   private parseQualifiedName(): string {
     return this.finishQualifiedName(this.consume("IDENT").value);
@@ -184,6 +180,11 @@ export class Parser {
       "Ramp",
       "Background",
       "Foreground",
+      "EdgeInsets",
+      "CornerRadii",
+      "GradientStop",
+      "Media",
+      "BlurStyle",
     ];
     if (typeKeywords.includes(t.kind)) {
       return this.advance().value;
@@ -193,6 +194,7 @@ export class Parser {
 
   private consumeTokenTypeName(): string {
     const t = this.peek();
+    if (t.kind === "IDENT") return this.consume("IDENT").value;
     const typeKeywords: TokenKind[] = [
       "Color",
       "Opacity",
@@ -216,6 +218,11 @@ export class Parser {
       "Ramp",
       "Background",
       "Foreground",
+      "EdgeInsets",
+      "CornerRadii",
+      "GradientStop",
+      "Media",
+      "BlurStyle",
     ];
     if (typeKeywords.includes(t.kind)) {
       return this.advance().value;
@@ -364,12 +371,23 @@ export class Parser {
         throw this.err("from/to/stagger in interaction handlers are not implemented yet");
       }
       let param: string;
+      let selfPrefixed = false;
       if (this.is("self")) {
         this.advance();
         this.consume(".");
         param = this.consume("IDENT").value;
+        selfPrefixed = true;
       } else {
         param = this.consume("IDENT").value;
+      }
+      // `Label.content = …` — frame-prop assign; handlers only mutate params.
+      if (this.is(".")) {
+        this.advance();
+        const prop = this.consume("IDENT").value;
+        const lhs = selfPrefixed ? `self.${param}.${prop}` : `${param}.${prop}`;
+        throw this.err(
+          `Interaction handlers can only assign component parameters (e.g. \`interactionState = .hovered\`), not frame props like \`${lhs}\`. Put \`${param}.${prop} = …\` in the layout body / \`if\` branch instead (handlers set params; layout \`if\` updates chrome)`,
+        );
       }
       // Host verb: `beginEditing(value)` / `cancelEditing()`
       if (this.is("(")) {
@@ -860,6 +878,11 @@ export class Parser {
   private parseComponent(): ComponentDecl {
     this.consume("component");
     const name = this.consume("IDENT").value;
+    if (RESERVED_FRAME_CTOR_COMPONENT_NAMES.has(name as FrameCtorName)) {
+      throw this.err(
+        `Component name \`${name}\` is reserved for the World A frame constructor; rename the component`,
+      );
+    }
     let conformsTo: string | undefined;
     if (this.is("<")) {
       this.advance();
@@ -902,7 +925,7 @@ export class Parser {
     const rootKind = this.advance().value as ComponentDecl["rootKind"];
     this.pendingHostHandlers = [];
     this.consume("{");
-    const body = this.parseFrameBodyUntilClose();
+    const body = lowerWorldABody(this.parseFrameBodyUntilClose());
     this.consume("}");
     return {
       kind: "component",
@@ -1009,17 +1032,23 @@ export class Parser {
     if (this.is("let")) return this.parseLet();
     if (this.is("if")) return { kind: "if", chain: this.parseIfChain() };
 
-    // Host inbound: `[self.]pressEnd = { … }` → lifted to InteractionDecl after component.
+    // `self.IDENT = …`:
+    // - `{ … }` → host inbound handler (lifted after component)
+    // - otherwise → prop on the enclosing **component root** (not a nested let)
     if (this.is("self")) {
       this.advance();
       this.consume(".");
-      const event = this.consume("IDENT").value;
+      const field = this.consume("IDENT").value;
       this.consume("=");
-      this.consume("{");
-      const body = this.parseInteractionHandlerBody();
-      this.consume("}");
-      this.pendingHostHandlers.push({ event, body });
-      return null;
+      if (this.is("{")) {
+        this.consume("{");
+        const body = this.parseInteractionHandlerBody();
+        this.consume("}");
+        this.pendingHostHandlers.push({ event: field, body });
+        return null;
+      }
+      const value = field === "hidden" ? this.parseHiddenRhs() : this.parseValueExpr();
+      return { kind: "frameProp", frame: "self", name: field, value };
     }
 
     const id = this.peek();
@@ -1066,19 +1095,69 @@ export class Parser {
     const id = this.consume("IDENT").value;
     if (this.is("=")) {
       this.advance();
-      const comp = this.consume("IDENT").value;
-      this.consume("(");
-      const kwargs = this.parseKwArgs();
-      this.consume(")");
-      return { kind: "letInstance", id, component: comp, kwargs };
+      // World A: `let title = Text(…)` / `Layout(…)` / `Icon(…)` / `Media(…)`
+      // Icon/Media are lexer keywords; Text/Layout are ordinary Idents.
+      {
+        const peek = this.peek();
+        const ctorName = peek.value;
+        const isCtorTok =
+          (peek.kind === "IDENT" || peek.kind === "Icon" || peek.kind === "Media") &&
+          isFrameCtorName(ctorName) &&
+          this.peekAheadKind(1) === "(";
+        if (isCtorTok) {
+          this.advance();
+          this.consume("(");
+          const { props, childEntries } = this.parseFrameCtorArgs();
+          this.consume(")");
+          return {
+            kind: "let",
+            id,
+            frameKind: FRAME_CTOR_TO_KIND[ctorName as FrameCtorName],
+            body: frameCtorKwargsToBody(props, childEntries),
+          };
+        }
+      }
+      // `let x = Comp(…)` → instance; `let blur = Blur(…)` → value let (inferred type)
+      const value = this.parseValueExpr();
+      if (value.kind === "instance") {
+        return {
+          kind: "letInstance",
+          id,
+          component: value.component,
+          kwargs: value.kwargs,
+        };
+      }
+      const typeName = inferValueLetType(value);
+      if (!typeName) {
+        throw this.err(
+          `Value let \`${id}\` requires a type annotation (\`let ${id}: Type = …\`); could not infer type from RHS`,
+        );
+      }
+      return { kind: "letValue", id, typeName, value };
     }
     this.consume(":");
-    const frameKind = this.consumeFrameKindKeyword();
+    // Classic frame let removed — World A only: `let Id = Text|Layout|Icon|Media(…)`
+    // Value let: `let ramp: Ramp = Ramp(…)` (builtin / token type, value RHS)
+    const t = this.peek();
+    const frameKinds = new Set(["layout", "text", "icon", "media"]);
+    if (t.kind === "IDENT" && frameKinds.has(t.value)) {
+      const frameKind = t.value;
+      const ctor =
+        frameKind === "text"
+          ? "Text"
+          : frameKind === "layout"
+            ? "Layout"
+            : frameKind === "icon"
+              ? "Icon"
+              : "Media";
+      throw this.err(
+        `Classic frame let \`let ${id}: ${frameKind} = { … }\` was removed; use \`let ${id} = ${ctor}(…)\` (World A — see docs/PROPOSAL_WORLD_A_EXPRESSION_TREES.md)`,
+      );
+    }
+    const typeName = this.consumeParamTypeName();
     this.consume("=");
-    this.consume("{");
-    const body = this.parseFrameBodyUntilClose();
-    this.consume("}");
-    return { kind: "let", id, frameKind, body };
+    const value = this.parseValueExpr();
+    return { kind: "letValue", id, typeName, value };
   }
 
   private parseIfChain(): IfChain {
@@ -1221,6 +1300,20 @@ export class Parser {
     if (this.is("true") || this.is("false")) {
       return { kind: "cmp", param, op, rhs: this.advance().value };
     }
+    // `Tone.primary` → same as `.primary` (frame enums / user variants)
+    if (
+      this.is("IDENT") &&
+      looksLikeQualifiedEnumTypeName(this.peek().value) &&
+      this.peekAheadKind(1) === "." &&
+      this.peekAheadKind(2) === "IDENT" &&
+      this.peekAheadKind(3) !== "." &&
+      this.peekAheadKind(3) !== "("
+    ) {
+      this.advance();
+      this.consume(".");
+      const caseName = this.consume("IDENT").value;
+      return { kind: "cmp", param, op, rhs: `.${caseName}` };
+    }
     if (this.is("IDENT")) {
       return { kind: "cmp", param, op, rhs: this.advance().value };
     }
@@ -1232,9 +1325,56 @@ export class Parser {
     if (this.is("@")) {
       this.advance();
       const op = this.parsePrimaryValue();
-      return { kind: "opacityOf", base: lhs, opacity: op };
+      return this.applyOpacitySugar(lhs, op);
     }
     return lhs;
+  }
+
+  /**
+   * Postfix `@ Opacity` on values: colors → opacityOf; MediaLayer → opacity: arg;
+   * Color(…) → wrap color:; other operands → error.
+   */
+  private applyOpacitySugar(lhs: ValueExpr, opacity: ValueExpr): ValueExpr {
+    if (lhs.kind === "call") {
+      if (lhs.callee === "MediaLayer") {
+        if (lhs.args.opacity) {
+          throw this.err(
+            "`MediaLayer(…)` already has `opacity:`; cannot also apply postfix `@` (PDL-E020)",
+          );
+        }
+        return { kind: "call", callee: "MediaLayer", args: { ...lhs.args, opacity } };
+      }
+      if (lhs.callee === "Color") {
+        const color = lhs.args.color;
+        if (!color) {
+          throw this.err("`Color(…)` requires `color:` before postfix `@`");
+        }
+        return {
+          kind: "call",
+          callee: "Color",
+          args: {
+            ...lhs.args,
+            color: { kind: "opacityOf", base: color, opacity },
+          },
+        };
+      }
+      throw this.err(
+        `Cannot apply \`@\` opacity to \`${lhs.callee}(…)\` (not opacity-bearing; use a Color/Media layer or frame opacity)`,
+      );
+    }
+    if (lhs.kind === "hex" || lhs.kind === "ident" || lhs.kind === "opacityOf") {
+      return { kind: "opacityOf", base: lhs, opacity };
+    }
+    throw this.err(
+      `Cannot apply \`@\` opacity to ${lhs.kind} (expected a Color, MediaLayer(…), or color token)`,
+    );
+  }
+
+  /** Optional ` @ opacityExpr` after a child mount. */
+  private parseOptionalChildOpacity(): ValueExpr | undefined {
+    if (!this.is("@")) return undefined;
+    this.advance();
+    return this.parsePrimaryValue();
   }
 
   private parsePrimaryValue(): ValueExpr {
@@ -1381,10 +1521,10 @@ export class Parser {
       return { kind: "array", items };
     }
     if (t.kind === "IDENT") {
-      // Qualified frame enum: `Justify.center` → same AST as `.center`
+      // Qualified enum: `Justify.center` / `Tone.primary` → same AST as `.center` / `.primary`
       // (Sizing.* stays on the Sizing keyword branch above.)
       if (
-        isFrameEnumTypeName(t.value) &&
+        looksLikeQualifiedEnumTypeName(t.value) &&
         this.peekAheadKind(1) === "." &&
         this.peekAheadKind(2) === "IDENT" &&
         this.peekAheadKind(3) !== "." &&
@@ -1446,16 +1586,9 @@ export class Parser {
       return { kind: "transition", duration, easing, delay };
     }
     if (first === "saturation") {
-      const sat = this.parseValueExpr();
-      this.consume(",");
-      this.consume("IDENT");
-      this.consume(":");
-      const bright = this.parseValueExpr();
-      this.consume(")");
-      if (sat.kind !== "number" || bright.kind !== "number") {
-        throw this.err("Vibrancy tuple expects numeric saturation/brightness");
-      }
-      return { kind: "vibrancyTuple", saturation: sat.value, brightness: bright.value };
+      throw this.err(
+        "Naked `(saturation:, brightness:)` is not allowed; use `Vibrancy(saturation: …, brightness: …)`",
+      );
     }
     if (first === "direction") {
       const dir = this.parseValueExpr();
@@ -1529,6 +1662,11 @@ export class Parser {
       };
     }
     if (name === "Icon") {
+      throw this.err(
+        "`Icon(…)` is the World A frame constructor; asset refs use `IconRef(file: …)` or `IconRef(system: …, name: …)`",
+      );
+    }
+    if (name === "IconRef") {
       const fields = this.parseLabelledArgs();
       this.consume(")");
       if (fields.file && !fields.system && !fields.name) {
@@ -1538,7 +1676,7 @@ export class Parser {
         return { kind: "iconRef", source: "system", system: fields.system, name: fields.name };
       }
       throw this.err(
-        "Icon requires `file: \"…\"` or `system: .sfSymbols|.materialSymbols, name: \"…\"`",
+        "IconRef requires `file: \"…\"` or `system: .sfSymbols|.materialSymbols, name: \"…\"`",
       );
     }
     if (name === "MediaSource") {
@@ -1581,10 +1719,66 @@ export class Parser {
       this.consume(")");
       return { kind: "gradientStop", fields };
     }
-    if (name === "Color" || name === "Ramp" || name === "Blur" || name === "Media" || name === "Vibrancy") {
+    if (name === "Media") {
+      throw this.err(
+        "`Media(…)` is the World A frame constructor; layer fills use `MediaLayer(source:, contentMode: …)`",
+      );
+    }
+    if (
+      name === "Color" ||
+      name === "Ramp" ||
+      name === "Blur" ||
+      name === "MediaLayer" ||
+      name === "Vibrancy"
+    ) {
       const args = this.parseLabelledArgs();
       this.consume(")");
-      return { kind: "call", callee: name, args };
+      if (name === "Blur") {
+        if ("blur" in args && !("radius" in args)) {
+          throw this.err(
+            "`Blur(…)` takes `radius:` (a Radius / number), not `blur:`; e.g. `Blur(radius: 16)` or `Blur(radius: blurRadiusToken)`",
+          );
+        }
+        if (!("radius" in args)) {
+          throw this.err("`Blur(…)` requires `radius:` (optional `style:`, `vibrancy:`)");
+        }
+        const unknown = Object.keys(args).filter(
+          (k) => k !== "radius" && k !== "style" && k !== "vibrancy",
+        );
+        if (unknown.length) {
+          throw this.err(
+            `Blur unknown label(s): ${unknown.join(", ")} (expected radius, optional style, vibrancy)`,
+          );
+        }
+      }
+      if (name === "Vibrancy") {
+        if ("vibrancy" in args && !("saturation" in args)) {
+          throw this.err(
+            "`Vibrancy(…)` takes `saturation:` and `brightness:` (e.g. `Vibrancy(saturation: 1.2, brightness: 1.05)`); bare Vibrancy tokens are layers — not `Vibrancy(vibrancy: …)`",
+          );
+        }
+        if (!("saturation" in args) || !("brightness" in args)) {
+          throw this.err("`Vibrancy(…)` requires `saturation:` and `brightness:`");
+        }
+        const unknown = Object.keys(args).filter(
+          (k) => k !== "saturation" && k !== "brightness",
+        );
+        if (unknown.length) {
+          throw this.err(
+            `Vibrancy unknown label(s): ${unknown.join(", ")} (expected saturation, brightness)`,
+          );
+        }
+      }
+      return {
+        kind: "call",
+        callee: name as "Color" | "Ramp" | "Blur" | "MediaLayer" | "Vibrancy",
+        args,
+      };
+    }
+    if (isFrameCtorName(name)) {
+      throw this.err(
+        `\`${name}(…)\` is a World A frame constructor — use \`let id = ${name}(…)\` or mount it in \`children\`, not as a value/layer expression`,
+      );
     }
     // Component instance literal: `UpsellBody()` / `ConfirmBody(title: "…")`
     const kwargs = this.parseKwArgs();
@@ -1653,7 +1847,8 @@ export class Parser {
   private parseChildrenRhs(): ChildEntry[] {
     if (this.is("IDENT") && this.peekAheadKind(1) !== "(") {
       const id = this.consume("IDENT").value;
-      return [{ kind: "frameRef", id }];
+      const opacity = this.parseOptionalChildOpacity();
+      return [{ kind: "frameRef", id, ...(opacity ? { opacity } : {}) }];
     }
     return this.parseChildrenList();
   }
@@ -1676,8 +1871,11 @@ export class Parser {
     if (this.is("DOT_ENUM") && this.peek().value === ".spacer") {
       throw this.err("`.spacer` was renamed to `Spacer()` (zero-arg child constructor)");
     }
-    if (this.is("IDENT")) {
-      const id = this.peek().value;
+    const peek = this.peek();
+    const id = peek.value;
+    const nameTok =
+      peek.kind === "IDENT" || peek.kind === "Icon" || peek.kind === "Media";
+    if (nameTok) {
       if (this.peekAheadKind(1) === "(") {
         this.advance();
         this.consume("(");
@@ -1686,16 +1884,60 @@ export class Parser {
             throw this.err("`Spacer()` takes no arguments");
           }
           this.consume(")");
+          if (this.is("@")) {
+            throw this.err("`Spacer()` is not opacity-bearing; cannot apply postfix `@`");
+          }
           return { kind: "spacer" };
+        }
+        if (isFrameCtorName(id)) {
+          const { props, childEntries } = this.parseFrameCtorArgs();
+          this.consume(")");
+          const opacity = this.parseOptionalChildOpacity();
+          return {
+            kind: "frameCtor",
+            frameKind: FRAME_CTOR_TO_KIND[id],
+            props,
+            ...(childEntries ? { childEntries } : {}),
+            ...(opacity ? { opacity } : {}),
+          };
         }
         const kwargs = this.parseKwArgs();
         this.consume(")");
-        return { kind: "instance", component: id, kwargs };
+        const opacity = this.parseOptionalChildOpacity();
+        return {
+          kind: "instance",
+          component: id,
+          kwargs,
+          ...(opacity ? { opacity } : {}),
+        };
       }
       this.advance();
-      return { kind: "frameRef", id };
+      const opacity = this.parseOptionalChildOpacity();
+      return { kind: "frameRef", id, ...(opacity ? { opacity } : {}) };
     }
     throw this.err("Invalid child entry");
+  }
+
+  /** Frame ctor kwargs; `children:` is a child-entry list, not a ValueExpr. */
+  private parseFrameCtorArgs(): {
+    props: Record<string, ValueExpr>;
+    childEntries?: ChildEntry[];
+  } {
+    const props: Record<string, ValueExpr> = {};
+    let childEntries: ChildEntry[] | undefined;
+    if (this.is(")")) return { props };
+    while (true) {
+      const lab = this.consume("IDENT").value;
+      this.consume(":");
+      if (lab === "children") {
+        childEntries = this.parseChildrenList();
+      } else {
+        props[lab] = this.parseValueExpr();
+      }
+      if (this.is(")")) break;
+      this.consume(",");
+    }
+    return { props, ...(childEntries ? { childEntries } : {}) };
   }
 
   private peekAheadKind(n: number): TokenKind {

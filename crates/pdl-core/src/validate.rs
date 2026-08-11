@@ -10,6 +10,13 @@ use crate::ast::*;
 use crate::design::{effective_params, DesignDefinition};
 use crate::error::PdlError;
 use crate::frame_props::{validate_frame_props_in_body, validate_type_style_props};
+use crate::param_bindings::{
+    assert_param_value_compatible, validate_component_param_defaults,
+    validate_param_bindings_in_body,
+};
+use crate::param_types::{
+    is_bool_param_type, is_builtin_param_type, unwrap_param_type_name,
+};
 
 fn root_kind_str(k: RootKind) -> &'static str {
     match k {
@@ -55,11 +62,11 @@ fn validate_condition_expr(
                     design,
                 )
             })?;
-            if type_name != "Boolean" && type_name != "Bool" {
+            if !is_bool_param_type(type_name) {
                 return Err(err(
                     "PDL-E010",
                     format!(
-                        "Bare `if {}` requires a Boolean parameter (got type {}); use `{} == …` for variants",
+                        "Bare `if {}` requires a Bool parameter (got type {}); use `{} == …` for variants",
                         param, type_name, param
                     ),
                     design,
@@ -83,8 +90,8 @@ fn validate_condition_expr(
                     design,
                 )
             })?;
-            // Boolean compare: `selected == true` / `selected == .true`
-            if type_name == "Boolean" || type_name == "Bool" {
+            // Bool compare: `selected == true` / `selected == .true`
+            if is_bool_param_type(type_name) {
                 if *rhs_is_param {
                     let rhs_ty = param_by_name.get(rhs).ok_or_else(|| {
                         err(
@@ -115,7 +122,7 @@ fn validate_condition_expr(
                 return Err(err(
                     "PDL-E010",
                     format!(
-                        "Boolean condition on `{}` expected `true` / `false` (or `.true` / `.false`)",
+                        "Bool condition on `{}` expected `true` / `false` (or `.true` / `.false`)",
                         param
                     ),
                     design,
@@ -257,7 +264,21 @@ fn validate_hidden_in_body(
                 }
             }
             FrameBodyItem::FrameProp { frame, name, value } if name == "hidden" => {
-                let fk = let_kinds.get(frame).ok_or_else(|| {
+                let root_fk = design.components.get(component_name).map(|c| {
+                    match c.root_kind {
+                        RootKind::Layout => "layout",
+                        RootKind::Text => "text",
+                        RootKind::Icon => "icon",
+                        RootKind::Media => "media",
+                    }
+                    .to_string()
+                });
+                let fk = if frame == "self" {
+                    root_fk
+                } else {
+                    let_kinds.get(frame).cloned()
+                };
+                let fk = fk.ok_or_else(|| {
                     err(
                         "PDL-E012",
                         format!(
@@ -455,11 +476,7 @@ fn validate_if_conditions_in_body(
                     ));
                 }
             }
-            FrameBodyItem::ForEach {
-                list,
-                handlers,
-                ..
-            } => {
+            FrameBodyItem::ForEach { list, body, .. } => {
                 if !param_by_name.contains_key(list) {
                     return Err(err(
                         "PDL-E023",
@@ -470,7 +487,7 @@ fn validate_if_conditions_in_body(
                         design,
                     ));
                 }
-                for h in handlers {
+                for h in crate::ast::foreach_layout_handlers(body) {
                     validate_layout_on_handler(
                         design,
                         h,
@@ -508,7 +525,7 @@ fn collect_foreach_and_children_mounts(
             }
             FrameBodyItem::Children { entries, .. } => {
                 for e in entries {
-                    if let ChildEntry::FrameRef { id } = e {
+                    if let ChildEntry::FrameRef { id, .. } = e {
                         children_refs.insert(id.clone());
                     }
                 }
@@ -596,6 +613,86 @@ fn collect_unique_frame_ids_from_body(
     Ok(())
 }
 
+fn validate_let_values_in_body(
+    design: &DesignDefinition,
+    items: &[FrameBodyItem],
+    frame_ids: &HashSet<String>,
+    value_ids: &mut HashSet<String>,
+    caller_params: &HashMap<String, String>,
+    component_name: &str,
+) -> Result<(), PdlError> {
+    for it in items {
+        match it {
+            FrameBodyItem::LetValue {
+                id,
+                type_name,
+                value,
+            } => {
+                if frame_ids.contains(id) || value_ids.contains(id) {
+                    return Err(err(
+                        "PDL-E021",
+                        format!(
+                            "Duplicate id `{id}` in component {component_name} (`let` / `letInstance` / value `let` names must be unique across the whole component body)"
+                        ),
+                        design,
+                    ));
+                }
+                value_ids.insert(id.clone());
+                if !is_builtin_param_type(type_name) && !design.variants.contains_key(type_name) {
+                    return Err(err(
+                        "PDL-E039",
+                        format!(
+                            "Unknown value-let type `{type_name}` in component {component_name}"
+                        ),
+                        design,
+                    ));
+                }
+                assert_param_value_compatible(
+                    design,
+                    type_name,
+                    value,
+                    caller_params,
+                    &format!("for value let `{id}` (component {component_name})"),
+                )?;
+            }
+            FrameBodyItem::Let { body, .. } => {
+                validate_let_values_in_body(
+                    design,
+                    body,
+                    frame_ids,
+                    value_ids,
+                    caller_params,
+                    component_name,
+                )?;
+            }
+            FrameBodyItem::If { chain } => {
+                for br in &chain.branches {
+                    validate_let_values_in_body(
+                        design,
+                        &br.body,
+                        frame_ids,
+                        value_ids,
+                        caller_params,
+                        component_name,
+                    )?;
+                }
+                if let Some(else_body) = &chain.else_body {
+                    validate_let_values_in_body(
+                        design,
+                        else_body,
+                        frame_ids,
+                        value_ids,
+                        caller_params,
+                        component_name,
+                    )?;
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 /// § Forward visibility / PDL-E019: `let` / `letInstance` must appear earlier in source
 /// order than any `children` frame-id ref or `FrameId.prop` that names it.
 /// Component params (including slots) may appear without a prior `let`.
@@ -640,7 +737,7 @@ fn assert_forward_frame_visibility(
                     }
                 }
                 for entry in entries {
-                    if let ChildEntry::FrameRef { id } = entry {
+                    if let ChildEntry::FrameRef { id, .. } = entry {
                         if !declared.contains(id)
                             && !param_names.contains(id)
                             && all_frame_ids.contains(id)
@@ -656,7 +753,9 @@ fn assert_forward_frame_visibility(
                 }
             }
             FrameBodyItem::FrameProp { frame, name, .. } => {
-                if !declared.contains(frame)
+                // `self.prop` targets the enclosing component root — not a `let` id.
+                if frame != "self"
+                    && !declared.contains(frame)
                     && !param_names.contains(frame)
                     && all_frame_ids.contains(frame)
                 {
@@ -738,16 +837,19 @@ fn validate_fixtures_for_component(
     let Some(c) = design.components.get(component_name) else {
         return Ok(());
     };
-    let pmap: HashSet<String> = effective_params(design, c)?
-        .into_iter()
-        .map(|p| p.name)
+    let params = effective_params(design, c)?;
+    let pmap: HashMap<&str, &crate::ast::ComponentParam> =
+        params.iter().map(|p| (p.name.as_str(), p)).collect();
+    let caller_params: HashMap<String, String> = params
+        .iter()
+        .map(|p| (p.name.clone(), p.type_name.clone()))
         .collect();
     let Some(fm) = design.fixtures.get(component_name) else {
         return Ok(());
     };
     for ex in fm.values() {
         for b in &ex.bindings {
-            if !pmap.contains(&b.name) {
+            let Some(p) = pmap.get(b.name.as_str()) else {
                 return Err(err(
                     "PDL-E007",
                     format!(
@@ -756,7 +858,17 @@ fn validate_fixtures_for_component(
                     ),
                     design,
                 ));
-            }
+            };
+            assert_param_value_compatible(
+                design,
+                &p.type_name,
+                &b.value,
+                &caller_params,
+                &format!(
+                    "in fixture \"{}\" for `{}.{}`",
+                    ex.label, component_name, b.name
+                ),
+            )?;
         }
     }
     Ok(())
@@ -1171,21 +1283,28 @@ fn token_rhs_expectation(token_type: &str) -> &'static str {
         "LineHeight" => "a positive number (unitless ratio, e.g. `1.35`)",
         "LetterSpacing" => "a number (em units, e.g. `0.01` or `-0.02`)",
         "Ratio" => "a positive number or `W:H` ratio sugar (e.g. `16:9`)",
-        "Duration" | "Blur" => "a non-negative number",
+        "Duration" => "a non-negative number",
+        "Blur" => {
+            "`Blur(radius: … [, style:] [, vibrancy:])` (radius is a Radius / number — not a bare number token)"
+        }
         "FontFamily" | "Easing" => "a string",
         "Icon" => {
-            "`Icon(file: \"…\")`, `Icon(system: .sfSymbols|.materialSymbols, name: \"…\")`, or a pack-relative path string"
+            "`IconRef(file: \"…\")`, `IconRef(system: .sfSymbols|.materialSymbols, name: \"…\")`, or a pack-relative path string"
         }
         "MediaSource" => {
             "`MediaSource(file: \"…\" [, kind:, format:])`, `MediaSource(url: \"…\" [, kind:, format:])`, an http(s) URL, or a pack-relative path string"
         }
         "Transition" => "a transition tuple `(duration: …, easing: …)`",
-        "Vibrancy" => "a vibrancy tuple `(saturation: …, brightness: …)`",
-        "Ramp" => "a ramp literal `(direction: …, stops: […])`",
+        "Vibrancy" => "`Vibrancy(saturation: …, brightness: …)`",
+        "Ramp" => "a ramp literal `(direction: …, stops: […])` or `Ramp(…)`",
         "Sizing" => {
             "a sizing literal (`.hug` / `Sizing.hug`, `.fill`, `.fixed(n)`, `.flex(…)`, `.aspect(16:9)`)"
         }
         "Background" | "Foreground" => "a color, layer list `[…]`, or layer constructor",
+        "EdgeInsets" => "`EdgeInsets(x:, y:)` or `EdgeInsets(top:, right:, bottom:, left:)`",
+        "CornerRadii" => "`Corner(tl:, tr:, br:, bl:)`",
+        "GradientStop" => "`GradientStop(…)`",
+        "Media" => "`MediaLayer(source:, contentMode: …)`",
         _ => "a value compatible with the declared TokenType",
     }
 }
@@ -1223,7 +1342,7 @@ fn value_expr_kind_name(value: &ValueExpr) -> &'static str {
 fn is_shadow_axis_token_type(token_type: &str) -> bool {
     matches!(
         token_type,
-        "Distance" | "Radius" | "Size" | "Weight" | "Ratio" | "Duration" | "Blur"
+        "Distance" | "Radius" | "Size" | "Weight" | "Ratio" | "Duration"
     )
 }
 
@@ -1570,8 +1689,16 @@ fn assert_token_rhs_compatible(
             ValueExpr::Ratio { width, height } => *width > 0.0 && *height > 0.0,
             _ => false,
         },
-        "Duration" | "Blur" => matches!(value, ValueExpr::Number { value: n } if *n >= 0.0),
-        "FontFamily" | "Easing" => matches!(value, ValueExpr::String { .. }),
+        "Duration" => matches!(value, ValueExpr::Number { value: n } if *n >= 0.0),
+        "Blur" => matches!(
+            value,
+            ValueExpr::Call {
+                callee: CallCallee::Blur,
+                ..
+            }
+        ),
+        "FontFamily" => matches!(value, ValueExpr::String { .. }),
+        "Easing" => matches!(value, ValueExpr::String { .. } | ValueExpr::DotEnum { .. }),
         "Icon" => match value {
             ValueExpr::IconFile { .. } | ValueExpr::IconSystem { .. } => true,
             ValueExpr::String { value: s } => is_pack_relative_file_path(s),
@@ -1583,8 +1710,21 @@ fn assert_token_rhs_compatible(
             _ => false,
         },
         "Transition" => matches!(value, ValueExpr::Transition { .. }),
-        "Vibrancy" => matches!(value, ValueExpr::VibrancyTuple { .. }),
-        "Ramp" => matches!(value, ValueExpr::RampInline { .. }),
+        "Vibrancy" => matches!(
+            value,
+            ValueExpr::Call {
+                callee: CallCallee::Vibrancy,
+                ..
+            }
+        ),
+        "Ramp" => matches!(
+            value,
+            ValueExpr::RampInline { .. }
+                | ValueExpr::Call {
+                    callee: CallCallee::Ramp,
+                    ..
+                }
+        ),
         "Sizing" => match value {
             ValueExpr::Sizing { .. } => true,
             // Bare `.hug` / `.fill` parse as DotEnum (same spelling as ContentMode.fill).
@@ -1601,13 +1741,40 @@ fn assert_token_rhs_compatible(
                 | ValueExpr::Array { .. }
                 | ValueExpr::Call { .. }
         ),
-        _ => false,
+        "EdgeInsets" => matches!(value, ValueExpr::EdgeInsets { .. }),
+        "CornerRadii" => matches!(value, ValueExpr::Corner { .. }),
+        "GradientStop" => matches!(value, ValueExpr::GradientStop { .. }),
+        "Media" => matches!(
+            value,
+            ValueExpr::Call {
+                callee: CallCallee::MediaLayer,
+                ..
+            }
+        ),
+        other => {
+            use crate::param_types::host_enum_cases;
+            if let Some(cases) = host_enum_cases(other) {
+                match value {
+                    ValueExpr::DotEnum { value: v } => {
+                        let c = v.strip_prefix('.').unwrap_or(v.as_str());
+                        cases.iter().any(|x| *x == c)
+                    }
+                    _ => false,
+                }
+            } else {
+                false
+            }
+        }
     };
 
     if !ok {
         let detail = match (token_type, value) {
             ("Opacity", ValueExpr::Number { .. }) => " (out of range 0…1)".to_string(),
-            ("Distance" | "Radius" | "Duration" | "Blur", ValueExpr::Number { .. }) => {
+            ("Blur", ValueExpr::Number { .. }) => {
+                " (use `Blur(radius: n)` — Blur is the layer object; radius amounts use Radius)"
+                    .to_string()
+            }
+            ("Distance" | "Radius" | "Duration", ValueExpr::Number { .. }) => {
                 " (must be non-negative)".to_string()
             }
             ("Icon", ValueExpr::String { value: s }) if s.starts_with('/') => {
@@ -1617,7 +1784,7 @@ fn assert_token_rhs_compatible(
             }
             ("Icon", ValueExpr::String { value: s }) if !is_pack_relative_file_path(s) => {
                 format!(
-                    " (got `{s}` — bare names are ambiguous; use `Icon(system: .sfSymbols, name: \"…\")` or a pack path like `icons/star.svg`)"
+                    " (got `{s}` — bare names are ambiguous; use `IconRef(system: .sfSymbols, name: \"…\")` or a pack path like `icons/star.svg`)"
                 )
             }
             _ => format!(" (got {})", value_expr_kind_name(value)),
@@ -1634,6 +1801,49 @@ fn assert_token_rhs_compatible(
 
     if token_type == "Shadow" {
         assert_shadow_constructor_fields(design, name, value)?;
+    }
+    if token_type == "Blur" {
+        if let ValueExpr::Call {
+            callee: CallCallee::Blur,
+            args,
+        } = value
+        {
+            if let Err(e) =
+                crate::frame_props::assert_blur_call_compatible(design, args, &format!("Token `{name}`"))
+            {
+                if e.code == "PDL-E040" || e.code == "PDL-E020" {
+                    return Err(err("PDL-E005", e.message, design));
+                }
+                return Err(e);
+            }
+        }
+    }
+    if token_type == "Vibrancy" {
+        if let ValueExpr::Call {
+            callee: CallCallee::Vibrancy,
+            args,
+        } = value
+        {
+            if let Err(e) = crate::frame_props::assert_vibrancy_call_compatible(
+                design,
+                args,
+                &format!("Token `{name}`"),
+            ) {
+                if e.code == "PDL-E040" || e.code == "PDL-E020" {
+                    return Err(err("PDL-E005", e.message, design));
+                }
+                return Err(e);
+            }
+        }
+        if matches!(value, ValueExpr::VibrancyTuple { .. }) {
+            return Err(err(
+                "PDL-E005",
+                format!(
+                    "Token `{name}` has type Vibrancy and must be `Vibrancy(saturation: …, brightness: …)` — naked `(saturation:, brightness:)` tuples are not typed Vibrancy values"
+                ),
+                design,
+            ));
+        }
     }
     if token_type == "Icon"
         && matches!(value, ValueExpr::IconFile { .. } | ValueExpr::IconSystem { .. })
@@ -1710,6 +1920,87 @@ fn validate_token_declarations(design: &DesignDefinition) -> Result<(), PdlError
     Ok(())
 }
 
+fn unknown_param_type_message(type_name: &str, where_: &str) -> String {
+    if type_name == "Boolean" {
+        format!("Unknown parameter type `Boolean` {where_}; use `Bool`")
+    } else {
+        format!(
+            "Unknown parameter type `{type_name}` {where_} (expected a built-in type, declared variant, API protocol, or component)"
+        )
+    }
+}
+
+fn assert_known_param_type(
+    design: &DesignDefinition,
+    type_name: &str,
+    where_: &str,
+) -> Result<(), PdlError> {
+    let name = unwrap_param_type_name(type_name);
+    if is_builtin_param_type(name)
+        || design.variants.contains_key(name)
+        || design.components.contains_key(name)
+    {
+        return Ok(());
+    }
+    if design.protocols.contains_key(name) {
+        // Host protocols as param/slot types are **PDL-E031** (checked separately).
+        return Ok(());
+    }
+    Err(err(
+        "PDL-E039",
+        unknown_param_type_message(name, where_),
+        design,
+    ))
+}
+
+fn validate_param_types(design: &DesignDefinition) -> Result<(), PdlError> {
+    for c in design.components.values() {
+        for p in &c.params {
+            assert_known_param_type(
+                design,
+                &p.type_name,
+                &format!("on component `{}` parameter `{}`", c.name, p.name),
+            )?;
+        }
+    }
+    for p in design.protocols.values() {
+        for param in &p.params {
+            assert_known_param_type(
+                design,
+                &param.type_name,
+                &format!("on protocol `{}` parameter `{}`", p.name, param.name),
+            )?;
+        }
+        for emit in &p.emits {
+            for arg in &emit.args {
+                assert_known_param_type(
+                    design,
+                    &arg.type_name,
+                    &format!(
+                        "on protocol `{}` emit `{}` argument `{}`",
+                        p.name, emit.name, arg.name
+                    ),
+                )?;
+            }
+        }
+    }
+    for (comp, emits) in &design.emits {
+        for emit in emits {
+            for arg in &emit.args {
+                assert_known_param_type(
+                    design,
+                    &arg.type_name,
+                    &format!(
+                        "on component `{comp}` emit `{}` argument `{}`",
+                        emit.name, arg.name
+                    ),
+                )?;
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Semantic checks on the merged design (after parse + import merge).
 pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError> {
     validate_companion_symbols(design)?;
@@ -1717,6 +2008,8 @@ pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError>
     validate_protocol_requires(design)?;
     validate_token_declarations(design)?;
     validate_type_style_props(design)?;
+    validate_param_types(design)?;
+    validate_component_param_defaults(design)?;
     for c in design.components.values() {
         if let Some(proto) = &c.conforms_to {
             if !design.protocols.contains_key(proto) {
@@ -1734,6 +2027,19 @@ pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError>
         let mut all_frame_ids = HashSet::new();
         collect_unique_frame_ids_from_body(&c.body, &mut all_frame_ids, &c.name, design)?;
         let param_by_name = param_by_name_map(design, c)?;
+        let caller_params: HashMap<String, String> = effective_params(design, c)?
+            .into_iter()
+            .map(|p| (p.name.clone(), p.type_name.clone()))
+            .collect();
+        let mut value_ids = HashSet::new();
+        validate_let_values_in_body(
+            design,
+            &c.body,
+            &all_frame_ids,
+            &mut value_ids,
+            &caller_params,
+            &c.name,
+        )?;
         let param_names: HashSet<String> = effective_params(design, c)?
             .into_iter()
             .map(|p| p.name)
@@ -1776,6 +2082,11 @@ pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError>
             root_kind_str(c.root_kind),
             &let_kinds,
         )?;
+        let caller_params: HashMap<String, String> = effective_params(design, c)?
+            .into_iter()
+            .map(|p| (p.name, p.type_name))
+            .collect();
+        validate_param_bindings_in_body(design, &c.body, &caller_params, &c.name)?;
         validate_fixtures_for_component(design, &c.name)?;
         validate_interactions_for_component(design, &c.name)?;
         validate_rules_for_component(design, &c.name)?;

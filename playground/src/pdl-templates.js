@@ -46,12 +46,12 @@ component Button <PointerInput>(
     opacity = 1
   }
 
-  let Label: text = {
-    content = label
-    color = #FFFFFF
-    fontSize = 15
-    fontWeight = 600
-  }
+  let Label = Text(
+    content: label,
+    color: #FFFFFF,
+    fontSize: 15,
+    fontWeight: 600
+  )
 
   children = [Label]
 
@@ -92,7 +92,7 @@ component Button <PointerInput>(
 component SearchField <FormField>(
   value: String = "",
   placeholder: String = "Search",
-  editing: Boolean = false
+  editing: Bool = false
 ) text {
   editable = value
   content = placeholder
@@ -168,7 +168,7 @@ protocol SubnavItem: component {
 }
 
 component FilterChip <SubnavItem>(
-  selected: Boolean = false
+  selected: Bool = false
 ) layout {
   direction = .row
   padding = EdgeInsets(x: 12, y: 8)
@@ -179,12 +179,14 @@ component FilterChip <SubnavItem>(
     background = #222222
   }
 
-  let Label: text = {
-    content = title
-    fontSize = 13
-    fontWeight = 600
-    color = #111111
-    if selected { color = #FFFFFF }
+  let Label = Text(
+    content: title,
+    fontSize: 13,
+    fontWeight: 600,
+    color: #111111
+  )
+  if selected {
+    Label.color = #FFFFFF
   }
   children = [Label]
 
@@ -203,7 +205,11 @@ component FilterBar(
   padding = 12
 
   ForEach(chips) { chip in
-    chip.selected = self.currentFilter == filter
+    if self.currentFilter == filter {
+      chip.selected = true
+    } else {
+      chip.selected = false
+    }
     chip.select(filter_id: FilterId) = {
       currentFilter = filter_id
     }
@@ -242,18 +248,14 @@ component FilterBar(
   cornerRadius = 12
   width = .fill
 
-  let Title: text = {
-    content = title
-    color = #111111
-    fontSize = 17
-    fontWeight = 650
-  }
+  let Title = Text(
+    content: title,
+    color: #111111,
+    fontSize: 17,
+    fontWeight: 650
+  )
 
-  let Body: text = {
-    content = body
-    color = #555555
-    fontSize = 14
-  }
+  let Body = Text(content: body, color: #555555, fontSize: 14)
 
   children = [Title, Body]
 }
@@ -270,18 +272,14 @@ component FilterBar(
   gap = 12
   width = .fill
 
-  let Primary: text = {
-    content = "Primary"
-    color = #FFFFFF
-    fontSize = 14
-    fontWeight = 600
-  }
+  let Primary = Text(
+    content: "Primary",
+    color: #FFFFFF,
+    fontSize: 14,
+    fontWeight: 600
+  )
 
-  let Secondary: text = {
-    content = "Secondary"
-    color = #333333
-    fontSize = 14
-  }
+  let Secondary = Text(content: "Secondary", color: #333333, fontSize: 14)
 
   children = [Primary, Secondary]
 }
@@ -404,17 +402,17 @@ semantic atoms.color.pageBg: Color = atoms.color.surface
   gap = 8
   padding = EdgeInsets(x: 10, y: 6)
 
-  let Glyph: icon = {
-    icon = Icon(system: .sfSymbols, name: "checkmark")
-    size = 18
-    color = #444444
-  }
+  let Glyph = Icon(
+    icon: IconRef(system: .sfSymbols, name: "checkmark"),
+    size: 18,
+    color: #444444
+  )
 
-  let Caption: text = {
-    content = label
-    color = #222222
-    fontSize = 14
-  }
+  let Caption = Text(
+    content: label,
+    color: #222222,
+    fontSize: 14
+  )
 
   children = [Glyph, Caption]
 }

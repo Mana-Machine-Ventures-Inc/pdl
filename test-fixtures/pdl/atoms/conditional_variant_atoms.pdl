@@ -5,37 +5,32 @@ import "tokens_color.pdl"
 import "tokens_distance_radius.pdl"
 
 component AtomVariantSwatch(tone: AtomsTone = .neutral) layout {
-  let Swatch: layout = {
-    direction = .column
-    padding = EdgeInsets(x: atoms.space.md, y: atoms.space.sm)
+  let Swatch = Layout(
+    direction: .column,
+    padding: EdgeInsets(x: atoms.space.md, y: atoms.space.sm),
+    children: []
+  )
 
-    if tone == .accent {
-      background = atoms.color.rgb
-    } else if tone == .danger {
-      background = atoms.color.rgba
-    } else {
-      background = atoms.color.sem.fromRgb
-    }
-
-    children = []
+  if tone == .accent {
+    Swatch.background = atoms.color.rgb
+  } else if tone == .danger {
+    Swatch.background = atoms.color.rgba
+  } else {
+    Swatch.background = atoms.color.sem.fromRgb
   }
 
   children = [Swatch]
 }
 
 component AtomVariantAxis(axis: AtomsAxis = .horizontal) layout {
-  let Box: layout = {
-    gap = atoms.space.xs
+  let Box = Layout(gap: atoms.space.xs, children: [])
 
-    if axis == .vertical {
-      direction = .column
-      background = atoms.color.sem.fromRgba
-    } else {
-      direction = .row
-      background = atoms.color.sem.fromRgb
-    }
-
-    children = []
+  if axis == .vertical {
+    Box.direction = .column
+    Box.background = atoms.color.sem.fromRgba
+  } else {
+    Box.direction = .row
+    Box.background = atoms.color.sem.fromRgb
   }
 
   children = [Box]

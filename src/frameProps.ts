@@ -11,6 +11,7 @@ import {
 } from "./assetRefs.js";
 import type { DesignDefinition } from "./designModel.js";
 import { PdlError } from "./errors.js";
+import { hostEnumCases } from "./paramTypes.js";
 
 export type FrameKindName = "layout" | "text" | "icon" | "media";
 
@@ -124,6 +125,14 @@ export function isFrameEnumTypeName(name: string): boolean {
   return frameEnumTypeNames().has(name);
 }
 
+/**
+ * PascalCase type name eligible for `TypeName.case` → `.case` sugar
+ * (built-in frame enums and user `variant` types). Excludes lowercase token paths.
+ */
+export function looksLikeQualifiedEnumTypeName(name: string): boolean {
+  return /^[A-Z][A-Za-z0-9]*$/.test(name);
+}
+
 function valueKindExpectation(typeId: string): string {
   const vk = TABLE.valueKinds[typeId];
   if (!vk) return typeId;
@@ -174,13 +183,158 @@ function literalOk(vk: ValueKindDef, value: ValueExpr, typeId?: string): boolean
 }
 
 /** §15 layer constructors (keyword-call form). */
-const LAYER_CTORS = new Set(["Color", "Ramp", "Blur", "Media", "Vibrancy"]);
+const LAYER_CTORS = new Set(["Color", "Ramp", "Blur", "MediaLayer", "Vibrancy"]);
+
+/** Token types valid as a whole layer entry (Blur/Media/Vibrancy/Ramp are layer objects). */
+const LAYER_TOKEN_TYPES = new Set([
+  "Color",
+  "Background",
+  "Foreground",
+  "Ramp",
+  "Blur",
+  "Vibrancy",
+  "Media",
+]);
+
+function stripDot(s: string): string {
+  return s.startsWith(".") ? s.slice(1) : s;
+}
+
+function isNumberOrNumericToken(
+  design: DesignDefinition,
+  value: ValueExpr,
+  tokenTypes: string[],
+): boolean {
+  if (value.kind === "number") return true;
+  if (value.kind === "ident") {
+    const ty = tokenTypeOf(design, value.name);
+    return ty === undefined || tokenTypes.includes(ty);
+  }
+  return false;
+}
+
+/** Vibrancy values: `Vibrancy(saturation:, brightness:)` or a Vibrancy token — not naked tuples. */
+function isVibrancyExpr(design: DesignDefinition, value: ValueExpr): boolean {
+  if (value.kind === "call" && value.callee === "Vibrancy") {
+    // Shape ok; nested args checked via assertVibrancyCallCompatible.
+    return true;
+  }
+  if (value.kind === "ident") {
+    const ty = tokenTypeOf(design, value.name);
+    return ty === "Vibrancy" || ty === undefined; // unresolved / param — resolve later
+  }
+  return false;
+}
+
+function isBlurStyleExpr(design: DesignDefinition, value: ValueExpr): boolean {
+  const cases = hostEnumCases("BlurStyle") ?? ["standard"];
+  if (value.kind === "dotEnum") return cases.includes(stripDot(value.value));
+  if (value.kind === "ident") {
+    const ty = tokenTypeOf(design, value.name);
+    return ty === "BlurStyle" || ty === undefined;
+  }
+  return false;
+}
+
+function isRadiusExpr(design: DesignDefinition, value: ValueExpr): boolean {
+  if (value.kind === "number" && value.value >= 0) return true;
+  if (value.kind === "ident") {
+    const ty = tokenTypeOf(design, value.name);
+    return ty === "Radius" || ty === undefined;
+  }
+  return false;
+}
 
 /**
- * Token types valid as a whole layer entry.
- * `Ramp` tokens are full paint shapes (§14); `Blur` / `Vibrancy` / `Opacity` are inputs only.
+ * Type-check `Blur(radius: … [, style:] [, vibrancy:])` arguments (layers, tokens, value lets).
  */
-const LAYER_TOKEN_TYPES = new Set(["Color", "Background", "Foreground", "Ramp"]);
+export function assertBlurCallCompatible(
+  design: DesignDefinition,
+  args: Record<string, ValueExpr>,
+  context: string,
+): void {
+  const radius = args.radius;
+  if (!radius) {
+    throw new PdlError(
+      "PDL-E020",
+      `${context}: \`Blur(…)\` requires \`radius:\` (a Radius / number)`,
+      { path: design.entryPath },
+    );
+  }
+  if (!isRadiusExpr(design, radius)) {
+    throw new PdlError(
+      "PDL-E040",
+      `${context}: \`Blur\` argument \`radius:\` expects a Radius / non-negative number (got ${radius.kind})`,
+      { path: design.entryPath },
+    );
+  }
+  if (args.style !== undefined && !isBlurStyleExpr(design, args.style)) {
+    throw new PdlError(
+      "PDL-E040",
+      `${context}: \`Blur\` argument \`style:\` expects BlurStyle (e.g. \`.standard\`) (got ${args.style.kind})`,
+      { path: design.entryPath },
+    );
+  }
+  if (args.vibrancy !== undefined) {
+    if (!isVibrancyExpr(design, args.vibrancy)) {
+      throw new PdlError(
+        "PDL-E040",
+        `${context}: \`Blur\` argument \`vibrancy:\` expects \`Vibrancy(saturation:, brightness:)\` or a Vibrancy token — not a naked tuple, number, or BlurStyle case (got ${args.vibrancy.kind})`,
+        { path: design.entryPath },
+      );
+    }
+    if (args.vibrancy.kind === "call" && args.vibrancy.callee === "Vibrancy") {
+      assertVibrancyCallCompatible(design, args.vibrancy.args, context);
+    }
+  }
+}
+
+/**
+ * Type-check `Vibrancy(saturation:, brightness:)` — the only Vibrancy value constructor.
+ * Naked `(saturation:, brightness:)` tuples are rejected (ambiguous with other labelled tuples).
+ */
+export function assertVibrancyCallCompatible(
+  design: DesignDefinition,
+  args: Record<string, ValueExpr>,
+  context: string,
+): void {
+  if ("vibrancy" in args && !("saturation" in args) && !("brightness" in args)) {
+    throw new PdlError(
+      "PDL-E020",
+      `${context}: \`Vibrancy(…)\` takes \`saturation:\` and \`brightness:\` (e.g. \`Vibrancy(saturation: 1.2, brightness: 1.05)\`); use a Vibrancy token bare in a layer stack, not \`Vibrancy(vibrancy: …)\``,
+      { path: design.entryPath },
+    );
+  }
+  if (!("saturation" in args) || !("brightness" in args)) {
+    throw new PdlError(
+      "PDL-E020",
+      `${context}: \`Vibrancy(…)\` requires \`saturation:\` and \`brightness:\``,
+      { path: design.entryPath },
+    );
+  }
+  const unknown = Object.keys(args).filter((k) => k !== "saturation" && k !== "brightness");
+  if (unknown.length) {
+    throw new PdlError(
+      "PDL-E020",
+      `${context}: Vibrancy unknown label(s): ${unknown.join(", ")} (expected saturation, brightness)`,
+      { path: design.entryPath },
+    );
+  }
+  if (!isNumberOrNumericToken(design, args.saturation!, ["Number", "Opacity", "Ratio"])) {
+    throw new PdlError(
+      "PDL-E040",
+      `${context}: \`Vibrancy\` argument \`saturation:\` expects a number (got ${args.saturation!.kind})`,
+      { path: design.entryPath },
+    );
+  }
+  if (!isNumberOrNumericToken(design, args.brightness!, ["Number", "Opacity", "Ratio"])) {
+    throw new PdlError(
+      "PDL-E040",
+      `${context}: \`Vibrancy\` argument \`brightness:\` expects a number (got ${args.brightness!.kind})`,
+      { path: design.entryPath },
+    );
+  }
+}
 
 function assertLayerEntry(
   design: DesignDefinition,
@@ -202,16 +356,16 @@ function assertLayerEntry(
           { path: design.entryPath },
         );
       }
-      if (refType === "Blur" || refType === "Vibrancy") {
+      if (refType === "Radius") {
         throw new PdlError(
           "PDL-E006",
-          `${context}: bare ${refType} token \`${entry.name}\` is not a layer; use ${refType}(${refType === "Blur" ? "blur" : "vibrancy"}: ${entry.name})`,
+          `${context}: bare Radius token \`${entry.name}\` is not a layer; use \`Blur(radius: ${entry.name})\``,
           { path: design.entryPath },
         );
       }
       throw new PdlError(
         "PDL-E006",
-        `${context}: layer entry \`${entry.name}\` has type ${refType}; expected a Color / Background / Foreground / Ramp layer, #hex, color @ opacity, or layer constructor`,
+        `${context}: layer entry \`${entry.name}\` has type ${refType}; expected a Color / Background / Foreground / Ramp / Blur / Media / Vibrancy layer, #hex, color @ opacity, or layer constructor (Media fills use MediaLayer)`,
         { path: design.entryPath },
       );
     }
@@ -219,9 +373,15 @@ function assertLayerEntry(
       if (!LAYER_CTORS.has(entry.callee)) {
         throw new PdlError(
           "PDL-E006",
-          `${context}: unknown layer constructor \`${entry.callee}\`; expected Color, Ramp, Blur, Media, or Vibrancy`,
+          `${context}: unknown layer constructor \`${entry.callee}\`; expected Color, Ramp, Blur, MediaLayer, or Vibrancy`,
           { path: design.entryPath },
         );
+      }
+      if (entry.callee === "Blur") {
+        assertBlurCallCompatible(design, entry.args, `${context}: Blur(…)`);
+      }
+      if (entry.callee === "Vibrancy") {
+        assertVibrancyCallCompatible(design, entry.args, `${context}: Vibrancy(…)`);
       }
       return;
     }
@@ -539,11 +699,22 @@ export function validateFramePropsInBody(
         propsOnFrame.set(item.name, item.value);
         break;
       case "frameProp": {
-        const fk = letKinds.get(item.frame);
+        // `self.prop` is typed against the enclosing component root kind.
+        const fk =
+          item.frame === "self"
+            ? design.components.get(componentName)?.rootKind
+            : letKinds.get(item.frame);
         if (!fk) break; // unknown frame handled elsewhere for hidden; skip type check
         validatePropOnKind(design, fk, item.name, item.value, ctx);
         break;
       }
+      case "children":
+        for (const e of item.entries) {
+          if ((e.kind === "frameRef" || e.kind === "instance") && e.opacity) {
+            validatePropOnKind(design, "layout", "opacity", e.opacity, ctx);
+          }
+        }
+        break;
       case "let":
         validateFramePropsInBody(design, item.body, componentName, item.frameKind, letKinds);
         break;

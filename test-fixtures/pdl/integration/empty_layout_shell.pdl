@@ -15,26 +15,22 @@ component EmptyLayoutShell(embed: EmptyLayoutEmbed = .flat) layout {
 
   let DSlot = DeepSlot()
 
-  let SlotOne: layout = {
-    direction = .column
-    align = .stretch
-    width = .fill
-    height = .fill
-    background = local.atoms.color.sem.fromRgb
-  }
+  let SlotOne = Layout(
+    direction: .column,
+    align: .stretch,
+    width: .fill,
+    height: .fill,
+    background: local.atoms.color.sem.fromRgb
+  )
 
-  let SlotTwo: layout = {
-    direction = .row
-    align = .stretch
-    width = .fill
-    height = .fill
-  }
+  let SlotTwo = Layout(
+    direction: .row,
+    align: .stretch,
+    width: .fill,
+    height: .fill
+  )
 
-  let SlotThree: layout = {
-    direction = .column
-    width = .fill
-    height = .fill
-  }
+  let SlotThree = Layout(direction: .column, width: .fill, height: .fill)
 
   children = [SlotOne]
   SlotOne.children = [SlotTwo]

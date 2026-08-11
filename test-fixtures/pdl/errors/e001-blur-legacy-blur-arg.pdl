@@ -1,0 +1,4 @@
+component Bad() layout {
+  background = [Blur(blur: 16)]
+  children = []
+}

@@ -26,37 +26,30 @@ component MoleculeCardArticle <PointerInput>(
   overflow = .clip
   background = atoms.color.sem.fromRgb
 
-  let Hero: media = {
-    source = atoms.media.hero
-    contentMode = .cover
-    justify = .center
-    align = .center
-    cornerRadius = atoms.radius.sm
-    width = .fill
-    height = .aspect(atoms.ratio.video)
-  }
+  let Hero = Media(
+    source: atoms.media.hero,
+    contentMode: .cover,
+    justify: .center,
+    align: .center,
+    cornerRadius: atoms.radius.sm,
+    width: .fill,
+    height: .aspect(atoms.ratio.video)
+  )
 
-  let Title: text = {
-    content = title
-    style = AtomTitle
-  }
+  let Title = Text(content: title, style: AtomTitle)
 
-  let Sub: text = {
-    content = subtitle
-    style = AtomBody
-  }
+  let Sub = Text(content: subtitle, style: AtomBody)
 
-  let Actions: layout = {
-    direction = .row
-    justify = .spaceBetween
-    align = .center
-    gap = atoms.space.sm
-    padding = EdgeInsets(top: atoms.space.sm, right: 0, bottom: 0, left: 0)
-
-    let Primary = MoleculeTextButton(label: "Open", tone: .primary, size: .sm)
-    let Secondary = MoleculeIconTextRow(label: "Share", mode: .trailingChevron)
-    children = [Primary, Secondary]
-  }
+  let Primary = MoleculeTextButton(label: "Open", tone: .primary, size: .sm)
+  let Secondary = MoleculeIconTextRow(label: "Share", mode: .trailingChevron)
+  let Actions = Layout(
+    direction: .row,
+    justify: .spaceBetween,
+    align: .center,
+    gap: atoms.space.sm,
+    padding: EdgeInsets(top: atoms.space.sm, right: 0, bottom: 0, left: 0),
+    children: [Primary, Secondary]
+  )
 
   if layoutMode == .withHero {
     children = [Hero, Title, Sub, Actions]

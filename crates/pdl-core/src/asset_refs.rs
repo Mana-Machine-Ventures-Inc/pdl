@@ -171,7 +171,7 @@ pub fn coerce_icon_value(value: Value, entry_path: &str) -> Result<Value, PdlErr
             return Err(PdlError::new(
                 "PDL-E005",
                 format!(
-                    "Icon string must be a pack-relative file path (e.g. `icons/star.svg`); bare names like `{s}` are ambiguous — use `Icon(system: .sfSymbols, name: \"{s}\")` or a file path"
+                    "Icon string must be a pack-relative file path (e.g. `icons/star.svg`); bare names like `{s}` are ambiguous — use `IconRef(system: .sfSymbols, name: \"{s}\")` or a file path"
                 ),
                 Some(entry_path.to_string()),
                 None,
@@ -186,7 +186,7 @@ pub fn coerce_icon_value(value: Value, entry_path: &str) -> Result<Value, PdlErr
     }
     Err(PdlError::new(
         "PDL-E005",
-        "Icon value must be Icon(file: …), Icon(system: …, name: …), a pack-relative path string, or an Icon token",
+        "Icon value must be IconRef(file: …), IconRef(system: …, name: …), a pack-relative path string, or an Icon token",
         Some(entry_path.to_string()),
         None,
         None,

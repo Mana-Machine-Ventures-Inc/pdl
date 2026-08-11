@@ -4,25 +4,27 @@ import "tokens_color.pdl"
 import "tokens_distance_radius.pdl"
 
 component AtomDeferredChildren() layout {
-  let A: layout = {
-    direction = .column
-    padding = EdgeInsets(x: 8, y: 8)
-    background = atoms.color.rgb
-    children = []
-  }
+  let A = Layout(
+    direction: .column,
+    padding: EdgeInsets(x: 8,
+    y: 8),
+    background: atoms.color.rgb,
+    children: []
+  )
 
-  let B: layout = {
-    direction = .column
-    padding = EdgeInsets(x: 8, y: 8)
-    background = atoms.color.rgba
-    children = []
-  }
+  let B = Layout(
+    direction: .column,
+    padding: EdgeInsets(x: 8,
+    y: 8),
+    background: atoms.color.rgba,
+    children: []
+  )
 
-  let Row: layout = {
-    direction = .row
-    gap = atoms.space.sm
-    background = atoms.color.sem.fromRgb
-  }
+  let Row = Layout(
+    direction: .row,
+    gap: atoms.space.sm,
+    background: atoms.color.sem.fromRgb
+  )
 
   Row.children = [A, B]
   children = [Row]

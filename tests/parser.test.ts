@@ -63,9 +63,9 @@ describe("parser", () => {
   it("parses Spacer() in children and rejects legacy .spacer", () => {
     const m = parseModule(
       `component C() layout {
+         let A = Text(content: "a")
+         let B = Text(content: "b")
          children = [A, Spacer(), B]
-         let A: text = { content = "a" }
-         let B: text = { content = "b" }
        }`,
       "x.pdl",
     );

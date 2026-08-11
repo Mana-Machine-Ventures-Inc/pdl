@@ -95,14 +95,25 @@ fn lexer_rejects_unterminated_string_fixture() {
 fn parses_component_with_layout() {
     let src = r#"
 component Greeting(title: String = "Hi") layout {
-  let T: text = {
-    content = title
-  }
+  let T = Text(content: title)
   children = [T]
 }
 "#;
     let m = parse_module_source(src, "greeting.pdl").unwrap();
     assert_eq!(m.declarations.len(), 1);
+}
+
+#[test]
+fn rejects_classic_frame_let() {
+    let path = repo_root().join("test-fixtures/pdl/errors/e001-classic-frame-let.pdl");
+    let source = fs::read_to_string(&path).expect("classic frame let fixture");
+    let err = parse_module_source(&source, "e001-classic-frame-let.pdl").unwrap_err();
+    assert_eq!(err.code, "PDL-E001");
+    assert!(
+        err.message.contains("Classic frame let") && err.message.contains("World A"),
+        "{}",
+        err.message
+    );
 }
 
 #[test]
@@ -154,7 +165,7 @@ protocol ModalContent: component {
 component UpsellBody <ModalContent>(
   cta: String = "Upgrade"
 ) layout {
-  let T: text = { content = title }
+  let T = Text(content: title)
   children = [T]
 }
 "#;
@@ -206,7 +217,7 @@ protocol ModalContent: component {
 }
 
 component Body <ModalContent>() layout {
-  let T: text = { content = title }
+  let T = Text(content: title)
   children = [T]
 }
 
@@ -298,6 +309,336 @@ emits FilterChip {
             "emits"
         ]
     );
+}
+
+#[test]
+fn self_prop_assigns_component_root_not_intermediate_let() {
+    use pdl_core::design::load_design;
+    use pdl_core::evaluate::build_resolved_token_map;
+    use pdl_core::resolve::{resolve_component_tree, RESOLVE_OPTIONS_LITERAL_BAKE};
+    use serde_json::Value;
+
+    let entry = repo_root().join("test-fixtures/pdl/atoms/self_root_prop.pdl");
+    let design = load_design(entry.to_str().unwrap()).expect("load");
+    let mut tokens = build_resolved_token_map(&design, None, &[]).unwrap();
+    let root = resolve_component_tree(
+        &design,
+        "AtomSelfRootProp",
+        &mut tokens,
+        &Default::default(),
+        RESOLVE_OPTIONS_LITERAL_BAKE,
+    )
+    .expect("resolve");
+    assert_eq!(
+        root.props.get("background"),
+        Some(&Value::String("#FFFFFF".into())),
+        "self.background → component root"
+    );
+    let b = root
+        .children
+        .iter()
+        .find(|c| c.id == "b")
+        .expect("let b");
+    assert_eq!(
+        b.props.get("background"),
+        Some(&Value::String("#AAAAAA".into())),
+        "b.background from nested c"
+    );
+    let c = b.children.iter().find(|ch| ch.id == "c").expect("let c");
+    assert_eq!(
+        c.props.get("background"),
+        Some(&Value::String("#111111".into())),
+        "bare background on c"
+    );
+}
+
+#[test]
+fn rejects_unknown_param_type_boo() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+component Bad(selected: Boo = false) layout { }
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E039");
+    assert!(err.message.contains("Boo"), "{}", err.message);
+}
+
+#[test]
+fn rejects_boolean_param_type_spelling() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+component Bad(selected: Boolean = false) layout { }
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E039");
+    assert!(
+        err.message.contains("Boolean") && err.message.contains("Bool"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn rejects_let_instance_kwarg_wrong_variant_type() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+variant Tone {
+  case primary
+  case secondary
+}
+
+component LabCard(title: String = "Card") layout {
+  children = []
+}
+
+component Host(tone: Tone = .primary) layout {
+  let Card = LabCard(title: tone)
+  children = [Card]
+}
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E040");
+    assert!(
+        err.message.contains("tone") && err.message.contains("Tone") && err.message.contains("String"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn rejects_let_instance_kwarg_bool_to_string() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+component LabCard(title: String = "Card") layout {
+  children = []
+}
+
+component Host(selected: Bool = false) layout {
+  let Card = LabCard(title: selected)
+  children = [Card]
+}
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E040");
+    assert!(
+        err.message.contains("selected")
+            && err.message.contains("Bool")
+            && err.message.contains("String"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn rejects_blur_vibrancy_number_and_dot_enum() {
+    use pdl_core::design::load_design;
+    for name in [
+        "e040-blur-vibrancy-number.pdl",
+        "e040-blur-vibrancy-dot-enum.pdl",
+    ] {
+        let entry = repo_root().join("test-fixtures/pdl/errors").join(name);
+        let err = load_design(entry.to_str().unwrap()).unwrap_err();
+        assert_eq!(err.code, "PDL-E040", "{name}: {}", err.message);
+        assert!(
+            err.message.contains("vibrancy:") && err.message.contains("Vibrancy"),
+            "{name}: {}",
+            err.message
+        );
+    }
+}
+
+#[test]
+fn rejects_handler_frame_prop_assign() {
+    use pdl_core::design::load_design;
+    let entry = repo_root().join("test-fixtures/pdl/errors/e001-handler-frame-prop-assign.pdl");
+    let err = load_design(entry.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E001");
+    assert!(
+        err.message.contains("Interaction handlers can only assign component parameters")
+            && err.message.contains("Label.content")
+            && err.message.contains("layout body"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn rejects_naked_vibrancy_tuple() {
+    use pdl_core::design::load_design;
+    for name in [
+        "e001-blur-vibrancy-naked-tuple.pdl",
+        "e001-vibrancy-naked-tuple-token.pdl",
+    ] {
+        let entry = repo_root().join("test-fixtures/pdl/errors").join(name);
+        let err = load_design(entry.to_str().unwrap()).unwrap_err();
+        assert_eq!(err.code, "PDL-E001", "{name}: {}", err.message);
+        assert!(
+            err.message.contains("Naked")
+                && err.message.contains("saturation")
+                && err.message.contains("Vibrancy(saturation"),
+            "{name}: {}",
+            err.message
+        );
+    }
+}
+
+#[test]
+fn blur_vibrancy_ctor_loads() {
+    use pdl_core::design::load_design;
+    let entry = repo_root().join("test-fixtures/pdl/atoms/blur_vibrancy_ctor.pdl");
+    load_design(entry.to_str().unwrap()).expect("typed Vibrancy(…) on Blur.vibrancy");
+}
+
+#[test]
+fn let_value_ramp_bakes_into_background() {
+    use pdl_core::bake::build_baked_design_component;
+    use pdl_core::design::load_design;
+    use serde_json::Map;
+    let entry = repo_root().join("test-fixtures/pdl/atoms/let_value_ramp.pdl");
+    let design = load_design(entry.to_str().unwrap()).expect("load");
+    let baked =
+        build_baked_design_component(&design, "AtomLetValueRamp", None, &Map::new(), None)
+            .expect("bake");
+    let kind = baked
+        .pointer("/components/AtomLetValueRamp/root/props/background/0/kind")
+        .and_then(|v| v.as_str());
+    assert_eq!(kind, Some("ramp"));
+}
+
+#[test]
+fn let_value_blur_object_and_bare_token_layer() {
+    use pdl_core::bake::build_baked_design_component;
+    use pdl_core::design::load_design;
+    use serde_json::Map;
+    let entry = repo_root().join("test-fixtures/pdl/atoms/let_value_named_types.pdl");
+    let design = load_design(entry.to_str().unwrap()).expect("load");
+    let baked = build_baked_design_component(
+        &design,
+        "AtomLetValueNamedTypes",
+        None,
+        &Map::new(),
+        None,
+    )
+    .expect("bake");
+    let radius = baked
+        .pointer("/components/AtomLetValueNamedTypes/root/props/background/0/radius")
+        .and_then(|v| v.as_f64());
+    assert_eq!(radius, Some(10.0));
+
+    let mol = repo_root().join("test-fixtures/pdl/molecules/m_07_layer_stacks.pdl");
+    let design = load_design(mol.to_str().unwrap()).expect("load m07");
+    let baked = build_baked_design_component(
+        &design,
+        "MoleculeLayerInlineSandwich",
+        None,
+        &Map::new(),
+        None,
+    )
+    .expect("bake m07");
+    let s = baked.to_string();
+    assert!(s.contains("\"kind\":\"blur\"") || s.contains("\"kind\": \"blur\""));
+    assert!(s.contains("\"radius\":6") || s.contains("\"radius\": 6"));
+}
+
+#[test]
+fn child_mount_at_opacity_applies_on_bake() {
+    use pdl_core::bake::build_baked_design_component;
+    use pdl_core::design::load_design;
+    use serde_json::Map;
+    let root = repo_root();
+    let entry = root.join("test-fixtures/pdl/atoms/child_opacity_at.pdl");
+    let design = load_design(entry.to_str().unwrap()).expect("load");
+    let baked = build_baked_design_component(&design, "LabLayers", None, &Map::new(), None)
+        .expect("bake");
+    let opacity = baked
+        .pointer("/components/LabLayers/root/children/0/props/opacity")
+        .and_then(|v| v.as_f64());
+    assert_eq!(opacity, Some(0.5), "expected Pic @ 0.5 → child opacity");
+}
+
+#[test]
+fn rejects_spacer_at_opacity() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+component Bad() layout {
+  let A = Text(content: "a")
+  children = [Spacer() @ 0.5, A]
+}
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert!(
+        err.message.contains("Spacer()") && err.message.to_lowercase().contains("opacity"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn rejects_media_double_opacity_at() {
+    use pdl_core::design::load_design;
+    let root = repo_root();
+    let entry = root.join("test-fixtures/pdl/errors/e020-media-double-opacity.pdl");
+    let err = load_design(entry.to_str().unwrap()).unwrap_err();
+    assert!(
+        err.message.contains("opacity:") || err.code == "PDL-E001",
+        "{}: {}",
+        err.code,
+        err.message
+    );
+}
+
+#[test]
+fn rejects_variant_param_default_string_literal() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/bad.pdl".to_string(),
+        r#"
+variant Mode {
+  case a
+  case b
+}
+
+component BadDefault(mode: Mode = "a") layout {
+  children = []
+}
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E040");
+    assert!(err.message.contains("Mode") || err.message.contains("string"), "{}", err.message);
 }
 
 #[test]
@@ -948,7 +1289,7 @@ fn parses_foreach_self_member_and_emit_capture_assign() {
 variant FilterId { case all case podcasts }
 component Chip(
   filter: FilterId = .all,
-  selected: Boolean = false
+  selected: Bool = false
 ) layout {
   if selected { }
   children = []
@@ -979,16 +1320,20 @@ component Bar(
         pdl_core::ast::FrameBodyItem::ForEach {
             list,
             item,
-            binds,
-            handlers,
+            body,
         } => {
             assert_eq!(list, "chips");
             assert_eq!(item, "chip");
             assert!(
                 matches!(
-                    binds.get("selected"),
-                    Some(pdl_core::ast::ValueExpr::Condition { expr })
-                        if matches!(
+                    &body[0],
+                    pdl_core::ast::FrameBodyItem::FrameProp {
+                        frame,
+                        name,
+                        value: pdl_core::ast::ValueExpr::Condition { expr },
+                    } if frame == "chip"
+                        && name == "selected"
+                        && matches!(
                             expr,
                             pdl_core::ast::ConditionExpr::Cmp {
                                 param,
@@ -999,8 +1344,9 @@ component Bar(
                         )
                 ),
                 "expected chip.selected = self.currentFilter == filter, got {:?}",
-                binds.get("selected")
+                &body[0]
             );
+            let handlers = pdl_core::ast::foreach_layout_handlers(body);
             assert_eq!(handlers.len(), 1);
             assert_eq!(handlers[0].channel, "select");
             assert!(handlers[0].qualifier.is_none());
@@ -1015,12 +1361,63 @@ component Bar(
             assert!(
                 matches!(
                     &entries[0],
-                    pdl_core::ast::ChildEntry::FrameRef { id } if id == "chips"
+                    pdl_core::ast::ChildEntry::FrameRef { id, .. } if id == "chips"
                 ),
                 "expected bare children = chips → [FrameRef(chips)], got {entries:?}"
             );
         }
         other => panic!("expected children = chips, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_foreach_if_else_overrides() {
+    let src = r#"
+variant FilterId { case all case podcasts }
+component Chip(
+  filter: FilterId = .all,
+  selected: Bool = false
+) layout {
+  children = []
+}
+component Bar(
+  currentFilter: FilterId = .all,
+  chips: [Chip] = [Chip(filter: .all), Chip(filter: .podcasts)]
+) layout {
+  ForEach(chips) { chip in
+    if self.currentFilter == filter {
+      chip.selected = true
+    } else {
+      chip.selected = false
+    }
+    chip.select(filter_id: FilterId) = {
+      currentFilter = filter_id
+    }
+  }
+  children = chips
+}
+"#;
+    let m = parse_module_source(src, "foreach-if.pdl").unwrap();
+    let bar = m
+        .declarations
+        .iter()
+        .find_map(|d| match d {
+            pdl_core::ast::TopLevelDecl::Component(c) if c.name == "Bar" => Some(c),
+            _ => None,
+        })
+        .expect("Bar");
+    match &bar.body[0] {
+        pdl_core::ast::FrameBodyItem::ForEach { body, .. } => {
+            assert!(
+                matches!(&body[0], pdl_core::ast::FrameBodyItem::If { .. }),
+                "expected if in ForEach body, got {:?}",
+                &body[0]
+            );
+            let handlers = pdl_core::ast::foreach_layout_handlers(body);
+            assert_eq!(handlers.len(), 1);
+            assert_eq!(handlers[0].channel, "select");
+        }
+        other => panic!("expected ForEach, got {other:?}"),
     }
 }
 
@@ -1119,6 +1516,63 @@ fn bakes_foreach_with_selected_bind() {
     assert_eq!(selected_by_title.get("Podcasts"), Some(&json!(true)));
     assert_eq!(selected_by_title.get("Episodes"), Some(&json!(false)));
     assert_eq!(selected_by_title.get("Hosts"), Some(&json!(false)));
+}
+
+#[test]
+fn bakes_foreach_if_else_selected_bind() {
+    use pdl_core::bake::build_baked_design_component;
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    use serde_json::{json, Map};
+
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/foreach-if.pdl".to_string(),
+        r#"
+variant FilterId { case all case podcasts }
+component Chip(
+  filter: FilterId = .all,
+  selected: Bool = false,
+  title: String = ""
+) layout {
+  children = []
+}
+component Bar(
+  currentFilter: FilterId = .all,
+  chips: [Chip] = [
+    Chip(filter: .all, title: "All"),
+    Chip(filter: .podcasts, title: "Podcasts")
+  ]
+) layout {
+  ForEach(chips) { chip in
+    if self.currentFilter == filter {
+      chip.selected = true
+    } else {
+      chip.selected = false
+    }
+  }
+  children = chips
+}
+"#
+        .to_string(),
+    );
+    let design = load_design_from_sources("/v/foreach-if.pdl", &sources).expect("load");
+    let mut overrides = Map::new();
+    overrides.insert("currentFilter".into(), json!("podcasts"));
+    let doc = build_baked_design_component(&design, "Bar", None, &overrides, None).expect("bake");
+    let children = doc["components"]["Bar"]["root"]["children"]
+        .as_array()
+        .expect("children");
+    assert_eq!(children.len(), 2);
+    let mut selected_by_title = Map::new();
+    for ch in children {
+        let kwargs = ch["instanceKwargs"].as_object().expect("instanceKwargs");
+        let title = kwargs.get("title").and_then(|v| v.as_str()).expect("title");
+        let selected = kwargs.get("selected").cloned().expect("selected");
+        selected_by_title.insert(title.to_string(), selected);
+    }
+    assert_eq!(selected_by_title.get("All"), Some(&json!(false)));
+    assert_eq!(selected_by_title.get("Podcasts"), Some(&json!(true)));
 }
 
 #[test]
