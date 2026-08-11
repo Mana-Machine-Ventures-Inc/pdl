@@ -1,0 +1,46 @@
+// PDL standard-library host protocols (language prelude).
+//
+// Canonical twin of docs/full-spec.md §4a′.
+// Always in scope — no import required. Compilers inject these names into every
+// design merge. Restating this file in a pack is documentation only; redefining
+// a prelude name as an API protocol is PDL-E032.
+//
+// These are NOT child→parent `emits`. Host protocols declare:
+//   • inbound channels  — environment → component  (`self.<channel> = { … }`)
+//   • host verbs        — component → environment  (`beginEditing(value)` in handlers)
+//
+// Authors opt in with `component C <PointerInput>` or API `requires PointerInput`
+// (PDL-E030 if a host channel/verb is used without effective conformance).
+
+// ── Pointer / focus / lifecycle ─────────────────────────────────────
+
+protocol PointerInput {
+  host
+
+  // Inbound — wire with `[self.]<name> = { … }` in the component kind body
+  hoverStart
+  hoverEnd
+  pressStart
+  pressEnd
+  pressCancel
+  focusStart
+  focusEnd
+  activate
+  appear
+  dismiss
+}
+
+// ── Editable text (pair with kind `text` + `editable = param`) ──────
+
+protocol EditableText {
+  host
+
+  // Inbound
+  keyboardDismissed
+  keyboardCancelled
+
+  // Host verbs (calls inside handler bodies — not assignable channels)
+  beginEditing(value)
+  cancelEditing()
+  commitEditing()
+}

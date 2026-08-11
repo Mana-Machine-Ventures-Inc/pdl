@@ -555,7 +555,7 @@ component FilterChip <SubnavItem>(…) layout {
 
 ### Host prelude (always in scope)
 
-Like frame kinds (`layout` / `text` / …), well-known **host** protocols are a **language prelude** — always in scope, **no import**. Normative stubs: **[§4a′](#4a--host-protocol-prelude-stubs)** below. Authors **opt in** with `component C <PointerInput>` or API `requires PointerInput` (**PDL-E030**). Restating a prelude host in a pack is optional documentation only; redefining a prelude name as an API protocol (params / child `emits` / `requires`) is **PDL-E032**.
+Like frame kinds (`layout` / `text` / …), well-known **host** protocols are a **language prelude** — always in scope, **no import**. Normative stubs: **[§4a′](#4a--host-protocol-prelude-stubs)** below; machine-readable twin: **`test-fixtures/pdl/stdlib/host_protocols.pdl`**. Authors **opt in** with `component C <PointerInput>` or API `requires PointerInput` (**PDL-E030**). Restating a prelude host in a pack is optional documentation only; redefining a prelude name as an API protocol (params / child `emits` / `requires`) is **PDL-E032**.
 
 Catalogue lists a prelude protocol only when a component **`conformsTo`** it or an API protocol **`requires`** it (`protocolRoles` / `hostProtocols`). Hosts (Playground HTML, apps) deliver inbound channels and implement verbs — they key off conformance + this stub, not pack imports.
 
@@ -595,12 +595,13 @@ Array/slot params typed as an **API** protocol (`[ModalContent]`) are **§4b**. 
 
 ## 4a′ — Host protocol prelude stubs
 
-**Status:** **normative language surface** (this section is the SoT for prelude host contracts). Compilers inject these into every design merge. Packs **must not** redefine them as API protocols (**PDL-E032**). Wire inbound channels with `[self.]<channel> = { … }` in the component kind body (`self.` optional / clarifying). The former `interaction { on … }` / `interaction Name for Component` forms are **removed** (**PDL-E001**).
+**Status:** **normative language surface**. Compilers inject these into every design merge. Packs **must not** redefine them as API protocols (**PDL-E032**). Wire inbound channels with `[self.]<channel> = { … }` in the component kind body (`self.` optional / clarifying). The former `interaction { on … }` / `interaction Name for Component` forms are **removed** (**PDL-E001**).
 
-These stubs use the same keywords as author protocols. Inbound lines are **host channels** (not child `emits`). Verb lines document **host verbs** callable from handler bodies.
+**Canonical `.pdl` twin (standard library):** [`test-fixtures/pdl/stdlib/host_protocols.pdl`](../test-fixtures/pdl/stdlib/host_protocols.pdl) — keep this section and that file in lockstep. Host protocols declare **inbound channels** and **host verbs**; they do **not** use child→parent `emits`.
 
 ```pdl
 // ── Language prelude (always in scope) ─────────────────────────────
+// Full file: test-fixtures/pdl/stdlib/host_protocols.pdl
 
 protocol PointerInput {
   host
@@ -626,9 +627,9 @@ protocol EditableText {
   keyboardCancelled
 
   // Host verbs (calls inside handler bodies; not assignable channels)
-  //   beginEditing(value)   — start session bound to String param `value`
-  //   cancelEditing()
-  //   commitEditing()
+  beginEditing(value)
+  cancelEditing()
+  commitEditing()
 }
 ```
 

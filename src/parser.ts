@@ -826,6 +826,8 @@ export class Parser {
     this.consume("{");
     let role: "api" | "host" = "api";
     const requires: string[] = [];
+    const inbound: string[] = [];
+    const verbs: { name: string; params: string[] }[] = [];
     while (!this.is("}")) {
       if (this.is("host")) {
         this.advance();
@@ -844,6 +846,29 @@ export class Parser {
           this.advance(); // skim emit signatures
         }
         this.consume("}");
+        continue;
+      }
+      // Host inbound `pressEnd` / verb `beginEditing(value)` (after `host`)
+      if (
+        role === "host" &&
+        this.peek().kind === "IDENT" &&
+        this.peekAheadKind(1) !== ":" &&
+        this.peekAheadKind(1) !== "="
+      ) {
+        const channel = this.consume("IDENT").value;
+        if (this.is("(")) {
+          this.advance();
+          const params: string[] = [];
+          while (!this.is(")")) {
+            params.push(this.consume("IDENT").value);
+            if (this.is(",")) this.advance();
+            else break;
+          }
+          this.consume(")");
+          verbs.push({ name: channel, params });
+        } else {
+          inbound.push(channel);
+        }
         continue;
       }
       // param: name [: Type] = value
@@ -872,7 +897,7 @@ export class Parser {
         `API protocol \`${name}\` must declare subject \`component\` (write \`protocol ${name}: component { … }\`)`,
       );
     }
-    return { kind: "protocol", name, role, requires };
+    return { kind: "protocol", name, role, requires, inbound, verbs };
   }
 
   private parseComponent(): ComponentDecl {

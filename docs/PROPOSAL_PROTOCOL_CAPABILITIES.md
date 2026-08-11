@@ -96,7 +96,8 @@ Valid as slot / array element types: `chips: [SubnavItem]`.
 Inherit **runtime powers and extra states**: which ambient events exist, which host verbs are legal, which well-known params the host may drive.
 
 ```pdl
-// Normative prelude stubs live in docs/full-spec.md §4a′.
+// Canonical file: test-fixtures/pdl/stdlib/host_protocols.pdl
+// Normative prose: docs/full-spec.md §4a′.
 // Authors wire inbound with self.<channel> = { … } in the kind body.
 protocol PointerInput {
   host
@@ -111,7 +112,9 @@ protocol EditableText {
   host
   keyboardDismissed
   keyboardCancelled
-  // verbs: beginEditing(value), cancelEditing(), commitEditing()
+  beginEditing(value)
+  cancelEditing()
+  commitEditing()
 }
 ```
 

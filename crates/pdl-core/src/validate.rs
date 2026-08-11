@@ -1036,7 +1036,8 @@ fn validate_host_protocol_prelude(design: &DesignDefinition) -> Result<(), PdlEr
             return Err(err(
                 "PDL-E032",
                 format!(
-                    "Prelude host protocol `{name}` cannot be redefined (keep `protocol {name} {{ host }}` or omit — it is always in scope)"
+                    "Prelude host protocol `{name}` cannot be redefined as an API protocol \
+                     (keep `protocol {name} {{ host … }}` / stdlib `host_protocols.pdl`, or omit — it is always in scope)"
                 ),
                 design,
             ));

@@ -382,6 +382,14 @@ pub enum ProtocolRole {
     Host,
 }
 
+/// Host verb on a host protocol: `beginEditing(value)` / `cancelEditing()`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct HostVerbDecl {
+    pub name: String,
+    /// Positional payload field names (documentation / arity); untyped in v1.
+    pub params: Vec<String>,
+}
+
 /// `protocol Name { … }` — API contract and/or host runtime power.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProtocolDecl {
@@ -391,6 +399,10 @@ pub struct ProtocolDecl {
     pub requires: Vec<String>,
     pub params: Vec<ComponentParam>,
     pub emits: Vec<ProtocolEmitDecl>,
+    /// Host inbound channels (`pressEnd`, …) — environment → component (§4a′).
+    pub inbound: Vec<String>,
+    /// Host verbs callable from handler bodies (`beginEditing(value)`, …).
+    pub verbs: Vec<HostVerbDecl>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

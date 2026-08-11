@@ -136,6 +136,10 @@ export type ProtocolDecl = {
   name: string;
   role: "api" | "host";
   requires: string[];
+  /** Host inbound channels (`pressEnd`, …) — environment → component. */
+  inbound?: string[];
+  /** Host verbs (`beginEditing(value)`, …). */
+  verbs?: { name: string; params: string[] }[];
 };
 
 export type PrimitiveDecl = {

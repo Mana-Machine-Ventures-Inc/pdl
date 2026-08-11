@@ -1085,6 +1085,28 @@ component Bare() layout {
 }
 
 #[test]
+fn stdlib_host_protocols_file_parses_inbound_and_verbs() {
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/stdlib/host_protocols.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load stdlib host_protocols");
+    let ptr = design.protocols.get("PointerInput").expect("PointerInput");
+    assert_eq!(ptr.role, pdl_core::ast::ProtocolRole::Host);
+    assert!(ptr.inbound.iter().any(|c| c == "pressEnd"));
+    assert!(ptr.inbound.iter().any(|c| c == "hoverStart"));
+    assert_eq!(ptr.inbound.len(), 10);
+    assert!(ptr.verbs.is_empty());
+    let edit = design.protocols.get("EditableText").expect("EditableText");
+    assert!(edit.inbound.iter().any(|c| c == "keyboardDismissed"));
+    assert!(
+        edit.verbs.iter().any(|v| v.name == "beginEditing" && v.params == ["value"]),
+        "beginEditing(value): {:?}",
+        edit.verbs
+    );
+    assert!(edit.verbs.iter().any(|v| v.name == "cancelEditing" && v.params.is_empty()));
+    assert!(edit.verbs.iter().any(|v| v.name == "commitEditing" && v.params.is_empty()));
+}
+
+#[test]
 fn host_protocol_prelude_needs_no_import() {
     use pdl_core::design::load_design_from_sources;
     use pdl_core::SourceMap;

@@ -19,7 +19,7 @@ use crate::validate::validate_merged_design;
 pub type UsageKeyMap = IndexMap<String, String>;
 
 /// Well-known host protocols always in scope (language prelude — not imported).
-/// Documented in `docs/full-spec.md` §4a host matrix; hosts must implement these.
+/// Canonical `.pdl` twin: `test-fixtures/pdl/stdlib/host_protocols.pdl` (§4a′).
 pub const HOST_PROTOCOL_PRELUDE: &[&str] = &["PointerInput", "EditableText"];
 
 /// Whether `name` is a prelude host protocol.
@@ -28,21 +28,83 @@ pub fn is_host_protocol_prelude(name: &str) -> bool {
 }
 
 fn host_protocol_prelude_decl(name: &str) -> ProtocolDecl {
-    ProtocolDecl {
-        name: name.to_string(),
-        role: ProtocolRole::Host,
-        requires: Vec::new(),
-        params: Vec::new(),
-        emits: Vec::new(),
+    match name {
+        "PointerInput" => ProtocolDecl {
+            name: name.to_string(),
+            role: ProtocolRole::Host,
+            requires: Vec::new(),
+            params: Vec::new(),
+            emits: Vec::new(),
+            inbound: vec![
+                "hoverStart".into(),
+                "hoverEnd".into(),
+                "pressStart".into(),
+                "pressEnd".into(),
+                "pressCancel".into(),
+                "focusStart".into(),
+                "focusEnd".into(),
+                "activate".into(),
+                "appear".into(),
+                "dismiss".into(),
+            ],
+            verbs: Vec::new(),
+        },
+        "EditableText" => ProtocolDecl {
+            name: name.to_string(),
+            role: ProtocolRole::Host,
+            requires: Vec::new(),
+            params: Vec::new(),
+            emits: Vec::new(),
+            inbound: vec!["keyboardDismissed".into(), "keyboardCancelled".into()],
+            verbs: vec![
+                crate::ast::HostVerbDecl {
+                    name: "beginEditing".into(),
+                    params: vec!["value".into()],
+                },
+                crate::ast::HostVerbDecl {
+                    name: "cancelEditing".into(),
+                    params: Vec::new(),
+                },
+                crate::ast::HostVerbDecl {
+                    name: "commitEditing".into(),
+                    params: Vec::new(),
+                },
+            ],
+        },
+        _ => ProtocolDecl {
+            name: name.to_string(),
+            role: ProtocolRole::Host,
+            requires: Vec::new(),
+            params: Vec::new(),
+            emits: Vec::new(),
+            inbound: Vec::new(),
+            verbs: Vec::new(),
+        },
     }
 }
 
-/// Ensure prelude host protocols exist in the merged map (pack decls win if already present).
+/// Ensure prelude host protocols exist with canonical inbound/verbs (§4a′ / stdlib).
+/// Author restatements may document the same channels; empty `{ host }` shells inherit
+/// the prelude channel/verb lists.
 pub fn inject_host_protocol_prelude(protocols: &mut IndexMap<String, ProtocolDecl>) {
     for &name in HOST_PROTOCOL_PRELUDE {
-        protocols
-            .entry(name.to_string())
-            .or_insert_with(|| host_protocol_prelude_decl(name));
+        let canonical = host_protocol_prelude_decl(name);
+        match protocols.get_mut(name) {
+            None => {
+                protocols.insert(name.to_string(), canonical);
+            }
+            Some(existing) if existing.role == ProtocolRole::Host => {
+                if existing.inbound.is_empty() {
+                    existing.inbound = canonical.inbound;
+                }
+                if existing.verbs.is_empty() {
+                    existing.verbs = canonical.verbs;
+                }
+            }
+            Some(_) => {
+                // Non-host redefinition → PDL-E032 in validate.
+            }
+        }
     }
 }
 

@@ -1,15 +1,27 @@
-# PDL stdlib notes
+# PDL stdlib
 
-**Host protocols** (`PointerInput`, `EditableText`) are a **language prelude** — always in scope, no import, no pack file.
+## Host protocols (language prelude)
 
-Normative stubs (inbound channels + host verbs) live in [`docs/full-spec.md`](../../../docs/full-spec.md) **§4a′ — Host protocol prelude stubs**.
+**Canonical source file:** [`host_protocols.pdl`](./host_protocols.pdl)
 
-Authors opt in with `component C <PointerInput>` or an API protocol with `requires PointerInput` (**PDL-E030**), then wire handlers in the kind body:
+| Protocol | Role |
+|----------|------|
+| **`PointerInput`** | Pointer / focus / lifecycle **inbound** channels (`pressEnd`, `hoverStart`, …) |
+| **`EditableText`** | Soft-keyboard inbound + host verbs (`beginEditing`, …) |
+
+These are **always in scope** — no import. Compilers inject the same contracts into every design merge (`crates/pdl-core` `HOST_PROTOCOL_PRELUDE`). Normative prose: [`docs/full-spec.md`](../../../docs/full-spec.md) **§4a′**.
+
+They are **not** child→parent `emits`. Host protocols declare:
+
+- **inbound channels** — environment → component (`self.pressEnd = { … }`)
+- **host verbs** — component → environment (`beginEditing(value)` inside handlers)
+
+Authors opt in with `component C <PointerInput>` or an API protocol with `requires PointerInput` (**PDL-E030**). Restating `host_protocols.pdl` in a pack is documentation only; redefining a prelude name as an API protocol is **PDL-E032**.
 
 ```pdl
-self.pressEnd = { … }          // `self.` optional / clarifying
-pressEnd = { … }               // equivalent
-self.keyboardDismissed = { … }
+component Chip <PointerInput>(…) layout {
+  self.pressEnd = { emit select(filter) }
+}
 ```
 
-Hosts (Playground / HTML / apps) deliver those inbound channels and implement verbs. The `interaction` keyword is removed (**PDL-E001**).
+The `interaction` keyword is removed (**PDL-E001**).

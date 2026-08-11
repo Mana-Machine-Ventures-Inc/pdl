@@ -1002,6 +1002,8 @@ impl Parser {
         let mut params: Vec<ComponentParam> = Vec::new();
         let mut emits: Vec<ProtocolEmitDecl> = Vec::new();
         let mut requires: Vec<String> = Vec::new();
+        let mut inbound: Vec<String> = Vec::new();
+        let mut verbs: Vec<crate::ast::HostVerbDecl> = Vec::new();
         let mut role = ProtocolRole::Api;
         while !self.is(TokenKind::RBrace) {
             if self.is(TokenKind::Emits) {
@@ -1022,6 +1024,45 @@ impl Parser {
             if self.is(TokenKind::Host) {
                 self.advance();
                 role = ProtocolRole::Host;
+                continue;
+            }
+            // Host inbound channel: bare `pressEnd`
+            // Host verb: `beginEditing(value)` / `cancelEditing()`
+            if role == ProtocolRole::Host
+                && self.is(TokenKind::Ident)
+                && self.peek_ahead_kind(1) != TokenKind::Colon
+                && self.peek_ahead_kind(1) != TokenKind::Eq
+            {
+                let channel = self.consume(TokenKind::Ident)?.value;
+                if self.is(TokenKind::LParen) {
+                    self.advance();
+                    let mut vparams = Vec::new();
+                    while !self.is(TokenKind::RParen) {
+                        vparams.push(self.consume(TokenKind::Ident)?.value);
+                        if self.is(TokenKind::Comma) {
+                            self.advance();
+                        } else {
+                            break;
+                        }
+                    }
+                    self.consume(TokenKind::RParen)?;
+                    if verbs.iter().any(|v| v.name == channel) {
+                        return Err(self.err(format!(
+                            "Host protocol `{name}` lists verb `{channel}` more than once"
+                        )));
+                    }
+                    verbs.push(crate::ast::HostVerbDecl {
+                        name: channel,
+                        params: vparams,
+                    });
+                } else {
+                    if inbound.iter().any(|c| c == &channel) {
+                        return Err(self.err(format!(
+                            "Host protocol `{name}` lists inbound `{channel}` more than once"
+                        )));
+                    }
+                    inbound.push(channel);
+                }
                 continue;
             }
             params.push(self.parse_protocol_param()?);
@@ -1049,6 +1090,11 @@ impl Parser {
                 "API protocol `{name}` must declare subject `component` \
                  (write `protocol {name}: component {{ … }}`; host protocols use `{{ host }}`)"
             )));
+        } else if !inbound.is_empty() || !verbs.is_empty() {
+            return Err(self.err(format!(
+                "API protocol `{name}` cannot declare host inbound channels / verbs \
+                 (mark with `host` or move channels to a host protocol)"
+            )));
         }
         Ok(ProtocolDecl {
             name,
@@ -1056,6 +1102,8 @@ impl Parser {
             requires,
             params,
             emits,
+            inbound,
+            verbs,
         })
     }
 
