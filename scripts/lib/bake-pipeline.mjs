@@ -30,6 +30,7 @@ import { pathToFileURL } from "node:url";
  * @property {Record<string, Record<string, unknown>>} [stateTrees] Extra state bakes per component
  * @property {Record<string, unknown>} [paramControlsByComponent]
  * @property {Record<string, Record<string, unknown>>} [componentOverrides] Per-component bake param overrides
+ * @property {boolean} [bakeOnly] Skip HTML serialization (hot-path IR reconcile)
  */
 
 /**
@@ -259,6 +260,18 @@ export async function bakeAndRender(req) {
         }
       }
       bakedDoc = doc;
+    }
+
+    if (req.bakeOnly === true) {
+      return {
+        ok: true,
+        engine,
+        mode: req.mode,
+        baked: bakedDoc,
+        bakePath,
+        stderr: stderr?.trim() || undefined,
+        durationMs: Date.now() - started,
+      };
     }
 
     const { html, renderFailures } = ts.renderBakedDesignToHtmlDocumentWithReport(bakedDoc, {

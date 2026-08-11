@@ -2217,43 +2217,52 @@ function scheduleDebouncedRender(delayMs = RENDER_DEBOUNCE_MS, opts = {}) {
 }
 
 /**
- * Param-driven updates: morph/reconcile into the live iframe. Source/theme/engine
- * changes still assign srcdoc (cold path).
+ * Param-driven updates: IR reconcile into the live iframe (primary). HTML morph is
+ * fallback only. Source/theme/engine changes still assign srcdoc (cold path).
  * @param {object} data
  * @param {{ incremental: boolean }} opts
  * @returns {'incremental' | 'remount'}
  */
 function applyPreviewUpdate(data, opts) {
   const html = typeof data.html === "string" ? data.html : "";
+  const nextBaked = data.baked && typeof data.baked === "object" ? data.baked : null;
   const doc = frame.contentDocument;
   const wantIncremental =
     opts.incremental &&
     previewDocumentLive &&
     !!doc?.querySelector?.(".pdl-gallery") &&
-    html.length > 0;
+    (!!nextBaked?.components || html.length > 0);
 
   if (wantIncremental) {
     const ephem = capturePreviewEphemerals(doc);
-    const nextBaked = data.baked && typeof data.baked === "object" ? data.baked : null;
-    // Prefer HTML identity morph (keeps dual-bake chrome). Fall back to bake-IR reconcile.
-    let applied = applyPreviewHtml(doc, html);
-    let applyKind = applied ? "morph" : "";
-    if (!applied && nextBaked?.components && lastBakedDesign?.components) {
+    let applied = false;
+    let applyKind = "";
+    // Ideal path: bake IR → reconcile DOM (no HTML required).
+    if (nextBaked?.components && lastBakedDesign?.components) {
       applied = tryIncrementalBakeReconcile(doc, lastBakedDesign, nextBaked);
       if (applied) applyKind = "ir";
+    }
+    // Bridge: identity morph of rebaked HTML when IR cannot apply.
+    if (!applied && html.length > 0) {
+      applied = applyPreviewHtml(doc, html);
+      if (applied) applyKind = "morph";
     }
     if (applied) {
       if (nextBaked) lastBakedDesign = nextBaked;
       restorePreviewEphemerals(doc, ephem);
       requestInteractiveRebind(frame);
-      // Stash for status line
       frame.dataset.pdlLastApply = applyKind;
       return "incremental";
     }
   }
 
+  // Cold remount requires HTML.
+  if (!html) {
+    return "remount";
+  }
+
   previewDocumentLive = false;
-  lastBakedDesign = data.baked && typeof data.baked === "object" ? data.baked : null;
+  lastBakedDesign = nextBaked;
   frame.srcdoc = html;
   frame.addEventListener(
     "load",
@@ -2274,6 +2283,20 @@ function tryIncrementalBakeReconcile(doc, prevBake, nextBake) {
   try {
     const names = Object.keys(nextBake.components || {});
     if (names.length === 0) return false;
+    /** @type {Record<string, Record<string, unknown>>} */
+    const editableSessionDefaults = {};
+    for (const [name, comp] of Object.entries(nextBake.components || {})) {
+      const bp = /** @type {{ bakedParams?: Record<string, unknown> }} */ (comp).bakedParams ?? {};
+      if (
+        Object.prototype.hasOwnProperty.call(bp, "isEditing") ||
+        Object.prototype.hasOwnProperty.call(bp, "activatesOn")
+      ) {
+        editableSessionDefaults[name] = { value: "", ...bp };
+        if (editableSessionDefaults[name].value == null) {
+          editableSessionDefaults[name].value = "";
+        }
+      }
+    }
     for (const name of names) {
       const section = doc.querySelector(
         `section.pdl-preview[data-pdl-component="${CSS.escape(name)}"]`,
@@ -2286,7 +2309,15 @@ function tryIncrementalBakeReconcile(doc, prevBake, nextBake) {
       const prevComp = prevBake.components?.[name];
       const nextComp = nextBake.components?.[name];
       if (!nextComp?.root) return false;
-      const ok = reconcileBakedComponentIntoCanvas(canvas, prevComp, nextComp, {});
+      const bp = nextComp.bakedParams && typeof nextComp.bakedParams === "object"
+        ? { ...nextComp.bakedParams }
+        : undefined;
+      const ok = reconcileBakedComponentIntoCanvas(canvas, prevComp, nextComp, {
+        sessionParams: bp,
+        instCtx: {
+          editableSessionDefaults,
+        },
+      });
       if (!ok) return false;
       const paramsEl = section.querySelector(".pdl-preview-params");
       if (paramsEl && nextComp.bakedParams) {
@@ -2563,6 +2594,21 @@ async function runRender({ debounced = false } = {}) {
         }
         bake.components = filtered;
       }
+      // Hot path: bake IR in-browser → reconcile (skip HTML round-trip).
+      if (incremental && previewDocumentLive && lastBakedDesign?.components) {
+        const mode = applyPreviewUpdate({ baked: bake, ok: true }, { incremental: true });
+        if (mode === "incremental") {
+          const workspaceWarn = unreachableModuleConsoleEntries();
+          if (workspaceWarn.length > 0) updateRenderConsole(workspaceWarn);
+          const applyBit = " · live apply";
+          setStatus(
+            workspaceWarn.length > 0
+              ? `Preview updated · wasm · bake ${bakeMs}ms${applyBit} · ${workspaceWarn.length} workspace warning(s)`
+              : `Preview updated · wasm · bake ${bakeMs}ms${applyBit}`,
+          );
+          return;
+        }
+      }
       const res = await fetch("/api/render-from-bake", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2587,7 +2633,6 @@ async function runRender({ debounced = false } = {}) {
         setStatus("");
         return;
       }
-      // Client already holds bake IR; attach for IR reconcile fallback.
       if (!data.baked) data.baked = bake;
       const mode = applyPreviewUpdate(data, { incremental });
       const workspaceWarn = unreachableModuleConsoleEntries();
@@ -2608,6 +2653,8 @@ async function runRender({ debounced = false } = {}) {
       interactiveHost: true,
       kv,
       componentSources: buildComponentSources(names),
+      // Hot path: bake IR only (no HTML / dual-bake) when the iframe is live.
+      bakeOnly: incremental && previewDocumentLive,
     };
 
     if (variantView === "grid" && (owner || canvasPrimary)) {
@@ -2627,12 +2674,12 @@ async function runRender({ debounced = false } = {}) {
       if (owner) body.component = owner;
     }
 
-    const res = await fetch("/api/render", {
+    let res = await fetch("/api/render", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const data = await res.json();
+    let data = await res.json();
     if (id !== latestRenderId) return;
     if (!data.ok) {
       const errMsg = withUnknownComponentHint(data.error || "Render failed", bakeEntryPath());
@@ -2645,7 +2692,30 @@ async function runRender({ debounced = false } = {}) {
       setStatus("");
       return;
     }
-    const mode = applyPreviewUpdate(data, { incremental });
+    let mode = applyPreviewUpdate(data, { incremental });
+    // bakeOnly IR miss → cold remount with full HTML.
+    if (mode === "remount" && body.bakeOnly && !data.html) {
+      body.bakeOnly = false;
+      res = await fetch("/api/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      data = await res.json();
+      if (id !== latestRenderId) return;
+      if (!data.ok) {
+        const errMsg = withUnknownComponentHint(data.error || "Render failed", bakeEntryPath());
+        showError(errMsg);
+        updateRenderConsole([
+          { phase: "Bake or render (server)", message: errMsg },
+          ...unreachableModuleConsoleEntries(),
+        ]);
+        frame.removeAttribute("srcdoc");
+        setStatus("");
+        return;
+      }
+      mode = applyPreviewUpdate(data, { incremental: false });
+    }
     const failures = Array.isArray(data.renderFailures) ? data.renderFailures : [];
     const workspaceWarn = unreachableModuleConsoleEntries();
     const engLabel = data.engine ? ` · ${data.engine}` : "";

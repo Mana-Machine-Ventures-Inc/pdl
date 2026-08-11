@@ -1,9 +1,11 @@
 # Proposal: Incremental preview apply (ideal IR reconciler)
 
-**Status:** implemented (Playground hot path)  
+**Status:** ideal hot path implemented (Playground)  
 **Assumptions:** Rust owns bake/resolve; HTML remains the interactive preview surface.
 
-**Shipped:** Param/interaction updates use identity-preserving live apply (HTML morph + optional bake-IR reconcile) instead of `iframe.srcdoc` remount. Source/theme/engine changes still remount. See `playground/src/preview-apply.js`, `src/bakeReconcile.ts`, Playground status `· live apply`.
+**Shipped:** Param/interaction/fixture ticks use **bake IR → DOM reconcile** as the primary engine (`src/bakeReconcile.ts` + `patchFrameProps` in `src/renderHtml.ts`). WASM skips HTML serialization when the iframe is live; server accepts `bakeOnly`. HTML morph (`playground/src/preview-apply.js`) is fallback only. Cold path (source/theme/engine) still remounts via `srcdoc` (dual-bake hover trees included). Status shows `· live apply` (`dataset.pdlLastApply` = `ir` | `morph`).
+
+**Still non-goals:** ForEach row identity keys; dual-bake as the hot-path engine; React host emitter.
 
 ## Summary
 
@@ -155,15 +157,15 @@ Target: interactive ticks in **ms of resolve+diff**, not full document parse.
 
 ---
 
-## Pragmatic bridge (from today)
+## Pragmatic bridge (landed)
 
-Ordered on-ramps—not the end state:
+Ordered on-ramps — status in Playground:
 
-1. **Shared prop applicator** — factor `src/renderHtml.ts` so mount and patch use the same mapping.
-2. **Hot resolve API** — `resolve` / `bakeComponent` JSON without HTML; then WASM.
-3. **IR reconciler v1** — replace `srcdoc` for param ticks; keep `srcdoc` for cold path.
-4. **Session/focus registry** — by instance-let, survive reconcile.
-5. **Optional:** HTML morph or structural dual-bake as temporary relief before the reconciler lands.
+1. **Shared prop applicator** — `patchFrameProps` shares paint mapping with `renderFrame` (remount on structure flips).
+2. **Hot resolve API** — WASM in-browser bake; server `bakeOnly` returns IR without HTML.
+3. **IR reconciler v1** — primary for param ticks; `srcdoc` for cold path.
+4. **Session/focus registry** — ephemeral capture/restore + session merge by instance-let.
+5. **HTML morph** — retained as fallback when IR cannot apply; dual-bake remains cold-path / `previewHandled` only.
 
 ---
 

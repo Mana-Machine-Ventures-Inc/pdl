@@ -979,7 +979,9 @@ async function handleRender(body) {
     componentNames: namesRaw,
     variantMatrix,
     interactiveHost: interactiveRaw,
+    bakeOnly: bakeOnlyRaw,
   } = body;
+  const bakeOnly = bakeOnlyRaw === true;
   const mode = modeRaw === "component" || modeRaw === "pack" ? modeRaw : "system";
   if (typeof entry !== "string" || !entry.trim()) {
     throw new Error('Expected "entry" path');
@@ -1178,9 +1180,10 @@ async function handleRender(body) {
             ? body.singleComponent
             : undefined,
       componentNames,
-      interactiveHost: wantInteractive && mode !== "pack",
+      interactiveHost: wantInteractive && mode !== "pack" && !bakeOnly,
       interactionsByComponent: enriched.interactionsByComponent,
       componentOverrides: mode === "system" ? componentOverrides : undefined,
+      bakeOnly,
     });
     if (!result.ok) {
       return {
@@ -1188,6 +1191,19 @@ async function handleRender(body) {
         error: result.error ?? "Bake failed",
         engine: result.engine,
         durationMs: result.durationMs,
+      };
+    }
+
+    // Hot-path IR reconcile: return bake scene graph only (no HTML / dual-bake).
+    if (bakeOnly) {
+      return {
+        ok: true,
+        baked: result.baked ?? null,
+        engine: result.engine,
+        durationMs: result.durationMs,
+        components: Object.keys(
+          /** @type {{ components?: object }} */ (result.baked)?.components ?? {},
+        ),
       };
     }
 
