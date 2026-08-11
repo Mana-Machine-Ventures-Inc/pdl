@@ -1001,7 +1001,7 @@ function textInlineStyle(props: Record<string, unknown>): string {
   return mergeInlineStyles(textBoxAlignStyle(props), textOwnStyle(props));
 }
 
-type FrameRenderOpts = {
+export type FrameRenderOpts = {
   stackChild: boolean;
   /** Absolute CSS z-index when `stackChild` (from `.stack` / `.reverseStack`). */
   stackZ: number;
@@ -1027,7 +1027,7 @@ function sessionParamIsEditing(params: Record<string, unknown> | undefined): boo
   return params?.isEditing === true || params?.isEditing === "true";
 }
 
-type InstanceRenderCtx = {
+export type InstanceRenderCtx = {
   nextKey: number;
   /** Prebaked non-rest trees keyed by instance key (`i0`, …) then state name. */
   stateTrees: Record<string, Record<string, BakedComponentJson>>;
@@ -1122,6 +1122,18 @@ function mediaFrameStyle(props: Record<string, unknown>, opts: FrameRenderOpts):
   if (ob) parts.push(ob);
   if (op) parts.push(`object-position:${op}`);
   return mergeInlineStyles(...parts);
+}
+
+/**
+ * Public entry for bake-IR reconcile mounts (same paint path as document HTML).
+ * @internal previewApply / bakeReconcile
+ */
+export function renderFrameForReconcile(
+  frame: BakedFrame,
+  opts: FrameRenderOpts = { stackChild: false, stackZ: 0 },
+  instCtx?: InstanceRenderCtx,
+): string {
+  return renderFrame(frame, opts, instCtx);
 }
 
 function renderFrame(
@@ -2198,8 +2210,9 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       parent.postMessage({ type: 'pdl-resize', height: h }, '*');
     } catch (e) {}
   }
-  if (${opts.interactiveHost ? "true" : "false"}) {
-    document.querySelectorAll('section.pdl-preview[data-pdl-interactive]').forEach(function(section){
+  function bindInteractiveHost() {
+  if (!${opts.interactiveHost ? "true" : "false"}) return;
+  document.querySelectorAll('section.pdl-preview[data-pdl-interactive]').forEach(function(section){
       var name = section.getAttribute('data-pdl-component');
       var decls = interactions[name] || [];
       var captures = emitCaptures[name] || [];
@@ -2214,6 +2227,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       }
       function dispatchSelf(event) {
         if (!byEvent[event]) return null;
+        liveParams = readParams(section);
         var result = applyEvent(liveParams, decls, event);
         liveParams = result.params;
         writeParams(section, liveParams);
@@ -2246,10 +2260,12 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       var instances = section.querySelectorAll('[data-pdl-instance-of]');
       if (instances.length && (captures.length || true)) {
         instances.forEach(function(node){
+          if (node.getAttribute('data-pdl-listening') === '1') return;
           var childType = node.getAttribute('data-pdl-instance-of');
           var childDecls = interactions[childType] || [];
           var childBy = handlersByEvent(childDecls);
           if (!Object.keys(childBy).length) return;
+          node.setAttribute('data-pdl-listening', '1');
           var childQualifier = node.getAttribute('data-pdl-instance-let') || null;
           var childParams = {};
           try { childParams = JSON.parse(node.getAttribute('data-pdl-instance-kwargs') || '{}'); } catch (e) {}
@@ -2269,6 +2285,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           }
           function childDispatch(event) {
             if (!childBy[event]) return;
+            liveParams = readParams(section);
             var result = applyEvent(childLive, childDecls, event);
             childLive = result.params;
             var needRebake = false;
@@ -2342,7 +2359,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           }
         });
       }
-      if (Object.keys(byEvent).length) {
+      if (Object.keys(byEvent).length && section.getAttribute('data-pdl-root-listening') !== '1') {
+        section.setAttribute('data-pdl-root-listening', '1');
         var pointerDown = false;
         if (byEvent.hoverStart || byEvent.hoverEnd) {
           section.addEventListener('mouseenter', function(ev){
@@ -2382,6 +2400,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       // Nested instances own a child session bag (data-pdl-session-params); parent SoT via emits.
       // Note: activatesOn=.none + !isEditing renders as inert text (no <input>) at bake time.
       section.querySelectorAll('input.pdl-text--editable[data-pdl-editable]').forEach(function(input){
+        if (input.getAttribute('data-pdl-listening') === '1') return;
+        input.setAttribute('data-pdl-listening', '1');
         var bind = input.getAttribute('data-pdl-editable') || 'value';
         var instNode = input.closest('[data-pdl-instance-of]');
         var childType = instNode ? (instNode.getAttribute('data-pdl-instance-of') || '') : '';
@@ -2473,6 +2493,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         }
         function dispatchNested(event) {
           if (!eventBy[event]) return { emits: [], changed: false, handled: false, needRebake: false };
+          liveParams = readParams(section);
           var result = applyEvent(childBag, childDecls, event);
           childBag = result.params;
           persistBag();
@@ -2691,7 +2712,15 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       });
     });
   }
+  bindInteractiveHost();
+  window.addEventListener('message', function(ev){
+    if (!ev || !ev.data || ev.data.type !== 'pdl-rebind-interactive') return;
+    bindInteractiveHost();
+    postHeight();
+  });
   document.querySelectorAll('.pdl-param-bar').forEach(function(bar){
+    if (bar.getAttribute('data-pdl-listening') === '1') return;
+    bar.setAttribute('data-pdl-listening', '1');
     var component = bar.getAttribute('data-pdl-param-bar');
     function emitParams() {
       var kv = {};
@@ -2711,6 +2740,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     });
   });
   document.querySelectorAll('[data-pdl-open-source]').forEach(function(btn){
+    if (btn.getAttribute('data-pdl-listening') === '1') return;
+    btn.setAttribute('data-pdl-listening', '1');
     btn.addEventListener('click', function(ev){
       ev.preventDefault();
       ev.stopPropagation();
