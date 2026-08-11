@@ -51,7 +51,7 @@ Pack (.pdl files)
 | **P3** | File-selected canvas; remove component picker + Compose; **Add property** teaching menu |
 | **P4** | Hover/press host: dual-bake `interactionState`, iframe swap, click → emit status |
 | **P5** | Variant preview: **Single / Grid / Pick** (grid capped at 16 combos) |
-| **P6** | Incremental preview apply — param/interaction updates morph/reconcile into the live iframe (no `srcdoc` remount); status shows `· live apply`. See [`PROPOSAL_INCREMENTAL_PREVIEW_APPLY.md`](./PROPOSAL_INCREMENTAL_PREVIEW_APPLY.md). |
+| **P6** | Incremental preview apply — param/interaction updates **bake IR → DOM reconcile** (primary); dirty-owner-only on multi-component canvases; HTML morph fallback; cold path still `srcdoc`. Dual-bake pointer chrome is a **cold cache** — source/theme ticks remount to refresh it (hover-only paint edits). Status shows `· live apply`. See [`PROPOSAL_INCREMENTAL_PREVIEW_APPLY.md`](./PROPOSAL_INCREMENTAL_PREVIEW_APPLY.md). |
 
 **Still deferred:** Phase S (Studio) — authoring-first product, governance, possibly separate repo.
 

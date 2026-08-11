@@ -1,9 +1,11 @@
 # Proposal: Incremental preview apply (ideal IR reconciler)
 
-**Status:** implemented (Playground hot path)  
+**Status:** ideal hot path implemented (Playground)  
 **Assumptions:** Rust owns bake/resolve; HTML remains the interactive preview surface.
 
-**Shipped:** Param/interaction updates use identity-preserving live apply (HTML morph + optional bake-IR reconcile) instead of `iframe.srcdoc` remount. Source/theme/engine changes still remount. See `playground/src/preview-apply.js`, `src/bakeReconcile.ts`, Playground status `· live apply`.
+**Shipped:** Param/interaction/fixture ticks use **bake IR → DOM reconcile** as the primary engine (`src/bakeReconcile.ts` + `patchFrameProps` in `src/renderHtml.ts`). WASM skips HTML serialization when the iframe is live; server accepts `bakeOnly`. Param ticks **bake only the dirty owner**; **source/theme** ticks rebake the canvas IR and reconcile only changed components (no `srcdoc` remount — siblings/media stay mounted). Layer bands (`Blur` / ramp / fills) patch in place. Equal IR is a DOM no-op; child lists move in place. HTML morph is fallback only. Engine/pack switches still remount. Status shows `· live apply` (`dataset.pdlLastApply` = `ir` | `morph`).
+
+**Still non-goals:** ForEach row identity keys; dual-bake as the hot-path engine; React host emitter.
 
 ## Summary
 
@@ -153,17 +155,27 @@ Typing: host session only. Done/Enter: params → resolve → reconcile (structu
 
 Target: interactive ticks in **ms of resolve+diff**, not full document parse.
 
+### Dual-bake is a cold cache (not the IR hot path)
+
+Pointer hover/press chrome today mounts pre-baked hidden `.pdl-inst-state` trees and swaps them in the host. That snapshot is **correctness-critical** for paint that exists only under non-rest chrome cases (`if state == .hovering { background = … }`): rest IR often does not change when those branches are edited, and IR reconcile only patches the visible fragment.
+
+Playground policy ([`playground/src/dual-bake-policy.js`](../playground/src/dual-bake-policy.js)):
+
+- **Param/emit ticks** (`ownerOnly`): IR-only is fine — nested chrome SoT is ephemeral; dual-bake swap stays valid.
+- **Source/theme ticks** with dual-bake present: **invalidate** — skip `bakeOnly` / IR-only early return; remount HTML so `bakeInstanceInteractionStates` rebuilds hovering/pressed trees.
+- **Follow-on:** resolve-on-hover (hot-resolve instance with overridden chrome kwargs + IR patch) so dual-bake is optional prefetch, not required for correctness.
+
 ---
 
-## Pragmatic bridge (from today)
+## Pragmatic bridge (landed)
 
-Ordered on-ramps—not the end state:
+Ordered on-ramps — status in Playground:
 
-1. **Shared prop applicator** — factor `src/renderHtml.ts` so mount and patch use the same mapping.
-2. **Hot resolve API** — `resolve` / `bakeComponent` JSON without HTML; then WASM.
-3. **IR reconciler v1** — replace `srcdoc` for param ticks; keep `srcdoc` for cold path.
-4. **Session/focus registry** — by instance-let, survive reconcile.
-5. **Optional:** HTML morph or structural dual-bake as temporary relief before the reconciler lands.
+1. **Shared prop applicator** — `patchFrameProps` shares paint mapping with `renderFrame` (remount on structure flips).
+2. **Hot resolve API** — WASM in-browser bake; server `bakeOnly` returns IR without HTML.
+3. **IR reconciler v1** — primary for param ticks; `srcdoc` for cold path.
+4. **Session/focus registry** — ephemeral capture/restore + session merge by instance-let.
+5. **HTML morph** — retained as fallback when IR cannot apply; dual-bake remains a **cold chrome cache** (invalidated on source/theme when present), not the long-term paint engine.
 
 ---
 

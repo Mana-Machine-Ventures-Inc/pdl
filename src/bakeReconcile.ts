@@ -2,11 +2,15 @@
  * Bake-IR → DOM reconciler (docs/PROPOSAL_INCREMENTAL_PREVIEW_APPLY.md).
  *
  * Diffs previous/next baked frame trees by stable identity and patches a live
- * container. Uses renderFrameForReconcile for mounts/replacements.
+ * container. Prop updates use patchFrameProps; mounts/replacements use
+ * renderFrameForReconcile. Equal IR is a no-op; child lists move in place.
  */
 import type { BakedComponentJson, BakedFrame } from "./bakeDesign.js";
 import {
+  mergeEditableSessionParams,
+  patchFrameProps,
   renderFrameForReconcile,
+  type FrameRenderOpts,
   type InstanceRenderCtx,
 } from "./renderHtml.js";
 
@@ -26,6 +30,20 @@ function deepEqual(a: unknown, b: unknown): boolean {
     (k, i) =>
       k === bk[i] &&
       deepEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]),
+  );
+}
+
+/** True when preview IR for a component is unchanged (skip DOM). */
+export function bakedComponentTreesEqual(
+  a: BakedComponentJson | null | undefined,
+  b: BakedComponentJson | null | undefined,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    deepEqual(a.root, b.root) &&
+    deepEqual(a.bakedParams ?? {}, b.bakedParams ?? {}) &&
+    a.rootKind === b.rootKind
   );
 }
 
@@ -73,53 +91,90 @@ function migrateSession(from: Element, to: Element): void {
       string,
       unknown
     >;
-    const merged = { ...next, ...prev };
-    const liveInput = from.querySelector("input.pdl-text--editable") as HTMLInputElement | null;
-    if (liveInput && typeof document !== "undefined" && document.activeElement === liveInput) {
-      merged.value = liveInput.value;
-    } else if (prev.value !== undefined && (next.isEditing === true || next.isEditing === "true")) {
-      merged.value = prev.value;
-    }
-    if (next.isEditing === true || next.isEditing === "true") merged.isEditing = true;
+    const liveInput = (
+      from.matches?.("input.pdl-text--editable")
+        ? from
+        : from.querySelector(
+            ".pdl-inst-state:not([hidden]) input.pdl-text--editable, input.pdl-text--editable",
+          )
+    ) as HTMLInputElement | null;
+    const liveValue =
+      liveInput && typeof document !== "undefined" && document.activeElement === liveInput
+        ? liveInput.value
+        : null;
+    const merged = mergeEditableSessionParams(next, prev, liveValue);
     target.setAttribute("data-pdl-session-params", JSON.stringify(merged));
-    const input = target.querySelector("input.pdl-text--editable") as HTMLInputElement | null;
+    const input = (
+      target.matches?.("input.pdl-text--editable")
+        ? target
+        : target.querySelector("input.pdl-text--editable")
+    ) as HTMLInputElement | null;
     if (input && typeof merged.value === "string") input.value = merged.value;
   } catch {
     target.setAttribute("data-pdl-session-params", raw);
   }
 }
 
-function patchTextContent(el: Element, content: string): void {
-  const inner =
-    el.querySelector(":scope > .pdl-text__inner") ||
-    el.querySelector(":scope > .pdl-text__clamp") ||
-    null;
-  if (inner) {
-    inner.textContent = content;
-    return;
-  }
-  if (el.children.length === 0) {
-    el.textContent = content;
-    return;
-  }
-  for (const node of Array.from(el.childNodes)) {
-    if (node.nodeType === 3) node.parentNode?.removeChild(node);
-  }
-  el.insertBefore(el.ownerDocument.createTextNode(content), el.firstChild);
-}
-
 export type BakeReconcileInstCtx = {
   pointerInputTypes?: Set<string>;
   editableSessionDefaults?: Record<string, Record<string, unknown>>;
+  /** Prebaked nested interactionState trees (cold-path dual-bake); optional on hot path. */
+  stateTrees?: Record<string, Record<string, BakedComponentJson>>;
 };
 
 export type ReconcileOptions = {
   instCtx?: BakeReconcileInstCtx;
+  /** Prior bake's EditableText defaults — used for activatesOn structure remounts. */
+  prevInstCtx?: BakeReconcileInstCtx;
   nextKeyStart?: number;
+  /** Root session params (component bakedParams) for EditableText activation. */
+  sessionParams?: Record<string, unknown>;
+  /** Prior root session params (previous bakedParams). */
+  prevSessionParams?: Record<string, unknown>;
 };
+
+function toInstanceRenderCtx(
+  inst?: BakeReconcileInstCtx,
+  nextKeyStart?: number,
+): InstanceRenderCtx | undefined {
+  if (!inst && nextKeyStart == null) return undefined;
+  return {
+    nextKey: nextKeyStart ?? 0,
+    stateTrees: inst?.stateTrees ?? {},
+    pointerInputTypes: inst?.pointerInputTypes,
+    editableSessionDefaults: inst?.editableSessionDefaults,
+  };
+}
+
+/** True when a frame tree nests an `instanceOf` in `typeNames`. */
+export function frameTreeNestsInstanceTypes(
+  frame: BakedFrame | null | undefined,
+  typeNames: ReadonlySet<string>,
+): boolean {
+  if (!frame || typeNames.size === 0) return false;
+  if (frame.instanceOf && typeNames.has(frame.instanceOf)) return true;
+  for (const ch of frame.children ?? []) {
+    if (frameTreeNestsInstanceTypes(ch, typeNames)) return true;
+  }
+  return false;
+}
+
+/** EditableText type names whose session defaults changed between bakes. */
+export function changedEditableSessionTypes(
+  prev: Record<string, Record<string, unknown>>,
+  next: Record<string, Record<string, unknown>>,
+): Set<string> {
+  const out = new Set<string>();
+  const keys = new Set([...Object.keys(prev), ...Object.keys(next)]);
+  for (const k of keys) {
+    if (!deepEqual(prev[k] ?? null, next[k] ?? null)) out.add(k);
+  }
+  return out;
+}
 
 /**
  * Reconcile a baked component into an existing `.pdl-canvas` element.
+ * No-op (returns true) when prev/next IR are equal.
  */
 export function reconcileBakedComponentIntoCanvas(
   canvasEl: Element,
@@ -130,58 +185,152 @@ export function reconcileBakedComponentIntoCanvas(
   const doc = canvasEl.ownerDocument;
   if (!doc) return false;
   try {
-    const instCtx: InstanceRenderCtx | undefined = opts.instCtx
-      ? {
-          nextKey: opts.nextKeyStart ?? 0,
-          stateTrees: {},
-          pointerInputTypes: opts.instCtx.pointerInputTypes,
-          editableSessionDefaults: opts.instCtx.editableSessionDefaults,
-        }
-      : undefined;
-    reconcileChildList(canvasEl, prev ? [prev.root] : [], [next.root], instCtx, doc);
+    const instCtx = toInstanceRenderCtx(opts.instCtx, opts.nextKeyStart);
+    const prevInstCtx = toInstanceRenderCtx(opts.prevInstCtx, opts.nextKeyStart);
+    const rootOpts: FrameRenderOpts = {
+      stackChild: false,
+      stackZ: 0,
+      sessionParams: opts.sessionParams ?? (next.bakedParams as Record<string, unknown> | undefined),
+    };
+    const prevRootOpts: FrameRenderOpts = {
+      stackChild: false,
+      stackZ: 0,
+      sessionParams:
+        opts.prevSessionParams ??
+        ((prev?.bakedParams as Record<string, unknown> | undefined) ?? rootOpts.sessionParams),
+    };
+    const treesEqual = bakedComponentTreesEqual(prev, next);
+    const sessionDefaultsChanged = !deepEqual(
+      opts.prevInstCtx?.editableSessionDefaults ?? null,
+      opts.instCtx?.editableSessionDefaults ?? null,
+    );
+    const rootSessionChanged = !deepEqual(
+      prevRootOpts.sessionParams ?? null,
+      rootOpts.sessionParams ?? null,
+    );
+    // Equal IR still needs a pass when EditableText activatesOn (type default) flips —
+    // nested kwargs omit activatesOn, so the parent tree looks unchanged.
+    if (treesEqual && !sessionDefaultsChanged && !rootSessionChanged) return true;
+
+    reconcileChildList(
+      canvasEl,
+      prev ? [prev.root] : [],
+      [next.root],
+      instCtx,
+      doc,
+      rootOpts,
+      prevInstCtx,
+      prevRootOpts,
+    );
     return true;
   } catch {
     return false;
   }
 }
 
+/**
+ * Identity-preserving child reconcile: patch/move/insert/remove in place.
+ * Avoids clear+reappend when the ordered node list is already correct.
+ */
 function reconcileChildList(
   parentEl: Element,
   prevKids: BakedFrame[],
   nextKids: BakedFrame[],
   instCtx: InstanceRenderCtx | undefined,
   doc: Document,
+  parentOpts: FrameRenderOpts,
+  prevInstCtx?: InstanceRenderCtx,
+  prevParentOpts?: FrameRenderOpts,
 ): void {
   const prevByKey = new Map(prevKids.map((f) => [frameReconcileKey(f), f]));
-  const result: Element[] = [];
+  /** @type {Element[]} */
+  const desired: Element[] = [];
   const used = new Set<Element>();
 
-  for (const next of nextKids) {
+  for (let i = 0; i < nextKids.length; i++) {
+    const next = nextKids[i]!;
     const key = frameReconcileKey(next);
     const prev = prevByKey.get(key);
     let live = findChildByKey(parentEl, key);
     if (live && used.has(live)) live = null;
 
+    const childOpts: FrameRenderOpts = stackAwareChildOpts(
+      parentOpts,
+      parentEl,
+      i,
+      nextKids.length,
+    );
+    const prevChildOpts: FrameRenderOpts = stackAwareChildOpts(
+      prevParentOpts ?? parentOpts,
+      parentEl,
+      i,
+      nextKids.length,
+    );
+
     if (live && prev && prev.kind === next.kind && prev.instanceOf === next.instanceOf) {
       used.add(live);
-      reconcileFrame(live, prev, next, instCtx, doc);
+      reconcileFrame(live, prev, next, instCtx, doc, childOpts, prevInstCtx, prevChildOpts);
       const current = findChildByKey(parentEl, key);
-      if (current) result.push(current);
-      else if (live.isConnected) result.push(live);
+      if (current) desired.push(current);
+      else if (live.isConnected) desired.push(live);
       else {
-        const html = renderFrameForReconcile(next, { stackChild: false, stackZ: 0 }, instCtx);
-        result.push(htmlToElement(doc, html));
+        const html = renderFrameForReconcile(next, childOpts, instCtx);
+        desired.push(htmlToElement(doc, html));
       }
     } else {
-      const html = renderFrameForReconcile(next, { stackChild: false, stackZ: 0 }, instCtx);
+      const html = renderFrameForReconcile(next, childOpts, instCtx);
       const fresh = htmlToElement(doc, html);
       if (live) migrateSession(live, fresh);
-      result.push(fresh);
+      desired.push(fresh);
     }
   }
 
-  while (parentEl.firstChild) parentEl.removeChild(parentEl.firstChild);
-  for (const node of result) parentEl.appendChild(node);
+  applyChildOrder(parentEl, desired);
+}
+
+/** Remove leftovers and move nodes into `desired` order with minimal mutations. */
+function applyChildOrder(parentEl: Element, desired: Element[]): void {
+  const want = new Set(desired);
+  for (const ch of Array.from(parentEl.children)) {
+    if (!want.has(ch)) parentEl.removeChild(ch);
+  }
+  for (let i = 0; i < desired.length; i++) {
+    const node = desired[i]!;
+    if (parentEl.children[i] !== node) {
+      parentEl.insertBefore(node, parentEl.children[i] || null);
+    }
+  }
+}
+
+/** Best-effort stack z from parent direction attr/style; default non-stack. */
+function stackAwareChildOpts(
+  parentOpts: FrameRenderOpts,
+  parentEl: Element,
+  index: number,
+  childCount: number,
+): FrameRenderOpts {
+  const sessionParams = parentOpts.sessionParams;
+  // Parent layout with stack uses CSS grid; detect via class + style heuristics.
+  const style = parentEl.getAttribute("style") || "";
+  const isStack =
+    /grid-template-columns:\s*minmax/.test(style) || /display:\s*grid/.test(style);
+  if (!isStack) return { stackChild: false, stackZ: 0, sessionParams };
+  // Match renderHtml stackZIndex: reverseStack paints earlier children on top.
+  const reverse = /flex-direction:\s*column-reverse/.test(style);
+  const stackZ = reverse ? index + 1 : childCount - index;
+  return { stackChild: true, stackZ, sessionParams };
+}
+
+function paintTarget(live: Element): Element {
+  // Dual-bake instance wrapper: patch the visible state body.
+  if (live.classList.contains("pdl-instance")) {
+    return (
+      live.querySelector(":scope > .pdl-inst-state:not([hidden]) > [data-pdl-id]") ||
+      live.querySelector(":scope > .pdl-inst-state:not([hidden]) > *") ||
+      live
+    );
+  }
+  return live;
 }
 
 function reconcileFrame(
@@ -190,38 +339,128 @@ function reconcileFrame(
   next: BakedFrame,
   instCtx: InstanceRenderCtx | undefined,
   doc: Document,
+  opts: FrameRenderOpts,
+  prevInstCtx?: InstanceRenderCtx,
+  prevOpts?: FrameRenderOpts,
 ): void {
   const propsSame = deepEqual(prev.props ?? {}, next.props ?? {});
   const kwargsSame = deepEqual(prev.instanceKwargs ?? {}, next.instanceKwargs ?? {});
+  const kidsSame = deepEqual(prev.children ?? [], next.children ?? []);
 
-  if (prev.kind === "text" && next.kind === "text" && !prev.instanceOf && !next.instanceOf && kwargsSame) {
-    const prevCopy = { ...(prev.props ?? {}) };
-    const nextCopy = { ...(next.props ?? {}) };
-    const prevContent = prevCopy.content;
-    const nextContent = nextCopy.content;
-    delete prevCopy.content;
-    delete nextCopy.content;
-    if (deepEqual(prevCopy, nextCopy) && prevContent !== nextContent) {
-      patchTextContent(live, String(nextContent ?? ""));
+  const target = paintTarget(live);
+  let frameOpts = opts;
+  if (next.instanceOf && instCtx?.editableSessionDefaults?.[next.instanceOf]) {
+    frameOpts = {
+      ...opts,
+      sessionParams: {
+        ...instCtx.editableSessionDefaults[next.instanceOf],
+        ...(next.instanceKwargs ?? {}),
+      },
+    };
+  }
+  let prevFrameOpts = prevOpts ?? opts;
+  if (prev.instanceOf && (prevInstCtx ?? instCtx)?.editableSessionDefaults?.[prev.instanceOf]) {
+    const pCtx = prevInstCtx ?? instCtx;
+    prevFrameOpts = {
+      ...(prevOpts ?? opts),
+      sessionParams: {
+        ...pCtx!.editableSessionDefaults![prev.instanceOf],
+        ...(prev.instanceKwargs ?? {}),
+      },
+    };
+  }
+
+  const editableDefaultsSame = deepEqual(
+    prevInstCtx?.editableSessionDefaults ?? null,
+    instCtx?.editableSessionDefaults ?? null,
+  );
+
+  // Patch / remount this node when props, kwargs, or EditableText paint mode change.
+  // activatesOn on the type default leaves instance kwargs equal but flips input↔plain text.
+  if (!propsSame || !kwargsSame || !editableDefaultsSame) {
+    const result = patchFrameProps(
+      target,
+      prev,
+      next,
+      frameOpts,
+      instCtx,
+      prevInstCtx,
+      prevFrameOpts,
+    );
+    // Also keep wrapper kwargs/session in sync when dual-baked.
+    if (live.classList.contains("pdl-instance") && live !== target) {
+      if (next.instanceKwargs) {
+        live.setAttribute("data-pdl-instance-kwargs", JSON.stringify(next.instanceKwargs));
+      }
+      if (frameOpts.sessionParams) {
+        const raw = live.getAttribute("data-pdl-session-params");
+        let merged = { ...frameOpts.sessionParams };
+        if (raw) {
+          try {
+            const prevBag = JSON.parse(raw) as Record<string, unknown>;
+            const liveInput = (
+              live.matches?.("input.pdl-text--editable")
+                ? live
+                : live.querySelector("input.pdl-text--editable")
+            ) as HTMLInputElement | null;
+            const liveValue =
+              liveInput &&
+              typeof document !== "undefined" &&
+              document.activeElement === liveInput
+                ? liveInput.value
+                : null;
+            merged = mergeEditableSessionParams(frameOpts.sessionParams, prevBag, liveValue);
+          } catch {
+            /* keep merged */
+          }
+        }
+        live.setAttribute("data-pdl-session-params", JSON.stringify(merged));
+      }
+    } else if (
+      result === "patched" &&
+      frameOpts.sessionParams &&
+      live.hasAttribute("data-pdl-session-params")
+    ) {
+      // Bare <input> instance (no wrapper): refresh activatesOn in the session bag.
+      const raw = live.getAttribute("data-pdl-session-params");
+      let merged = { ...frameOpts.sessionParams };
+      if (raw) {
+        try {
+          const prevBag = JSON.parse(raw) as Record<string, unknown>;
+          merged = mergeEditableSessionParams(frameOpts.sessionParams, prevBag, null);
+        } catch {
+          /* keep */
+        }
+      }
+      live.setAttribute("data-pdl-session-params", JSON.stringify(merged));
+    }
+    if (result === "needsRemount") {
+      const html = renderFrameForReconcile(next, frameOpts, instCtx);
+      const fresh = htmlToElement(doc, html);
+      migrateSession(live, fresh);
+      live.replaceWith(fresh);
       return;
     }
   }
 
-  if (!propsSame || !kwargsSame) {
-    const html = renderFrameForReconcile(next, { stackChild: false, stackZ: 0 }, instCtx);
-    const fresh = htmlToElement(doc, html);
-    migrateSession(live, fresh);
-    live.replaceWith(fresh);
-    return;
-  }
-
   const prevKids = prev.children ?? [];
   const nextKids = next.children ?? [];
-  if (deepEqual(prevKids, nextKids)) return;
+  // IR kids equal — still recurse when type-default session paint may remount leaves
+  // (NoteEditor tree unchanged while NoteField.activatesOn flips).
+  if (kidsSame && editableDefaultsSame) return;
 
   const visibleState = live.classList.contains("pdl-instance")
     ? live.querySelector(":scope > .pdl-inst-state:not([hidden])")
     : null;
-  const target = visibleState ?? childrenContainer(live);
-  reconcileChildList(target, prevKids, nextKids, instCtx, doc);
+  const container = visibleState ?? childrenContainer(target);
+  reconcileChildList(
+    container,
+    prevKids,
+    nextKids,
+    instCtx,
+    doc,
+    frameOpts,
+    prevInstCtx,
+    prevFrameOpts,
+  );
 }

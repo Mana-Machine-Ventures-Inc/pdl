@@ -24,7 +24,17 @@ import {
   restorePreviewEphemerals,
   requestInteractiveRebind,
 } from "./preview-apply.js";
-import { reconcileBakedComponentIntoCanvas } from "@pdl/bakeReconcile.ts";
+import {
+  allowIrOnlyPreviewApply,
+  shouldInvalidateDualBakeOnSourceTick,
+} from "./dual-bake-policy.js";
+import {
+  bakedComponentTreesEqual,
+  changedEditableSessionTypes,
+  frameTreeNestsInstanceTypes,
+  reconcileBakedComponentIntoCanvas,
+} from "@pdl/bakeReconcile.ts";
+import { collectEditableSessionDefaults } from "@pdl/renderHtml.ts";
 
 /** Synthetic pack id for browser-only scratch (never mixed with disk fixture packs). */
 const SCRATCH_PACK_ID = "__scratch__";
@@ -376,7 +386,7 @@ function renderFixtureChips() {
       const owner = name || primaryComponent || component.value;
       setKvForComponent(owner, { ...examples[label] });
       renderFixtureChips();
-      scheduleDebouncedRender(0, { incremental: true });
+      scheduleDebouncedRender(0, { incremental: true, ownerOnly: true });
     });
     fixtureChips.append(b);
   }
@@ -413,7 +423,8 @@ function mountEditor() {
           if (update.docChanged) {
             files[activePath] = getEditorText();
             scheduleDraftSave();
-            scheduleDebouncedRender();
+            // Live preview: rebake canvas IR + reconcile deltas (not srcdoc remount).
+            scheduleDebouncedRender(undefined, { incremental: true });
           }
         }),
       ],
@@ -2195,13 +2206,20 @@ let previewDocumentLive = false;
 let lastBakedDesign = null;
 /** When true, next runRender tries identity apply instead of srcdoc remount. */
 let nextRenderIncremental = false;
+/**
+ * When true with incremental: bake only the param owner (knobs/emits/fixtures).
+ * Source/theme ticks use incremental without ownerOnly → rebake whole canvas IR,
+ * reconcile only changed components (avoids remounting siblings / reloading media).
+ */
+let nextRenderOwnerOnly = false;
 
 /**
  * @param {number} [delayMs]
- * @param {{ incremental?: boolean }} [opts]
+ * @param {{ incremental?: boolean, ownerOnly?: boolean }} [opts]
  */
 function scheduleDebouncedRender(delayMs = RENDER_DEBOUNCE_MS, opts = {}) {
   if (opts.incremental) nextRenderIncremental = true;
+  if (opts.ownerOnly) nextRenderOwnerOnly = true;
   if (renderDebounceTimer) {
     clearTimeout(renderDebounceTimer);
     renderDebounceTimer = null;
@@ -2217,43 +2235,71 @@ function scheduleDebouncedRender(delayMs = RENDER_DEBOUNCE_MS, opts = {}) {
 }
 
 /**
- * Param-driven updates: morph/reconcile into the live iframe. Source/theme/engine
- * changes still assign srcdoc (cold path).
+ * Merge a partial (dirty-only) bake into the live design SoT.
+ * @param {object | null} prev
+ * @param {object} patch
+ */
+function mergeBakedDesign(prev, patch) {
+  if (!prev?.components) return patch;
+  return {
+    ...prev,
+    ...patch,
+    components: {
+      ...prev.components,
+      ...(patch.components || {}),
+    },
+  };
+}
+
+/**
+ * Param-driven updates: IR reconcile into the live iframe (primary). HTML morph is
+ * fallback only. Source/theme/engine changes still assign srcdoc (cold path).
  * @param {object} data
  * @param {{ incremental: boolean }} opts
  * @returns {'incremental' | 'remount'}
  */
 function applyPreviewUpdate(data, opts) {
   const html = typeof data.html === "string" ? data.html : "";
+  const nextBaked = data.baked && typeof data.baked === "object" ? data.baked : null;
   const doc = frame.contentDocument;
   const wantIncremental =
     opts.incremental &&
     previewDocumentLive &&
     !!doc?.querySelector?.(".pdl-gallery") &&
-    html.length > 0;
+    (!!nextBaked?.components || html.length > 0);
 
   if (wantIncremental) {
     const ephem = capturePreviewEphemerals(doc);
-    const nextBaked = data.baked && typeof data.baked === "object" ? data.baked : null;
-    // Prefer HTML identity morph (keeps dual-bake chrome). Fall back to bake-IR reconcile.
-    let applied = applyPreviewHtml(doc, html);
-    let applyKind = applied ? "morph" : "";
-    if (!applied && nextBaked?.components && lastBakedDesign?.components) {
+    let applied = false;
+    let applyKind = "";
+    // Ideal path: bake IR → reconcile DOM (no HTML required).
+    // nextBaked may be a dirty-only patch (one component); merge into lastBakedDesign.
+    if (nextBaked?.components && lastBakedDesign?.components) {
       applied = tryIncrementalBakeReconcile(doc, lastBakedDesign, nextBaked);
       if (applied) applyKind = "ir";
     }
+    // Bridge: identity morph of rebaked HTML when IR cannot apply.
+    if (!applied && html.length > 0) {
+      applied = applyPreviewHtml(doc, html);
+      if (applied) applyKind = "morph";
+    }
     if (applied) {
-      if (nextBaked) lastBakedDesign = nextBaked;
+      if (nextBaked) lastBakedDesign = mergeBakedDesign(lastBakedDesign, nextBaked);
       restorePreviewEphemerals(doc, ephem);
+      // Rebind only when IR actually mutated (or morph). Equal-IR no-ops still ok.
       requestInteractiveRebind(frame);
-      // Stash for status line
       frame.dataset.pdlLastApply = applyKind;
       return "incremental";
     }
   }
 
+  // Cold remount requires HTML.
+  if (!html) {
+    return "remount";
+  }
+
   previewDocumentLive = false;
-  lastBakedDesign = data.baked && typeof data.baked === "object" ? data.baked : null;
+  lastBakedDesign = nextBaked;
   frame.srcdoc = html;
   frame.addEventListener(
     "load",
@@ -2266,6 +2312,8 @@ function applyPreviewUpdate(data, opts) {
 }
 
 /**
+ * Reconcile only components present in `nextBake` (dirty set). Unchanged siblings
+ * are left untouched. Equal IR per component is a DOM no-op.
  * @param {Document} doc
  * @param {object} prevBake
  * @param {object} nextBake
@@ -2274,19 +2322,70 @@ function tryIncrementalBakeReconcile(doc, prevBake, nextBake) {
   try {
     const names = Object.keys(nextBake.components || {});
     if (names.length === 0) return false;
-    for (const name of names) {
+    // Defaults from full live design + dirty patch (includes nested instanceOf types
+    // like NoteField inside NoteEditor — parent-only bake omits them from components).
+    const defaultsSource = mergeBakedDesign(prevBake, nextBake);
+    const editableSessionDefaults = collectEditableSessionDefaults(defaultsSource);
+    const prevEditableDefaults = collectEditableSessionDefaults(prevBake);
+    const changedEditableTypes = changedEditableSessionTypes(
+      prevEditableDefaults,
+      editableSessionDefaults,
+    );
+    // Also refresh parents that nest EditableText types whose defaults changed
+    // (e.g. NoteField.activatesOn) even when that parent isn't in the dirty bake set.
+    const liveNames = new Set(names);
+    if (changedEditableTypes.size > 0) {
+      for (const [name, comp] of Object.entries(defaultsSource.components || {})) {
+        if (
+          comp?.root &&
+          frameTreeNestsInstanceTypes(comp.root, changedEditableTypes)
+        ) {
+          liveNames.add(name);
+        }
+      }
+    }
+    for (const name of liveNames) {
       const section = doc.querySelector(
         `section.pdl-preview[data-pdl-component="${CSS.escape(name)}"]`,
       );
-      if (!section) return false;
+      if (!section) {
+        // Dirty patch may omit siblings; only require sections for names we intend to patch.
+        if (names.includes(name)) return false;
+        continue;
+      }
       const canvas =
         section.querySelector(".pdl-state:not([hidden]) .pdl-canvas") ||
         section.querySelector(".pdl-canvas");
-      if (!canvas) return false;
+      if (!canvas) {
+        if (names.includes(name)) return false;
+        continue;
+      }
       const prevComp = prevBake.components?.[name];
-      const nextComp = nextBake.components?.[name];
+      const nextComp = defaultsSource.components?.[name] || nextBake.components?.[name];
       if (!nextComp?.root) return false;
-      const ok = reconcileBakedComponentIntoCanvas(canvas, prevComp, nextComp, {});
+      const nestsChangedDefaults =
+        changedEditableTypes.size > 0 &&
+        frameTreeNestsInstanceTypes(nextComp.root, changedEditableTypes);
+      if (bakedComponentTreesEqual(prevComp, nextComp) && !nestsChangedDefaults) {
+        continue;
+      }
+      const bp = nextComp.bakedParams && typeof nextComp.bakedParams === "object"
+        ? { ...nextComp.bakedParams }
+        : undefined;
+      const prevBp =
+        prevComp?.bakedParams && typeof prevComp.bakedParams === "object"
+          ? { ...prevComp.bakedParams }
+          : undefined;
+      const ok = reconcileBakedComponentIntoCanvas(canvas, prevComp, nextComp, {
+        sessionParams: bp,
+        prevSessionParams: prevBp,
+        instCtx: {
+          editableSessionDefaults,
+        },
+        prevInstCtx: {
+          editableSessionDefaults: prevEditableDefaults,
+        },
+      });
       if (!ok) return false;
       const paramsEl = section.querySelector(".pdl-preview-params");
       if (paramsEl && nextComp.bakedParams) {
@@ -2468,7 +2567,9 @@ async function runAnalyze() {
 async function runRender({ debounced = false } = {}) {
   const id = ++latestRenderId;
   const incremental = nextRenderIncremental;
+  const ownerOnly = nextRenderOwnerOnly;
   nextRenderIncremental = false;
+  nextRenderOwnerOnly = false;
   showError("");
   updateRenderConsole([]);
   if (!debounced && renderDebounceTimer) {
@@ -2544,24 +2645,62 @@ async function runRender({ debounced = false } = {}) {
       const sourceFiles = await sourcesForWasmBake(entry);
       const { filesJson, entry: virtEntry } = virtualizeSources(sourceFiles, entry);
       const t0 = performance.now();
+      // Param/emit hot path: bake only the dirty owner. Source/theme: whole canvas IR.
+      const dirtyOnly =
+        incremental &&
+        ownerOnly &&
+        previewDocumentLive &&
+        !!lastBakedDesign?.components &&
+        names.length > 1 &&
+        !!(owner || canvasPrimary);
+      const bakeTarget = owner || canvasPrimary;
       const bakeJson =
-        names.length === 1
+        names.length === 1 || dirtyOnly
           ? wasm.bake_component_sources(
               filesJson,
               virtEntry,
-              owner || canvasPrimary,
+              bakeTarget,
               theme || undefined,
               JSON.stringify(kv),
             )
           : wasm.bake_system_sources(filesJson, virtEntry, theme || undefined);
       const bakeMs = Math.round(performance.now() - t0);
       const bake = JSON.parse(bakeJson);
-      if (names.length > 1 && bake.components) {
+      if (names.length > 1 && bake.components && !dirtyOnly) {
         const filtered = {};
         for (const n of names) {
           if (bake.components[n]) filtered[n] = bake.components[n];
         }
         bake.components = filtered;
+      }
+      // Hot path: bake IR in-browser → reconcile (skip HTML round-trip).
+      // Source/theme ticks with dual-bake chrome must fall through — rest IR often
+      // does not change when only a hover/press branch is edited, and IR never
+      // refreshes hidden `.pdl-inst-state` snapshots.
+      const liveDoc = frame.contentDocument;
+      const dualBakeRefresh = shouldInvalidateDualBakeOnSourceTick({
+        incremental,
+        ownerOnly,
+        doc: liveDoc,
+      });
+      if (
+        incremental &&
+        previewDocumentLive &&
+        lastBakedDesign?.components &&
+        allowIrOnlyPreviewApply({ incremental, ownerOnly, doc: liveDoc })
+      ) {
+        const mode = applyPreviewUpdate({ baked: bake, ok: true }, { incremental: true });
+        if (mode === "incremental") {
+          const workspaceWarn = unreachableModuleConsoleEntries();
+          if (workspaceWarn.length > 0) updateRenderConsole(workspaceWarn);
+          const applyBit = " · live apply";
+          setStatus(
+            workspaceWarn.length > 0
+              ? `Preview updated · wasm · bake ${bakeMs}ms${applyBit} · ${workspaceWarn.length} workspace warning(s)`
+              : `Preview updated · wasm · bake ${bakeMs}ms${applyBit}`,
+          );
+          return;
+        }
       }
       const res = await fetch("/api/render-from-bake", {
         method: "POST",
@@ -2569,6 +2708,10 @@ async function runRender({ debounced = false } = {}) {
         body: JSON.stringify({
           bake,
           component: names.length === 1 ? owner || canvasPrimary : undefined,
+          componentNames: names.length > 1 ? names : undefined,
+          // Same interactive host as Rust CLI — Edit/press/emits need catalogue decls.
+          interactiveHost: true,
+          ...getBodyBase(),
         }),
       });
       const data = await res.json();
@@ -2587,9 +2730,11 @@ async function runRender({ debounced = false } = {}) {
         setStatus("");
         return;
       }
-      // Client already holds bake IR; attach for IR reconcile fallback.
       if (!data.baked) data.baked = bake;
-      const mode = applyPreviewUpdate(data, { incremental });
+      // Dual-bake refresh must remount — incremental IR would no-op equal rest trees.
+      const mode = applyPreviewUpdate(data, {
+        incremental: dualBakeRefresh ? false : incremental,
+      });
       const workspaceWarn = unreachableModuleConsoleEntries();
       if (workspaceWarn.length > 0) updateRenderConsole(workspaceWarn);
       const applyBit = mode === "incremental" ? " · live apply" : "";
@@ -2601,6 +2746,13 @@ async function runRender({ debounced = false } = {}) {
       return;
     }
 
+    const liveDoc = frame.contentDocument;
+    const dualBakeRefresh = shouldInvalidateDualBakeOnSourceTick({
+      incremental,
+      ownerOnly,
+      doc: liveDoc,
+    });
+
     /** @type {Record<string, unknown>} */
     const body = {
       ...getBodyBase(),
@@ -2608,15 +2760,23 @@ async function runRender({ debounced = false } = {}) {
       interactiveHost: true,
       kv,
       componentSources: buildComponentSources(names),
+      // Hot path: bake IR only when iframe is live — except source/theme ticks that
+      // must rebuild dual-bake chrome HTML.
+      bakeOnly: incremental && previewDocumentLive && !dualBakeRefresh,
     };
 
     if (variantView === "grid" && (owner || canvasPrimary)) {
       body.mode = "component";
       body.component = owner || canvasPrimary;
       body.variantMatrix = true;
-    } else if (names.length === 1) {
+    } else if (
+      names.length === 1 ||
+      // Param/emit: bake only the dirty owner; merge + reconcile that section.
+      (body.bakeOnly && ownerOnly && (owner || canvasPrimary))
+    ) {
       body.mode = "component";
       body.component = owner || canvasPrimary;
+      body.kv = componentOverrides[owner || canvasPrimary] ?? kv;
     } else {
       body.mode = "system";
       body.componentNames = names;
@@ -2627,12 +2787,12 @@ async function runRender({ debounced = false } = {}) {
       if (owner) body.component = owner;
     }
 
-    const res = await fetch("/api/render", {
+    let res = await fetch("/api/render", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const data = await res.json();
+    let data = await res.json();
     if (id !== latestRenderId) return;
     if (!data.ok) {
       const errMsg = withUnknownComponentHint(data.error || "Render failed", bakeEntryPath());
@@ -2645,7 +2805,42 @@ async function runRender({ debounced = false } = {}) {
       setStatus("");
       return;
     }
-    const mode = applyPreviewUpdate(data, { incremental });
+    // Dual-bake refresh must remount — incremental IR leaves hidden chrome trees stale.
+    let mode = applyPreviewUpdate(data, {
+      incremental: dualBakeRefresh ? false : incremental,
+    });
+    // bakeOnly IR miss → cold remount with full HTML (restore full canvas bake).
+    if (mode === "remount" && body.bakeOnly && !data.html) {
+      body.bakeOnly = false;
+      if (names.length > 1 && variantView !== "grid") {
+        body.mode = "system";
+        body.componentNames = names;
+        if (Object.keys(componentOverrides).length > 0) {
+          body.componentOverrides = componentOverrides;
+        }
+        if (owner) body.component = owner;
+        body.kv = kv;
+      }
+      res = await fetch("/api/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      data = await res.json();
+      if (id !== latestRenderId) return;
+      if (!data.ok) {
+        const errMsg = withUnknownComponentHint(data.error || "Render failed", bakeEntryPath());
+        showError(errMsg);
+        updateRenderConsole([
+          { phase: "Bake or render (server)", message: errMsg },
+          ...unreachableModuleConsoleEntries(),
+        ]);
+        frame.removeAttribute("srcdoc");
+        setStatus("");
+        return;
+      }
+      mode = applyPreviewUpdate(data, { incremental: false });
+    }
     const failures = Array.isArray(data.renderFailures) ? data.renderFailures : [];
     const workspaceWarn = unreachableModuleConsoleEntries();
     const engLabel = data.engine ? ` · ${data.engine}` : "";
@@ -2777,7 +2972,8 @@ updateWorkspaceUi();
 
 themeInput.addEventListener("input", () => {
   scheduleDraftSave();
-  scheduleDebouncedRender();
+  // Theme can affect every canvas component — full IR rebake, reconcile deltas.
+  scheduleDebouncedRender(undefined, { incremental: true });
 });
 kvJson.addEventListener("input", () => {
   if (syncingKnobs) return;
@@ -2791,8 +2987,8 @@ kvJson.addEventListener("input", () => {
   }
   refreshControlsUi();
   scheduleDraftSave();
-  // Param knobs: hot path — live morph/reconcile (no srcdoc remount).
-  scheduleDebouncedRender(undefined, { incremental: true });
+  // Param knobs: dirty-owner bake + reconcile.
+  scheduleDebouncedRender(undefined, { incremental: true, ownerOnly: true });
 });
 entryPath.addEventListener("input", () => {
   scheduleDraftSave();
@@ -2843,7 +3039,7 @@ window.addEventListener("message", (ev) => {
       component.value = primaryComponent;
     }
     setKvForComponent(primaryComponent, /** @type {Record<string, unknown>} */ (data.kv));
-    scheduleDebouncedRender(0, { incremental: true });
+    scheduleDebouncedRender(0, { incremental: true, ownerOnly: true });
     return;
   }
   if (data.type === "pdl-interaction") {
@@ -2868,7 +3064,7 @@ window.addEventListener("message", (ev) => {
       // Rebake when emit capture changed parent SoT (or no local state-tree swap).
       // Param-only: identity-preserving live apply (no iframe srcdoc remount).
       if (data.previewHandled !== true && data.changed) {
-        scheduleDebouncedRender(0, { incremental: true });
+        scheduleDebouncedRender(0, { incremental: true, ownerOnly: true });
       }
     }
   }
