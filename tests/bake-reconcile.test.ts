@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  bakedComponentTreesEqual,
   frameReconcileKey,
   reconcileBakedComponentIntoCanvas,
 } from "../src/bakeReconcile.js";
@@ -122,6 +123,48 @@ describe("reconcileBakedComponentIntoCanvas NoteEditor-shaped", () => {
     expect(statusAfter).toBe(statusEl);
     expect(statusAfter.textContent?.trim()).toBe("Editing");
     expect(statusBefore).toBeTruthy();
+  });
+
+  it("skips DOM work when bake IR is equal", () => {
+    const root = layoutRoot("Root", [textFrame("Status", "Idle")]);
+    const canvas = mountCanvas(root);
+    const before = canvas.innerHTML;
+    const status = canvas.querySelector('[data-pdl-id="Status"]')!;
+    const comp: BakedComponentJson = {
+      name: "NoteEditor",
+      rootKind: "layout",
+      bakedParams: { editing: false },
+      root,
+    };
+    expect(bakedComponentTreesEqual(comp, { ...comp, root: structuredClone(root) })).toBe(true);
+    expect(reconcileBakedComponentIntoCanvas(canvas, comp, structuredClone(comp), {})).toBe(true);
+    expect(canvas.querySelector('[data-pdl-id="Status"]')).toBe(status);
+    expect(canvas.innerHTML).toBe(before);
+  });
+
+  it("leaves sibling canvas nodes alone when only one child list entry changes", () => {
+    const prevRoot = layoutRoot("Root", [
+      textFrame("A", "one"),
+      textFrame("B", "two"),
+    ]);
+    const nextRoot = layoutRoot("Root", [
+      textFrame("A", "one"),
+      textFrame("B", "changed"),
+    ]);
+    const canvas = mountCanvas(prevRoot);
+    const aBefore = canvas.querySelector('[data-pdl-id="A"]')!;
+    const bBefore = canvas.querySelector('[data-pdl-id="B"]')!;
+    expect(
+      reconcileBakedComponentIntoCanvas(
+        canvas,
+        { name: "X", rootKind: "layout", root: prevRoot },
+        { name: "X", rootKind: "layout", root: nextRoot },
+        {},
+      ),
+    ).toBe(true);
+    expect(canvas.querySelector('[data-pdl-id="A"]')).toBe(aBefore);
+    expect(canvas.querySelector('[data-pdl-id="B"]')).toBe(bBefore);
+    expect(bBefore.textContent?.trim()).toBe("changed");
   });
 
   it("keeps Input instance-let when isEditing kwargs change (patch, not remount)", () => {

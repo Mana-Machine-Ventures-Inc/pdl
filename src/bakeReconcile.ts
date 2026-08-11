@@ -3,7 +3,7 @@
  *
  * Diffs previous/next baked frame trees by stable identity and patches a live
  * container. Prop updates use patchFrameProps; mounts/replacements use
- * renderFrameForReconcile.
+ * renderFrameForReconcile. Equal IR is a no-op; child lists move in place.
  */
 import type { BakedComponentJson, BakedFrame } from "./bakeDesign.js";
 import {
@@ -29,6 +29,20 @@ function deepEqual(a: unknown, b: unknown): boolean {
     (k, i) =>
       k === bk[i] &&
       deepEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]),
+  );
+}
+
+/** True when preview IR for a component is unchanged (skip DOM). */
+export function bakedComponentTreesEqual(
+  a: BakedComponentJson | null | undefined,
+  b: BakedComponentJson | null | undefined,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    deepEqual(a.root, b.root) &&
+    deepEqual(a.bakedParams ?? {}, b.bakedParams ?? {}) &&
+    a.rootKind === b.rootKind
   );
 }
 
@@ -120,6 +134,7 @@ function toInstanceRenderCtx(
 
 /**
  * Reconcile a baked component into an existing `.pdl-canvas` element.
+ * No-op (returns true) when prev/next IR are equal.
  */
 export function reconcileBakedComponentIntoCanvas(
   canvasEl: Element,
@@ -130,6 +145,8 @@ export function reconcileBakedComponentIntoCanvas(
   const doc = canvasEl.ownerDocument;
   if (!doc) return false;
   try {
+    if (bakedComponentTreesEqual(prev, next)) return true;
+
     const instCtx = toInstanceRenderCtx(opts);
     const rootOpts: FrameRenderOpts = {
       stackChild: false,
@@ -150,6 +167,10 @@ export function reconcileBakedComponentIntoCanvas(
   }
 }
 
+/**
+ * Identity-preserving child reconcile: patch/move/insert/remove in place.
+ * Avoids clear+reappend when the ordered node list is already correct.
+ */
 function reconcileChildList(
   parentEl: Element,
   prevKids: BakedFrame[],
@@ -159,7 +180,8 @@ function reconcileChildList(
   parentOpts: FrameRenderOpts,
 ): void {
   const prevByKey = new Map(prevKids.map((f) => [frameReconcileKey(f), f]));
-  const result: Element[] = [];
+  /** @type {Element[]} */
+  const desired: Element[] = [];
   const used = new Set<Element>();
 
   for (let i = 0; i < nextKids.length; i++) {
@@ -180,22 +202,35 @@ function reconcileChildList(
       used.add(live);
       reconcileFrame(live, prev, next, instCtx, doc, childOpts);
       const current = findChildByKey(parentEl, key);
-      if (current) result.push(current);
-      else if (live.isConnected) result.push(live);
+      if (current) desired.push(current);
+      else if (live.isConnected) desired.push(live);
       else {
         const html = renderFrameForReconcile(next, childOpts, instCtx);
-        result.push(htmlToElement(doc, html));
+        desired.push(htmlToElement(doc, html));
       }
     } else {
       const html = renderFrameForReconcile(next, childOpts, instCtx);
       const fresh = htmlToElement(doc, html);
       if (live) migrateSession(live, fresh);
-      result.push(fresh);
+      desired.push(fresh);
     }
   }
 
-  while (parentEl.firstChild) parentEl.removeChild(parentEl.firstChild);
-  for (const node of result) parentEl.appendChild(node);
+  applyChildOrder(parentEl, desired);
+}
+
+/** Remove leftovers and move nodes into `desired` order with minimal mutations. */
+function applyChildOrder(parentEl: Element, desired: Element[]): void {
+  const want = new Set(desired);
+  for (const ch of Array.from(parentEl.children)) {
+    if (!want.has(ch)) parentEl.removeChild(ch);
+  }
+  for (let i = 0; i < desired.length; i++) {
+    const node = desired[i]!;
+    if (parentEl.children[i] !== node) {
+      parentEl.insertBefore(node, parentEl.children[i] || null);
+    }
+  }
 }
 
 /** Best-effort stack z from parent direction attr/style; default non-stack. */

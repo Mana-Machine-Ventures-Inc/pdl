@@ -24,7 +24,10 @@ import {
   restorePreviewEphemerals,
   requestInteractiveRebind,
 } from "./preview-apply.js";
-import { reconcileBakedComponentIntoCanvas } from "@pdl/bakeReconcile.ts";
+import {
+  bakedComponentTreesEqual,
+  reconcileBakedComponentIntoCanvas,
+} from "@pdl/bakeReconcile.ts";
 
 /** Synthetic pack id for browser-only scratch (never mixed with disk fixture packs). */
 const SCRATCH_PACK_ID = "__scratch__";
@@ -2217,6 +2220,23 @@ function scheduleDebouncedRender(delayMs = RENDER_DEBOUNCE_MS, opts = {}) {
 }
 
 /**
+ * Merge a partial (dirty-only) bake into the live design SoT.
+ * @param {object | null} prev
+ * @param {object} patch
+ */
+function mergeBakedDesign(prev, patch) {
+  if (!prev?.components) return patch;
+  return {
+    ...prev,
+    ...patch,
+    components: {
+      ...prev.components,
+      ...(patch.components || {}),
+    },
+  };
+}
+
+/**
  * Param-driven updates: IR reconcile into the live iframe (primary). HTML morph is
  * fallback only. Source/theme/engine changes still assign srcdoc (cold path).
  * @param {object} data
@@ -2238,6 +2258,7 @@ function applyPreviewUpdate(data, opts) {
     let applied = false;
     let applyKind = "";
     // Ideal path: bake IR → reconcile DOM (no HTML required).
+    // nextBaked may be a dirty-only patch (one component); merge into lastBakedDesign.
     if (nextBaked?.components && lastBakedDesign?.components) {
       applied = tryIncrementalBakeReconcile(doc, lastBakedDesign, nextBaked);
       if (applied) applyKind = "ir";
@@ -2248,8 +2269,9 @@ function applyPreviewUpdate(data, opts) {
       if (applied) applyKind = "morph";
     }
     if (applied) {
-      if (nextBaked) lastBakedDesign = nextBaked;
+      if (nextBaked) lastBakedDesign = mergeBakedDesign(lastBakedDesign, nextBaked);
       restorePreviewEphemerals(doc, ephem);
+      // Rebind only when IR actually mutated (or morph). Equal-IR no-ops still ok.
       requestInteractiveRebind(frame);
       frame.dataset.pdlLastApply = applyKind;
       return "incremental";
@@ -2275,6 +2297,8 @@ function applyPreviewUpdate(data, opts) {
 }
 
 /**
+ * Reconcile only components present in `nextBake` (dirty set). Unchanged siblings
+ * are left untouched. Equal IR per component is a DOM no-op.
  * @param {Document} doc
  * @param {object} prevBake
  * @param {object} nextBake
@@ -2285,7 +2309,9 @@ function tryIncrementalBakeReconcile(doc, prevBake, nextBake) {
     if (names.length === 0) return false;
     /** @type {Record<string, Record<string, unknown>>} */
     const editableSessionDefaults = {};
-    for (const [name, comp] of Object.entries(nextBake.components || {})) {
+    // Defaults from full live design + dirty patch (nested EditableText types).
+    const defaultsSource = mergeBakedDesign(prevBake, nextBake);
+    for (const [name, comp] of Object.entries(defaultsSource.components || {})) {
       const bp = /** @type {{ bakedParams?: Record<string, unknown> }} */ (comp).bakedParams ?? {};
       if (
         Object.prototype.hasOwnProperty.call(bp, "isEditing") ||
@@ -2309,6 +2335,9 @@ function tryIncrementalBakeReconcile(doc, prevBake, nextBake) {
       const prevComp = prevBake.components?.[name];
       const nextComp = nextBake.components?.[name];
       if (!nextComp?.root) return false;
+      if (bakedComponentTreesEqual(prevComp, nextComp)) {
+        continue;
+      }
       const bp = nextComp.bakedParams && typeof nextComp.bakedParams === "object"
         ? { ...nextComp.bakedParams }
         : undefined;
@@ -2575,19 +2604,27 @@ async function runRender({ debounced = false } = {}) {
       const sourceFiles = await sourcesForWasmBake(entry);
       const { filesJson, entry: virtEntry } = virtualizeSources(sourceFiles, entry);
       const t0 = performance.now();
+      // Hot path + multi-canvas: bake only the dirty owner (minimize IR + DOM).
+      const dirtyOnly =
+        incremental &&
+        previewDocumentLive &&
+        !!lastBakedDesign?.components &&
+        names.length > 1 &&
+        !!(owner || canvasPrimary);
+      const bakeTarget = owner || canvasPrimary;
       const bakeJson =
-        names.length === 1
+        names.length === 1 || dirtyOnly
           ? wasm.bake_component_sources(
               filesJson,
               virtEntry,
-              owner || canvasPrimary,
+              bakeTarget,
               theme || undefined,
               JSON.stringify(kv),
             )
           : wasm.bake_system_sources(filesJson, virtEntry, theme || undefined);
       const bakeMs = Math.round(performance.now() - t0);
       const bake = JSON.parse(bakeJson);
-      if (names.length > 1 && bake.components) {
+      if (names.length > 1 && bake.components && !dirtyOnly) {
         const filtered = {};
         for (const n of names) {
           if (bake.components[n]) filtered[n] = bake.components[n];
@@ -2661,9 +2698,14 @@ async function runRender({ debounced = false } = {}) {
       body.mode = "component";
       body.component = owner || canvasPrimary;
       body.variantMatrix = true;
-    } else if (names.length === 1) {
+    } else if (
+      names.length === 1 ||
+      // Hot path: bake only the dirty owner; merge + reconcile that section.
+      (body.bakeOnly && (owner || canvasPrimary))
+    ) {
       body.mode = "component";
       body.component = owner || canvasPrimary;
+      body.kv = componentOverrides[owner || canvasPrimary] ?? kv;
     } else {
       body.mode = "system";
       body.componentNames = names;
@@ -2693,9 +2735,18 @@ async function runRender({ debounced = false } = {}) {
       return;
     }
     let mode = applyPreviewUpdate(data, { incremental });
-    // bakeOnly IR miss → cold remount with full HTML.
+    // bakeOnly IR miss → cold remount with full HTML (restore full canvas bake).
     if (mode === "remount" && body.bakeOnly && !data.html) {
       body.bakeOnly = false;
+      if (names.length > 1 && variantView !== "grid") {
+        body.mode = "system";
+        body.componentNames = names;
+        if (Object.keys(componentOverrides).length > 0) {
+          body.componentOverrides = componentOverrides;
+        }
+        if (owner) body.component = owner;
+        body.kv = kv;
+      }
       res = await fetch("/api/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
