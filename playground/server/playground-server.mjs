@@ -161,9 +161,41 @@ function handleWriteFile(body) {
     throw new Error("Playground writes are limited to test-fixtures/pdl/");
   }
   if (extname(abs) !== ".pdl") throw new Error("Only .pdl files can be written");
+  // Optimistic concurrency: refuse to clobber external / agent edits.
+  if (typeof body.expectedBaseline === "string") {
+    const onDisk = existsSync(abs) ? readFileSync(abs, "utf8") : "";
+    if (onDisk !== body.expectedBaseline) {
+      return {
+        ok: false,
+        conflict: true,
+        path: relative(REPO_ROOT, abs).replace(/\\/g, "/"),
+        error: `Disk changed for ${rel} — Reload from disk (refusing to overwrite)`,
+      };
+    }
+  }
   mkdirSync(dirname(abs), { recursive: true });
   writeFileSync(abs, content, "utf8");
   return { ok: true, path: relative(REPO_ROOT, abs).replace(/\\/g, "/") };
+}
+
+function handleReadFile(body) {
+  const rel = typeof body?.path === "string" ? body.path.trim() : "";
+  if (!rel) throw new Error('Expected "path"');
+  assertSafeRelativePath(rel);
+  const abs = resolveRepoPath(REPO_ROOT, rel);
+  assertUnderRepo(abs);
+  const underFixtures = relative(REPO_ROOT, abs).replace(/\\/g, "/").startsWith("test-fixtures/pdl/");
+  if (!underFixtures) {
+    throw new Error("Playground reads via /api/read are limited to test-fixtures/pdl/");
+  }
+  if (!existsSync(abs)) {
+    return { ok: false, error: `File not found: ${rel}` };
+  }
+  return {
+    ok: true,
+    path: relative(REPO_ROOT, abs).replace(/\\/g, "/"),
+    content: readFileSync(abs, "utf8"),
+  };
 }
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -1348,6 +1380,19 @@ const server = createServer(async (req, res) => {
     try {
       const body = await readJsonBody(req);
       const out = handleWriteFile(body);
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify(out));
+    } catch (e) {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ ok: false, error: formatErr(e) }));
+    }
+    return;
+  }
+
+  if (req.method === "POST" && pathname === "/api/read") {
+    try {
+      const body = await readJsonBody(req);
+      const out = handleReadFile(body);
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
       res.end(JSON.stringify(out));
     } catch (e) {

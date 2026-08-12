@@ -24,6 +24,9 @@ import type {
   RulesDecl,
   RulesIfChain,
   RulesStatement,
+  SampleEntryDecl,
+  SampleFieldDecl,
+  SamplesDecl,
   SemanticDecl,
   ThemeDecl,
   TopLevelDecl,
@@ -116,6 +119,8 @@ export class Parser {
         throw this.errInteractionRemoved();
       case "fixtures":
         return this.parseFixtures();
+      case "samples":
+        return this.parseSamples();
       case "usage":
         return this.parseUsage();
       case "rules":
@@ -461,6 +466,60 @@ export class Parser {
     }
     this.consume("}");
     return { kind: "fixtures", component, examples };
+  }
+
+  /** `samples Tracks { pop_results { tracks: [TrackRow] = […] } … }` */
+  private parseSamples(): SamplesDecl {
+    this.consume("samples");
+    const name = this.consume("IDENT").value;
+    this.consume("{");
+    const entries: SampleEntryDecl[] = [];
+    const seenEntries = new Set<string>();
+    while (!this.is("}")) {
+      const entry = this.parseSampleEntry();
+      if (seenEntries.has(entry.name)) {
+        throw this.err(`Duplicate sample entry \`${entry.name}\` in bank \`${name}\``);
+      }
+      seenEntries.add(entry.name);
+      entries.push(entry);
+    }
+    this.consume("}");
+    return { kind: "samples", name, entries };
+  }
+
+  private parseSampleEntry(): SampleEntryDecl {
+    const name = this.consume("IDENT").value;
+    this.consume("{");
+    const fields: SampleFieldDecl[] = [];
+    const seenFields = new Set<string>();
+    while (!this.is("}")) {
+      const field = this.parseSampleField();
+      if (seenFields.has(field.name)) {
+        throw this.err(`Duplicate sample field \`${field.name}\` in entry \`${name}\``);
+      }
+      seenFields.add(field.name);
+      fields.push(field);
+    }
+    this.consume("}");
+    return { name, fields };
+  }
+
+  private parseSampleField(): SampleFieldDecl {
+    const name = this.consume("IDENT").value;
+    this.consume(":");
+    let isArray = false;
+    let typeName: string;
+    if (this.is("[")) {
+      this.advance();
+      typeName = this.consumeParamTypeName();
+      this.consume("]");
+      isArray = true;
+    } else {
+      typeName = this.consumeParamTypeName();
+    }
+    this.consume("=");
+    const value = this.parseValueExpr();
+    return { name, typeName, ...(isArray ? { isArray: true } : {}), value };
   }
 
   private parseUsage(): UsageDecl {
@@ -1887,10 +1946,10 @@ export class Parser {
     return args;
   }
 
-  /** `children = […]` or bare `children = chips` (§4b / §4e sugar). */
+  /** `children = […]` or bare `children = chips` / `Tracks.focus.tracks` (§4b / §4e sugar). */
   private parseChildrenRhs(): ChildEntry[] {
     if (this.is("IDENT") && this.peekAheadKind(1) !== "(") {
-      const id = this.consume("IDENT").value;
+      const id = this.parseQualifiedName();
       const opacity = this.parseOptionalChildOpacity();
       return [{ kind: "frameRef", id, ...(opacity ? { opacity } : {}) }];
     }
@@ -1955,9 +2014,9 @@ export class Parser {
           ...(opacity ? { opacity } : {}),
         };
       }
-      this.advance();
+      const frameId = this.parseQualifiedName();
       const opacity = this.parseOptionalChildOpacity();
-      return { kind: "frameRef", id, ...(opacity ? { opacity } : {}) };
+      return { kind: "frameRef", id: frameId, ...(opacity ? { opacity } : {}) };
     }
     throw this.err("Invalid child entry");
   }

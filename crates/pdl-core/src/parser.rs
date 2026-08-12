@@ -118,6 +118,7 @@ impl Parser {
             TokenKind::Interaction => Err(self.err_interaction_removed()),
             TokenKind::Emits => Ok(TopLevelDecl::Emits(self.parse_emits_decl()?)),
             TokenKind::Fixtures => Ok(TopLevelDecl::Fixtures(self.parse_fixtures()?)),
+            TokenKind::Samples => Ok(TopLevelDecl::Samples(self.parse_samples()?)),
             TokenKind::Usage => Ok(TopLevelDecl::Usage(self.parse_usage()?)),
             TokenKind::Rules => Ok(TopLevelDecl::Rules(self.parse_rules()?)),
             TokenKind::Extend => Ok(TopLevelDecl::Extend(self.parse_extend()?)),
@@ -515,6 +516,60 @@ impl Parser {
         }
         self.consume(TokenKind::RBrace)?;
         Ok(FixtureExampleDecl { label, bindings })
+    }
+
+    /// `samples Tracks { pop_results { tracks: [TrackRow] = […] } … }`
+    fn parse_samples(&mut self) -> Result<crate::ast::SamplesDecl, PdlError> {
+        self.consume(TokenKind::Samples)?;
+        let name = self.consume(TokenKind::Ident)?.value;
+        self.consume(TokenKind::LBrace)?;
+        let mut entries: Vec<crate::ast::SampleEntryDecl> = Vec::new();
+        let mut seen_entries = std::collections::HashSet::new();
+        while !self.is(TokenKind::RBrace) {
+            let entry = self.parse_sample_entry()?;
+            if !seen_entries.insert(entry.name.clone()) {
+                return Err(self.err(format!(
+                    "Duplicate sample entry `{}` in bank `{name}`",
+                    entry.name
+                )));
+            }
+            entries.push(entry);
+        }
+        self.consume(TokenKind::RBrace)?;
+        Ok(crate::ast::SamplesDecl { name, entries })
+    }
+
+    fn parse_sample_entry(&mut self) -> Result<crate::ast::SampleEntryDecl, PdlError> {
+        let name = self.consume(TokenKind::Ident)?.value;
+        self.consume(TokenKind::LBrace)?;
+        let mut fields: Vec<crate::ast::SampleFieldDecl> = Vec::new();
+        let mut seen_fields = std::collections::HashSet::new();
+        while !self.is(TokenKind::RBrace) {
+            let field = self.parse_sample_field()?;
+            if !seen_fields.insert(field.name.clone()) {
+                return Err(self.err(format!(
+                    "Duplicate sample field `{}` in entry `{name}`",
+                    field.name
+                )));
+            }
+            fields.push(field);
+        }
+        self.consume(TokenKind::RBrace)?;
+        Ok(crate::ast::SampleEntryDecl { name, fields })
+    }
+
+    fn parse_sample_field(&mut self) -> Result<crate::ast::SampleFieldDecl, PdlError> {
+        let name = self.consume(TokenKind::Ident)?.value;
+        self.consume(TokenKind::Colon)?;
+        let (type_name, is_array) = self.parse_param_type()?;
+        self.consume(TokenKind::Eq)?;
+        let value = self.parse_value_expr()?;
+        Ok(crate::ast::SampleFieldDecl {
+            name,
+            type_name,
+            is_array,
+            value,
+        })
     }
 
     fn parse_usage(&mut self) -> Result<UsageDecl, PdlError> {
@@ -2581,10 +2636,10 @@ impl Parser {
         Ok(args)
     }
 
-    /// `children = […]` or bare `children = chips` (§4b / §4e sugar).
+    /// `children = […]` or bare `children = chips` / `children = Tracks.focus.tracks`.
     fn parse_children_rhs(&mut self) -> Result<Vec<ChildEntry>, PdlError> {
         if self.is(TokenKind::Ident) && self.peek_ahead_kind(1) != TokenKind::LParen {
-            let id = self.consume(TokenKind::Ident)?.value;
+            let id = self.parse_qualified_name()?;
             let opacity = self.parse_optional_child_opacity()?;
             return Ok(vec![ChildEntry::FrameRef { id, opacity }]);
         }
@@ -2656,7 +2711,8 @@ impl Parser {
                     opacity,
                 });
             }
-            self.advance();
+            // Frame id, list param, or sample path (`Tracks.focus.tracks`).
+            let id = self.parse_qualified_name()?;
             let opacity = self.parse_optional_child_opacity()?;
             return Ok(ChildEntry::FrameRef { id, opacity });
         }

@@ -188,6 +188,25 @@ export type FixtureBinding = { name: string; value: ValueExpr };
 export type FixtureExampleDecl = { label: string; bindings: FixtureBinding[] };
 export type FixturesDecl = { kind: "fixtures"; component: string; examples: FixtureExampleDecl[] };
 
+export type SampleFieldDecl = {
+  name: string;
+  typeName: string;
+  isArray?: boolean;
+  value: ValueExpr;
+};
+
+export type SampleEntryDecl = {
+  name: string;
+  fields: SampleFieldDecl[];
+};
+
+/** Top-level `samples Tracks { … }` typed data bank. */
+export type SamplesDecl = {
+  kind: "samples";
+  name: string;
+  entries: SampleEntryDecl[];
+};
+
 export type RulePathStep =
   | { kind: "nav"; axis: "self" | "parent" | "ancestors" | "descendants" | "siblings" | "children" }
   | { kind: "childrenPick"; index: "first" | "last" | number };
@@ -272,6 +291,7 @@ export type TopLevelDecl =
   | ExposeDecl
   | UsageDecl
   | FixturesDecl
+  | SamplesDecl
   | RulesDecl
   | InteractionDecl
   | ExtendDecl;

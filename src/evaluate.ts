@@ -11,8 +11,13 @@ import {
 } from "./assetRefs.js";
 import type { DesignDefinition } from "./designModel.js";
 import { PdlError } from "./errors.js";
+import {
+  isKnownSamplePath,
+  lookupSampleField,
+  splitSamplePath,
+} from "./samples.js";
 
-export type ParamEvalMeta = Map<string, { typeName: string }>;
+export type ParamEvalMeta = Map<string, { typeName: string; isArray?: boolean }>;
 
 export type EvalOptions = {
   /** Resolved token map (may be partial during bootstrap). */
@@ -94,6 +99,20 @@ export function evaluateCondition(c: ConditionExpr, paramValues: Record<string, 
       return false;
     }
   }
+}
+
+function evaluateSamplePath(name: string, opts: EvalOptions, visiting: Set<string>): unknown {
+  const field = lookupSampleField(opts.design, name);
+  const cycleKey = `sample:${name}`;
+  if (visiting.has(cycleKey)) {
+    throw new PdlError("PDL-E041", `Circular sample reference \`${name}\``, {
+      path: opts.design.entryPath,
+    });
+  }
+  visiting.add(cycleKey);
+  const out = evaluateValue(field.value, opts);
+  visiting.delete(cycleKey);
+  return out;
 }
 
 export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
@@ -179,6 +198,10 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
         // Keep only a reference on resolved frames; expanded defaults live on the `typeStyle`
         // declaration. PDL may still set additional text props on the same frame to override.
         return { __typeStyle: name };
+      }
+      // Typed sample path: `Tracks.focus.tracks` (after tokens — banks are PascalCase symbols).
+      if (splitSamplePath(name) && isKnownSamplePath(opts.design, name)) {
+        return evaluateSamplePath(name, opts, visiting);
       }
       throw new PdlError("PDL-E007", `Unresolved identifier ${name}`);
     }

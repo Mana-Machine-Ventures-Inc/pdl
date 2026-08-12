@@ -27,6 +27,7 @@ function emptyDesign(): DesignDefinition {
     expose: new Map(),
     usage: new Map(),
     fixtures: new Map(),
+    samples: new Map(),
     rules: new Map(),
     interactions: new Map(),
   };

@@ -6,6 +6,7 @@ import type { ParamEvalMeta } from "./evaluate.js";
 import { evaluateCondition, evaluateValue, type EvalOptions } from "./evaluate.js";
 import { coerceIconValue, coerceMediaSourceValue } from "./assetRefs.js";
 import { coerceFramePropValue } from "./frameNumericSugar.js";
+import { isKnownSamplePath, lookupSampleField } from "./samples.js";
 
 export type CatalFrame = {
   id: string;
@@ -171,8 +172,145 @@ export function resolveDefaultParamValues(
 
 function buildParamMeta(c: ComponentDecl): ParamEvalMeta {
   const m: ParamEvalMeta = new Map();
-  for (const p of c.params) m.set(p.name, { typeName: p.typeName });
+  for (const p of c.params) m.set(p.name, { typeName: p.typeName, isArray: p.isArray });
   return m;
+}
+
+/** Slot / ForEach overlays collected while walking a component body (applied at mount). */
+type SlotResolveCtx = {
+  slotOverrides: Map<string, Map<string, unknown>>;
+  foreachBodies: Map<string, FrameBodyItem[]>;
+};
+
+function emptySlotCtx(): SlotResolveCtx {
+  return { slotOverrides: new Map(), foreachBodies: new Map() };
+}
+
+function componentParamNames(design: DesignDefinition, component: string): Set<string> {
+  const c = design.components.get(component);
+  return new Set(c?.params.map((p) => p.name) ?? []);
+}
+
+function splitInstanceOverrides(
+  design: DesignDefinition,
+  component: string,
+  overrides: Map<string, unknown>,
+): { kwargs: Record<string, unknown>; frameProps: Record<string, unknown> } {
+  const paramNames = componentParamNames(design, component);
+  const kwargs: Record<string, unknown> = {};
+  const frameProps: Record<string, unknown> = {};
+  for (const [k, v] of overrides) {
+    if (paramNames.has(k)) kwargs[k] = v;
+    else frameProps[k] = coerceFramePropValue(k, v, design.entryPath);
+  }
+  return { kwargs, frameProps };
+}
+
+function applyRootFrameOverrides(frame: CatalFrame, props: Record<string, unknown>, entryPath: string): void {
+  for (const [k, v] of Object.entries(props)) {
+    assignFrameProp(frame.props, k, v, entryPath);
+  }
+}
+
+function evalForeachOverlay(
+  body: FrameBodyItem[],
+  bindScope: Record<string, unknown>,
+  ctx: BuildCtx,
+  overlay: Map<string, unknown>,
+): void {
+  for (const item of body) {
+    if (item.kind === "frameProp") {
+      overlay.set(
+        item.name,
+        evaluateValue(item.value, {
+          ...baseEvalOpts(ctx),
+          paramValues: bindScope,
+        }),
+      );
+    } else if (item.kind === "if") {
+      const chosen = pickIfBody(item.chain, bindScope);
+      evalForeachOverlay(chosen, bindScope, ctx, overlay);
+    } else {
+      throw new PdlError(
+        "PDL-E001",
+        `Internal: unexpected item in ForEach body during resolve: ${item.kind}`,
+        { path: ctx.design.entryPath },
+      );
+    }
+  }
+}
+
+function asInstanceArray(val: unknown): unknown[] {
+  if (Array.isArray(val)) return val;
+  return [val];
+}
+
+function expandSlotItems(
+  parentId: string,
+  slotName: string,
+  items: unknown[],
+  design: DesignDefinition,
+  tokens: Map<string, unknown>,
+  paramValues: Record<string, unknown>,
+  slotCtx: SlotResolveCtx,
+  visitingInst: Set<string>,
+  resolveOptions: { useStringPlaceholders?: boolean; catalogueTokenRefs?: boolean },
+  si: { n: number },
+  children: CatalFrame[],
+  ctx: BuildCtx,
+): void {
+  const foreachBody = slotCtx.foreachBodies.get(slotName);
+  const slotDotted = slotCtx.slotOverrides.get(slotName);
+
+  for (const item of items) {
+    if (item === null || typeof item !== "object" || Array.isArray(item)) {
+      throw new PdlError("PDL-E010", "Slot array items must be instance objects `{ component, params }`", {
+        path: design.entryPath,
+      });
+    }
+    const obj = item as Record<string, unknown>;
+    const component = obj.component;
+    if (typeof component !== "string") {
+      throw new PdlError("PDL-E010", "Slot instance missing `component`", { path: design.entryPath });
+    }
+    let baseParams: Record<string, unknown> = {};
+    if (obj.params !== undefined) {
+      if (obj.params === null || typeof obj.params !== "object" || Array.isArray(obj.params)) {
+        throw new PdlError("PDL-E010", "Slot instance `params` must be an object", { path: design.entryPath });
+      }
+      baseParams = { ...(obj.params as Record<string, unknown>) };
+    }
+
+    const overlay = new Map<string, unknown>();
+    if (foreachBody) {
+      const bindScope = { ...paramValues, ...baseParams };
+      evalForeachOverlay(foreachBody, bindScope, ctx, overlay);
+    }
+    if (slotDotted) {
+      for (const [k, v] of slotDotted) overlay.set(k, v);
+    }
+
+    const { kwargs: extraKwargs, frameProps } = splitInstanceOverrides(
+      design,
+      component,
+      overlay,
+    );
+    baseParams = { ...baseParams, ...extraKwargs };
+
+    const key = `${parentId}>${component}`;
+    if (visitingInst.has(key)) {
+      throw new PdlError("PDL-E004", `Recursive component instance ${component}`);
+    }
+    visitingInst.add(key);
+    const sub = resolveComponentTree(design, component, tokens, baseParams, resolveOptions);
+    visitingInst.delete(key);
+    sub.id = `${parentId}_${component}_${si.n++}`;
+    sub.instanceOf = component;
+    sub.instanceKwargs = { ...baseParams };
+    applyRootFrameOverrides(sub, frameProps, design.entryPath);
+    if (foreachBody) sub.foreachList = slotName;
+    children.push(sub);
+  }
 }
 
 function ensureFrame(frames: Map<string, MutableFrame>, id: string, kind: string): MutableFrame {
@@ -429,7 +567,20 @@ export function resolveComponentTree(
   for (const mf of frames.values()) {
     normalizeAspectBoxProps(mf.props, design.entryPath);
   }
-  return materialize("Root", frames, design, tokens, new Set(), options);
+  const slotCtx = emptySlotCtx();
+  const visitingInst = new Set<string>();
+  return materialize(
+    "Root",
+    frames,
+    design,
+    tokens,
+    paramValues,
+    paramMeta,
+    slotCtx,
+    ctx,
+    visitingInst,
+    options,
+  );
 }
 
 function isResolvedAspectSizing(v: unknown): boolean {
@@ -517,23 +668,116 @@ function materialize(
   frames: Map<string, MutableFrame>,
   design: DesignDefinition,
   tokens: Map<string, unknown>,
+  paramValues: Record<string, unknown>,
+  paramMeta: ParamEvalMeta,
+  slotCtx: SlotResolveCtx,
+  ctx: BuildCtx,
   visitingInst: Set<string>,
-  resolveOptions: { useStringPlaceholders?: boolean },
+  resolveOptions: { useStringPlaceholders?: boolean; catalogueTokenRefs?: boolean },
 ): CatalFrame {
   const mf = frames.get(id);
   if (!mf) {
     throw new PdlError("PDL-E001", `Missing frame ${id}`);
   }
   const children: CatalFrame[] = [];
-  let si = 0;
+  const si = { n: 0 };
   for (const ch of mf.childEntries) {
     if (ch.kind === "spacer") {
-      children.push({ id: `${id}_spacer_${si++}`, kind: "spacer", props: {}, children: [] });
+      children.push({ id: `${id}_spacer_${si.n++}`, kind: "spacer", props: {}, children: [] });
       continue;
     }
     if (ch.kind === "frameRef") {
-      children.push(materialize(ch.id, frames, design, tokens, visitingInst, resolveOptions));
-      continue;
+      const cid = ch.id;
+      if (frames.has(cid)) {
+        children.push(
+          materialize(
+            cid,
+            frames,
+            design,
+            tokens,
+            paramValues,
+            paramMeta,
+            slotCtx,
+            ctx,
+            visitingInst,
+            resolveOptions,
+          ),
+        );
+        continue;
+      }
+      if (paramMeta.has(cid)) {
+        const meta = paramMeta.get(cid)!;
+        const val = paramValues[cid];
+        if (val === undefined) {
+          throw new PdlError("PDL-E007", `Missing value for slot param \`${cid}\``, {
+            path: design.entryPath,
+          });
+        }
+        const items = meta.isArray
+          ? (Array.isArray(val)
+              ? val
+              : (() => {
+                  throw new PdlError("PDL-E010", `Array slot param \`${cid}\` must evaluate to an array`, {
+                    path: design.entryPath,
+                  });
+                })())
+          : asInstanceArray(val);
+        expandSlotItems(
+          id,
+          cid,
+          items,
+          design,
+          tokens,
+          paramValues,
+          slotCtx,
+          visitingInst,
+          resolveOptions,
+          si,
+          children,
+          ctx,
+        );
+        continue;
+      }
+      if (isKnownSamplePath(design, cid)) {
+        const field = lookupSampleField(design, cid);
+        const overlayKey = field.name;
+        const val = evaluateValue(
+          { kind: "ident", name: cid },
+          {
+            design,
+            tokens,
+            visiting: new Set(),
+            paramValues,
+            paramMeta,
+            useStringPlaceholders: false,
+          },
+        );
+        const items = field.isArray
+          ? (Array.isArray(val)
+              ? val
+              : (() => {
+                  throw new PdlError("PDL-E010", `Sample path \`${cid}\` must evaluate to an array`, {
+                    path: design.entryPath,
+                  });
+                })())
+          : asInstanceArray(val);
+        expandSlotItems(
+          id,
+          overlayKey,
+          items,
+          design,
+          tokens,
+          paramValues,
+          slotCtx,
+          visitingInst,
+          resolveOptions,
+          si,
+          children,
+          ctx,
+        );
+        continue;
+      }
+      throw new PdlError("PDL-E001", `Missing frame ${cid}`, { path: design.entryPath });
     }
     if (ch.kind === "instance") {
       const key = `${id}>${ch.component}`;
@@ -547,18 +791,26 @@ function materialize(
           design,
           tokens,
           visiting: new Set(),
+          paramValues,
+          paramMeta,
         });
       }
       const sub = resolveComponentTree(design, ch.component, tokens, kwOverrides, resolveOptions);
       visitingInst.delete(key);
-      sub.id = `${id}_${ch.component}_${si++}`;
+      sub.id = `${id}_${ch.component}_${si.n++}`;
       sub.instanceOf = ch.component;
       sub.instanceKwargs = { ...kwOverrides };
       if (ch.opacity) {
         assignFrameProp(
           sub.props,
           "opacity",
-          evaluateValue(ch.opacity, { design, tokens, visiting: new Set() }),
+          evaluateValue(ch.opacity, {
+            design,
+            tokens,
+            visiting: new Set(),
+            paramValues,
+            paramMeta,
+          }),
           design.entryPath,
         );
       }

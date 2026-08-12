@@ -658,6 +658,12 @@ fn evaluate_ident(name: &str, ev: &mut Eval) -> Result<Value, PdlError> {
     if ev.design.type_styles.contains_key(name) {
         return Ok(obj(vec![("__typeStyle", Value::String(name.to_string()))]));
     }
+    // Typed sample path: `Tracks.focus.tracks` (after tokens — banks are PascalCase symbols).
+    if crate::samples::split_sample_path(name).is_some()
+        && crate::samples::is_known_sample_path(ev.design, name)
+    {
+        return evaluate_sample_path(name, ev);
+    }
     Err(PdlError::new(
         "PDL-E007",
         format!("Unresolved identifier {name}"),
@@ -665,6 +671,25 @@ fn evaluate_ident(name: &str, ev: &mut Eval) -> Result<Value, PdlError> {
         None,
         None,
     ))
+}
+
+fn evaluate_sample_path(path: &str, ev: &mut Eval) -> Result<Value, PdlError> {
+    let field = crate::samples::lookup_sample_field(ev.design, path)?;
+    // Guard cycles if sample fields ever reference each other.
+    let cycle_key = format!("sample:{path}");
+    if !ev.visiting.insert(cycle_key.clone()) {
+        return Err(PdlError::new(
+            "PDL-E041",
+            format!("Circular sample reference `{path}`"),
+            Some(ev.design.entry_path.clone()),
+            None,
+            None,
+        ));
+    }
+    let field_expr = field.value.clone();
+    let out = evaluate_value(&field_expr, ev);
+    ev.visiting.remove(&cycle_key);
+    out
 }
 
 fn resolve_token(

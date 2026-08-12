@@ -127,12 +127,13 @@ describe("invalid PDL — frame property types (PDL-E006 / PDL-E011)", () => {
   });
 });
 
-describe("invalid PDL — unknown symbols & companions (PDL-E037 / PDL-E016)", () => {
+describe("invalid PDL — unknown symbols & companions (PDL-E037 / PDL-E016 / PDL-E041)", () => {
   const cases: [string, string, RegExp][] = [
     ["e037-usage-unknown-component.pdl", "PDL-E037", /usage references unknown component/],
     ["e037-fixtures-unknown-component.pdl", "PDL-E037", /fixtures references unknown component/],
     ["e037-rules-unknown-component.pdl", "PDL-E037", /rules references unknown component/],
     ["e016-extend-unknown-component.pdl", "PDL-E016", /extend targets unknown component/],
+    ["e041-unknown-sample-path.pdl", "PDL-E041", /Unknown sample entry|sample/],
   ];
   it.each(cases)("loadDesign(%s) → %s", (file, code, re) => {
     expectPdl(() => loadDesign(err(file)), code, re);

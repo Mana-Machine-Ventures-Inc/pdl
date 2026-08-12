@@ -18,7 +18,7 @@ pub struct StableStringifyOptions {
 struct OmitEmptyCtx {
     strip_empty_strings_outside_props: bool,
     inside_props: bool,
-    /// Under catalogue `fixtures` — keep explicit empty arrays (filtered catalogs).
+    /// Under catalogue `fixtures` / `samples` — keep explicit empty arrays.
     inside_fixtures: bool,
 }
 
@@ -79,7 +79,8 @@ fn omit_empty_deep(value: &Value, ctx: Option<OmitEmptyCtx>) -> Option<Value> {
             let mut out = Map::new();
             for (k, v) in obj {
                 let child_inside_props = inside_props || k == "props";
-                let child_inside_fixtures = inside_fixtures || k == "fixtures";
+                let child_inside_fixtures =
+                    inside_fixtures || k == "fixtures" || k == "samples";
                 let next_ctx = Some(OmitEmptyCtx {
                     strip_empty_strings_outside_props: effective.strip_empty_strings_outside_props,
                     inside_props: child_inside_props,
@@ -94,7 +95,7 @@ fn omit_empty_deep(value: &Value, ctx: Option<OmitEmptyCtx>) -> Option<Value> {
                     }
                 }
                 if is_empty_container(&ev) {
-                    // Keep explicit `[]` under fixtures (empty filtered catalogs).
+                    // Keep explicit `[]` under fixtures / samples (empty catalogs).
                     let keep_empty_fixture_array =
                         child_inside_fixtures && matches!(&ev, Value::Array(a) if a.is_empty());
                     if !keep_empty_fixture_array {

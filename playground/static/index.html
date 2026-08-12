@@ -34,13 +34,13 @@
         <select id="packSelect" aria-label="Design pack or scratch project"></select>
       </label>
       <div class="row pack-draft-row">
-        <button type="button" class="btn secondary" id="btnReloadPack" title="Discard browser draft and reload this pack from disk">
+        <button type="button" class="btn secondary" id="btnReloadPack" title="Discard in-memory editor buffers and browser draft; reload this pack from disk">
           Reload from disk
         </button>
       </div>
       <p class="pack-desc" id="packDesc"></p>
       <p class="hint" id="draftHint" hidden>
-        Browser draft restored — edits autosave here so a reload won’t lose them.
+        Preview knobs restored from browser draft — pack sources always reload from disk.
       </p>
       <p class="hint" id="canvasHint">Select a file tab — its components (or imports) fill the canvas.</p>
 

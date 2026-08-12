@@ -22,6 +22,7 @@ pub mod parser;
 pub mod resolve;
 pub mod resolve_bundle;
 pub mod rules_json;
+pub mod samples;
 pub mod stable_json;
 pub mod validate;
 pub mod world_a;

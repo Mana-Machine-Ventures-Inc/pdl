@@ -20,6 +20,7 @@ export type TokenKind =
   | "interaction"
   | "expose"
   | "fixtures"
+  | "samples"
   | "usage"
   | "rules"
   | "extend"
@@ -125,6 +126,7 @@ const KEYWORDS = new Map<string, TokenKind>([
   ["interaction", "interaction"],
   ["expose", "expose"],
   ["fixtures", "fixtures"],
+  ["samples", "samples"],
   ["usage", "usage"],
   ["rules", "rules"],
   ["extend", "extend"],

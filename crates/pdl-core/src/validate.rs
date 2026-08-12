@@ -519,8 +519,70 @@ fn collect_list_idents_from_kwargs(
     for expr in kwargs.values() {
         if let Some(name) = list_ident_from_mount_expr(expr) {
             children_refs.insert(name.to_string());
+            if let Some((_, _, field)) = crate::samples::split_sample_path(name) {
+                children_refs.insert(field.to_string());
+            }
+        }
+        // `children: [Tracks.focus.tracks, …]`
+        if let crate::ast::ValueExpr::Array { items } = expr {
+            for it in items {
+                if let crate::ast::ValueExpr::Ident { name } = it {
+                    children_refs.insert(name.clone());
+                    if let Some((_, _, field)) = crate::samples::split_sample_path(name) {
+                        children_refs.insert(field.to_string());
+                    }
+                }
+            }
         }
     }
+}
+
+fn validate_samples(design: &DesignDefinition) -> Result<(), PdlError> {
+    for bank in design.samples.values() {
+        if design.components.contains_key(&bank.name) {
+            return Err(err(
+                "PDL-E041",
+                format!(
+                    "Sample bank `{}` collides with component name `{}`",
+                    bank.name, bank.name
+                ),
+                design,
+            ));
+        }
+        for entry in &bank.entries {
+            let mut field_caller: HashMap<String, String> = HashMap::new();
+            for f in &entry.fields {
+                field_caller.insert(f.name.clone(), f.type_name.clone());
+            }
+            for f in &entry.fields {
+                if !crate::param_types::is_builtin_param_type(&f.type_name)
+                    && !design.variants.contains_key(&f.type_name)
+                    && !design.components.contains_key(&f.type_name)
+                    && !design.protocols.contains_key(&f.type_name)
+                {
+                    return Err(err(
+                        "PDL-E039",
+                        format!(
+                            "Unknown type `{}` on sample `{}.{}.{}`",
+                            f.type_name, bank.name, entry.name, f.name
+                        ),
+                        design,
+                    ));
+                }
+                assert_param_value_compatible(
+                    design,
+                    &f.type_name,
+                    &f.value,
+                    &field_caller,
+                    &format!(
+                        "for sample field `{}.{}.{}`",
+                        bank.name, entry.name, f.name
+                    ),
+                )?;
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Collect `ForEach(list)` names and mount sites (`children = [list]` or
@@ -540,6 +602,11 @@ fn collect_foreach_and_children_mounts(
                     match e {
                         ChildEntry::FrameRef { id, .. } => {
                             children_refs.insert(id.clone());
+                            // Sample mount `Tracks.focus.tracks` counts as mounting field `tracks`
+                            // for ForEach(tracks) / PDL-E035.
+                            if let Some((_, _, field)) = crate::samples::split_sample_path(id) {
+                                children_refs.insert(field.to_string());
+                            }
                         }
                         ChildEntry::Instance { kwargs, .. } => {
                             collect_list_idents_from_kwargs(kwargs, children_refs);
@@ -2030,6 +2097,7 @@ pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError>
     validate_token_declarations(design)?;
     validate_type_style_props(design)?;
     validate_param_types(design)?;
+    validate_samples(design)?;
     validate_component_param_defaults(design)?;
     for c in design.components.values() {
         if let Some(proto) = &c.conforms_to {

@@ -30,6 +30,7 @@ Rust B4b/B5 + host-protocol validation + `self.<channel> = { … }` parse landed
 | [`PROPOSAL_PROTOCOL_CAPABILITIES.md`](./PROPOSAL_PROTOCOL_CAPABILITIES.md) | **Accepted** 2026-08-07 | Host vs API protocol roles; E030/E031; EditableText D3; D5 compat matrix later |
 | [`PROPOSAL_QUICK_PREVIEW.md`](./PROPOSAL_QUICK_PREVIEW.md) | **Proposed** | Disk-watch `preview` harness; amended by Playground proposal §7 |
 | [`PROPOSAL_PDL_PLAYGROUND.md`](./PROPOSAL_PDL_PLAYGROUND.md) | **Accepted** — P0–P5 shipped | Demo/lab vs Studio; file canvas, interactive HTML, variants. Overview: [`PLAYGROUND_OVERVIEW.md`](./PLAYGROUND_OVERVIEW.md) |
+| [`PROPOSAL_TYPED_SAMPLES.md`](./PROPOSAL_TYPED_SAMPLES.md) | **Accepted** 2026-08-12 | `samples` banks + `Bank.entry.field` paths; Rust bake SoT; TS oracle parse/eval/mount; playlist-composer-lite migrated off host JS catalog. Open: ForEach over sample path (Q2), sample refs in emit-assign |
 
 **Coverage matrix:** [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) — *Language & host coverage*.  
 **Roadmap:** same file. Crate: **`crates/pdl-core`**.

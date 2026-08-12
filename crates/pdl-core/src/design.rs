@@ -152,6 +152,8 @@ pub struct DesignDefinition {
     pub expose: IndexMap<String, Vec<String>>,
     pub usage: IndexMap<String, UsageKeyMap>,
     pub fixtures: IndexMap<String, IndexMap<String, FixtureExampleDecl>>,
+    /// Typed sample banks (`samples Tracks { … }`), keyed by bank name.
+    pub samples: IndexMap<String, crate::ast::SamplesDecl>,
     pub rules: IndexMap<String, Vec<RulesStatement>>,
     pub interactions: IndexMap<String, IndexMap<String, InteractionDecl>>,
     /// Declared public emits per component (`emits C { … }` + protocol inheritance at catalogue time).
@@ -580,6 +582,7 @@ fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefin
     let mut expose = IndexMap::new();
     let mut usage: IndexMap<String, UsageKeyMap> = IndexMap::new();
     let mut fixtures: IndexMap<String, IndexMap<String, FixtureExampleDecl>> = IndexMap::new();
+    let mut samples: IndexMap<String, crate::ast::SamplesDecl> = IndexMap::new();
     let mut rules: IndexMap<String, Vec<RulesStatement>> = IndexMap::new();
     let mut interactions: IndexMap<String, IndexMap<String, InteractionDecl>> = IndexMap::new();
     let mut emits: IndexMap<String, Vec<ProtocolEmitDecl>> = IndexMap::new();
@@ -627,6 +630,9 @@ fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefin
                 TopLevelDecl::Fixtures(f) => {
                     merge_fixtures(&mut fixtures, &f.component, &f.examples);
                 }
+                TopLevelDecl::Samples(s) => {
+                    samples.insert(s.name.clone(), s.clone());
+                }
                 TopLevelDecl::Rules(r) => {
                     merge_rules(&mut rules, &r.component, &r.statements);
                 }
@@ -668,6 +674,7 @@ fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefin
         expose,
         usage,
         fixtures,
+        samples,
         rules,
         interactions,
         emits,

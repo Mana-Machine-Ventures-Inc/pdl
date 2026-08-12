@@ -89,6 +89,20 @@ pub fn assert_param_value_compatible(
             }
             return Ok(());
         }
+        if crate::samples::split_sample_path(name).is_some() {
+            let field = crate::samples::lookup_sample_field(design, name)?;
+            let got = unwrap_param_type_name(&field.type_name);
+            if got != expected {
+                return Err(err(
+                    "PDL-E040",
+                    format!(
+                        "Type mismatch {where_}: sample `{name}` has type {got}, expected {expected}"
+                    ),
+                    design,
+                ));
+            }
+            return Ok(());
+        }
         return Err(err(
             "PDL-E007",
             format!("Unresolved identifier `{name}` {where_}"),

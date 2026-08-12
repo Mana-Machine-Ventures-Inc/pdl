@@ -9,6 +9,7 @@ import {
   isHostEnumType,
   unwrapParamTypeName,
 } from "./paramTypes.js";
+import { lookupSampleField, splitSamplePath } from "./samples.js";
 
 function tokenTypeOf(design: DesignDefinition, name: string): string | undefined {
   return design.primitives.get(name)?.tokenType ?? design.semantics.get(name)?.tokenType;
@@ -93,6 +94,18 @@ export function assertParamValueCompatible(
         throw new PdlError(
           "PDL-E040",
           `Type mismatch ${where}: token \`${value.name}\` has type ${tokTy}, expected ${expected}`,
+          { path: design.entryPath },
+        );
+      }
+      return;
+    }
+    if (splitSamplePath(value.name)) {
+      const field = lookupSampleField(design, value.name);
+      const got = unwrapParamTypeName(field.typeName);
+      if (got !== expected) {
+        throw new PdlError(
+          "PDL-E040",
+          `Type mismatch ${where}: sample \`${value.name}\` has type ${got}, expected ${expected}`,
           { path: design.entryPath },
         );
       }

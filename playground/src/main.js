@@ -99,6 +99,14 @@ let renderDebounceTimer = null;
 let draftSaveTimer = null;
 /** Skip autosave while applying a restored draft / pack load. */
 let suppressDraftSave = false;
+/** Skip dirty-tracking while programmatically replacing the editor buffer. */
+let suppressEditorDirty = false;
+/**
+ * Last content loaded from disk per path (open-pack / reload).
+ * Flush refuses to overwrite when the on-disk file no longer matches this baseline.
+ * @type {Record<string, string>}
+ */
+let diskBaseline = {};
 
 /** Incremented on each render attempt; stale HTTP responses are ignored. */
 let latestRenderId = 0;
@@ -173,75 +181,20 @@ let syncingKnobs = false;
  */
 let dirtyDiskPaths = new Set();
 
-/** Full PlaylistComposer catalog (Playground host filters mood/search). */
-const PLAYLIST_TRACK_CATALOG = [
-  {
-    component: "TrackRow",
-    params: { title: "Neon Shoulder", artist: "Kite Line", trackId: "neon", mood: "night" },
-  },
-  {
-    component: "TrackRow",
-    params: { title: "Desk Lamp", artist: "Static Grove", trackId: "desk", mood: "focus" },
-  },
-  {
-    component: "TrackRow",
-    params: { title: "Coastal Gear", artist: "Relay Club", trackId: "coastal", mood: "drive" },
-  },
-  {
-    component: "TrackRow",
-    params: { title: "Quiet Percent", artist: "Marble Room", trackId: "quiet", mood: "focus" },
-  },
-  {
-    component: "TrackRow",
-    params: { title: "Afterglow Toll", artist: "Kite Line", trackId: "afterglow", mood: "night" },
-  },
-];
-
-/**
- * @param {{ currentMood?: unknown, searchQuery?: unknown }} opts
- * @returns {Array<{ component: string, params: Record<string, string> }>}
- */
-function filterPlaylistTracks(opts) {
-  let rows = PLAYLIST_TRACK_CATALOG.map((r) => ({
-    component: r.component,
-    params: { ...r.params },
-  }));
-  const mood = opts.currentMood != null && opts.currentMood !== "" ? String(opts.currentMood) : "all";
-  if (mood !== "all") {
-    rows = rows.filter((r) => r.params.mood === mood);
-  }
-  const q = typeof opts.searchQuery === "string" ? opts.searchQuery.trim().toLowerCase() : "";
-  if (q) {
-    rows = rows.filter(
-      (r) =>
-        r.params.title.toLowerCase().includes(q) || r.params.artist.toLowerCase().includes(q),
-    );
-  }
-  return rows;
-}
-
-/**
- * After chip/search emit, replace `tracks` from the host catalog.
- * Fixtures that already include `tracks` leave the bag alone.
- * @param {string} comp
- * @param {Record<string, unknown>} params
- * @param {{ forceCatalog?: boolean }} [opts]
- */
-function enrichPlaylistComposerParams(comp, params, opts = {}) {
-  if (comp !== "PlaylistComposer" || !params || typeof params !== "object") return params;
-  if (!opts.forceCatalog && Array.isArray(params.tracks)) return params;
-  return {
-    ...params,
-    tracks: filterPlaylistTracks({
-      currentMood: params.currentMood,
-      searchQuery: params.searchQuery,
-    }),
-  };
-}
-
 /** @param {string} rel */
 function markFileDirty(rel) {
+  if (suppressEditorDirty) return;
   if (typeof rel === "string" && rel.endsWith(".pdl")) dirtyDiskPaths.add(rel);
+}
+
+/** @param {Record<string, string>} fileMap */
+function adoptDiskBaseline(fileMap) {
+  diskBaseline = {};
+  for (const [rel, content] of Object.entries(fileMap ?? {})) {
+    if (typeof content === "string" && rel.endsWith(".pdl")) {
+      diskBaseline[rel] = content;
+    }
+  }
 }
 
 /** @type {ReturnType<typeof resolveCanvasTarget> | null} */
@@ -486,9 +439,14 @@ function getEditorText() {
 
 function setEditorText(text) {
   if (!editorView) return;
-  editorView.dispatch({
-    changes: { from: 0, to: editorView.state.doc.length, insert: text },
-  });
+  suppressEditorDirty = true;
+  try {
+    editorView.dispatch({
+      changes: { from: 0, to: editorView.state.doc.length, insert: text },
+    });
+  } finally {
+    suppressEditorDirty = false;
+  }
 }
 
 function mountEditor() {
@@ -506,10 +464,12 @@ function mountEditor() {
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             files[activePath] = getEditorText();
-            markFileDirty(activePath);
-            scheduleDraftSave();
-            // Live preview: rebake canvas IR + reconcile deltas (not srcdoc remount).
-            scheduleDebouncedRender(undefined, { incremental: true });
+            if (!suppressEditorDirty) {
+              markFileDirty(activePath);
+              scheduleDraftSave();
+              // Live preview: rebake canvas IR + reconcile deltas (not srcdoc remount).
+              scheduleDebouncedRender(undefined, { incremental: true });
+            }
           }
         }),
       ],
@@ -1562,22 +1522,26 @@ function saveDraftNow() {
         /* incomplete JSON while typing */
       }
     }
+    const disk = diskRootMode();
     const payload = {
       v: DRAFT_SCHEMA_VERSION,
       savedAt: Date.now(),
-      packId: diskRootMode() ? packSelect.value || null : SCRATCH_PACK_ID,
+      packId: disk ? packSelect.value || null : SCRATCH_PACK_ID,
       packDesc: packDesc.textContent || "",
       workspace: workspaceModeValue(),
       engine: selectedEngine(),
       entry: entryPath.value || "",
       activePath,
-      files: { ...files },
+      // Disk packs: never snapshot file bodies into localStorage — Reload/open always
+      // takes truth from disk. Scratch still needs a full file map.
+      files: disk ? {} : { ...files },
       preferredComponent,
       primaryComponent,
       kvByComponent: { ...kvByComponent },
       theme: themeInput.value || "",
       variantView: selectedVariantView(),
       lastDiskPackId,
+      dirtyDiskPaths: disk ? [...dirtyDiskPaths] : [],
     };
     localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
   } catch (err) {
@@ -1660,39 +1624,42 @@ async function restoreDraft(draft) {
       return;
     }
 
-    if (draft.packId && [...packSelect.options].some((o) => o.value === draft.packId)) {
-      packSelect.value = draft.packId;
-      lastDiskPackId = draft.packId;
+    // Disk packs: always open fresh sources from disk. Draft keeps knobs / selection only —
+    // never rehydrate stale file bodies (that race overwrote agent/external edits).
+    const packId =
+      draft.packId && [...packSelect.options].some((o) => o.value === draft.packId)
+        ? draft.packId
+        : lastDiskPackId && lastDiskPackId !== SCRATCH_PACK_ID
+          ? lastDiskPackId
+          : "airbnb-lite";
+    const ok = await loadPack(packId, { fromDisk: true, skipAnalyze: true });
+    if (!ok) return;
+    if (typeof draft.entry === "string" && draft.entry && files[draft.entry] !== undefined) {
+      entryPath.value = draft.entry;
     }
-    packDesc.textContent = typeof draft.packDesc === "string" ? draft.packDesc : "";
-    setWorkspaceMode("disk");
-    if (btnReloadPack) {
-      btnReloadPack.textContent = "Reload from disk";
-      btnReloadPack.title = "Discard browser draft and reload this pack from disk";
+    if (typeof draft.activePath === "string" && files[draft.activePath] !== undefined) {
+      activePath = draft.activePath;
+      setEditorText(files[activePath] ?? "");
+      renderTabs();
     }
-    files = { ...(draft.files ?? {}) };
-    entryPath.value =
-      typeof draft.entry === "string" && draft.entry ? draft.entry : sortedFilePaths()[0] ?? "design.pdl";
-    activePath =
-      typeof draft.activePath === "string" && files[draft.activePath] !== undefined
-        ? draft.activePath
-        : entryPath.value in files
-          ? entryPath.value
-          : sortedFilePaths()[0] ?? entryPath.value;
-    preferredComponent = typeof draft.preferredComponent === "string" ? draft.preferredComponent : null;
-    primaryComponent = typeof draft.primaryComponent === "string" ? draft.primaryComponent : "";
+    preferredComponent =
+      typeof draft.preferredComponent === "string" ? draft.preferredComponent : preferredComponent;
+    primaryComponent =
+      typeof draft.primaryComponent === "string" ? draft.primaryComponent : primaryComponent;
     kvByComponent =
       draft.kvByComponent && typeof draft.kvByComponent === "object" && !Array.isArray(draft.kvByComponent)
         ? { ...draft.kvByComponent }
         : {};
     activeFixtureLabel = null;
     writeKvObject({});
-    setEditorText(files[activePath] ?? "");
-    renderTabs();
     refreshCanvasHint();
     syncKvTextareaFromOwner(overrideOwner(lastCanvas?.componentNames ?? [], lastCanvas?.primaryComponent));
-    if (draftHint) draftHint.hidden = false;
-    setStatus("Restored browser draft");
+    if (draftHint) {
+      draftHint.hidden = false;
+      draftHint.textContent =
+        "Restored preview knobs from browser draft — pack sources were reloaded from disk.";
+    }
+    setStatus(`Opened ${packId} from disk (draft knobs restored)`);
     if (await runAnalyze()) await runRender({ debounced: false });
   } finally {
     suppressDraftSave = false;
@@ -2748,25 +2715,50 @@ async function flushDiskWrites() {
       rel.startsWith("test-fixtures/pdl/") &&
       typeof files[rel] === "string",
   );
+  /** @type {string[]} */
+  const conflicts = [];
   for (const rel of toWrite) {
+    const content = files[rel];
+    // No-op vs last disk load — drop dirty without touching the file.
+    if (diskBaseline[rel] !== undefined && content === diskBaseline[rel]) {
+      dirtyDiskPaths.delete(rel);
+      continue;
+    }
     const res = await fetch("/api/write", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: rel, content: files[rel] }),
+      body: JSON.stringify({
+        path: rel,
+        content,
+        expectedBaseline:
+          diskBaseline[rel] !== undefined ? diskBaseline[rel] : undefined,
+      }),
     });
     const data = await res.json();
+    if (data.conflict) {
+      conflicts.push(rel.split("/").pop() || rel);
+      dirtyDiskPaths.delete(rel);
+      continue;
+    }
     if (!data.ok) throw new Error(data.error || `Failed to write ${rel}`);
+    diskBaseline[rel] = content;
     dirtyDiskPaths.delete(rel);
+  }
+  if (conflicts.length) {
+    throw new Error(
+      `Disk changed under you (${conflicts.join(", ")}). Click “Reload from disk” — refusing to overwrite external edits.`,
+    );
   }
 }
 
-async function loadPack(packId, { fromDisk = false } = {}) {
+async function loadPack(packId, { fromDisk = false, skipAnalyze = false } = {}) {
   if (packId === SCRATCH_PACK_ID) {
     enterScratchProject({ status: "Scratch project" });
     return true;
   }
   setStatus(`Loading pack ${packId}…`);
   showError("");
+  const heldSuppress = suppressDraftSave;
   suppressDraftSave = true;
   try {
     const res = await fetch("/api/open-pack", {
@@ -2788,9 +2780,11 @@ async function loadPack(packId, { fromDisk = false } = {}) {
     updateWorkspaceUi();
     if (btnReloadPack) {
       btnReloadPack.textContent = "Reload from disk";
-      btnReloadPack.title = "Discard browser draft and reload this pack from disk";
+      btnReloadPack.title =
+        "Discard in-memory editor buffers and browser draft; reload this pack from disk";
     }
     files = { ...(data.files ?? {}) };
+    adoptDiskBaseline(files);
     dirtyDiskPaths.clear();
     entryPath.value = data.entry;
     preferredComponent = data.defaultComponent ?? null;
@@ -2807,11 +2801,16 @@ async function loadPack(packId, { fromDisk = false } = {}) {
     setEditorText(files[activePath] ?? "");
     renderTabs();
     if (draftHint) draftHint.hidden = true;
-    if (await runAnalyze()) await runRender({ debounced: false });
+    if (fromDisk) setStatus(`Reloaded ${packId} from disk`);
+    if (!skipAnalyze) {
+      if (await runAnalyze()) await runRender({ debounced: false });
+    }
     return true;
   } finally {
-    suppressDraftSave = false;
-    saveDraftNow();
+    if (!heldSuppress) {
+      suppressDraftSave = false;
+      saveDraftNow();
+    }
   }
 }
 
@@ -3282,6 +3281,9 @@ btnReloadPack.addEventListener("click", () => {
     return;
   }
   const id = packSelect.value || lastDiskPackId || "airbnb-lite";
+  // Hard reset: drop dirty flags + draft file bag, then open-pack from disk.
+  dirtyDiskPaths.clear();
+  clearDraft();
   void loadPack(id, { fromDisk: true });
 });
 window.addEventListener("beforeunload", () => {
@@ -3382,13 +3384,11 @@ window.addEventListener("message", (ev) => {
       preferredComponent = primaryComponent;
       // Own the bag under the emitting/capturing component only (e.g. LibrarySubnav),
       // filtered to its declared scalar params — never FilterChip / canvas-first.
-      // PlaylistComposer: mood/search emits only rebind scalars in PDL — host fills `tracks`.
-      const bag = enrichPlaylistComposerParams(
+      // PlaylistComposer: mood branches mount `samples Tracks` at bake — no host catalog.
+      setKvForComponent(
         primaryComponent,
         /** @type {Record<string, unknown>} */ (data.params),
-        { forceCatalog: true },
       );
-      setKvForComponent(primaryComponent, bag);
       activeFixtureLabel = null;
       refreshControlsUi();
       // Rebake when emit capture changed parent SoT. Nested chrome uses

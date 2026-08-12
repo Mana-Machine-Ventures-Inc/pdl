@@ -506,6 +506,29 @@ pub struct FixturesDecl {
     pub examples: Vec<FixtureExampleDecl>,
 }
 
+/// One typed field inside a sample bank entry (`tracks: [TrackRow] = […]`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct SampleFieldDecl {
+    pub name: String,
+    pub type_name: String,
+    pub is_array: bool,
+    pub value: ValueExpr,
+}
+
+/// Named entry inside a sample bank (`pop_results { … }`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct SampleEntryDecl {
+    pub name: String,
+    pub fields: Vec<SampleFieldDecl>,
+}
+
+/// Top-level `samples Tracks { … }` typed data bank.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SamplesDecl {
+    pub name: String,
+    pub entries: Vec<SampleEntryDecl>,
+}
+
 /// Rule query navigation axis. `self` is spelled `SelfAxis` (Rust reserves
 /// `Self`/`self`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -710,6 +733,7 @@ pub enum TopLevelDecl {
     Expose(ExposeDecl),
     Usage(UsageDecl),
     Fixtures(FixturesDecl),
+    Samples(SamplesDecl),
     Rules(RulesDecl),
     Interaction(InteractionDecl),
     Emits(EmitsDecl),

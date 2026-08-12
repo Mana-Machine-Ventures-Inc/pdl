@@ -1448,6 +1448,66 @@ fn materialize(
                             &mut children,
                         )?;
                     }
+                } else if crate::samples::is_known_sample_path(design, cid) {
+                    // `TrackList.children = Tracks.focus.tracks` — expand like a list param.
+                    // ForEach overlays apply via the field name (`tracks`) so selection chrome works.
+                    let field = crate::samples::lookup_sample_field(design, cid)?;
+                    let overlay_key = field.name.as_str();
+                    let mut visiting = HashSet::new();
+                    let mut ev = Eval {
+                        design,
+                        tokens,
+                        visiting: &mut visiting,
+                        param_values: Some(param_values),
+                        param_meta: Some(param_meta),
+                        use_string_placeholders: false,
+                    };
+                    let val = crate::evaluate::evaluate_value(
+                        &crate::ast::ValueExpr::Ident {
+                            name: cid.clone(),
+                        },
+                        &mut ev,
+                    )?;
+                    if field.is_array {
+                        let items = val.as_array().ok_or_else(|| {
+                            PdlError::new(
+                                "PDL-E010",
+                                format!("Sample path `{cid}` must evaluate to an array"),
+                                Some(design.entry_path.clone()),
+                                None,
+                                None,
+                            )
+                        })?;
+                        expand_slot_items(
+                            id,
+                            overlay_key,
+                            items,
+                            design,
+                            tokens,
+                            param_values,
+                            param_meta,
+                            slot_ctx,
+                            visiting_inst,
+                            options,
+                            &mut si,
+                            &mut children,
+                        )?;
+                    } else {
+                        expand_slot_items(
+                            id,
+                            overlay_key,
+                            std::slice::from_ref(&val),
+                            design,
+                            tokens,
+                            param_values,
+                            param_meta,
+                            slot_ctx,
+                            visiting_inst,
+                            options,
+                            &mut si,
+                            &mut children,
+                        )?;
+                    }
                 } else {
                     return Err(PdlError::new(
                         "PDL-E001",

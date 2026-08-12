@@ -4,6 +4,7 @@ import type {
   InteractionDecl,
   PrimitiveDecl,
   RulesStatement,
+  SamplesDecl,
   SemanticDecl,
   ThemeDecl,
   TypeStyleDecl,
@@ -31,6 +32,8 @@ export type DesignDefinition = {
   usage: Map<string, UsageKeyMap>;
   /** Per component, fixtures keyed by example label (later replaces same label). */
   fixtures: Map<string, Map<string, FixtureExampleDecl>>;
+  /** Typed sample banks (`samples Tracks { … }`), keyed by bank name. */
+  samples: Map<string, SamplesDecl>;
   /** Per component, ordered `rules` statements (tags, Rule lines, nested `if`). */
   rules: Map<string, RulesStatement[]>;
   /** Per component, interactions by name (later block with same name replaces). */

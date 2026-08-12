@@ -268,6 +268,8 @@ export type ComponentCatalogue = {
   variantTypes: Record<string, CatalogueVariantTypeDef>;
   /** One catalogue row per component, keyed by component **`name`**. */
   components: Record<string, CatalogueComponent>;
+  /** Evaluated typed sample banks (`samples Tracks { … }`), when present. */
+  samples?: Record<string, Record<string, Record<string, unknown>>>;
 };
 
 function frameToJson(f: CatalFrame): CatalFrame {
@@ -735,6 +737,30 @@ export function buildCatalogueTokenLayers(design: DesignDefinition): {
   return { primitives, semantics, themes, typeStyles };
 }
 
+function buildCatalogueSamples(
+  design: DesignDefinition,
+  tokens: Map<string, unknown>,
+): Record<string, Record<string, Record<string, unknown>>> | undefined {
+  if (design.samples.size === 0) return undefined;
+  const samplesOut: Record<string, Record<string, Record<string, unknown>>> = {};
+  for (const bank of [...design.samples.values()].sort((a, b) => a.name.localeCompare(b.name))) {
+    const entriesOut: Record<string, Record<string, unknown>> = {};
+    for (const entry of bank.entries) {
+      const fieldsOut: Record<string, unknown> = {};
+      for (const field of entry.fields) {
+        fieldsOut[field.name] = evaluateValue(field.value, {
+          design,
+          tokens,
+          visiting: new Set(),
+        });
+      }
+      entriesOut[entry.name] = fieldsOut;
+    }
+    samplesOut[bank.name] = entriesOut;
+  }
+  return samplesOut;
+}
+
 /**
  * Build a single **Component Catalogue** row (trees, variants, companions) without walking other components.
  * **`resolveOpts`** should normally be **`RESOLVE_OPTIONS_GRAPH_CATALOGUE`**.
@@ -881,6 +907,8 @@ export function buildComponentCatalogue(
       .sort(([a], [b]) => a.localeCompare(b)),
   );
 
+  const samples = buildCatalogueSamples(design, tokenMap);
+
   return {
     kind: "componentCatalogue",
     schemaVersion: PDL_JSON_SCHEMA_VERSION,
@@ -892,5 +920,6 @@ export function buildComponentCatalogue(
     typeStyles,
     variantTypes,
     components,
+    ...(samples ? { samples } : {}),
   };
 }

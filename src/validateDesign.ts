@@ -33,6 +33,7 @@ import {
   isBuiltinParamType,
   unwrapParamTypeName,
 } from "./paramTypes.js";
+import { splitSamplePath } from "./samples.js";
 
 function collectLetFrameKinds(items: FrameBodyItem[]): Map<string, string> {
   const m = new Map<string, string>();
@@ -1087,9 +1088,123 @@ function validateComponentParamTypes(design: DesignDefinition): void {
   }
 }
 
+function listIdentFromMountExpr(expr: ValueExpr): string | undefined {
+  if (expr.kind === "ident") return expr.name;
+  if (expr.kind === "array" && expr.items.length === 1 && expr.items[0]!.kind === "ident") {
+    return expr.items[0]!.name;
+  }
+  return undefined;
+}
+
+function collectListIdentsFromKwargs(
+  kwargs: Record<string, ValueExpr>,
+  childrenRefs: Set<string>,
+): void {
+  for (const expr of Object.values(kwargs)) {
+    const name = listIdentFromMountExpr(expr);
+    if (name) {
+      childrenRefs.add(name);
+      const split = splitSamplePath(name);
+      if (split) childrenRefs.add(split[2]!);
+    }
+    if (expr.kind === "array") {
+      for (const it of expr.items) {
+        if (it.kind === "ident") {
+          childrenRefs.add(it.name);
+          const split = splitSamplePath(it.name);
+          if (split) childrenRefs.add(split[2]!);
+        }
+      }
+    }
+  }
+}
+
+function collectForeachAndChildrenMounts(
+  items: FrameBodyItem[],
+  foreachLists: Set<string>,
+  childrenRefs: Set<string>,
+): void {
+  for (const item of items) {
+    switch (item.kind) {
+      case "children":
+        for (const e of item.entries) {
+          if (e.kind === "frameRef") {
+            childrenRefs.add(e.id);
+            const split = splitSamplePath(e.id);
+            if (split) childrenRefs.add(split[2]!);
+          } else if (e.kind === "instance") {
+            collectListIdentsFromKwargs(e.kwargs, childrenRefs);
+          }
+        }
+        break;
+      case "letInstance":
+        collectListIdentsFromKwargs(item.kwargs, childrenRefs);
+        break;
+      case "if":
+        for (const br of item.chain.branches) {
+          collectForeachAndChildrenMounts(br.body, foreachLists, childrenRefs);
+        }
+        if (item.chain.elseBody) {
+          collectForeachAndChildrenMounts(item.chain.elseBody, foreachLists, childrenRefs);
+        }
+        break;
+      case "let":
+        collectForeachAndChildrenMounts(item.body, foreachLists, childrenRefs);
+        break;
+      default:
+        break;
+    }
+  }
+}
+
+function validateForeachMounts(design: DesignDefinition, c: ComponentDecl): void {
+  const foreachLists = new Set<string>();
+  const childrenRefs = new Set<string>();
+  collectForeachAndChildrenMounts(c.body, foreachLists, childrenRefs);
+  for (const list of foreachLists) {
+    if (!childrenRefs.has(list)) {
+      throw new PdlError(
+        "PDL-E035",
+        `ForEach(\`${list}\`) does not mount the list; add \`children = ${list}\`, \`children = […, ${list}, …]\`, or pass \`${list}\` into a child list param (component ${c.name})`,
+        { path: design.entryPath },
+      );
+    }
+  }
+}
+
+function validateSamples(design: DesignDefinition): void {
+  for (const bank of design.samples.values()) {
+    if (design.components.has(bank.name)) {
+      throw new PdlError(
+        "PDL-E041",
+        `Sample bank \`${bank.name}\` collides with component name \`${bank.name}\``,
+        { path: design.entryPath },
+      );
+    }
+    for (const entry of bank.entries) {
+      const fieldCaller = new Map(entry.fields.map((f) => [f.name, f.typeName]));
+      for (const f of entry.fields) {
+        assertKnownParamType(
+          design,
+          f.typeName,
+          `on sample \`${bank.name}.${entry.name}.${f.name}\``,
+        );
+        assertParamValueCompatible(
+          design,
+          f.typeName,
+          f.value,
+          fieldCaller,
+          `for sample field \`${bank.name}.${entry.name}.${f.name}\``,
+        );
+      }
+    }
+  }
+}
+
 /** Semantic checks on merged design (after parse + import merge). */
 export function validateMergedDesign(design: DesignDefinition): void {
   validateCompanionSymbols(design);
+  validateSamples(design);
   validateTokenDeclarations(design);
   validateTypeStyleProps(design);
   validateComponentParamTypes(design);
@@ -1116,6 +1231,7 @@ export function validateMergedDesign(design: DesignDefinition): void {
     validateFramePropsInBody(design, c.body, c.name, c.rootKind, letKinds);
     validateLetValuesInBody(design, c.body, callerParams, c.name);
     validateParamBindingsInBody(design, c.body, callerParams, c.name);
+    validateForeachMounts(design, c);
     validateFixturesForComponent(design, c.name);
     validateInteractionsForComponent(design, c.name);
     validateRulesForComponent(design, c.name);

@@ -9,6 +9,7 @@ import type {
   ModuleAst,
   PrimitiveDecl,
   RulesStatement,
+  SamplesDecl,
   SemanticDecl,
   ThemeDecl,
   TopLevelDecl,
@@ -166,6 +167,7 @@ function mergeDesign(entryPath: string, ordered: ModuleAst[]): DesignDefinition 
   const expose = new Map<string, string[]>();
   const usage = new Map<string, UsageKeyMap>();
   const fixtures = new Map<string, Map<string, FixtureExampleDecl>>();
+  const samples = new Map<string, SamplesDecl>();
   const rules = new Map<string, RulesStatement[]>();
   const interactions = new Map<string, Map<string, InteractionDecl>>();
   let previewBackground: string | undefined;
@@ -214,6 +216,9 @@ function mergeDesign(entryPath: string, ordered: ModuleAst[]): DesignDefinition 
         case "fixtures":
           mergeFixtures(fixtures, decl.component, decl.examples);
           break;
+        case "samples":
+          samples.set(decl.name, decl);
+          break;
         case "rules":
           mergeRules(rules, decl.component, decl.statements);
           break;
@@ -242,6 +247,7 @@ function mergeDesign(entryPath: string, ordered: ModuleAst[]): DesignDefinition 
     expose,
     usage,
     fixtures,
+    samples,
     rules,
     interactions,
   };

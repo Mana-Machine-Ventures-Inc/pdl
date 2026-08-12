@@ -12,7 +12,7 @@ type OmitEmptyCtx = {
   /** True while walking keys/values under a property bag named **`props`**. */
   insideProps: boolean;
   /**
-   * True under a catalogue **`fixtures`** bag. Explicit empty arrays (e.g. filtered
+   * True under a catalogue **`fixtures`** / **`samples`** bag. Explicit empty arrays (e.g. filtered
    * `tracks = []`) must survive omitEmpty so Playground / CLI can apply them.
    */
   insideFixtures: boolean;
@@ -61,13 +61,13 @@ export function omitEmptyDeep(value: unknown, ctx?: OmitEmptyCtx): unknown {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(o)) {
     const childInsideProps = insideProps || k === "props";
-    const childInsideFixtures = insideFixtures || k === "fixtures";
+    const childInsideFixtures = insideFixtures || k === "fixtures" || k === "samples";
     const ev = omitEmptyDeep(v, nextCtx(childInsideProps, childInsideFixtures));
     if (stripStrings && typeof ev === "string" && ev === "" && !childInsideProps) {
       continue;
     }
     if (isEmptyContainer(ev)) {
-      // Keep explicit `[]` under fixtures (empty filtered catalogs).
+      // Keep explicit `[]` under fixtures / samples (empty catalogs).
       if (!(childInsideFixtures && Array.isArray(ev) && ev.length === 0)) {
         continue;
       }

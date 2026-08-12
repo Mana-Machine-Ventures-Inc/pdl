@@ -1,0 +1,20 @@
+component Row(
+  title: String = ""
+) layout {
+  direction = .row
+  let T = Text(content: title)
+  children = [T]
+}
+
+samples Tracks {
+  a {
+    rows: [Row] = []
+  }
+}
+
+component C(
+  items: [Row] = Tracks.missing.rows
+) layout {
+  direction = .column
+  children = [items]
+}

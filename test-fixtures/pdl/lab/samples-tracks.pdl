@@ -1,0 +1,81 @@
+// Lab: typed sample banks mounted under variant / mood branches.
+
+variant MoodId {
+  case all
+  case focus
+  case night
+}
+
+component TrackRow(
+  title: String = "",
+  trackId: String = "",
+  selected: Bool = false
+) layout {
+  direction = .row
+  gap = 8
+  width = .fill
+  padding = EdgeInsets(x: 8, y: 6)
+  background = #F3F4F6
+  cornerRadius = 8
+
+  let Title = Text(content: title)
+  if selected {
+    background = #DBEAFE
+  }
+  children = [Title]
+}
+
+samples Tracks {
+  library {
+    tracks: [TrackRow] = [
+      TrackRow(title: "Neon", trackId: "neon"),
+      TrackRow(title: "Desk", trackId: "desk"),
+      TrackRow(title: "Coast", trackId: "coast")
+    ]
+  }
+  focus {
+    tracks: [TrackRow] = [
+      TrackRow(title: "Desk", trackId: "desk")
+    ]
+  }
+  empty {
+    tracks: [TrackRow] = []
+  }
+}
+
+component SampleShelf(
+  mood: MoodId = .all,
+  selectedId: String = "",
+  tracks: [TrackRow] = Tracks.library.tracks
+) layout {
+  direction = .column
+  gap = 8
+  padding = EdgeInsets(x: 12, y: 12)
+  width = 320
+  background = #FFFFFF
+
+  let List = Layout(direction: .column, gap: 4, width: .fill, children: [tracks])
+
+  ForEach(tracks) { track in
+    track.selected = self.selectedId == trackId
+  }
+
+  if mood == .focus {
+    List.children = Tracks.focus.tracks
+  } else if mood == .night {
+    List.children = Tracks.empty.tracks
+  } else {
+    List.children = [tracks]
+  }
+
+  children = [List]
+}
+
+fixtures SampleShelf {
+  example "Focus sample" {
+    mood = .focus
+  }
+  example "Empty night" {
+    mood = .night
+  }
+}

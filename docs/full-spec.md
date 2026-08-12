@@ -2611,6 +2611,22 @@ fixtures Button {
 }
 ```
 
+### 2a. `samples` — typed data banks
+
+**Samples** are design-global typed catalogs (not scenario param bags). Declare with `samples Bank { entry { field: Type = value … } … }` and reference as **`Bank.entry.field`** in value position or `children` mounts. Prefer mounting under variant / param `if` branches at **`Frame.children`**. Unknown paths are **PDL-E041**. Distinct from §11 `fixtures` — see **`docs/PROPOSAL_TYPED_SAMPLES.md`**.
+
+```pdl
+samples Tracks {
+  focus {
+    tracks: [TrackRow] = [ TrackRow(title: "Desk", …) ]
+  }
+}
+// …
+if currentMood == .focus {
+  TrackList.children = Tracks.focus.tracks
+}
+```
+
 ```pdl
 fixtures ListItem {
   example "Full content" {
@@ -4320,7 +4336,7 @@ This checklist orders work so a **greenfield implementation** (or a full port to
 ## Phase A — Surface syntax
 
 1. **Lexer** — comments `//`, strings, numbers, identifiers, punctuation (per §1, §10 / §20).  
-2. **Top-level declarations** — `import`, `previewBackground`, `primitive`, `semantic`, `theme`, `typeStyle`, `variant` / **`enum`**, `protocol`, `component`, **`emits`**, **`fixtures`**, **`usage`**, **`rules`**, **`extend`** (§2, §4, §11). Reject removed `interaction` / `expose` (**PDL-E001**).  
+2. **Top-level declarations** — `import`, `previewBackground`, `primitive`, `semantic`, `theme`, `typeStyle`, `variant` / **`enum`**, `protocol`, `component`, **`emits`**, **`fixtures`**, **`samples`**, **`usage`**, **`rules`**, **`extend`** (§2, §4, §11). Reject removed `interaction` / `expose` (**PDL-E001**).  
 3. **Component grammar** — header params, root kind block, World A `let` / typed value `let`, `children`, `if` chains, `ForEach`, host handlers, emit captures (§4–§8, §10).
 
 **Acceptance:** parse golden `.pdl` files to AST without loss; unknown top-level → error.
@@ -5373,7 +5389,7 @@ A type-incompatible default is **PDL-E040**.
 
 **Instance kwargs** (`let Id = Comp(param: value, …)` and inline `Comp(…)` in `children`) **MUST** be type-compatible with the target component’s effective parameters (including protocol params). Passing a parent parameter of the wrong type (e.g. `title: tone` when `title: String` and `tone: Tone`) is **PDL-E040**. An unknown kwarg name is **PDL-E007**. An unknown target component is **PDL-E037**.
 
-When the kwarg value is an identifier, it resolves in this order: enclosing component parameter → token → unresolved (**PDL-E007**). Parameter-to-parameter bindings succeed only when the unwrapped type names match (e.g. both `String`, or both the same `variant`).
+When the kwarg value is an identifier, it resolves in this order: enclosing component parameter → token → **sample path** `Bank.entry.field` (**PDL-E041** if the path is sample-shaped but unknown) → unresolved (**PDL-E007**). Parameter-to-parameter bindings succeed only when the unwrapped type names match (e.g. both `String`, or both the same `variant`).
 
 ---
 
@@ -5461,6 +5477,7 @@ Future additions must use codes not in this list. Codes are never reused after r
 | **PDL-E038** | `mixed-condition-operators` | A condition expression mixes `&&` and `\|\|` at the same precedence level without parentheses (§21.6). |
 | **PDL-E039** | `unknown-param-type` | A component / protocol / emit parameter uses a type name that is not a built-in (§23.1), declared `variant`, API protocol, or component. **`Boolean`** is rejected — use **`Bool`**. |
 | **PDL-E040** | `param-type-mismatch` | A parameter default, instance kwarg, or fixture binding is not type-compatible with the declared parameter type (§23.4 / §23.6). |
+| **PDL-E041** | `unknown-sample-path` | A `Bank.entry.field` sample path names an unknown bank, entry, or field; or a sample bank name collides with a component (§ samples / `docs/PROPOSAL_TYPED_SAMPLES.md`). |
 
 ---
 

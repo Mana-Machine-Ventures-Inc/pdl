@@ -5,7 +5,7 @@
 //! oracle produces, so goldens compare byte-for-byte after `stable_stringify`
 //! with `omit_empty`.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use indexmap::IndexMap;
 use serde_json::{Map, Value};
@@ -1341,6 +1341,31 @@ pub fn build_component_catalogue(
         if !roles.is_empty() {
             doc.insert("protocolRoles".to_string(), Value::Object(roles));
         }
+    }
+    if !design.samples.is_empty() {
+        let mut samples_out = Map::new();
+        for bank in design.samples.values() {
+            let mut entries_out = Map::new();
+            for entry in &bank.entries {
+                let mut fields_out = Map::new();
+                for field in &entry.fields {
+                    let mut visiting = HashSet::new();
+                    let mut ev = Eval {
+                        design,
+                        tokens: &mut tokens,
+                        visiting: &mut visiting,
+                        param_values: None,
+                        param_meta: None,
+                        use_string_placeholders: false,
+                    };
+                    let val = evaluate_value(&field.value, &mut ev)?;
+                    fields_out.insert(field.name.clone(), val);
+                }
+                entries_out.insert(entry.name.clone(), Value::Object(fields_out));
+            }
+            samples_out.insert(bank.name.clone(), Value::Object(entries_out));
+        }
+        doc.insert("samples".to_string(), Value::Object(samples_out));
     }
     doc.insert("components".to_string(), Value::Object(components));
 
