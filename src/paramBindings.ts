@@ -1,4 +1,5 @@
 import type { ChildEntry, ComponentDecl, FrameBodyItem, ValueExpr } from "./ast.js";
+import { validateConditionExpr } from "./conditions.js";
 import type { DesignDefinition } from "./designModel.js";
 import { PdlError } from "./errors.js";
 import { assertBlurCallCompatible, assertVibrancyCallCompatible } from "./frameProps.js";
@@ -122,6 +123,11 @@ export function assertParamValueCompatible(
       value.kind === "dotEnum" &&
       (value.value === ".true" || value.value === ".false")
     ) {
+      return;
+    }
+    // Call-site / ForEach equality: `selected: currentFilter == .all`
+    if (value.kind === "condition") {
+      validateConditionExpr(design, value.expr, callerParams, where);
       return;
     }
     mismatch();

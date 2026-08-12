@@ -13,12 +13,13 @@
         <h1>PDL Playground</h1>
         <p class="sub">
           File canvas lab (Phase P3–P5). Not PDL Studio.
-          Selected <code>.pdl</code> fills the preview. Compiler: <strong>Rust</strong> → bake → HTML.
+          Selected <code>.pdl</code> fills the preview.
+          Default bake: <strong>Rust WASM</strong> (in-browser, fast) → HTML host.
           Eng stress: <code>npm run preview</code>.
         </p>
       </div>
       <div class="badge-stack" aria-label="Build badges">
-        <span class="badge badge-rust">Rust bake</span>
+        <span class="badge badge-wasm" id="engineBadge" title="Default bake engine — switch under Bake engine">Rust WASM</span>
         <span class="badge">HTML host</span>
         <span class="badge badge-muted">Phase P5</span>
       </div>
@@ -61,20 +62,34 @@
         <input type="text" id="theme" list="themeList" placeholder="Default" spellcheck="false" />
         <datalist id="themeList"></datalist>
       </label>
+      <div class="field engine-field">
+        <span>Bake engine</span>
+        <div class="row">
+          <label class="engine-opt engine-opt--preferred">
+            <input type="radio" name="engine" value="wasm" checked />
+            Rust WASM
+            <span class="engine-tag">default · fast</span>
+          </label>
+          <label class="engine-opt">
+            <input type="radio" name="engine" value="rust" />
+            Rust CLI
+          </label>
+          <label class="engine-opt">
+            <input type="radio" name="engine" value="ts" />
+            TypeScript
+          </label>
+        </div>
+        <p class="hint">
+          WASM bakes in-browser (~ms). CLI spawns <code>pdl</code> per tick — much slower for interaction.
+          Rebuild WASM after language changes: <code>npm run build:wasm</code>.
+        </p>
+      </div>
       <details class="advanced">
         <summary>Advanced</summary>
         <label class="field">
           <span>Param overrides (JSON)</span>
           <textarea id="kvJson" spellcheck="false" rows="3" placeholder='{ "label": "OK" }'></textarea>
         </label>
-        <div class="field">
-          <span>Bake engine</span>
-          <div class="row">
-            <label><input type="radio" name="engine" value="rust" checked /> Rust CLI</label>
-            <label><input type="radio" name="engine" value="wasm" /> Rust WASM</label>
-            <label><input type="radio" name="engine" value="ts" /> TypeScript</label>
-          </div>
-        </div>
         <div class="field">
           <span>Workspace</span>
           <div class="row">

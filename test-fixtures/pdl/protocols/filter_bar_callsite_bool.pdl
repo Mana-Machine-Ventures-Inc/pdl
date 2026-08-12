@@ -1,0 +1,34 @@
+// Call-site Bool equality: `selected: currentFilter == .all` (full-spec Pattern A hand-mount).
+variant FilterId {
+  case all
+  case podcasts
+}
+
+component CallSiteChip(
+  title: String = "All",
+  filter: FilterId = .all,
+  selected: Bool = false
+) layout {
+  if selected {
+    background = #111111
+  } else {
+    background = #EEEEEE
+  }
+  let Label = Text(content: title)
+  children = [Label]
+}
+
+component CallSiteFilterBar(currentFilter: FilterId = .all) layout {
+  direction = .row
+  let All = CallSiteChip(
+    title: "All",
+    filter: .all,
+    selected: currentFilter == .all
+  )
+  let Podcasts = CallSiteChip(
+    title: "Podcasts",
+    filter: .podcasts,
+    selected: currentFilter == .podcasts
+  )
+  children = [All, Podcasts]
+}

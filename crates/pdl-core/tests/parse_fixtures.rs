@@ -454,6 +454,71 @@ component Host(selected: Bool = false) layout {
 }
 
 #[test]
+fn accepts_call_site_bool_equality_kwarg_and_bakes() {
+    use pdl_core::bake::build_baked_design_component;
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    use serde_json::{json, Map};
+
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/ok.pdl".to_string(),
+        r#"
+variant FilterId {
+  case all
+  case podcasts
+}
+
+component FilterChip(
+  title: String = "All",
+  filter: FilterId = .all,
+  selected: Bool = false
+) layout {
+  if selected {
+    background = #111111
+  } else {
+    background = #EEEEEE
+  }
+  let Label = Text(content: title)
+  children = [Label]
+}
+
+component FilterBar(currentFilter: FilterId = .all) layout {
+  direction = .row
+  let All = FilterChip(
+    title: "All",
+    filter: .all,
+    selected: currentFilter == .all
+  )
+  let Podcasts = FilterChip(
+    title: "Podcasts",
+    filter: .podcasts,
+    selected: currentFilter == .podcasts
+  )
+  children = [All, Podcasts]
+}
+"#
+        .to_string(),
+    );
+    let design = load_design_from_sources("/v/ok.pdl", &sources).expect("load");
+    let mut overrides = Map::new();
+    overrides.insert("currentFilter".to_string(), json!("podcasts"));
+    let doc = build_baked_design_component(
+        &design,
+        "FilterBar",
+        None,
+        &overrides,
+        Some("1970-01-01T00:00:00.000Z".to_string()),
+    )
+    .expect("bake");
+    let root = &doc["components"]["FilterBar"]["root"];
+    let children = root["children"].as_array().expect("children");
+    assert_eq!(children.len(), 2);
+    assert_eq!(children[0]["props"]["background"], "#EEEEEE");
+    assert_eq!(children[1]["props"]["background"], "#111111");
+}
+
+#[test]
 fn rejects_blur_vibrancy_number_and_dot_enum() {
     use pdl_core::design::load_design;
     for name in [
@@ -1866,6 +1931,64 @@ component Host(
     );
     let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
     assert_eq!(err.code, "PDL-E035");
+}
+
+#[test]
+fn foreach_forwarded_through_child_list_mount() {
+    use pdl_core::bake::build_baked_design_component;
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    use serde_json::Map;
+    let entry = repo_root().join("test-fixtures/pdl/protocols/foreach_cross_component.pdl");
+    let src = fs::read_to_string(&entry).expect("fixture");
+    let mut sources = SourceMap::new();
+    let entry_s = entry.to_string_lossy().replace('\\', "/");
+    sources.insert(entry_s.clone(), src);
+    let design = load_design_from_sources(&entry_s, &sources).expect("load");
+    let doc = build_baked_design_component(
+        &design,
+        "CrossShell",
+        None,
+        &Map::new(),
+        Some("1970-01-01T00:00:00.000Z".to_string()),
+    )
+    .expect("bake");
+    let root = &doc["components"]["CrossShell"]["root"];
+    let mut stamps = Vec::new();
+    let mut selected = Vec::new();
+    fn walk(f: &serde_json::Value, stamps: &mut Vec<String>, selected: &mut Vec<(String, bool)>) {
+        if let Some(list) = f.get("foreachList").and_then(|v| v.as_str()) {
+            stamps.push(list.to_string());
+        }
+        if f.get("instanceOf").and_then(|v| v.as_str()) == Some("CrossChipView") {
+            let kw = f.get("instanceKwargs").and_then(|v| v.as_object());
+            let mood = kw
+                .and_then(|m| m.get("mood"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let sel = kw
+                .and_then(|m| m.get("selected"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            selected.push((mood, sel));
+        }
+        if let Some(ch) = f.get("children").and_then(|v| v.as_array()) {
+            for c in ch {
+                walk(c, stamps, selected);
+            }
+        }
+    }
+    walk(root, &mut stamps, &mut selected);
+    assert_eq!(stamps, vec!["chips".to_string(), "chips".to_string()]);
+    assert!(
+        selected.contains(&("all".to_string(), true)),
+        "expected All selected via parent ForEach overlay, got {selected:?}"
+    );
+    assert!(
+        selected.contains(&("focus".to_string(), false)),
+        "expected Focus unselected, got {selected:?}"
+    );
 }
 
 #[test]

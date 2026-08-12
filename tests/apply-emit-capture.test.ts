@@ -29,6 +29,123 @@ describe("applyEmitCapture", () => {
     expect(r.params.currentFilter).toBe("podcasts");
   });
 
+  it("ForEach: instance-let qualifier still matches list-name capture (chips)", () => {
+    // Host passes data-pdl-instance-let (Root_LabChip_N); catalogue stamps ForEach list name.
+    const captures = [
+      {
+        qualifier: "chips",
+        channel: "select",
+        payload: [{ name: "filter_id", type: "FilterId" }],
+        body: [
+          {
+            kind: "assign",
+            param: "currentFilter",
+            value: { kind: "ident", name: "filter_id" },
+          },
+        ],
+      },
+    ];
+    const r = applyEmitCapture(
+      { currentFilter: "all" },
+      captures,
+      "select",
+      ["filter"],
+      { filter: "podcasts", selected: false },
+      "Root_LabChip_1",
+    );
+    expect(r.handled).toBe(true);
+    expect(r.changed).toBe(true);
+    expect(r.params.currentFilter).toBe("podcasts");
+  });
+
+  it("multi-ForEach: foreachList qualifier disambiguates chips vs tracks select", () => {
+    const captures = [
+      {
+        qualifier: "chips",
+        channel: "select",
+        payload: [{ name: "mood_id", type: "MoodId" }],
+        body: [
+          {
+            kind: "assign",
+            param: "currentMood",
+            value: { kind: "ident", name: "mood_id" },
+          },
+        ],
+      },
+      {
+        qualifier: "tracks",
+        channel: "select",
+        payload: [{ name: "id", type: "TrackId" }],
+        body: [
+          {
+            kind: "assign",
+            param: "selectedTrack",
+            value: { kind: "ident", name: "id" },
+          },
+        ],
+      },
+    ];
+    const chip = applyEmitCapture(
+      { currentMood: "all", selectedTrack: "none" },
+      captures,
+      "select",
+      ["mood"],
+      { mood: "drive", title: "Drive", selected: false },
+      "chips", // data-pdl-foreach-list
+    );
+    expect(chip.handled).toBe(true);
+    expect(chip.params.currentMood).toBe("drive");
+    expect(chip.params.selectedTrack).toBe("none");
+
+    const track = applyEmitCapture(
+      { currentMood: "all", selectedTrack: "none" },
+      captures,
+      "select",
+      ["trackId"],
+      { trackId: "coastal", title: "Coastal Gear", selected: false },
+      "tracks",
+    );
+    expect(track.handled).toBe(true);
+    expect(track.params.selectedTrack).toBe("coastal");
+    expect(track.params.currentMood).toBe("all");
+
+    // Instance-let alone must not guess among multiple select captures.
+    const miss = applyEmitCapture(
+      { currentMood: "all", selectedTrack: "none" },
+      captures,
+      "select",
+      ["trackId"],
+      { trackId: "coastal" },
+      "TrackList_TrackRow_2",
+    );
+    expect(miss.handled).toBe(false);
+  });
+
+  it("does not fall back across multiple let-qualified same-channel captures", () => {
+    const captures = [
+      {
+        qualifier: "Edit",
+        channel: "tap",
+        body: [{ kind: "assign", param: "status", value: { kind: "string", value: "Edit" } }],
+      },
+      {
+        qualifier: "Done",
+        channel: "tap",
+        body: [{ kind: "assign", param: "status", value: { kind: "string", value: "Done" } }],
+      },
+    ];
+    const miss = applyEmitCapture(
+      { status: "Idle" },
+      captures,
+      "tap",
+      [],
+      {},
+      "Root_Edit_0",
+    );
+    expect(miss.handled).toBe(false);
+    expect(miss.params.status).toBe("Idle");
+  });
+
   it("collects let-qualified host verbs from emit-capture bodies", () => {
     const captures = [
       {

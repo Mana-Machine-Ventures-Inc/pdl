@@ -878,6 +878,50 @@ describe("renderHtml", () => {
     expect(frag).toContain("#f7f7f79e");
   });
 
+  it("keeps baked color on editable inputs (does not force color:inherit)", () => {
+    const doc = {
+      schemaKind: "bakedDesign" as const,
+      schemaVersion: "1.0.0-beta",
+      generatedAt: "2026-01-01T00:00:00.000Z",
+      provenance: {
+        entryPath: "/x.pdl",
+        bakedTheme: null,
+        bakeProfile: "component-explicit" as const,
+      },
+      components: {
+        DarkField: {
+          name: "DarkField",
+          rootKind: "text",
+          bakedParams: {
+            value: "My playlist",
+            isEditing: true,
+            isEmpty: false,
+            activatesOn: "press",
+          },
+          root: {
+            id: "Root",
+            kind: "text",
+            props: {
+              content: "My playlist",
+              editable: true,
+              color: "#F1F5F9",
+              background: "#141C2E",
+            },
+            children: [],
+          },
+        },
+      },
+    };
+    const html = renderBakedDesignToHtmlDocument(doc, {
+      singleComponent: "DarkField",
+      interactiveHost: true,
+      interactionsByComponent: {},
+    });
+    expect(html).toContain("pdl-text--editable");
+    expect(html).toContain("color:#F1F5F9");
+    expect(html).not.toMatch(/pdl-text--editable[^>]*color:inherit/);
+  });
+
   it("marks EditableText interactive even with zero author handlers", () => {
     const doc = {
       schemaKind: "bakedDesign" as const,

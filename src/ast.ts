@@ -20,7 +20,7 @@ export type ValueExpr =
   | { kind: "boolean"; value: boolean }
   /** Frame/typeStyle prop clear — "pretend we didn't set this" (resolve deletes the key). */
   | { kind: "null" }
-  /** Only on `hidden = …` — same grammar as `if` conditions (variant comparisons). */
+  /** Bool-producing condition: `hidden = …`, ForEach binds, Bool kwargs (`selected: current == .all`). */
   | { kind: "condition"; expr: ConditionExpr }
   | { kind: "ident"; name: string }
   | { kind: "dotEnum"; value: string }

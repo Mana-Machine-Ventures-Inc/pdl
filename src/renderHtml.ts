@@ -1027,6 +1027,17 @@ function sessionParamIsEditing(params: Record<string, unknown> | undefined): boo
   return params?.isEditing === true || params?.isEditing === "true";
 }
 
+/**
+ * Editable `<input>`s used to always append `color:inherit`, which overrode baked
+ * `color` and made dark-theme fields paint black. Only inherit when authors omit color.
+ */
+function editableInputColorOverride(
+  props: Record<string, unknown>,
+): string | undefined {
+  if (typeof props.color === "string" && props.color.trim() !== "") return undefined;
+  return "color:inherit";
+}
+
 export type InstanceRenderCtx = {
   nextKey: number;
   /** Prebaked non-rest trees keyed by instance key (`i0`, …) then state name. */
@@ -1297,7 +1308,7 @@ function computeShellStyleForPatch(
         "outline:none",
         "background:transparent",
         "font:inherit",
-        "color:inherit",
+        editableInputColorOverride(props),
         "width:100%",
         "box-sizing:border-box",
       );
@@ -1686,10 +1697,24 @@ function renderFrame(
     sessionAttr = ` data-pdl-session-params="${escapeAttr(JSON.stringify(childSession))}"`;
   }
   const letAttr = wantInst && id ? ` data-pdl-instance-let="${escapeAttr(id)}"` : "";
-  const instAttrs = `${inst}${kwargsAttr}${pointerAttr}${sessionAttr}${letAttr}`;
+  const foreachList =
+    wantInst && typeof (frame as { foreachList?: unknown }).foreachList === "string"
+      ? String((frame as { foreachList?: string }).foreachList)
+      : "";
+  const foreachAttr = foreachList
+    ? ` data-pdl-foreach-list="${escapeAttr(foreachList)}"`
+    : "";
+  const instAttrs = `${inst}${kwargsAttr}${pointerAttr}${sessionAttr}${letAttr}${foreachAttr}`;
 
-  // Nested interactive instances: wrap with per-kwargs state fragments for local swap.
-  if (wantInst && instCtx && frame.instanceOf) {
+  // Legacy dual-bake wrap (only when a caller still supplies instanceStateTrees).
+  // Playground no longer generates these — nested chrome uses instance resolve.
+  if (
+    wantInst &&
+    instCtx &&
+    frame.instanceOf &&
+    instCtx.stateTrees &&
+    Object.keys(instCtx.stateTrees).length > 0
+  ) {
     const key = `i${instCtx.nextKey++}`;
     const extra = instCtx.stateTrees[key];
     if (extra && Object.keys(extra).length > 0) {
@@ -1710,7 +1735,7 @@ function renderFrame(
       }
       const chromeParam = instCtx.chromeStateParams?.[key] || "interactionState";
       const chromeAttr = ` data-pdl-chrome-state-param="${escapeAttr(chromeParam)}"`;
-      return `<div class="pdl-instance"${inst}${kwargsAttr}${pointerAttr}${sessionAttr}${letAttr}${chromeAttr} data-pdl-instance-key="${escapeAttr(key)}">${blocks}</div>`;
+      return `<div class="pdl-instance"${inst}${kwargsAttr}${pointerAttr}${sessionAttr}${letAttr}${foreachAttr}${chromeAttr} data-pdl-instance-key="${escapeAttr(key)}">${blocks}</div>`;
     }
   }
 
@@ -1799,7 +1824,7 @@ function renderFrame(
         "outline:none",
         "background:transparent",
         "font:inherit",
-        "color:inherit",
+        editableInputColorOverride(props),
         "width:100%",
         "box-sizing:border-box",
       );
@@ -2570,22 +2595,28 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     if (el) el.textContent = JSON.stringify(params);
   }
   // onHostVerb(hv, nextParams) → { params, changed, localChrome } when provided (ordered body exec).
+  function findEmitCapture(captures, channel, wantQual) {
+    var channelCaps = [];
+    for (var i = 0; i < captures.length; i++) {
+      var c0 = captures[i];
+      if (c0 && c0.channel === channel) channelCaps.push(c0);
+    }
+    if (!channelCaps.length) return null;
+    if (!wantQual) return channelCaps[channelCaps.length - 1];
+    for (var j = 0; j < channelCaps.length; j++) {
+      if ((channelCaps[j].qualifier || null) === wantQual) return channelCaps[j];
+    }
+    // ForEach without data-pdl-foreach-list: sole list capture still works (LabBar).
+    // Multi-list shells pass foreachList so exact match hits chips/tracks.
+    if (channelCaps.length === 1) return channelCaps[0];
+    return null;
+  }
   function applyEmitCapture(parentParams, captures, channel, emitArgNames, childParams, qualifier, onHostVerb) {
     if (!captures || !captures.length) {
       return { params: Object.assign({}, parentParams), changed: false, handled: false, localChrome: false };
     }
-    var capture = null;
     var wantQual = qualifier != null && String(qualifier).length ? String(qualifier) : null;
-    for (var ci = 0; ci < captures.length; ci++) {
-      var c = captures[ci];
-      if (!c || c.channel !== channel) continue;
-      if (wantQual) {
-        if ((c.qualifier || null) !== wantQual) continue;
-        capture = c;
-        break;
-      }
-      capture = c;
-    }
+    var capture = findEmitCapture(captures, channel, wantQual);
     if (!capture) return { params: Object.assign({}, parentParams), changed: false, handled: false, localChrome: false };
     var scope = Object.assign({}, parentParams);
     (capture.payload || []).forEach(function(p, i){
@@ -2652,6 +2683,20 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     return root.querySelector(
       '.pdl-inst-state:not([hidden]) input.pdl-text--editable, :scope > input.pdl-text--editable, input.pdl-text--editable'
     );
+  }
+  /** Ask playground to bake(childType, kwargs) and IR-patch this instance mount. */
+  function requestInstanceResolve(opts) {
+    if (!opts || !opts.childComponent) return;
+    try {
+      parent.postMessage({
+        type: 'pdl-resolve-instance',
+        component: opts.component || '',
+        instanceLet: opts.instanceLet || '',
+        childComponent: opts.childComponent,
+        childParams: opts.childParams || {},
+        reason: opts.reason || ''
+      }, '*');
+    } catch (e) {}
   }
   function runQualifiedHostVerb(section, parentParams, parentCaptures, hv) {
     var q = hv.qualifier;
@@ -2739,12 +2784,25 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       }
     }
     node.setAttribute('data-pdl-session-params', JSON.stringify(bag));
+    try {
+      node.setAttribute('data-pdl-instance-kwargs', JSON.stringify(bag));
+    } catch (e) {}
     var vis = liveEditableInput(node);
     if (vis) {
       try { vis.value = String(bag.value == null ? '' : bag.value); } catch (e) {}
       if (!skipEagerFocus && (bag.isEditing === true || bag.isEditing === 'true')) {
         try { vis.focus(); } catch (e) {}
       }
+    }
+    if (changed && childType) {
+      requestInstanceResolve({
+        component: section.getAttribute('data-pdl-component') || '',
+        instanceLet: q,
+        childComponent: childType,
+        childParams: bag,
+        reason: vname
+      });
+      localChrome = true;
     }
     return { parentParams: parentParams, changed: changed, localChrome: localChrome };
   }
@@ -2817,33 +2875,26 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           var childBy = handlersByEvent(childDecls);
           if (!Object.keys(childBy).length) return;
           node.setAttribute('data-pdl-listening', '1');
-          var childQualifier = node.getAttribute('data-pdl-instance-let') || null;
+          // Prefer ForEach list name (catalogue emitCapture qualifier) over synthetic instance-let.
+          var foreachList = node.getAttribute('data-pdl-foreach-list') || null;
+          var childQualifier = foreachList || node.getAttribute('data-pdl-instance-let') || null;
+          var instanceLet = node.getAttribute('data-pdl-instance-let') || null;
           var childParams = {};
           try { childParams = JSON.parse(node.getAttribute('data-pdl-instance-kwargs') || '{}'); } catch (e) {}
           var childLive = Object.assign({}, childParams);
           var down = false;
           node.style.cursor = 'pointer';
-          function showInstState(state) {
-            var nodes = node.querySelectorAll(':scope > .pdl-inst-state');
-            if (!nodes.length) return false;
-            var found = false;
-            nodes.forEach(function(n){
-              var match = n.getAttribute('data-pdl-state') === state;
-              n.hidden = !match;
-              if (match) found = true;
-            });
-            return found;
-          }
-          function chromeStateKey(params) {
-            var chromeParam =
-              node.getAttribute('data-pdl-chrome-state-param') || 'interactionState';
-            if (params && params[chromeParam] != null) return String(params[chromeParam]);
-            if (params && params.interactionState != null) return String(params.interactionState);
-            return 'rest';
-          }
           function childDispatch(event) {
             if (!childBy[event]) return;
             liveParams = readParams(section);
+            // Re-sync from DOM — parent rebake / reconcile may have refreshed
+            // ForEach-derived params (selected) on this mount.
+            try {
+              childLive = Object.assign(
+                {},
+                JSON.parse(node.getAttribute('data-pdl-instance-kwargs') || '{}')
+              );
+            } catch (e) {}
             var result = applyEvent(childLive, childDecls, event);
             childLive = result.params;
             var needRebake = false;
@@ -2869,15 +2920,24 @@ export function renderBakedDesignToHtmlDocumentWithReport(
               }
               if (cap.localChrome) localVerbChrome = true;
             });
-            // Local chrome swap for nested pointer chrome (hover/press).
-            // Rebake cannot restore ephemeral child chrome — parent SoT only.
-            var stateKey = chromeStateKey(childLive);
-            var hasDualBake = !!node.querySelector(':scope > .pdl-inst-state');
-            var localHandled = showInstState(stateKey);
-            // Default paint lives in data-pdl-state="rest" (idle / rest / …).
-            if (!localHandled) localHandled = showInstState('rest');
-            // Let-qualified begin/finish may swap EditableText inst-state locally.
-            if (localVerbChrome) localHandled = true;
+            // Nested chrome: instance-resolve (bake child + IR patch).
+            // Skip when parent SoT changed — rebake owns presentation (ForEach
+            // selected). A resolve with pre-emit kwargs would clobber the accent
+            // ring after click (selected:false + hover → grey border).
+            var localHandled = localVerbChrome;
+            if ((result.changed || localVerbChrome) && !needRebake) {
+              try {
+                node.setAttribute('data-pdl-instance-kwargs', JSON.stringify(childLive));
+              } catch (e) {}
+              requestInstanceResolve({
+                component: name,
+                instanceLet: instanceLet || '',
+                childComponent: childType,
+                childParams: childLive,
+                reason: event
+              });
+              localHandled = true;
+            }
             postMsg({
               type: 'pdl-interaction',
               component: name,
@@ -2888,9 +2948,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
               emits: result.emits,
               handled: result.handled,
               changed: result.changed || needRebake,
-              // Parent rebake cannot paint nested hover chrome — only dual-bake swaps can.
-              // Without dual-bake fragments, suppress rebake (still need a cold Render once).
-              previewHandled: needRebake ? false : (localHandled || !hasDualBake)
+              // Parent rebake only when emit capture changed parent SoT.
+              previewHandled: needRebake ? false : localHandled
             });
           }
           if (childBy.hoverStart || childBy.hoverEnd) {
@@ -3106,8 +3165,14 @@ export function renderBakedDesignToHtmlDocumentWithReport(
               beginEmits = brn.emits || [];
               beginNeedRebake = Boolean(brn.needRebake);
             }
-            // Parent shell SoT (e.g. editing = true via emit began) must rebake even when
-            // nested inst-state chrome swapped locally.
+            // Nested field chrome via instance resolve; parent rebake only if SoT changed.
+            requestInstanceResolve({
+              component: name,
+              instanceLet: childQualifier || '',
+              childComponent: childType,
+              childParams: childBag,
+              reason: 'beginEditing'
+            });
             postMsg({
               type: 'pdl-interaction',
               component: name,
@@ -3117,25 +3182,37 @@ export function renderBakedDesignToHtmlDocumentWithReport(
               childParams: childBag,
               emits: beginEmits,
               handled: true,
-              changed: beginNeedRebake || !localChrome,
-              previewHandled: beginNeedRebake ? false : localChrome
+              changed: true,
+              previewHandled: beginNeedRebake ? false : true
             });
             return;
           }
-          if (byEvent.pressEnd) dispatchSelf('pressEnd');
-          else if (byEvent.editingBegan) dispatchSelf('editingBegan');
-          else {
-            postMsg({
-              type: 'pdl-interaction',
-              component: name,
-              event: 'beginEditing',
-              params: liveParams,
-              emits: [],
-              handled: true,
-              changed: true,
-              previewHandled: false
-            });
+          // Root EditableText: if-isEditing chrome is bake-time. Always rebake —
+          // dispatchSelf would mark previewHandled via dual-bake rest and leave
+          // idle border/placeholder while params.isEditing is already true.
+          liveParams = readParams(section);
+          var rootBeginEmits = [];
+          if (byEvent.editingBegan) {
+            var rootBr = applyEvent(liveParams, decls, 'editingBegan');
+            liveParams = rootBr.params;
+            rootBeginEmits = rootBr.emits || [];
+            writeParams(section, liveParams);
+          } else if (byEvent.pressEnd) {
+            var rootPr = applyEvent(liveParams, decls, 'pressEnd');
+            liveParams = rootPr.params;
+            rootBeginEmits = rootPr.emits || [];
+            writeParams(section, liveParams);
           }
+          postMsg({
+            type: 'pdl-interaction',
+            component: name,
+            event: 'beginEditing',
+            params: liveParams,
+            emits: rootBeginEmits,
+            handled: true,
+            changed: true,
+            previewHandled: false
+          });
         }
         function finishSession(kind) {
           // kind: 'finished' | 'cancelled'
@@ -3158,6 +3235,13 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             var nr = { emits: [], changed: false, needRebake: false, handled: false };
             if (eventBy[evName]) nr = dispatchNested(evName);
             else if (eventBy[alias]) nr = dispatchNested(alias);
+            requestInstanceResolve({
+              component: name,
+              instanceLet: childQualifier || '',
+              childComponent: childType,
+              childParams: childBag,
+              reason: evName
+            });
             postMsg({
               type: 'pdl-interaction',
               component: name,
@@ -3168,24 +3252,34 @@ export function renderBakedDesignToHtmlDocumentWithReport(
               emits: nr.emits || [],
               handled: true,
               changed: true,
-              previewHandled: false
+              previewHandled: nr.needRebake ? false : true
             });
             return;
           }
-          if (eventBy[evName]) dispatchSelf(evName);
-          else if (eventBy[alias]) dispatchSelf(alias);
-          else {
-            postMsg({
-              type: 'pdl-interaction',
-              component: name,
-              event: evName,
-              params: liveParams,
-              emits: [],
-              handled: true,
-              changed: true,
-              previewHandled: false
-            });
+          // Root EditableText: restore idle if-isEditing / placeholder via rebake.
+          liveParams = readParams(section);
+          var rootEndEmits = [];
+          if (eventBy[evName]) {
+            var rootEnd = applyEvent(liveParams, decls, evName);
+            liveParams = rootEnd.params;
+            rootEndEmits = rootEnd.emits || [];
+            writeParams(section, liveParams);
+          } else if (eventBy[alias]) {
+            var rootAlias = applyEvent(liveParams, decls, alias);
+            liveParams = rootAlias.params;
+            rootEndEmits = rootAlias.emits || [];
+            writeParams(section, liveParams);
           }
+          postMsg({
+            type: 'pdl-interaction',
+            component: name,
+            event: evName,
+            params: liveParams,
+            emits: rootEndEmits,
+            handled: true,
+            changed: true,
+            previewHandled: false
+          });
         }
         syncHitTarget();
         input.addEventListener('mousedown', function(ev){

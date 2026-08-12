@@ -1,6 +1,12 @@
 /**
  * Apply layout `on` emit-capture assigns (catalogue JSON shape).
  * Spec §4e / §8 — parent rebinding after child `emit`.
+ *
+ * Deep embeddings: ForEach catalogue stamps the **owning list param** (`chips` /
+ * `tracks`) as the capture qualifier — including when another component mounts the
+ * list (`ChipRow(children: chips)`). Bake stamps that name on expanded instances
+ * (`foreachList` / `data-pdl-foreach-list`). Hosts pass that qualifier so a parent
+ * capture connects at any DOM depth; instance-let ids are synthetic.
  */
 
 import {
@@ -34,10 +40,42 @@ export type ApplyEmitCaptureResult = {
 };
 
 /**
+ * Resolve which emit-capture to run.
+ *
+ * - Exact qualifier match: let-scoped (`Edit.tap`) **or** ForEach list name (`chips`)
+ *   when the host passes `data-pdl-foreach-list`.
+ * - Sole channel capture: LabBar-style single ForEach list (instance-let fallback).
+ * - Unqualified: last channel match (legacy).
+ * - Multiple same-channel captures without an exact match do **not** guess
+ *   (avoids Edit/Done cross-talk); multi-list shells must stamp foreachList.
+ */
+export function findEmitCapture(
+  captures: EmitCaptureJson[],
+  channel: string,
+  wantQual: string | null,
+): EmitCaptureJson | undefined {
+  const channelCaps = captures.filter((c) => c && c.channel === channel);
+  if (!channelCaps.length) return undefined;
+
+  if (!wantQual) {
+    return channelCaps[channelCaps.length - 1];
+  }
+
+  const exact = channelCaps.find((c) => (c.qualifier ?? null) === wantQual);
+  if (exact) return exact;
+
+  // ForEach without foreachList stamp: sole list capture still works (LabBar).
+  if (channelCaps.length === 1) return channelCaps[0];
+
+  return undefined;
+}
+
+/**
  * @param captures catalogue `emitCaptures` for the parent component
  * @param channel emit channel name (`select`)
  * @param emitArgNames ordered arg names from `emit select(filter)`
  * @param childParams instance kwargs / live child params
+ * @param qualifier ForEach list name (`chips`) or let id (`Edit`); prefer foreachList
  */
 export function applyEmitCapture(
   parentParams: ParamMap,
@@ -50,19 +88,8 @@ export function applyEmitCapture(
   if (!Array.isArray(captures) || !captures.length) {
     return { params: { ...parentParams }, changed: false, handled: false, hostVerbs: [] };
   }
-  let capture: EmitCaptureJson | undefined;
   const wantQual = qualifier != null && String(qualifier).length > 0 ? String(qualifier) : null;
-  for (const c of captures) {
-    if (c.channel !== channel) continue;
-    if (wantQual) {
-      // Let-qualified emits (`Edit.tap`) must not fall through to Done/Cancel.
-      if ((c.qualifier ?? null) !== wantQual) continue;
-      capture = c;
-      break;
-    }
-    // Legacy / ForEach: no qualifier supplied — last channel match wins.
-    capture = c;
-  }
+  const capture = findEmitCapture(captures, channel, wantQual);
   if (!capture) {
     return { params: { ...parentParams }, changed: false, handled: false, hostVerbs: [] };
   }

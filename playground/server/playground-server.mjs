@@ -22,6 +22,13 @@ import { bakeAndRender, resolveRepoPath, rustPdlArgs } from "../../scripts/lib/b
 /** Known packs for PDL Playground. */
 const PACK_CATALOG = [
   {
+    id: "playlist-composer-lite",
+    label: "Playlist Composer",
+    entry: "test-fixtures/pdl/systems/playlist-composer-lite/design.pdl",
+    defaultComponent: "PlaylistComposer",
+    description: "Interaction flagship — chips, tracks, rename/search sessions, ForEach demos",
+  },
+  {
     id: "airbnb-lite",
     label: "Airbnb-lite",
     entry: "test-fixtures/pdl/systems/airbnb-lite/design.pdl",
@@ -839,196 +846,6 @@ function buildParamControlsByComponent(enriched, names, kvByComponent) {
 }
 
 
-/**
- * Walk baked frames in render order; collect mounted instances.
- * @param {unknown} frame
- * @param {Array<{ component: string, kwargs: Record<string, unknown> }>} out
- */
-function collectMountedInstances(frame, out) {
-  if (!frame || typeof frame !== "object") return;
-  const f = /** @type {{ instanceOf?: string, instanceKwargs?: Record<string, unknown>, children?: unknown[] }} */ (
-    frame
-  );
-  if (typeof f.instanceOf === "string" && f.instanceOf) {
-    out.push({
-      component: f.instanceOf,
-      kwargs:
-        f.instanceKwargs && typeof f.instanceKwargs === "object" && !Array.isArray(f.instanceKwargs)
-          ? { ...f.instanceKwargs }
-          : {},
-    });
-  }
-  if (Array.isArray(f.children)) {
-    for (const ch of f.children) collectMountedInstances(ch, out);
-  }
-}
-
-/**
- * Param that drives hover/press chrome. Prefer well-known `interactionState`, else the
- * first variant/enum param assigned by hover/press handlers (e.g. author `state`).
- * @param {string} componentName
- * @param {object} enriched
- * @returns {{ name: string, typeName: string, default: unknown } | null}
- */
-function resolveChromeStateParam(componentName, enriched) {
-  const params = enriched.componentParams?.[componentName] ?? [];
-  const byName = new Map(params.map((p) => [p.name, p]));
-  const wellKnown = byName.get("interactionState");
-  if (wellKnown) return wellKnown;
-
-  const decls = enriched.interactionsByComponent?.[componentName];
-  if (!Array.isArray(decls)) return null;
-  /** @type {Set<string>} */
-  const assigned = new Set();
-  for (const d of decls) {
-    for (const h of d?.handlers ?? []) {
-      const ev = h?.event;
-      if (
-        ev !== "hoverStart" &&
-        ev !== "hoverEnd" &&
-        ev !== "pressStart" &&
-        ev !== "pressEnd" &&
-        ev !== "pressCancel"
-      ) {
-        continue;
-      }
-      for (const item of h.body ?? []) {
-        if (item?.kind === "assign" && typeof item.param === "string") {
-          assigned.add(item.param);
-        }
-      }
-    }
-  }
-  for (const name of assigned) {
-    const p = byName.get(name);
-    if (!p) continue;
-    const cases = enriched.variantCases?.[p.typeName];
-    if (Array.isArray(cases) && cases.length > 0) return p;
-  }
-  return null;
-}
-
-function normalizeChromeCase(value) {
-  if (value == null) return "rest";
-  return String(value).replace(/^\./, "");
-}
-
-/**
- * Bake hovered/pressed/… trees for each nested instance (keyed i0, i1, …).
- * Needed because child chrome SoT is ephemeral — parent rebake always resets it.
- * @param {object} args
- * @returns {Promise<{ trees: Record<string, Record<string, unknown>>, chromeParams: Record<string, string> }>}
- */
-async function bakeInstanceInteractionStates({
-  baked,
-  previewNames,
-  enriched,
-  entryAbs,
-  engine,
-  theme,
-}) {
-  /** @type {Record<string, Record<string, unknown>>} */
-  const instanceStateTrees = {};
-  /** @type {Record<string, string>} */
-  const instanceChromeStateParams = {};
-  if (!baked?.components) {
-    return { trees: instanceStateTrees, chromeParams: instanceChromeStateParams };
-  }
-
-  /** @type {Array<{ component: string, kwargs: Record<string, unknown> }>} */
-  const instances = [];
-  for (const name of previewNames) {
-    const root = baked.components[name]?.root;
-    if (root) collectMountedInstances(root, instances);
-  }
-
-  let idx = 0;
-  for (const inst of instances) {
-    const key = `i${idx++}`;
-    const params = enriched.componentParams?.[inst.component] ?? [];
-    const stateParam = resolveChromeStateParam(inst.component, enriched);
-    const hasEditableSession = params.some(
-      (p) => p?.name === "isEditing" || p?.name === "activatesOn",
-    );
-    const cases = stateParam
-      ? enriched.variantCases?.[stateParam.typeName] ?? []
-      : [];
-    const defaultCase = stateParam ? normalizeChromeCase(stateParam.default) : "rest";
-    // Default paint is the rest fragment; dual-bake only non-default cases.
-    const extraStates = cases.filter(
-      (c) => c && c !== "rest" && c !== defaultCase,
-    );
-    if (!extraStates.length && !hasEditableSession) continue;
-
-    /** @type {Record<string, unknown>} */
-    const trees = {};
-    const chromeName = stateParam?.name ?? "interactionState";
-    const baseKw = { ...inst.kwargs };
-    delete baseKw[chromeName];
-    delete baseKw.interactionState;
-    for (const stateName of extraStates) {
-      const outPath = join(
-        REPO_ROOT,
-        ".tmp",
-        `playground-inst-${inst.component}-${key}-${stateName}.bake.json`,
-      );
-      const stateBake = await bakeAndRender({
-        repoRoot: REPO_ROOT,
-        entry: entryAbs,
-        engine,
-        mode: "component",
-        component: inst.component,
-        theme: typeof theme === "string" ? theme : undefined,
-        paramOverrides: { ...baseKw, [chromeName]: stateName },
-        bakeOutPath: outPath,
-        title: `${inst.component}-${stateName}`,
-        singleComponent: inst.component,
-        interactiveHost: false,
-      });
-      if (stateBake.ok && stateBake.baked) {
-        const tree =
-          /** @type {{ components?: Record<string, unknown> }} */ (stateBake.baked).components?.[
-            inst.component
-          ];
-        if (tree) trees[stateName] = tree;
-      }
-    }
-    // Nested EditableText: prebake isEditing chrome (parent rebake cannot carry child session).
-    if (hasEditableSession) {
-      const outPath = join(
-        REPO_ROOT,
-        ".tmp",
-        `playground-inst-${inst.component}-${key}-editing.bake.json`,
-      );
-      const stateBake = await bakeAndRender({
-        repoRoot: REPO_ROOT,
-        entry: entryAbs,
-        engine,
-        mode: "component",
-        component: inst.component,
-        theme: typeof theme === "string" ? theme : undefined,
-        paramOverrides: { ...baseKw, isEditing: true },
-        bakeOutPath: outPath,
-        title: `${inst.component}-editing`,
-        singleComponent: inst.component,
-        interactiveHost: false,
-      });
-      if (stateBake.ok && stateBake.baked) {
-        const tree =
-          /** @type {{ components?: Record<string, unknown> }} */ (stateBake.baked).components?.[
-            inst.component
-          ];
-        if (tree) trees.editing = tree;
-      }
-    }
-    if (Object.keys(trees).length) {
-      instanceStateTrees[key] = trees;
-      if (stateParam) instanceChromeStateParams[key] = chromeName;
-    }
-  }
-  return { trees: instanceStateTrees, chromeParams: instanceChromeStateParams };
-}
-
 async function handleRender(body) {
   const {
     files,
@@ -1284,72 +1101,8 @@ async function handleRender(body) {
       componentOverrides ?? {},
     );
 
-    // Phase 4: bake non-default chrome trees (hovered/hovering/pressed/…) for host swaps
-    /** @type {Record<string, Record<string, unknown>>} */
-    const stateTrees = {};
-    /** @type {Record<string, string>} */
-    const componentChromeStateParams = {};
-    if (wantInteractive && result.baked && mode !== "pack") {
-      for (const name of previewNames) {
-        const stateParam = resolveChromeStateParam(name, enriched);
-        if (!stateParam) continue;
-        const cases = enriched.variantCases?.[stateParam.typeName] ?? [];
-        const defaultCase = normalizeChromeCase(stateParam.default);
-        const extraStates = cases.filter((c) => c && c !== "rest" && c !== defaultCase);
-        if (!extraStates.length) continue;
-        const baseOv =
-          componentOverrides?.[name] && typeof componentOverrides[name] === "object"
-            ? { ...componentOverrides[name] }
-            : /** @type {Record<string, unknown>} */ ({});
-        delete baseOv[stateParam.name];
-        delete baseOv.interactionState;
-        /** @type {Record<string, unknown>} */
-        const treesForComp = {};
-        for (const stateName of extraStates) {
-          const outPath = join(
-            REPO_ROOT,
-            ".tmp",
-            `playground-state-${name}-${stateName}.bake.json`,
-          );
-          const stateBake = await bakeAndRender({
-            repoRoot: REPO_ROOT,
-            entry: entryAbs,
-            engine,
-            mode: "component",
-            component: name,
-            theme: typeof theme === "string" ? theme : undefined,
-            paramOverrides: { ...baseOv, [stateParam.name]: stateName },
-            bakeOutPath: outPath,
-            title: stateName,
-            singleComponent: name,
-            interactiveHost: false,
-          });
-          if (stateBake.ok && stateBake.baked) {
-            const tree =
-              /** @type {{ components?: Record<string, unknown> }} */ (stateBake.baked)
-                .components?.[name];
-            if (tree) treesForComp[stateName] = tree;
-          }
-        }
-        if (Object.keys(treesForComp).length) {
-          stateTrees[name] = treesForComp;
-          componentChromeStateParams[name] = stateParam.name;
-        }
-      }
-    }
-
-    const instanceChrome =
-      wantInteractive && result.baked && mode !== "pack"
-        ? await bakeInstanceInteractionStates({
-            baked: result.baked,
-            previewNames,
-            enriched,
-            entryAbs,
-            engine,
-            theme,
-          })
-        : { trees: {}, chromeParams: {} };
-
+    // Nested/top-level chrome: instance resolve (playground) or owner rebake.
+    // Dual-bake stateTrees / instanceStateTrees retired (Phase 2).
     let html = result.html;
     {
       const { renderBakedDesignToHtmlDocumentWithReport } = await toolchainPromise;
@@ -1365,15 +1118,6 @@ async function handleRender(body) {
         interactiveHost: wantInteractive && mode !== "pack",
         interactionsByComponent: enriched.interactionsByComponent,
         emitCapturesByComponent: enriched.emitCapturesByComponent,
-        stateTrees: Object.keys(stateTrees).length ? stateTrees : undefined,
-        componentChromeStateParams: Object.keys(componentChromeStateParams).length
-          ? componentChromeStateParams
-          : undefined,
-        instanceStateTrees:
-          Object.keys(instanceChrome.trees).length > 0 ? instanceChrome.trees : undefined,
-        instanceChromeStateParams: Object.keys(instanceChrome.chromeParams).length
-          ? instanceChrome.chromeParams
-          : undefined,
         paramControlsByComponent,
         componentSourcesByComponent,
       });
@@ -1460,76 +1204,7 @@ async function handleRenderFromBake(body) {
       };
     }
 
-    const previewNames =
-      componentNames?.length > 0
-        ? componentNames
-        : component
-          ? [component]
-          : Object.keys(/** @type {{ components?: object }} */ (bake).components ?? {});
-
-    /** @type {Record<string, Record<string, unknown>>} */
-    let stateTrees = {};
-    /** @type {Record<string, string>} */
-    let componentChromeStateParams = {};
-    /** @type {Record<string, Record<string, unknown>>} */
-    let instanceStateTrees = {};
-    /** @type {Record<string, string>} */
-    let instanceChromeStateParams = {};
-
-    if (wantInteractive && enriched && entryAbs) {
-      for (const name of previewNames) {
-        const stateParam = resolveChromeStateParam(name, enriched);
-        if (!stateParam) continue;
-        const cases = enriched.variantCases?.[stateParam.typeName] ?? [];
-        const defaultCase = normalizeChromeCase(stateParam.default);
-        const extraStates = cases.filter((c) => c && c !== "rest" && c !== defaultCase);
-        if (!extraStates.length) continue;
-        /** @type {Record<string, unknown>} */
-        const treesForComp = {};
-        for (const stateName of extraStates) {
-          const outPath = join(
-            REPO_ROOT,
-            ".tmp",
-            `playground-wasm-state-${name}-${stateName}.bake.json`,
-          );
-          const stateBake = await bakeAndRender({
-            repoRoot: REPO_ROOT,
-            entry: entryAbs,
-            engine: "rust",
-            mode: "component",
-            component: name,
-            theme: typeof body.theme === "string" ? body.theme : undefined,
-            paramOverrides: { [stateParam.name]: stateName },
-            bakeOutPath: outPath,
-            title: stateName,
-            singleComponent: name,
-            interactiveHost: false,
-          });
-          if (stateBake.ok && stateBake.baked) {
-            const tree =
-              /** @type {{ components?: Record<string, unknown> }} */ (stateBake.baked)
-                .components?.[name];
-            if (tree) treesForComp[stateName] = tree;
-          }
-        }
-        if (Object.keys(treesForComp).length) {
-          stateTrees[name] = treesForComp;
-          componentChromeStateParams[name] = stateParam.name;
-        }
-      }
-
-      const instanceChrome = await bakeInstanceInteractionStates({
-        baked: bake,
-        previewNames,
-        enriched,
-        entryAbs,
-        engine: "rust",
-        theme: typeof body.theme === "string" ? body.theme : undefined,
-      });
-      instanceStateTrees = instanceChrome.trees;
-      instanceChromeStateParams = instanceChrome.chromeParams;
-    }
-
+    // Dual-bake chrome retired — nested paint uses instance resolve in the playground.
     const { html, renderFailures } = renderBakedDesignToHtmlDocumentWithReport(bake, {
       title: "PDL Playground preview (WASM bake)",
       singleComponent: component,
@@ -1537,16 +1212,6 @@ async function handleRenderFromBake(body) {
       interactiveHost: wantInteractive,
       interactionsByComponent,
       emitCapturesByComponent,
-      stateTrees: Object.keys(stateTrees).length ? stateTrees : undefined,
-      componentChromeStateParams: Object.keys(componentChromeStateParams).length
-        ? componentChromeStateParams
-        : undefined,
-      instanceStateTrees: Object.keys(instanceStateTrees).length
-        ? instanceStateTrees
-        : undefined,
-      instanceChromeStateParams: Object.keys(instanceChromeStateParams).length
-        ? instanceChromeStateParams
-        : undefined,
     });
     return {
       ok: true,

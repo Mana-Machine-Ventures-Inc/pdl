@@ -1,6 +1,5 @@
 import type {
   ComponentDecl,
-  ConditionExpr,
   FrameBodyItem,
   InteractionHandlerItem,
   RulesStatement,
@@ -15,6 +14,7 @@ import {
   normalizeMediaFormatName,
   normalizeMediaKindName,
 } from "./assetRefs.js";
+import { validateConditionExpr } from "./conditions.js";
 import { PdlError } from "./errors.js";
 import {
   assertBlurCallCompatible,
@@ -30,91 +30,9 @@ import {
 } from "./paramBindings.js";
 import {
   hostEnumCases,
-  isBoolParamType,
   isBuiltinParamType,
   unwrapParamTypeName,
 } from "./paramTypes.js";
-
-function validateConditionExpr(
-  design: DesignDefinition,
-  expr: ConditionExpr,
-  paramByName: Map<string, { typeName: string }>,
-  componentName: string,
-): void {
-  switch (expr.kind) {
-    case "and":
-    case "or":
-      for (const sub of expr.items) {
-        validateConditionExpr(design, sub, paramByName, componentName);
-      }
-      return;
-    case "not":
-      validateConditionExpr(design, expr.expr, paramByName, componentName);
-      return;
-    case "truthy": {
-      const paramName = expr.param;
-      const p = paramByName.get(paramName);
-      if (!p) {
-        throw new PdlError(
-          "PDL-E007",
-          `Unknown parameter \`${paramName}\` in \`if\` condition (component ${componentName})`,
-          { path: design.entryPath },
-        );
-      }
-      if (!isBoolParamType(p.typeName)) {
-        throw new PdlError(
-          "PDL-E010",
-          `Bare \`if ${paramName}\` requires a Bool parameter (got type ${p.typeName}); use \`${paramName} == …\` for variants`,
-          { path: design.entryPath },
-        );
-      }
-      return;
-    }
-    case "cmp": {
-      const paramName = expr.param;
-      const p = paramByName.get(paramName);
-      if (!p) {
-        throw new PdlError(
-          "PDL-E007",
-          `Unknown parameter \`${paramName}\` in \`if\` condition (component ${componentName})`,
-          { path: design.entryPath },
-        );
-      }
-      const rhsRaw = expr.rhs.startsWith(".") ? expr.rhs.slice(1) : expr.rhs;
-      if (isBoolParamType(p.typeName)) {
-        if (rhsRaw !== "true" && rhsRaw !== "false") {
-          throw new PdlError(
-            "PDL-E010",
-            `Bool condition on \`${paramName}\` expected \`true\` / \`false\` (or \`.true\` / \`.false\`)`,
-            { path: design.entryPath },
-          );
-        }
-        return;
-      }
-      const vdecl = design.variants.get(p.typeName);
-      if (!vdecl) {
-        throw new PdlError(
-          "PDL-E010",
-          `Condition compares non-variant parameter \`${paramName}\` (type ${p.typeName}); \`if\` conditions must use a variant-typed parameter`,
-          { path: design.entryPath },
-        );
-      }
-      if (!vdecl.cases.includes(rhsRaw)) {
-        throw new PdlError(
-          "PDL-E010",
-          `Unknown variant case \`.${rhsRaw}\` for parameter \`${paramName}\` (variant ${vdecl.name}); expected one of: ${vdecl.cases.map((c) => `.${c}`).join(", ")}`,
-          { path: design.entryPath },
-        );
-      }
-      return;
-    }
-    default: {
-      const _x: never = expr;
-      void _x;
-      return;
-    }
-  }
-}
 
 function collectLetFrameKinds(items: FrameBodyItem[]): Map<string, string> {
   const m = new Map<string, string>();

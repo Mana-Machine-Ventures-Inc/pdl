@@ -97,6 +97,7 @@ fn expand_type_style_into_frame(
         } else {
             None
         },
+        foreach_list: frame.foreach_list.clone(),
     })
 }
 

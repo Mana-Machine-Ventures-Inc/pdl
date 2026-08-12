@@ -1,0 +1,51 @@
+import "foundation.pdl"
+
+component ComposerChip <PointerInput>(
+  title: String = "All",
+  mood: MoodId = .all,
+  selected: Bool = false,
+  state: ChromeState = .idle
+) layout {
+  direction = .row
+  align = .center
+  justify = .center
+  gap = pc.space.xs
+  padding = EdgeInsets(x: 14, y: 8)
+  cornerRadius = pc.radius.pill
+  borderWidth = 1
+
+  if selected {
+    background = pc.color.accent
+    borderColor = pc.color.accent
+  } else if state == .pressed {
+    background = pc.color.surfaceRaised
+    borderColor = pc.color.accent
+  } else if state == .hovering {
+    background = pc.color.surfaceRaised
+    borderColor = pc.color.fgMuted
+  } else {
+    background = pc.color.surfaceRaised
+    borderColor = pc.color.border
+  }
+
+  let Label = Text(content: title, style: PcBody)
+
+  if selected {
+    Label.color = pc.color.ink
+  } else {
+    Label.color = pc.color.fg
+  }
+
+  children = [Label]
+
+  self.hoverStart = { state = .hovering }
+  self.hoverEnd = { state = .idle }
+  self.pressStart = { state = .pressed }
+  self.pressEnd = {
+    state = .idle
+    emit select(mood)
+  }
+  self.pressCancel = { state = .idle }
+} emits {
+  select(mood: MoodId)
+}

@@ -1,0 +1,45 @@
+// Parent ForEach + emit captures; child component mounts the list.
+protocol CrossChip: component {
+  title = ""
+  mood = ""
+  emits {
+    select(mood_id: String)
+  }
+}
+
+component CrossChipView <CrossChip>(
+  selected: Bool = false
+) layout {
+  direction = .row
+  children = [
+    Text(content: title)
+  ]
+}
+
+component CrossChipRow(children: [CrossChip] = []) layout {
+  direction = .row
+  gap = 8
+  children = children
+}
+
+component CrossShell(
+  currentMood: String = "all",
+  chips: [CrossChip] = [
+    CrossChipView(title: "All", mood: "all"),
+    CrossChipView(title: "Focus", mood: "focus")
+  ]
+) layout {
+  direction = .column
+  gap = 8
+
+  let Row = CrossChipRow(children: chips)
+
+  ForEach(chips) { chip in
+    chip.selected = self.currentMood == mood
+    chip.select(mood_id: String) = {
+      currentMood = mood_id
+    }
+  }
+
+  children = [Row]
+}

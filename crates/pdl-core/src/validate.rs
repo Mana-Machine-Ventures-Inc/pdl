@@ -7,6 +7,7 @@ use std::collections::HashSet;
 
 use crate::asset_refs::{is_http_url, is_pack_relative_file_path, normalize_icon_system_name};
 use crate::ast::*;
+use crate::conditions::validate_condition_expr;
 use crate::design::{effective_params, DesignDefinition};
 use crate::error::PdlError;
 use crate::frame_props::{validate_frame_props_in_body, validate_type_style_props};
@@ -14,9 +15,7 @@ use crate::param_bindings::{
     assert_param_value_compatible, validate_component_param_defaults,
     validate_param_bindings_in_body,
 };
-use crate::param_types::{
-    is_bool_param_type, is_builtin_param_type, unwrap_param_type_name,
-};
+use crate::param_types::{is_builtin_param_type, unwrap_param_type_name};
 
 fn root_kind_str(k: RootKind) -> &'static str {
     match k {
@@ -33,154 +32,6 @@ fn strip_leading_dot(s: &str) -> &str {
 
 fn err(code: &str, message: String, design: &DesignDefinition) -> PdlError {
     PdlError::new(code, message, Some(design.entry_path.clone()), None, None)
-}
-
-fn validate_condition_expr(
-    design: &DesignDefinition,
-    expr: &ConditionExpr,
-    param_by_name: &HashMap<String, String>,
-    component_name: &str,
-) -> Result<(), PdlError> {
-    match expr {
-        ConditionExpr::And { items } | ConditionExpr::Or { items } => {
-            for sub in items {
-                validate_condition_expr(design, sub, param_by_name, component_name)?;
-            }
-            Ok(())
-        }
-        ConditionExpr::Not { expr } => {
-            validate_condition_expr(design, expr, param_by_name, component_name)
-        }
-        ConditionExpr::Truthy { param } => {
-            let type_name = param_by_name.get(param).ok_or_else(|| {
-                err(
-                    "PDL-E007",
-                    format!(
-                        "Unknown parameter `{}` in `if` condition (component {})",
-                        param, component_name
-                    ),
-                    design,
-                )
-            })?;
-            if !is_bool_param_type(type_name) {
-                return Err(err(
-                    "PDL-E010",
-                    format!(
-                        "Bare `if {}` requires a Bool parameter (got type {}); use `{} == …` for variants",
-                        param, type_name, param
-                    ),
-                    design,
-                ));
-            }
-            Ok(())
-        }
-        ConditionExpr::Cmp {
-            param,
-            rhs,
-            rhs_is_param,
-            ..
-        } => {
-            let type_name = param_by_name.get(param).ok_or_else(|| {
-                err(
-                    "PDL-E007",
-                    format!(
-                        "Unknown parameter `{}` in `if` condition (component {})",
-                        param, component_name
-                    ),
-                    design,
-                )
-            })?;
-            // Bool compare: `selected == true` / `selected == .true`
-            if is_bool_param_type(type_name) {
-                if *rhs_is_param {
-                    let rhs_ty = param_by_name.get(rhs).ok_or_else(|| {
-                        err(
-                            "PDL-E007",
-                            format!(
-                                "Unknown parameter `{}` on RHS of condition (component {})",
-                                rhs, component_name
-                            ),
-                            design,
-                        )
-                    })?;
-                    if rhs_ty != type_name {
-                        return Err(err(
-                            "PDL-E010",
-                            format!(
-                                "Condition compares incompatible parameter types `{}` ({}) and `{}` ({})",
-                                param, type_name, rhs, rhs_ty
-                            ),
-                            design,
-                        ));
-                    }
-                    return Ok(());
-                }
-                let rhs_stripped = strip_leading_dot(rhs);
-                if rhs_stripped == "true" || rhs_stripped == "false" {
-                    return Ok(());
-                }
-                return Err(err(
-                    "PDL-E010",
-                    format!(
-                        "Bool condition on `{}` expected `true` / `false` (or `.true` / `.false`)",
-                        param
-                    ),
-                    design,
-                ));
-            }
-            let vdecl = design.variants.get(type_name).ok_or_else(|| {
-                err(
-                    "PDL-E010",
-                    format!(
-                        "Condition compares non-variant parameter `{}` (type {}); `if` conditions must use a variant-typed parameter",
-                        param, type_name
-                    ),
-                    design,
-                )
-            })?;
-            if *rhs_is_param {
-                let rhs_ty = param_by_name.get(rhs).ok_or_else(|| {
-                    err(
-                        "PDL-E007",
-                        format!(
-                            "Unknown parameter `{}` on RHS of condition (component {})",
-                            rhs, component_name
-                        ),
-                        design,
-                    )
-                })?;
-                if rhs_ty != type_name {
-                    return Err(err(
-                        "PDL-E010",
-                        format!(
-                            "Condition compares incompatible parameter types `{}` ({}) and `{}` ({})",
-                            param, type_name, rhs, rhs_ty
-                        ),
-                        design,
-                    ));
-                }
-                return Ok(());
-            }
-            let rhs_stripped = strip_leading_dot(rhs);
-            if !vdecl.cases.iter().any(|c| c == rhs_stripped) {
-                let expected = vdecl
-                    .cases
-                    .iter()
-                    .map(|c| format!(".{}", c))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                return Err(err(
-                    "PDL-E010",
-                    format!(
-                        "Unknown variant case `.{}` for parameter `{}` (variant {}); expected one of: {}",
-                        rhs_stripped, param, vdecl.name, expected
-                    ),
-                    design,
-                ));
-            }
-            Ok(())
-        }
-    }
 }
 
 fn collect_let_frame_kinds(items: &[FrameBodyItem]) -> HashMap<String, String> {
@@ -646,7 +497,34 @@ fn validate_if_conditions_in_body(
     Ok(())
 }
 
-/// Collect `ForEach(list)` names and `children = […]` FrameRef ids in a body.
+/// List name from a kwarg RHS used as a mount forward (`chips` / `[chips]`).
+fn list_ident_from_mount_expr(expr: &crate::ast::ValueExpr) -> Option<&str> {
+    match expr {
+        crate::ast::ValueExpr::Ident { name } => Some(name.as_str()),
+        crate::ast::ValueExpr::Array { items } if items.len() == 1 => {
+            if let crate::ast::ValueExpr::Ident { name } = &items[0] {
+                Some(name.as_str())
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+fn collect_list_idents_from_kwargs(
+    kwargs: &indexmap::IndexMap<String, crate::ast::ValueExpr>,
+    children_refs: &mut HashSet<String>,
+) {
+    for expr in kwargs.values() {
+        if let Some(name) = list_ident_from_mount_expr(expr) {
+            children_refs.insert(name.to_string());
+        }
+    }
+}
+
+/// Collect `ForEach(list)` names and mount sites (`children = [list]` or
+/// forwarded via `Child(children: list)` / `Child(children: [list])`).
 fn collect_foreach_and_children_mounts(
     items: &[FrameBodyItem],
     foreach_lists: &mut HashSet<String>,
@@ -659,10 +537,19 @@ fn collect_foreach_and_children_mounts(
             }
             FrameBodyItem::Children { entries, .. } => {
                 for e in entries {
-                    if let ChildEntry::FrameRef { id, .. } = e {
-                        children_refs.insert(id.clone());
+                    match e {
+                        ChildEntry::FrameRef { id, .. } => {
+                            children_refs.insert(id.clone());
+                        }
+                        ChildEntry::Instance { kwargs, .. } => {
+                            collect_list_idents_from_kwargs(kwargs, children_refs);
+                        }
+                        _ => {}
                     }
                 }
+            }
+            FrameBodyItem::LetInstance { kwargs, .. } => {
+                collect_list_idents_from_kwargs(kwargs, children_refs);
             }
             FrameBodyItem::If { chain } => {
                 for br in &chain.branches {
@@ -692,7 +579,7 @@ fn validate_foreach_mounts(
             return Err(err(
                 "PDL-E035",
                 format!(
-                    "ForEach(`{list}`) does not mount the list; add `children = {list}` or `children = […, {list}, …]` (component {})",
+                    "ForEach(`{list}`) does not mount the list; add `children = {list}`, `children = […, {list}, …]`, or pass `{list}` into a child list param (component {})",
                     c.name
                 ),
                 design,

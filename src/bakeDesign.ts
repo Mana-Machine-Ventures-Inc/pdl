@@ -105,6 +105,7 @@ function expandTypeStyleIntoFrame(
           instanceKwargs: { ...(frame.instanceKwargs ?? {}) },
         }
       : {}),
+    ...(frame.foreachList !== undefined ? { foreachList: frame.foreachList } : {}),
   };
 }
 

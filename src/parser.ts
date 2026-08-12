@@ -1339,7 +1339,32 @@ export class Parser {
     throw this.err("Expected == or != RHS in condition");
   }
 
+  /**
+   * Comparison-as-value (ForEach binds / Bool kwargs): `self.currentFilter == filter`
+   * or `currentMood == .all`.
+   */
+  private looksLikeConditionStart(): boolean {
+    const k0 = this.peek().kind;
+    if (k0 === "self") {
+      if (this.peekAheadKind(1) !== ".") return false;
+      if (this.peekAheadKind(2) !== "IDENT") return false;
+      const op = this.peekAheadKind(3);
+      return op === "==" || op === "!=";
+    }
+    if (k0 === "IDENT") {
+      const op = this.peekAheadKind(1);
+      return op === "==" || op === "!=";
+    }
+    return false;
+  }
+
   parseValueExpr(): ValueExpr {
+    if (this.looksLikeConditionStart()) {
+      const start = this.index;
+      const expr = this.parseCondOr();
+      this.assertNoMixedAndOr(start, this.index);
+      return { kind: "condition", expr };
+    }
     const lhs = this.parsePrimaryValue();
     if (this.is("@")) {
       this.advance();

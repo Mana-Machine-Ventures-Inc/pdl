@@ -18,9 +18,12 @@ Overview: [`docs/PLAYGROUND_OVERVIEW.md`](../docs/PLAYGROUND_OVERVIEW.md).
 ```bash
 npm install && npm run build
 cargo build -p pdl-cli
+npm run build:wasm
 cd playground && npm install && npm run build
 npm run playground
 ```
+
+**Default bake engine is Rust WASM** (in-browser, ~ms). Prefer it for interactive preview; **Rust CLI** spawns `pdl` each tick and feels much slower. Rebuild WASM after language changes: `npm run build:wasm`.
 
 ## Session drafts
 
@@ -30,7 +33,7 @@ Edits autosave in the browser (`localStorage`) so a reload restores files, entry
 
 ## WASM bake (disk workspace)
 
-Rust bake reads the repo import closure from disk. **WASM** only sees an in-memory map, so in disk mode the Playground calls **`POST /api/disk-sources`** to load that closure (then overlays editor edits) before baking. Rebuild WASM after language changes: `npm run build:wasm`.
+WASM only sees an in-memory map, so in disk mode the Playground calls **`POST /api/disk-sources`** to load the import closure (then overlays editor edits) before baking — matching CLI disk semantics.
 
 ## Canvas model (P3)
 

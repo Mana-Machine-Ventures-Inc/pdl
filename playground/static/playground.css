@@ -49,9 +49,35 @@ body {
   border-color: #f0c36d;
   color: #6b4a00;
 }
+.badge-wasm {
+  background: #e8f5ee;
+  border-color: #8dcbad;
+  color: #0f5c38;
+}
 .badge-muted {
   color: #667;
   font-weight: 500;
+}
+.engine-field .engine-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.engine-field .engine-opt--preferred {
+  font-weight: 600;
+}
+.engine-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #0f5c38;
+  background: #e8f5ee;
+  border: 1px solid #8dcbad;
+  border-radius: 999px;
+  padding: 1px 6px;
+  margin-left: 2px;
 }
 .pack-desc {
   margin: 0;

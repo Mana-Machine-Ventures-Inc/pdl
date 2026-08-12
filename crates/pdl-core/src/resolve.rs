@@ -42,6 +42,10 @@ pub struct CatalFrame {
     pub children: Vec<CatalFrame>,
     pub instance_of: Option<String>,
     pub instance_kwargs: Option<Map<String, Value>>,
+    /// When expanded from `ForEach(list) { … }` / a forwarded list mount, the
+    /// **owning** list param (`chips`, `tracks`) — not the child mount param
+    /// (`children`). Hosts match catalogue emit captures at any DOM depth.
+    pub foreach_list: Option<String>,
 }
 
 impl CatalFrame {
@@ -60,6 +64,9 @@ impl CatalFrame {
                 "instanceKwargs".to_string(),
                 Value::Object(self.instance_kwargs.clone().unwrap_or_default()),
             );
+        }
+        if let Some(list) = &self.foreach_list {
+            o.insert("foreachList".to_string(), Value::String(list.clone()));
         }
         Value::Object(o)
     }
@@ -87,6 +94,7 @@ pub fn prune_hidden_children_tree(f: &CatalFrame) -> CatalFrame {
         } else {
             None
         },
+        foreach_list: f.foreach_list.clone(),
     }
 }
 
@@ -96,6 +104,28 @@ struct MutableFrame {
     child_entries: Vec<ChildEntry>,
     instance_of: Option<String>,
     instance_kwargs: Option<Map<String, Value>>,
+    /// Preserved across LetInstance flatten (`insert_catal_tree` → rematerialize).
+    foreach_list: Option<String>,
+}
+
+/// Parent `ForEach(list)` forwarded into a child component that mounts that list
+/// via a list/slot param (`ChipRow(children: chips)`).
+#[derive(Clone)]
+struct ForEachForward {
+    /// Catalogue emit-capture qualifier (owning list param on the ForEach author).
+    owner_list: String,
+    body: Vec<crate::ast::FrameBodyItem>,
+    /// Enclosing params for overlay RHS (`self.currentMood`, …).
+    owner_params: ParamValues,
+    owner_param_meta: ParamMeta,
+}
+
+/// LetInstance deferred until after the body walk so `ForEach` overlays exist
+/// even when `let Row = ChipRow(…)` appears above `ForEach(chips)` in source.
+struct PendingLetInstance {
+    id: String,
+    component: String,
+    kwargs: IndexMap<String, ValueExpr>,
 }
 
 /// Slot / ForEach overlays collected while walking a component body (do not mount).
@@ -105,6 +135,75 @@ struct SlotResolveCtx {
     slot_overrides: HashMap<String, IndexMap<String, Value>>,
     /// `ForEach(chips) { chip in … }` bodies applied when `children` expands `chips`.
     foreach_bodies: HashMap<String, Vec<crate::ast::FrameBodyItem>>,
+    /// Child param → parent ForEach when this component mounts a forwarded list.
+    foreach_forwards: HashMap<String, ForEachForward>,
+    pending_let_instances: Vec<PendingLetInstance>,
+}
+
+/// `chips` or `[chips]` used as a list-forward / mount reference in kwargs.
+fn list_ident_from_expr(expr: &ValueExpr) -> Option<&str> {
+    match expr {
+        ValueExpr::Ident { name } => Some(name.as_str()),
+        ValueExpr::Array { items } if items.len() == 1 => {
+            if let ValueExpr::Ident { name } = &items[0] {
+                Some(name.as_str())
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+fn foreach_forward_for_list(
+    slot_ctx: &SlotResolveCtx,
+    param_values: &ParamValues,
+    param_meta: &ParamMeta,
+    list_name: &str,
+) -> Option<ForEachForward> {
+    if let Some(body) = slot_ctx.foreach_bodies.get(list_name) {
+        return Some(ForEachForward {
+            owner_list: list_name.to_string(),
+            body: body.clone(),
+            owner_params: param_values.clone(),
+            owner_param_meta: param_meta.clone(),
+        });
+    }
+    slot_ctx.foreach_forwards.get(list_name).cloned()
+}
+
+fn collect_foreach_forwards_for_kwargs(
+    kwargs: &IndexMap<String, ValueExpr>,
+    slot_ctx: &SlotResolveCtx,
+    param_values: &ParamValues,
+    param_meta: &ParamMeta,
+) -> HashMap<String, ForEachForward> {
+    let mut out = HashMap::new();
+    for (child_param, expr) in kwargs {
+        if let Some(list_name) = list_ident_from_expr(expr) {
+            if let Some(fwd) = foreach_forward_for_list(slot_ctx, param_values, param_meta, list_name)
+            {
+                out.insert(child_param.clone(), fwd);
+            }
+        }
+    }
+    out
+}
+
+/// Kwarg RHS for a forwarded list: `chips` or `[chips]` both pass the list value
+/// (not a one-element array wrapping the list).
+fn kwargs_expr_for_eval<'a>(
+    child_param: &str,
+    expr: &'a ValueExpr,
+    forwards: &HashMap<String, ForEachForward>,
+) -> &'a ValueExpr {
+    if !forwards.contains_key(child_param) {
+        return expr;
+    }
+    match expr {
+        ValueExpr::Array { items } if items.len() == 1 => &items[0],
+        _ => expr,
+    }
 }
 
 fn component_param_names(
@@ -177,6 +276,7 @@ fn insert_catal_tree(frames: &mut HashMap<String, MutableFrame>, catal: &CatalFr
             child_entries,
             instance_of: catal.instance_of.clone(),
             instance_kwargs: catal.instance_kwargs.clone(),
+            foreach_list: catal.foreach_list.clone(),
         },
     );
 }
@@ -647,6 +747,7 @@ fn ensure_frame(frames: &mut HashMap<String, MutableFrame>, id: &str, kind: &str
             child_entries: Vec::new(),
             instance_of: None,
             instance_kwargs: None,
+            foreach_list: None,
         });
 }
 
@@ -915,28 +1016,13 @@ fn process_frame_items(
                         None,
                     ));
                 }
-                let scoped = merge_locals(param_values, local_values);
-                let mut kw_explicit = Map::new();
-                for (k, expr) in kwargs {
-                    let mut visiting = HashSet::new();
-                    let mut ev = Eval {
-                        design,
-                        tokens,
-                        visiting: &mut visiting,
-                        param_values: Some(&scoped),
-                        param_meta: Some(param_meta),
-                        use_string_placeholders: false,
-                    };
-                    kw_explicit.insert(k.clone(), evaluate_value(expr, &mut ev)?);
-                }
-                // Full nested resolve so the child's slot dotted overrides / ForEach
-                // expand against the child's own param_meta (not the parent's).
-                // Child's `self` resolves inside that recursive call to its own Root.
-                let mut sub =
-                    resolve_component_tree(design, component, tokens, &kw_explicit, opts)?;
-                sub.instance_of = Some(component.clone());
-                sub.instance_kwargs = Some(kw_explicit);
-                insert_catal_tree(frames, &sub, id);
+                // Defer resolve until ForEach bodies from the rest of the layout
+                // are collected (lets often appear above ForEach in source).
+                slot_ctx.pending_let_instances.push(PendingLetInstance {
+                    id: id.clone(),
+                    component: component.clone(),
+                    kwargs: kwargs.clone(),
+                });
             }
             FrameBodyItem::If { chain } => {
                 let scoped = merge_locals(param_values, local_values);
@@ -986,6 +1072,26 @@ pub fn resolve_component_tree(
     param_overrides: &Map<String, Value>,
     options: ResolveOptions,
 ) -> Result<CatalFrame, PdlError> {
+    resolve_component_tree_with_list_forwards(
+        design,
+        component_name,
+        tokens,
+        param_overrides,
+        options,
+        &HashMap::new(),
+    )
+}
+
+/// Like [`resolve_component_tree`], but applies parent `ForEach` overlays / list
+/// stamps when this component mounts a forwarded list param.
+fn resolve_component_tree_with_list_forwards(
+    design: &DesignDefinition,
+    component_name: &str,
+    tokens: &mut Tokens,
+    param_overrides: &Map<String, Value>,
+    options: ResolveOptions,
+    list_forwards: &HashMap<String, ForEachForward>,
+) -> Result<CatalFrame, PdlError> {
     let c = design
         .components
         .get(component_name)
@@ -1014,9 +1120,13 @@ pub fn resolve_component_tree(
             child_entries: Vec::new(),
             instance_of: None,
             instance_kwargs: None,
+            foreach_list: None,
         },
     );
-    let mut slot_ctx = SlotResolveCtx::default();
+    let mut slot_ctx = SlotResolveCtx {
+        foreach_forwards: list_forwards.clone(),
+        ..Default::default()
+    };
     let mut local_values = Map::new();
     process_frame_items(
         &c.body,
@@ -1031,6 +1141,42 @@ pub fn resolve_component_tree(
         options,
         "Root",
     )?;
+    // Resolve deferred let instances now that ForEach overlays are complete.
+    let pending = std::mem::take(&mut slot_ctx.pending_let_instances);
+    for pending in pending {
+        let scoped = merge_locals(&param_values, &local_values);
+        let child_forwards = collect_foreach_forwards_for_kwargs(
+            &pending.kwargs,
+            &slot_ctx,
+            &scoped,
+            &param_meta,
+        );
+        let mut kw_explicit = Map::new();
+        for (k, expr) in &pending.kwargs {
+            let eval_expr = kwargs_expr_for_eval(k, expr, &child_forwards);
+            let mut visiting = HashSet::new();
+            let mut ev = Eval {
+                design,
+                tokens,
+                visiting: &mut visiting,
+                param_values: Some(&scoped),
+                param_meta: Some(&param_meta),
+                use_string_placeholders: false,
+            };
+            kw_explicit.insert(k.clone(), evaluate_value(eval_expr, &mut ev)?);
+        }
+        let mut sub = resolve_component_tree_with_list_forwards(
+            design,
+            &pending.component,
+            tokens,
+            &kw_explicit,
+            options,
+            &child_forwards,
+        )?;
+        sub.instance_of = Some(pending.component.clone());
+        sub.instance_kwargs = Some(kw_explicit);
+        insert_catal_tree(&mut frames, &sub, &pending.id);
+    }
     // EditableText on a text-root component implies an editable leaf — no author
     // `editable = true` required (session bind is always protocol `value`).
     imply_editable_text_root(design, &c, &mut frames)?;
@@ -1059,6 +1205,7 @@ fn mount_instance(
     visiting_inst: &mut HashSet<String>,
     options: ResolveOptions,
     si: &mut usize,
+    list_forwards: &HashMap<String, ForEachForward>,
 ) -> Result<CatalFrame, PdlError> {
     let key = format!("{parent_id}>{component}");
     if visiting_inst.contains(&key) {
@@ -1071,7 +1218,14 @@ fn mount_instance(
         ));
     }
     visiting_inst.insert(key.clone());
-    let mut sub = resolve_component_tree(design, component, tokens, &kw_overrides, options)?;
+    let mut sub = resolve_component_tree_with_list_forwards(
+        design,
+        component,
+        tokens,
+        &kw_overrides,
+        options,
+        list_forwards,
+    )?;
     visiting_inst.remove(&key);
     sub.id = format!("{parent_id}_{component}_{si}");
     *si += 1;
@@ -1095,7 +1249,30 @@ fn expand_slot_items(
     si: &mut usize,
     children: &mut Vec<CatalFrame>,
 ) -> Result<(), PdlError> {
-    let foreach_body = slot_ctx.foreach_bodies.get(slot_name);
+    let local_body = slot_ctx.foreach_bodies.get(slot_name);
+    let forwarded = slot_ctx.foreach_forwards.get(slot_name);
+    let (foreach_body, bind_params, bind_meta, stamp_list): (
+        Option<&[FrameBodyItem]>,
+        &ParamValues,
+        &ParamMeta,
+        Option<String>,
+    ) = if let Some(body) = local_body {
+        (
+            Some(body.as_slice()),
+            param_values,
+            param_meta,
+            Some(slot_name.to_string()),
+        )
+    } else if let Some(fwd) = forwarded {
+        (
+            Some(fwd.body.as_slice()),
+            &fwd.owner_params,
+            &fwd.owner_param_meta,
+            Some(fwd.owner_list.clone()),
+        )
+    } else {
+        (None, param_values, param_meta, None)
+    };
     let slot_dotted = slot_ctx.slot_overrides.get(slot_name);
 
     for item in items {
@@ -1138,18 +1315,11 @@ fn expand_slot_items(
         let mut overlay: IndexMap<String, Value> = IndexMap::new();
         if let Some(body) = foreach_body {
             // §4e: bare idents → item fields first, then enclosing params.
-            let mut bind_scope = param_values.clone();
+            let mut bind_scope = bind_params.clone();
             for (k, v) in &base_params {
                 bind_scope.insert(k.clone(), v.clone());
             }
-            eval_foreach_overlay(
-                body,
-                &bind_scope,
-                design,
-                tokens,
-                param_meta,
-                &mut overlay,
-            )?;
+            eval_foreach_overlay(body, &bind_scope, design, tokens, bind_meta, &mut overlay)?;
         }
         if let Some(dotted) = slot_dotted {
             for (k, v) in dotted {
@@ -1171,8 +1341,14 @@ fn expand_slot_items(
             visiting_inst,
             options,
             si,
+            &HashMap::new(),
         )?;
         apply_root_frame_overrides(&mut mounted, frame_props);
+        // Stamp owning list (local ForEach name, or parent list when forwarded).
+        // Emit-capture catalogue qualifies by list name; hosts match via this field.
+        if let Some(list) = &stamp_list {
+            mounted.foreach_list = Some(list.clone());
+        }
         children.push(mounted);
     }
     Ok(())
@@ -1204,6 +1380,7 @@ fn materialize(
                     children: Vec::new(),
                     instance_of: None,
                     instance_kwargs: None,
+                    foreach_list: None,
                 });
                 si += 1;
             }
@@ -1286,8 +1463,15 @@ fn materialize(
                 kwargs,
                 opacity,
             } => {
+                let child_forwards = collect_foreach_forwards_for_kwargs(
+                    kwargs,
+                    slot_ctx,
+                    param_values,
+                    param_meta,
+                );
                 let mut kw_overrides = Map::new();
                 for (k, expr) in kwargs {
+                    let eval_expr = kwargs_expr_for_eval(k, expr, &child_forwards);
                     let mut visiting = HashSet::new();
                     let mut ev = Eval {
                         design,
@@ -1297,7 +1481,7 @@ fn materialize(
                         param_meta: Some(param_meta),
                         use_string_placeholders: false,
                     };
-                    kw_overrides.insert(k.clone(), evaluate_value(expr, &mut ev)?);
+                    kw_overrides.insert(k.clone(), evaluate_value(eval_expr, &mut ev)?);
                 }
                 let mut child = mount_instance(
                     id,
@@ -1308,6 +1492,7 @@ fn materialize(
                     visiting_inst,
                     options,
                     &mut si,
+                    &child_forwards,
                 )?;
                 if let Some(op) = opacity {
                     let mut visiting = HashSet::new();
@@ -1350,5 +1535,6 @@ fn materialize(
         } else {
             None
         },
+        foreach_list: mf.foreach_list.clone(),
     })
 }

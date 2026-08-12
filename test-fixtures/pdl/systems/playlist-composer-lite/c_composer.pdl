@@ -1,0 +1,237 @@
+import "foundation.pdl"
+import "c_chip.pdl"
+import "c_button.pdl"
+import "c_field.pdl"
+import "c_track.pdl"
+
+// ── Standalone ForEach demos (preview as root) ──
+
+component MoodChipBar(
+  currentMood: MoodId = .all,
+  chips: [ComposerChip] = [
+    ComposerChip(title: "All", mood: .all),
+    ComposerChip(title: "Focus", mood: .focus),
+    ComposerChip(title: "Night", mood: .night),
+    ComposerChip(title: "Drive", mood: .drive)
+  ]
+) layout {
+  direction = .row
+  align = .center
+  gap = pc.space.sm
+  padding = EdgeInsets(x: 12, y: 12)
+  width = .fill
+  background = pc.color.surface
+  cornerRadius = pc.radius.md
+  borderWidth = 1
+  borderColor = pc.color.border
+
+  ForEach(chips) { chip in
+    chip.selected = self.currentMood == mood
+    chip.select(mood_id: MoodId) = {
+      currentMood = mood_id
+    }
+  }
+
+  children = chips
+}
+
+component TrackStack(
+  selectedTrack: TrackId = .none,
+  tracks: [TrackRow] = [
+    TrackRow(title: "Neon Shoulder", artist: "Kite Line", trackId: .neon, mood: .night),
+    TrackRow(title: "Desk Lamp", artist: "Static Grove", trackId: .desk, mood: .focus),
+    TrackRow(title: "Coastal Gear", artist: "Relay Club", trackId: .coastal, mood: .drive),
+    TrackRow(title: "Quiet Percent", artist: "Marble Room", trackId: .quiet, mood: .focus),
+    TrackRow(title: "Afterglow Toll", artist: "Kite Line", trackId: .afterglow, mood: .night)
+  ]
+) layout {
+  direction = .column
+  gap = pc.space.xs
+  padding = EdgeInsets(x: 12, y: 12)
+  width = .fill
+  background = pc.color.surface
+  cornerRadius = pc.radius.md
+  borderWidth = 1
+  borderColor = pc.color.border
+
+  ForEach(tracks) { track in
+    track.selected = self.selectedTrack == trackId
+    track.select(id: TrackId) = {
+      selectedTrack = id
+    }
+  }
+
+  children = tracks
+}
+
+// ── Full shell ──
+// Selection chrome lives on ComposerChip / TrackRow (`if selected`).
+// Scale by growing `chips` / `tracks` — no per-row lets, wrappers, or handlers.
+
+component PlaylistComposer(
+  committedTitle: String = "Late Drive Mix",
+  draftTitle: String = "Late Drive Mix",
+  editingTitle: Bool = false,
+  searchQuery: String = "",
+  currentMood: MoodId = .all,
+  selectedTrack: TrackId = .none,
+  status: String = "Pick a mood, search, or rename the playlist",
+  chips: [ComposerChip] = [
+    ComposerChip(title: "All", mood: .all),
+    ComposerChip(title: "Focus", mood: .focus),
+    ComposerChip(title: "Night", mood: .night),
+    ComposerChip(title: "Drive", mood: .drive)
+  ],
+  tracks: [TrackRow] = [
+    TrackRow(title: "Neon Shoulder", artist: "Kite Line", trackId: .neon, mood: .night),
+    TrackRow(title: "Desk Lamp", artist: "Static Grove", trackId: .desk, mood: .focus),
+    TrackRow(title: "Coastal Gear", artist: "Relay Club", trackId: .coastal, mood: .drive),
+    TrackRow(title: "Quiet Percent", artist: "Marble Room", trackId: .quiet, mood: .focus),
+    TrackRow(title: "Afterglow Toll", artist: "Kite Line", trackId: .afterglow, mood: .night)
+  ]
+) layout {
+  direction = .column
+  gap = pc.space.lg
+  padding = EdgeInsets(x: 24, y: 24)
+  width = 420
+  background = pc.color.surface
+  cornerRadius = pc.radius.md
+  borderWidth = 1
+  borderColor = pc.color.border
+
+  let Eyebrow = Text(
+    content: "Playlist composer",
+    style: PcMeta,
+    color: pc.color.fgMuted
+  )
+  let Title = TitleField(value: draftTitle, isEditing: editingTitle)
+  let Edit = ComposerBtn(label: "Rename", tone: .ghost)
+  let Cancel = ComposerBtn(label: "Cancel", tone: .ghost)
+  let Done = ComposerBtn(label: "Done", tone: .primary)
+  let TitleRow = Layout(
+    direction: .row,
+    align: .center,
+    gap: pc.space.sm,
+    width: .fill,
+    children: [Title, Edit]
+  )
+  let Search = SearchField(value: searchQuery)
+
+  let ChipRow = Layout(
+    direction: .row,
+    align: .center,
+    gap: pc.space.sm,
+    width: .fill,
+    children: [chips]
+  )
+  let TrackList = Layout(
+    direction: .column,
+    gap: pc.space.xs,
+    width: .fill,
+    children: [tracks]
+  )
+
+  let Status = Text(content: status, style: PcMeta, color: pc.color.fgMuted)
+  let Hint = Text(
+    content: "Hover chips & rows · click to select · Rename / search use editing sessions",
+    style: PcMeta,
+    color: pc.color.fgMuted
+  )
+
+  ForEach(chips) { chip in
+    chip.selected = self.currentMood == mood
+    chip.select(mood_id: MoodId) = {
+      currentMood = mood_id
+      status = "Mood updated"
+    }
+  }
+
+  ForEach(tracks) { track in
+    track.selected = self.selectedTrack == trackId
+    track.select(id: TrackId) = {
+      selectedTrack = id
+      status = "Track selected"
+    }
+  }
+
+  if editingTitle {
+    Eyebrow.content = "Renaming playlist"
+    TitleRow.children = [Title, Cancel, Done]
+  }
+
+  children = [Eyebrow, TitleRow, Search, ChipRow, TrackList, Status, Hint]
+
+  Edit.tap() = { Title.beginEditing(committedTitle) }
+  Done.tap() = { Title.finishEditing() }
+  Cancel.tap() = { Title.cancelEditing() }
+
+  Title.began(value: String) = {
+    draftTitle = value
+    editingTitle = true
+    status = "Editing title — Done saves, Cancel discards"
+  }
+  Title.finished(value: String) = {
+    draftTitle = value
+    committedTitle = value
+    editingTitle = false
+    status = "Playlist renamed"
+  }
+  Title.cancelled(value: String) = {
+    draftTitle = committedTitle
+    editingTitle = false
+    status = "Rename cancelled"
+  }
+
+  Search.began(value: String) = {
+    status = "Searching…"
+  }
+  Search.finished(value: String) = {
+    searchQuery = value
+    status = "Search updated"
+  }
+  Search.cancelled(value: String) = {
+    status = "Search cancelled"
+  }
+}
+
+fixtures PlaylistComposer {
+  example "Drive mood" {
+    currentMood = .drive
+    selectedTrack = .coastal
+    status = "Fixture: Drive filter + track selected"
+  }
+  example "Renaming" {
+    editingTitle = true
+    draftTitle = "Late Drive Mix (working title)"
+    committedTitle = "Late Drive Mix"
+    status = "Fixture: mid-rename session"
+  }
+  example "Idle" {
+    searchQuery = ""
+    status = "Fixture: idle library"
+  }
+}
+
+fixtures MoodChipBar {
+  example "Night" {
+    currentMood = .night
+  }
+}
+
+fixtures TrackStack {
+  example "Desk Lamp selected" {
+    selectedTrack = .desk
+  }
+}
+
+component ChipPairDemo() layout {
+  direction = .row
+  gap = pc.space.sm
+  padding = EdgeInsets(x: 12, y: 12)
+  background = pc.color.surface
+
+  let A = ComposerChip(title: "Focus", mood: .focus, selected: true)
+  let B = ComposerChip(title: "Night", mood: .night, selected: false)
+
+  children = [A, B]
+}

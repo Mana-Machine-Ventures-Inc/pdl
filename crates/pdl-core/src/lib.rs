@@ -7,6 +7,7 @@ pub mod asset_refs;
 pub mod ast;
 pub mod bake;
 pub mod catalogue;
+pub mod conditions;
 pub mod design;
 pub mod error;
 pub mod evaluate;

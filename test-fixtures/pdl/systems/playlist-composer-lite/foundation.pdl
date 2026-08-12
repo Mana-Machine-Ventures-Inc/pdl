@@ -1,0 +1,77 @@
+// Playlist Composer — tokens, type styles, domain enums.
+
+enum MoodId {
+  case all
+  case focus
+  case night
+  case drive
+}
+
+enum TrackId {
+  case none
+  case neon
+  case desk
+  case coastal
+  case quiet
+  case afterglow
+}
+
+enum ChromeState {
+  case idle
+  case hovering
+  case pressed
+}
+
+enum BtnTone {
+  case primary
+  case ghost
+}
+
+primitive pc.color.ink: Color = #0B1220
+primitive pc.color.inkElevated: Color = #141C2E
+primitive pc.color.slate: Color = #94A3B8
+primitive pc.color.slateMuted: Color = #64748B
+primitive pc.color.line: Color = #243044
+primitive pc.color.paper: Color = #F1F5F9
+primitive pc.color.amber: Color = #F59E0B
+primitive pc.color.amberDeep: Color = #D97706
+primitive pc.color.danger: Color = #F87171
+
+semantic pc.color.surface: Color = pc.color.ink
+semantic pc.color.surfaceRaised: Color = pc.color.inkElevated
+semantic pc.color.fg: Color = pc.color.paper
+semantic pc.color.fgMuted: Color = pc.color.slate
+semantic pc.color.accent: Color = pc.color.amber
+semantic pc.color.accentPressed: Color = pc.color.amberDeep
+semantic pc.color.border: Color = pc.color.line
+
+primitive pc.space.xs: Distance = 4
+primitive pc.space.sm: Distance = 8
+primitive pc.space.md: Distance = 12
+primitive pc.space.lg: Distance = 16
+primitive pc.space.xl: Distance = 24
+
+primitive pc.radius.sm: Radius = 6
+primitive pc.radius.md: Radius = 10
+primitive pc.radius.pill: Radius = 999
+
+typeStyle PcTitle {
+  fontFamily = "IBM Plex Sans"
+  fontSize = 22
+  fontWeight = 600
+  lineHeight = 1.25
+}
+
+typeStyle PcBody {
+  fontFamily = "IBM Plex Sans"
+  fontSize = 14
+  fontWeight = 500
+  lineHeight = 1.35
+}
+
+typeStyle PcMeta {
+  fontFamily = "IBM Plex Sans"
+  fontSize = 12
+  fontWeight = 400
+  lineHeight = 1.3
+}

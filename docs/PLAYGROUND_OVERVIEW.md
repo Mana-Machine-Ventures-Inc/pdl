@@ -49,9 +49,9 @@ Pack (.pdl files)
 | **P1** | Airbnb-lite pack, fixtures, param knobs, completions, errors |
 | **P2** | WASM bake path, pack CI / coverage matrices *(Compose UI later removed)* |
 | **P3** | File-selected canvas; remove component picker + Compose; **Add property** teaching menu |
-| **P4** | Hover/press host: dual-bake `interactionState`, iframe swap, click → emit status |
+| **P4** | Hover/press host: iframe interactions, click → emit status *(dual-bake was interim)* |
 | **P5** | Variant preview: **Single / Grid / Pick** (grid capped at 16 combos) |
-| **P6** | Incremental preview apply — param/interaction updates **bake IR → DOM reconcile** (primary); dirty-owner-only on multi-component canvases; HTML morph fallback; cold path still `srcdoc`. Dual-bake pointer chrome is a **cold cache** — source/theme ticks remount to refresh it (hover-only paint edits). Status shows `· live apply`. See [`PROPOSAL_INCREMENTAL_PREVIEW_APPLY.md`](./PROPOSAL_INCREMENTAL_PREVIEW_APPLY.md). |
+| **P6** | Incremental preview apply — param/interaction updates **bake IR → DOM reconcile** (primary); dirty-owner-only on multi-component canvases; HTML morph fallback; cold path still `srcdoc`. **Instance resolve** paints nested pointer/editing chrome (`pdl-resolve-instance` → bake child + IR patch); parent rebake only when parent SoT changes. Dual-bake chrome caches **retired** — single-tree mounts. Status shows `· live apply` / `Instance resolve · …`. See [`PROPOSAL_INCREMENTAL_PREVIEW_APPLY.md`](./PROPOSAL_INCREMENTAL_PREVIEW_APPLY.md). |
 
 **Still deferred:** Phase S (Studio) — authoring-first product, governance, possibly separate repo.
 
@@ -93,7 +93,7 @@ Pack (.pdl files)
 
 Edits autosave to a **browser draft** (`localStorage`, ~14 days) so a page reload restores your working files and knobs. **Reload from disk** (or switching packs) discards that draft and reloads the pack from `test-fixtures/`. With **Pack on disk**, Analyze/Render also flushes `.pdl` writes under `test-fixtures/pdl/`.
 
-Optional: Advanced → **Rust WASM** after `npm run build:wasm`. Disk workspace WASM bake uses **`/api/disk-sources`** so the import closure matches Rust (in-memory tabs alone are not enough).
+**Default bake engine is Rust WASM** (header badge + Pack → Bake engine). Rebuild with `npm run build:wasm` after language changes. Disk workspace WASM bake uses **`/api/disk-sources`** so the import closure matches CLI (in-memory tabs alone are not enough). Use **Rust CLI** only when comparing spawn/path behavior — it is much slower for interaction.
 
 ---
 

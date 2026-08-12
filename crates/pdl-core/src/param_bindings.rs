@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use indexmap::IndexMap;
 
 use crate::ast::*;
+use crate::conditions::validate_condition_expr;
 use crate::design::{effective_params, DesignDefinition};
 use crate::error::PdlError;
 use crate::frame_props::{assert_blur_call_compatible, assert_vibrancy_call_compatible};
@@ -138,6 +139,11 @@ pub fn assert_param_value_compatible(
         return match value {
             ValueExpr::Boolean { .. } => Ok(()),
             ValueExpr::DotEnum { value } if value == ".true" || value == ".false" => Ok(()),
+            // Call-site / ForEach equality: `selected: currentFilter == .all`
+            ValueExpr::Condition { expr } => {
+                validate_condition_expr(design, expr, caller_params, where_)?;
+                Ok(())
+            }
             _ => Err(mismatch()),
         };
     }

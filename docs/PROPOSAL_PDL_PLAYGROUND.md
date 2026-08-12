@@ -211,7 +211,7 @@ React Native note: **reuse `pdl-core`**, not the web Playground UI. A React **ho
 
 ### Phase P4 — Interactive / emit path
 
-- [x] Hover/press host in HTML iframe (dual-bake `interactionState`, `postMessage` on press).
+- [x] Hover/press host in HTML iframe (`postMessage` + instance resolve for nested chrome).
 - [x] Demo on Airbnb-lite `AbnButton` (+ protocols `FilterChip` visual hover for Rust packs).
 
 ### Phase P5 — Variant preview

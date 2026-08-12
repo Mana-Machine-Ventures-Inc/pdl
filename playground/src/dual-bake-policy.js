@@ -1,31 +1,18 @@
 /**
- * Dual-bake pointer chrome is a cold snapshot cache (hidden `.pdl-inst-state` trees).
- * Source/theme ticks must invalidate it — IR-only rest bake often does not change when
- * only a hover/press branch is edited.
+ * Dual-bake (`.pdl-inst-state` / `.pdl-state` siblings) is retired.
+ * Nested chrome uses instance-resolve; top-level chrome uses owner rebake.
+ * These helpers remain so call sites stay stable — IR-only is always allowed.
  */
 
 /**
- * True when PointerInput-like instances are mounted without dual-bake fragments.
  * @param {Document | null | undefined} doc
  */
 export function pointerChromeDualBakeMissing(doc) {
-  if (!doc) return false;
-  const nodes = doc.querySelectorAll(
-    '[data-pdl-instance-of][data-pdl-pointer-input="1"], [data-pdl-instance-of]',
-  );
-  for (const n of nodes) {
-    const of = n.getAttribute("data-pdl-instance-of") || "";
-    const maybePointer =
-      n.getAttribute("data-pdl-pointer-input") === "1" ||
-      /Btn|Button|Chip|Press/i.test(of);
-    if (!maybePointer) continue;
-    if (!n.querySelector(":scope > .pdl-inst-state")) return true;
-  }
+  void doc;
   return false;
 }
 
 /**
- * True when the live preview already has dual-bake chrome fragments to keep fresh.
  * @param {Document | null | undefined} doc
  */
 export function documentHasPointerChromeDualBake(doc) {
@@ -36,33 +23,23 @@ export function documentHasPointerChromeDualBake(doc) {
 }
 
 /**
- * Source/theme ticks (`incremental && !ownerOnly`) must remount HTML with fresh
- * dual-bake when chrome fragments are in play. Param/emit ticks keep IR-only.
- *
  * @param {{
  *   incremental: boolean,
  *   ownerOnly: boolean,
  *   doc: Document | null | undefined,
- * }} opts
+ * }} _opts
  */
-export function shouldInvalidateDualBakeOnSourceTick(opts) {
-  const { incremental, ownerOnly, doc } = opts;
-  if (!incremental || ownerOnly) return false;
-  return documentHasPointerChromeDualBake(doc);
+export function shouldInvalidateDualBakeOnSourceTick(_opts) {
+  return false;
 }
 
 /**
- * Whether the WASM/Rust IR-only early return is allowed.
- * False when dual-bake is missing (need HTML once) or source tick must refresh it.
- *
  * @param {{
  *   incremental: boolean,
  *   ownerOnly: boolean,
  *   doc: Document | null | undefined,
- * }} opts
+ * }} _opts
  */
-export function allowIrOnlyPreviewApply(opts) {
-  if (shouldInvalidateDualBakeOnSourceTick(opts)) return false;
-  if (pointerChromeDualBakeMissing(opts.doc)) return false;
+export function allowIrOnlyPreviewApply(_opts) {
   return true;
 }

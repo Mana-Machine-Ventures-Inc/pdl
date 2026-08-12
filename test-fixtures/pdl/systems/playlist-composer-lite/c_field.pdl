@@ -1,0 +1,80 @@
+import "foundation.pdl"
+
+component SearchField <EditableText>(
+  activatesOn: TextFieldActivation = .press
+) text {
+  style = PcBody
+  padding = EdgeInsets(x: 12, y: 10)
+  cornerRadius = pc.radius.md
+  background = pc.color.surfaceRaised
+  borderWidth = 1
+  borderColor = pc.color.border
+  width = .fill
+  content = value
+  color = pc.color.fg
+
+  if isEditing {
+    color = #000
+    borderColor = pc.color.accent
+    borderWidth = 2
+    background = pc.color.ink
+  } else if isEmpty {
+    content = "Search tracks…"
+    color = pc.color.fgMuted
+  }
+
+  editingBegan = {
+    emit began(value)
+  }
+  editingFinished = {
+    finishEditing()
+    emit finished(value)
+  }
+  editingCancelled = {
+    cancelEditing()
+    emit cancelled(value)
+  }
+} emits {
+  began(value: String)
+  finished(value: String)
+  cancelled(value: String)
+}
+
+component TitleField <EditableText>(
+  activatesOn: TextFieldActivation = .press
+) text {
+  style = PcTitle
+  padding = EdgeInsets(x: 0, y: 4)
+  background = pc.color.surface @ 0.0
+  borderWidth = 0
+  width = .fill
+  content = value
+  color = pc.color.fg
+
+  if isEditing {
+    borderWidth = 2
+    borderColor = pc.color.accent
+    cornerRadius = pc.radius.sm
+    padding = EdgeInsets(x: 8, y: 4)
+    background = pc.color.surfaceRaised
+  } else if isEmpty {
+    content = "Untitled playlist"
+    color = pc.color.fgMuted
+  }
+
+  editingBegan = {
+    emit began(value)
+  }
+  editingFinished = {
+    finishEditing()
+    emit finished(value)
+  }
+  editingCancelled = {
+    cancelEditing()
+    emit cancelled(value)
+  }
+} emits {
+  began(value: String)
+  finished(value: String)
+  cancelled(value: String)
+}

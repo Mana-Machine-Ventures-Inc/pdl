@@ -1,0 +1,64 @@
+import "foundation.pdl"
+
+component TrackRow <PointerInput>(
+  title: String = "Track",
+  artist: String = "Artist",
+  trackId: TrackId = .none,
+  mood: MoodId = .all,
+  selected: Bool = false,
+  state: ChromeState = .idle
+) layout {
+  direction = .row
+  align = .center
+  gap = pc.space.md
+  padding = EdgeInsets(x: 12, y: 10)
+  cornerRadius = pc.radius.md
+  borderWidth = 1
+  width = .fill
+
+  if selected {
+    background = pc.color.surfaceRaised
+    borderColor = pc.color.accent
+  } else if state == .pressed {
+    background = pc.color.surfaceRaised
+    borderColor = pc.color.border
+  } else if state == .hovering {
+    background = pc.color.surfaceRaised
+    borderColor = pc.color.fgMuted
+  } else {
+    background = pc.color.surface @ 0.0
+    borderColor = pc.color.border @ 0.0
+  }
+
+  let Accent = Layout(
+    width: 4,
+    height: 36,
+    cornerRadius: 2,
+    background: pc.color.border
+  )
+  if selected {
+    Accent.background = pc.color.accent
+  }
+
+  let Title = Text(content: title, style: PcBody, color: pc.color.fg)
+  let Artist = Text(content: artist, style: PcMeta, color: pc.color.fgMuted)
+  let Copy = Layout(
+    direction: .column,
+    gap: 2,
+    width: .fill,
+    children: [Title, Artist]
+  )
+
+  children = [Accent, Copy]
+
+  self.hoverStart = { state = .hovering }
+  self.hoverEnd = { state = .idle }
+  self.pressStart = { state = .pressed }
+  self.pressEnd = {
+    state = .idle
+    emit select(trackId)
+  }
+  self.pressCancel = { state = .idle }
+} emits {
+  select(trackId: TrackId)
+}

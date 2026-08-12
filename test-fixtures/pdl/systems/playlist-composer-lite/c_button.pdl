@@ -1,0 +1,54 @@
+import "foundation.pdl"
+
+component ComposerBtn <PointerInput>(
+  label: String = "Go",
+  tone: BtnTone = .primary,
+  state: ChromeState = .idle
+) layout {
+  direction = .row
+  align = .center
+  justify = .center
+  padding = EdgeInsets(x: 14, y: 8)
+  cornerRadius = pc.radius.sm
+  borderWidth = 1
+
+  if tone == .primary {
+    background = pc.color.accent
+    borderColor = pc.color.accent
+  } else {
+    background = pc.color.surfaceRaised
+    borderColor = pc.color.border
+  }
+
+  if state == .hovering {
+    if tone == .primary {
+      background = pc.color.accentPressed
+      borderColor = pc.color.accentPressed
+    } else {
+      borderColor = pc.color.fgMuted
+    }
+  } else if state == .pressed {
+    opacity = 0.85
+  }
+
+  let Label = Text(content: label, style: PcBody, fontWeight: 600)
+
+  if tone == .primary {
+    Label.color = pc.color.ink
+  } else {
+    Label.color = pc.color.fg
+  }
+
+  children = [Label]
+
+  self.hoverStart = { state = .hovering }
+  self.hoverEnd = { state = .idle }
+  self.pressStart = { state = .pressed }
+  self.pressEnd = {
+    state = .idle
+    emit tap()
+  }
+  self.pressCancel = { state = .idle }
+} emits {
+  tap()
+}

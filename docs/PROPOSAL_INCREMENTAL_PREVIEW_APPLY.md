@@ -24,7 +24,7 @@ HTML is a **projection** of bake IR. Full HTML serialization stays useful for fi
 
 The language model is already right: **parameters → resolve → tree**. The flicker comes from treating every new tree as a new document (focus loss, scroll jump, host rebind, blur-as-commit races).
 
-Nested `pdl-state` / `pdl-inst-state` dual-bake already avoids remount for some chrome axes. Parent shell SoT (`if editing { children = […] }`, emit-driven params) still forces a full rewrite.
+Nested chrome uses instance-resolve (bake child + IR patch). Parent shell SoT (`if editing { children = […] }`, emit-driven params) still forces a parent owner rebake.
 
 ---
 
@@ -155,15 +155,23 @@ Typing: host session only. Done/Enter: params → resolve → reconcile (structu
 
 Target: interactive ticks in **ms of resolve+diff**, not full document parse.
 
-### Dual-bake is a cold cache (not the IR hot path)
+### Instance resolve (nested chrome hot path)
 
-Pointer hover/press chrome today mounts pre-baked hidden `.pdl-inst-state` trees and swaps them in the host. That snapshot is **correctness-critical** for paint that exists only under non-rest chrome cases (`if state == .hovering { background = … }`): rest IR often does not change when those branches are edited, and IR reconcile only patches the visible fragment.
+Nested pointer and editing chrome follow the language model:
 
-Playground policy ([`playground/src/dual-bake-policy.js`](../playground/src/dual-bake-policy.js)):
+**child kwargs → `bake_component_sources(childType, kwargs)` → `reconcileBakedInstanceIntoElement(let)`**
 
-- **Param/emit ticks** (`ownerOnly`): IR-only is fine — nested chrome SoT is ephemeral; dual-bake swap stays valid.
-- **Source/theme ticks** with dual-bake present: **invalidate** — skip `bakeOnly` / IR-only early return; remount HTML so `bakeInstanceInteractionStates` rebuilds hovering/pressed trees.
-- **Follow-on:** resolve-on-hover (hot-resolve instance with overridden chrome kwargs + IR patch) so dual-bake is optional prefetch, not required for correctness.
+Host posts `pdl-resolve-instance` after nested handlers update the live bag (hover/press, EditableText begin/finish, let-qualified host verbs). Parent rebake (`pdl-interaction` with `previewHandled: false`) runs only when emit capture changes **parent** SoT.
+
+| Piece | Role |
+|-------|------|
+| [`reconcileBakedInstanceIntoElement`](../src/bakeReconcile.ts) | IR-patch one `[data-pdl-instance-let]` mount |
+| Host `requestInstanceResolve` | [`src/renderHtml.ts`](../src/renderHtml.ts) interactive bridge |
+| Playground apply | WASM bake + IR cache + microtask coalesce per let |
+
+### Dual-bake retired (Phase 2)
+
+Pre-baked `.pdl-inst-state` / top-level `.pdl-state` chrome caches are **removed** from the playground server. Nested instances mount as single trees; chrome paint is instance-resolve only. Source edits to hover branches show on the next interaction (cache cleared on source ticks). The HTML renderer still accepts `stateTrees` for legacy callers but the playground never supplies them.
 
 ---
 
@@ -175,7 +183,8 @@ Ordered on-ramps — status in Playground:
 2. **Hot resolve API** — WASM in-browser bake; server `bakeOnly` returns IR without HTML.
 3. **IR reconciler v1** — primary for param ticks; `srcdoc` for cold path.
 4. **Session/focus registry** — ephemeral capture/restore + session merge by instance-let.
-5. **HTML morph** — retained as fallback when IR cannot apply; dual-bake remains a **cold chrome cache** (invalidated on source/theme when present), not the long-term paint engine.
+5. **HTML morph** — retained as fallback when IR cannot apply.
+6. **Instance resolve** — nested chrome paint; dual-bake generation removed from the playground server.
 
 ---
 
@@ -190,6 +199,6 @@ Ordered on-ramps — status in Playground:
 
 ## Related
 
-- Current dual-bake / `previewHandled` behavior: Playground P4, `playground/server/playground-server.mjs`, `src/renderHtml.ts`
+- Instance resolve / `previewHandled`: Playground P6+, `playground/src/main.js`, `src/renderHtml.ts`, `src/bakeReconcile.ts`
 - EditableText shell funnel: `docs/PROPOSAL_TEXTFIELD_EDITING_SESSIONS.md`, `test-fixtures/pdl/playground/lab_editable_text.pdl`
 - Catalogue identity: full-spec §16 (`childNodes`, `childHierarchy`, `structuralChange`)

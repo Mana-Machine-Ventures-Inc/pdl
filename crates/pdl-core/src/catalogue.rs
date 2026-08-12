@@ -333,6 +333,7 @@ fn catal_frame_shell(f: &CatalFrame) -> CatalFrame {
         } else {
             None
         },
+        foreach_list: f.foreach_list.clone(),
     }
 }
 

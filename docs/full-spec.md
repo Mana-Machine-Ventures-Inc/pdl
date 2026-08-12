@@ -1090,7 +1090,7 @@ Prefer the short `chip.selected = self.currentFilter == filter` form when a sing
 
 | Rule | Intent |
 |------|--------|
-| `ForEach(listParam) { item in … }` | Overlay only — **does not** insert children. **`item in` is required** (binder for the current element). `listParam` **MUST** also appear in some `children = […]` / `children = listParam` (**PDL-E035**). |
+| `ForEach(listParam) { item in … }` | Overlay only — **does not** insert children. **`item in` is required** (binder for the current element). `listParam` **MUST** also appear in some `children = […]` / `children = listParam`, **or** be passed into a child list/slot param that mounts it (`Row(children: listParam)` — **PDL-E035**). Bake stamps `foreachList` with the **owning** list name across that mount. |
 | Item override | **`item.name = expr`** (binder-qualified). If `name` is an effective **param** of the concrete item → kwargs; else → **root frame prop** after mount (same classify as §4b slot dotted). Bare `name = expr` inside `ForEach` is a hard error. |
 | `if` / `else` | Same condition grammar as layout (`if self.currentFilter == filter { item.selected = true } else { … }`). Branch bodies may only contain ForEach body items (overrides, emit captures, nested `if`). Evaluated **per list item** at bake/expand using the item bind scope. |
 | RHS name lookup | Bare identifiers: **item fields first**, then **enclosing component params** (item shadows parent). **`self.param`** always means the enclosing component (§22.2). |

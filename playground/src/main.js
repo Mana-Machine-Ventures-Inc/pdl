@@ -24,15 +24,13 @@ import {
   restorePreviewEphemerals,
   requestInteractiveRebind,
 } from "./preview-apply.js";
-import {
-  allowIrOnlyPreviewApply,
-  shouldInvalidateDualBakeOnSourceTick,
-} from "./dual-bake-policy.js";
+import { allowIrOnlyPreviewApply } from "./dual-bake-policy.js";
 import {
   bakedComponentTreesEqual,
   changedEditableSessionTypes,
   frameTreeNestsInstanceTypes,
   reconcileBakedComponentIntoCanvas,
+  reconcileBakedInstanceIntoElement,
 } from "@pdl/bakeReconcile.ts";
 import { collectEditableSessionDefaults } from "@pdl/renderHtml.ts";
 
@@ -1400,9 +1398,30 @@ function setWorkspaceMode(mode) {
 }
 
 function setEngineValue(eng) {
-  const v = eng === "ts" || eng === "wasm" ? eng : "rust";
+  const v = eng === "ts" || eng === "rust" ? eng : "wasm";
   const radio = document.querySelector(`input[name="engine"][value="${v}"]`);
   if (radio) radio.checked = true;
+  syncEngineBadge();
+}
+
+function syncEngineBadge() {
+  const badge = document.getElementById("engineBadge");
+  if (!badge) return;
+  const eng = selectedEngine();
+  badge.classList.remove("badge-wasm", "badge-rust", "badge-muted");
+  if (eng === "wasm") {
+    badge.textContent = "Rust WASM";
+    badge.classList.add("badge-wasm");
+    badge.title = "In-browser bake (default · fast)";
+  } else if (eng === "rust") {
+    badge.textContent = "Rust CLI";
+    badge.classList.add("badge-rust");
+    badge.title = "Spawns pdl per bake — slower for interaction";
+  } else {
+    badge.textContent = "TypeScript";
+    badge.classList.add("badge-muted");
+    badge.title = "TS oracle bake";
+  }
 }
 
 /**
@@ -1494,7 +1513,24 @@ async function restoreDraft(draft) {
     if (typeof draft.lastDiskPackId === "string" && draft.lastDiskPackId) {
       lastDiskPackId = draft.lastDiskPackId;
     }
-    setEngineValue(draft.engine);
+    // One-time flip: old default was Rust CLI; prefer WASM after this ship.
+    const wasmDefaultKey = "pdl-playground-wasm-default-v1";
+    let migratedWasmDefault = false;
+    try {
+      migratedWasmDefault = localStorage.getItem(wasmDefaultKey) === "1";
+    } catch {
+      /* ignore */
+    }
+    if (!migratedWasmDefault) {
+      setEngineValue("wasm");
+      try {
+        localStorage.setItem(wasmDefaultKey, "1");
+      } catch {
+        /* ignore */
+      }
+    } else {
+      setEngineValue(typeof draft.engine === "string" ? draft.engine : "wasm");
+    }
     const vv = draft.variantView === "grid" ? "grid" : "single";
     const vvRadio = document.querySelector(`input[name="variantView"][value="${vv}"]`);
     if (vvRadio) vvRadio.checked = true;
@@ -1576,8 +1612,8 @@ async function restoreDraft(draft) {
 
 function selectedEngine() {
   const v = document.querySelector('input[name="engine"]:checked')?.value;
-  if (v === "ts" || v === "wasm") return v;
-  return "rust";
+  if (v === "ts" || v === "rust") return v;
+  return "wasm";
 }
 
 function selectedVariantView() {
@@ -2204,6 +2240,16 @@ function getBodyBase() {
 let previewDocumentLive = false;
 /** @type {object | null} */
 let lastBakedDesign = null;
+/**
+ * IR cache for instance-resolve: `childType + stableJSON(childParams)` → bake root.
+ * Cleared on cold remount / source ticks.
+ * @type {Map<string, object>}
+ */
+const instanceBakeIrCache = new Map();
+/** @type {Map<string, number>} monotonic token so stale async bakes do not clobber hoverEnd */
+const instanceResolveToken = new Map();
+/** @type {Map<string, Promise<void>>} serial resolve chain per instanceLet */
+const instanceResolveTail = new Map();
 /** When true, next runRender tries identity apply instead of srcdoc remount. */
 let nextRenderIncremental = false;
 /**
@@ -2249,6 +2295,188 @@ function mergeBakedDesign(prev, patch) {
       ...(patch.components || {}),
     },
   };
+}
+
+/** Stable JSON for instance-resolve IR cache keys. */
+function stableJsonForCache(value) {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return `[${value.map((v) => stableJsonForCache(v)).join(",")}]`;
+  }
+  const keys = Object.keys(/** @type {object} */ (value)).sort();
+  return `{${keys
+    .map(
+      (k) =>
+        `${JSON.stringify(k)}:${stableJsonForCache(/** @type {Record<string, unknown>} */ (value)[k])}`,
+    )
+    .join(",")}}`;
+}
+
+function instanceResolveCacheKey(childComponent, childParams) {
+  return `${childComponent}\0${stableJsonForCache(childParams ?? {})}`;
+}
+
+function clearInstanceResolveCache() {
+  instanceBakeIrCache.clear();
+  instanceResolveToken.clear();
+  instanceResolveTail.clear();
+}
+
+/** Abort in-flight instance resolves; keep child IR bake cache warm. */
+function cancelPendingInstanceResolves() {
+  instanceResolveToken.clear();
+}
+
+/**
+ * Bake a nested child type with live kwargs (WASM primary, Rust bakeOnly fallback).
+ * @param {string} childComponent
+ * @param {Record<string, unknown>} childParams
+ * @returns {Promise<{ root: object, bakedParams?: object } | null>}
+ */
+async function bakeChildComponentForResolve(childComponent, childParams) {
+  const cacheKey = instanceResolveCacheKey(childComponent, childParams);
+  const hit = instanceBakeIrCache.get(cacheKey);
+  if (hit?.root) return /** @type {{ root: object, bakedParams?: object }} */ (hit);
+
+  const theme = themeInput.value.trim();
+  const entry = bakeEntryPath();
+  let bakedComp = null;
+
+  if (selectedEngine() === "wasm") {
+    const wasm = await loadWasmBake();
+    if (wasm) {
+      const sourceFiles = await sourcesForWasmBake(entry);
+      const { filesJson, entry: virtEntry } = virtualizeSources(sourceFiles, entry);
+      const bakeJson = wasm.bake_component_sources(
+        filesJson,
+        virtEntry,
+        childComponent,
+        theme || undefined,
+        JSON.stringify(childParams ?? {}),
+      );
+      const bake = JSON.parse(bakeJson);
+      bakedComp = bake?.components?.[childComponent] ?? null;
+    }
+  }
+
+  if (!bakedComp) {
+    const res = await fetch("/api/render", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...getBodyBase(),
+        mode: "component",
+        component: childComponent,
+        theme: theme || undefined,
+        bakeOnly: true,
+        interactiveHost: false,
+        componentOverrides: { [childComponent]: childParams ?? {} },
+      }),
+    });
+    const data = await res.json();
+    if (data?.ok && data.baked?.components?.[childComponent]) {
+      bakedComp = data.baked.components[childComponent];
+    }
+  }
+
+  if (!bakedComp?.root) return null;
+  const packed = {
+    root: bakedComp.root,
+    bakedParams: bakedComp.bakedParams,
+  };
+  instanceBakeIrCache.set(cacheKey, packed);
+  return packed;
+}
+
+/**
+ * Apply one `pdl-resolve-instance` message (coalesced caller passes latest kwargs).
+ * @param {object} data
+ * @param {number} token
+ */
+async function applyInstanceResolve(data, token) {
+  const doc = frame.contentDocument;
+  if (!doc || !previewDocumentLive) return;
+  const instanceLet = typeof data.instanceLet === "string" ? data.instanceLet : "";
+  const childComponent = typeof data.childComponent === "string" ? data.childComponent : "";
+  const childParams =
+    data.childParams && typeof data.childParams === "object" && !Array.isArray(data.childParams)
+      ? /** @type {Record<string, unknown>} */ (data.childParams)
+      : {};
+  if (!instanceLet || !childComponent) return;
+  const key = instanceLet;
+  if (instanceResolveToken.get(key) !== token) return;
+
+  const baked = await bakeChildComponentForResolve(childComponent, childParams);
+  // A newer hoverEnd/press may have been queued while we baked — do not clobber it.
+  if (instanceResolveToken.get(key) !== token) return;
+  if (!baked?.root) {
+    setStatus(`Instance resolve failed · ${childComponent}`);
+    return;
+  }
+
+  const node = doc.querySelector(`[data-pdl-instance-let="${CSS.escape(instanceLet)}"]`);
+  if (!node) return;
+
+  /** @type {object | null} */
+  let prevRoot = null;
+  try {
+    const raw = node.getAttribute("data-pdl-instance-bake");
+    if (raw) prevRoot = JSON.parse(raw);
+  } catch {
+    prevRoot = null;
+  }
+  /** @type {Record<string, unknown> | undefined} */
+  let prevKwargs;
+  try {
+    prevKwargs = JSON.parse(node.getAttribute("data-pdl-instance-kwargs") || "{}");
+  } catch {
+    prevKwargs = undefined;
+  }
+
+  if (instanceResolveToken.get(key) !== token) return;
+
+  const ok = reconcileBakedInstanceIntoElement(node, prevRoot, baked.root, {
+    sessionParams: childParams,
+    prevSessionParams: prevKwargs,
+  });
+  if (!ok) return;
+  if (instanceResolveToken.get(key) !== token) return;
+
+  // Mount identity is preserved (listeners stay). Do not rebind — copying
+  // data-pdl-listening onto a replaced node used to skip listener attach.
+  try {
+    node.setAttribute("data-pdl-instance-bake", JSON.stringify(baked.root));
+    node.setAttribute("data-pdl-instance-kwargs", JSON.stringify(childParams));
+  } catch {
+    /* ignore */
+  }
+  const reason = typeof data.reason === "string" ? data.reason : "";
+  setStatus(
+    `Instance resolve · ${childComponent}${instanceLet ? `#${instanceLet}` : ""}${
+      reason ? ` · ${reason}` : ""
+    }`,
+  );
+}
+
+/**
+ * Queue resolve per instanceLet. Newer events bump a token so an in-flight
+ * hoverStart bake is discarded when hoverEnd/press supersedes it.
+ * @param {object} data
+ */
+function queueInstanceResolve(data) {
+  const key =
+    (typeof data.instanceLet === "string" && data.instanceLet) ||
+    (typeof data.childComponent === "string" && data.childComponent) ||
+    "_";
+  const token = (instanceResolveToken.get(key) || 0) + 1;
+  instanceResolveToken.set(key, token);
+  const prev = instanceResolveTail.get(key) || Promise.resolve();
+  const next = prev
+    .then(() => applyInstanceResolve(data, token))
+    .catch((err) => {
+      console.warn("instance resolve failed:", err);
+    });
+  instanceResolveTail.set(key, next);
 }
 
 /**
@@ -2300,6 +2528,7 @@ function applyPreviewUpdate(data, opts) {
 
   previewDocumentLive = false;
   lastBakedDesign = nextBaked;
+  clearInstanceResolveCache();
   frame.srcdoc = html;
   frame.addEventListener(
     "load",
@@ -2570,6 +2799,11 @@ async function runRender({ debounced = false } = {}) {
   const ownerOnly = nextRenderOwnerOnly;
   nextRenderIncremental = false;
   nextRenderOwnerOnly = false;
+  // Source/theme ticks: drop cached child IR so next hover/press rebakes from sources.
+  // Owner-only SoT rebakes: cancel in-flight resolves so a stale pressEnd/hover
+  // bake (e.g. selected:false) cannot clobber ForEach presentation after remount.
+  if (!ownerOnly) clearInstanceResolveCache();
+  else cancelPendingInstanceResolves();
   showError("");
   updateRenderConsole([]);
   if (!debounced && renderDebounceTimer) {
@@ -2674,15 +2908,8 @@ async function runRender({ debounced = false } = {}) {
         bake.components = filtered;
       }
       // Hot path: bake IR in-browser → reconcile (skip HTML round-trip).
-      // Source/theme ticks with dual-bake chrome must fall through — rest IR often
-      // does not change when only a hover/press branch is edited, and IR never
-      // refreshes hidden `.pdl-inst-state` snapshots.
+      // Nested chrome edits apply on next instance-resolve interaction.
       const liveDoc = frame.contentDocument;
-      const dualBakeRefresh = shouldInvalidateDualBakeOnSourceTick({
-        incremental,
-        ownerOnly,
-        doc: liveDoc,
-      });
       if (
         incremental &&
         previewDocumentLive &&
@@ -2731,10 +2958,7 @@ async function runRender({ debounced = false } = {}) {
         return;
       }
       if (!data.baked) data.baked = bake;
-      // Dual-bake refresh must remount — incremental IR would no-op equal rest trees.
-      const mode = applyPreviewUpdate(data, {
-        incremental: dualBakeRefresh ? false : incremental,
-      });
+      const mode = applyPreviewUpdate(data, { incremental });
       const workspaceWarn = unreachableModuleConsoleEntries();
       if (workspaceWarn.length > 0) updateRenderConsole(workspaceWarn);
       const applyBit = mode === "incremental" ? " · live apply" : "";
@@ -2746,13 +2970,6 @@ async function runRender({ debounced = false } = {}) {
       return;
     }
 
-    const liveDoc = frame.contentDocument;
-    const dualBakeRefresh = shouldInvalidateDualBakeOnSourceTick({
-      incremental,
-      ownerOnly,
-      doc: liveDoc,
-    });
-
     /** @type {Record<string, unknown>} */
     const body = {
       ...getBodyBase(),
@@ -2760,9 +2977,7 @@ async function runRender({ debounced = false } = {}) {
       interactiveHost: true,
       kv,
       componentSources: buildComponentSources(names),
-      // Hot path: bake IR only when iframe is live — except source/theme ticks that
-      // must rebuild dual-bake chrome HTML.
-      bakeOnly: incremental && previewDocumentLive && !dualBakeRefresh,
+      bakeOnly: incremental && previewDocumentLive,
     };
 
     if (variantView === "grid" && (owner || canvasPrimary)) {
@@ -2805,10 +3020,7 @@ async function runRender({ debounced = false } = {}) {
       setStatus("");
       return;
     }
-    // Dual-bake refresh must remount — incremental IR leaves hidden chrome trees stale.
-    let mode = applyPreviewUpdate(data, {
-      incremental: dualBakeRefresh ? false : incremental,
-    });
+    let mode = applyPreviewUpdate(data, { incremental });
     // bakeOnly IR miss → cold remount with full HTML (restore full canvas bake).
     if (mode === "remount" && body.bakeOnly && !data.html) {
       body.bakeOnly = false;
@@ -2913,9 +3125,11 @@ document.querySelectorAll('input[name="variantView"]').forEach((r) => {
 });
 document.querySelectorAll('input[name="engine"]').forEach((r) => {
   r.addEventListener("change", () => {
+    syncEngineBadge();
     scheduleDebouncedRender(0);
   });
 });
+syncEngineBadge();
 document.querySelectorAll('input[name="workspace"]').forEach((r) => {
   r.addEventListener("change", () => {
     updateWorkspaceUi();
@@ -3042,6 +3256,10 @@ window.addEventListener("message", (ev) => {
     scheduleDebouncedRender(0, { incremental: true, ownerOnly: true });
     return;
   }
+  if (data.type === "pdl-resolve-instance") {
+    queueInstanceResolve(data);
+    return;
+  }
   if (data.type === "pdl-interaction") {
     const evName = typeof data.event === "string" ? data.event : "";
     const comp = typeof data.component === "string" ? data.component : "";
@@ -3061,8 +3279,8 @@ window.addEventListener("message", (ev) => {
       setKvForComponent(primaryComponent, /** @type {Record<string, unknown>} */ (data.params));
       activeFixtureLabel = null;
       refreshControlsUi();
-      // Rebake when emit capture changed parent SoT (or no local state-tree swap).
-      // Param-only: identity-preserving live apply (no iframe srcdoc remount).
+      // Rebake when emit capture changed parent SoT. Nested chrome uses
+      // pdl-resolve-instance (previewHandled) and does not rebake the parent.
       if (data.previewHandled !== true && data.changed) {
         scheduleDebouncedRender(0, { incremental: true, ownerOnly: true });
       }

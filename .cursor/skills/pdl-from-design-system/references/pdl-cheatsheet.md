@@ -142,7 +142,7 @@ component Nav(
 ```
 
 - `self.param` = this component instance’s param
-- Selection: parent owns SoT; ForEach derives `chip.selected = …`
+- Selection: parent owns SoT; derive Bool via ForEach (`chip.selected = self.currentFilter == filter`) or call-site (`selected: currentFilter == .all`)
 - Emit capture: `chip.select(…) = { … }` in ForEach / `Field.change(…) = { … }` on lets
 - Host inbound: `[self.]pressEnd = { … }` in the kind body (`self.` optional; prelude stubs in full-spec §4a′)
 

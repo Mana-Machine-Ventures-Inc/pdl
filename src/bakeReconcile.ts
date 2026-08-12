@@ -115,6 +115,77 @@ function migrateSession(from: Element, to: Element): void {
   }
 }
 
+/** Attrs that must stay on the listening `[data-pdl-instance-let]` mount across paints. */
+const STABLE_INSTANCE_MOUNT_ATTRS = [
+  "data-pdl-instance-let",
+  "data-pdl-instance-of",
+  "data-pdl-instance-kwargs",
+  "data-pdl-foreach-list",
+  "data-pdl-session-params",
+  "data-pdl-pointer-input",
+  "data-pdl-listening",
+  "data-pdl-chrome-state-param",
+  "data-pdl-instance-key",
+  "data-pdl-instance-bake",
+] as const;
+
+/**
+ * Apply a freshly rendered frame onto `mount` without replacing the element.
+ * Critical for instance-resolve: hoverStart must not destroy the node that owns
+ * mouseleave/click listeners (replaceWith under the cursor skips hoverEnd).
+ */
+function adoptRenderedIntoMount(mount: Element, fresh: Element): void {
+  if (mount.classList.contains("pdl-instance")) {
+    while (mount.firstChild) mount.removeChild(mount.firstChild);
+    mount.appendChild(fresh);
+    return;
+  }
+
+  const preserved = new Map<string, string>();
+  for (const name of STABLE_INSTANCE_MOUNT_ATTRS) {
+    const v = mount.getAttribute(name);
+    if (v != null) preserved.set(name, v);
+  }
+
+  if (mount.tagName === "INPUT" || mount.tagName === "TEXTAREA") {
+    const live = mount as HTMLInputElement;
+    const src = fresh as HTMLInputElement;
+    for (const attr of Array.from(src.attributes)) {
+      if ((STABLE_INSTANCE_MOUNT_ATTRS as readonly string[]).includes(attr.name)) continue;
+      live.setAttribute(attr.name, attr.value);
+    }
+    if (typeof src.value === "string") live.value = src.value;
+    for (const [k, v] of preserved) live.setAttribute(k, v);
+    return;
+  }
+
+  const cls = fresh.getAttribute("class");
+  if (cls != null) mount.setAttribute("class", cls);
+  else mount.removeAttribute("class");
+
+  const style = fresh.getAttribute("style");
+  if (style != null) mount.setAttribute("style", style);
+  else mount.removeAttribute("style");
+
+  for (const attr of Array.from(mount.attributes)) {
+    if (attr.name === "class" || attr.name === "style") continue;
+    if ((STABLE_INSTANCE_MOUNT_ATTRS as readonly string[]).includes(attr.name)) continue;
+    if (attr.name.startsWith("data-pdl-") && !fresh.hasAttribute(attr.name)) {
+      mount.removeAttribute(attr.name);
+    }
+  }
+  for (const attr of Array.from(fresh.attributes)) {
+    if (attr.name === "class" || attr.name === "style") continue;
+    if ((STABLE_INSTANCE_MOUNT_ATTRS as readonly string[]).includes(attr.name)) continue;
+    mount.setAttribute(attr.name, attr.value);
+  }
+
+  while (mount.firstChild) mount.removeChild(mount.firstChild);
+  while (fresh.firstChild) mount.appendChild(fresh.firstChild);
+
+  for (const [k, v] of preserved) mount.setAttribute(k, v);
+}
+
 export type BakeReconcileInstCtx = {
   pointerInputTypes?: Set<string>;
   editableSessionDefaults?: Record<string, Record<string, unknown>>;
@@ -170,6 +241,163 @@ export function changedEditableSessionTypes(
     if (!deepEqual(prev[k] ?? null, next[k] ?? null)) out.add(k);
   }
   return out;
+}
+
+/**
+ * Reconcile a nested instance mount from a fresh bake of that child type.
+ * Used by instance-resolve (pointer / editing chrome): bake(EditorBtn, kwargs) →
+ * patch the `[data-pdl-instance-let]` node without rebaking the parent.
+ *
+ * Flattens legacy dual-bake `.pdl-inst-state` siblings so resolve owns paint.
+ * Never replaces the listening mount element — hoverStart under the cursor must
+ * keep the same node so mouseleave/click listeners still fire.
+ */
+export function reconcileBakedInstanceIntoElement(
+  instanceEl: Element,
+  prevRoot: BakedFrame | null | undefined,
+  nextRoot: BakedFrame,
+  opts: ReconcileOptions = {},
+): boolean {
+  const doc = instanceEl.ownerDocument;
+  if (!doc || !nextRoot) return false;
+  try {
+    const instCtx = toInstanceRenderCtx(opts.instCtx, opts.nextKeyStart);
+    const prevInstCtx = toInstanceRenderCtx(opts.prevInstCtx, opts.nextKeyStart);
+    const sessionParams =
+      opts.sessionParams ??
+      ((nextRoot.instanceKwargs as Record<string, unknown> | undefined) ?? undefined);
+    const frameOpts: FrameRenderOpts = {
+      stackChild: false,
+      stackZ: 0,
+      sessionParams,
+      omitInstanceAttrs: true,
+    };
+    const prevFrameOpts: FrameRenderOpts = {
+      stackChild: false,
+      stackZ: 0,
+      sessionParams: opts.prevSessionParams ?? sessionParams,
+      omitInstanceAttrs: true,
+    };
+
+    const wrapper = instanceEl.classList.contains("pdl-instance")
+      ? instanceEl
+      : instanceEl.hasAttribute("data-pdl-instance-let")
+        ? instanceEl
+        : instanceEl.closest("[data-pdl-instance-let], .pdl-instance") || instanceEl;
+
+    // Drop dual-bake state siblings — instance resolve paints a single tree.
+    if (wrapper.classList.contains("pdl-instance")) {
+      const states = wrapper.querySelectorAll(":scope > .pdl-inst-state");
+      if (states.length > 0) {
+        const keep =
+          wrapper.querySelector(":scope > .pdl-inst-state:not([hidden]) > *") ||
+          states[0]?.firstElementChild ||
+          null;
+        while (wrapper.firstChild) wrapper.removeChild(wrapper.firstChild);
+        if (keep) wrapper.appendChild(keep);
+      }
+    }
+
+    const syncInstanceAttrs = (el: Element): void => {
+      if (sessionParams && Object.keys(sessionParams).length) {
+        el.setAttribute("data-pdl-instance-kwargs", JSON.stringify(sessionParams));
+        if (el.hasAttribute("data-pdl-session-params") || el.hasAttribute("data-pdl-instance-of")) {
+          const raw = el.getAttribute("data-pdl-session-params");
+          let merged: Record<string, unknown> = { ...sessionParams };
+          if (raw) {
+            try {
+              const prevBag = JSON.parse(raw) as Record<string, unknown>;
+              merged = mergeEditableSessionParams(sessionParams, prevBag, null);
+            } catch {
+              /* keep */
+            }
+          }
+          el.setAttribute("data-pdl-session-params", JSON.stringify(merged));
+        }
+      }
+    };
+
+    const paintIntoMount = (root: BakedFrame): void => {
+      const html = renderFrameForReconcile(root, frameOpts, instCtx);
+      const fresh = htmlToElement(doc, html);
+      adoptRenderedIntoMount(wrapper, fresh);
+      syncInstanceAttrs(wrapper);
+    };
+
+    // Nested `.pdl-instance` shell: listeners stay on wrapper; inner paint may remount.
+    const paintEl: Element | null =
+      wrapper.classList.contains("pdl-instance") && wrapper.firstElementChild
+        ? wrapper.firstElementChild
+        : null;
+
+    if (!prevRoot) {
+      paintIntoMount(nextRoot);
+      return true;
+    }
+
+    if (
+      deepEqual(prevRoot, nextRoot) &&
+      deepEqual(opts.prevSessionParams ?? null, opts.sessionParams ?? null)
+    ) {
+      syncInstanceAttrs(wrapper);
+      return true;
+    }
+
+    if (paintEl) {
+      // Listeners are on the outer wrapper — inner replaceWith is safe.
+      reconcileFrame(
+        paintEl,
+        prevRoot,
+        nextRoot,
+        instCtx,
+        doc,
+        frameOpts,
+        prevInstCtx,
+        prevFrameOpts,
+      );
+      if (!wrapper.firstElementChild?.isConnected) {
+        paintIntoMount(nextRoot);
+      } else {
+        syncInstanceAttrs(wrapper);
+      }
+      return true;
+    }
+
+    // Bare mount (= listening node): patch in place; on remount, adopt (never replaceWith).
+    const propsSame = deepEqual(prevRoot.props ?? {}, nextRoot.props ?? {});
+    const kidsSame = deepEqual(prevRoot.children ?? [], nextRoot.children ?? []);
+    if (!propsSame) {
+      const result = patchFrameProps(
+        wrapper,
+        prevRoot,
+        nextRoot,
+        frameOpts,
+        instCtx,
+        prevInstCtx,
+        prevFrameOpts,
+      );
+      if (result === "needsRemount") {
+        paintIntoMount(nextRoot);
+        return true;
+      }
+    }
+    syncInstanceAttrs(wrapper);
+    if (!kidsSame) {
+      reconcileChildList(
+        childrenContainer(wrapper),
+        prevRoot.children ?? [],
+        nextRoot.children ?? [],
+        instCtx,
+        doc,
+        frameOpts,
+        prevInstCtx,
+        prevFrameOpts,
+      );
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

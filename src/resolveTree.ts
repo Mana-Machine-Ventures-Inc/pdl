@@ -16,6 +16,11 @@ export type CatalFrame = {
   instanceOf?: string;
   /** Evaluated **`kwargs`** from the callsite (empty object when none). */
   instanceKwargs?: Record<string, unknown>;
+  /**
+   * Owning ForEach / list param name when this instance was expanded from a list
+   * (`chips`, `tracks`). Used by hosts to match catalogue emit captures.
+   */
+  foreachList?: string;
 };
 
 export function isHiddenFrame(f: CatalFrame): boolean {
@@ -31,6 +36,7 @@ export function pruneHiddenChildrenTree(f: CatalFrame): CatalFrame {
     children: f.children.filter((ch) => !isHiddenFrame(ch)).map((ch) => pruneHiddenChildrenTree(ch)),
     ...(f.instanceOf !== undefined ? { instanceOf: f.instanceOf } : {}),
     ...(f.instanceKwargs !== undefined ? { instanceKwargs: { ...f.instanceKwargs } } : {}),
+    ...(f.foreachList !== undefined ? { foreachList: f.foreachList } : {}),
   };
 }
 
