@@ -31,6 +31,7 @@
 | 9 | §15 / §14 | Layers & materials | [ ] |
 | 10 | §8, §4a′, §4d–4e | Host inbound, emits, ForEach | [ ] |
 | 11 | §4a–4b | Protocols, host roles & slots | [ ] |
+| 12 | §11 / §11a | Scenario fixtures UI + typed samples | [ ] |
 
 ---
 
@@ -629,11 +630,52 @@ Backfill Phase 5 (icon/media), 9 (layers), 10.4 EditableText, 11 (protocols) nex
 
 ---
 
+## Phase 12 — Fixtures + typed samples
+
+**Spec:** §11 companions (`fixtures`); §11a `samples`. Lab: paste/adapt `test-fixtures/pdl/lab/samples-tracks.pdl`, or open pack **Playlist Composer**.
+
+### 12.1 Scenario fixtures (per component)
+
+```pdl
+fixtures SampleShelf {
+  example "Focus sample" { mood = .focus }
+  example "Empty night" { mood = .night }
+}
+```
+
+- [ ] Preview section for `SampleShelf` shows a **Fixture** select under the title  
+- [ ] Choosing **Focus sample** applies that param bag (mood branch paints)  
+- [ ] **Defaults** clears overrides  
+- [ ] Left-rail fixture chips track the primary component; a second component with fixtures gets its **own** select (not one global Preview dropdown)  
+- [ ] Editing a param knob clears the active fixture for that component  
+
+### 12.2 Typed samples
+
+```pdl
+samples Tracks {
+  focus { tracks: [TrackRow] = [ TrackRow(title: "Desk", trackId: "desk") ] }
+  empty { tracks: [TrackRow] = [] }
+}
+// …
+if mood == .focus { List.children = Tracks.focus.tracks }
+```
+
+- [ ] Analyze OK with `samples Tracks { … }`  
+- [ ] Fixture / mood driver mounts sample rows (no host JS list)  
+- [ ] Empty sample (`Tracks.empty.tracks`) paints zero rows  
+- [ ] Unknown path `Tracks.missing.rows` → **PDL-E041**  
+- [ ] Playlist Composer pack: mood chips remount `Tracks.<mood>.tracks` at bake  
+
+**Phase 12 gate:** Fixture UI is per-component; sample banks drive list worlds without a Playground catalog.
+
+---
+
 ## Deferred — do not block the walk
 
 | Spec item | Expectation |
 |-----------|-------------|
 | B6 ForEach `before` / `between` / `after` | Deferred |
+| ForEach over sample path / let (not param) | Deferred (`SPEC_GAPS` Q2) |
 | Motion runtime (`animate`, stagger) | Tokens only; author `animate =` in host handlers OK |
 | Real icon glyphs | HTML placeholder |
 | Vibrancy paint | May skip in HTML |

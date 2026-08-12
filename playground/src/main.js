@@ -170,8 +170,9 @@ let variantCases = {};
 /** Per-component scalar param overrides (never shared across gallery sections). */
 /** @type {Record<string, Record<string, unknown>>} */
 let kvByComponent = {};
-/** @type {string | null} */
-let activeFixtureLabel = null;
+/** Active §11 fixture label per component (null/absent = defaults). */
+/** @type {Record<string, string>} */
+let activeFixtureByComponent = {};
 /** @type {boolean} */
 let syncingKnobs = false;
 /**
@@ -398,39 +399,113 @@ function buildComponentOverrides(names) {
   return out;
 }
 
-function renderFixtureChips() {
-  fixtureChips.replaceChildren();
-  const name = primaryComponent || component.value;
-  const examples = fixturesByComponent[name] ?? {};
-  const labels = Object.keys(examples).sort();
-  if (labels.length === 0) {
-    fixtureHint.hidden = false;
-    fixtureHint.textContent = name
-      ? `No fixtures for ${name}.`
-      : "Open a file that declares a component with fixtures.";
-    return;
-  }
-  fixtureHint.hidden = true;
-  for (const label of labels) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "chip" + (label === activeFixtureLabel ? " active" : "");
-    b.textContent = label;
-    b.setAttribute("role", "listitem");
-    b.addEventListener("click", () => {
-      activeFixtureLabel = label;
-      const owner = name || primaryComponent || component.value;
-      // Fixtures may include explicit `tracks` — do not host-refilter over them.
-      setKvForComponent(owner, { ...examples[label] });
-      renderFixtureChips();
-      scheduleDebouncedRender(0, { incremental: true, ownerOnly: true });
-    });
-    fixtureChips.append(b);
+/**
+ * §11 fixtures for a component (scenario param bags).
+ * @param {string} [componentName]
+ * @returns {{ owner: string, labels: string[], examples: Record<string, Record<string, unknown>> }}
+ */
+function fixtureCatalogFor(componentName) {
+  const owner = componentName || primaryComponent || component.value || "";
+  const examples =
+    owner && fixturesByComponent[owner] && typeof fixturesByComponent[owner] === "object"
+      ? /** @type {Record<string, Record<string, unknown>>} */ (fixturesByComponent[owner])
+      : {};
+  const labels = Object.keys(examples).sort((a, b) => a.localeCompare(b));
+  return { owner, labels, examples };
+}
+
+/** Keep in-iframe Fixture selects aligned with chip / param edits (IR-only path skips HTML). */
+function syncFixtureBarsInFrame() {
+  const doc = frame.contentDocument;
+  if (!doc) return;
+  for (const bar of doc.querySelectorAll(".pdl-fixture-bar")) {
+    const comp = bar.getAttribute("data-pdl-fixture-bar");
+    const sel = bar.querySelector("select[data-pdl-fixture]");
+    if (!comp || !(sel instanceof HTMLSelectElement)) continue;
+    const want = activeFixtureByComponent[comp] ?? "";
+    if ([...sel.options].some((o) => o.value === want)) sel.value = want;
+    else sel.value = "";
   }
 }
 
+/**
+ * Apply a named §11 fixture (or clear to component defaults) for one component.
+ * @param {string} componentName
+ * @param {string | null} label
+ * @param {{ render?: boolean }} [opts]
+ */
+function applyFixtureSelection(componentName, label, opts = {}) {
+  const { owner, examples } = fixtureCatalogFor(componentName);
+  if (!owner) return;
+  if (label && examples[label]) {
+    activeFixtureByComponent[owner] = label;
+    setKvForComponent(owner, { ...examples[label] });
+  } else {
+    delete activeFixtureByComponent[owner];
+    setKvForComponent(owner, {});
+  }
+  // Focus left-nav chips on the component whose fixture just changed.
+  primaryComponent = owner;
+  preferredComponent = owner;
+  if ([...component.options].some((o) => o.value === owner)) {
+    component.value = owner;
+  }
+  renderFixtureControls();
+  scheduleDraftSave();
+  if (opts.render !== false) {
+    scheduleDebouncedRender(0, { incremental: true, ownerOnly: true });
+  }
+}
+
+/** Sync left-nav chips for the primary component's §11 fixtures. */
+function renderFixtureControls() {
+  const { owner, labels } = fixtureCatalogFor(primaryComponent || component.value || "");
+  const active = owner ? activeFixtureByComponent[owner] ?? null : null;
+  fixtureChips.replaceChildren();
+
+  if (labels.length === 0) {
+    if (fixtureHint) {
+      fixtureHint.hidden = false;
+      fixtureHint.textContent = owner
+        ? `No fixtures for ${owner}. Per-component Fixture controls appear on each preview when declared.`
+        : "Open a file that declares a component with fixtures.";
+    }
+    syncFixtureBarsInFrame();
+    return;
+  }
+
+  if (fixtureHint) {
+    fixtureHint.hidden = false;
+    fixtureHint.textContent = `§11 scenarios for ${owner} (param bags — not typed samples). Same control lives on that component's preview.`;
+  }
+
+  // Defaults chip
+  {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip" + (active == null ? " active" : "");
+    b.textContent = "Defaults";
+    b.title = "Clear fixture overrides; use component param defaults";
+    b.setAttribute("role", "listitem");
+    b.addEventListener("click", () => applyFixtureSelection(owner, null));
+    fixtureChips.append(b);
+  }
+
+  for (const label of labels) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip" + (label === active ? " active" : "");
+    b.textContent = label;
+    b.setAttribute("role", "listitem");
+    b.addEventListener("click", () => applyFixtureSelection(owner, label));
+    fixtureChips.append(b);
+  }
+
+  syncFixtureBarsInFrame();
+}
+
 function refreshControlsUi() {
-  renderFixtureChips();
+  renderFixtureControls();
 }
 
 function getEditorText() {
@@ -1322,7 +1397,7 @@ function enterScratchProject(opts = {}) {
   preferredComponent = null;
   primaryComponent = "";
   kvByComponent = {};
-  activeFixtureLabel = null;
+  activeFixtureByComponent = {};
   writeKvObject({});
   const paths = sortedFilePaths();
   const pdl = paths.filter((p) => p.endsWith(".pdl"));
@@ -1650,7 +1725,7 @@ async function restoreDraft(draft) {
       draft.kvByComponent && typeof draft.kvByComponent === "object" && !Array.isArray(draft.kvByComponent)
         ? { ...draft.kvByComponent }
         : {};
-    activeFixtureLabel = null;
+    activeFixtureByComponent = {};
     writeKvObject({});
     refreshCanvasHint();
     syncKvTextareaFromOwner(overrideOwner(lastCanvas?.componentNames ?? [], lastCanvas?.primaryComponent));
@@ -2790,7 +2865,7 @@ async function loadPack(packId, { fromDisk = false, skipAnalyze = false } = {}) 
     preferredComponent = data.defaultComponent ?? null;
     primaryComponent = data.defaultComponent ?? "";
     kvByComponent = {};
-    activeFixtureLabel = null;
+    activeFixtureByComponent = {};
     writeKvObject({});
     packDesc.textContent = data.pack?.description ?? "";
     activePath = data.entry;
@@ -3043,6 +3118,7 @@ async function runRender({ debounced = false } = {}) {
           // Param / variant knobs (CLI path gets these from handleRender).
           componentOverrides,
           kv,
+          activeFixturesByComponent: { ...activeFixtureByComponent },
           ...getBodyBase(),
         }),
       });
@@ -3082,6 +3158,7 @@ async function runRender({ debounced = false } = {}) {
       interactiveHost: true,
       kv,
       componentSources: buildComponentSources(names),
+      activeFixturesByComponent: { ...activeFixtureByComponent },
       bakeOnly: incremental && previewDocumentLive,
     };
 
@@ -3299,9 +3376,9 @@ themeInput.addEventListener("input", () => {
 });
 kvJson.addEventListener("input", () => {
   if (syncingKnobs) return;
-  activeFixtureLabel = null;
   const names = lastCanvas?.componentNames ?? [];
   const owner = overrideOwner(names, lastCanvas?.primaryComponent);
+  if (owner) delete activeFixtureByComponent[owner];
   try {
     commitKvTextareaToOwner(owner);
   } catch {
@@ -3354,13 +3431,21 @@ window.addEventListener("message", (ev) => {
     openComponentSource(data.component);
     return;
   }
+  if (data.type === "pdl-fixture" && typeof data.component === "string" && data.component) {
+    const label =
+      typeof data.label === "string" && data.label.trim() ? String(data.label) : null;
+    applyFixtureSelection(data.component, label);
+    return;
+  }
   if (data.type === "pdl-param" && data.component && data.kv && typeof data.kv === "object") {
     primaryComponent = String(data.component);
     preferredComponent = primaryComponent;
     if ([...component.options].some((o) => o.value === primaryComponent)) {
       component.value = primaryComponent;
     }
+    delete activeFixtureByComponent[primaryComponent];
     setKvForComponent(primaryComponent, /** @type {Record<string, unknown>} */ (data.kv));
+    refreshControlsUi();
     scheduleDebouncedRender(0, { incremental: true, ownerOnly: true });
     return;
   }
@@ -3389,7 +3474,7 @@ window.addEventListener("message", (ev) => {
         primaryComponent,
         /** @type {Record<string, unknown>} */ (data.params),
       );
-      activeFixtureLabel = null;
+      if (primaryComponent) delete activeFixtureByComponent[primaryComponent];
       refreshControlsUi();
       // Rebake when emit capture changed parent SoT. Nested chrome uses
       // pdl-resolve-instance (previewHandled) and does not rebake the parent.

@@ -101,7 +101,7 @@
           }
         },
         {
-          "match": "\\b(interaction|fixtures|usage|rules|extend)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
+          "match": "\\b(interaction|fixtures|samples|usage|rules|extend)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
           "captures": {
             "1": { "name": "keyword.declaration.companion.pdl" },
             "2": { "name": "entity.name.type.pdl" }
@@ -141,7 +141,7 @@
         },
         {
           "name": "keyword.declaration.pdl",
-          "match": "\\b(?:import|previewBackground|primitive|semantic|theme|typeStyle|variant|protocol|component|interaction|expose|fixtures|usage|rules|extend|emits|emit|let|case|example|Rule|description|tags)\\b"
+          "match": "\\b(?:import|previewBackground|primitive|semantic|theme|typeStyle|variant|protocol|component|interaction|expose|fixtures|samples|usage|rules|extend|emits|emit|let|case|example|Rule|description|tags)\\b"
         },
         {
           "name": "keyword.other.pdl",

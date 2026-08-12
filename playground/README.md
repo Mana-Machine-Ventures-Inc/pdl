@@ -57,3 +57,9 @@ WASM only sees an in-memory map, so in disk mode the Playground calls **`POST /a
 - **Single** — defaults / param knobs / fixtures.
 - **Grid** — cartesian product of variant params (capped at 16).
 - **Pick** — knobs for variant-typed params only.
+
+## Fixtures (§11) vs samples (§11a)
+
+- **Fixtures** are per-component scenario param bags. Each preview section with declared `fixtures` shows a **Fixture** select under the title (above param knobs). Left-rail chips mirror the **primary** component only — not a global Preview-panel dropdown.
+- **Samples** (`samples Tracks { … }`) are design-global typed banks. Reference them in `.pdl` as `Tracks.focus.tracks`; bake mounts them. The Playground does **not** keep a parallel JS catalog (see playlist-composer-lite).
+- Lab: `test-fixtures/pdl/lab/samples-tracks.pdl`. Spec: `docs/full-spec.md` §11 / §11a.

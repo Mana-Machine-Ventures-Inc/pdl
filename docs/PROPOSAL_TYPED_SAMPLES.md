@@ -1,9 +1,9 @@
 # Proposal: Typed Samples (Named Data Banks)
 
-**Status:** accepted / implemented (2026-08-12) — Rust SoT + TS oracle; playlist-composer-lite migrated  
+**Status:** accepted / implemented (2026-08-12) — **normative home: `docs/full-spec.md` §11a** (also §2 merge, §16 / §16a, §20/§21, **PDL-E041**). Rust SoT + TS oracle; playlist-composer-lite migrated. This proposal remains design history; open follow-ups live in `docs/SPEC_GAPS.md`.
 
-**Schema / reference:** `docs/full-spec.md` (`1.0.0-beta`) §4 (params / variants), §4e (lists / ForEach), §6 (conditions / value expr), §7 (conditional overrides), §11 (fixtures)  
-**Related:** `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` (lists, dual fixtures / injection packs), playlist-composer-lite host filter demo  
+**Schema / reference:** `docs/full-spec.md` (`1.0.0-beta`) §11a (samples), §4 / §4e, §6, §7, §11 (fixtures)  
+**Related:** `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` (lists, dual fixtures / injection packs); pack `test-fixtures/pdl/systems/playlist-composer-lite/`  
 **Does not replace:** §11 component `fixtures` (scenario param maps for preview / docs)
 
 ---
@@ -18,7 +18,7 @@ PDL can mount typed instance lists (`tracks: [TrackRow]`, ForEach, emit captures
 
 Today’s §11 **`fixtures Component { example "…" { … } }`** are **scenario snapshots** (full param bags for preview / Storybook / tests). They are not injectable values. Injection packs (dual fixtures) supply external JSON for prototypes, but are not first-class typed symbols inside `.pdl` authoring.
 
-The Playlist Composer Playground demo currently filters tracks with a **hardcoded JS catalog** after mood/search emits. That works as a spike and is **not** an appropriate language or scale model.
+~~The Playlist Composer Playground demo previously filtered tracks with a hardcoded JS catalog after mood/search emits.~~ **Resolved:** playlist-composer-lite uses `samples Tracks { … }` + mood `if` mounts; host catalog removed.
 
 ---
 
@@ -206,7 +206,7 @@ Hosts **do not** maintain parallel catalogs. They:
 2. Rebake / reconcile.  
 3. Optionally map string search → variant in product code (outside PDL v1).
 
-Playground mood/search filtering for playlist-composer-lite should migrate to samples + variants and **delete** `PLAYLIST_TRACK_CATALOG`.
+~~Playground mood/search filtering for playlist-composer-lite should migrate to samples + variants and delete `PLAYLIST_TRACK_CATALOG`.~~ **Done** (2026-08-12).
 
 ---
 
@@ -252,21 +252,22 @@ Keeping both avoids breaking Storybook-style examples and gives catalogs a clean
 
 | ID | Question | Lean |
 |----|----------|------|
-| **Q1** | Keyword: `samples` vs `catalog` vs `dataset`? | `samples` |
-| **Q2** | ForEach still binds the **param** `tracks` while `TrackList.children` mounts a sample — do we require `tracks` to be updated too, or allow ForEach over a let/list expr later? | v1: prefer one SoT — either assign mount from sample **and** keep ForEach on the same list value, or document that selection ForEach must target the mounted list (may need `ForEach` on a let / path — track as follow-on) |
-| **Q3** | Allow sample paths inside §11 fixture bodies in v1? | Nice; not required for first ship |
+| **Q1** | Keyword: `samples` vs `catalog` vs `dataset`? | **Closed** — `samples` |
+| **Q2** | ForEach still binds the **param** `tracks` while `TrackList.children` mounts a sample — do we require `tracks` to be updated too, or allow ForEach over a let/list expr later? | **Open** — prefer one SoT in examples; ForEach over path/let deferred (`SPEC_GAPS`) |
+| **Q3** | Allow sample paths inside §11 fixture bodies in v1? | **Closed** — yes (playlist fixtures bind `Tracks.kite.tracks` / empty) |
 | **Q4** | Nesting / one sample field referencing another? | Defer |
-| **Q5** | Catalogue omitEmpty for empty sample arrays | Preserve empties under `samples` (mirror fixtures fix) |
+| **Q5** | Catalogue omitEmpty for empty sample arrays | **Closed** — preserve empties under `samples` (§16a) |
+| **Q6** | Solo `children = [tracks]` vs bare `children = tracks` / sample path — array-in-array metaphor vs compose recipes `[Header, tracks, Footer]` | **Guidance in §11a**; lint later. Both legal (§4e). |
 
 ---
 
 ## 11. Success criteria
 
-- Author a `samples Tracks { … }` bank and reference `Tracks.focus.tracks` from a variant `if` branch.  
-- Wrong element type fails validate with a stable error code.  
-- Playlist Composer (or a lab) filters worlds **without** `PLAYLIST_TRACK_CATALOG`.  
-- §11 scenario fixtures continue to work unchanged.  
-- Spec § updated; Rust bake is SoT (TS oracle follows or dual-run).
+- [x] Author a `samples Tracks { … }` bank and reference `Tracks.focus.tracks` from a variant `if` branch.  
+- [x] Wrong / unknown path fails validate with **PDL-E041**.  
+- [x] Playlist Composer + lab filter worlds **without** a host JS catalog.  
+- [x] §11 scenario fixtures continue to work (may bind sample paths).  
+- [x] Spec §11a (+ merge / catalogue / EBNF); Rust bake SoT + TS oracle.
 
 ---
 

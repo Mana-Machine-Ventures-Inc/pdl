@@ -841,6 +841,37 @@ function assertUnderRepo(abs) {
  *   Per-component scalar overrides. A single shared bag must not be applied to
  *   every gallery section (that leaked LibrarySubnav.currentFilter onto FilterChip).
  */
+/**
+ * §11 fixture dropdowns per gallery component.
+ * @param {{ fixturesByComponent?: Record<string, Record<string, unknown>> }} enriched
+ * @param {string[]} names
+ * @param {Record<string, string | null | undefined>} [activeByComponent]
+ */
+function buildFixtureControlsByComponent(enriched, names, activeByComponent) {
+  /** @type {Record<string, { labels: string[]; active?: string | null }>} */
+  const out = {};
+  const active =
+    activeByComponent && typeof activeByComponent === "object" && !Array.isArray(activeByComponent)
+      ? activeByComponent
+      : {};
+  const fixtures =
+    enriched?.fixturesByComponent && typeof enriched.fixturesByComponent === "object"
+      ? enriched.fixturesByComponent
+      : {};
+  for (const name of names) {
+    const examples = fixtures[name];
+    if (!examples || typeof examples !== "object" || Array.isArray(examples)) continue;
+    const labels = Object.keys(examples).sort((a, b) => a.localeCompare(b));
+    if (!labels.length) continue;
+    const want = active[name];
+    out[name] = {
+      labels,
+      active: typeof want === "string" && labels.includes(want) ? want : null,
+    };
+  }
+  return out;
+}
+
 function buildParamControlsByComponent(enriched, names, kvByComponent) {
   /** @type {Record<string, Array<{ name: string; typeName: string; value: string; cases?: string[] }>>} */
   const out = {};
@@ -1145,6 +1176,13 @@ async function handleRender(body) {
       previewNames,
       componentOverrides ?? {},
     );
+    const fixtureControlsByComponent = buildFixtureControlsByComponent(
+      enriched,
+      previewNames,
+      body.activeFixturesByComponent && typeof body.activeFixturesByComponent === "object"
+        ? /** @type {Record<string, string | null>} */ (body.activeFixturesByComponent)
+        : {},
+    );
 
     // Nested/top-level chrome: instance resolve (playground) or owner rebake.
     // Dual-bake stateTrees / instanceStateTrees retired (Phase 2).
@@ -1164,6 +1202,7 @@ async function handleRender(body) {
         interactionsByComponent: enriched.interactionsByComponent,
         emitCapturesByComponent: enriched.emitCapturesByComponent,
         paramControlsByComponent,
+        fixtureControlsByComponent,
         componentSourcesByComponent,
       });
       html = rerender.html;
@@ -1281,6 +1320,20 @@ async function handleRenderFromBake(body) {
               body.paramControlsByComponent
             )
           : undefined;
+    const fixtureControlsByComponent =
+      enriched != null
+        ? buildFixtureControlsByComponent(
+            enriched,
+            previewNames,
+            body.activeFixturesByComponent && typeof body.activeFixturesByComponent === "object"
+              ? /** @type {Record<string, string | null>} */ (body.activeFixturesByComponent)
+              : {},
+          )
+        : body.fixtureControlsByComponent && typeof body.fixtureControlsByComponent === "object"
+          ? /** @type {Record<string, { labels: string[]; active?: string | null }>} */ (
+              body.fixtureControlsByComponent
+            )
+          : undefined;
 
     // Dual-bake chrome retired — nested paint uses instance resolve in the playground.
     const { html, renderFailures } = renderBakedDesignToHtmlDocumentWithReport(bake, {
@@ -1291,6 +1344,7 @@ async function handleRenderFromBake(body) {
       interactionsByComponent,
       emitCapturesByComponent,
       paramControlsByComponent,
+      fixtureControlsByComponent,
     });
     return {
       ok: true,

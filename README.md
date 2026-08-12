@@ -79,17 +79,20 @@ Same pattern with `bakeSystem` / `bakeComponent` for non-protocol designs.
 
 ## Test fixtures
 
-- **`test-fixtures/pdl/systems/`** — veracity packs for Playground (`airbnb-lite`, …); see pack READMEs for coverage matrices.
+- **`test-fixtures/pdl/systems/`** — veracity packs for Playground (`airbnb-lite`, `playlist-composer-lite`, …); see pack READMEs for coverage matrices.
+- **`test-fixtures/pdl/lab/`** — focused language labs (e.g. **`samples-tracks.pdl`** for typed samples).
 - **`test-fixtures/pdl/atoms/`** — one module per language surface (token types, themes, `typeStyle`, variants, layout/text/icon/media, etc.); **`atoms/design.pdl`** imports them all.
 - **`test-fixtures/pdl/molecules/`** — **`molecules/design.pdl`** aggregates feature modules; **`m_companions.pdl`** (imported last) holds **`usage`**, **`fixtures`**, **`rules`**, and **`interaction`** examples for **`MoleculeTextButton`**, **`MoleculeCardArticle`**, and **`MoleculeFieldBlock`**.
 - **`test-fixtures/pdl/integration/`** — end-to-end and scenario entries: **`integration/design.pdl`** (atoms + molecules + merge chain), **`themed.pdl`**, **`greeting.pdl`**, **`merge_*.pdl`**, **`rules_tags_when.pdl`**, **`companion_*.pdl`**, **`status_banner.pdl`**, etc.
-- **`test-fixtures/pdl/protocols/`** — Rust B1–B5 fixtures (`design.pdl` imports modal + FilterChip). **`library_subnav.pdl`** exercises §4e `ForEach` / layout `on` (parses + bakes in Rust; intentionally unimported from `design.pdl`).
+- **`test-fixtures/pdl/protocols/`** — Rust B1–B5 fixtures (`design.pdl` imports modal + FilterChip). **`library_subnav.pdl`** exercises §4e `ForEach` / layout emit capture (parses + bakes in Rust; intentionally unimported from `design.pdl`).
+- **`test-fixtures/pdl/errors/`** — invalid PDL oracles (e.g. **`e041-unknown-sample-path.pdl`**).
 
 ## Documentation
 
-- Normative language: **`docs/full-spec.md`**
+- Normative language: **`docs/full-spec.md`** (typed samples: **§11a**)
 - Playground overview: **`docs/PLAYGROUND_OVERVIEW.md`**
 - Playground proposal: **`docs/PROPOSAL_PDL_PLAYGROUND.md`**
+- Typed samples (history): **`docs/PROPOSAL_TYPED_SAMPLES.md`**
 - Quick preview (disk watch): **`docs/PROPOSAL_QUICK_PREVIEW.md`**
 - Portable core: **`docs/PROPOSAL_PORTABLE_CORE.md`**
 - Slots / protocols: **`docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md`**

@@ -28,6 +28,7 @@
 9. [Tooling, CLI, and Limits](#9-tooling-cli-and-limits)
 10. [Quick Reference (Syntax Cheat Sheet)](#10-quick-reference-syntax-cheat-sheet)
 11. [Companion Blocks: `fixtures`, `usage`, `rules`, `extend`](#11-companion-blocks-fixtures-usage-rules-extend)
+11a. [Typed Samples (`samples`)](#11a--typed-samples-samples)
 12. [Rules Query Language](#12-rules-query-language)
 13. [Motion Tokens and Interaction Animation](#13-motion-tokens-and-interaction-animation)
 14. [Visual Layers: `background`, `foreground`, and Layer Constructors](#14-visual-layers-background-foreground-and-layer-constructors)
@@ -68,6 +69,8 @@
 - **Conditional overrides** (`if` / `else if` / `else` inside frames)  
 - **Interactions** (event → parameter updates; preview and optional static hooks) (§8)  
 - **Companion metadata** — **`fixtures`**, **`usage`**, **`rules`** (**`tags` / `tags.add` only inside `rules {}`**), **`extend`** (§11)  
+- **Typed sample banks** — design-global **`samples`** catalogs referenced as **`Bank.entry.field`** (§11a)  
+
 
 A `.pdl` **module** is parsed into a **partial design definition**; the **entry file** and **`import` graph** merge into a single resolved design. The PDL toolchain can serialise this as a **Component Catalogue** — a plain JSON file with a **token graph** (**`primitives` / `semantics` / `themes` / `typeStyles`**: definitions and overrides use **`primitive:`** / **`semantic:`** pointer strings where bare token idents appear in source), **pre-resolved default and variant frame trees** (with the same markers on frame props), and **property deltas** between variant tuples — which emitters consume without parsing PDL or re-implementing merge (§16). Runtime literal values for a skin still come from walking that graph (or from **`bakedDesign`**, §16d).
 
@@ -90,6 +93,7 @@ A `.pdl` **module** is parsed into a **partial design definition**; the **entry 
 | **`let` frame** | Nested named frame via World A ctors (`let Title = Text(…)` / `Layout` / `Icon` / `Media`). |
 | **Typed value `let`** | Local typed value reused in props / layers (`let ramp: Ramp = Ramp(…)` — not mountable). |
 | **Fixture (`example`)** | Named **parameter map** for preview/tests/codegen (§11). |
+| **Sample bank** | Design-global typed catalog (`samples Tracks { … }`); fields referenced as **`Bank.entry.field`** (§11a). |
 | **Rule** | **Query + strength** constraint on resolved trees (§12). |
 | **Emitter / compiler target** | Consumer of resolved output (HTML, manifest, …) (§17). |
 | **Design manifest** | Versioned **JSON** summary for tooling and runtimes (§17). |
@@ -129,7 +133,7 @@ Every component declares one root kind: `component Name(…) layout { … }` (or
 4. **Components** — semantic tokens and variants; avoid ad-hoc literals except demos.  
 5. **Type styles** — shared typography.  
 6. **Materials** — composite **`Background`** / **`Foreground`** tokens for repeated stacks (§14).  
-7. **`emits` + `fixtures`** — output intents and examples for systems that integrate PDL (§4d / §11).  
+7. **`emits` + `fixtures` + `samples`** — output intents, scenario examples, and typed data banks (§4d / §11 / §11a).  
 
 ---
 
@@ -162,7 +166,7 @@ The **entry** `.pdl` file (e.g. `design.pdl`) is the root of the **merged** desi
 Typical responsibilities:
 
 1. Optional **`previewBackground`** — `Color` token for studio/HTML preview canvas.  
-2. **`import "relative/path.pdl"`** — pull in tokens, typography, themes, components, **companion blocks**.  
+2. **`import "relative/path.pdl"`** — pull in tokens, typography, themes, components, **samples** banks, **companion blocks**.  
 3. Optional **inline** top-level declarations (less common when splitting by file).
 
 ### Example (`design.pdl`)
@@ -197,7 +201,8 @@ These may appear in any **module** (entry or imported). Order **within** a file 
 | `protocol` | Shared param/emits contract for conforming components (§4a) |
 | `component` | UI definition |
 | *(removed)* `interaction` | Use `[self.]<channel> = { … }` in the kind body (§4a′ / §8) |
-| **`fixtures`** | Example param instances (§11) |
+| **`fixtures`** | Example param instances for a component (§11) |
+| **`samples`** | Typed data banks (not scenario fixtures) (§11a) |
 | **`usage`** | Human-readable guidance (§12) |
 | **`rules`** | Query constraints (§13) |
 | **`extend`** | Augment an existing component (§12) |
@@ -217,12 +222,13 @@ These may appear in any **module** (entry or imported). Order **within** a file 
 | Feature | Merge behavior |
 |---------|----------------|
 | `fixtures` | Merge **by example label** (display string); later block with the same label **replaces** that example's body. |
+| `samples` | Bank name is a design-global symbol (same namespace as components for collision checks). A later **`samples Bank { … }`** **replaces** the earlier bank wholesale. |
 | `usage` | Per key: **`key =`** replaces; **`key +=`** appends with a **single space** separator. Unknown keys: **later file wins** per key. |
 | `rules` | **`tags =`** / **`tags.add`** **only** appear inside **`rules`** blocks (§13). **`tags = […]`** in a later file **replaces** the entire tags array for that component. **`Rule(…)`** lines: **append** to the rule list in merge order. Duplicate **`Rule`** lines (same strength and canonically equal serialized query) **MAY** be collapsed to one entry. |
 | Host handlers | Lifted from `[self.]<channel> = { … }` in the kind body into catalogue `interactions[]` (synthetic name **`default`**). Multiple channels append; same channel last-wins. |
 | `extend` | Processed in merge order **after** the base `component` exists; each inner section follows the same rules as standalone blocks. **Entry file wins** over imported files for the same component + same fixture label / same `usage` key. |
 
-**Best practice:** comment the intended pipeline in the entry file: tokens → motion → typography → themes → components → **fixtures** / **emits** (or co-locate companions next to components).
+**Best practice:** comment the intended pipeline in the entry file: tokens → motion → typography → themes → components → **samples** → **fixtures** / **emits** (or co-locate companions and banks next to the components that use them).
 
 ---
 
@@ -266,7 +272,7 @@ primitive color.brand: Color = #002fff  // inline
 | `typography.pdl` | `typeStyle` |
 | `themes.pdl` | `theme` blocks |
 | `variants.pdl` | Shared `variant` / `enum` closed sets |
-| `*.pdl` features | `component`, host inbound `[self.]<channel> = { … }`, **`emits`**, **`fixtures`**, **`usage`**, **`rules`** |
+| `*.pdl` features | `component`, host inbound `[self.]<channel> = { … }`, **`emits`**, **`fixtures`**, **`samples`**, **`usage`**, **`rules`** |
 | `app-extensions.pdl` | **`extend`** for library components |
 | `design.pdl` | `import` + `previewBackground` only |
 
@@ -1101,6 +1107,8 @@ Prefer the short `chip.selected = self.currentFilter == filter` form when a sing
 | Unhandled | Emits with no layout handler bubble to the **prototype / host** runtime (B7) — not a language error. |
 | Static bake | A conforming bake **MUST** expand `children = [list]` into concrete instance subtrees and **apply** ForEach overlays using the **current** parent param values (snapshot). Live rebind after emit is a **host** concern until B7. |
 
+**Typed samples (§11a):** list RHS may also be a sample path (`List.children = Tracks.focus.tracks`). Prefer one SoT with `ForEach` on the same list value; ForEach over an arbitrary path is deferred (`docs/SPEC_GAPS.md`).
+
 ### B6 — list chrome (deferred)
 
 Grammar is reserved; **first compiler slice need not implement** these arms:
@@ -1801,7 +1809,9 @@ content = title
 source = mediaSrc
 ```
 
-**Fixture bodies** (`fixtures Name { example "…" { … } }`) do **not** have component parameters in scope — see §11.
+**Sample paths** (`Tracks.focus.tracks`) are also value expressions — three-segment qualified names resolved against §11a banks (**PDL-E041** if unknown).
+
+**Fixture bodies** (`fixtures Name { example "…" { … } }`) do **not** have component parameters in scope — see §11. They **may** use sample paths as concrete RHS values.
 
 Variant comparisons use `.case` in `if` (§7).
 
@@ -2052,8 +2062,9 @@ Conditions always resolve against the **component’s parameter values** (and li
 - §8 — host inbound / emit capture handlers (separate from static **`if`**, but often drive the same params)  
 - §16 — how overrides become variant deltas in the catalogue  
 - §11 — example param bundles for previews  
+- §11a — typed `samples` banks mounted from layout / defaults  
 
-**Example PDL files:** `test-fixtures/pdl/integration/status_banner.pdl`, `test-fixtures/pdl/protocols/filter_chip.pdl`, `test-fixtures/pdl/playground/lab_world_a.pdl`, `test-fixtures/pdl/molecules/`
+**Example PDL files:** `test-fixtures/pdl/integration/status_banner.pdl`, `test-fixtures/pdl/protocols/filter_chip.pdl`, `test-fixtures/pdl/playground/lab_world_a.pdl`, `test-fixtures/pdl/lab/samples-tracks.pdl`, `test-fixtures/pdl/molecules/`
 
 ---
 
@@ -2341,6 +2352,12 @@ component C <P>(params…) layout|text|icon|media {
 
 emits C { select(filter: FilterId) }
 
+samples Tracks {
+  library {
+    tracks: [TrackRow] = [ TrackRow(title: "Neon", trackId: "neon") ]
+  }
+}
+
 fixtures C {
   example "Label" { param = value … }
 }
@@ -2362,10 +2379,11 @@ extend C {
 }
 ```
 
-Inside `layout` (see §4b / §4e):
+Inside `layout` (see §4b / §4e / §11a):
 
 ```txt
 children = [Header, slots]           // expand list/slot params
+List.children = Tracks.focus.tracks  // §11a sample path (list replace)
 ForEach(chips) { chip in             // §4e — Rust bake expands
   chip.selected = self.currentFilter == filter
   chip.select(filter_id: FilterId) = {  // binder-qualified handler
@@ -2611,22 +2629,6 @@ fixtures Button {
 }
 ```
 
-### 2a. `samples` — typed data banks
-
-**Samples** are design-global typed catalogs (not scenario param bags). Declare with `samples Bank { entry { field: Type = value … } … }` and reference as **`Bank.entry.field`** in value position or `children` mounts. Prefer mounting under variant / param `if` branches at **`Frame.children`**. Unknown paths are **PDL-E041**. Distinct from §11 `fixtures` — see **`docs/PROPOSAL_TYPED_SAMPLES.md`**.
-
-```pdl
-samples Tracks {
-  focus {
-    tracks: [TrackRow] = [ TrackRow(title: "Desk", …) ]
-  }
-}
-// …
-if currentMood == .focus {
-  TrackList.children = Tracks.focus.tracks
-}
-```
-
 ```pdl
 fixtures ListItem {
   example "Full content" {
@@ -2641,10 +2643,23 @@ fixtures ListItem {
 }
 ```
 
+Fixture bodies may also bind **sample paths** when the param type matches (often list params):
+
+```pdl
+fixtures PlaylistComposer {
+  example "Search · Kite" {
+    searchQuery = "kite"
+    tracks = Tracks.kite.tracks   // §11a path — not a component param name
+  }
+}
+```
+
+Typed **`samples`** banks (authorable catalogs referenced from layout) are **not** scenario fixtures — see **§11a**.
+
 ### Normative rules
 
 1. **`example "<label>"`** — `label` is a **display string** for UI and logs (not an identifier); duplicate labels in one component are **invalid**.
-2. Body lines are **`paramName = value`**. Fixture values must be concrete: **literals**, **token references**, and **variant case literals** (`.primary`) are valid. Parameter-referencing values are not allowed in fixture bodies — only concrete values that can be fully resolved at catalogue-generation time.
+2. Body lines are **`paramName = value`**. Fixture values must be concrete at catalogue/bake time: **literals**, **token references**, **variant case literals** (`.primary`), **instance constructors**, and **sample paths** (`Bank.entry.field`, §11a). **Component parameters are not in scope** inside fixture bodies (**PDL-E012**).
 3. Every **`paramName`** must exist on the target component and the value must be **type-compatible** with that param’s declared type.
 4. Fixture keys may name **any** declared parameter on the component (all params are public).
 
@@ -2739,13 +2754,167 @@ Apply **`component`** definitions first, then **`extend`** from files in **merge
 | `rules` | Query-based constraints (§12) |
 | `extend` | Library augmentation |
 
+Design-global **`samples`** banks (§11a) are **not** companions keyed by component name — list them in the entry pipeline alongside components, not in this inventory.
+
 ---
 
 ## 7. See also
 
 - §4 — parameter typing
 - §6 — `valueExpr` in fixtures
+- §11a — typed **`samples`** banks (distinct from scenario fixtures)
 - §16 — how companion data appears in the Component Catalogue
+---
+
+## 11a — Typed Samples (`samples`)
+
+**Status:** **normative**; shipped in Rust bake SoT + TypeScript oracle. Lab: `test-fixtures/pdl/lab/samples-tracks.pdl`. Pack: `test-fixtures/pdl/systems/playlist-composer-lite/`. Design history: `docs/PROPOSAL_TYPED_SAMPLES.md`.
+
+**Samples** are design-global **typed data banks**. They are the scalable replacement for host-side demo catalogs (e.g. hardcoded JS track lists). They are **not** §11 scenario fixtures:
+
+| | §11 `fixtures` | §11a `samples` |
+|--|----------------|----------------|
+| Keyed by | Component name + display label | Bank ident + entry ident |
+| Shape | Param map for **one** component | Typed fields (often `[Component]` lists) |
+| Referenced from layout? | No | Yes — `Bank.entry.field` |
+| Preview role | Storybook-style scenarios | Shared mountable data for many components |
+
+Hosts should update **variant / scalar** params and rebake; they should **not** maintain a parallel catalog of rows.
+
+---
+
+## 1. Declaring a bank
+
+```pdl
+samples Tracks {
+  library {
+    tracks: [TrackRow] = [
+      TrackRow(title: "Neon", trackId: "neon"),
+      TrackRow(title: "Desk", trackId: "desk")
+    ]
+  }
+  focus {
+    tracks: [TrackRow] = [
+      TrackRow(title: "Desk", trackId: "desk")
+    ]
+  }
+  empty {
+    tracks: [TrackRow] = []
+  }
+}
+```
+
+### Normative rules
+
+1. **`samples <Ident>`** — bank name is a design-global symbol. Duplicate bank names across the merge graph: **later declaration replaces** the earlier bank wholesale (§2 merge). A bank name **must not** collide with a **component** name (**PDL-E041**).
+2. **Entries** are **identifiers** (not display strings). Duplicate entry names inside one bank are **invalid** (parse error).
+3. **Fields** use param-like syntax with an **explicit type**: `name: Type = valueExpr` or `name: [Type] = valueExpr`. Prefer explicit list types for catalogs.
+4. Field values must be concrete at catalogue/bake: literals, tokens, `.case`, instance constructors, nested lists. **Empty arrays are meaningful** (`Tracks.empty.tracks` → no rows).
+5. List element types follow the same gates as expandable list params (§4b) — typically component (or protocol) types.
+
+---
+
+## 2. Path expression
+
+```txt
+SamplePath = Ident '.' Ident '.' Ident
+```
+
+Examples: `Tracks.library.tracks`, `Tracks.focus.tracks`, `Tracks.empty.tracks`.
+
+- Parsed as a **qualified name** (same dotted-ident path used for frame refs / token-like paths) and stored as a single identifier string `Bank.entry.field`.
+- Resolved type = the named field’s declared type.
+- Unknown bank, entry, or field → **PDL-E041**. Paths that are not exactly three segments are not sample paths (they follow ordinary name resolution and may be **PDL-E007**).
+
+---
+
+## 3. Mounting with variants (canonical pattern)
+
+Drive worlds with a **variant** (not free-text string conditions). Mount the chosen sample onto a list frame’s **`children`**:
+
+```pdl
+component SampleShelf(
+  mood: MoodId = .all,
+  selectedId: String = "",
+  tracks: [TrackRow] = Tracks.library.tracks
+) layout {
+  let List = Layout(direction: .column, gap: 4, width: .fill, children: [tracks])
+
+  ForEach(tracks) { track in
+    track.selected = self.selectedId == trackId
+  }
+
+  if mood == .focus {
+    List.children = Tracks.focus.tracks
+  } else if mood == .night {
+    List.children = Tracks.empty.tracks
+  } else {
+    List.children = [tracks]
+  }
+
+  children = [List]
+}
+```
+
+**Children spelling (§4e):** Bare `List.children = Tracks.focus.tracks` and `List.children = tracks` read as **replace** with a list SoT. Bracket compose recipes (`children = [Header, tracks, Footer]`) splice lists into a multi-mount array. Solo `children = [tracks]` remains legal sugar (bare ≡ brackets for a single list) but can feel like “array-in-array”; prefer bare for pure replace in new examples.
+
+**ForEach note:** Today `ForEach(tracks)` binds the **param** `tracks`. If a branch only remounts `List.children` from a sample without also updating the param, selection overlays may target a different list than the painted rows. Prefer one SoT when possible (default param from a sample; fixture / emit updates that keep param and mount aligned). ForEach over an arbitrary path/let is a follow-on (`docs/SPEC_GAPS.md`).
+
+---
+
+## 4. Defaults, fixtures, and hosts
+
+Sample paths are valid in:
+
+- Parameter **defaults** — `tracks: [TrackRow] = Tracks.library.tracks`
+- Layout / `if` **value** and **`children`** RHS
+- §11 **fixture** bodies when type-compatible — `tracks = Tracks.kite.tracks`
+
+```pdl
+fixtures SampleShelf {
+  example "Focus sample" {
+    mood = .focus
+  }
+  example "Empty night" {
+    mood = .night
+  }
+}
+```
+
+Often a fixture only sets the **driver** (`mood`, `searchWorld`, …) and layout `if` branches pull the sample. Binding the list explicitly in the fixture is useful when preview should override without relying on that branch.
+
+**Host role:** deliver interactions that assign variant/scalar params → rebake / reconcile. Do **not** keep a pack-specific JS catalog of the same rows.
+
+---
+
+## 5. Catalogue and serialization
+
+When the design defines any banks, the Component Catalogue root includes:
+
+```json
+"samples": {
+  "Tracks": {
+    "focus": { "tracks": [ /* evaluated instance rows */ ] },
+    "empty": { "tracks": [] }
+  }
+}
+```
+
+Under **`omitEmpty: true`** (§16a), empty arrays inside **`samples`** (and **`fixtures`**) **must be preserved** so intentional empty catalogs survive CLI wire JSON.
+
+Samples do **not** appear on **`bakedDesign`** as a sibling catalog — bake already expands mounted instances into frame trees.
+
+---
+
+## 6. See also
+
+- §4b / §4e — list params, children expansion, ForEach
+- §11 — scenario fixtures (may *use* sample paths as concrete values)
+- §16 / §16a — catalogue root + omitEmpty preserve rules
+- §23 / §24 — resolution order and **PDL-E041**
+- `test-fixtures/pdl/lab/samples-tracks.pdl`
+- `test-fixtures/pdl/errors/e041-unknown-sample-path.pdl`
+
 ---
 
 ## 12 — Rules Query Language
@@ -3621,6 +3790,7 @@ In §5, **`background`** and **`foreground`** on `layout` / `text` / `media` eac
 1. Parent owns the **id/enum SoT** (`currentFilter`); children expose identity + Bool presentation (`filter`, `selected`).  
 2. Derive presentation in **`ForEach`** (`chip.selected = self.currentFilter == filter` or `if` / `else`) and **always mount** with `children = chips` (**PDL-E035**).  
 3. Capture list emits with **`chip.select(…) = { … }`** inside that `ForEach` — not `chips.select` (**PDL-E036**).  
+4. For reusable demo catalogs, prefer **`samples`** banks (§11a) over host-side lists; keep ForEach and the mounted list on one SoT when possible.  
 
 ## Overrides
 
@@ -3634,11 +3804,13 @@ In §5, **`background`** and **`foreground`** on `layout` / `text` / `media` eac
 2. **Keep handlers thin** — assign **params** (and `emit …`) only; chrome lives in layout `if` (**PDL-E001** if you write `Label.content = …` in a handler).  
 3. Motion via **`animate`** / `from` / `to` when the host channel supports it (§13 / §14).  
 
-## `emits` and `fixtures`
+## `emits`, `fixtures`, and `samples`
 
 1. Declare **`emits`** for every intent a parent or host should hear (§4d).  
-2. **Fixtures** — short labels, realistic strings, edge cases (long title, missing optional).  
-3. **Cap** variant × fixture grids in CI to avoid combinatorial explosion.  
+2. **Fixtures** (§11) — short labels, realistic strings, edge cases (long title, missing optional). Prefer setting a **driver** (`mood`, `searchWorld`) and letting layout `if` pull samples when possible.  
+3. **Samples** (§11a) — put reusable list/catalog data in `samples Bank { … }`, not in host JS and not as dozens of parallel list params. Mount with `Bank.entry.field` under variant branches.  
+4. Prefer bare `Frame.children = Tracks.focus.tracks` (or `= tracks`) for pure list replace; use `[Header, tracks, Footer]` when composing siblings.  
+5. **Cap** variant × fixture grids in CI to avoid combinatorial explosion.  
 
 ## Rules
 
@@ -3704,6 +3876,7 @@ The reference CLI (`src/cli.ts`) writes **graph** and **bake** JSON with **`stab
 1. **Object keys dropped** when, after recursion, the property value is an **empty array** **`[]`** or **empty object** **`{}`**.
 2. **Array elements preserved:** empty **`[]`** / **`{}`** that appear **inside arrays** are **not** removed (only **object properties** whose value becomes an empty container are pruned).
 3. **Empty strings:** object properties whose value is **`""`** are dropped **except** while traversing the subtree under a property named **`props`** (frame property bags may intentionally carry **`""`**, e.g. **`text`** **`content`**). Keys named **`props`** at any depth that hold frame property objects enter this “preserve empty string values inside **`props`**” mode for their nested values.
+4. **Exception — `fixtures` / `samples`:** while traversing under a property named **`fixtures`** or **`samples`**, **empty arrays** **`[]`** **must be kept** (intentional empty catalogs / empty example lists). Empty **objects** under those keys still follow rule 1.
 
 **Consumer contract (parsing CLI files):** Treat **missing** optional keys as their **logical defaults** unless a field is explicitly required:
 
@@ -3833,6 +4006,7 @@ When the reference CLI writes catalogue JSON to disk, **§16a** (compact keys) m
 | `themes` | Map **theme name** → **`{ baseTheme, overrides }`**. **`baseTheme`**: parent theme name when the PDL declares **`theme Name: ParentName { … }`**, else **`null`**. Each **`overrides`** entry is **LHS token name** → serialised RHS (same pointer rules as **`definition`**). |
 | `typeStyles` | Map **preset name** → **`{ name, props }`**. Each **`props`** value uses the same serialisation as token **`definition`**s (pointers for bare **`primitive` / `semantic`** idents). |
 | `variantTypes` | Every merged closed-set type from **`variant`** or **`enum`** (§4; same IR): **name-keyed** object; **`cases`** are case ids **without** a leading dot. Variant-typed **`components[].params`** carry **`variantTypeName`** only (§2.2). Empty object when the design defines no such blocks. |
+| `samples` | **Optional.** Present when the design declares any **`samples`** banks (§11a): map **bank name** → **entry name** → **field name** → evaluated concrete value (instance arrays keep intentional **`[]`**). Omitted when the design has no banks. |
 | `components` | Map **component name** → component entry (§2.2). |
 
 **CLI wire note:** On files emitted with **`stableStringify(..., { omitEmpty: true })`** (**§16a**), any row in the table above whose logical value is an **empty map** may appear as a **missing** key at the catalogue root. Treat absent **`primitives`**, **`semantics`**, **`themes`**, **`typeStyles`**, or **`variantTypes`** as **`{}`**.
@@ -4336,7 +4510,7 @@ This checklist orders work so a **greenfield implementation** (or a full port to
 ## Phase A — Surface syntax
 
 1. **Lexer** — comments `//`, strings, numbers, identifiers, punctuation (per §1, §10 / §20).  
-2. **Top-level declarations** — `import`, `previewBackground`, `primitive`, `semantic`, `theme`, `typeStyle`, `variant` / **`enum`**, `protocol`, `component`, **`emits`**, **`fixtures`**, **`samples`**, **`usage`**, **`rules`**, **`extend`** (§2, §4, §11). Reject removed `interaction` / `expose` (**PDL-E001**).  
+2. **Top-level declarations** — `import`, `previewBackground`, `primitive`, `semantic`, `theme`, `typeStyle`, `variant` / **`enum`**, `protocol`, `component`, **`emits`**, **`fixtures`**, **`samples`**, **`usage`**, **`rules`**, **`extend`** (§2, §4, §11, §11a). Reject removed `interaction` / `expose` (**PDL-E001**).  
 3. **Component grammar** — header params, root kind block, World A `let` / typed value `let`, `children`, `if` chains, `ForEach`, host handlers, emit captures (§4–§8, §10).
 
 **Acceptance:** parse golden `.pdl` files to AST without loss; unknown top-level → error.
@@ -4345,7 +4519,7 @@ This checklist orders work so a **greenfield implementation** (or a full port to
 
 ## Phase B — Semantic model
 
-4. **Maps** — tokens, themes, variants, typeStyles, components, emits, host protocols; companion maps for **fixtures**, **usage**, **rules**, **extend merge** (§16, §11).  
+4. **Maps** — tokens, themes, variants, typeStyles, components, emits, host protocols, **samples** banks; companion maps for **fixtures**, **usage**, **rules**, **extend merge** (§16, §11, §11a).  
 5. **Value expressions** — literal / token ref / param ref; literals include sizing, insets, corners, **layer arrays**, **motion tuples**, **IconRef** / **MediaLayer** (§6, §14).  
 6. **Children** — frame id, World A frame ctor, component instance, **`Spacer()`**, optional `@` opacity (§5).  
 7. **Conditions** — variant↔case, param↔param, Bool truthy, `&&` / `||` with parentheses rules (§7, §23.5).
@@ -4357,7 +4531,7 @@ This checklist orders work so a **greenfield implementation** (or a full port to
 ## Phase C — Import merge
 
 8. **DFS imports** — cycle detection, relative resolution (§2).  
-9. **Merge policy** — later wins for same symbol; **`extend`** applied after base component; **`fixtures`** merge by example label; **`usage.description`** `+=` append (§11).
+9. **Merge policy** — later wins for same symbol; **`extend`** applied after base component; **`fixtures`** merge by example label; **`samples`** banks replace by bank name; **`usage.description`** `+=` append (§11 / §11a).
 
 **Acceptance:** determinism tests — same file order → same merged AST.
 
@@ -4471,6 +4645,7 @@ This chapter lists **optional** follow-ups that are not required for conformance
 | **Stable diagnostic codes** | Errors are described in prose (§24); keep codes aligned as compilers catch up (E028/E029, retired E015/W008). |
 | **JSON Schema files** | The Component Catalogue and Design Manifest shapes are defined in prose (§16, §17); **JSON Schema** files may be added as a machine-readable mirror for validators and editors. |
 | **Compiler lag** | **B1–B5** (protocols / arrays / packs / emits / ForEach) are **shipped in Rust** (`crates/pdl-core`); TypeScript oracle still lags ForEach expand / emitCaptures. Track **B6** (list chrome) and **B7** (host emit dispatch) separately. |
+| **Typed samples follow-ups** | §11a shipped. Open: ForEach over sample path/let; sample RHS in emit-assign; style lints for bare `children = list` (`docs/SPEC_GAPS.md`). |
 
 ---
 
@@ -4560,13 +4735,14 @@ A **leading dot** (`.`) followed by an identifier, e.g. `.row`, `.primary`, is a
 
 ```
 primitive  semantic  theme  typeStyle  variant  enum  component
-protocol  requires  host  emits  emit  interaction  fixtures  usage  rules  extend
+protocol  requires  host  emits  emit  interaction  fixtures  samples
+usage  rules  extend
 import  previewBackground  let  if  else  on  for  in  ForEach
 before  between  after
 true  false  null  self
 ```
 
-`enum` is a reserved word and a **surface alias** of `variant` (§4). API protocols declare **`protocol P: component`**; **`host`** marks host-role protocols (§4a). `before` / `between` / `after` are reserved for **B6** list chrome inside `ForEach` (§4e). **`in`** introduces the required `ForEach` item binder. Layout emit capture is handler assignment (`chip.select(…) = { … }` / `Field.change(…) = { … }`); list-param `chips.select` is **PDL-E036**. Keyword `on` is **not** used for declared emits (still reserved / rejected in layout). **`interaction`** is reserved and **rejected** as a decl (**PDL-E001**). **`expose` is not a keyword** (removed). **`self`** in layout/handlers means the enclosing component instance (§22.2 / §22.3); in `rules` queries it is the rules evaluation root (§12). World A ctor names **`Text` / `Layout` / `Icon` / `Media`** and asset/layer ctors **`IconRef` / `MediaLayer`** are not all lexer keywords — they are resolved as constructors / reserved component names (**PDL-E037** if reused as a `component` name where applicable).
+`enum` is a reserved word and a **surface alias** of `variant` (§4). API protocols declare **`protocol P: component`**; **`host`** marks host-role protocols (§4a). **`samples`** declares typed data banks (§11a). `before` / `between` / `after` are reserved for **B6** list chrome inside `ForEach` (§4e). **`in`** introduces the required `ForEach` item binder. Layout emit capture is handler assignment (`chip.select(…) = { … }` / `Field.change(…) = { … }`); list-param `chips.select` is **PDL-E036**. Keyword `on` is **not** used for declared emits (still reserved / rejected in layout). **`interaction`** is reserved and **rejected** as a decl (**PDL-E001**). **`expose` is not a keyword** (removed). **`self`** in layout/handlers means the enclosing component instance (§22.2 / §22.3); in `rules` queries it is the rules evaluation root (§12). World A ctor names **`Text` / `Layout` / `Icon` / `Media`** and asset/layer ctors **`IconRef` / `MediaLayer`** are not all lexer keywords — they are resolved as constructors / reserved component names (**PDL-E037** if reused as a `component` name where applicable).
 
 ---
 
@@ -4673,6 +4849,7 @@ top-level-decl
     | component-decl
     | emits-decl
     | fixtures-decl
+    | samples-decl
     | usage-decl
     | rules-decl
     | extend-decl
@@ -4995,7 +5172,7 @@ stagger-statement
 
 ---
 
-### 21.8 Companion blocks
+### 21.8 Companion blocks and typed samples
 
 ```ebnf
 
@@ -5007,6 +5184,17 @@ example-decl
 
 fixture-prop
   ::= IDENT '=' value-expr ;
+
+(* Typed sample banks — design-global, not keyed by component (§11a) *)
+samples-decl
+  ::= 'samples' IDENT '{' { sample-entry } '}' ;
+
+sample-entry
+  ::= IDENT '{' { sample-field } '}' ;
+
+sample-field
+  ::= IDENT ':' type-name '=' value-expr ;
+
 
 usage-decl
   ::= 'usage' IDENT '{' { usage-prop } '}' ;
@@ -5230,7 +5418,7 @@ color-with-opacity
 
 ### 22.1 Global namespaces
 
-The compiled design has the following **distinct namespaces**. Names within each namespace must be unique after merge; collisions across namespaces are permitted.
+The compiled design has the following **distinct namespaces**. Names within each namespace must be unique after merge; collisions across namespaces are permitted **except** where noted.
 
 | Namespace | Contains | Key type |
 |-----------|----------|----------|
@@ -5239,9 +5427,12 @@ The compiled design has the following **distinct namespaces**. Names within each
 | **Type styles** | `typeStyle` names | bare IDENT |
 | **Variants** | `variant` type names | bare IDENT |
 | **Components** | `component` names | bare IDENT |
-| **Interactions** | `interaction` names (scoped to component) | IDENT + component name pair |
+| **Samples** | `samples` bank names (§11a) | bare IDENT |
+| **Interactions** | legacy/synthetic interaction names (scoped to component) | IDENT + component name pair |
 
 A component named `Button` and a variant named `Button` **MAY** coexist — they live in separate namespaces. A component named `Button` and a second `component Button` in the same merged definition is a **PDL-E003** error (duplicate component name).
+
+**Samples vs components:** a `samples` bank name **must not** collide with a `component` name (**PDL-E041**). Later `samples Bank { … }` declarations **replace** earlier banks with the same name (§2).
 
 ---
 
@@ -5254,8 +5445,9 @@ Inside a `component` body (and its `interaction` / layout emit-capture handlers)
 3. **Let-frame ids** — declared by `let FrameId: kind = { … }` or `let Name = ComponentInstance(…)`. Accessible as children references and as targets in `FrameId.prop` override assignments. **`self` is not a frame id.**
 4. **Global token names** — any token from the merged definition.
 5. **Global component names** — for use in `children` component instances.
-6. **Global variant case names** — used with the leading dot in conditions.
-7. **Handler locals** — layout `select(name: Type) = { … }` payload names; rules-query binders are separate (§12).
+6. **Sample paths** — `Bank.entry.field` against merged `samples` banks (§11a).
+7. **Global variant case names** — used with the leading dot in conditions.
+8. **Handler locals** — layout `select(name: Type) = { … }` payload names; rules-query binders are separate (§12).
 
 **`ForEach` item scope:** inside `ForEach(list) { item in … }`, overrides are **`item.field = …`**. On RHS expressions, bare identifiers resolve to **item fields first**, then enclosing component params. Use **`self.param`** for the enclosing component when needed (§4e).
 
@@ -5275,8 +5467,8 @@ Resolution distinguishes **token paths**, **`self`**, and **frame property targe
 2. **`self.IDENT = value` in frame-body assignment position** (RHS is **not** `{ … }`) — assigns a **root frame property** of the enclosing component. This is the escape hatch when a nested `let` also has a property of the same name. **`self` always means the component root** (“me, actually”) — **never** an intermediate `let` parent.
 3. **`self.IDENT = { … }`** — host inbound handler on the enclosing component (§4a′ / §8); disambiguated from (2) by the brace block.
 4. **`FrameId.IDENT`** in override / assignment position — frame property target (§7); `FrameId` is a `let` id (including an ancestor `let`, e.g. `b.background` from inside nested `c`).
-5. **Other `a.b.c` forms** — look up the full string as a single **token** name in the merged token namespace. If found, it is a token reference. If not found, **PDL-E007**.
-6. There is **no** general field-access operator on arbitrary values in v1 — only `self.param`, `self`/frame-prop targets, and token paths.
+5. **Other `a.b.c` forms** — resolve in this order: (a) full string as a **token** name; (b) if the path has exactly three segments (`Bank.entry.field`) and names a known sample field, a **sample path** (§11a); (c) if sample-shaped but unknown at validate / type-check → **PDL-E041**; else **PDL-E007**.
+6. There is **no** general field-access operator on arbitrary values in v1 — only `self.param`, `self`/frame-prop targets, token paths, and sample paths.
 
 ```pdl
 component A() layout {
@@ -5409,11 +5601,12 @@ Comparing a `String` (or other non-comparable) parameter with `==` is **PDL-E010
 
 Values in `fixtures` bodies must be type-compatible with the declared parameter type:
 
-- String params: `STRING` literal only.
-- Variant params: `.caseName` literal only (must be a valid case of that variant).
-- Token references in fixture bodies are valid **only** for params typed as token-valued types (rare; normally fixtures only bind `String` and `variant` params).
+- String params: `STRING` literal (and other concrete string-producing forms supported by the toolchain).
+- Variant params: `.caseName` literal (must be a valid case of that variant).
+- List / instance params: instance constructors, list literals, and **sample paths** (`Bank.entry.field`) whose field type matches.
+- Token references in fixture bodies are valid **only** for params typed as token-valued types (rare; normally fixtures bind scalars, variants, and lists).
 
-Component parameters are **not** in scope inside fixture bodies — references to other params are **PDL-E012** (param reference in fixture scope).
+Component parameters are **not** in scope inside fixture bodies — references to other params are **PDL-E012** (param reference in fixture scope). Sample paths are **not** param references; unknown sample paths are **PDL-E041**.
 
 ---
 
@@ -5477,7 +5670,7 @@ Future additions must use codes not in this list. Codes are never reused after r
 | **PDL-E038** | `mixed-condition-operators` | A condition expression mixes `&&` and `\|\|` at the same precedence level without parentheses (§21.6). |
 | **PDL-E039** | `unknown-param-type` | A component / protocol / emit parameter uses a type name that is not a built-in (§23.1), declared `variant`, API protocol, or component. **`Boolean`** is rejected — use **`Bool`**. |
 | **PDL-E040** | `param-type-mismatch` | A parameter default, instance kwarg, or fixture binding is not type-compatible with the declared parameter type (§23.4 / §23.6). |
-| **PDL-E041** | `unknown-sample-path` | A `Bank.entry.field` sample path names an unknown bank, entry, or field; or a sample bank name collides with a component (§ samples / `docs/PROPOSAL_TYPED_SAMPLES.md`). |
+| **PDL-E041** | `unknown-sample-path` | A `Bank.entry.field` sample path names an unknown bank, entry, or field; a path is sample-shaped but invalid; or a `samples` bank name collides with a component (§11a). |
 
 ---
 
@@ -5602,6 +5795,8 @@ The following fixture files are **normative** — a conforming parser **MUST** a
 | `test-fixtures/pdl/06_interaction_states.pdl` | `interaction` blocks, all event types, `animate` |
 | `test-fixtures/pdl/07_motion_and_layers.pdl` | `Transition` tokens, layer constructors, `from`/`to` |
 | `test-fixtures/pdl/08_companion_blocks.pdl` | `fixtures`, `usage`, `rules`, `extend` (legacy `expose` fixtures pending removal) |
+| `test-fixtures/pdl/lab/samples-tracks.pdl` | Typed `samples` banks + variant mount (§11a) |
+| `test-fixtures/pdl/errors/e041-unknown-sample-path.pdl` | **PDL-E041** unknown sample path |
 | `test-fixtures/pdl/09_error_cases/` | Directory of invalid PDL files; each **MUST** produce the specific `PDL-Exxx` code named in its filename |
 
 Test fixtures for error cases (in `09_error_cases/`) use the naming convention `PDL-E007-unresolved-reference.pdl` — the error code is part of the filename. A conforming parser **MUST** emit exactly that error code (though it may emit additional warnings).

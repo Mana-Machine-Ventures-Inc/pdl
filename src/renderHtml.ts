@@ -2162,7 +2162,8 @@ body { margin: 0; padding: 16px; background: var(--pdl-preview-background, #f6f6
   min-height: 240px;
   overflow: auto;
 }
-.pdl-param-bar {
+.pdl-param-bar,
+.pdl-fixture-bar {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 12px;
@@ -2173,7 +2174,12 @@ body { margin: 0; padding: 16px; background: var(--pdl-preview-background, #f6f6
   border-radius: 6px;
   font-size: 0.78rem;
 }
-.pdl-param-bar label {
+.pdl-fixture-bar {
+  background: #f4f7fb;
+  border-color: #d0dae8;
+}
+.pdl-param-bar label,
+.pdl-fixture-bar label {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -2181,7 +2187,8 @@ body { margin: 0; padding: 16px; background: var(--pdl-preview-background, #f6f6
   color: #445;
 }
 .pdl-param-bar select,
-.pdl-param-bar input {
+.pdl-param-bar input,
+.pdl-fixture-bar select {
   font: inherit;
   font-weight: 400;
   padding: 4px 6px;
@@ -2189,6 +2196,9 @@ body { margin: 0; padding: 16px; background: var(--pdl-preview-background, #f6f6
   border-radius: 4px;
   min-width: 7rem;
   background: #fff;
+}
+.pdl-fixture-bar select {
+  min-width: 11rem;
 }
 .pdl-preview--render-error {
   border-color: #e57373;
@@ -2314,6 +2324,24 @@ function renderParamBar(
   return `<div class="pdl-param-bar" data-pdl-param-bar="${escapeAttr(componentName)}">${fields}</div>`;
 }
 
+/** §11 scenario fixture picker — per component, next to param knobs. */
+function renderFixtureBar(
+  componentName: string,
+  spec: { labels: string[]; active?: string | null } | undefined,
+): string {
+  if (!spec?.labels?.length) return "";
+  const id = `pdl-fixture-${escapeAttr(componentName)}`;
+  const active = spec.active && spec.labels.includes(spec.active) ? spec.active : "";
+  const opts = [
+    `<option value=""${active === "" ? " selected" : ""}>— Defaults —</option>`,
+    ...spec.labels.map((label) => {
+      const sel = label === active ? " selected" : "";
+      return `<option value="${escapeAttr(label)}"${sel}>${escapeHtml(label)}</option>`;
+    }),
+  ].join("");
+  return `<div class="pdl-fixture-bar" data-pdl-fixture-bar="${escapeAttr(componentName)}"><label for="${id}">Fixture<select id="${id}" data-pdl-fixture>${opts}</select></label></div>`;
+}
+
 /** Compact one-line JSON + expandable pretty block for preview param bags. */
 function renderParamsBlock(bakedParams: unknown): string {
   const compact = JSON.stringify(bakedParams ?? {});
@@ -2345,6 +2373,11 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     emitCapturesByComponent?: Record<string, unknown>;
     /** Per-component param controls rendered in the preview (Playground). */
     paramControlsByComponent?: Record<string, PreviewParamControl[]>;
+    /** Per-component §11 fixture selectors (labels + active scenario). */
+    fixtureControlsByComponent?: Record<
+      string,
+      { labels: string[]; active?: string | null }
+    >;
     /** Declaration sites for "Source file" links (`path` + 1-based `line`). */
     componentSourcesByComponent?: Record<string, { path: string; line: number }>;
     /**
@@ -2494,9 +2527,10 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             : stateExtra
               ? ` data-pdl-chrome-state-param="interactionState"`
               : "";
+        const fixtureBar = renderFixtureBar(name, opts.fixtureControlsByComponent?.[name]);
         const paramBar = renderParamBar(name, opts.paramControlsByComponent?.[name]);
         const sourceLink = renderSourceFileLink(name, opts.componentSourcesByComponent?.[name]);
-        return `<section class="pdl-preview" data-pdl-component="${escapeAttr(name)}"${interactiveAttr}${chromeAttr}><div class="pdl-preview-head"><h2 class="pdl-preview-title">${escapeHtml(name)}</h2>${sourceLink}</div>${paramBar}${paramsBlock}${restWrap}</section>`;
+        return `<section class="pdl-preview" data-pdl-component="${escapeAttr(name)}"${interactiveAttr}${chromeAttr}><div class="pdl-preview-head"><h2 class="pdl-preview-title">${escapeHtml(name)}</h2>${sourceLink}</div>${fixtureBar}${paramBar}${paramsBlock}${restWrap}</section>`;
       } catch (err) {
         const message = formatThrownMessage(err);
         const stack = formatThrownStack(err);
@@ -2885,7 +2919,11 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       var liveParams = readParams(section);
       var canvas = section.querySelector('.pdl-canvas, .pdl-state');
       function inParamBar(ev) {
-        return ev.target && ev.target.closest && ev.target.closest('.pdl-param-bar');
+        return (
+          ev.target &&
+          ev.target.closest &&
+          (ev.target.closest('.pdl-param-bar') || ev.target.closest('.pdl-fixture-bar'))
+        );
       }
       function postMsg(payload) {
         try { parent.postMessage(payload, '*'); } catch (e) {}
@@ -3438,45 +3476,62 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       });
     });
   }
+  function bindChromeControls() {
+    document.querySelectorAll('.pdl-param-bar').forEach(function(bar){
+      if (bar.getAttribute('data-pdl-listening') === '1') return;
+      bar.setAttribute('data-pdl-listening', '1');
+      var component = bar.getAttribute('data-pdl-param-bar');
+      function emitParams() {
+        var kv = {};
+        bar.querySelectorAll('[data-param]').forEach(function(el){
+          kv[el.getAttribute('data-param')] = el.value;
+        });
+        try { parent.postMessage({ type: 'pdl-param', component: component, kv: kv }, '*'); } catch (e) {}
+      }
+      bar.querySelectorAll('select').forEach(function(el){
+        el.addEventListener('change', emitParams);
+      });
+      bar.querySelectorAll('input').forEach(function(el){
+        el.addEventListener('change', emitParams);
+        el.addEventListener('keydown', function(ev){
+          if (ev.key === 'Enter') emitParams();
+        });
+      });
+    });
+    document.querySelectorAll('.pdl-fixture-bar').forEach(function(bar){
+      if (bar.getAttribute('data-pdl-listening') === '1') return;
+      bar.setAttribute('data-pdl-listening', '1');
+      var component = bar.getAttribute('data-pdl-fixture-bar');
+      var sel = bar.querySelector('select[data-pdl-fixture]');
+      if (!sel || !component) return;
+      sel.addEventListener('change', function(){
+        var label = sel.value ? String(sel.value) : null;
+        try {
+          parent.postMessage({ type: 'pdl-fixture', component: component, label: label }, '*');
+        } catch (e) {}
+      });
+    });
+    document.querySelectorAll('[data-pdl-open-source]').forEach(function(btn){
+      if (btn.getAttribute('data-pdl-listening') === '1') return;
+      btn.setAttribute('data-pdl-listening', '1');
+      btn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        var component = btn.getAttribute('data-pdl-open-source');
+        if (!component) return;
+        try {
+          parent.postMessage({ type: 'pdl-open-source', component: component }, '*');
+        } catch (e) {}
+      });
+    });
+  }
   bindInteractiveHost();
+  bindChromeControls();
   window.addEventListener('message', function(ev){
     if (!ev || !ev.data || ev.data.type !== 'pdl-rebind-interactive') return;
     bindInteractiveHost();
+    bindChromeControls();
     postHeight();
-  });
-  document.querySelectorAll('.pdl-param-bar').forEach(function(bar){
-    if (bar.getAttribute('data-pdl-listening') === '1') return;
-    bar.setAttribute('data-pdl-listening', '1');
-    var component = bar.getAttribute('data-pdl-param-bar');
-    function emitParams() {
-      var kv = {};
-      bar.querySelectorAll('[data-param]').forEach(function(el){
-        kv[el.getAttribute('data-param')] = el.value;
-      });
-      try { parent.postMessage({ type: 'pdl-param', component: component, kv: kv }, '*'); } catch (e) {}
-    }
-    bar.querySelectorAll('select').forEach(function(el){
-      el.addEventListener('change', emitParams);
-    });
-    bar.querySelectorAll('input').forEach(function(el){
-      el.addEventListener('change', emitParams);
-      el.addEventListener('keydown', function(ev){
-        if (ev.key === 'Enter') emitParams();
-      });
-    });
-  });
-  document.querySelectorAll('[data-pdl-open-source]').forEach(function(btn){
-    if (btn.getAttribute('data-pdl-listening') === '1') return;
-    btn.setAttribute('data-pdl-listening', '1');
-    btn.addEventListener('click', function(ev){
-      ev.preventDefault();
-      ev.stopPropagation();
-      var component = btn.getAttribute('data-pdl-open-source');
-      if (!component) return;
-      try {
-        parent.postMessage({ type: 'pdl-open-source', component: component }, '*');
-      } catch (e) {}
-    });
   });
   postHeight();
   if (typeof ResizeObserver !== 'undefined') {

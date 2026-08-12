@@ -2,7 +2,8 @@
 
 **Status:** accepted (2026-08-05) — **B1–B4** shipped in Rust + normative §4a–§4d; **B5** normative in `docs/full-spec.md` §4e (**compiler impl pending**); **B6** chrome deferred; **B7** host dispatch open  
 **Depends on:** `docs/PROPOSAL_PORTABLE_CORE.md` (portable core, bake → native views)  
-**Related:** `docs/full-spec.md` §4a–§4e (incl. **§4a′** host prelude stubs), §8 (interactions), §11 (fixtures / usage / rules), §16 (catalogue / bake)  
+**Related:** `docs/full-spec.md` §4a–§4e (incl. **§4a′** host prelude stubs), §8 (interactions), §11 (fixtures / usage / rules), **§11a (typed `samples` banks)** — PDL-authored catalogs distinct from injection packs, §16 (catalogue / bake)  
+**See also:** `docs/PROPOSAL_TYPED_SAMPLES.md` (accepted; folded into §11a)  
 **Implementation:** `docs/IMPLEMENTATION_PLAN.md`
 
 ---
@@ -28,6 +29,7 @@ We need a content model that stays **PDL-authored and typed** for design-time tr
 | **Reusable shells** | Containers declare slots/protocols; bodies plug in without editing the shell |
 | **List content** | Arrays of instances expand into the tree at bake/interpret time |
 | **Dual fixtures** | Strict PDL fixtures **and** malleable injection packs share one shape |
+| **Typed samples (later)** | Design-global `samples` banks (`Bank.entry.field`) for PDL-authored catalogs — see §11a; does **not** replace injection packs |
 | **Thin happy path** | Placing `slots` in `children` is enough; no mandatory `ForEach` |
 | **Optional list chrome / binding** | `ForEach` when the parent needs chrome or **derived child params** |
 | **Layout as view body** | Structure **down** and local emit capture **up** live together in `layout` |

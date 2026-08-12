@@ -55,6 +55,7 @@ Implement **after A2** unless a spike is explicitly throwaway.
 | Classic PDL → bake / catalogue (TS + Rust parity) | Tokens, themes, variants, components, `if`, companions | — |
 | Rust-first language | **B1–B4** (`protocol`, `[T]`, packs, `emits` / host inbound handlers) | TS oracle port of B1–B4 |
 | Normative grammar | §4a–§4e in `full-spec.md`; Rust B4b/B5 | **B6** chrome; TS oracle lag; B7 host dispatch |
+| Typed samples (§11a) | `samples` banks + `Bank.entry.field`; Rust + TS; catalogue `samples`; playlist-composer-lite + `lab/samples-tracks.pdl`; **PDL-E041** | ForEach over sample path; sample RHS in emit-assign; lints for bare `children = list` |
 | HTML host (C1) | Static draw of bake IR; `npm run preview` / playground | Live interactions; emit dispatch (B7); motion runtime |
 | Native / prototype | — | C2 SwiftUI; C3 routes/stack; A5 C ABI |
 
@@ -123,6 +124,7 @@ None from the A0 question set. Further grammar nits can be decided when writing 
 - [x] B4 emits + host inbound `[self.]channel = { … }` (declare/fire; host dispatch B7)  
 - [x] C1a live preview (`npm run preview` + playground Rust bake path)  
 - [x] B5 language formalized in `full-spec` §4e; Rust parse + ForEach bake expand shipped (B4b/B5)  
+- [x] Typed samples (§11a) — Rust + TS; catalogue `samples`; playlist-composer-lite + lab; **PDL-E041**; Playground per-component fixtures  
 - [ ] Align published `schemaVersion` string to plain **`1.0.0`** when touching normative version prose (drop `-beta` framing; still unreleased)
 
 Progress and intentional gaps also tracked in **`docs/SPEC_GAPS.md`**.

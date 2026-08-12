@@ -45,7 +45,7 @@ Also open:
 3. Click a track — `selectedTrack` rebakes; ForEach derives `track.selected`
 4. **Rename** → edit title → **Done** / **Cancel** (EditableText session + shell swap)
 5. Search → blur/Enter — updates `searchQuery` / status (free-text filter worlds use fixtures + sample overrides)
-6. **Fixtures** — mood / Kite / Empty sample snapshots
+6. **Fixtures** — use each preview section’s Fixture select (or left chips for the primary): mood / Kite / Empty snapshots
 
 ## Sample worlds
 

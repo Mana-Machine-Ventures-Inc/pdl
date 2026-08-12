@@ -359,14 +359,28 @@ export function applyPreviewHtml(liveDoc, nextHtml) {
       if (!liveLine && !liveFull) liveParams.textContent = json;
     }
 
+    // Fixture bar (§11 scenarios) — per component, above param knobs
+    const liveFix = liveSec.querySelector(".pdl-fixture-bar");
+    const nextFix = nextSec.querySelector(".pdl-fixture-bar");
+    if (liveFix && nextFix) morphElement(liveFix, nextFix);
+    else if (!liveFix && nextFix) {
+      const head = liveSec.querySelector(".pdl-preview-head");
+      const imported = liveSec.ownerDocument.importNode(nextFix, true);
+      if (head) head.insertAdjacentElement("afterend", imported);
+      else liveSec.insertBefore(imported, liveSec.firstChild);
+    } else if (liveFix && !nextFix) {
+      liveFix.remove();
+    }
+
     // Param bar values — insert when WASM/full HTML gains controls the live doc lacked
     const liveBar = liveSec.querySelector(".pdl-param-bar");
     const nextBar = nextSec.querySelector(".pdl-param-bar");
     if (liveBar && nextBar) morphElement(liveBar, nextBar);
     else if (!liveBar && nextBar) {
       const head = liveSec.querySelector(".pdl-preview-head");
+      const after = liveSec.querySelector(".pdl-fixture-bar") || head;
       const imported = liveSec.ownerDocument.importNode(nextBar, true);
-      if (head) head.insertAdjacentElement("afterend", imported);
+      if (after) after.insertAdjacentElement("afterend", imported);
       else liveSec.insertBefore(imported, liveSec.firstChild);
     }
 
@@ -394,6 +408,7 @@ function visualRoots(section) {
     if (ch.classList.contains("pdl-preview-head")) continue;
     if (ch.classList.contains("pdl-preview-params")) continue;
     if (ch.classList.contains("pdl-param-bar")) continue;
+    if (ch.classList.contains("pdl-fixture-bar")) continue;
     if (ch.classList.contains("pdl-source-link")) continue;
     // (details.pdl-preview-params already skipped via class above)
     roots.push(ch);
@@ -409,7 +424,10 @@ function replaceVisualRegion(liveSec, nextSec) {
   const liveRoots = visualRoots(liveSec);
   const nextRoots = visualRoots(nextSec);
   for (const r of liveRoots) r.remove();
-  const anchor = liveSec.querySelector(".pdl-param-bar") || liveSec.querySelector(".pdl-preview-params");
+  const anchor =
+    liveSec.querySelector(".pdl-param-bar") ||
+    liveSec.querySelector(".pdl-fixture-bar") ||
+    liveSec.querySelector(".pdl-preview-params");
   for (const r of nextRoots) {
     const imported = liveSec.ownerDocument.importNode(r, true);
     if (anchor && anchor.parentElement === liveSec) {

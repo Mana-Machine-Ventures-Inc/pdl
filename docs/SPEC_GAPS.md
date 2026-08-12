@@ -30,12 +30,18 @@ Rust B4b/B5 + host-protocol validation + `self.<channel> = { … }` parse landed
 | [`PROPOSAL_PROTOCOL_CAPABILITIES.md`](./PROPOSAL_PROTOCOL_CAPABILITIES.md) | **Accepted** 2026-08-07 | Host vs API protocol roles; E030/E031; EditableText D3; D5 compat matrix later |
 | [`PROPOSAL_QUICK_PREVIEW.md`](./PROPOSAL_QUICK_PREVIEW.md) | **Proposed** | Disk-watch `preview` harness; amended by Playground proposal §7 |
 | [`PROPOSAL_PDL_PLAYGROUND.md`](./PROPOSAL_PDL_PLAYGROUND.md) | **Accepted** — P0–P5 shipped | Demo/lab vs Studio; file canvas, interactive HTML, variants. Overview: [`PLAYGROUND_OVERVIEW.md`](./PLAYGROUND_OVERVIEW.md) |
-| [`PROPOSAL_TYPED_SAMPLES.md`](./PROPOSAL_TYPED_SAMPLES.md) | **Accepted** 2026-08-12 | `samples` banks + `Bank.entry.field` paths; Rust bake SoT; TS oracle parse/eval/mount; playlist-composer-lite migrated off host JS catalog. Open: ForEach over sample path (Q2), sample refs in emit-assign |
+| [`PROPOSAL_TYPED_SAMPLES.md`](./PROPOSAL_TYPED_SAMPLES.md) | **Accepted** 2026-08-12 | Folded into **`full-spec` §11a** (+ §2 merge, §16 catalogue `samples`, §16a omitEmpty preserve, §20/§21 keyword+EBNF, **PDL-E041**). Rust bake SoT + TS oracle; playlist-composer-lite + `lab/samples-tracks.pdl`. Open follow-ups below. |
+
+**Follow-up — `children` list spelling (2026-08-12):** Bare `children = tracks` / `Frame.children = Tracks.focus.tracks` reads as **replace** with a list SoT; `children = [Header, tracks, Footer]` reads as **compose** (lists splice). Solo `children = [tracks]` is legal sugar (§4e bare ≡ brackets) but feels like “array-in-array.” Normative guidance lives in **`full-spec` §11a §3**; later lints may prefer bare for pure replace. Do not ban `[list]` in v1.
+
+**Follow-up — samples SoT vs ForEach (Q2):** `ForEach(tracks)` still binds the **param**; a branch that only remounts `List.children = Tracks.focus.tracks` can desync painted rows from selection overlays. Prefer one SoT in examples; ForEach over path/let is deferred.
+
+**Follow-up — sample paths in emit-assign:** not required for v1 mount stories; track when capture RHS evaluation grows.
 
 **Coverage matrix:** [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) — *Language & host coverage*.  
 **Roadmap:** same file. Crate: **`crates/pdl-core`**.
 
-Until a feature is merged into **`full-spec.md`**, tooling **must not** treat proposal-only syntax as normative. **§4e** is implemented in **Rust** (`ForEach` bake expand + emit capture validate); TypeScript oracle still lags.
+Until a feature is merged into **`full-spec.md`**, tooling **must not** treat proposal-only syntax as normative. **§4e** is implemented in **Rust** (`ForEach` bake expand + emit capture validate); TypeScript oracle still lags. **§11a typed samples** are normative in `full-spec` (proposal retained as history).
 
 ---
 
@@ -77,9 +83,11 @@ Until a feature is merged into **`full-spec.md`**, tooling **must not** treat pr
 - **`expose` removed (language):** Rust rejects `expose` blocks. Catalogue may still emit transitional `expose: [all params]`. Prefer reading `params` / `emits`. TS oracle may still parse legacy `expose` until ported.
 - **`rules` tags:** only **top-level** `tags =` / `tags.add` inside `rules C { … }` feed **`components[C].rules.tags`** today; tag lines inside nested `rules if { … }` arms are not merged into that array (see TODO in **`src/catalogue.ts`**).
 
-## Companion blocks (§11) and `rules` / queries (§12) — implemented
+## Companion blocks (§11), typed samples (§11a), and `rules` / queries (§12) — implemented
 
 **`fixtures`**, **`usage`**, **`rules`**, **`extend`**, and **`interaction`** are parsed in TS; Rust rejects **`expose`** (**`src/parser.ts`**), merged into **`DesignDefinition`** (**`src/loadDesign.ts`**), validated (**`src/validateDesign.ts`**), and emitted on **Component Catalogue** component rows (**`src/catalogue.ts`**: **`fixtures`**, **`usage`** / **`usageByKey`**, flattened **`rules`**, **`interactions`**). **`pdl graphSystem`**, **`catalogue`**, and **`graphComponent`** / **`resolve`** surfaces include this metadata where applicable.
+
+**`samples`** banks are design-global (not per-component companions): merge/replace by bank name, paths `Bank.entry.field` in value / children / defaults / fixture bodies, catalogue root **`samples`**, empty arrays preserved under omitEmpty, unknown paths **PDL-E041**. See **`full-spec` §11a**.
 
 Later chapters (motion, layers, composite tokens, best practices) may still outpace the reference compiler in spots — see **`docs/full-spec.md`** (“Implementation parity”) and the gap notes below.
 

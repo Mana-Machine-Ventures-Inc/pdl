@@ -91,7 +91,7 @@ Always show **source + preview**. Bake JSON optional behind a toggle (eng).
 ### 4.2 Must-have
 
 1. **Pack switcher** — load entries under `test-fixtures/pdl/systems/*` (and existing molecules while packs grow).
-2. **Component + fixture picker** — defaults and named `fixtures` examples.
+2. **Per-component fixture controls** — defaults and named §11 `fixtures` examples on each preview section (plus left-rail chips for the primary). Not a single global Preview dropdown.
 3. **PDL editor** — highlight (reuse TextMate grammar / CodeMirror), multi-file tabs or tree for the pack.
 4. **Preview** — shared `bake-pipeline` → HTML; debounce; error panel (code, path, line, message).
 5. **Rust badge** — UI copy states compiler = Rust.
@@ -177,7 +177,8 @@ React Native note: **reuse `pdl-core`**, not the web Playground UI. A React **ho
 |-----|----------------|
 | **Quick preview** | Remains eng harness; Playground is the **demo shell**. Amend §4: playground is no longer “freeze only” — it becomes this product under a hard fence vs Studio. |
 | **Portable core** | Playground is a consumer of Rust bake; WASM/C ABI are packaging steps, not a new language. |
-| **Slots / protocols / fixtures** | Packs and Playground fixture picker exercise these features. |
+| **Slots / protocols / fixtures** | Packs and per-component Playground fixture selects exercise §11 scenarios. |
+| **Typed samples** | Packs author `samples` banks (`full-spec` §11a); Playground assigns scalars only — no host JS catalogs. |
 | **Manifesto** | Open SoT, working artifacts, compose — packs + visible PDL + bake preview. |
 
 ---
@@ -233,6 +234,8 @@ React Native note: **reuse `pdl-core`**, not the web Playground UI. A React **ho
 - [x] No React frame-host rewrite; no claim that Playground is for long-term DS maintenance.
 - [x] `npm run preview` still documented as the disk-watch stress path.
 - [x] Fixtures chips + param knobs UX polish *(P1)*
+- [x] Per-component Fixture select on each preview section *(post-P5; §11)*
+- [x] Typed samples packs without host JS catalogs *(playlist-composer-lite; §11a)*
 - [x] `systems/*-lite` veracity packs *(P1 — Airbnb-lite)*
 - [x] Optional WASM bake + compose → PDL + CI pack bake *(P2)*
 - [x] File-selected canvas; Add property; no Compose / component picker *(P3)*
