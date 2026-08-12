@@ -331,15 +331,44 @@ export function applyPreviewHtml(liveDoc, nextHtml) {
     if (liveSec.getAttribute("data-pdl-component") !== nextSec.getAttribute("data-pdl-component")) {
       return false;
     }
-    // Params JSON mirror
+    // Params JSON mirror (collapsed <details> or legacy <p>)
     const liveParams = liveSec.querySelector(".pdl-preview-params");
     const nextParams = nextSec.querySelector(".pdl-preview-params");
-    if (liveParams && nextParams) liveParams.textContent = nextParams.textContent;
+    if (liveParams && nextParams) {
+      const json =
+        nextParams.getAttribute("data-json") ||
+        nextParams.querySelector(".pdl-preview-params-line")?.textContent ||
+        nextParams.textContent ||
+        "{}";
+      liveParams.setAttribute("data-json", json);
+      const liveLine = liveParams.querySelector(".pdl-preview-params-line");
+      const liveFull = liveParams.querySelector(".pdl-preview-params-full");
+      const nextFull = nextParams.querySelector(".pdl-preview-params-full");
+      if (liveLine) liveLine.textContent = json;
+      if (liveFull) {
+        liveFull.textContent =
+          nextFull?.textContent ||
+          (() => {
+            try {
+              return JSON.stringify(JSON.parse(json), null, 2);
+            } catch {
+              return json;
+            }
+          })();
+      }
+      if (!liveLine && !liveFull) liveParams.textContent = json;
+    }
 
-    // Param bar values
+    // Param bar values — insert when WASM/full HTML gains controls the live doc lacked
     const liveBar = liveSec.querySelector(".pdl-param-bar");
     const nextBar = nextSec.querySelector(".pdl-param-bar");
     if (liveBar && nextBar) morphElement(liveBar, nextBar);
+    else if (!liveBar && nextBar) {
+      const head = liveSec.querySelector(".pdl-preview-head");
+      const imported = liveSec.ownerDocument.importNode(nextBar, true);
+      if (head) head.insertAdjacentElement("afterend", imported);
+      else liveSec.insertBefore(imported, liveSec.firstChild);
+    }
 
     // State trees / canvas: morph each top-level visual root inside section
     const liveVisuals = visualRoots(liveSec);
@@ -366,6 +395,7 @@ function visualRoots(section) {
     if (ch.classList.contains("pdl-preview-params")) continue;
     if (ch.classList.contains("pdl-param-bar")) continue;
     if (ch.classList.contains("pdl-source-link")) continue;
+    // (details.pdl-preview-params already skipped via class above)
     roots.push(ch);
   }
   return roots;

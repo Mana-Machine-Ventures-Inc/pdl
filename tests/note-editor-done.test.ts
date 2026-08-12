@@ -84,8 +84,15 @@ describe("NoteEditor Done/Cancel host", () => {
     expect(html).toContain("data-pdl-session-params");
 
     const section = document.querySelector("section.pdl-preview")!;
-    const params = () =>
-      JSON.parse(section.querySelector(".pdl-preview-params")!.textContent || "{}");
+    const params = () => {
+      const el = section.querySelector(".pdl-preview-params")!;
+      const raw =
+        el.getAttribute("data-json") ||
+        el.querySelector(".pdl-preview-params-line")?.textContent ||
+        el.textContent ||
+        "{}";
+      return JSON.parse(raw);
+    };
     const input =
       (document.querySelector(
         "[data-pdl-instance-let=Input] input.pdl-text--editable",
@@ -120,8 +127,15 @@ describe("NoteEditor Done/Cancel host", () => {
     ]);
     const { window, document } = await mountInteractive(bake);
     const section = document.querySelector("section.pdl-preview")!;
-    const params = () =>
-      JSON.parse(section.querySelector(".pdl-preview-params")!.textContent || "{}");
+    const params = () => {
+      const el = section.querySelector(".pdl-preview-params")!;
+      const raw =
+        el.getAttribute("data-json") ||
+        el.querySelector(".pdl-preview-params-line")?.textContent ||
+        el.textContent ||
+        "{}";
+      return JSON.parse(raw);
+    };
     const input = document.querySelector("input.pdl-text--editable") as HTMLInputElement;
     input.focus();
     input.value = "ABANDON ME";

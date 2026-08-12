@@ -2083,10 +2083,53 @@ body { margin: 0; padding: 16px; background: var(--pdl-preview-background, #f6f6
   border-radius: 2px;
 }
 .pdl-preview-params {
+  margin: 0 0 8px;
   font-size: 0.72rem;
   color: #778;
-  margin: 0 0 8px;
-  font-family: ui-monospace, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.pdl-preview-params > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.pdl-preview-params > summary::-webkit-details-marker { display: none; }
+.pdl-preview-params > summary::before {
+  content: "▸";
+  flex: 0 0 auto;
+  color: #99a;
+  font-size: 0.7rem;
+}
+.pdl-preview-params[open] > summary::before { content: "▾"; }
+.pdl-preview-params-line {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pdl-preview-params-hint {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  color: #99a;
+  font-family: system-ui, sans-serif;
+}
+.pdl-preview-params[open] .pdl-preview-params-hint { visibility: hidden; }
+.pdl-preview-params-full {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  background: #f4f6f8;
+  border: 1px solid #e2e6eb;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.72rem;
+  color: #556;
+  max-height: 220px;
+  overflow: auto;
 }
 .pdl-canvas {
   /* Definite width so root width=.fill (width:100%) has a containing block.
@@ -2255,7 +2298,7 @@ function renderParamBar(
     .map((c) => {
       const id = `pdl-param-${escapeAttr(componentName)}-${escapeAttr(c.name)}`;
       if (c.cases && c.cases.length > 0) {
-        const boolLike = c.typeName === "Bool";
+        const boolLike = c.typeName === "Bool" || c.typeName === "Boolean";
         const opts = c.cases
           .map((cas) => {
             const sel = String(c.value) === cas ? " selected" : "";
@@ -2269,6 +2312,13 @@ function renderParamBar(
     })
     .join("");
   return `<div class="pdl-param-bar" data-pdl-param-bar="${escapeAttr(componentName)}">${fields}</div>`;
+}
+
+/** Compact one-line JSON + expandable pretty block for preview param bags. */
+function renderParamsBlock(bakedParams: unknown): string {
+  const compact = JSON.stringify(bakedParams ?? {});
+  const pretty = JSON.stringify(bakedParams ?? {}, null, 2);
+  return `<details class="pdl-preview-params" data-json="${escapeAttr(compact)}"><summary><span class="pdl-preview-params-line">${escapeHtml(compact)}</span><span class="pdl-preview-params-hint">Expand</span></summary><pre class="pdl-preview-params-full">${escapeHtml(pretty)}</pre></details>`;
 }
 
 /**
@@ -2356,7 +2406,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
   const sections = list
     .map((name) => {
       const comp = doc.components[name]!;
-      const paramsJson = escapeHtml(JSON.stringify(comp.bakedParams ?? {}));
+      const paramsBlock = renderParamsBlock(comp.bakedParams ?? {});
       try {
         const body = wrapPdlCanvas(comp, instCtx);
         const stateExtra = opts.stateTrees?.[name];
@@ -2446,7 +2496,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
               : "";
         const paramBar = renderParamBar(name, opts.paramControlsByComponent?.[name]);
         const sourceLink = renderSourceFileLink(name, opts.componentSourcesByComponent?.[name]);
-        return `<section class="pdl-preview" data-pdl-component="${escapeAttr(name)}"${interactiveAttr}${chromeAttr}><div class="pdl-preview-head"><h2 class="pdl-preview-title">${escapeHtml(name)}</h2>${sourceLink}</div>${paramBar}<p class="pdl-preview-params mono">${paramsJson}</p>${restWrap}</section>`;
+        return `<section class="pdl-preview" data-pdl-component="${escapeAttr(name)}"${interactiveAttr}${chromeAttr}><div class="pdl-preview-head"><h2 class="pdl-preview-title">${escapeHtml(name)}</h2>${sourceLink}</div>${paramBar}${paramsBlock}${restWrap}</section>`;
       } catch (err) {
         const message = formatThrownMessage(err);
         const stack = formatThrownStack(err);
@@ -2456,7 +2506,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             ? `<details style="margin-top:8px"><summary style="cursor:pointer;font-size:0.82rem">Stack trace</summary><pre class="pdl-render-error-stack">${escapeHtml(stack)}</pre></details>`
             : "";
         const sourceLink = renderSourceFileLink(name, opts.componentSourcesByComponent?.[name]);
-        return `<section class="pdl-preview pdl-preview--render-error" data-pdl-component="${escapeAttr(name)}"><span class="pdl-render-error-badge">HTML render failed</span><div class="pdl-preview-head"><h2 class="pdl-preview-title">${escapeHtml(name)}</h2>${sourceLink}</div><p class="pdl-preview-params">${paramsJson}</p><pre class="pdl-render-error-msg">${escapeHtml(message)}</pre>${stackBlock}</section>`;
+        return `<section class="pdl-preview pdl-preview--render-error" data-pdl-component="${escapeAttr(name)}"><span class="pdl-render-error-badge">HTML render failed</span><div class="pdl-preview-head"><h2 class="pdl-preview-title">${escapeHtml(name)}</h2>${sourceLink}</div>${paramsBlock}<pre class="pdl-render-error-msg">${escapeHtml(message)}</pre>${stackBlock}</section>`;
       }
     })
     .join("\n");
@@ -2588,11 +2638,24 @@ export function renderBakedDesignToHtmlDocumentWithReport(
   function readParams(section) {
     var el = section.querySelector('.pdl-preview-params');
     if (!el) return {};
-    try { return JSON.parse(el.textContent || '{}'); } catch (e) { return {}; }
+    var raw = el.getAttribute('data-json');
+    if (!raw) {
+      var line = el.querySelector('.pdl-preview-params-line');
+      raw = (line && line.textContent) || el.textContent || '{}';
+    }
+    try { return JSON.parse(raw || '{}'); } catch (e) { return {}; }
   }
   function writeParams(section, params) {
     var el = section.querySelector('.pdl-preview-params');
-    if (el) el.textContent = JSON.stringify(params);
+    if (!el) return;
+    var compact = JSON.stringify(params);
+    var pretty = JSON.stringify(params, null, 2);
+    el.setAttribute('data-json', compact);
+    var line = el.querySelector('.pdl-preview-params-line');
+    var full = el.querySelector('.pdl-preview-params-full');
+    if (line) line.textContent = compact;
+    if (full) full.textContent = pretty;
+    if (!line && !full) el.textContent = compact;
   }
   // onHostVerb(hv, nextParams) → { params, changed, localChrome } when provided (ordered body exec).
   function findEmitCapture(captures, channel, wantQual) {

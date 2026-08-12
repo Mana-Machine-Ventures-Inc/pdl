@@ -151,7 +151,13 @@ describe("PlaylistComposer multi-ForEach select", () => {
     expect(pressEndResolve).toBeUndefined();
 
     const section = document.querySelector("section.pdl-preview")!;
-    const live = JSON.parse(section.querySelector(".pdl-preview-params")!.textContent || "{}");
+    const el = section.querySelector(".pdl-preview-params")!;
+    const live = JSON.parse(
+      el.getAttribute("data-json") ||
+        el.querySelector(".pdl-preview-params-line")?.textContent ||
+        el.textContent ||
+        "{}",
+    );
     expect(String(live.selectedTrack)).toMatch(/coastal/);
   });
 

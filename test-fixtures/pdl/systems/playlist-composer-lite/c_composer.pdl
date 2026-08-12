@@ -133,7 +133,7 @@ component PlaylistComposer(
 
   let Status = Text(content: status, style: PcMeta, color: pc.color.fgMuted)
   let Hint = Text(
-    content: "Hover chips & rows · click to select · Rename / search use editing sessions",
+    content: "Hover / select live · filtered lists are Playground fixtures (not live chip filter)",
     style: PcMeta,
     color: pc.color.fgMuted
   )
@@ -194,11 +194,67 @@ component PlaylistComposer(
   }
 }
 
+// Filtered catalogs are scenario snapshots — chip click still only updates
+// currentMood / status. Pick a fixture in the Playground to see a pre-bundled list.
 fixtures PlaylistComposer {
+  example "All tracks" {
+    currentMood = .all
+    selectedTrack = .none
+    searchQuery = ""
+    status = "Fixture: full library (5 tracks)"
+    tracks = [
+      TrackRow(title: "Neon Shoulder", artist: "Kite Line", trackId: .neon, mood: .night),
+      TrackRow(title: "Desk Lamp", artist: "Static Grove", trackId: .desk, mood: .focus),
+      TrackRow(title: "Coastal Gear", artist: "Relay Club", trackId: .coastal, mood: .drive),
+      TrackRow(title: "Quiet Percent", artist: "Marble Room", trackId: .quiet, mood: .focus),
+      TrackRow(title: "Afterglow Toll", artist: "Kite Line", trackId: .afterglow, mood: .night)
+    ]
+  }
+  example "Focus mood" {
+    currentMood = .focus
+    selectedTrack = .desk
+    searchQuery = ""
+    status = "Fixture: Focus filter (2 tracks)"
+    tracks = [
+      TrackRow(title: "Desk Lamp", artist: "Static Grove", trackId: .desk, mood: .focus),
+      TrackRow(title: "Quiet Percent", artist: "Marble Room", trackId: .quiet, mood: .focus)
+    ]
+  }
+  example "Night mood" {
+    currentMood = .night
+    selectedTrack = .neon
+    searchQuery = ""
+    status = "Fixture: Night filter (2 tracks)"
+    tracks = [
+      TrackRow(title: "Neon Shoulder", artist: "Kite Line", trackId: .neon, mood: .night),
+      TrackRow(title: "Afterglow Toll", artist: "Kite Line", trackId: .afterglow, mood: .night)
+    ]
+  }
   example "Drive mood" {
     currentMood = .drive
     selectedTrack = .coastal
-    status = "Fixture: Drive filter + track selected"
+    searchQuery = ""
+    status = "Fixture: Drive filter (1 track)"
+    tracks = [
+      TrackRow(title: "Coastal Gear", artist: "Relay Club", trackId: .coastal, mood: .drive)
+    ]
+  }
+  example "Search · Kite" {
+    currentMood = .all
+    selectedTrack = .none
+    searchQuery = "Kite"
+    status = "Fixture: searchQuery = Kite (2 tracks)"
+    tracks = [
+      TrackRow(title: "Neon Shoulder", artist: "Kite Line", trackId: .neon, mood: .night),
+      TrackRow(title: "Afterglow Toll", artist: "Kite Line", trackId: .afterglow, mood: .night)
+    ]
+  }
+  example "Empty · no matches" {
+    currentMood = .drive
+    selectedTrack = .none
+    searchQuery = "zzzz"
+    status = "Fixture: empty result set"
+    tracks = []
   }
   example "Renaming" {
     editingTitle = true

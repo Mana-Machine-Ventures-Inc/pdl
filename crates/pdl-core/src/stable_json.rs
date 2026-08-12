@@ -18,6 +18,8 @@ pub struct StableStringifyOptions {
 struct OmitEmptyCtx {
     strip_empty_strings_outside_props: bool,
     inside_props: bool,
+    /// Under catalogue `fixtures` — keep explicit empty arrays (filtered catalogs).
+    inside_fixtures: bool,
 }
 
 /// Deterministic `JSON.stringify` (sorted object keys, 2-space indent, trailing newline).
@@ -29,6 +31,7 @@ pub fn stable_stringify(value: &Value, opts: StableStringifyOptions) -> String {
             Some(OmitEmptyCtx {
                 strip_empty_strings_outside_props: true,
                 inside_props: false,
+                inside_fixtures: false,
             }),
         )
         .unwrap_or(Value::Null);
@@ -54,17 +57,21 @@ fn is_empty_container(v: &Value) -> bool {
 /// Remove empty arrays/objects (and empty strings outside `props`). Returns `None` when the
 /// value itself should be dropped (only meaningful for object property values in the caller).
 fn omit_empty_deep(value: &Value, ctx: Option<OmitEmptyCtx>) -> Option<Value> {
-    let strip_strings = ctx
-        .map(|c| c.strip_empty_strings_outside_props)
-        .unwrap_or(false);
-    let inside_props = ctx.map(|c| c.inside_props).unwrap_or(false);
+    let effective = ctx.unwrap_or(OmitEmptyCtx {
+        strip_empty_strings_outside_props: false,
+        inside_props: false,
+        inside_fixtures: false,
+    });
+    let strip_strings = effective.strip_empty_strings_outside_props;
+    let inside_props = effective.inside_props;
+    let inside_fixtures = effective.inside_fixtures;
 
     match value {
         Value::Array(arr) => {
             // Elements are never dropped, even when empty containers.
             let mapped = arr
                 .iter()
-                .map(|el| omit_empty_deep(el, ctx).unwrap_or(Value::Null))
+                .map(|el| omit_empty_deep(el, Some(effective)).unwrap_or(Value::Null))
                 .collect();
             Some(Value::Array(mapped))
         }
@@ -72,9 +79,11 @@ fn omit_empty_deep(value: &Value, ctx: Option<OmitEmptyCtx>) -> Option<Value> {
             let mut out = Map::new();
             for (k, v) in obj {
                 let child_inside_props = inside_props || k == "props";
-                let next_ctx = ctx.map(|c| OmitEmptyCtx {
-                    strip_empty_strings_outside_props: c.strip_empty_strings_outside_props,
+                let child_inside_fixtures = inside_fixtures || k == "fixtures";
+                let next_ctx = Some(OmitEmptyCtx {
+                    strip_empty_strings_outside_props: effective.strip_empty_strings_outside_props,
                     inside_props: child_inside_props,
+                    inside_fixtures: child_inside_fixtures,
                 });
                 let ev = omit_empty_deep(v, next_ctx).unwrap_or(Value::Null);
                 if strip_strings {
@@ -85,7 +94,12 @@ fn omit_empty_deep(value: &Value, ctx: Option<OmitEmptyCtx>) -> Option<Value> {
                     }
                 }
                 if is_empty_container(&ev) {
-                    continue;
+                    // Keep explicit `[]` under fixtures (empty filtered catalogs).
+                    let keep_empty_fixture_array =
+                        child_inside_fixtures && matches!(&ev, Value::Array(a) if a.is_empty());
+                    if !keep_empty_fixture_array {
+                        continue;
+                    }
                 }
                 out.insert(k.clone(), ev);
             }
@@ -192,5 +206,27 @@ pub fn number_value(n: f64) -> Value {
         serde_json::Number::from_f64(n)
             .map(Value::Number)
             .unwrap_or(Value::Null)
+    }
+}
+
+#[cfg(test)]
+mod fixture_empty_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn keeps_empty_array_under_fixtures() {
+        let v = json!({
+            "components": {
+                "PlaylistComposer": {
+                    "fixtures": {
+                        "Empty": { "tracks": [], "status": "x" }
+                    },
+                    "children": []
+                }
+            }
+        });
+        let s = stable_stringify(&v, StableStringifyOptions { omit_empty: true });
+        assert!(s.contains("\"tracks\": []") || s.contains("\"tracks\":[]"), "got: {s}");
     }
 }

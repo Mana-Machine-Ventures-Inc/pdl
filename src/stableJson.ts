@@ -11,12 +11,21 @@ type OmitEmptyCtx = {
   stripEmptyStringsOutsideProps: boolean;
   /** True while walking keys/values under a property bag named **`props`**. */
   insideProps: boolean;
+  /**
+   * True under a catalogue **`fixtures`** bag. Explicit empty arrays (e.g. filtered
+   * `tracks = []`) must survive omitEmpty so Playground / CLI can apply them.
+   */
+  insideFixtures: boolean;
 };
 
 /** Deterministic JSON.stringify for catalogue / golden tests (sorted object keys). */
 export function stableStringify(value: unknown, opts?: StableStringifyOptions): string {
   const v = opts?.omitEmpty
-    ? omitEmptyDeep(value, { stripEmptyStringsOutsideProps: true, insideProps: false })
+    ? omitEmptyDeep(value, {
+        stripEmptyStringsOutsideProps: true,
+        insideProps: false,
+        insideFixtures: false,
+      })
     : value;
   return JSON.stringify(sortDeep(v), null, 2) + "\n";
 }
@@ -26,10 +35,19 @@ export function stableStringify(value: unknown, opts?: StableStringifyOptions): 
  * for leaner catalogue / **`resolvedComponent`** JSON.
  */
 export function omitEmptyDeep(value: unknown, ctx?: OmitEmptyCtx): unknown {
-  const stripStrings = ctx?.stripEmptyStringsOutsideProps ?? false;
-  const insideProps = ctx?.insideProps ?? false;
-  const nextCtx = (inProps: boolean): OmitEmptyCtx | undefined =>
-    ctx ? { ...ctx, insideProps: inProps } : undefined;
+  const effective: OmitEmptyCtx = ctx ?? {
+    stripEmptyStringsOutsideProps: false,
+    insideProps: false,
+    insideFixtures: false,
+  };
+  const stripStrings = effective.stripEmptyStringsOutsideProps;
+  const insideProps = effective.insideProps;
+  const insideFixtures = effective.insideFixtures;
+  const nextCtx = (inProps: boolean, inFixtures: boolean): OmitEmptyCtx => ({
+    ...effective,
+    insideProps: inProps,
+    insideFixtures: inFixtures,
+  });
 
   if (value === null || typeof value !== "object") {
     return value;
@@ -37,17 +55,23 @@ export function omitEmptyDeep(value: unknown, ctx?: OmitEmptyCtx): unknown {
   // Only omit empty containers when they appear as **object property values** — do not drop
   // `[]` / `{}` array elements; empty frames may still be meaningful in resolved trees.
   if (Array.isArray(value)) {
-    return value.map((el) => omitEmptyDeep(el, ctx));
+    return value.map((el) => omitEmptyDeep(el, effective));
   }
   const o = value as Record<string, unknown>;
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(o)) {
     const childInsideProps = insideProps || k === "props";
-    const ev = omitEmptyDeep(v, nextCtx(childInsideProps));
+    const childInsideFixtures = insideFixtures || k === "fixtures";
+    const ev = omitEmptyDeep(v, nextCtx(childInsideProps, childInsideFixtures));
     if (stripStrings && typeof ev === "string" && ev === "" && !childInsideProps) {
       continue;
     }
-    if (isEmptyContainer(ev)) continue;
+    if (isEmptyContainer(ev)) {
+      // Keep explicit `[]` under fixtures (empty filtered catalogs).
+      if (!(childInsideFixtures && Array.isArray(ev) && ev.length === 0)) {
+        continue;
+      }
+    }
     out[k] = ev;
   }
   return out;

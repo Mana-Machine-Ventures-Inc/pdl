@@ -166,6 +166,83 @@ let kvByComponent = {};
 let activeFixtureLabel = null;
 /** @type {boolean} */
 let syncingKnobs = false;
+/**
+ * Paths edited in the Playground editor. Analyze/Render only flush these —
+ * never rewrite untouched disk files from a stale in-memory bag.
+ * @type {Set<string>}
+ */
+let dirtyDiskPaths = new Set();
+
+/** Full PlaylistComposer catalog (Playground host filters mood/search). */
+const PLAYLIST_TRACK_CATALOG = [
+  {
+    component: "TrackRow",
+    params: { title: "Neon Shoulder", artist: "Kite Line", trackId: "neon", mood: "night" },
+  },
+  {
+    component: "TrackRow",
+    params: { title: "Desk Lamp", artist: "Static Grove", trackId: "desk", mood: "focus" },
+  },
+  {
+    component: "TrackRow",
+    params: { title: "Coastal Gear", artist: "Relay Club", trackId: "coastal", mood: "drive" },
+  },
+  {
+    component: "TrackRow",
+    params: { title: "Quiet Percent", artist: "Marble Room", trackId: "quiet", mood: "focus" },
+  },
+  {
+    component: "TrackRow",
+    params: { title: "Afterglow Toll", artist: "Kite Line", trackId: "afterglow", mood: "night" },
+  },
+];
+
+/**
+ * @param {{ currentMood?: unknown, searchQuery?: unknown }} opts
+ * @returns {Array<{ component: string, params: Record<string, string> }>}
+ */
+function filterPlaylistTracks(opts) {
+  let rows = PLAYLIST_TRACK_CATALOG.map((r) => ({
+    component: r.component,
+    params: { ...r.params },
+  }));
+  const mood = opts.currentMood != null && opts.currentMood !== "" ? String(opts.currentMood) : "all";
+  if (mood !== "all") {
+    rows = rows.filter((r) => r.params.mood === mood);
+  }
+  const q = typeof opts.searchQuery === "string" ? opts.searchQuery.trim().toLowerCase() : "";
+  if (q) {
+    rows = rows.filter(
+      (r) =>
+        r.params.title.toLowerCase().includes(q) || r.params.artist.toLowerCase().includes(q),
+    );
+  }
+  return rows;
+}
+
+/**
+ * After chip/search emit, replace `tracks` from the host catalog.
+ * Fixtures that already include `tracks` leave the bag alone.
+ * @param {string} comp
+ * @param {Record<string, unknown>} params
+ * @param {{ forceCatalog?: boolean }} [opts]
+ */
+function enrichPlaylistComposerParams(comp, params, opts = {}) {
+  if (comp !== "PlaylistComposer" || !params || typeof params !== "object") return params;
+  if (!opts.forceCatalog && Array.isArray(params.tracks)) return params;
+  return {
+    ...params,
+    tracks: filterPlaylistTracks({
+      currentMood: params.currentMood,
+      searchQuery: params.searchQuery,
+    }),
+  };
+}
+
+/** @param {string} rel */
+function markFileDirty(rel) {
+  if (typeof rel === "string" && rel.endsWith(".pdl")) dirtyDiskPaths.add(rel);
+}
 
 /** @type {ReturnType<typeof resolveCanvasTarget> | null} */
 let lastCanvas = null;
@@ -263,12 +340,20 @@ function isJsonStructureString(v) {
   }
 }
 
-/** Drop arrays/objects — CLI overrides are scalar `key=value` only. */
-function scalarKv(obj) {
+/**
+ * Bake/fixture overrides: scalars + arrays (filtered catalogs).
+ * Drop plain objects and JSON-looking strings (those are not CLI/WASM kv shapes).
+ * @param {Record<string, unknown>} obj
+ */
+function bakeKv(obj) {
   /** @type {Record<string, unknown>} */
   const out = {};
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return out;
   for (const [k, v] of Object.entries(obj)) {
+    if (Array.isArray(v)) {
+      out[k] = v;
+      continue;
+    }
     if (v !== null && typeof v === "object") continue;
     // Enrichment sometimes stringifies instance lists (chips) as type String.
     if (isJsonStructureString(v)) continue;
@@ -278,19 +363,19 @@ function scalarKv(obj) {
 }
 
 /**
- * Keep only keys declared on `compName` (and still scalar).
+ * Keep only keys declared on `compName` (scalars + list arrays for fixtures).
  * Unknown keys must never enter another component's bakedParams.
  * @param {string} compName
  * @param {Record<string, unknown>} kv
  */
 function filterKvToDeclaredParams(compName, kv) {
   const declared = componentParams[compName];
-  const scalars = scalarKv(kv);
-  if (!declared?.length) return scalars;
+  const bag = bakeKv(kv);
+  if (!declared?.length) return bag;
   const allowed = new Set(declared.map((p) => p.name).filter(Boolean));
   /** @type {Record<string, unknown>} */
   const out = {};
-  for (const [k, v] of Object.entries(scalars)) {
+  for (const [k, v] of Object.entries(bag)) {
     if (allowed.has(k)) out[k] = v;
   }
   return out;
@@ -382,6 +467,7 @@ function renderFixtureChips() {
     b.addEventListener("click", () => {
       activeFixtureLabel = label;
       const owner = name || primaryComponent || component.value;
+      // Fixtures may include explicit `tracks` — do not host-refilter over them.
       setKvForComponent(owner, { ...examples[label] });
       renderFixtureChips();
       scheduleDebouncedRender(0, { incremental: true, ownerOnly: true });
@@ -420,6 +506,7 @@ function mountEditor() {
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             files[activePath] = getEditorText();
+            markFileDirty(activePath);
             scheduleDraftSave();
             // Live preview: rebake canvas IR + reconcile deltas (not srcdoc remount).
             scheduleDebouncedRender(undefined, { incremental: true });
@@ -1080,7 +1167,10 @@ document.querySelectorAll("[data-output-tab]").forEach((btn) => {
 });
 
 function syncEditorToFiles() {
-  files[activePath] = getEditorText();
+  const prev = files[activePath];
+  const next = getEditorText();
+  files[activePath] = next;
+  if (prev !== next) markFileDirty(activePath);
 }
 
 /** @param {string} s */
@@ -2618,7 +2708,14 @@ function tryIncrementalBakeReconcile(doc, prevBake, nextBake) {
       if (!ok) return false;
       const paramsEl = section.querySelector(".pdl-preview-params");
       if (paramsEl && nextComp.bakedParams) {
-        paramsEl.textContent = JSON.stringify(nextComp.bakedParams);
+        const compact = JSON.stringify(nextComp.bakedParams);
+        const pretty = JSON.stringify(nextComp.bakedParams, null, 2);
+        paramsEl.setAttribute("data-json", compact);
+        const line = paramsEl.querySelector(".pdl-preview-params-line");
+        const full = paramsEl.querySelector(".pdl-preview-params-full");
+        if (line) line.textContent = compact;
+        if (full) full.textContent = pretty;
+        if (!line && !full) paramsEl.textContent = compact;
       }
     }
     return true;
@@ -2645,16 +2742,21 @@ function fillComponentSelect(names) {
 async function flushDiskWrites() {
   if (!diskRootMode()) return;
   syncEditorToFiles();
-  for (const [rel, content] of Object.entries(files)) {
-    if (!rel.endsWith(".pdl")) continue;
-    if (!rel.startsWith("test-fixtures/pdl/")) continue;
+  const toWrite = [...dirtyDiskPaths].filter(
+    (rel) =>
+      rel.endsWith(".pdl") &&
+      rel.startsWith("test-fixtures/pdl/") &&
+      typeof files[rel] === "string",
+  );
+  for (const rel of toWrite) {
     const res = await fetch("/api/write", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: rel, content }),
+      body: JSON.stringify({ path: rel, content: files[rel] }),
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || `Failed to write ${rel}`);
+    dirtyDiskPaths.delete(rel);
   }
 }
 
@@ -2689,6 +2791,7 @@ async function loadPack(packId, { fromDisk = false } = {}) {
       btnReloadPack.title = "Discard browser draft and reload this pack from disk";
     }
     files = { ...(data.files ?? {}) };
+    dirtyDiskPaths.clear();
     entryPath.value = data.entry;
     preferredComponent = data.defaultComponent ?? null;
     primaryComponent = data.defaultComponent ?? "";
@@ -2938,6 +3041,9 @@ async function runRender({ debounced = false } = {}) {
           componentNames: names.length > 1 ? names : undefined,
           // Same interactive host as Rust CLI — Edit/press/emits need catalogue decls.
           interactiveHost: true,
+          // Param / variant knobs (CLI path gets these from handleRender).
+          componentOverrides,
+          kv,
           ...getBodyBase(),
         }),
       });
@@ -3276,7 +3382,13 @@ window.addEventListener("message", (ev) => {
       preferredComponent = primaryComponent;
       // Own the bag under the emitting/capturing component only (e.g. LibrarySubnav),
       // filtered to its declared scalar params — never FilterChip / canvas-first.
-      setKvForComponent(primaryComponent, /** @type {Record<string, unknown>} */ (data.params));
+      // PlaylistComposer: mood/search emits only rebind scalars in PDL — host fills `tracks`.
+      const bag = enrichPlaylistComposerParams(
+        primaryComponent,
+        /** @type {Record<string, unknown>} */ (data.params),
+        { forceCatalog: true },
+      );
+      setKvForComponent(primaryComponent, bag);
       activeFixtureLabel = null;
       refreshControlsUi();
       // Rebake when emit capture changed parent SoT. Nested chrome uses

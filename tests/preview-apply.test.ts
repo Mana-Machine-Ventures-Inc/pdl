@@ -63,7 +63,13 @@ describe("preview-apply", () => {
     const canvas = document.querySelector(".pdl-canvas")!;
     const statusBefore = canvas.querySelector('[data-pdl-instance-let="Status"]')!;
     expect(applyPreviewHtml(document, nextHtml)).toBe(true);
-    expect(document.querySelector(".pdl-preview-params")?.textContent).toContain("editing\":true");
+    const paramsEl = document.querySelector(".pdl-preview-params");
+    const paramsJson =
+      paramsEl?.getAttribute("data-json") ||
+      paramsEl?.querySelector(".pdl-preview-params-line")?.textContent ||
+      paramsEl?.textContent ||
+      "";
+    expect(paramsJson).toContain("editing\":true");
     expect(canvas.querySelector('[data-pdl-instance-let="Done"]')).toBeTruthy();
     expect(canvas.querySelector('[data-pdl-instance-let="Edit"]')).toBeFalsy();
     // Same Status node identity preserved when keyed

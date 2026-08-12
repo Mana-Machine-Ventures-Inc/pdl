@@ -111,7 +111,13 @@ describe("LabBar ForEach LabChip", () => {
     expect(String(ix.childParams?.filter)).toMatch(/podcasts/);
 
     const section = document.querySelector("section.pdl-preview")!;
-    const live = JSON.parse(section.querySelector(".pdl-preview-params")!.textContent || "{}");
+    const el = section.querySelector(".pdl-preview-params")!;
+    const live = JSON.parse(
+      el.getAttribute("data-json") ||
+        el.querySelector(".pdl-preview-params-line")?.textContent ||
+        el.textContent ||
+        "{}",
+    );
     expect(String(live.currentFilter)).toMatch(/podcasts/);
   });
 });

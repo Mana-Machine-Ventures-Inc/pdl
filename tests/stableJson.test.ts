@@ -20,6 +20,29 @@ describe("omitEmptyDeep", () => {
       items: [{}, [], { id: 1 }],
     });
   });
+
+  it("keeps explicit empty arrays under fixtures", () => {
+    expect(
+      omitEmptyDeep({
+        components: {
+          Composer: {
+            fixtures: {
+              Empty: { tracks: [], status: "none" },
+            },
+            children: [],
+          },
+        },
+      }),
+    ).toEqual({
+      components: {
+        Composer: {
+          fixtures: {
+            Empty: { tracks: [], status: "none" },
+          },
+        },
+      },
+    });
+  });
 });
 
 describe("stableStringify omitEmpty", () => {

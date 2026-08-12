@@ -635,21 +635,34 @@ function enrichFromRustCatalogue(entryAbs) {
   }
   /** @type {Record<string, Array<{ name: string; typeName: string; default: unknown }>>} */
   const componentParams = {};
+  /** @type {Record<string, Record<string, Record<string, unknown>>>} */
+  const fixturesByComponent = {};
   /** @type {Record<string, unknown>} */
   const interactionsByComponent = {};
   /** @type {Record<string, unknown>} */
   const emitCapturesByComponent = {};
   for (const [name, c] of Object.entries(cat.components ?? {})) {
     componentParams[name] = (c.params ?? []).map((p) => {
+      // Array / object types are not Playground knobs — mark as object so controls skip them.
+      const rawType = p.type;
       const typeName =
         (typeof p.variantTypeName === "string" && p.variantTypeName) ||
-        (typeof p.type === "string" ? p.type : "String");
+        (typeof rawType === "string"
+          ? rawType
+          : rawType && typeof rawType === "object"
+            ? "object"
+            : "String");
       return {
         name: p.name,
         typeName,
         default: c.defaultParams?.[p.name] ?? p.default ?? null,
       };
     });
+    if (c.fixtures && typeof c.fixtures === "object" && !Array.isArray(c.fixtures)) {
+      fixturesByComponent[name] = /** @type {Record<string, Record<string, unknown>>} */ (
+        c.fixtures
+      );
+    }
     if (Array.isArray(c.interactions) && c.interactions.length) {
       interactionsByComponent[name] = c.interactions;
     }
@@ -670,7 +683,7 @@ function enrichFromRustCatalogue(entryAbs) {
       variants: Object.entries(variantCases).map(([name, cases]) => ({ name, cases })),
       typeStyles: [],
     },
-    fixturesByComponent: {},
+    fixturesByComponent,
     componentParams,
     variantCases,
     interactionsByComponent,
@@ -1204,6 +1217,39 @@ async function handleRenderFromBake(body) {
       };
     }
 
+    const previewNames =
+      componentNames?.length > 0
+        ? componentNames
+        : component
+          ? [component]
+          : Object.keys(/** @type {{ components?: object }} */ (bake)?.components ?? {});
+
+    /** @type {Record<string, Record<string, unknown>>} */
+    let componentOverrides = {};
+    if (body.componentOverrides && typeof body.componentOverrides === "object") {
+      componentOverrides = /** @type {Record<string, Record<string, unknown>>} */ (
+        body.componentOverrides
+      );
+    } else if (
+      component &&
+      body.kv &&
+      typeof body.kv === "object" &&
+      !Array.isArray(body.kv)
+    ) {
+      componentOverrides = {
+        [component]: /** @type {Record<string, unknown>} */ (body.kv),
+      };
+    }
+
+    const paramControlsByComponent =
+      enriched != null
+        ? buildParamControlsByComponent(enriched, previewNames, componentOverrides)
+        : body.paramControlsByComponent && typeof body.paramControlsByComponent === "object"
+          ? /** @type {Record<string, Array<{ name: string; typeName: string; value: string; cases?: string[] }>>} */ (
+              body.paramControlsByComponent
+            )
+          : undefined;
+
     // Dual-bake chrome retired — nested paint uses instance resolve in the playground.
     const { html, renderFailures } = renderBakedDesignToHtmlDocumentWithReport(bake, {
       title: "PDL Playground preview (WASM bake)",
@@ -1212,6 +1258,7 @@ async function handleRenderFromBake(body) {
       interactiveHost: wantInteractive,
       interactionsByComponent,
       emitCapturesByComponent,
+      paramControlsByComponent,
     });
     return {
       ok: true,
