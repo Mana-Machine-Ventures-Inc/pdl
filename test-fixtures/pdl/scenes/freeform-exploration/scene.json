@@ -1,0 +1,161 @@
+{
+  "schema": "pdl.scene/v0",
+  "id": "weekend-stays-exploration",
+  "title": "Weekend stays — freeform exploration",
+  "packEntry": "./design.pdl",
+  "notes": [
+    "Placement + draft status live here (canvas jacket).",
+    "Component bodies are real PDL in d_*.pdl — bakeable, not property blobs.",
+    "Promote = write draft into the pack and rewrite nodes to packInstance."
+  ],
+  "canvas": {
+    "width": 1440,
+    "height": 900,
+    "zoom": 1,
+    "pan": { "x": 0, "y": 0 },
+    "backgroundToken": "abn.color.page"
+  },
+  "drafts": [
+    {
+      "component": "StayCard",
+      "source": "d_stay_card.pdl",
+      "status": "draft",
+      "usesPack": ["AbnButton", "AbnChip"],
+      "usesTokens": [
+        "abn.space.md",
+        "abn.radius.sm",
+        "abn.color.surface",
+        "abn.color.border",
+        "abn.color.text",
+        "abn.color.textMuted",
+        "abn.color.ghostFill"
+      ]
+    },
+    {
+      "component": "FilterRail",
+      "source": "d_filter_rail.pdl",
+      "status": "draft",
+      "autoLayout": "committed",
+      "usesPack": ["AbnChip"],
+      "usesTokens": [
+        "abn.space.sm",
+        "abn.space.md",
+        "abn.radius.pill",
+        "abn.color.page",
+        "abn.color.border"
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "node_filter_rail",
+      "kind": "draftInstance",
+      "component": "FilterRail",
+      "args": {
+        "leading": "Cancún",
+        "mid": "Pets OK",
+        "trailing": "Wifi"
+      },
+      "placement": {
+        "mode": "freeform",
+        "x": 72,
+        "y": 48,
+        "z": 0
+      },
+      "comment": "Inner chips are already PDL row layout; only the rail is freeform on the board."
+    },
+    {
+      "id": "node_stay_card_a",
+      "kind": "draftInstance",
+      "component": "StayCard",
+      "args": {
+        "title": "Cliffside loft",
+        "meta": "2 guests · Tiny home",
+        "price": "$248 night",
+        "badge": "Guest favorite",
+        "cta": "Check availability"
+      },
+      "placement": {
+        "mode": "freeform",
+        "x": 72,
+        "y": 140,
+        "z": 1,
+        "widthHint": 320
+      },
+      "childPlacement": {
+        "Photo": { "mode": "freeform", "x": 16, "y": 16 },
+        "Badge": { "mode": "freeform", "x": 28, "y": 28, "z": 2 },
+        "Title": { "mode": "freeform", "x": 16, "y": 210 },
+        "Meta": { "mode": "freeform", "x": 16, "y": 248 },
+        "Price": { "mode": "freeform", "x": 16, "y": 286 },
+        "Book": { "mode": "freeform", "x": 16, "y": 330 }
+      },
+      "comment": "Bold case: draft tree is valid PDL (tokens + AbnChip + AbnButton), but childPlacement still overrides on-canvas until Auto layout clears the jacket."
+    },
+    {
+      "id": "node_stay_card_b",
+      "kind": "draftInstance",
+      "component": "StayCard",
+      "args": {
+        "title": "Courtyard studio",
+        "meta": "3 guests · Entire place",
+        "price": "$189 night",
+        "badge": "Rare find",
+        "cta": "Reserve"
+      },
+      "placement": {
+        "mode": "freeform",
+        "x": 440,
+        "y": 160,
+        "z": 1,
+        "widthHint": 320
+      },
+      "comment": "Second instance of the same draft — params diverge; structure shared."
+    },
+    {
+      "id": "node_loose_chip",
+      "kind": "packInstance",
+      "component": "AbnChip",
+      "args": {
+        "title": "Beachfront",
+        "state": ".idle"
+      },
+      "placement": {
+        "mode": "freeform",
+        "x": 820,
+        "y": 72,
+        "z": 2
+      },
+      "comment": "Existing pack component dropped loose on the board — trivial sync path."
+    },
+    {
+      "id": "node_loose_button",
+      "kind": "packInstance",
+      "component": "AbnButton",
+      "args": {
+        "label": "Share board",
+        "tone": ".secondary",
+        "size": ".sm"
+      },
+      "placement": {
+        "mode": "freeform",
+        "x": 820,
+        "y": 140,
+        "z": 2
+      }
+    }
+  ],
+  "promotionHints": [
+    {
+      "fromDraft": "FilterRail",
+      "toPackFile": "../../systems/airbnb-lite/c_filter_rail.pdl",
+      "rewriteNodes": ["node_filter_rail"]
+    },
+    {
+      "fromDraft": "StayCard",
+      "toPackFile": "../../systems/airbnb-lite/c_stay_card.pdl",
+      "rewriteNodes": ["node_stay_card_a", "node_stay_card_b"],
+      "beforePromote": "Clear childPlacement (commit Auto layout) so exported PDL is flow-only."
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+// Draft: FilterRail — already flow layout inside (auto-layout committed on the tree).
+// Scene still places the *whole* rail freeform on the board.
+// Uses pack AbnChip + spacing/color tokens.
+
+import "../../systems/airbnb-lite/foundation.pdl"
+import "../../systems/airbnb-lite/c_chip.pdl"
+
+component FilterRail(
+  leading: String = "Cancún",
+  mid: String = "Pets OK",
+  trailing: String = "Wifi"
+) layout {
+  direction = .row
+  align = .center
+  justify = .start
+  gap = abn.space.sm
+  padding = EdgeInsets(x: abn.space.md, y: abn.space.sm)
+  cornerRadius = abn.radius.pill
+  background = abn.color.page
+  borderWidth = 1
+  borderColor = abn.color.border
+
+  let A = AbnChip(title: leading, state: .selected)
+  let B = AbnChip(title: mid, state: .idle)
+  let C = AbnChip(title: trailing, state: .idle)
+
+  children = [A, B, C]
+}

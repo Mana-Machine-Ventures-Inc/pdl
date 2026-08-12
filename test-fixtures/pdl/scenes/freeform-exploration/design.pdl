@@ -1,0 +1,7 @@
+// Freeform exploration scene — pack baseline + in-session drafts.
+// Drafts stick to PDL structure so bake/resolve constraints surface early.
+// Canvas placement (freeform jacket) is scene.json, not this file.
+
+import "../../systems/airbnb-lite/design.pdl"
+import "d_stay_card.pdl"
+import "d_filter_rail.pdl"

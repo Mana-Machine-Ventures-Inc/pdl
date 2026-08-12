@@ -1,0 +1,62 @@
+// Draft: StayCard — PDL-shaped authoring, not yet promoted into airbnb-lite.
+// Nesting: pack component AbnButton + pack tokens (abn.*). Badge uses AbnChip.
+// Freeform x/y for this instance lives in scene.json (canvas jacket), not here.
+
+import "../../systems/airbnb-lite/foundation.pdl"
+import "../../systems/airbnb-lite/c_button.pdl"
+import "../../systems/airbnb-lite/c_chip.pdl"
+
+component StayCard(
+  title: String = "Cliffside loft",
+  meta: String = "2 guests · Tiny home",
+  price: String = "$248 night",
+  badge: String = "Guest favorite",
+  cta: String = "Check availability"
+) layout {
+  direction = .column
+  align = .stretch
+  gap = abn.space.md
+  padding = EdgeInsets(x: abn.space.md, y: abn.space.md)
+  cornerRadius = abn.radius.sm
+  background = abn.color.surface
+  borderWidth = 1
+  borderColor = abn.color.border
+
+  let Photo = Layout(
+    direction: .stack,
+    width: .fill,
+    height: 180,
+    cornerRadius: abn.radius.sm,
+    background: abn.color.ghostFill,
+    children: []
+  )
+
+  let Badge = AbnChip(title: badge, state: .selected)
+
+  let Title = Text(
+    content: title,
+    style: AbnTitle,
+    color: abn.color.text
+  )
+
+  let Meta = Text(
+    content: meta,
+    style: AbnBody,
+    color: abn.color.textMuted
+  )
+
+  let Price = Text(
+    content: price,
+    style: AbnBody,
+    fontWeight: 600,
+    color: abn.color.text
+  )
+
+  let Book = AbnButton(
+    label: cta,
+    tone: .primary,
+    size: .lg
+  )
+
+  children = [Photo, Badge, Title, Meta, Price, Book]
+}
