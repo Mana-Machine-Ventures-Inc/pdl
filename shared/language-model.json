@@ -1,0 +1,559 @@
+{
+  "$comment": "Documentation + catalog SoT for PDL built-in symbols (token types, supplemental enums, constructors, protocols, relationships). Frame property tables and host-enum cases used by the compilers remain in shared/frame-props.json — the doc generator merges both. Do not duplicate host enum cases here; list only enums not encoded in frame-props valueKinds.",
+  "schemaVersion": 1,
+  "languageVersion": "1.0.0-beta",
+  "imports": {
+    "frameProps": "./frame-props.json"
+  },
+  "paramScalars": [
+    {
+      "name": "String",
+      "summary": "Quoted string parameter / value.",
+      "notes": "Not a token type — param and value-let only."
+    },
+    {
+      "name": "Number",
+      "summary": "Numeric parameter / value.",
+      "notes": "Not a token type — param and value-let only."
+    },
+    {
+      "name": "Bool",
+      "summary": "Boolean parameter / value.",
+      "notes": "Spell **Bool** only — `Boolean` is PDL-E039."
+    }
+  ],
+  "tokenTypes": [
+    {
+      "name": "Color",
+      "category": "color",
+      "summary": "Fills, text, borders.",
+      "rhs": "Unquoted `#RGB` / `#RRGGBB` / `#RRGGBBAA`, token ref, or `color @ opacity`.",
+      "constructors": [],
+      "seeAlso": ["Opacity", "Background", "Foreground"]
+    },
+    {
+      "name": "Opacity",
+      "category": "alpha",
+      "summary": "Alpha multipliers in 0…1.",
+      "rhs": "Number literal or Opacity token.",
+      "seeAlso": ["Color"]
+    },
+    {
+      "name": "Distance",
+      "category": "spacing",
+      "summary": "Gaps, padding axes (px).",
+      "rhs": "Non-negative number; semantic may alias Distance."
+    },
+    {
+      "name": "Radius",
+      "category": "shape",
+      "summary": "Uniform corner radius.",
+      "rhs": "Non-negative number — not `Corner(…)`.",
+      "seeAlso": ["CornerRadii"]
+    },
+    {
+      "name": "Shadow",
+      "category": "effect",
+      "summary": "Drop shadow.",
+      "rhs": "`Shadow(x:, y:, blurRadius:, color: [, spread:])`.",
+      "constructors": ["Shadow"]
+    },
+    {
+      "name": "Icon",
+      "category": "asset",
+      "summary": "Tintable glyph / symbol ref.",
+      "rhs": "`IconRef(…)` or pack-relative path string.",
+      "constructors": ["IconRef"],
+      "notes": "Frame ctor `Icon(…)` builds an icon **frame** — different namespace."
+    },
+    {
+      "name": "MediaSource",
+      "category": "asset",
+      "summary": "Raster / vector / video / path ref.",
+      "rhs": "`MediaSource(file:…|url:… [, kind:, format:])`, pack path, or http(s) URL.",
+      "constructors": ["MediaSource"]
+    },
+    {
+      "name": "Ratio",
+      "category": "layout",
+      "summary": "Aspect ratio.",
+      "rhs": "Positive number or `W:H` sugar (e.g. `16:9`)."
+    },
+    {
+      "name": "FontFamily",
+      "category": "typography",
+      "summary": "Font stack.",
+      "rhs": "String."
+    },
+    {
+      "name": "Size",
+      "category": "typography",
+      "summary": "Font size (px / design units).",
+      "rhs": "Number."
+    },
+    {
+      "name": "Weight",
+      "category": "typography",
+      "summary": "Font weight.",
+      "rhs": "Number (e.g. 400, 500, 600)."
+    },
+    {
+      "name": "LineHeight",
+      "category": "typography",
+      "summary": "Leading as a unitless ratio of fontSize.",
+      "rhs": "Positive number (e.g. `1.35`)."
+    },
+    {
+      "name": "LetterSpacing",
+      "category": "typography",
+      "summary": "Tracking in em units.",
+      "rhs": "Number (may be negative)."
+    },
+    {
+      "name": "Sizing",
+      "category": "layout",
+      "summary": "Hug / fill / fixed / flex / aspect.",
+      "rhs": "Sizing literals (`.hug`, `.fill`, `.fixed(n)`, `.flex(…)`, `.aspect(…)`); number sugar → `.fixed(n)`.",
+      "constructors": ["Sizing"]
+    },
+    {
+      "name": "Duration",
+      "category": "motion",
+      "summary": "Animation length.",
+      "rhs": "Non-negative number (ms)."
+    },
+    {
+      "name": "Easing",
+      "category": "motion",
+      "summary": "Animation curve.",
+      "rhs": "String (e.g. `\"cubic-bezier(0.2, 0, 0, 1)\"`, `\"linear\"`)."
+    },
+    {
+      "name": "Transition",
+      "category": "motion",
+      "summary": "duration + easing + optional delay.",
+      "rhs": "`(duration:, easing: [, delay:])` — delay defaults to 0.",
+      "constructors": ["Transition"]
+    },
+    {
+      "name": "Blur",
+      "category": "visual-effect",
+      "summary": "Blur layer object.",
+      "rhs": "`Blur(radius: [, style:] [, vibrancy:])`.",
+      "constructors": ["Blur"],
+      "seeAlso": ["Vibrancy", "BlurStyle"]
+    },
+    {
+      "name": "Vibrancy",
+      "category": "visual-effect",
+      "summary": "Saturation / brightness intent.",
+      "rhs": "`Vibrancy(saturation:, brightness:)`.",
+      "constructors": ["Vibrancy"]
+    },
+    {
+      "name": "Ramp",
+      "category": "visual-effect",
+      "summary": "Opacity mask ramp.",
+      "rhs": "`Ramp(direction:, stops:)` or naked `(direction:, stops:)`.",
+      "constructors": ["Ramp"],
+      "seeAlso": ["GradientStop", "RampDirection"]
+    },
+    {
+      "name": "EdgeInsets",
+      "category": "layout",
+      "summary": "Padding / margin / inset box.",
+      "rhs": "`EdgeInsets(x:, y:)` or TRBL; number sugar → uniform.",
+      "constructors": ["EdgeInsets"]
+    },
+    {
+      "name": "CornerRadii",
+      "category": "shape",
+      "summary": "Asymmetric corner radii.",
+      "rhs": "`Corner(tl:, tr:, br:, bl:)`.",
+      "constructors": ["Corner"],
+      "notes": "Constructor name stays `Corner`; type name is `CornerRadii`."
+    },
+    {
+      "name": "Media",
+      "category": "visual-layer",
+      "summary": "Media fill **layer** value.",
+      "rhs": "`MediaLayer(source:, contentMode: …)`.",
+      "constructors": ["MediaLayer"],
+      "notes": "Distinct from `MediaSource` and from the `Media(…)` **frame** ctor."
+    },
+    {
+      "name": "GradientStop",
+      "category": "visual",
+      "summary": "Ramp stop.",
+      "rhs": "`GradientStop(position: [, opacity:] [, color:])`.",
+      "constructors": ["GradientStop"]
+    },
+    {
+      "name": "Background",
+      "category": "composite",
+      "summary": "Named layer stack under children.",
+      "rhs": "Scalar Color sugar or layer array — same shape as Foreground.",
+      "seeAlso": ["Foreground", "Color", "Blur", "Ramp", "Media", "Vibrancy"]
+    },
+    {
+      "name": "Foreground",
+      "category": "composite",
+      "summary": "Named layer stack over children.",
+      "rhs": "Same RHS as Background.",
+      "seeAlso": ["Background"]
+    }
+  ],
+  "enums": [
+    {
+      "name": "BlurStyle",
+      "summary": "Blur style shell (v1).",
+      "cases": ["standard"],
+      "notes": "Host enum; more cases (gaussian, bokeh, …) reserved for later. Not in frame-props.json.",
+      "source": "language-model"
+    },
+    {
+      "name": "RampDirection",
+      "summary": "Direction for `Ramp(direction:, stops:)`.",
+      "cases": ["topToBottom", "bottomToTop", "leftToRight", "rightToLeft", "radial"],
+      "source": "language-model"
+    },
+    {
+      "name": "IconSystem",
+      "summary": "System icon catalog for `IconRef(system:, name:)`.",
+      "cases": ["sfSymbols", "materialSymbols"],
+      "source": "language-model"
+    },
+    {
+      "name": "MediaKind",
+      "summary": "Media role on `MediaSource` (`kind:`); bake IR field `mediaKind`.",
+      "cases": ["raster", "vector", "video"],
+      "source": "language-model"
+    },
+    {
+      "name": "MediaFormat",
+      "summary": "Closed format cases on `MediaSource` (`format:`).",
+      "cases": ["webp", "jpeg", "png", "gif", "svg", "mp4", "webm", "pdf"],
+      "aliases": { "jpg": "jpeg" },
+      "source": "language-model"
+    },
+    {
+      "name": "TextFieldActivation",
+      "summary": "When EditableText begins editing (`activatesOn`).",
+      "cases": ["focus", "press", "none"],
+      "notes": "Prelude variant for EditableText injected state.",
+      "source": "language-model"
+    },
+    {
+      "name": "SizingMode",
+      "summary": "Keyword modes for the `Sizing` type (not a host enum table).",
+      "cases": ["hug", "fill", "fixed", "flex", "aspect"],
+      "notes": "Written as sizing literals (`.hug`, `.fixed(n)`, …), not `SizingMode.case`.",
+      "source": "language-model"
+    }
+  ],
+  "frameKinds": [
+    {
+      "name": "layout",
+      "ctor": "Layout",
+      "summary": "Flex-like container: direction, gap, padding, layers, sizing.",
+      "inheritsPropsFrom": ["childFlex"]
+    },
+    {
+      "name": "text",
+      "ctor": "Text",
+      "summary": "Typography + optional typeStyle; optional editable root with EditableText.",
+      "inheritsPropsFrom": ["childFlex"]
+    },
+    {
+      "name": "icon",
+      "ctor": "Icon",
+      "summary": "Small tintable symbol frame.",
+      "inheritsPropsFrom": ["childFlex"],
+      "notes": "Distinct from `IconRef` (asset value) and token type `Icon`."
+    },
+    {
+      "name": "media",
+      "ctor": "Media",
+      "summary": "Raster / vector / video drawable box.",
+      "inheritsPropsFrom": ["childFlex"],
+      "notes": "Distinct from `MediaLayer` (layer fill) and `MediaSource` (asset ref)."
+    }
+  ],
+  "constructors": [
+    {
+      "name": "Layout",
+      "kind": "frame",
+      "produces": "layout",
+      "summary": "World A frame ctor for layout frames."
+    },
+    {
+      "name": "Text",
+      "kind": "frame",
+      "produces": "text",
+      "summary": "World A frame ctor for text frames."
+    },
+    {
+      "name": "Icon",
+      "kind": "frame",
+      "produces": "icon",
+      "summary": "World A frame ctor for icon frames."
+    },
+    {
+      "name": "Media",
+      "kind": "frame",
+      "produces": "media",
+      "summary": "World A frame ctor for media frames."
+    },
+    {
+      "name": "Spacer",
+      "kind": "children",
+      "produces": null,
+      "summary": "Expands on the main axis inside `children`.",
+      "signature": "Spacer()",
+      "notes": "Not a frame kind; `Spacer() @ …` is illegal."
+    },
+    {
+      "name": "Shadow",
+      "kind": "value",
+      "produces": "Shadow",
+      "summary": "Drop-shadow value.",
+      "signature": "Shadow(x:, y:, blurRadius:, color: [, spread:])"
+    },
+    {
+      "name": "EdgeInsets",
+      "kind": "value",
+      "produces": "EdgeInsets",
+      "summary": "Inset box.",
+      "signature": "EdgeInsets(x:, y:) | EdgeInsets(top:, right:, bottom:, left:)"
+    },
+    {
+      "name": "Corner",
+      "kind": "value",
+      "produces": "CornerRadii",
+      "summary": "Asymmetric corner radii.",
+      "signature": "Corner(tl:, tr:, br:, bl:)"
+    },
+    {
+      "name": "IconRef",
+      "kind": "value",
+      "produces": "Icon",
+      "summary": "Icon asset reference.",
+      "signature": "IconRef(system: .sfSymbols|.materialSymbols, name: \"…\") | IconRef(file: \"…\")"
+    },
+    {
+      "name": "MediaSource",
+      "kind": "value",
+      "produces": "MediaSource",
+      "summary": "Media asset reference.",
+      "signature": "MediaSource(file: \"…\" [, kind:, format:]) | MediaSource(url: \"…\" [, kind:, format:])"
+    },
+    {
+      "name": "MediaLayer",
+      "kind": "layer",
+      "produces": "Media",
+      "summary": "Media fill layer (not a frame).",
+      "signature": "MediaLayer(source:, contentMode: [, justify:, align:, opacity:])"
+    },
+    {
+      "name": "Blur",
+      "kind": "layer",
+      "produces": "Blur",
+      "summary": "Blur layer / token value.",
+      "signature": "Blur(radius: [, style:] [, vibrancy:])"
+    },
+    {
+      "name": "Vibrancy",
+      "kind": "layer",
+      "produces": "Vibrancy",
+      "summary": "Vibrancy layer / token value.",
+      "signature": "Vibrancy(saturation:, brightness:)"
+    },
+    {
+      "name": "Ramp",
+      "kind": "layer",
+      "produces": "Ramp",
+      "summary": "Opacity ramp layer / token value.",
+      "signature": "Ramp(direction:, stops:)"
+    },
+    {
+      "name": "Color",
+      "kind": "layer",
+      "produces": "Color",
+      "summary": "Explicit color layer entry.",
+      "signature": "Color(color:)",
+      "notes": "Bare hex / Color token sugar also valid in layer stacks."
+    },
+    {
+      "name": "GradientStop",
+      "kind": "value",
+      "produces": "GradientStop",
+      "summary": "Stop inside a Ramp.",
+      "signature": "GradientStop(position: [, opacity:] [, color:])"
+    },
+    {
+      "name": "Transition",
+      "kind": "value",
+      "produces": "Transition",
+      "summary": "Motion transition tuple.",
+      "signature": "(duration:, easing: [, delay:])"
+    }
+  ],
+  "protocols": [
+    {
+      "name": "PointerInput",
+      "role": "host",
+      "prelude": true,
+      "summary": "Pointer, focus, and lifecycle inbound channels from the host environment.",
+      "inbound": [
+        "hoverStart",
+        "hoverEnd",
+        "pressStart",
+        "pressEnd",
+        "pressCancel",
+        "focusStart",
+        "focusEnd",
+        "activate",
+        "appear",
+        "dismiss"
+      ],
+      "verbs": [],
+      "injectedState": [],
+      "sourceFile": "test-fixtures/pdl/stdlib/host_protocols.pdl"
+    },
+    {
+      "name": "EditableText",
+      "role": "host",
+      "prelude": true,
+      "summary": "Text editing session channels and host verbs; pairs with kind `text`.",
+      "inbound": [
+        "editingBegan",
+        "editingFinished",
+        "editingCancelled",
+        "keyboardDismissed",
+        "keyboardCancelled"
+      ],
+      "verbs": [
+        "beginEditing(startingValue)",
+        "finishEditing()",
+        "cancelEditing()",
+        "commitEditing()"
+      ],
+      "injectedState": [
+        "value: String",
+        "isEditing: Bool",
+        "isEmpty: Bool",
+        "isOverLimit: Bool",
+        "activatesOn: TextFieldActivation"
+      ],
+      "sourceFile": "test-fixtures/pdl/stdlib/host_protocols.pdl",
+      "seeAlso": ["TextFieldActivation", "PointerInput"]
+    }
+  ],
+  "relationships": [
+    {
+      "from": "Corner",
+      "kind": "constructs",
+      "to": "CornerRadii",
+      "notes": "Ctor name ≠ type name."
+    },
+    {
+      "from": "IconRef",
+      "kind": "constructs",
+      "to": "Icon"
+    },
+    {
+      "from": "MediaLayer",
+      "kind": "constructs",
+      "to": "Media"
+    },
+    {
+      "from": "Background",
+      "kind": "sameRhsAs",
+      "to": "Foreground"
+    },
+    {
+      "from": "layout",
+      "kind": "sharesChildFlexWith",
+      "to": ["text", "icon", "media"]
+    },
+    {
+      "from": "EditableText",
+      "kind": "preludeHost",
+      "to": "component"
+    },
+    {
+      "from": "PointerInput",
+      "kind": "preludeHost",
+      "to": "component"
+    },
+    {
+      "from": "API protocol",
+      "kind": "mayRequire",
+      "to": "host protocol",
+      "notes": "`requires PointerInput` / `requires EditableText`."
+    }
+  ],
+  "errors": [
+    { "code": "PDL-E001", "name": "unexpected-token", "severity": "error", "summary": "Unexpected token in the current parse context (also used for removed keywords like `interaction` / classic `let`)." },
+    { "code": "PDL-E002", "name": "circular-import", "severity": "error", "summary": "Import chain forms a cycle." },
+    { "code": "PDL-E003", "name": "duplicate-symbol", "severity": "error", "summary": "Two top-level declarations share a name in the same namespace." },
+    { "code": "PDL-E004", "name": "unknown-token-type", "severity": "error", "summary": "Unknown TokenType on a primitive/semantic." },
+    { "code": "PDL-E005", "name": "token-type-mismatch", "severity": "error", "summary": "Token RHS incompatible with declared TokenType." },
+    { "code": "PDL-E006", "name": "frame-prop-type-mismatch", "severity": "error", "summary": "Frame / typeStyle property value has the wrong type." },
+    { "code": "PDL-E007", "name": "unresolved-reference", "severity": "error", "summary": "Identifier does not resolve to a token, param, or frame id." },
+    { "code": "PDL-E008", "name": "unresolved-type-style", "severity": "error", "summary": "`style = Name` does not match a typeStyle." },
+    { "code": "PDL-E009", "name": "retired", "severity": "retired", "summary": "Formerly interaction-for; do not emit." },
+    { "code": "PDL-E010", "name": "invalid-condition-operand", "severity": "error", "summary": "Condition compares unsupported types or operators." },
+    { "code": "PDL-E011", "name": "unknown-frame-property", "severity": "error", "summary": "Property not defined on that frame kind / typeStyle." },
+    { "code": "PDL-E012", "name": "invalid-frame-prop-target", "severity": "error", "summary": "Unknown frame id, wrong-kind prop, or illegal fixture param ref." },
+    { "code": "PDL-E013", "name": "circular-token-reference", "severity": "error", "summary": "Token RHS cycle." },
+    { "code": "PDL-E014", "name": "duplicate-fixture-label", "severity": "error", "summary": "Duplicate example label in fixtures." },
+    { "code": "PDL-E015", "name": "retired", "severity": "retired", "summary": "Formerly expose-unknown-param; expose removed." },
+    { "code": "PDL-E016", "name": "extend-unknown-target", "severity": "error", "summary": "extend names a missing component." },
+    { "code": "PDL-E017", "name": "quoted-hex-color", "severity": "error", "summary": "Quoted string used where unquoted hex Color is required." },
+    { "code": "PDL-E018", "name": "reserved-word-as-identifier", "severity": "error", "summary": "Reserved word used as a user identifier." },
+    { "code": "PDL-E019", "name": "invalid-override-target", "severity": "error", "summary": "Forward reference to undeclared let frame id." },
+    { "code": "PDL-E020", "name": "invalid-constructor-arg", "severity": "error", "summary": "Constructor / pack argument error." },
+    { "code": "PDL-E021", "name": "duplicate-let-frame-id", "severity": "error", "summary": "Duplicate let / letInstance id in a component." },
+    { "code": "PDL-E022", "name": "unknown-protocol", "severity": "error", "summary": "Unknown protocol name." },
+    { "code": "PDL-E023", "name": "unknown-foreach-list", "severity": "error", "summary": "ForEach names a non-list param." },
+    { "code": "PDL-E024", "name": "unknown-emit-channel", "severity": "error", "summary": "Unknown emit channel." },
+    { "code": "PDL-E025", "name": "invalid-foreach-binding", "severity": "error", "summary": "Invalid ForEach derived bind." },
+    { "code": "PDL-E026", "name": "foreach-chrome-unimplemented", "severity": "error", "summary": "before/between/after before B6." },
+    { "code": "PDL-E027", "name": "emit-payload-mismatch", "severity": "error", "summary": "Emit capture / fire arity or types mismatch." },
+    { "code": "PDL-E028", "name": "ambient-as-emit-capture", "severity": "error", "summary": "Host inbound used as child emit capture." },
+    { "code": "PDL-E029", "name": "declared-as-host-channel", "severity": "error", "summary": "Declared emit used as host inbound channel." },
+    { "code": "PDL-E030", "name": "interaction-missing-host-protocol", "severity": "error", "summary": "Host channel/verb without effective host conformance." },
+    { "code": "PDL-E031", "name": "host-protocol-as-slot-type", "severity": "error", "summary": "Host protocol used as slot/param type." },
+    { "code": "PDL-E032", "name": "invalid-protocol-requires", "severity": "error", "summary": "Invalid requires clause on a protocol." },
+    { "code": "PDL-E033", "name": "unknown-host-verb", "severity": "error", "summary": "Unknown host verb in a handler." },
+    { "code": "PDL-E034", "name": "array-slot-dotted-override", "severity": "error", "summary": "Dotted override on an array slot; use ForEach." },
+    { "code": "PDL-E035", "name": "foreach-without-mount", "severity": "error", "summary": "ForEach list never mounted via children." },
+    { "code": "PDL-E036", "name": "list-emit-capture", "severity": "error", "summary": "Emit capture on a list param; use ForEach binder." },
+    { "code": "PDL-E037", "name": "unknown-component", "severity": "error", "summary": "Unknown component name." },
+    { "code": "PDL-E038", "name": "mixed-condition-operators", "severity": "error", "summary": "Mixed && and || without parentheses." },
+    { "code": "PDL-E039", "name": "unknown-param-type", "severity": "error", "summary": "Unknown param type; Boolean → use Bool." },
+    { "code": "PDL-E040", "name": "param-type-mismatch", "severity": "error", "summary": "Param default / kwarg / fixture type mismatch." },
+    { "code": "PDL-E041", "name": "unknown-sample-path", "severity": "error", "summary": "Unknown samples bank/entry/field or bank/component name collision." },
+    { "code": "PDL-W001", "name": "param-shadows-token", "severity": "warning", "summary": "Param name matches a token; param wins in body." },
+    { "code": "PDL-W002", "name": "primitive-token-in-component", "severity": "warning", "summary": "Component references a primitive token directly." },
+    { "code": "PDL-W003", "name": "literal-opacity-in-library", "severity": "warning", "summary": "Raw opacity literal where an Opacity token is preferred." },
+    { "code": "PDL-W004", "name": "unreadable-schemaVersion", "severity": "warning", "summary": "Unknown schemaVersion on catalogue/manifest input." },
+    { "code": "PDL-W005", "name": "unknown-key-in-usage", "severity": "warning", "summary": "usage block key other than description." },
+    { "code": "PDL-W006", "name": "empty-component", "severity": "warning", "summary": "Root frame has no children and no content props." },
+    { "code": "PDL-W007", "name": "unreachable-override-branch", "severity": "warning", "summary": "Unreachable if/else if branch." },
+    { "code": "PDL-W008", "name": "retired", "severity": "retired", "summary": "Formerly interaction-targets-unexposed-param." }
+  ],
+  "propertySubsets": {
+    "Align": {
+      "layout": ["start", "center", "end", "stretch"],
+      "text": ["start", "center", "end"],
+      "media": ["start", "center", "end"]
+    },
+    "Justify": {
+      "layout": ["start", "center", "end", "stretch", "spaceBetween", "spaceAround"],
+      "text": ["start", "center", "end"],
+      "media": ["start", "center", "end"]
+    }
+  }
+}

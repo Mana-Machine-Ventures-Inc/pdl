@@ -27,7 +27,9 @@
     "test": "npm run build && vitest run",
     "test:watch": "vitest",
     "test:rust": "cargo test -p pdl-core",
-    "test:dual": "npm run build && cargo build -q -p pdl-cli && node scripts/dual-run-compare.mjs"
+    "test:dual": "npm run build && cargo build -q -p pdl-cli && node scripts/dual-run-compare.mjs",
+    "docs:gen": "node scripts/generate-language-docs.mjs",
+    "docs:gen:check": "node scripts/generate-language-docs.mjs --check"
   },
   "engines": {
     "node": ">=20"
