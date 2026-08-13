@@ -8,7 +8,7 @@ Small tintable symbol frame.
 | | |
 |--|--|
 | **IR kind** | `icon` |
-| **World A ctor** | `Icon(…)` |
+| **Constructor** | `Icon(…)` |
 | **Child-flex props** | Yes (when parent is `layout`) |
 
 > Distinct from `IconRef` (asset value) and token type `Icon`.

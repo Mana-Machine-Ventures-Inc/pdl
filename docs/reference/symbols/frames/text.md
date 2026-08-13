@@ -8,7 +8,7 @@ Typography + optional typeStyle; optional editable root with EditableText.
 | | |
 |--|--|
 | **IR kind** | `text` |
-| **World A ctor** | `Text(…)` |
+| **Constructor** | `Text(…)` |
 | **Child-flex props** | Yes (when parent is `layout`) |
 
 

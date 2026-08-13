@@ -2,7 +2,7 @@
 
 ## Nested frames and children
 
-Declare with World A ctors, then mount:
+Declare with frame constructors, then mount:
 
 ```pdl
 component Card(title: String) layout {

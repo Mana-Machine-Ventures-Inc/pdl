@@ -15,7 +15,7 @@
 
 Removed / rejected: `expose`, `interaction` keyword, classic `let Id: text = { … }` (**PDL-E001**).
 
-## World A ctors
+## Frame constructors
 
 Frame trees use expression constructors:
 

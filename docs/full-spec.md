@@ -6,7 +6,7 @@
 >
 > **Repository path:** `docs/full-spec.md` (normative copy in this repo).
 >
-> **Locked language decisions (2026-08-06; selection revised 2026-08-07; host handlers revised 2026-08-07; World A 2026-08-10; ForEach conditionals 2026-08-10):** (1) **`expose` removed** — all component params are public; **`emits`** is the public **child→parent** output API. (2) **`self`** — in layout / handlers / conditions, the enclosing **component instance**. **`self.param`** in **value / condition** position names that component’s parameter (escape hatch when a nested scope shadows the bare name — especially inside `ForEach`). **`self.prop = value`** (non-brace RHS) assigns a **root frame property**; **`self.channel = { … }`** is a **host inbound** handler (§22.3). Rules-query `self` is rules-scoped only. Bare `self` may be an emit payload. (3) **Selection SoT** — parent owns id/enum SoT; ForEach derives Bool presentation (`chip.selected = …` or `if` / `else` overrides). (4) **Handler assignment is one family** — declared emits: `item.channel(…) = { … }` / `Field.change(…) = { … }` (not list `chips.select`, **PDL-E036**). Host inbound: **`[self.]channel = { … }`** in the component kind body (`self.` optional — kind-body names already mean this instance; `self.` is clarifying). Handler bodies assign **component params only** (not `Label.content = …` — **PDL-E001**; put chrome in layout `if`). The `interaction` keyword is **removed** (**PDL-E001**). (5) **`ForEach` requires an item binder** — `ForEach(chips) { chip in … }`; body may include binder overrides, emit captures, and **`if` / `else`** (same condition grammar as layout). (6) **API protocols** — `protocol P: component { … }`. **Host protocols** — `protocol P { host … inbound channels … }` (no `: component`). (7) **`enum` ≡ `variant`** in v1. (8) Prelude hosts **`PointerInput`** / **`EditableText`** are stubbed in §4a (always in scope). (9) **World A** — expression-tree authoring (`Text` / `Layout` / `Icon` / `Media` frame ctors); classic `let Id: text = { … }` is **removed** (**PDL-E001**); asset ctor is **`IconRef`**, layer fill is **`MediaLayer`**; see `docs/PROPOSAL_WORLD_A_EXPRESSION_TREES.md`. See §4a / §4e / §8 / §10.
+> **Locked language decisions (2026-08-06; selection revised 2026-08-07; host handlers revised 2026-08-07; expression trees 2026-08-10; ForEach conditionals 2026-08-10):** (1) **`expose` removed** — all component params are public; **`emits`** is the public **child→parent** output API. (2) **`self`** — in layout / handlers / conditions, the enclosing **component instance**. **`self.param`** in **value / condition** position names that component’s parameter (escape hatch when a nested scope shadows the bare name — especially inside `ForEach`). **`self.prop = value`** (non-brace RHS) assigns a **root frame property**; **`self.channel = { … }`** is a **host inbound** handler (§22.3). Rules-query `self` is rules-scoped only. Bare `self` may be an emit payload. (3) **Selection SoT** — parent owns id/enum SoT; ForEach derives Bool presentation (`chip.selected = …` or `if` / `else` overrides). (4) **Handler assignment is one family** — declared emits: `item.channel(…) = { … }` / `Field.change(…) = { … }` (not list `chips.select`, **PDL-E036**). Host inbound: **`[self.]channel = { … }`** in the component kind body (`self.` optional — kind-body names already mean this instance; `self.` is clarifying). Handler bodies assign **component params only** (not `Label.content = …` — **PDL-E001**; put chrome in layout `if`). The `interaction` keyword is **removed** (**PDL-E001**). (5) **`ForEach` requires an item binder** — `ForEach(chips) { chip in … }`; body may include binder overrides, emit captures, and **`if` / `else`** (same condition grammar as layout). (6) **API protocols** — `protocol P: component { … }`. **Host protocols** — `protocol P { host … inbound channels … }` (no `: component`). (7) **`enum` ≡ `variant`** in v1. (8) Prelude hosts **`PointerInput`** / **`EditableText`** are stubbed in §4a (always in scope). (9) **Expression-tree authoring** — nested frames use (`Text` / `Layout` / `Icon` / `Media`) constructors; classic `let Id: text = { … }` is **removed** (**PDL-E001**); asset ctor is **`IconRef`**, layer fill is **`MediaLayer`**. See §4a / §4e / §8 / §10.
 
 ---
 
@@ -92,7 +92,7 @@ A `.pdl` **module** is parsed into a **partial design definition**; the **entry 
 | **Variant** | Named `case` set; used as a **parameter type**. |
 | **Component** | Parameters + **root frame** (`layout`, `text`, `icon`, `media`). |
 | **Frame** | Kind + properties + optional **children**. |
-| **`let` frame** | Nested named frame via World A ctors (`let Title = Text(…)` / `Layout` / `Icon` / `Media`). |
+| **`let` frame** | Nested named frame via frame constructors (`let Title = Text(…)` / `Layout` / `Icon` / `Media`). |
 | **Typed value `let`** | Local typed value reused in props / layers (`let ramp: Ramp = Ramp(…)` — not mountable). |
 | **Fixture (`example`)** | Named **parameter map** for preview/tests/codegen (§11). |
 | **Sample bank** | Design-global typed catalog (`samples Tracks { … }`); fields referenced as **`Bank.entry.field`** (§11a). |
@@ -116,14 +116,14 @@ Full cheat sheet: §10.
 
 ## Frame kinds (four)
 
-| Kind (IR / root keyword) | World A ctor | Role |
+| Kind (IR / root keyword) | Constructor | Role |
 |--------------------------|--------------|------|
 | `layout` | `Layout(…)` | Flex-like container: direction, gap, padding, **wrap**, **justify** / **align**, **layers**, sizing (§5). |
 | `text` | `Text(…)` | Typography + optional `typeStyle`. |
 | `icon` | `Icon(…)` | Named icon glyph + size/color (`icon:` takes an **`Icon`** token / **`IconRef(…)`**). |
 | `media` | `Media(…)` | Media **frame**: raster / vector / video via **`source`** (`MediaSource`) + layout props (§5). Distinct from layer fill **`MediaLayer(…)`** (§14). |
 
-Every component declares one root kind: `component Name(…) layout { … }` (or `text`, `icon`, `media`). Nested frames use the matching World A ctor (`let Row = Layout(…)`).
+Every component declares one root kind: `component Name(…) layout { … }` (or `text`, `icon`, `media`). Nested frames use the matching frame constructor (`let Row = Layout(…)`).
 
 ---
 
@@ -1219,7 +1219,7 @@ component Name(
   …
 ) <rootKind> {
   // properties on root frame
-  // World A lets: let Title = Text(…), let Row = Layout(…)
+  // Frame lets: let Title = Text(…), let Row = Layout(…)
   // typed value lets: let ramp: Ramp = Ramp(…)
   // if / else if / else; ForEach; host handlers; emit captures
   children = [ … ]
@@ -1247,7 +1247,7 @@ let Label = Text(content: "Hello", style: Body)
 ```
 
 - **`let` id** unique within the component.  
-- World A ctor (`Text` / `Layout` / `Icon` / `Media`) selects the property table below.  
+- Frame constructor (`Text` / `Layout` / `Icon` / `Media`) selects the property table below.  
 - **`children`** lists **child entries** ([`children` array](#children-array)) — as a ctor kwarg or later `Id.children = […]`.  
 - Classic `let Id: kind = { … }` is **removed** (**PDL-E001**).  
 
@@ -1442,7 +1442,7 @@ component InfoCard(
 }
 ```
 
-See `test-fixtures/pdl/molecules/` and `test-fixtures/pdl/playground/lab_world_a.pdl` for larger World A examples.
+See `test-fixtures/pdl/molecules/` and `test-fixtures/pdl/playground/lab_world_a.pdl` for larger expression-tree examples.
 
 ---
 
@@ -1877,12 +1877,12 @@ if <param> == .case {
 
 1. **First match wins** — for a given `if … else if … else` **chain**, the resolver evaluates conditions **top to bottom** and applies **only** the first matching branch. There is no “fall through” to later branches.  
 2. **Several assignments per branch** — a branch can update many properties (and, where allowed, **`children`**) in one go.  
-3. **Override chains target frames by id** — after `let StatusIcon = Icon(…)`, an `if` at layout scope can assign **`StatusIcon.color = …`**. Prefer dotted assigns on World A lets (nested `if` inside a frame ctor body is not World A surface).  
+3. **Override chains target frames by id** — after `let StatusIcon = Icon(…)`, an `if` at layout scope can assign **`StatusIcon.color = …`**. Prefer dotted assigns on frame lets (nested `if` inside a frame constructor body is not supported).  
 4. **Forward visibility** — assignments that target **`FrameId.prop`**, and **`children`** lists that name a frame id, require that **`let FrameId`** (or **`letInstance`**) appears **earlier** in the component body than the reference (**PDL-E019**). You cannot put `children = [Title]` before `let Title: …`. Component **params** (including slots) may appear in `children` without a prior `let`.
 
 ### What each assignment targets
 
-- **Bare `prop = value`** (no frame id) — updates the **enclosing frame** of the `if` (almost always the **component root** when the `if` sits in the kind body). Prefer **`FrameId.prop = …`** for nested World A lets.  
+- **Bare `prop = value`** (no frame id) — updates the **enclosing frame** of the `if` (almost always the **component root** when the `if` sits in the kind body). Prefer **`FrameId.prop = …`** for nested frame lets.  
 - **`SomeFrameId.prop = value`** — updates **`SomeFrameId`** when it is a **`let`** / **`letInstance`** frame id. When **`SomeFrameId`** is a **single slot/instance param**, see §4b (param vs root-frame classify). Array slot dotted overrides are **PDL-E034**.  
 
 - **`self` is not a frame id.** In layout/interaction expressions, `self` / `self.param` means the **enclosing component instance** (§22.2), not the root frame.  
@@ -2458,7 +2458,7 @@ columnGap = spacing.sm
 
 ## Frames
 
-**World A** (normative) — expression-tree constructors; see `docs/PROPOSAL_WORLD_A_EXPRESSION_TREES.md`.
+**Frame constructors** (normative) — expression-tree `Text` / `Layout` / `Icon` / `Media` lets.
 
 ```txt
 let Id = Layout(…)
@@ -2481,7 +2481,7 @@ children = [Layout(direction: .row, children: [A, B])]
 A.children = [X, Y]
 ```
 
-Classic `let Id: text = { … }` is **removed** (**PDL-E001** migrate to World A).
+Classic `let Id: text = { … }` is **removed** (**PDL-E001** — use `let Id = Text(…)` / `Layout` / `Icon` / `Media`).
 
 ---
 
@@ -3778,9 +3778,9 @@ In §5, **`background`** and **`foreground`** on `layout` / `text` / `media` eac
 4. **Spelling** — use **`variant`** for design-axis combinators (tone × size); **`enum`** for ids and interaction/state (same IR today).  
 5. **No `extend Type`** — declare a new closed set (or map exotic host events onto an existing case) rather than OO-extending an enum.  
 
-## Components (World A)
+## Components
 
-1. **Root `layout` + World A nested frames** — `let Title = Text(…)`, `let Row = Layout(…)`, `let Glyph = Icon(…)`, `let Pic = Media(…)`.  
+1. **Root `layout` + nested frame constructors** — `let Title = Text(…)`, `let Row = Layout(…)`, `let Glyph = Icon(…)`, `let Pic = Media(…)`.  
 2. **Order `let` before `children`** when readable; mutate `Frame.children` when order is fixed late.  
 3. **Thin parameters** — pass copy as params, not hard-coded strings, unless fixed marketing text.  
 4. **Use `Spacer()`** instead of empty flex hack divs in hand-authored flex rows (§5).  
@@ -3797,7 +3797,7 @@ In §5, **`background`** and **`foreground`** on `layout` / `text` / `media` eac
 ## Overrides
 
 1. **Specific → general** branch order.  
-2. **Prefer `FrameId.prop = …`** after a World A `let` when only props differ — do not rebuild whole trees.  
+2. **Prefer `FrameId.prop = …`** after a frame `let` when only props differ — do not rebuild whole trees.  
 3. Conditions may compare **variant↔case**, **param↔param** (same type), or **Bool truthy** (§23.5).  
 
 ## Interactions
@@ -4513,7 +4513,7 @@ This checklist orders work so a **greenfield implementation** (or a full port to
 
 1. **Lexer** — comments `//`, strings, numbers, identifiers, punctuation (per §1, §10 / §20).  
 2. **Top-level declarations** — `import`, `previewBackground`, `primitive`, `semantic`, `theme`, `typeStyle`, `variant` / **`enum`**, `protocol`, `component`, **`emits`**, **`fixtures`**, **`samples`**, **`usage`**, **`rules`**, **`extend`** (§2, §4, §11, §11a). Reject removed `interaction` / `expose` (**PDL-E001**).  
-3. **Component grammar** — header params, root kind block, World A `let` / typed value `let`, `children`, `if` chains, `ForEach`, host handlers, emit captures (§4–§8, §10).
+3. **Component grammar** — header params, root kind block, frame `let` / typed value `let`, `children`, `if` chains, `ForEach`, host handlers, emit captures (§4–§8, §10).
 
 **Acceptance:** parse golden `.pdl` files to AST without loss; unknown top-level → error.
 
@@ -4523,7 +4523,7 @@ This checklist orders work so a **greenfield implementation** (or a full port to
 
 4. **Maps** — tokens, themes, variants, typeStyles, components, emits, host protocols, **samples** banks; companion maps for **fixtures**, **usage**, **rules**, **extend merge** (§16, §11, §11a).  
 5. **Value expressions** — literal / token ref / param ref; literals include sizing, insets, corners, **layer arrays**, **motion tuples**, **IconRef** / **MediaLayer** (§6, §14).  
-6. **Children** — frame id, World A frame ctor, component instance, **`Spacer()`**, optional `@` opacity (§5).  
+6. **Children** — frame id, frame constructor, component instance, **`Spacer()`**, optional `@` opacity (§5).  
 7. **Conditions** — variant↔case, param↔param, Bool truthy, `&&` / `||` with parentheses rules (§7, §23.5).
 
 **Acceptance:** in-memory design definition can be serialised to the Component Catalogue without data loss.
@@ -4744,7 +4744,7 @@ before  between  after
 true  false  null  self
 ```
 
-`enum` is a reserved word and a **surface alias** of `variant` (§4). API protocols declare **`protocol P: component`**; **`host`** marks host-role protocols (§4a). **`samples`** declares typed data banks (§11a). `before` / `between` / `after` are reserved for **B6** list chrome inside `ForEach` (§4e). **`in`** introduces the required `ForEach` item binder. Layout emit capture is handler assignment (`chip.select(…) = { … }` / `Field.change(…) = { … }`); list-param `chips.select` is **PDL-E036**. Keyword `on` is **not** used for declared emits (still reserved / rejected in layout). **`interaction`** is reserved and **rejected** as a decl (**PDL-E001**). **`expose` is not a keyword** (removed). **`self`** in layout/handlers means the enclosing component instance (§22.2 / §22.3); in `rules` queries it is the rules evaluation root (§12). World A ctor names **`Text` / `Layout` / `Icon` / `Media`** and asset/layer ctors **`IconRef` / `MediaLayer`** are not all lexer keywords — they are resolved as constructors / reserved component names (**PDL-E037** if reused as a `component` name where applicable).
+`enum` is a reserved word and a **surface alias** of `variant` (§4). API protocols declare **`protocol P: component`**; **`host`** marks host-role protocols (§4a). **`samples`** declares typed data banks (§11a). `before` / `between` / `after` are reserved for **B6** list chrome inside `ForEach` (§4e). **`in`** introduces the required `ForEach` item binder. Layout emit capture is handler assignment (`chip.select(…) = { … }` / `Field.change(…) = { … }`); list-param `chips.select` is **PDL-E036**. Keyword `on` is **not** used for declared emits (still reserved / rejected in layout). **`interaction`** is reserved and **rejected** as a decl (**PDL-E001**). **`expose` is not a keyword** (removed). **`self`** in layout/handlers means the enclosing component instance (§22.2 / §22.3); in `rules` queries it is the rules evaluation root (§12). Frame constructor names **`Text` / `Layout` / `Icon` / `Media`** and asset/layer ctors **`IconRef` / `MediaLayer`** are not all lexer keywords — they are resolved as constructors / reserved component names (**PDL-E037** if reused as a `component` name where applicable).
 
 ---
 
@@ -4991,7 +4991,7 @@ deferred-children-assignment
   ::= IDENT '.' 'children' '=' children-list ;
 
 let-decl
-  ::= 'let' IDENT '=' frame-ctor                (* World A — normative *)
+  ::= 'let' IDENT '=' frame-ctor                (* frame constructor — normative *)
     | 'let' IDENT '=' component-instance
     | 'let' IDENT ':' type-name '=' value-expr  (* typed value let — not a frame *)
     ;

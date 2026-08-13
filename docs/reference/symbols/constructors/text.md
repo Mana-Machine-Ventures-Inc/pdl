@@ -3,7 +3,7 @@
 
 # Text
 
-World A frame ctor for text frames.
+Frame constructor for text frames.
 
 | | |
 |--|--|

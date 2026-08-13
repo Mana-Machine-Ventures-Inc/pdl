@@ -34,7 +34,7 @@ A `.pdl` module is a partial design. An **entry file** plus its `import` graph m
 
 ## Four frame kinds
 
-| Kind | World A ctor | Role |
+| Kind | Constructor | Role |
 |------|--------------|------|
 | `layout` | `Layout` | Flex-like container |
 | `text` | `Text` | Typography |

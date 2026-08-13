@@ -3,7 +3,7 @@
 
 # Icon
 
-World A frame ctor for icon frames.
+Frame constructor for icon frames.
 
 | | |
 |--|--|

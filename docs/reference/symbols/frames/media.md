@@ -8,7 +8,7 @@ Raster / vector / video drawable box.
 | | |
 |--|--|
 | **IR kind** | `media` |
-| **World A ctor** | `Media(…)` |
+| **Constructor** | `Media(…)` |
 | **Child-flex props** | Yes (when parent is `layout`) |
 
 > Distinct from `MediaLayer` (layer fill) and `MediaSource` (asset ref).

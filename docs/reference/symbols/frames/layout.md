@@ -8,7 +8,7 @@ Flex-like container: direction, gap, padding, layers, sizing.
 | | |
 |--|--|
 | **IR kind** | `layout` |
-| **World A ctor** | `Layout(…)` |
+| **Constructor** | `Layout(…)` |
 | **Child-flex props** | Yes (when parent is `layout`) |
 
 

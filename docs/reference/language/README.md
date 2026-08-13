@@ -4,7 +4,7 @@ Formal rules for authors and implementers. Deep normative text and full EBNF rem
 
 | Page | Topic |
 |------|--------|
-| [Syntax](./syntax.md) | Identifiers, comments, dot enums, World A surface |
+| [Syntax](./syntax.md) | Identifiers, comments, dot enums, frame constructors |
 | [Files and imports](./files-and-imports.md) | Entry, merge, previewBackground |
 | [Scoping](./scoping.md) | `self`, lets, params, handlers |
 | [Type system](./type-system.md) | Built-ins, checking, conditions |

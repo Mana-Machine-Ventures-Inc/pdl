@@ -1,6 +1,6 @@
 # Components and frames
 
-## Declaration (World A)
+## Declaration
 
 ```pdl
 component Button(
@@ -23,7 +23,8 @@ component Button(
 ```
 
 - Root kind is `layout` / `text` / `icon` / `media`.  
-- Nested frames use **`let Name = Layout(…)` / `Text` / `Icon` / `Media`**. Classic `let Id: text = { … }` is removed.  
+- Nested frames use **`let Name = Layout(…)` / `Text` / `Icon` / `Media`**.  
+  Classic `let Id: text = { … }` is removed.  
 - Mount with `children = […]` (frame ids, instances, `Spacer()`).  
 
 ## Properties

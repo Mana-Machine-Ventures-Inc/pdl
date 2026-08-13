@@ -206,7 +206,7 @@ ${fk.summary}
 | | |
 |--|--|
 | **IR kind** | \`${fk.name}\` |
-| **World A ctor** | \`${fk.ctor}(…)\` |
+| **Constructor** | \`${fk.ctor}(…)\` |
 | **Child-flex props** | Yes (when parent is \`layout\`) |
 
 ${fk.notes ? `> ${fk.notes}\n` : ""}

@@ -68,10 +68,10 @@ Regenerate: `npm run docs:gen`
 
 ## Constructors
 
-- [Layout](constructors/layout.md) (frame) — World A frame ctor for layout frames.
-- [Text](constructors/text.md) (frame) — World A frame ctor for text frames.
-- [Icon](constructors/icon.md) (frame) — World A frame ctor for icon frames.
-- [Media](constructors/media.md) (frame) — World A frame ctor for media frames.
+- [Layout](constructors/layout.md) (frame) — Frame constructor for layout frames.
+- [Text](constructors/text.md) (frame) — Frame constructor for text frames.
+- [Icon](constructors/icon.md) (frame) — Frame constructor for icon frames.
+- [Media](constructors/media.md) (frame) — Frame constructor for media frames.
 - [Spacer](constructors/spacer.md) (children) — Expands on the main axis inside `children`.
 - [Shadow](constructors/shadow.md) (value) — Drop-shadow value.
 - [EdgeInsets](constructors/edge-insets.md) (value) — Inset box.

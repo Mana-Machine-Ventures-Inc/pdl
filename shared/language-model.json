@@ -284,25 +284,25 @@
       "name": "Layout",
       "kind": "frame",
       "produces": "layout",
-      "summary": "World A frame ctor for layout frames."
+      "summary": "Frame constructor for layout frames."
     },
     {
       "name": "Text",
       "kind": "frame",
       "produces": "text",
-      "summary": "World A frame ctor for text frames."
+      "summary": "Frame constructor for text frames."
     },
     {
       "name": "Icon",
       "kind": "frame",
       "produces": "icon",
-      "summary": "World A frame ctor for icon frames."
+      "summary": "Frame constructor for icon frames."
     },
     {
       "name": "Media",
       "kind": "frame",
       "produces": "media",
-      "summary": "World A frame ctor for media frames."
+      "summary": "Frame constructor for media frames."
     },
     {
       "name": "Spacer",

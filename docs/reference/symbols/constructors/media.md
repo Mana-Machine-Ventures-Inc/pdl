@@ -3,7 +3,7 @@
 
 # Media
 
-World A frame ctor for media frames.
+Frame constructor for media frames.
 
 | | |
 |--|--|

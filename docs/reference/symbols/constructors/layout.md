@@ -3,7 +3,7 @@
 
 # Layout
 
-World A frame ctor for layout frames.
+Frame constructor for layout frames.
 
 | | |
 |--|--|
