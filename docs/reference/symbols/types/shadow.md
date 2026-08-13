@@ -9,7 +9,7 @@ Drop shadow.
 |--|--|
 | **Kind** | Token type |
 | **Category** | effect |
-| **Constructors** | [Shadow](constructors/shadow.md) |
+| **Constructors** | [Shadow](../constructors/shadow.md) |
 
 ## RHS
 
@@ -19,6 +19,6 @@ Drop shadow.
 
 ## Links
 
-- [Types index](../README.md#types)
+- [Types index](../../symbols.md#types)
 - Guide: [Tokens and themes](../../../guide/tokens-and-themes.md)
 - Normative: [`docs/full-spec.md` §3](../../../full-spec.md#3--tokens-themes-and-type-styles)

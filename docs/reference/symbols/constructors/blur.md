@@ -8,10 +8,10 @@ Blur layer / token value.
 | | |
 |--|--|
 | **Kind** | layer |
-| **Produces** | [Blur](types/blur.md) |
+| **Produces** | [Blur](../types/blur.md) |
 | **Signature** | `Blur(radius: [, style:] [, vibrancy:])` |
 
 
 ## See also
 
-- [Constructors index](../README.md#constructors)
+- [Constructors index](../../symbols.md#constructors)

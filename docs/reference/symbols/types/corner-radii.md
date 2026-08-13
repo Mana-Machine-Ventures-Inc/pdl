@@ -9,7 +9,7 @@ Asymmetric corner radii.
 |--|--|
 | **Kind** | Token type |
 | **Category** | shape |
-| **Constructors** | [Corner](constructors/corner.md) |
+| **Constructors** | [Corner](../constructors/corner.md) |
 
 ## RHS
 
@@ -22,6 +22,6 @@ Constructor name stays `Corner`; type name is `CornerRadii`.
 
 ## Links
 
-- [Types index](../README.md#types)
+- [Types index](../../symbols.md#types)
 - Guide: [Tokens and themes](../../../guide/tokens-and-themes.md)
 - Normative: [`docs/full-spec.md` §3](../../../full-spec.md#3--tokens-themes-and-type-styles)

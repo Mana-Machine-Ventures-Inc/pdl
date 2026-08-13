@@ -2,9 +2,9 @@
 
 ## Built-in types
 
-- **Token types** — [types index](../symbols/README.md#types) (`Color`, `Distance`, …)  
+- **Token types** — [types index](../symbols.md#types) (`Color`, `Distance`, …)  
 - **Param scalars** — `String`, `Number`, `Bool`  
-- **Host enums** — [enums index](../symbols/README.md#enums) (`Direction`, `Overflow`, …)  
+- **Host enums** — [enums index](../symbols.md#enums) (`Direction`, `Overflow`, …)  
 - **Author variants** — `variant` / `enum` declarations  
 - **Slots** — component or API protocol names; arrays `[T]`  
 

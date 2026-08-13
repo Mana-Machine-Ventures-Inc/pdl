@@ -8,10 +8,10 @@ Motion transition tuple.
 | | |
 |--|--|
 | **Kind** | value |
-| **Produces** | [Transition](types/transition.md) |
+| **Produces** | [Transition](../types/transition.md) |
 | **Signature** | `(duration:, easing: [, delay:])` |
 
 
 ## See also
 
-- [Constructors index](../README.md#constructors)
+- [Constructors index](../../symbols.md#constructors)

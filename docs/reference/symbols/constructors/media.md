@@ -8,10 +8,10 @@ Frame constructor for media frames.
 | | |
 |--|--|
 | **Kind** | frame |
-| **Produces** | [media](frames/media.md) |
+| **Produces** | [Media](../frames/media.md) |
 | **Signature** | `Media(…)` |
 
 
 ## See also
 
-- [Constructors index](../README.md#constructors)
+- [Constructors index](../../symbols.md#constructors)

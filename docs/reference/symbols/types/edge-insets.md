@@ -9,7 +9,7 @@ Padding / margin / inset box.
 |--|--|
 | **Kind** | Token type |
 | **Category** | layout |
-| **Constructors** | [EdgeInsets](constructors/edge-insets.md) |
+| **Constructors** | [EdgeInsets](../constructors/edge-insets.md) |
 
 ## RHS
 
@@ -19,6 +19,6 @@ Padding / margin / inset box.
 
 ## Links
 
-- [Types index](../README.md#types)
+- [Types index](../../symbols.md#types)
 - Guide: [Tokens and themes](../../../guide/tokens-and-themes.md)
 - Normative: [`docs/full-spec.md` §3](../../../full-spec.md#3--tokens-themes-and-type-styles)

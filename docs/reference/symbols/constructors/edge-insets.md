@@ -8,10 +8,10 @@ Inset box.
 | | |
 |--|--|
 | **Kind** | value |
-| **Produces** | [EdgeInsets](types/edge-insets.md) |
+| **Produces** | [EdgeInsets](../types/edge-insets.md) |
 | **Signature** | `EdgeInsets(x:, y:) | EdgeInsets(top:, right:, bottom:, left:)` |
 
 
 ## See also
 
-- [Constructors index](../README.md#constructors)
+- [Constructors index](../../symbols.md#constructors)

@@ -8,10 +8,10 @@ Frame constructor for text frames.
 | | |
 |--|--|
 | **Kind** | frame |
-| **Produces** | [text](frames/text.md) |
+| **Produces** | [Text](../frames/text.md) |
 | **Signature** | `Text(…)` |
 
 
 ## See also
 
-- [Constructors index](../README.md#constructors)
+- [Constructors index](../../symbols.md#constructors)

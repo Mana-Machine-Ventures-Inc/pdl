@@ -36,6 +36,6 @@ Text editing session channels and host verbs; pairs with kind `text`.
 
 ## See also
 
-- [Protocols index](../README.md#protocols)
+- [Protocols index](../../symbols.md#protocols)
 - Guide: [Protocols and emits](../../../guide/protocols-and-emits.md)
 - Normative: [`docs/full-spec.md` §4a′](../../../full-spec.md#4a--host-protocol-prelude-stubs)

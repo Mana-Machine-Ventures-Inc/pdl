@@ -18,10 +18,10 @@ Same RHS as Background.
 
 ## See also
 
-[Background](types/background.md)
+[Background](../types/background.md)
 
 ## Links
 
-- [Types index](../README.md#types)
+- [Types index](../../symbols.md#types)
 - Guide: [Tokens and themes](../../../guide/tokens-and-themes.md)
 - Normative: [`docs/full-spec.md` §3](../../../full-spec.md#3--tokens-themes-and-type-styles)

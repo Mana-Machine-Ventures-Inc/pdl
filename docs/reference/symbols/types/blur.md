@@ -9,7 +9,7 @@ Blur layer object.
 |--|--|
 | **Kind** | Token type |
 | **Category** | visual-effect |
-| **Constructors** | [Blur](constructors/blur.md) |
+| **Constructors** | [Blur](../constructors/blur.md) |
 
 ## RHS
 
@@ -18,10 +18,10 @@ Blur layer object.
 
 ## See also
 
-[Vibrancy](types/vibrancy.md), [BlurStyle](enums/blur-style.md)
+[Vibrancy](../types/vibrancy.md), [BlurStyle](../enums/blur-style.md)
 
 ## Links
 
-- [Types index](../README.md#types)
+- [Types index](../../symbols.md#types)
 - Guide: [Tokens and themes](../../../guide/tokens-and-themes.md)
 - Normative: [`docs/full-spec.md` §3](../../../full-spec.md#3--tokens-themes-and-type-styles)

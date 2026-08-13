@@ -18,10 +18,10 @@ Unquoted `#RGB` / `#RRGGBB` / `#RRGGBBAA`, token ref, or `color @ opacity`.
 
 ## See also
 
-[Opacity](types/opacity.md), [Background](types/background.md), [Foreground](types/foreground.md)
+[Opacity](../types/opacity.md), [Background](../types/background.md), [Foreground](../types/foreground.md)
 
 ## Links
 
-- [Types index](../README.md#types)
+- [Types index](../../symbols.md#types)
 - Guide: [Tokens and themes](../../../guide/tokens-and-themes.md)
 - Normative: [`docs/full-spec.md` §3](../../../full-spec.md#3--tokens-themes-and-type-styles)

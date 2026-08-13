@@ -22,5 +22,5 @@ Host enum used by frame properties (`enumDirection`).
 
 ## See also
 
-- [Enums index](../README.md#enums)
+- [Enums index](../../symbols.md#enums)
 - Normative: [`docs/full-spec.md` §6](../../../full-spec.md#6--values-and-expressions)

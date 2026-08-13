@@ -9,7 +9,7 @@ Tintable glyph / symbol ref.
 |--|--|
 | **Kind** | Token type |
 | **Category** | asset |
-| **Constructors** | [IconRef](constructors/icon-ref.md) |
+| **Constructors** | [IconRef](../constructors/icon-ref.md) |
 
 ## RHS
 
@@ -22,6 +22,6 @@ Frame ctor `Icon(…)` builds an icon **frame** — different namespace.
 
 ## Links
 
-- [Types index](../README.md#types)
+- [Types index](../../symbols.md#types)
 - Guide: [Tokens and themes](../../../guide/tokens-and-themes.md)
 - Normative: [`docs/full-spec.md` §3](../../../full-spec.md#3--tokens-themes-and-type-styles)

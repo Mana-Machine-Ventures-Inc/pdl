@@ -9,7 +9,7 @@ Ramp stop.
 |--|--|
 | **Kind** | Token type |
 | **Category** | visual |
-| **Constructors** | [GradientStop](constructors/gradient-stop.md) |
+| **Constructors** | [GradientStop](../constructors/gradient-stop.md) |
 
 ## RHS
 
@@ -19,6 +19,6 @@ Ramp stop.
 
 ## Links
 
-- [Types index](../README.md#types)
+- [Types index](../../symbols.md#types)
 - Guide: [Tokens and themes](../../../guide/tokens-and-themes.md)
 - Normative: [`docs/full-spec.md` §3](../../../full-spec.md#3--tokens-themes-and-type-styles)

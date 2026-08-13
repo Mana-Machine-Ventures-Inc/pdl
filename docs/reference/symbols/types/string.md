@@ -16,5 +16,5 @@ Not a token type — param and value-let only.
 
 ## Links
 
-- [Types index](../README.md#types)
+- [Types index](../../symbols.md#types)
 - Normative: [`docs/full-spec.md` §23.1](../../../full-spec.md#231-built-in-types)

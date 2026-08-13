@@ -8,10 +8,10 @@ Media asset reference.
 | | |
 |--|--|
 | **Kind** | value |
-| **Produces** | [MediaSource](types/media-source.md) |
+| **Produces** | [MediaSource](../types/media-source.md) |
 | **Signature** | `MediaSource(file: "…" [, kind:, format:]) | MediaSource(url: "…" [, kind:, format:])` |
 
 
 ## See also
 
-- [Constructors index](../README.md#constructors)
+- [Constructors index](../../symbols.md#constructors)

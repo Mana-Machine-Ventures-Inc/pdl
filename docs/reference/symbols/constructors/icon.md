@@ -8,10 +8,10 @@ Frame constructor for icon frames.
 | | |
 |--|--|
 | **Kind** | frame |
-| **Produces** | [icon](frames/icon.md) |
+| **Produces** | [Icon](../frames/icon.md) |
 | **Signature** | `Icon(…)` |
 
 
 ## See also
 
-- [Constructors index](../README.md#constructors)
+- [Constructors index](../../symbols.md#constructors)

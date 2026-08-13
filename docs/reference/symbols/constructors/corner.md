@@ -8,10 +8,10 @@ Asymmetric corner radii.
 | | |
 |--|--|
 | **Kind** | value |
-| **Produces** | [CornerRadii](types/corner-radii.md) |
+| **Produces** | [CornerRadii](../types/corner-radii.md) |
 | **Signature** | `Corner(tl:, tr:, br:, bl:)` |
 
 
 ## See also
 
-- [Constructors index](../README.md#constructors)
+- [Constructors index](../../symbols.md#constructors)

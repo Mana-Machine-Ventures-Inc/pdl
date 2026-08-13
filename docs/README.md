@@ -5,7 +5,7 @@
 | Start here | |
 |------------|--|
 | **[Guide](./guide/README.md)** | Concepts and mental model |
-| **[Symbol reference](./reference/symbols/README.md)** | Frames, enums, types, constructors, protocols *(generated)* |
+| **[Symbol reference](./reference/symbols.md)** | Frames, enums, types, constructors, protocols *(generated)* |
 | **[Language reference](./reference/language/README.md)** | Files, scoping, types, errors, conformance |
 | **[Full specification](./full-spec.md)** | Normative single document (`1.0.0-beta`) |
 | **[Manifesto](./manifesto.md)** | Why PDL exists |

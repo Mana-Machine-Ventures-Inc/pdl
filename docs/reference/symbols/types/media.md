@@ -9,7 +9,7 @@ Media fill **layer** value.
 |--|--|
 | **Kind** | Token type |
 | **Category** | visual-layer |
-| **Constructors** | [MediaLayer](constructors/media-layer.md) |
+| **Constructors** | [MediaLayer](../constructors/media-layer.md) |
 
 ## RHS
 
@@ -22,6 +22,6 @@ Distinct from `MediaSource` and from the `Media(…)` **frame** ctor.
 
 ## Links
 
-- [Types index](../README.md#types)
+- [Types index](../../symbols.md#types)
 - Guide: [Tokens and themes](../../../guide/tokens-and-themes.md)
 - Normative: [`docs/full-spec.md` §3](../../../full-spec.md#3--tokens-themes-and-type-styles)

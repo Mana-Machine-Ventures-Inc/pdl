@@ -18,10 +18,10 @@ Scalar Color sugar or layer array — same shape as Foreground.
 
 ## See also
 
-[Foreground](types/foreground.md), [Color](types/color.md), [Blur](types/blur.md), [Ramp](types/ramp.md), [Media](types/media.md), [Vibrancy](types/vibrancy.md)
+[Foreground](../types/foreground.md), [Color](../types/color.md), [Blur](../types/blur.md), [Ramp](../types/ramp.md), [Media](../types/media.md), [Vibrancy](../types/vibrancy.md)
 
 ## Links
 
-- [Types index](../README.md#types)
+- [Types index](../../symbols.md#types)
 - Guide: [Tokens and themes](../../../guide/tokens-and-themes.md)
 - Normative: [`docs/full-spec.md` §3](../../../full-spec.md#3--tokens-themes-and-type-styles)

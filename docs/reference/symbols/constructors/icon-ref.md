@@ -8,10 +8,10 @@ Icon asset reference.
 | | |
 |--|--|
 | **Kind** | value |
-| **Produces** | [Icon](types/icon.md) |
+| **Produces** | [Icon](../types/icon.md) |
 | **Signature** | `IconRef(system: .sfSymbols|.materialSymbols, name: "…") | IconRef(file: "…")` |
 
 
 ## See also
 
-- [Constructors index](../README.md#constructors)
+- [Constructors index](../../symbols.md#constructors)

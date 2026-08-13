@@ -9,7 +9,7 @@ Raster / vector / video / path ref.
 |--|--|
 | **Kind** | Token type |
 | **Category** | asset |
-| **Constructors** | [MediaSource](constructors/media-source.md) |
+| **Constructors** | [MediaSource](../constructors/media-source.md) |
 
 ## RHS
 
@@ -19,6 +19,6 @@ Raster / vector / video / path ref.
 
 ## Links
 
-- [Types index](../README.md#types)
+- [Types index](../../symbols.md#types)
 - Guide: [Tokens and themes](../../../guide/tokens-and-themes.md)
 - Normative: [`docs/full-spec.md` §3](../../../full-spec.md#3--tokens-themes-and-type-styles)

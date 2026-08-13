@@ -8,10 +8,10 @@ Stop inside a Ramp.
 | | |
 |--|--|
 | **Kind** | value |
-| **Produces** | [GradientStop](types/gradient-stop.md) |
+| **Produces** | [GradientStop](../types/gradient-stop.md) |
 | **Signature** | `GradientStop(position: [, opacity:] [, color:])` |
 
 
 ## See also
 
-- [Constructors index](../README.md#constructors)
+- [Constructors index](../../symbols.md#constructors)

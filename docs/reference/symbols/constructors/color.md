@@ -8,7 +8,7 @@ Explicit color layer entry.
 | | |
 |--|--|
 | **Kind** | layer |
-| **Produces** | [Color](types/color.md) |
+| **Produces** | [Color](../types/color.md) |
 | **Signature** | `Color(color:)` |
 
 ## Notes
@@ -17,4 +17,4 @@ Bare hex / Color token sugar also valid in layer stacks.
 
 ## See also
 
-- [Constructors index](../README.md#constructors)
+- [Constructors index](../../symbols.md#constructors)

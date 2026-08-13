@@ -17,4 +17,4 @@ Not a frame kind; `Spacer() @ …` is illegal.
 
 ## See also
 
-- [Constructors index](../README.md#constructors)
+- [Constructors index](../../symbols.md#constructors)

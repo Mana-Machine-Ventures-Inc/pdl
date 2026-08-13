@@ -8,10 +8,10 @@ Drop-shadow value.
 | | |
 |--|--|
 | **Kind** | value |
-| **Produces** | [Shadow](types/shadow.md) |
+| **Produces** | [Shadow](../types/shadow.md) |
 | **Signature** | `Shadow(x:, y:, blurRadius:, color: [, spread:])` |
 
 
 ## See also
 
-- [Constructors index](../README.md#constructors)
+- [Constructors index](../../symbols.md#constructors)

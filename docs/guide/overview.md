@@ -41,7 +41,7 @@ A `.pdl` module is a partial design. An **entry file** plus its `import` graph m
 | `icon` | `Icon` | Tintable symbol |
 | `media` | `Media` | Raster / vector / video box |
 
-See [symbol pages](../reference/symbols/README.md#frame-kinds) and [components and frames](./components-and-frames.md).
+See [symbol pages](../reference/symbols.md#frame-kinds) and [components and frames](./components-and-frames.md).
 
 ## Smallest component
 

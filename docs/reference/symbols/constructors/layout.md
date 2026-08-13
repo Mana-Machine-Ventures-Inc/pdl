@@ -8,10 +8,10 @@ Frame constructor for layout frames.
 | | |
 |--|--|
 | **Kind** | frame |
-| **Produces** | [layout](frames/layout.md) |
+| **Produces** | [Layout](../frames/layout.md) |
 | **Signature** | `Layout(…)` |
 
 
 ## See also
 
-- [Constructors index](../README.md#constructors)
+- [Constructors index](../../symbols.md#constructors)

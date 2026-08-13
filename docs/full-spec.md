@@ -2,7 +2,7 @@
 
 > **Single-document reference.** This file consolidates the PDL developer specification (chapters 1–19) plus the formal specification additions (chapters 20–26) into one reviewable document. Navigation links between former chapter files have been removed; use your editor's heading search instead.
 >
-> **Multi-page docs (preferred for reading):** [`docs/README.md`](./README.md) — [Guide](./guide/README.md), [Symbol reference](./reference/symbols/README.md) (generated from `shared/language-model.json` + `shared/frame-props.json`), [Language reference](./reference/language/README.md). See [`DOC_ARCHITECTURE.md`](./DOC_ARCHITECTURE.md).
+> **Multi-page docs (preferred for reading):** [`docs/README.md`](./README.md) — [Guide](./guide/README.md), [Symbol reference](./reference/symbols.md) (generated from `shared/language-model.json` + `shared/frame-props.json`), [Language reference](./reference/language/README.md). See [`DOC_ARCHITECTURE.md`](./DOC_ARCHITECTURE.md).
 >
 > **Repository path:** `docs/full-spec.md` (normative copy in this repo).
 >

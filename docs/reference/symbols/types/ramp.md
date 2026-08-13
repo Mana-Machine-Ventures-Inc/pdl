@@ -9,7 +9,7 @@ Opacity mask ramp.
 |--|--|
 | **Kind** | Token type |
 | **Category** | visual-effect |
-| **Constructors** | [Ramp](constructors/ramp.md) |
+| **Constructors** | [Ramp](../constructors/ramp.md) |
 
 ## RHS
 
@@ -18,10 +18,10 @@ Opacity mask ramp.
 
 ## See also
 
-[GradientStop](types/gradient-stop.md), [RampDirection](enums/ramp-direction.md)
+[GradientStop](../types/gradient-stop.md), [RampDirection](../enums/ramp-direction.md)
 
 ## Links
 
-- [Types index](../README.md#types)
+- [Types index](../../symbols.md#types)
 - Guide: [Tokens and themes](../../../guide/tokens-and-themes.md)
 - Normative: [`docs/full-spec.md` §3](../../../full-spec.md#3--tokens-themes-and-type-styles)

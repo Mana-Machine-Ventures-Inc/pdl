@@ -16,7 +16,7 @@ enum FilterId {   // surface alias of variant in v1
 
 Cases in expressions use a leading dot: `.primary`, or qualified `Emphasis.primary`.
 
-Built-in host enums (`Direction`, `Overflow`, …) live in the [enums index](../reference/symbols/README.md#enums).
+Built-in host enums (`Direction`, `Overflow`, …) live in the [enums index](../reference/symbols.md#enums).
 
 ## Parameters
 

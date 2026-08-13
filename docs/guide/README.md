@@ -1,6 +1,6 @@
 # Guide
 
-Short conceptual pages. For property tables and enum cases, use the [symbol reference](../reference/symbols/README.md). For normative detail, see [`full-spec.md`](../full-spec.md).
+Short conceptual pages. For property tables and enum cases, use the [symbol reference](../reference/symbols.md). For normative detail, see [`full-spec.md`](../full-spec.md).
 
 1. [Overview](./overview.md) — what PDL is and the bake pipeline  
 2. [Tokens and themes](./tokens-and-themes.md)  

@@ -8,10 +8,10 @@ Vibrancy layer / token value.
 | | |
 |--|--|
 | **Kind** | layer |
-| **Produces** | [Vibrancy](types/vibrancy.md) |
+| **Produces** | [Vibrancy](../types/vibrancy.md) |
 | **Signature** | `Vibrancy(saturation:, brightness:)` |
 
 
 ## See also
 
-- [Constructors index](../README.md#constructors)
+- [Constructors index](../../symbols.md#constructors)

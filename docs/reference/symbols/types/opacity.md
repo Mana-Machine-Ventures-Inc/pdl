@@ -18,10 +18,10 @@ Number literal or Opacity token.
 
 ## See also
 
-[Color](types/color.md)
+[Color](../types/color.md)
 
 ## Links
 
-- [Types index](../README.md#types)
+- [Types index](../../symbols.md#types)
 - Guide: [Tokens and themes](../../../guide/tokens-and-themes.md)
 - Normative: [`docs/full-spec.md` §3](../../../full-spec.md#3--tokens-themes-and-type-styles)

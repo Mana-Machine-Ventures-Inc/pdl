@@ -2,7 +2,7 @@
 
 Compilers for **PDL** (Programmatic Design Language).
 
-**Docs:** [`docs/README.md`](docs/README.md) — [Guide](docs/guide/README.md) · [Symbols](docs/reference/symbols/README.md) · [Language reference](docs/reference/language/README.md) · normative [`docs/full-spec.md`](docs/full-spec.md). Regenerate symbol pages with `npm run docs:gen`.
+**Docs:** [`docs/README.md`](docs/README.md) — [Guide](docs/guide/README.md) · [Symbols](docs/reference/symbols.md) · [Language reference](docs/reference/language/README.md) · normative [`docs/full-spec.md`](docs/full-spec.md). Regenerate symbol pages with `npm run docs:gen`.
 
 - **TypeScript** (`src/`) — current reference CLI / oracle (`npm test`)  
 - **Rust** (`crates/pdl-core`, `crates/pdl-cli`) — portable core + JSON CLI (`cargo test -p pdl-core`, `cargo run -q -p pdl-cli -- …`); see **`docs/IMPLEMENTATION_PLAN.md`**

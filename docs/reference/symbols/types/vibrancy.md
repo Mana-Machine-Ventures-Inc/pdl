@@ -9,7 +9,7 @@ Saturation / brightness intent.
 |--|--|
 | **Kind** | Token type |
 | **Category** | visual-effect |
-| **Constructors** | [Vibrancy](constructors/vibrancy.md) |
+| **Constructors** | [Vibrancy](../constructors/vibrancy.md) |
 
 ## RHS
 
@@ -19,6 +19,6 @@ Saturation / brightness intent.
 
 ## Links
 
-- [Types index](../README.md#types)
+- [Types index](../../symbols.md#types)
 - Guide: [Tokens and themes](../../../guide/tokens-and-themes.md)
 - Normative: [`docs/full-spec.md` §3](../../../full-spec.md#3--tokens-themes-and-type-styles)

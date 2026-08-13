@@ -12,4 +12,4 @@ Formal rules for authors and implementers. Deep normative text and full EBNF rem
 | [Errors](./errors.md) | `PDL-E*` / `PDL-W*` catalog *(generated)* |
 | [Conformance](./conformance.md) | Parser / resolver / emitter classes |
 
-Symbol pages (frames, enums, types): [../symbols/README.md](../symbols/README.md).
+Symbol pages (frames, enums, types): [../symbols.md](../symbols.md).

@@ -8,10 +8,10 @@ Media fill layer (not a frame).
 | | |
 |--|--|
 | **Kind** | layer |
-| **Produces** | [Media](types/media.md) |
+| **Produces** | [Media](../types/media.md) |
 | **Signature** | `MediaLayer(source:, contentMode: [, justify:, align:, opacity:])` |
 
 
 ## See also
 
-- [Constructors index](../README.md#constructors)
+- [Constructors index](../../symbols.md#constructors)

@@ -24,7 +24,7 @@ let Title = Text(content: "Hi", style: Body)
 let Row = Layout(direction: .row, gap: 8)
 ```
 
-Asset / layer ctors: `IconRef`, `MediaSource`, `MediaLayer`, `Blur`, `Ramp`, … — see [constructors](../symbols/README.md#constructors).
+Asset / layer ctors: `IconRef`, `MediaSource`, `MediaLayer`, `Blur`, `Ramp`, … — see [constructors](../symbols.md#constructors).
 
 ## Cheat sheet
 

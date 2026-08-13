@@ -14,7 +14,7 @@ Prefer **Opacity** tokens on `@` (e.g. `color.surface @ opacity.scrim`) over raw
 
 ## Token types
 
-Built-in types (`Color`, `Distance`, `Shadow`, `Background`, …) are listed in the [types index](../reference/symbols/README.md#types). Each page documents allowed RHS shapes.
+Built-in types (`Color`, `Distance`, `Shadow`, `Background`, …) are listed in the [types index](../reference/symbols.md#types). Each page documents allowed RHS shapes.
 
 ## Themes
 

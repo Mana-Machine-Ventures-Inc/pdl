@@ -16,5 +16,5 @@ Spell **Bool** only — `Boolean` is PDL-E039.
 
 ## Links
 
-- [Types index](../README.md#types)
+- [Types index](../../symbols.md#types)
 - Normative: [`docs/full-spec.md` §23.1](../../../full-spec.md#231-built-in-types)

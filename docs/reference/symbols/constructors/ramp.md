@@ -8,10 +8,10 @@ Opacity ramp layer / token value.
 | | |
 |--|--|
 | **Kind** | layer |
-| **Produces** | [Ramp](types/ramp.md) |
+| **Produces** | [Ramp](../types/ramp.md) |
 | **Signature** | `Ramp(direction:, stops:)` |
 
 
 ## See also
 
-- [Constructors index](../README.md#constructors)
+- [Constructors index](../../symbols.md#constructors)

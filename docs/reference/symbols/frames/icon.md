@@ -42,6 +42,6 @@ Available when this frame is a child of a `layout` (or as root flex against the 
 
 ## See also
 
-- [Frame kinds index](../README.md#frame-kinds)
+- [Frame kinds index](../../symbols.md#frame-kinds)
 - Guide: [Components and frames](../../../guide/components-and-frames.md)
 - Normative: [`docs/full-spec.md` §5](../../../full-spec.md#5--components-frames-and-properties)
