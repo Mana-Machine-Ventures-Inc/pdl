@@ -13,7 +13,8 @@ docs/
   guide/                    ← conceptual, human-written
   reference/
     language/               ← formal rules (human + generated errors)
-    symbols/                ← GENERATED symbol pages
+    symbols.md              ← GENERATED symbol index (canonical landing page)
+    symbols/                ← GENERATED per-symbol pages (+ stub README)
 shared/
   frame-props.json          ← compiler SoT: frame props + host enum cases
   language-model.json       ← doc/catalog SoT: types, enums+, ctors, protocols, errors
