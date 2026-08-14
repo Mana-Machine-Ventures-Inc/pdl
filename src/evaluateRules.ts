@@ -445,6 +445,21 @@ export function evaluateRulesOnComponent(
   return out;
 }
 
+/**
+ * Single-component / catalogue preview: the bake root is the canvas subject, not a
+ * usage site. Sibling, parent, and child-count rules on that root cannot be
+ * satisfied (or avoided) in isolation, so they are omitted. Nested instances still run.
+ */
+export function evaluateRulesForPreview(
+  comp: BakedComponentJson,
+  rulesByComponent: Record<string, RulesPreviewJson>,
+): RuleViolation[] {
+  const rootPath = comp.name;
+  return evaluateRulesOnComponent(comp, rulesByComponent).filter(
+    (v) => v.instancePath !== rootPath,
+  );
+}
+
 /** instancePath → worst severity (error wins over warn). */
 export function ruleMarksFromViolations(violations: RuleViolation[]): Record<string, RuleSeverity> {
   const marks: Record<string, RuleSeverity> = {};

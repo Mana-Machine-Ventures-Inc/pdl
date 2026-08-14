@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { buildBakedDesignComponent } from "../src/bakeDesign.js";
 import {
   companionPreviewFromDesign,
+  evaluateRulesForPreview,
   evaluateRulesOnComponent,
 } from "../src/evaluateRules.js";
 import { loadDesign } from "../src/loadDesign.js";
@@ -75,19 +76,50 @@ describe("evaluateRules", () => {
   });
 });
 
+describe("evaluateRulesForPreview", () => {
+  it("omits isolated-root violations (single-component canvas)", () => {
+    for (const name of ["PvTabBarThin", "PvField", "PvCard"] as const) {
+      const { companions, doc } = bakeNamed(name);
+      const preview = evaluateRulesForPreview(doc.components[name]!, companions.rulesByComponent);
+      expect(preview).toEqual([]);
+    }
+  });
+
+  it("still flags nested instances inside a scene", () => {
+    const { companions, doc } = bakeNamed("PvThinTabBarScene");
+    const preview = evaluateRulesForPreview(
+      doc.components.PvThinTabBarScene!,
+      companions.rulesByComponent,
+    );
+    expect(preview.some((v) => v.component === "PvTabBarThin" && v.message.includes("between 2 and 5"))).toBe(
+      true,
+    );
+  });
+});
+
 describe("renderHtml companions", () => {
-  it("prints usage text and orange/red rule banners", () => {
-    const { companions, doc } = bakeNamed("PvCard");
+  it("prints usage text and orange/red rule banners on a nested card", () => {
+    const { companions, doc } = bakeNamed("PvEmptyCardScene");
     const html = renderBakedDesignToHtmlDocument(doc, {
-      singleComponent: "PvCard",
+      singleComponent: "PvEmptyCardScene",
       usageByComponent: companions.usageByComponent,
       rulesByComponent: companions.rulesByComponent,
     });
-    expect(html).toContain('class="pdl-usage"');
-    expect(html).toContain("A surface for grouped content.");
     expect(html).toContain("pdl-rule--warn");
     expect(html).toContain("A card should contain at least one nested instance.");
     expect(html).toContain('data-pdl-rule="warn"');
+  });
+
+  it("does not banner isolated-root rules in single-component preview", () => {
+    const { companions, doc } = bakeNamed("PvTabBarThin");
+    const html = renderBakedDesignToHtmlDocument(doc, {
+      singleComponent: "PvTabBarThin",
+      usageByComponent: companions.usageByComponent,
+      rulesByComponent: companions.rulesByComponent,
+    });
+    expect(html).toContain('data-pdl-component="PvTabBarThin"');
+    expect(html).not.toContain("data-pdl-rules=");
+    expect(html).not.toContain("between 2 and 5");
   });
 
   it("outlines nested instances that break a must rule", () => {
@@ -120,5 +152,6 @@ describe("playground usage-rules pack", () => {
     expect(html).toContain("Only one primary button in this layout.");
     expect(html).toContain("A field must have a label sibling before it.");
     expect(html).toContain("A card should contain at least one nested instance.");
+    expect(html).toContain("A tab bar must have between 2 and 5 tabs.");
   });
 });

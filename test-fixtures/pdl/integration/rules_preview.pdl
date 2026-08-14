@@ -120,6 +120,18 @@ rules PvCard {
     description: "A card should contain at least one nested instance.")
 }
 
+component PvEmptyCardScene() layout {
+  direction = .column
+  let card = PvCard()
+  children = [card]
+}
+
+component PvThinTabBarScene() layout {
+  direction = .column
+  let bar = PvTabBarThin()
+  children = [bar]
+}
+
 component PvLastBar() layout {
   direction = .column
   let bar = PvTabBar()

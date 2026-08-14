@@ -217,6 +217,18 @@ usage EmptyCardScene {
   description = "Wraps an empty LabCard. Expect an orange should warning on the card."
 }
 
+component ThinTabBarScene() layout {
+  direction = .column
+  padding = 16
+  width = 280
+  let bar = LabTabBarThin()
+  children = [bar]
+}
+
+usage ThinTabBarScene {
+  description = "Wraps a one-tab bar. Expect a red must warning — a tab bar must have between 2 and 5 tabs."
+}
+
 component TabBarNotLast() layout {
   direction = .column
   gap = 12
@@ -245,8 +257,9 @@ component UsageRulesLab() layout {
   let labeled = LabeledFieldRow()
   let unlabeled = UnlabeledFieldRow()
   let empty = EmptyCardScene()
+  let thin = ThinTabBarScene()
   let tabs = TabBarNotLast()
-  children = [ok, bad, labeled, unlabeled, empty, tabs]
+  children = [ok, bad, labeled, unlabeled, empty, thin, tabs]
 }
 
 usage UsageRulesLab {

@@ -2,7 +2,7 @@ import type { ComponentCatalogue } from "./catalogue.js";
 import type { BakedDesignDocument } from "./bakeDesign.js";
 import {
   companionPreviewFromCatalogue,
-  evaluateRulesOnComponent,
+  evaluateRulesForPreview,
   escapeHtml,
   renderBakedComponentToHtmlFragment,
 } from "./renderHtml.js";
@@ -143,7 +143,7 @@ export function renderCatalogueSystemHtml(
       const usage = row.usage?.trim() ? `<p class="pdl-usage">${escapeHtml(row.usage)}</p>` : "";
       const bakedRow = baked.components[name];
       const violations = bakedRow
-        ? evaluateRulesOnComponent(bakedRow, companions.rulesByComponent)
+        ? evaluateRulesForPreview(bakedRow, companions.rulesByComponent)
         : [];
       const rulesHtml = violations.length
         ? `<ul class="pdl-rule-list">${violations

@@ -203,6 +203,22 @@ function serialiseInteractionDecl(
   };
 }
 
+/** Catalogue interaction decls (including evaluated `motion`) keyed by component. */
+export function interactionsByComponentFromDesign(
+  design: DesignDefinition,
+  tokenMap?: Map<string, unknown>,
+): Record<string, unknown[]> {
+  const tokens = tokenMap ?? buildResolvedTokenMap(design);
+  const out: Record<string, unknown[]> = {};
+  for (const [name, imap] of design.interactions.entries()) {
+    if (!imap.size) continue;
+    out[name] = [...imap.values()]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((d) => serialiseInteractionDecl(d, design, tokens) as unknown);
+  }
+  return out;
+}
+
 /**
  * Ordered **child-embedding** patch: replace **`frameId`**’s visible child list with **`children`** (frame ids).
  * Semantics: **move** — each id in **`children`** is removed from any other parent’s list before assignment.

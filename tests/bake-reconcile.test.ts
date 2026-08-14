@@ -115,6 +115,31 @@ describe("patchFrameProps", () => {
     const over = Array.from(el.querySelectorAll(":scope > .pdl-layer-band")).pop()!;
     expect(over.innerHTML).toContain("blur(48px)");
   });
+
+  it("keeps the solid fill node and defers color when data-pdl-transition is armed", async () => {
+    const prev: BakedFrame = {
+      id: "Chip",
+      kind: "layout",
+      props: { background: "#2563EB", width: 80, height: 32 },
+      children: [],
+    };
+    const next: BakedFrame = {
+      ...prev,
+      props: { ...prev.props, background: "#1D4ED8" },
+    };
+    document.body.innerHTML = renderFrameForReconcile(prev, { stackChild: false, stackZ: 0 });
+    const el = document.body.firstElementChild!;
+    el.setAttribute("data-pdl-transition", "background-color 200ms ease-out");
+    const band = el.querySelector(":scope > .pdl-layer-band")!;
+    const solid = band.querySelector(":scope > div")!;
+    expect(patchFrameProps(el, prev, next)).toBe("patched");
+    expect(el.querySelector(":scope > .pdl-layer-band")).toBe(band);
+    expect(solid.getAttribute("style") ?? "").toContain("#2563EB");
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve());
+    });
+    expect(solid.getAttribute("style") ?? "").toContain("#1D4ED8");
+  });
 });
 
 describe("reconcileBakedComponentIntoCanvas NoteEditor-shaped", () => {

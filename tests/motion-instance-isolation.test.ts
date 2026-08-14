@@ -1,0 +1,78 @@
+/**
+ * @vitest-environment happy-dom
+ *
+ * Hover chrome must stay on the preview section that received the pointer —
+ * not rebake the component type (that would paint every gallery instance).
+ */
+import { Window } from "happy-dom";
+import { describe, expect, it } from "vitest";
+import { resolve } from "node:path";
+import { buildBakedDesignComponent } from "../src/bakeDesign.js";
+import { buildComponentCatalogue } from "../src/catalogue.js";
+import { loadDesign } from "../src/loadDesign.js";
+import { renderBakedDesignToHtmlDocumentWithReport } from "../src/renderHtml.js";
+
+const fx = (...p: string[]) => resolve(process.cwd(), "test-fixtures/pdl", ...p);
+
+async function mountMotionHoverChip() {
+  const design = loadDesign(fx("lab/motion/design.pdl"));
+  const cat = buildComponentCatalogue(design);
+  const interactionsByComponent: Record<string, unknown> = {};
+  for (const [name, row] of Object.entries(cat.components)) {
+    if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
+  }
+  const doc = buildBakedDesignComponent(design, { componentName: "MotionHoverChip" });
+  const { html } = renderBakedDesignToHtmlDocumentWithReport(doc, {
+    singleComponent: "MotionHoverChip",
+    interactionsByComponent,
+    interactiveHost: true,
+  });
+  const window = new Window({ url: "http://localhost/" });
+  const document = window.document;
+  document.write(html);
+  document.close();
+  const messages: object[] = [];
+  window.parent = {
+    postMessage(payload: object) {
+      messages.push(payload);
+    },
+  } as never;
+  for (const s of [...document.querySelectorAll("script")]) {
+    window.eval(s.textContent || "");
+  }
+  await new Promise((r) => setTimeout(r, 20));
+  return { document, messages };
+}
+
+describe("motion hover isolation", () => {
+  it("standalone HoverChip hover resolves that section only", async () => {
+    const { document, messages } = await mountMotionHoverChip();
+    const section = document.querySelector('section.pdl-preview[data-pdl-component="MotionHoverChip"]')!;
+    expect(section).toBeTruthy();
+    section.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 20));
+
+    const resolveMsgs = messages.filter(
+      (m) => (m as { type?: string }).type === "pdl-resolve-instance",
+    ) as Array<{
+      childComponent?: string;
+      instanceLet?: string;
+      component?: string;
+      reason?: string;
+      childParams?: Record<string, unknown>;
+    }>;
+    const hover = resolveMsgs.find((m) => m.reason === "hoverStart");
+    expect(hover).toBeTruthy();
+    expect(hover?.component).toBe("MotionHoverChip");
+    expect(hover?.childComponent).toBe("MotionHoverChip");
+    expect(hover?.instanceLet ?? "").toBe("");
+    expect(String(hover?.childParams?.interactionState ?? "")).toMatch(/hovered/);
+
+    const ix = messages.find(
+      (m) =>
+        (m as { type?: string }).type === "pdl-interaction" &&
+        (m as { event?: string }).event === "hoverStart",
+    ) as { previewHandled?: boolean } | undefined;
+    expect(ix?.previewHandled).toBe(true);
+  });
+});

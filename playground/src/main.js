@@ -2525,17 +2525,30 @@ async function bakeChildComponentForResolve(childComponent, childParams) {
  * @param {object} data
  * @param {number} token
  */
+function instanceResolveKey(data) {
+  const owner = typeof data.component === "string" ? data.component : "";
+  const instanceLet = typeof data.instanceLet === "string" ? data.instanceLet : "";
+  const child = typeof data.childComponent === "string" ? data.childComponent : "";
+  return instanceLet ? `${owner}::${instanceLet}` : `${owner}::__root__::${child}`;
+}
+
+function previewSection(doc, owner) {
+  if (!owner) return null;
+  return doc.querySelector(`section.pdl-preview[data-pdl-component="${CSS.escape(owner)}"]`);
+}
+
 async function applyInstanceResolve(data, token) {
   const doc = frame.contentDocument;
   if (!doc || !previewDocumentLive) return;
+  const owner = typeof data.component === "string" ? data.component : "";
   const instanceLet = typeof data.instanceLet === "string" ? data.instanceLet : "";
   const childComponent = typeof data.childComponent === "string" ? data.childComponent : "";
   const childParams =
     data.childParams && typeof data.childParams === "object" && !Array.isArray(data.childParams)
       ? /** @type {Record<string, unknown>} */ (data.childParams)
       : {};
-  if (!instanceLet || !childComponent) return;
-  const key = instanceLet;
+  if (!childComponent) return;
+  const key = instanceResolveKey(data);
   if (instanceResolveToken.get(key) !== token) return;
 
   const baked = await bakeChildComponentForResolve(childComponent, childParams);
@@ -2546,7 +2559,51 @@ async function applyInstanceResolve(data, token) {
     return;
   }
 
-  const node = doc.querySelector(`[data-pdl-instance-let="${CSS.escape(instanceLet)}"]`);
+  const section = previewSection(doc, owner);
+
+  // Root chrome of one gallery card (e.g. standalone MotionHoverChip).
+  if (!instanceLet) {
+    if (!section) return;
+    const canvas =
+      section.querySelector(".pdl-state:not([hidden]) .pdl-canvas") ||
+      section.querySelector(".pdl-canvas");
+    if (!canvas) return;
+    const prevComp = lastBakedDesign?.components?.[owner] ?? null;
+    const nextComp = {
+      ...(prevComp && typeof prevComp === "object" ? prevComp : { name: owner }),
+      name: owner,
+      root: baked.root,
+      bakedParams: baked.bakedParams ?? childParams,
+    };
+    const ok = reconcileBakedComponentIntoCanvas(canvas, prevComp, nextComp, {
+      sessionParams: childParams,
+      prevSessionParams:
+        prevComp?.bakedParams && typeof prevComp.bakedParams === "object"
+          ? { ...prevComp.bakedParams }
+          : undefined,
+    });
+    if (!ok) return;
+    if (lastBakedDesign?.components) lastBakedDesign.components[owner] = nextComp;
+    const paramsEl = section.querySelector(".pdl-preview-params");
+    if (paramsEl && nextComp.bakedParams) {
+      const compact = JSON.stringify(nextComp.bakedParams);
+      const pretty = JSON.stringify(nextComp.bakedParams, null, 2);
+      paramsEl.setAttribute("data-json", compact);
+      const line = paramsEl.querySelector(".pdl-preview-params-line");
+      const full = paramsEl.querySelector(".pdl-preview-params-full");
+      if (line) line.textContent = compact;
+      if (full) full.textContent = pretty;
+    }
+    const reason = typeof data.reason === "string" ? data.reason : "";
+    setStatus(
+      `Instance resolve · ${childComponent}#${owner}${reason ? ` · ${reason}` : ""}`,
+    );
+    return;
+  }
+
+  const node = (section || doc).querySelector(
+    `[data-pdl-instance-let="${CSS.escape(instanceLet)}"]`,
+  );
   if (!node) return;
 
   /** @type {object | null} */
@@ -2596,10 +2653,7 @@ async function applyInstanceResolve(data, token) {
  * @param {object} data
  */
 function queueInstanceResolve(data) {
-  const key =
-    (typeof data.instanceLet === "string" && data.instanceLet) ||
-    (typeof data.childComponent === "string" && data.childComponent) ||
-    "_";
+  const key = instanceResolveKey(data);
   const token = (instanceResolveToken.get(key) || 0) + 1;
   instanceResolveToken.set(key, token);
   const prev = instanceResolveTail.get(key) || Promise.resolve();
@@ -3456,6 +3510,12 @@ window.addEventListener("message", (ev) => {
   if (data.type === "pdl-interaction") {
     const evName = typeof data.event === "string" ? data.event : "";
     const comp = typeof data.component === "string" ? data.component : "";
+    const chromeEvent =
+      evName === "hoverStart" ||
+      evName === "hoverEnd" ||
+      evName === "pressStart" ||
+      evName === "pressEnd" ||
+      evName === "pressCancel";
     if (evName) {
       const emitBit =
         Array.isArray(data.emits) && data.emits.length
@@ -3465,20 +3525,21 @@ window.addEventListener("message", (ev) => {
       setStatus(`Interaction · ${comp}${childBit} · ${evName}${emitBit}`);
     }
     if (data.params && typeof data.params === "object" && !Array.isArray(data.params)) {
-      primaryComponent = comp || primaryComponent;
-      preferredComponent = primaryComponent;
-      // Own the bag under the emitting/capturing component only (e.g. LibrarySubnav),
-      // filtered to its declared scalar params — never FilterChip / canvas-first.
-      // PlaylistComposer: mood branches mount `samples Tracks` at bake — no host catalog.
-      setKvForComponent(
-        primaryComponent,
-        /** @type {Record<string, unknown>} */ (data.params),
-      );
-      if (primaryComponent) delete activeFixtureByComponent[primaryComponent];
-      refreshControlsUi();
-      // Rebake when emit capture changed parent SoT. Nested chrome uses
-      // pdl-resolve-instance (previewHandled) and does not rebake the parent.
-      if (data.previewHandled !== true && data.changed) {
+      // Pointer chrome is per mount. Writing it into the type-level KV bag
+      // rebakes every gallery instance of that component.
+      if (!chromeEvent) {
+        primaryComponent = comp || primaryComponent;
+        preferredComponent = primaryComponent;
+        setKvForComponent(
+          primaryComponent,
+          /** @type {Record<string, unknown>} */ (data.params),
+        );
+        if (primaryComponent) delete activeFixtureByComponent[primaryComponent];
+        refreshControlsUi();
+      }
+      // Rebake when emit capture changed parent SoT. Nested / implicit chrome
+      // uses pdl-resolve-instance (previewHandled) and does not rebake the type.
+      if (data.previewHandled !== true && data.changed && !chromeEvent) {
         scheduleDebouncedRender(0, { incremental: true, ownerOnly: true });
       }
     }

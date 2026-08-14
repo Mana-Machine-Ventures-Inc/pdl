@@ -20,7 +20,9 @@ export function loadWasmBake() {
   if (!wasmPromise) {
     wasmPromise = (async () => {
       try {
-        const mod = await import("/wasm/pdl_wasm.js");
+        // Query bust + vite-ignore: language changes live in pdl_wasm_bg.wasm;
+        // a static import keeps the previous module (and the old "not implemented" stub).
+        const mod = await import(/* @vite-ignore */ `/wasm/pdl_wasm.js?v=${Date.now()}`);
         await mod.default();
         return {
           analyze_sources: mod.analyze_sources,

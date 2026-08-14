@@ -240,6 +240,7 @@ const toolchainPromise = loadToolchain().then(async (m) => {
   const graph = await import(pathToFileURL(join(DIST, "graph.js")).href);
   const evaluate = await import(pathToFileURL(join(DIST, "evaluate.js")).href);
   const companions = await import(pathToFileURL(join(DIST, "evaluateRules.js")).href);
+  const catalogue = await import(pathToFileURL(join(DIST, "catalogue.js")).href);
   return {
     loadDesign: m.loadDesign,
     ...bake,
@@ -250,6 +251,7 @@ const toolchainPromise = loadToolchain().then(async (m) => {
     companionPreviewFromDesign: companions.companionPreviewFromDesign,
     companionPreviewFromCatalogue: companions.companionPreviewFromCatalogue,
     mergeCompanionPreview: companions.mergeCompanionPreview,
+    interactionsByComponentFromDesign: catalogue.interactionsByComponentFromDesign,
   };
 });
 
@@ -617,32 +619,50 @@ function buildDesignSummary(design, serialiseValueExpr, workspaceRoot, tokenMap)
   };
 }
 
-function enrichLoadPayload(design, serialiseValueExpr, evaluateValue, buildResolvedTokenMap, workspaceRoot) {
+function enrichLoadPayload(
+  design,
+  serialiseValueExpr,
+  evaluateValue,
+  buildResolvedTokenMap,
+  workspaceRoot,
+  interactionsByComponentFromDesign,
+) {
   const tokenMap = buildResolvedTokenMap(design);
   const designSummary = buildDesignSummary(design, serialiseValueExpr, workspaceRoot, tokenMap);
   const controls = buildFixturesAndParams(design, evaluateValue, tokenMap);
-  /** @type {Record<string, unknown>} */
-  const interactionsByComponent = {};
-  for (const [compName, imap] of design.interactions.entries()) {
-    const list = [];
-    for (const [, decl] of imap.entries()) {
-      list.push({
-        name: decl.name,
-        handlers: (decl.handlers ?? []).map((h) => ({
-          event: h.event,
-          body: h.body,
-        })),
-      });
-    }
-    if (list.length) interactionsByComponent[compName] = list;
-  }
   return {
     ok: true,
     ...designMeta(design),
     designSummary,
     ...controls,
-    interactionsByComponent,
+    interactionsByComponent: interactionsByComponentFromDesign
+      ? interactionsByComponentFromDesign(design, tokenMap)
+      : {},
   };
+}
+
+/** Rust wins handler lists; keep TS `motion` when a stale rust catalogue omitted it. */
+function mergeInteractionsPreferMotion(tsIx, rustIx) {
+  const out = { ...(tsIx ?? {}), ...(rustIx ?? {}) };
+  for (const [name, rustList] of Object.entries(rustIx ?? {})) {
+    const tsList = tsIx?.[name];
+    if (!Array.isArray(rustList) || !Array.isArray(tsList)) continue;
+    out[name] = rustList.map((rd) => {
+      if (!rd || typeof rd !== "object") return rd;
+      const td = tsList.find((x) => x && x.name === rd.name) ?? tsList[0];
+      const rustHandlers = Array.isArray(rd.handlers) ? rd.handlers : [];
+      const tsHandlers = Array.isArray(td?.handlers) ? td.handlers : [];
+      return {
+        ...rd,
+        handlers: rustHandlers.map((rh) => {
+          if (rh?.motion && (rh.motion.from || rh.motion.to || rh.motion.transition)) return rh;
+          const th = tsHandlers.find((h) => h && h.event === rh?.event);
+          return th?.motion ? { ...rh, motion: th.motion } : rh;
+        }),
+      };
+    });
+  }
+  return out;
 }
 
 function formatErr(err) {
@@ -776,6 +796,7 @@ async function enrichDesignAt(entryAbs, summaryRoot) {
     buildResolvedTokenMap,
     companionPreviewFromDesign,
     mergeCompanionPreview,
+    interactionsByComponentFromDesign,
   } = await toolchainPromise;
   /** @type {ReturnType<typeof enrichFromRustCatalogue> | null} */
   let rustEnrich = null;
@@ -792,6 +813,7 @@ async function enrichDesignAt(entryAbs, summaryRoot) {
       evaluateValue,
       buildResolvedTokenMap,
       summaryRoot,
+      interactionsByComponentFromDesign,
     );
     const tsCompanions = companionPreviewFromDesign(design);
     const rustCompanions = rustEnrich
@@ -812,10 +834,10 @@ async function enrichDesignAt(entryAbs, summaryRoot) {
     return {
       ...withCompanions,
       // Rust wins for host/emit metadata (ForEach captures, host handlers).
-      interactionsByComponent: {
-        ...(tsPayload.interactionsByComponent ?? {}),
-        ...(rustEnrich.interactionsByComponent ?? {}),
-      },
+      interactionsByComponent: mergeInteractionsPreferMotion(
+        tsPayload.interactionsByComponent,
+        rustEnrich.interactionsByComponent,
+      ),
       emitCapturesByComponent: {
         ...(tsPayload.emitCapturesByComponent ?? {}),
         ...(rustEnrich.emitCapturesByComponent ?? {}),

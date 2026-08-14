@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildBakedDesignComponent } from "../src/bakeDesign.js";
-import { buildComponentCatalogue } from "../src/catalogue.js";
+import { buildComponentCatalogue, interactionsByComponentFromDesign } from "../src/catalogue.js";
 import { loadDesign } from "../src/loadDesign.js";
 import { renderBakedDesignToHtmlDocument } from "../src/renderHtml.js";
 
@@ -49,6 +49,40 @@ describe("HTML preview motion", () => {
     expect(html).toContain("Replay motion");
     expect(html).toContain("playMotionTree");
     expect(html).toContain("applyImplicitTransition");
+    expect(html).toContain("motionFromHandler");
     expect(html).toContain('"from":{"opacity":0');
+  });
+
+  it("playground enrich payload includes evaluated motion", () => {
+    const design = loadDesign(fx("lab/motion/design.pdl"));
+    const ix = interactionsByComponentFromDesign(design);
+    const appear = (
+      ix.MotionModal as Array<{ handlers: Array<{ event: string; motion?: { from?: unknown } }> }>
+    )[0]!.handlers.find((h) => h.event === "appear");
+    expect(appear?.motion?.from).toEqual({ opacity: 0, scale: 0.95, translateY: 8 });
+  });
+
+  it("HTML host still plays appear when catalogue omitted the motion key", () => {
+    const design = loadDesign(fx("lab/motion/design.pdl"));
+    const cat = buildComponentCatalogue(design);
+    const interactionsByComponent: Record<string, unknown> = {};
+    for (const [name, row] of Object.entries(cat.components)) {
+      if (!row.interactions?.length) continue;
+      interactionsByComponent[name] = (row.interactions as Array<{ handlers: Array<Record<string, unknown>> }>).map(
+        (d) => ({
+          ...d,
+          handlers: d.handlers.map(({ motion: _m, ...h }) => h),
+        }),
+      );
+    }
+    const doc = buildBakedDesignComponent(design, { componentName: "MotionModal" });
+    const html = renderBakedDesignToHtmlDocument(doc, {
+      singleComponent: "MotionModal",
+      interactionsByComponent,
+      interactiveHost: true,
+    });
+    expect(html).toContain("Replay motion");
+    expect(html).toContain('"kind":"from"');
+    expect(html).toContain("motionFromHandler");
   });
 });

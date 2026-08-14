@@ -8,6 +8,7 @@ import type { BakedComponentJson, BakedDesignDocument, BakedFrame } from "./bake
 import {
   companionPreviewFromCatalogue,
   companionPreviewFromDesign,
+  evaluateRulesForPreview,
   evaluateRulesOnComponent,
   ruleMarksFromViolations,
   type CompanionPreview,
@@ -19,6 +20,7 @@ import {
 export {
   companionPreviewFromCatalogue,
   companionPreviewFromDesign,
+  evaluateRulesForPreview,
   evaluateRulesOnComponent,
   type CompanionPreview,
   type RuleViolation,
@@ -1553,7 +1555,24 @@ export function patchFrameProps(
       pendingTransition && pendingTransition !== "none"
         ? mergeInlineStyles(style, `transition:${pendingTransition}`, "transform-origin:center")
         : style;
-    el.setAttribute("style", withMotion);
+    // Transition + paint props in one `style` write do not interpolate. Arm
+    // `transition` on the current look, then apply the bake on the next frame.
+    if (pendingTransition && pendingTransition !== "none") {
+      const cur = el.getAttribute("style") ?? "";
+      if (!/(?:^|;)\s*transition\s*:/.test(cur)) {
+        el.setAttribute(
+          "style",
+          mergeInlineStyles(cur, `transition:${pendingTransition}`, "transform-origin:center"),
+        );
+      }
+      const target = el;
+      requestAnimationFrame(() => {
+        if (!target.isConnected) return;
+        target.setAttribute("style", withMotion);
+      });
+    } else {
+      el.setAttribute("style", withMotion);
+    }
   }
 
   const nextProps = (next.props ?? {}) as Record<string, unknown>;
@@ -1632,7 +1651,10 @@ export function patchFrameProps(
       !deepEqualJson(prevProps.background, nextProps.background) ||
       !deepEqualJson(prevProps.foreground, nextProps.foreground)
     ) {
-      syncLayerBands(el, nextProps);
+      const fgChanged = !deepEqualJson(prevProps.foreground, nextProps.foreground);
+      if (fgChanged || !tryPatchSolidLayerBackground(el, nextProps)) {
+        syncLayerBands(el, nextProps);
+      }
     }
     if (next.kind === "layout" && layoutLayerBandsActive(nextProps)) {
       const content = el.querySelector(":scope > .pdl-layout__content");
@@ -1661,6 +1683,39 @@ export function patchFrameProps(
  * Replace `.pdl-layer-band` under/over chrome without remounting children / media.
  * Order: under band → content/inner → over band → optional inside border.
  */
+/** In-place solid fill so `data-pdl-transition` can interpolate hover colors. */
+function tryPatchSolidLayerBackground(el: Element, props: Record<string, unknown>): boolean {
+  const nextOps = flattenLayerOps(props.background);
+  if (nextOps.length !== 1 || nextOps[0]!.kind !== "solid") return false;
+  const band = el.querySelector(":scope > .pdl-layer-band");
+  const solid = band?.querySelector(":scope > div");
+  if (!band || !solid) return false;
+  const color = nextOps[0]!.color;
+  const pending = el.getAttribute("data-pdl-transition");
+  const apply = () => {
+    const st = ["position:absolute", "inset:0", "z-index:1", `background:${color}`];
+    if (pending && pending !== "none") {
+      st.push(`transition:${pending}`, "transform-origin:center");
+    }
+    solid.setAttribute("style", st.join(";"));
+  };
+  if (pending && pending !== "none") {
+    const cur = solid.getAttribute("style") ?? "";
+    if (!/(?:^|;)\s*transition\s*:/.test(cur)) {
+      solid.setAttribute(
+        "style",
+        mergeInlineStyles(cur, `transition:${pending}`, "transform-origin:center"),
+      );
+    }
+    requestAnimationFrame(() => {
+      if (solid.isConnected) apply();
+    });
+  } else {
+    apply();
+  }
+  return true;
+}
+
 function syncLayerBands(el: Element, props: Record<string, unknown>): void {
   const doc = el.ownerDocument;
   if (!doc) return;
@@ -2588,7 +2643,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       const comp = doc.components[name]!;
       const paramsBlock = renderParamsBlock(comp.bakedParams ?? {});
       try {
-        const violations = evaluateRulesOnComponent(comp, rulesByComponent);
+        const violations = evaluateRulesForPreview(comp, rulesByComponent);
         const ruleMarks = ruleMarksFromViolations(violations);
         const sectionInstCtx: InstanceRenderCtx | undefined =
           instCtx || Object.keys(ruleMarks).length > 0
@@ -2779,11 +2834,48 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     });
     return map;
   }
+  function numberish(v) {
+    if (typeof v === 'number' && isFinite(v)) return v;
+    if (v && typeof v === 'object') {
+      if (typeof v.value === 'number' && isFinite(v.value)) return v.value;
+    }
+    return undefined;
+  }
+  function snapshotFromProps(props) {
+    var snap = {};
+    if (!props || typeof props !== 'object') return snap;
+    ['opacity','scale','scaleX','scaleY','translateX','translateY','blur'].forEach(function(k){
+      var n = numberish(props[k]);
+      if (n != null) snap[k] = n;
+    });
+    return snap;
+  }
+  function motionFromHandler(h) {
+    var m = (h && h.motion && typeof h.motion === 'object') ? Object.assign({}, h.motion) : {};
+    if ((m.from && Object.keys(m.from).length) || (m.to && Object.keys(m.to).length) || m.transition) {
+      return m;
+    }
+    (h && h.body || []).forEach(function(item){
+      if (!item || typeof item !== 'object') return;
+      if (item.kind === 'from') m.from = snapshotFromProps(item.props);
+      else if (item.kind === 'to') m.to = snapshotFromProps(item.props);
+      else if (item.kind === 'stagger') m.stagger = item.ms;
+      else if (item.kind === 'staggerFrom') m.staggerFrom = item.value;
+      else if (item.kind === 'animate') {
+        var v = item.value || {};
+        var dur = numberish(v.duration);
+        var delay = numberish(v.delay);
+        var easing = typeof v.easing === 'string' ? v.easing : (v.easing && v.easing.value);
+        if (dur != null) m.transition = { duration: dur, easing: easing || 'linear', delay: delay || 0 };
+      }
+    });
+    return m;
+  }
   function motionByEvent(decls) {
     var map = {};
     (decls || []).forEach(function(d){
       (d.handlers || []).forEach(function(h){
-        if (h && h.event) map[h.event] = h.motion || {};
+        if (h && h.event) map[h.event] = motionFromHandler(h);
       });
     });
     return map;
@@ -2827,13 +2919,20 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       el.style.transformOrigin = 'center';
     } catch (e) {}
   }
+  function isMotionChild(c) {
+    if (!c || c.nodeType !== 1) return false;
+    if (c.hidden || c.getAttribute('hidden') != null) return false;
+    if (c.classList && (c.classList.contains('pdl-border-inside') || c.classList.contains('pdl-layer-band'))) return false;
+    return (c.classList && (c.classList.contains('pdl-frame') || c.classList.contains('pdl-instance'))) ||
+      c.hasAttribute('data-pdl-instance-of');
+  }
   function directMotionChildren(el) {
     var out = [];
-    if (!el || !el.children) return out;
-    for (var i = 0; i < el.children.length; i++) {
-      var c = el.children[i];
-      if (c.hidden || c.getAttribute('hidden') != null) continue;
-      if (c.classList && (c.classList.contains('pdl-frame') || c.classList.contains('pdl-instance'))) out.push(c);
+    if (!el) return out;
+    var parent = (el.querySelector && el.querySelector(':scope > .pdl-layout__content')) || el;
+    if (!parent || !parent.children) return out;
+    for (var i = 0; i < parent.children.length; i++) {
+      if (isMotionChild(parent.children[i])) out.push(parent.children[i]);
     }
     return out;
   }
@@ -2845,12 +2944,12 @@ export function renderBakedDesignToHtmlDocumentWithReport(
   }
   function playMotionOnEl(el, spec, mode) {
     if (!el || !spec || typeof el.animate !== 'function') return null;
-    var rest = 1;
     try {
-      var cs = window.getComputedStyle(el);
-      var o = parseFloat(cs.opacity);
-      if (!isNaN(o)) rest = o;
+      if (el.getAnimations) el.getAnimations().forEach(function(x){ x.cancel(); });
     } catch (e) {}
+    // Rest pose is identity, not the current overlay (dismiss fill would make
+    // appear tween back to opacity 0).
+    var rest = 1;
     var ident = identitySnap(rest);
     var from = ident;
     var to = ident;
@@ -2869,9 +2968,6 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     var delay = reduced ? 0 : (t.delay || 0);
     var a = snapshotCss(from, rest);
     var b = snapshotCss(to, rest);
-    try {
-      if (el.getAnimations) el.getAnimations().forEach(function(x){ x.cancel(); });
-    } catch (e) {}
     return el.animate(
       [{ transform: a.transform, opacity: a.opacity, filter: a.filter }, { transform: b.transform, opacity: b.opacity, filter: b.filter }],
       { duration: duration, easing: t.easing || 'linear', delay: delay, fill: 'forwards' }
@@ -2879,10 +2975,10 @@ export function renderBakedDesignToHtmlDocumentWithReport(
   }
   function playMotionTree(el, spec, mode) {
     if (!el || !spec) return null;
-    var last = playMotionOnEl(el, spec, mode);
     var step = spec.stagger || 0;
-    if (step > 0) {
-      var kids = directMotionChildren(el);
+    var kids = step > 0 ? directMotionChildren(el) : [];
+    if (step > 0 && kids.length) {
+      var last = null;
       var n = kids.length;
       for (var i = 0; i < n; i++) {
         var idx = spec.staggerFrom === 'last' ? n - 1 - i : i;
@@ -2893,8 +2989,9 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         });
         last = playMotionOnEl(kids[i], childSpec, mode) || last;
       }
+      return last;
     }
-    return last;
+    return playMotionOnEl(el, spec, mode);
   }
   function runBody(body, params, emits) {
     var changed = false;
@@ -3234,7 +3331,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         if (!byEvent[event] && !byMotion[event]) return null;
         liveParams = readParams(section);
         var mspec = byMotion[event];
-        if (mspec && mspec.transition && event !== 'appear' && event !== 'dismiss') {
+        var implicit = !!(mspec && mspec.transition && event !== 'appear' && event !== 'dismiss');
+        if (implicit) {
           applyImplicitTransition(motionRootEl(section) || canvas, mspec);
         }
         if (event === 'appear' || event === 'dismiss') {
@@ -3258,9 +3356,21 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             : liveParams.interactionState != null
               ? String(liveParams.interactionState)
               : 'rest';
-        var previewHandled = showState(section, stateKey);
-        // Default paint is data-pdl-state="rest" even when SoT case is idle/…
-        if (!previewHandled) previewHandled = showState(section, 'rest');
+        // Implicit animate = needs an in-place style patch (IR), not a state-tree swap.
+        var previewHandled = implicit ? false : showState(section, stateKey);
+        if (!previewHandled && !implicit) previewHandled = showState(section, 'rest');
+        if (implicit && result.changed) {
+          // Patch this section only — do not rebake the component type (that
+          // would paint every other instance of the same type in the gallery).
+          requestInstanceResolve({
+            component: name,
+            instanceLet: '',
+            childComponent: name,
+            childParams: liveParams,
+            reason: event
+          });
+          previewHandled = true;
+        }
         var needRebake = false;
         if (result.emits && result.emits.length && captures.length) {
           result.emits.forEach(function(em){
@@ -3806,7 +3916,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           }
         }
       });
-      if (byMotion.appear) {
+      if (byMotion.appear && byMotion.appear.from) {
         requestAnimationFrame(function(){
           playMotionTree(motionRootEl(section), byMotion.appear, 'appear');
         });
@@ -3814,7 +3924,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       section.querySelectorAll('[data-pdl-instance-of]').forEach(function(node){
         var nestedType = node.getAttribute('data-pdl-instance-of');
         var nestedMotion = motionByEvent(interactions[nestedType] || []);
-        if (nestedMotion.appear) {
+        if (nestedMotion.appear && nestedMotion.appear.from) {
           requestAnimationFrame(function(){
             playMotionTree(node, nestedMotion.appear, 'appear');
           });
