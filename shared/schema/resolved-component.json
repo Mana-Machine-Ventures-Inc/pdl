@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pdl.dev/schema/resolved-component.json",
+  "title": "PDL resolvedComponent",
+  "description": "One-component graph slice (`pdl graphComponent`). Token graph lives under `system`. Discriminant is schemaKind.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaKind", "schemaVersion", "generatedAt", "entryPath", "primaryComponent", "components", "system"],
+  "properties": {
+    "schemaKind": { "const": "resolvedComponent" },
+    "schemaVersion": { "type": "string", "const": "1.0.0-beta" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "entryPath": { "type": "string" },
+    "primaryComponent": { "type": "string" },
+    "paramOverrides": { "type": "object" },
+    "components": {
+      "type": "object",
+      "additionalProperties": { "$ref": "component-catalogue.json#/$defs/catalogueComponentRow" }
+    },
+    "system": {
+      "type": "object",
+      "properties": {
+        "theme": { "type": "string" },
+        "variantTypes": { "type": "object" },
+        "primitives": { "type": "object" },
+        "semantics": { "type": "object" },
+        "themes": { "type": "object" },
+        "typeStyles": { "type": "object" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pdl.dev/schema/baked-design.json",
+  "title": "PDL bakedDesign",
+  "description": "Literal-tree bake IR. Hosts draw this; they do not re-parse .pdl. Discriminant is schemaKind, not kind.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaKind", "schemaVersion", "generatedAt", "provenance", "components"],
+  "properties": {
+    "schemaKind": { "const": "bakedDesign" },
+    "schemaVersion": { "type": "string", "const": "1.0.0-beta" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "provenance": {
+      "type": "object",
+      "required": ["entryPath", "bakedTheme", "bakeProfile"],
+      "properties": {
+        "entryPath": { "type": "string" },
+        "bakedTheme": { "type": ["string", "null"] },
+        "bakeProfile": {
+          "type": "string",
+          "description": "system-defaults | component-explicit | injection-pack"
+        }
+      }
+    },
+    "previewBackground": {
+      "type": "string",
+      "description": "Resolved CSS color; omitted when unset."
+    },
+    "components": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/bakedComponent" }
+    }
+  },
+  "$defs": {
+    "bakedComponent": {
+      "type": "object",
+      "required": ["name", "rootKind", "root"],
+      "properties": {
+        "name": { "type": "string" },
+        "rootKind": { "type": "string", "enum": ["layout", "text", "icon", "media"] },
+        "bakedParams": { "type": "object" },
+        "root": { "$ref": "#/$defs/bakedFrame" }
+      }
+    },
+    "bakedFrame": {
+      "type": "object",
+      "description": "Literal frame: kind, props, children. No primitive:/semantic: markers.",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "type": "string" },
+        "id": { "type": "string" },
+        "props": { "type": "object" },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/bakedFrame" }
+        },
+        "instanceOf": { "type": "string" },
+        "instanceKwargs": { "type": "object" }
+      }
+    }
+  }
+}

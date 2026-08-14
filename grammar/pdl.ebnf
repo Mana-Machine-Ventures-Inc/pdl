@@ -1,0 +1,546 @@
+(*
+  PDL surface grammar — source of truth. Edit this file; run npm run docs:gen
+  to refresh website/src/generated/grammar.md (unpublished, CI only).
+
+  Conventions:
+    - ' ' — literal string
+    - [ ] — zero or one occurrence (optional)
+    - { } — zero or more occurrences
+    - ( ) — grouping
+    - | — alternation
+    - ; — end of production rule
+    - Terminal tokens are written in UPPERCASE (IDENT, STRING, NUMBER, HEX_COLOR, DOT_ENUM)
+*)
+
+(* 21.1 Top-level *)
+module
+  ::= { top-level-decl } ;
+
+top-level-decl
+  ::= import-decl
+    | preview-background-decl
+    | primitive-decl
+    | semantic-decl
+    | theme-decl
+    | type-style-decl
+    | variant-decl
+    | protocol-decl
+    | component-decl
+    | emits-decl
+    | fixtures-decl
+    | samples-decl
+    | usage-decl
+    | rules-decl
+    | extend-decl
+    ;
+    (* `interaction-decl` removed — host handlers live in the kind body (§8); keyword is PDL-E001 *)
+
+import-decl
+  ::= 'import' STRING ;
+
+preview-background-decl
+  ::= 'previewBackground' IDENT ;
+
+(* 21.2 Tokens *)
+primitive-decl
+  ::= 'primitive' IDENT ':' token-type-name '=' value-expr ;
+
+semantic-decl
+  ::= 'semantic' IDENT ':' token-type-name '=' value-expr ;
+
+token-type-name
+  ::= 'Color' | 'Opacity' | 'Distance' | 'Radius' | 'Shadow'
+    | 'Icon' | 'MediaSource' | 'Ratio' | 'FontFamily' | 'Size'
+    | 'Weight' | 'LineHeight' | 'LetterSpacing' | 'Sizing' | 'Duration'
+    | 'Easing' | 'Transition'
+    | 'Blur' | 'Vibrancy' | 'Ramp' | 'Background' | 'Foreground'
+    ;
+
+(* 21.3 Themes and type styles *)
+theme-decl
+  ::= 'theme' IDENT [ ':' IDENT ] '{' { theme-override } '}' ;
+
+theme-override
+  ::= IDENT '=' value-expr ;
+
+type-style-decl
+  ::= 'typeStyle' IDENT '{' { type-style-prop } '}' ;
+
+type-style-prop
+  ::= IDENT '=' value-expr ;
+
+(* 21.4 Variants *)
+variant-decl
+  ::= ( 'variant' | 'enum' ) IDENT '{' { 'case' IDENT } '}' ;
+
+(* 21.5 Components, protocols, emits, ForEach *)
+(* Note: `ForEach` / emit-capture-handler (with optional typed payload list) are normative grammar (§4e). Rust implements them; other compilers MAY lag with a clear diagnostic. `foreach-chrome` is B6. *)
+protocol-decl
+  ::= 'protocol' IDENT ':' 'component' '{' { protocol-body-item } '}'   (* API *)
+    | 'protocol' IDENT '{' { protocol-body-item } '}' ;                 (* host — body MUST include `host` *)
+
+protocol-body-item
+  ::= 'host'
+    | 'requires' IDENT
+    | protocol-param
+    | protocol-emits-block
+    ;
+
+protocol-param
+  ::= IDENT '=' default-value
+    | IDENT ':' type-name '=' default-value
+    ;
+
+protocol-emits-block
+  ::= 'emits' '{' { emit-sig } '}' ;
+
+emit-sig
+  ::= IDENT [ '(' [ emit-arg { ',' emit-arg } [ ',' ] ] ')' ]
+    ;
+
+emit-arg
+  ::= IDENT ':' type-name
+    ;
+
+emits-decl
+  ::= 'emits' IDENT '{' { emit-sig } '}' ;
+
+component-decl
+  ::= 'component' IDENT [ '<' IDENT '>' ] '(' [ param-list ] ')' frame-kind
+      '{' { component-body-item } '}'
+      [ 'emits' '{' { emit-sig } '}' ]
+    ;
+
+frame-kind
+  ::= 'layout' | 'text' | 'icon' | 'media' ;
+
+param-list
+  ::= param-decl { ',' param-decl } [ ',' ] ;
+
+param-decl
+  ::= IDENT ':' type-name '=' default-value ;
+
+type-name
+  ::= IDENT
+    | '[' IDENT ']'
+    ;
+
+default-value
+  ::= STRING | NUMBER | DOT_ENUM | HEX_COLOR
+    | component-instance
+    | '[' [ default-value { ',' default-value } [ ',' ] ] ']'
+    ;
+
+component-body-item
+  ::= prop-assignment
+    | let-decl
+    | deferred-children-assignment
+    | children-assignment
+    | foreach-stmt
+    | emit-capture-handler
+    | host-handler-assignment
+    | if-chain
+    ;
+
+prop-assignment
+  ::= IDENT '=' value-expr ;
+
+deferred-children-assignment
+  ::= IDENT '.' 'children' '=' children-list ;
+
+let-decl
+  ::= 'let' IDENT '=' frame-ctor                (* World A — normative *)
+    | 'let' IDENT '=' component-instance
+    | 'let' IDENT ':' type-name '=' value-expr  (* typed value let — not a frame *)
+    ;
+    (* Classic `let IDENT ':' frame-kind '=' '{' … '}'` is removed — PDL-E001 *)
+
+frame-ctor
+  ::= ('Text' | 'Layout' | 'Icon' | 'Media') '(' [ kwarg-list ] ')'
+    ;
+
+host-handler-assignment
+  ::= [ 'self' '.' ] IDENT '=' '{' { handler-statement } '}' ;
+    (* ambient / host inbound channel; requires `(…)`-free LHS so emit-capture stays distinct *)
+
+frame-body-item
+  ::= prop-assignment
+    | let-decl
+    | children-assignment
+    | foreach-stmt
+    | emit-capture-handler
+    | if-chain
+    ;
+
+foreach-stmt
+  ::= 'ForEach' '(' IDENT ')' '{' IDENT 'in' { foreach-body-item } '}' ;
+
+foreach-body-item
+  ::= item-override
+    | emit-capture-handler
+    | if-chain          (* same condition grammar as layout; body is foreach-body-item *)
+    | foreach-chrome   (* B6 — deferred *)
+    ;
+
+item-override
+  ::= IDENT '.' IDENT '=' value-expr ;   (* binder.prop — param or root frame prop *)
+
+(* B6 deferred — compilers MAY reject until B6 ships *)
+foreach-chrome
+  ::= 'before' '{' { component-body-item } '}'
+    | 'between' '{' { component-body-item } '}'
+    | 'after' '{' { component-body-item } '}'
+    ;
+
+(* Declared emit capture — handler assignment; not keyword `on` *)
+emit-capture-handler
+  ::= emit-channel [ '(' [ emit-arg { ',' emit-arg } [ ',' ] ] ')' ] '=' '{' { handler-statement } '}' ;
+    (* payload list reuses emit-arg — same shape as emit-sig; names are handler locals *)
+
+emit-channel
+  ::= IDENT
+    | IDENT '.' IDENT
+    ;
+
+if-chain
+  ::= 'if' condition '{' { if-body-item } '}'
+    { 'else' 'if' condition '{' { if-body-item } '}' }
+    [ 'else' '{' { if-body-item } '}' ]
+    ;
+
+if-body-item
+  ::= prop-assignment
+    | frame-prop-assignment
+    | children-assignment
+    | if-chain
+    ;
+
+frame-prop-assignment
+  ::= IDENT '.' IDENT '=' value-expr ;
+
+children-assignment
+  ::= 'children' '=' children-rhs
+    | IDENT '.' 'children' '=' children-rhs
+    ;
+
+children-rhs
+  ::= children-list
+    | IDENT   (* sugar: `children = chips` ≡ `children = [chips]` *)
+    ;
+
+children-list
+  ::= '[' [ child-entry { ',' child-entry } [ ',' ] ] ']' ;
+
+child-entry
+  ::= child-entry-base [ '@' ( NUMBER | IDENT ) ] ;   (* mount opacity — not on Spacer *)
+
+child-entry-base
+  ::= IDENT
+    | 'Spacer' '(' ')'
+    | frame-ctor
+    | component-instance
+    ;
+
+component-instance
+  ::= IDENT '(' [ kwarg-list ] ')' ;   (* IDENT ≠ Spacer when the argument list is empty — that form is the Spacer child constructor *)
+
+kwarg-list
+  ::= kwarg { ',' kwarg } [ ',' ] ;
+
+kwarg
+  ::= IDENT ':' value-expr ;
+
+(* 21.6 Conditions *)
+(* Note: `&&` and `||` MUST NOT be mixed in a single condition expression without explicit parentheses. The parser MUST reject `a && b || c` as ambiguous; authors must write `(a && b) || c` or `a && (b || c)`. Param==param comparisons require compatible types. *)
+condition
+  ::= condition-atom { '&&' condition-atom }
+    | condition-atom { '||' condition-atom }
+    ;
+
+condition-atom
+  ::= IDENT '==' DOT_ENUM
+    | IDENT '!=' DOT_ENUM
+    | IDENT '==' IDENT          (* e.g. selected == filter — same variant type *)
+    | IDENT '!=' IDENT
+    | 'self' '.' IDENT '==' DOT_ENUM
+    | 'self' '.' IDENT '!=' DOT_ENUM
+    | 'self' '.' IDENT '==' IDENT
+    | 'self' '.' IDENT '!=' IDENT
+    | '(' condition ')'
+    ;
+
+(* 21.7 Host handlers & emit fire *)
+(* Top-level `interaction` / layout `on` removed — PDL-E001. Host inbound is host-handler-assignment. *)
+
+event-name
+  ::= 'hoverStart' | 'hoverEnd' | 'pressStart' | 'pressEnd'
+    | 'pressCancel' | 'focusStart' | 'focusEnd' | 'activate'
+    | 'appear' | 'dismiss'
+    | IDENT   (* host-protocol channel names *)
+    ;
+
+handler-statement
+  ::= param-assignment          (* component params only — not FrameId.prop *)
+    | emit-statement
+    | animate-statement
+    | from-block
+    | to-block
+    | stagger-statement
+    | if-chain                  (* conditions over params; still param assigns only *)
+    ;
+
+emit-statement
+  ::= 'emit' IDENT [ '(' [ value-expr { ',' value-expr } [ ',' ] ] ')' ]
+    ;
+
+param-assignment
+  ::= IDENT '=' value-expr
+    | 'self' '.' IDENT '=' value-expr
+    ;
+
+animate-statement
+  ::= 'animate' '=' value-expr ;
+
+from-block
+  ::= 'from' '{' { animatable-prop-assignment } '}' ;
+
+to-block
+  ::= 'to' '{' { animatable-prop-assignment } '}' ;
+
+animatable-prop-assignment
+  ::= IDENT '=' value-expr ;
+
+stagger-statement
+  ::= 'stagger' '=' NUMBER
+    | 'staggerFrom' '=' ( '.first' | '.last' )
+    ;
+
+(* 21.8 Companion blocks and typed samples *)
+fixtures-decl
+  ::= 'fixtures' IDENT '{' { example-decl } '}' ;
+
+example-decl
+  ::= 'example' STRING '{' { fixture-prop } '}' ;
+
+fixture-prop
+  ::= IDENT '=' value-expr ;
+
+(* Typed sample banks — design-global, not keyed by component (§11a) *)
+samples-decl
+  ::= 'samples' IDENT '{' { sample-entry } '}' ;
+
+sample-entry
+  ::= IDENT '{' { sample-field } '}' ;
+
+sample-field
+  ::= IDENT ':' type-name '=' value-expr ;
+
+usage-decl
+  ::= 'usage' IDENT '{' { usage-prop } '}' ;
+
+usage-prop
+  ::= IDENT '=' STRING
+    | IDENT '+=' STRING
+    ;
+
+rules-decl
+  ::= 'rules' IDENT '{' { rules-statement } '}' ;
+
+rules-statement
+  ::= tags-set
+    | tags-add
+    | rule-line
+    | if-chain
+    ;
+
+tags-set
+  ::= 'tags' '=' '[' [ STRING { ',' STRING } [ ',' ] ] ']' ;
+
+tags-add
+  ::= 'tags' '.' 'add' '(' STRING ')' ;
+
+rule-line
+  ::= 'Rule' '(' rule-strength ',' rule-query [ ',' 'description' ':' STRING ] ')' ;
+
+rule-strength
+  ::= '.must' | '.mustNot' | '.should' | '.shouldNot' ;
+
+rule-query
+  ::= rule-navigator { '.' rule-step } ;
+
+rule-navigator
+  ::= 'self' | 'parent' | 'ancestors' | 'descendants' | 'siblings' | 'children' ;
+
+rule-step
+  ::= 'where' '(' 'tag' ':' STRING ')'
+    | 'exists'
+    | 'count'
+    | 'first'
+    | 'last'
+    | 'between' '(' NUMBER ',' NUMBER ')'
+    | 'precedes' '(' 'self' ')'
+    | 'follows' '(' 'self' ')'
+    | 'adjacentTo' '(' 'self' ')'
+    | '>' NUMBER
+    | '>=' NUMBER
+    | '<' NUMBER
+    | '<=' NUMBER
+    | '==' NUMBER
+    | '!=' NUMBER
+    ;
+
+extend-decl
+  ::= 'extend' IDENT '{' { extend-section } '}' ;
+
+extend-section
+  ::= 'fixtures' '{' { example-decl } '}'
+    | 'usage' '{' { usage-prop } '}'
+    | 'rules' '{' { rules-statement } '}'
+    ;
+
+(* 21.9 Value expressions *)
+value-expr
+  ::= HEX_COLOR
+    | STRING
+    | NUMBER
+    | ratio-literal
+    | 'true'
+    | 'false'
+    | DOT_ENUM
+    | qualified-enum-literal
+    | 'self'                      (* enclosing component instance *)
+    | 'self' '.' IDENT            (* enclosing component param *)
+    | IDENT
+    | sizing-literal
+    | edge-insets-literal
+    | corner-literal
+    | shadow-literal
+    | transition-literal
+    | vibrancy-literal
+    | ramp-literal
+    | layer-list
+    | color-with-opacity
+    | layer-constructor
+    ;
+
+(* Aspect-ratio sugar for Ratio tokens / aspectRatio — evaluates to W/H. Height MUST be > 0. *)
+ratio-literal
+  ::= NUMBER ':' NUMBER
+    ;
+
+(* Optional TypeName.case → same as DOT_ENUM `.case`. TypeName is PascalCase:
+   frame-props SoT enums (Direction, Wrap, Align, Justify, …) or a user `variant` name. *)
+qualified-enum-literal
+  ::= IDENT '.' IDENT
+    ;
+
+sizing-literal
+  ::= '.hug'
+    | '.fill'
+    | '.fixed' '(' NUMBER ')'
+    | '.flex' '(' [ flex-arg { ',' flex-arg } ] ')'
+    | '.aspect' '(' aspect-arg ')'
+    | 'Sizing' '.' 'hug'
+    | 'Sizing' '.' 'fill'
+    | 'Sizing' '.' 'fixed' '(' NUMBER ')'
+    | 'Sizing' '.' 'flex' '(' [ flex-arg { ',' flex-arg } ] ')'
+    | 'Sizing' '.' 'aspect' '(' aspect-arg ')'
+
+aspect-arg
+  ::= NUMBER
+    | NUMBER ':' NUMBER
+    | IDENT
+    ;
+
+flex-arg
+  ::= ( 'min' | 'max' | 'preferred' ) ':' ( NUMBER | IDENT ) ;
+
+edge-insets-literal
+  ::= 'EdgeInsets' '(' edge-insets-args ')' ;
+
+edge-insets-args
+  ::= 'x' ':' number-or-token ',' 'y' ':' number-or-token
+    | 'top' ':' number-or-token ',' 'right' ':' number-or-token
+      ',' 'bottom' ':' number-or-token ',' 'left' ':' number-or-token
+    ;
+
+corner-literal
+  ::= 'Corner' '(' 'tl' ':' number-or-token ',' 'tr' ':' number-or-token
+      ',' 'br' ':' number-or-token ',' 'bl' ':' number-or-token ')' ;
+
+shadow-literal
+  ::= 'Shadow' '(' shadow-arg { ',' shadow-arg } [ ',' ] ')' ;
+
+shadow-arg
+  ::= 'x' ':' number-or-token
+    | 'y' ':' number-or-token
+    | 'blurRadius' ':' number-or-token
+    | 'spread' ':' number-or-token
+    | 'color' ':' color-value
+    ;
+
+color-value
+  ::= HEX_COLOR | IDENT | color-with-opacity ;
+
+number-or-token
+  ::= NUMBER | IDENT ;
+
+transition-literal
+  ::= '(' 'duration' ':' value-expr ',' 'easing' ':' value-expr
+      [ ',' 'delay' ':' value-expr ] ')' ;
+
+vibrancy-literal
+  ::= 'Vibrancy' '(' 'saturation' ':' NUMBER ',' 'brightness' ':' NUMBER ')' ;
+
+ramp-literal
+  ::= '(' 'direction' ':' DOT_ENUM ',' 'stops' ':' '[' gradient-stop-list ']' ')' ;
+
+gradient-stop-list
+  ::= gradient-stop { ',' gradient-stop } [ ',' ] ;
+
+gradient-stop
+  ::= 'GradientStop' '(' gradient-stop-args ')' ;
+
+gradient-stop-args
+  ::= gradient-stop-arg { ',' gradient-stop-arg } ;
+
+gradient-stop-arg
+  ::= 'position' ':' NUMBER
+    | 'opacity' ':' ( NUMBER | IDENT )
+    | 'color' ':' ( HEX_COLOR | IDENT )
+    ;
+
+layer-list
+  ::= '[' [ layer-entry { ',' layer-entry } [ ',' ] ] ']' ;
+
+layer-entry
+  ::= layer-constructor
+    | color-with-opacity
+    | IDENT
+    | HEX_COLOR
+    ;
+
+layer-constructor
+  ::= 'Color' '(' 'color' ':' ( HEX_COLOR | IDENT ) ')'
+    | 'Ramp' '(' 'direction' ':' DOT_ENUM ',' 'stops' ':' '[' gradient-stop-list ']' ')'
+    | 'Blur' '(' 'radius' ':' ( NUMBER | IDENT ) [ ',' 'style' ':' DOT_ENUM ] [ ',' 'vibrancy' ':' vibrancy-value ] ')'
+    | 'MediaLayer' '(' media-constructor-args ')'
+    | vibrancy-literal
+    ;
+
+vibrancy-value
+  ::= vibrancy-literal
+    | IDENT
+    ;
+
+media-constructor-args
+  ::= media-constructor-arg { ',' media-constructor-arg } ;
+
+media-constructor-arg
+  ::= 'source' ':' ( STRING | IDENT )
+    | 'contentMode' ':' DOT_ENUM
+    | 'opacity' ':' ( NUMBER | IDENT )
+    ;
+
+color-with-opacity
+  ::= ( HEX_COLOR | IDENT ) '@' ( NUMBER | IDENT ) ;

@@ -1,6 +1,6 @@
 /**
  * Runtime shape checks for **graph** (`componentCatalogue`, `resolvedComponent`) and **bake** (`bakedDesign`)
- * JSON so CI catches drift from `full-spec.md` §16 / §16d without relying on large snapshots.
+ * JSON so CI catches drift from `shared/schema/*.json` without relying on large snapshots.
  */
 
 import { PDL_JSON_SCHEMA_VERSION } from "../../src/graphJson.js";
@@ -279,7 +279,7 @@ const CATALOGUE_ROOT = new Set([
 ]);
 
 /**
- * Asserts a value matches the **Component Catalogue** root contract (`full-spec.md` §16 §2.1).
+ * Asserts a value matches the **Component Catalogue** root contract (`shared/schema/component-catalogue.json`).
  */
 export function assertComponentCatalogueContract(doc: unknown, path = "componentCatalogue"): void {
   assertPlainObject(doc, path);
@@ -351,7 +351,7 @@ const RESOLVED_DOC_ROOT = new Set([
 const RESOLVED_SYSTEM_ROOT = new Set(["theme", "variantTypes", "primitives", "semantics", "themes", "typeStyles"]);
 
 /**
- * Asserts a value matches the **`resolvedComponent`** document contract (`full-spec.md` §16 §2.5).
+ * Asserts a value matches the **`resolvedComponent`** document contract (`shared/schema/resolved-component.json`).
  */
 export function assertResolvedComponentContract(doc: unknown, path = "resolvedComponent"): void {
   assertPlainObject(doc, path);
@@ -440,7 +440,7 @@ const BAKED_PROVENANCE_ROOT = new Set(["entryPath", "bakedTheme", "bakeProfile"]
 const BAKE_PROFILES = new Set(["system-defaults", "component-explicit"]);
 
 /**
- * Asserts a value matches the **`bakedDesign`** document contract (`full-spec.md` §16d).
+ * Asserts a value matches the **`bakedDesign`** document contract (`shared/schema/baked-design.json`).
  */
 export function assertBakedDesignContract(doc: unknown, path = "bakedDesign"): void {
   assertPlainObject(doc, path);

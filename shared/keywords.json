@@ -1,0 +1,118 @@
+{
+  "$comment": "Reserved words and constructor keywords for PDL. Keep in lockstep with crates/pdl-core/src/lexer.rs keyword() and src/lexer.ts KEYWORDS. Docs append this table to Diagnostics.",
+  "schemaVersion": 1,
+  "languageVersion": "1.0.0-beta",
+  "groups": [
+    {
+      "id": "declarations",
+      "title": "Top-level declarations",
+      "words": [
+        { "word": "import", "note": "Pull another module into the merge graph." },
+        { "word": "previewBackground", "note": "Preview canvas Color token." },
+        { "word": "primitive", "note": "Literal token leaf." },
+        { "word": "semantic", "note": "Intent token; may alias other tokens." },
+        { "word": "theme", "note": "Named token override bundle." },
+        { "word": "typeStyle", "note": "Named text-property preset." },
+        { "word": "variant", "note": "Closed case set (design-axis combinator)." },
+        { "word": "enum", "note": "Surface alias of variant (same IR in v1)." },
+        { "word": "protocol", "note": "Shared param/emits or host-role contract." },
+        { "word": "component", "note": "UI definition." },
+        { "word": "emits", "note": "Companion output API for a component." },
+        { "word": "fixtures", "note": "Named preview scenarios (param bags) for one component." },
+        { "word": "samples", "note": "Typed data banks referenced as Bank.entry.field." },
+        { "word": "usage", "note": "Human-readable guidance." },
+        { "word": "rules", "note": "Query constraints." },
+        { "word": "extend", "note": "Augment an existing component." }
+      ]
+    },
+    {
+      "id": "removed",
+      "title": "Reserved / removed",
+      "words": [
+        { "word": "interaction", "note": "Reserved; rejected as a decl (PDL-E001). Use host inbound handlers." },
+        { "word": "expose", "note": "Reserved; not a language keyword anymore (PDL-E001 if used as decl)." },
+        { "word": "on", "note": "Reserved; not used for declared emits (rejected in layout)." }
+      ]
+    },
+    {
+      "id": "control",
+      "title": "Control and layout",
+      "words": [
+        { "word": "let", "note": "Named nested frame or typed value." },
+        { "word": "if", "note": "Conditional override." },
+        { "word": "else", "note": "Alternate branch." },
+        { "word": "for", "note": "Reserved (ForEach uses ident ForEach)." },
+        { "word": "in", "note": "ForEach item binder." },
+        { "word": "ForEach", "note": "Per-item overlays + emit capture; does not mount." },
+        { "word": "before", "note": "Reserved for B6 list chrome." },
+        { "word": "between", "note": "Reserved for B6 list chrome." },
+        { "word": "after", "note": "Reserved for B6 list chrome." },
+        { "word": "self", "note": "Enclosing component instance (layout/handlers)." },
+        { "word": "case", "note": "Variant case name." },
+        { "word": "example", "note": "Fixture scenario label." },
+        { "word": "emit", "note": "Fire a declared outbound intent." },
+        { "word": "requires", "note": "API protocol requires a host protocol." },
+        { "word": "host", "note": "Marks host-role protocol bodies." }
+      ]
+    },
+    {
+      "id": "literals",
+      "title": "Literals",
+      "words": [
+        { "word": "true" },
+        { "word": "false" },
+        { "word": "null" }
+      ]
+    },
+    {
+      "id": "rules",
+      "title": "Rules / motion (lexer keywords)",
+      "words": [
+        { "word": "Rule" },
+        { "word": "description" },
+        { "word": "tags" },
+        { "word": "where" },
+        { "word": "animate" },
+        { "word": "from" },
+        { "word": "to" },
+        { "word": "stagger" },
+        { "word": "staggerFrom" }
+      ]
+    },
+    {
+      "id": "constructors",
+      "title": "Typed constructors (lexer keywords)",
+      "note": "These are type/ctor names, not user identifiers. World A frame ctors Text / Layout are resolved as constructors (not all are lexer keywords).",
+      "words": [
+        { "word": "EdgeInsets" },
+        { "word": "Corner" },
+        { "word": "CornerRadii" },
+        { "word": "GradientStop" },
+        { "word": "BlurStyle" },
+        { "word": "Color" },
+        { "word": "Opacity" },
+        { "word": "Distance" },
+        { "word": "Radius" },
+        { "word": "Shadow" },
+        { "word": "Icon" },
+        { "word": "MediaSource" },
+        { "word": "Ratio" },
+        { "word": "FontFamily" },
+        { "word": "Size" },
+        { "word": "Weight" },
+        { "word": "LineHeight" },
+        { "word": "LetterSpacing" },
+        { "word": "Sizing" },
+        { "word": "Duration" },
+        { "word": "Easing" },
+        { "word": "Transition" },
+        { "word": "Ramp" },
+        { "word": "Blur" },
+        { "word": "Media" },
+        { "word": "Vibrancy" },
+        { "word": "Background" },
+        { "word": "Foreground" }
+      ]
+    }
+  ]
+}

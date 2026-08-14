@@ -1,6 +1,6 @@
 # PDL authoring cheatsheet
 
-Author-facing syntax only. Not IR/bake internals. Normative detail: `docs/full-spec.md`.
+Author-facing syntax only. Not IR/bake internals. Locked detail: `shared/language-objects.json`.
 
 ## Module shape
 
@@ -83,21 +83,21 @@ component Row() layout {
   gap = 8
   padding = EdgeInsets(x: 12, y: 8)
 
-  let Title = Text(content: "Hello", style: Body)
-  let Child = OtherComponent(label: "X")
+  let title = Text(content: "Hello", style: Body)
+  let child = OtherComponent(label: "X")
 
-  children = [Title, Child]
-  // or: children = [Layout(direction: .row, children: [Title, Child])]
+  children = [title, child]
+  // or: children = [Layout(direction: .row, children: [title, child])]
 }
 ```
 
-- `let Name = Text|Layout|Icon|Media(…)` — nested frame (kwargs = frame props; optional `children:`)
-- `let Name = Comp(…)` — component instance
+- `let name = Text|Layout|Icon|Media(…)` — nested frame (kwargs = frame props; optional `children:`). Prefer lowercase ids so they do not look like the type.
+- `let name = Comp(…)` — component instance
 - Bare `children = […]` attaches to the enclosing frame (root or after desugar)
 - `Spacer()` — flex grow pseudo-child in `children` (not `.spacer`)
-- Declare `let` **before** referencing the id in `children` / `FrameId.prop` (E019)
+- Declare `let` **before** referencing the id in `children` / `id.prop` (E019)
 - Nested `let` **ids unique within one component** (E021)
-- Classic `let Name: text = { … }` is **removed** (migrate to World A)
+- Classic `let name: text = { … }` is **removed** (migrate to World A)
 
 ## Conditionals
 
@@ -124,8 +124,8 @@ protocol SubnavItem: component {
 }
 
 component FilterChip <SubnavItem>(selected: Bool = false) layout {
-  let Label = Text(content: title)
-  children = [Label]
+  let label = Text(content: title)
+  children = [label]
   self.pressEnd = { emit select(filter) }   // host inbound (§4a′)
 }
 
@@ -144,7 +144,7 @@ component Nav(
 - `self.param` = this component instance’s param
 - Selection: parent owns SoT; derive Bool via ForEach (`chip.selected = self.currentFilter == filter`) or call-site (`selected: currentFilter == .all`)
 - Emit capture: `chip.select(…) = { … }` in ForEach / `Field.change(…) = { … }` on lets
-- Host inbound: `[self.]pressEnd = { … }` in the kind body (`self.` optional; prelude stubs in full-spec §4a′)
+- Host inbound: `[self.]pressEnd = { … }` in the kind body (`self.` optional; prelude in `test-fixtures/pdl/stdlib/host_protocols.pdl`)
 
 ## Companions (optional)
 

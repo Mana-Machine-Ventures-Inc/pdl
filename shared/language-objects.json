@@ -1,0 +1,2211 @@
+{
+  "$comment": "Locked meanings for PDL built-in objects. Authors and hosts treat this file as the vocabulary. Compilers still type-check from shared/frame-props.json (enum case lists must match). Host-protocol channel/verb names must match test-fixtures/pdl/stdlib/host_protocols.pdl. Declaration names must match shared/keywords.json (declarations group). Edit meanings here; run npm run docs:gen.",
+  "schemaVersion": 1,
+  "languageVersion": "1.0.0-beta",
+  "sectionIntros": {
+    "declarations": "The top-level blocks in a `.pdl` file. Use them to import files, name tokens, and define components. Order inside a file is free.",
+    "frames": "Every component has one root frame. Nested UI is the same four constructors on `let`. Use `layout` to group, `text` for words, `icon` for a glyph, `media` for an image or video. Unknown properties are PDL-E011; wrong types are PDL-E006.",
+    "children": "`children` belongs on `Layout` — that is how PDL draws views and nested views. A child `Layout` has its own `children`. `Text()`, `Icon()`, and `Media()` are leaves: they do not take `children` and do not nest views. Every entry is a component — a built-in frame or one you declared (`Button(…)`). Name them with `let`, then mount them with `children = [heading, save]`. A `let` that never appears in `children` is not drawn. `Spacer()` is the leftover-space exception. A `ForEach` block does not mount views by itself.",
+    "spacer": "A child that eats leftover space on the main axis. Write `Spacer()` inside `children = […]`.",
+    "forEach": "Use ForEach when a list needs per-row state or click handling — which chip is selected, which row is highlighted. It writes onto items you already put in `children`. It does not create views by itself.",
+    "let": "Name a nested frame, or a typed value you reuse in props. Prefer a lowercase id (`let title`, `let ramp`) so the name is not the same word as the type. Frame lets go in `children`. Typed value lets do not.",
+    "parameters": "The public inbound API of a component. Every name in the parentheses is public. There is no private parameter.",
+    "variants": "Closed sets you declare — tone, size, filter id. Write `.case` at use sites. `enum` and `variant` are the same in v1.",
+    "self": "The enclosing component instance. Use `self.param` when a nested name would shadow. Rules-query `self` is a different thing.",
+    "conditionals": "Change a handful of properties when a parameter or state changes. First match wins.",
+    "conditions": "Comparisons and booleans used in `if` and ForEach. Keep `&&` and `||` in separate expressions, or parenthesize.",
+    "null": "Clear a frame or typeStyle property so the default applies. Not a token value.",
+    "tokenTypes": "Named values you declare once and reuse. Write `primitive` for the raw palette and `semantic` for the names components should use (`color.surface`). Pick a type when a property needs a color, a gap, a shadow, and so on. Duration, Easing, and Transition are draft — they exist for handler motion, which is not finished.",
+    "theme": "A named remap of tokens you already declared. Use a theme for light/dark, brand, or reduced motion. Components keep using semantic names; the theme changes what those names resolve to.",
+    "typeStyle": "A named bundle of text-frame properties. A text frame sets `style = Name`. Body lines are the same properties as a text frame.",
+    "values": "Structured values you pass to properties — insets, shadows, corners, gradient stops.",
+    "layers": "Fills stacked in `background` and `foreground`. A hex Color is usually enough; use these constructors for a gradient, blur, or a `MediaLayer`.",
+    "assets": "How you point at a glyph or a file. `IconRef` is the Icon token RHS; `MediaSource` is the source for a `media` frame and `MediaLayer`.",
+    "enums": "Closed choices such as `.row` or `.center`. Use them on layout properties and as parameter types.",
+    "eventDirections": "A component hears its parameters. That is enough for a fixture, and for a parent that already knows the state. It is not enough when the user clicks a chip, or when a field should start editing. PDL does not run like a script in the page. The host — the preview, or the app that embeds the design — delivers pointer and text events onto a component that opted in (`<PointerInput>`, `<EditableText>`). The component can then emit a typed channel to its parent (`select`, `change`). The parent assigns on that channel and its own parameters update, so the row can show which chip is selected. A component can also ask the host to do something, such as begin editing. Those are three different paths. A `pressEnd` is not an emit.",
+    "emits": "How a child tells its parent something happened — a chip was selected, a field changed. Declare the channel, fire it from a click, and listen on the parent.",
+    "protocols": "A shared contract so several components can sit in the same list and speak the same language. Use an API protocol when different chip types all `select`. Use a host protocol when the preview must deliver clicks or typing.",
+    "hostPrelude": "A host protocol lets the preview (or app) trigger component changes: hover color, a click, focus, typing. Use `PointerInput` for buttons and chips; use `EditableText` for a field the user types into. Opt in with `component C <PointerInput>`. These names are built in — you do not import them.",
+    "motion": "Draft. Animation clauses on host handlers: which transition to run, enter/exit snapshots, and list stagger. The syntax and the HTML preview may still change.",
+    "samples": "Reusable catalogs of instances you mount in layout so a prototype can stay interactive — a library of tracks, a set of chips, an empty list you can switch to. Write the catalog once and point at `Tracks.library.tracks` from a parameter default or from `children`. Isolated component examples, the kind you would put in design-system documentation, belong in fixtures.",
+    "fixtures": "A fixture is a named bag of parameter values for one component. The Playground Fixture menu shows the labels. Each `example` is concrete values only — not other parameters, not layout. Flip through them to preview states without editing the component. Use fixtures for the examples you would put in design-system documentation — primary vs secondary, large vs small. Use them also for a whole view: empty search, a night playlist, mid-rename. Samples are the catalogs you mount; a fixture chooses which world the preview is in.",
+    "usage": "A written note on a component for authors and tools. In v1 the only key is `description`.",
+    "extend": "Add fixtures, usage, or rules to a component you imported — without copying its layout.",
+    "rule": "A design check the preview or CI can flag. It does not change how anything looks. Tag instances in a `rules` block, then write a query from this instance — siblings, children, parent — and a strength (`.must` fails the build; `.should` warns)."
+  },
+  "frameKinds": [
+    {
+      "name": "layout",
+      "ctor": "Layout",
+      "meaning": "A flex-like container — the usual root of a component, and any nested group. Write `component Card layout { … }` for the root, or `let box = Layout(…)` for a nested group. Set `direction` to `.row` or `.column` (or `.stack` to overlap). Named children go in `children`. Spacing is `gap` / `padding` (Distance and EdgeInsets). Alignment is `align` and `justify`.",
+      "example": "component Card layout {\n  direction = .column\n  gap = 8\n  padding = 16\n  let title = Text(content: \"Hello\")\n  children = [title]\n}"
+    },
+    {
+      "name": "text",
+      "ctor": "Text",
+      "meaning": "A typography node. `content` is the string. Prefer `style:` naming a typeStyle for size and weight; override with `color`, `fontSize`, and the other text properties when needed. Root form is `component Title text { … }`; nested form is `let heading = Text(…)`.",
+      "example": "let heading = Text(content: title, style: Title, color: color.text)"
+    },
+    {
+      "name": "icon",
+      "ctor": "Icon",
+      "meaning": "A small tintable glyph. The `icon` property is an Icon token or `IconRef` — not this frame. Set `size` or `width` / `height`. Tint with `color`. Nested form is `let star = Icon(…)`.",
+      "example": "let star = Icon(icon: IconRef(system: .sfSymbols, name: \"star\"), size: 16, color: color.ink)"
+    },
+    {
+      "name": "media",
+      "ctor": "Media",
+      "meaning": "A box that draws raster, vector, or video from a MediaSource. Distinct from MediaLayer, which is a fill inside `background` / `foreground`. Fit the source with `contentMode` (`.cover`, `.contain`, …). Nested form is `let photo = Media(…)`.",
+      "example": "let photo = Media(source: media.hero, contentMode: .cover, height: 120)"
+    }
+  ],
+  "paramScalars": [
+    {
+      "name": "String",
+      "meaning": "Quoted text. Component parameters, text content, font family, easing strings."
+    },
+    {
+      "name": "Number",
+      "meaning": "A finite number. Unitless unless the property says otherwise (Duration is milliseconds; Opacity is 0…1; LineHeight is a ratio)."
+    },
+    {
+      "name": "Bool",
+      "meaning": "true or false. Write `Bool`, not `Boolean` (PDL-E039)."
+    }
+  ],
+  "tokenTypes": [
+    {
+      "name": "Color",
+      "category": "color",
+      "usedOn": [
+        "background",
+        "foreground",
+        "color",
+        "borderColor",
+        "Shadow.color"
+      ],
+      "meaning": "A fill, text, or border color. Hex is a color, not a string.",
+      "accept": [
+        {
+          "form": "#RGB",
+          "meaning": "Three-digit hex."
+        },
+        {
+          "form": "#RRGGBB",
+          "meaning": "Six-digit hex. The usual literal."
+        },
+        {
+          "form": "#RRGGBBAA",
+          "meaning": "Eight-digit hex; last pair is alpha."
+        },
+        {
+          "form": "color.token",
+          "meaning": "A Color token (semantic on components)."
+        },
+        {
+          "form": "color @ 0.4",
+          "meaning": "Tint: multiply alpha. Prefer an Opacity token on the right."
+        },
+        {
+          "form": "color @ opacity.scrim",
+          "meaning": "Tint with a named Opacity."
+        }
+      ],
+      "reject": [
+        {
+          "form": "\"#3B82F6\"",
+          "meaning": "Quoted hex is PDL-E017."
+        }
+      ],
+      "example": "primitive color.primitive.blue.500: Color = #3B82F6\nsemantic color.surface: Color = color.primitive.blue.500\nbackground = color.surface @ opacity.surface.tint"
+    },
+    {
+      "name": "Opacity",
+      "category": "alpha",
+      "usedOn": [
+        "opacity",
+        "color @ …",
+        "GradientStop.opacity",
+        "MediaLayer.opacity"
+      ],
+      "meaning": "An alpha multiplier in 0…1. Name it so themes can remap scrims and tints. A bare Opacity token is not a layer — apply it with `color @ opacity` or an `opacity:` argument.",
+      "accept": [
+        {
+          "form": "0.4",
+          "meaning": "Number in 0…1. Fine for a primitive; avoid raw decimals on library surfaces."
+        },
+        {
+          "form": "opacity.token",
+          "meaning": "An Opacity token. Preferred on the right of `@` and on `opacity=`."
+        }
+      ],
+      "example": "primitive opacity.primitive.scrim: Opacity = 0.4\nsemantic opacity.surface.tint: Opacity = opacity.primitive.scrim\nforeground = color.ink @ opacity.surface.tint"
+    },
+    {
+      "name": "Distance",
+      "category": "spacing",
+      "usedOn": [
+        "gap",
+        "columnGap",
+        "rowGap",
+        "EdgeInsets axes"
+      ],
+      "meaning": "A non-negative length in design units (pixels in the HTML preview). Used for gaps and inset axes. Not a string; there is no `px` suffix.",
+      "accept": [
+        {
+          "form": "12",
+          "meaning": "Non-negative number."
+        },
+        {
+          "form": "space.stack",
+          "meaning": "A Distance token (semantic alias of a primitive)."
+        }
+      ],
+      "reject": [
+        {
+          "form": "12px",
+          "meaning": "No unit suffix."
+        },
+        {
+          "form": "-4",
+          "meaning": "Negative lengths are rejected."
+        }
+      ],
+      "example": "primitive spacing.primitive.md: Distance = 12\nsemantic space.stack: Distance = spacing.primitive.md\ngap = space.stack"
+    },
+    {
+      "name": "Radius",
+      "category": "shape",
+      "usedOn": [
+        "cornerRadius",
+        "Blur.radius"
+      ],
+      "meaning": "A uniform corner radius (or a blur radius amount). A number. Per-corner values are CornerRadii via `Corner(…)`, which is not a Radius token RHS.",
+      "accept": [
+        {
+          "form": "10",
+          "meaning": "Non-negative number."
+        },
+        {
+          "form": "radius.md",
+          "meaning": "A Radius token."
+        }
+      ],
+      "reject": [
+        {
+          "form": "Corner(tl: 8, tr: 8, br: 4, bl: 4)",
+          "meaning": "That produces CornerRadii, not Radius. PDL-E005 on a Radius token."
+        }
+      ],
+      "example": "primitive radius.primitive.md: Radius = 10\nsemantic radius.card: Radius = radius.primitive.md\ncornerRadius = radius.card"
+    },
+    {
+      "name": "Shadow",
+      "category": "effect",
+      "usedOn": [
+        "shadow"
+      ],
+      "meaning": "A drop shadow. Axes are numbers (or numeric tokens); color is a Color. Optional spread defaults to 0. HTML preview maps the resolved object to CSS box-shadow.",
+      "accept": [
+        {
+          "form": "Shadow(x:, y:, blurRadius:, color:)",
+          "meaning": "Required fields. color may be hex, a Color token, or `color @ opacity`."
+        },
+        {
+          "form": "Shadow(…, spread: 0)",
+          "meaning": "Optional spread; omit for 0."
+        },
+        {
+          "form": "shadow.card",
+          "meaning": "A Shadow token."
+        }
+      ],
+      "reject": [
+        {
+          "form": "\"0 4px 12px rgba(0,0,0,.15)\"",
+          "meaning": "A CSS box-shadow string is PDL-E005."
+        }
+      ],
+      "example": "primitive shadow.card: Shadow = Shadow(x: 0, y: 4, blurRadius: 12, color: #000000 @ 0.15)\nshadow = shadow.card"
+    },
+    {
+      "name": "Icon",
+      "category": "asset",
+      "usedOn": [
+        "icon.icon"
+      ],
+      "meaning": "A tintable glyph reference. This is the value of an icon frame’s `icon:` property — not the Icon() frame constructor.",
+      "accept": [
+        {
+          "form": "IconRef(system: .sfSymbols, name: \"star\")",
+          "meaning": "SF Symbol. System is IconSystem."
+        },
+        {
+          "form": "IconRef(system: .materialSymbols, name: \"star\")",
+          "meaning": "Material Symbol."
+        },
+        {
+          "form": "IconRef(file: \"icons/star.svg\")",
+          "meaning": "Pack-relative file. No leading /."
+        },
+        {
+          "form": "\"icons/star.svg\"",
+          "meaning": "Path sugar: must contain `/` and/or a known extension."
+        },
+        {
+          "form": "icon.action.favorite",
+          "meaning": "An Icon token."
+        }
+      ],
+      "reject": [
+        {
+          "form": "\"star\"",
+          "meaning": "Bare glyph id is ambiguous — PDL-E005."
+        },
+        {
+          "form": "Icon(icon: …)",
+          "meaning": "That builds an icon frame, not an Icon token."
+        }
+      ],
+      "example": "primitive icon.primitive.star: Icon = IconRef(system: .sfSymbols, name: \"star\")\nsemantic icon.action.favorite: Icon = icon.primitive.star\nicon = icon.action.favorite"
+    },
+    {
+      "name": "MediaSource",
+      "category": "asset",
+      "usedOn": [
+        "media.source",
+        "MediaLayer.source"
+      ],
+      "meaning": "Where a raster, vector, or video comes from. Distinct from the Media() frame and from MediaLayer (a fill).",
+      "accept": [
+        {
+          "form": "MediaSource(file: \"media/hero.jpg\")",
+          "meaning": "Pack-relative file. No leading /. Kind/format inferred from a known extension when omitted."
+        },
+        {
+          "form": "MediaSource(url: \"https://…\")",
+          "meaning": "Remote http(s) URL."
+        },
+        {
+          "form": "MediaSource(url: \"https://…\", kind: .raster, format: .jpeg)",
+          "meaning": "Opaque CDN address: set kind (and format when known). Kind and format must agree (PDL-E006)."
+        },
+        {
+          "form": "\"media/hero.jpg\"",
+          "meaning": "Path-string sugar."
+        },
+        {
+          "form": "\"https://cdn.example/hero.jpg\"",
+          "meaning": "URL-string sugar."
+        },
+        {
+          "form": "media.hero",
+          "meaning": "A MediaSource token."
+        }
+      ],
+      "example": "primitive media.hero: MediaSource = MediaSource(url: \"https://cdn.example/abc\", kind: .raster, format: .jpeg)\nsource = media.hero"
+    },
+    {
+      "name": "Ratio",
+      "category": "layout",
+      "usedOn": [
+        "Sizing.aspect",
+        "aspect"
+      ],
+      "meaning": "A positive width/height ratio.",
+      "accept": [
+        {
+          "form": "1.777",
+          "meaning": "Positive number (width ÷ height)."
+        },
+        {
+          "form": "16:9",
+          "meaning": "W:H sugar; same as 16/9."
+        },
+        {
+          "form": "ratio.video",
+          "meaning": "A Ratio token."
+        }
+      ],
+      "example": "primitive ratio.video: Ratio = 16:9\nwidth = .aspect(ratio.video)"
+    },
+    {
+      "name": "FontFamily",
+      "category": "typography",
+      "usedOn": [
+        "fontFamily",
+        "typeStyle.fontFamily"
+      ],
+      "meaning": "A font stack. Quoted string.",
+      "accept": [
+        {
+          "form": "\"Inter, system-ui, sans-serif\"",
+          "meaning": "CSS-style stack."
+        },
+        {
+          "form": "font.body",
+          "meaning": "A FontFamily token."
+        }
+      ],
+      "example": "primitive font.body: FontFamily = \"Inter, system-ui, sans-serif\"\nfontFamily = font.body"
+    },
+    {
+      "name": "Size",
+      "category": "typography",
+      "usedOn": [
+        "fontSize",
+        "icon.size"
+      ],
+      "meaning": "Font size or icon box size in design units. Unitless — not `16px`.",
+      "accept": [
+        {
+          "form": "16",
+          "meaning": "Number."
+        },
+        {
+          "form": "type.size.body",
+          "meaning": "A Size token."
+        }
+      ],
+      "example": "primitive type.size.body: Size = 16\nfontSize = type.size.body"
+    },
+    {
+      "name": "Weight",
+      "category": "typography",
+      "usedOn": [
+        "fontWeight"
+      ],
+      "meaning": "Font weight as a number (400, 500, 600, …).",
+      "accept": [
+        {
+          "form": "500",
+          "meaning": "Numeric weight."
+        },
+        {
+          "form": "type.weight.medium",
+          "meaning": "A Weight token."
+        }
+      ],
+      "example": "primitive type.weight.medium: Weight = 500\nfontWeight = type.weight.medium"
+    },
+    {
+      "name": "LineHeight",
+      "category": "typography",
+      "usedOn": [
+        "lineHeight"
+      ],
+      "meaning": "Leading as a unitless ratio of fontSize. 1.35 means 135%. Must be greater than 0.",
+      "accept": [
+        {
+          "form": "1.35",
+          "meaning": "Positive number."
+        },
+        {
+          "form": "type.lineHeight.body",
+          "meaning": "A LineHeight token."
+        }
+      ],
+      "example": "primitive type.lineHeight.body: LineHeight = 1.35\nlineHeight = type.lineHeight.body"
+    },
+    {
+      "name": "LetterSpacing",
+      "category": "typography",
+      "usedOn": [
+        "letterSpacing"
+      ],
+      "meaning": "Tracking in em — a fraction of fontSize. May be negative.",
+      "accept": [
+        {
+          "form": "-0.01",
+          "meaning": "Number in em."
+        },
+        {
+          "form": "type.letterSpacing.tight",
+          "meaning": "A LetterSpacing token."
+        }
+      ],
+      "example": "primitive type.letterSpacing.tight: LetterSpacing = -0.01\nletterSpacing = type.letterSpacing.tight"
+    },
+    {
+      "name": "Sizing",
+      "category": "layout",
+      "usedOn": [
+        "width",
+        "height"
+      ],
+      "meaning": "How a width or height is computed. Write `.hug` or `Sizing.hug`. A bare number on a sizing property means `.fixed(n)`. Rare as a token; usual on frames.",
+      "accept": [
+        {
+          "form": ".hug",
+          "meaning": "Size to content."
+        },
+        {
+          "form": ".fill",
+          "meaning": "Fill the parent on that axis."
+        },
+        {
+          "form": ".fixed(n)",
+          "meaning": "Exactly n design units."
+        },
+        {
+          "form": "240",
+          "meaning": "On width/height, the same as `.fixed(240)`."
+        },
+        {
+          "form": ".flex(min:, preferred:, max:)",
+          "meaning": "Flexible range. Any field may be omitted. All omitted is like .fill. preferred maps to flex-basis (or the host equivalent)."
+        },
+        {
+          "form": ".aspect(r)",
+          "meaning": "Derive this axis from the other so width/height = r. r is a number, W:H, or a Ratio token. Put .aspect on the free axis only."
+        },
+        {
+          "form": "sizing.sidebar",
+          "meaning": "A Sizing token."
+        }
+      ],
+      "example": "primitive sizing.sidebar: Sizing = .fill\nwidth = .fill\nheight = .hug\nwidth = 240"
+    },
+    {
+      "name": "Duration",
+      "category": "motion",
+      "usedOn": [
+        "Transition.duration",
+        "animate"
+      ],
+      "meaning": "Draft. Animation length in milliseconds. Unitless — not `150ms`.",
+      "accept": [
+        {
+          "form": "150",
+          "meaning": "Milliseconds."
+        },
+        {
+          "form": "motion.duration.fast",
+          "meaning": "A Duration token."
+        }
+      ],
+      "example": "primitive motion.duration.fast: Duration = 150\nprimitive motion.duration.standard: Duration = 250"
+    },
+    {
+      "name": "Easing",
+      "category": "motion",
+      "usedOn": [
+        "Transition.easing"
+      ],
+      "meaning": "Draft. A timing curve. A quoted CSS easing string.",
+      "accept": [
+        {
+          "form": "\"linear\"",
+          "meaning": "Linear curve."
+        },
+        {
+          "form": "\"cubic-bezier(0.2, 0, 0, 1)\"",
+          "meaning": "Cubic bezier."
+        },
+        {
+          "form": "motion.easing.standard",
+          "meaning": "An Easing token."
+        }
+      ],
+      "example": "primitive motion.easing.standard: Easing = \"cubic-bezier(0.2, 0, 0, 1)\"\nprimitive motion.easing.linear: Easing = \"linear\""
+    },
+    {
+      "name": "Transition",
+      "category": "motion",
+      "usedOn": [
+        "animate"
+      ],
+      "meaning": "Draft. A duration plus easing, and an optional delay (default 0). Written as a tuple, not a constructor call. Themes replace a Transition wholly — no deep merge.",
+      "accept": [
+        {
+          "form": "(duration: …, easing: …)",
+          "meaning": "Required fields. Values may be literals or Duration / Easing tokens."
+        },
+        {
+          "form": "(duration: …, easing: …, delay: …)",
+          "meaning": "Optional delay in milliseconds."
+        },
+        {
+          "form": "motion.appear",
+          "meaning": "A Transition token."
+        }
+      ],
+      "example": "semantic motion.appear: Transition = (duration: motion.duration.standard, easing: motion.easing.standard)\nsemantic motion.instant: Transition = (duration: 0, easing: motion.easing.linear)"
+    },
+    {
+      "name": "Blur",
+      "category": "layer",
+      "usedOn": [
+        "background",
+        "foreground"
+      ],
+      "meaning": "A blur layer object. Radius amounts reuse Radius — there is no numeric Blur token. A bare Blur token is a valid layer entry. Legacy `Blur(blur: …)` is rejected.",
+      "accept": [
+        {
+          "form": "Blur(radius: 16)",
+          "meaning": "Radius is a number or Radius token."
+        },
+        {
+          "form": "Blur(radius: …, style: .standard)",
+          "meaning": "Optional BlurStyle. v1 ships only .standard."
+        },
+        {
+          "form": "Blur(radius: …, vibrancy: Vibrancy(…))",
+          "meaning": "Optional Vibrancy."
+        },
+        {
+          "form": "blur.sheet",
+          "meaning": "A Blur token; legal inside a layer list."
+        }
+      ],
+      "reject": [
+        {
+          "form": "16",
+          "meaning": "A bare number is a Radius, not a Blur."
+        },
+        {
+          "form": "Blur(blur: 16)",
+          "meaning": "Legacy argument name — rejected."
+        }
+      ],
+      "example": "primitive blur.sheet.radius: Radius = 16\nprimitive blur.sheet: Blur = Blur(radius: blur.sheet.radius)\nbackground = [blur.sheet, color.surface]"
+    },
+    {
+      "name": "Vibrancy",
+      "category": "layer",
+      "usedOn": [
+        "Blur.vibrancy",
+        "background",
+        "foreground"
+      ],
+      "meaning": "Saturation and brightness for a blur (or as its own layer token).",
+      "accept": [
+        {
+          "form": "Vibrancy(saturation:, brightness:)",
+          "meaning": "Both fields are numbers."
+        },
+        {
+          "form": "vibrancy.sheet",
+          "meaning": "A Vibrancy token; legal as a layer entry."
+        }
+      ],
+      "example": "primitive vibrancy.sheet: Vibrancy = Vibrancy(saturation: 1.2, brightness: 1.05)\nprimitive blur.sheet: Blur = Blur(radius: 16, vibrancy: vibrancy.sheet)"
+    },
+    {
+      "name": "Ramp",
+      "category": "layer",
+      "usedOn": [
+        "background",
+        "foreground"
+      ],
+      "meaning": "An opacity or color ramp along an axis. Direction is RampDirection. Stops are GradientStop values.",
+      "accept": [
+        {
+          "form": "Ramp(direction:, stops: […])",
+          "meaning": "Preferred constructor."
+        },
+        {
+          "form": "(direction:, stops: […])",
+          "meaning": "Naked tuple; still accepted."
+        },
+        {
+          "form": "ramp.fade.bottom",
+          "meaning": "A Ramp token."
+        }
+      ],
+      "example": "primitive ramp.fade.bottom: Ramp = Ramp(\n  direction: .bottomToTop,\n  stops: [\n    GradientStop(opacity: 1, position: 0.5),\n    GradientStop(opacity: 0, position: 1)\n  ]\n)"
+    },
+    {
+      "name": "EdgeInsets",
+      "category": "layout",
+      "usedOn": [
+        "padding",
+        "margin",
+        "inset"
+      ],
+      "meaning": "A box inset. Axes may be numbers or Distance tokens. A bare number on padding, margin, or inset means uniform insets on all four sides. That sugar does not apply to gap.",
+      "accept": [
+        {
+          "form": "EdgeInsets(x:, y:)",
+          "meaning": "Horizontal and vertical pairs."
+        },
+        {
+          "form": "EdgeInsets(top:, right:, bottom:, left:)",
+          "meaning": "Per-side."
+        },
+        {
+          "form": "16",
+          "meaning": "On padding / margin / inset only: uniform EdgeInsets."
+        },
+        {
+          "form": "spacing.card.pad",
+          "meaning": "An EdgeInsets token."
+        }
+      ],
+      "example": "primitive spacing.card.pad: EdgeInsets = EdgeInsets(x: 16, y: 12)\npadding = spacing.card.pad\npadding = 16\nmargin = EdgeInsets(top: 8, right: 12, bottom: 8, left: 12)"
+    },
+    {
+      "name": "CornerRadii",
+      "category": "shape",
+      "usedOn": [
+        "cornerRadius"
+      ],
+      "meaning": "Per-corner radii. The type name is CornerRadii; the constructor name is Corner. Axes are numbers or Radius tokens. A Radius token stays uniform — do not assign Corner(…) to a Radius token.",
+      "accept": [
+        {
+          "form": "Corner(tl:, tr:, br:, bl:)",
+          "meaning": "Asymmetric radii on a frame’s cornerRadius."
+        },
+        {
+          "form": "10",
+          "meaning": "On cornerRadius, a number is a uniform Radius, not CornerRadii."
+        }
+      ],
+      "example": "let corners: CornerRadii = Corner(tl: 8, tr: 8, br: 4, bl: 4)\ncornerRadius = corners\ncornerRadius = Corner(tl: radius.md, tr: radius.md, br: radius.sm, bl: radius.sm)"
+    },
+    {
+      "name": "Media",
+      "category": "layer",
+      "usedOn": [
+        "background",
+        "foreground"
+      ],
+      "meaning": "A media fill inside a background or foreground stack. Construct with MediaLayer. Not the Media() frame, and not a MediaSource (that is the address).",
+      "accept": [
+        {
+          "form": "MediaLayer(source:, contentMode: …)",
+          "meaning": "source is a MediaSource; contentMode is ContentMode. Optional opacity:."
+        },
+        {
+          "form": "heroFill",
+          "meaning": "A Media (layer) token or value-let."
+        }
+      ],
+      "reject": [
+        {
+          "form": "Media(source: …)",
+          "meaning": "That builds a media frame, not a layer fill."
+        },
+        {
+          "form": "MediaLayer(…) @ 0.5",
+          "meaning": "Do not postfix @ if opacity: is already set (PDL-E020)."
+        }
+      ],
+      "example": "let hero: Media = MediaLayer(source: media.hero, contentMode: .cover)\nbackground = [hero, color.surface]"
+    },
+    {
+      "name": "GradientStop",
+      "category": "layer",
+      "usedOn": [
+        "Ramp.stops"
+      ],
+      "meaning": "One stop in a Ramp. Position is 0…1. Supply opacity, color, or both.",
+      "accept": [
+        {
+          "form": "GradientStop(position:, opacity:)",
+          "meaning": "Fade stop."
+        },
+        {
+          "form": "GradientStop(position:, color:)",
+          "meaning": "Color stop."
+        },
+        {
+          "form": "GradientStop(position:, opacity:, color:)",
+          "meaning": "Both."
+        }
+      ],
+      "example": "let fadeOut: GradientStop = GradientStop(opacity: 0, position: 1)\nstops = [GradientStop(opacity: 1, position: 0), fadeOut]"
+    },
+    {
+      "name": "Background",
+      "category": "layer",
+      "usedOn": [
+        "background"
+      ],
+      "meaning": "A named layer stack composited under children. Same right-hand side as Foreground: a color, or an ordered list of layers. Prefer `color @ opacityToken` over raw decimals. A bare Opacity token is not a layer.",
+      "accept": [
+        {
+          "form": "color.surface",
+          "meaning": "Scalar color sugar — one solid layer."
+        },
+        {
+          "form": "[blur.sheet, color.surface @ opacity.tint]",
+          "meaning": "Ordered layers, bottom first."
+        },
+        {
+          "form": "material.sheet",
+          "meaning": "A Background token."
+        }
+      ],
+      "example": "semantic material.sheet: Background = [blur.sheet, color.surface @ opacity.surface.tint]\nbackground = material.sheet"
+    },
+    {
+      "name": "Foreground",
+      "category": "layer",
+      "usedOn": [
+        "foreground"
+      ],
+      "meaning": "A named layer stack composited over children. Same right-hand side as Background.",
+      "accept": [
+        {
+          "form": "color.ink @ opacity.state.hover",
+          "meaning": "Scalar color sugar."
+        },
+        {
+          "form": "[color.ink @ opacity.state.hover]",
+          "meaning": "Layer list."
+        },
+        {
+          "form": "effect.hoverTint",
+          "meaning": "A Foreground token."
+        }
+      ],
+      "example": "semantic effect.hoverTint: Foreground = [color.ink @ opacity.state.hover]\nforeground = effect.hoverTint"
+    }
+  ],
+  "enums": [
+    {
+      "name": "Direction",
+      "usedOn": [
+        "layout.direction"
+      ],
+      "meaning": "Main axis of a layout (or overlap mode for stack).",
+      "cases": [
+        {
+          "case": "row",
+          "meaning": "Main axis left to right."
+        },
+        {
+          "case": "column",
+          "meaning": "Main axis top to bottom."
+        },
+        {
+          "case": "rowReverse",
+          "meaning": "Main axis right to left."
+        },
+        {
+          "case": "columnReverse",
+          "meaning": "Main axis bottom to top."
+        },
+        {
+          "case": "stack",
+          "meaning": "Children share one box. Array order is painter’s order: first at the back, last on top."
+        },
+        {
+          "case": "reverseStack",
+          "meaning": "Same overlap as stack; first child is on top."
+        }
+      ],
+      "example": "component Stack() layout {\n  direction = .column\n  gap = 8\n  let title = Text(content: \"Hello\")\n  let body = Text(content: \"World\")\n  children = [title, body]\n}"
+    },
+    {
+      "name": "Wrap",
+      "usedOn": [
+        "layout.wrap"
+      ],
+      "meaning": "Whether children wrap to another line on the main axis.",
+      "cases": [
+        {
+          "case": "nowrap",
+          "meaning": "Keep children on one line (default)."
+        },
+        {
+          "case": "wrap",
+          "meaning": "Wrap onto additional lines. rowGap / columnGap apply."
+        }
+      ],
+      "example": "direction = .row\nwrap = .wrap\ncolumnGap = 8\nrowGap = 8"
+    },
+    {
+      "name": "Align",
+      "usedOn": [
+        "layout.align",
+        "text.align",
+        "media.align"
+      ],
+      "meaning": "Cross-axis alignment in a layout; vertical placement of text or media content in its box.",
+      "cases": [
+        {
+          "case": "start",
+          "meaning": "Toward the start of the cross axis (top in a row; left in a column). On text/media: top of the box."
+        },
+        {
+          "case": "center",
+          "meaning": "Centered on the cross axis (or vertically in a text/media box)."
+        },
+        {
+          "case": "end",
+          "meaning": "Toward the end of the cross axis. On text/media: bottom of the box."
+        },
+        {
+          "case": "stretch",
+          "meaning": "Stretch on the cross axis. Layout only — illegal on text and media (PDL-E006)."
+        }
+      ],
+      "example": "direction = .row\nalign = .center\nlet caption = Text(content: \"Hi\", align: .start)"
+    },
+    {
+      "name": "Justify",
+      "usedOn": [
+        "layout.justify",
+        "text.justify",
+        "media.justify"
+      ],
+      "meaning": "Main-axis distribution in a layout; horizontal placement of text or media content in its box.",
+      "cases": [
+        {
+          "case": "start",
+          "meaning": "Pack toward the start of the main axis. On text/media: left of the box."
+        },
+        {
+          "case": "center",
+          "meaning": "Centered on the main axis (or horizontally in a text/media box)."
+        },
+        {
+          "case": "end",
+          "meaning": "Pack toward the end. On text/media: right of the box."
+        },
+        {
+          "case": "stretch",
+          "meaning": "Stretch along the main axis. Layout only — illegal on text and media (PDL-E006)."
+        },
+        {
+          "case": "spaceBetween",
+          "meaning": "First and last flush to the ends; even space between. Layout only."
+        },
+        {
+          "case": "spaceAround",
+          "meaning": "Even space around each child. Layout only."
+        }
+      ],
+      "example": "direction = .row\nwidth = .fill\njustify = .spaceBetween"
+    },
+    {
+      "name": "Overflow",
+      "usedOn": [
+        "layout.overflow",
+        "text.overflow"
+      ],
+      "meaning": "What happens when content does not fit the frame. There is no .hidden or .auto.",
+      "cases": [
+        {
+          "case": "visible",
+          "meaning": "Content may paint outside the box."
+        },
+        {
+          "case": "scroll",
+          "meaning": "Content clips and the host may scroll."
+        },
+        {
+          "case": "clip",
+          "meaning": "Content is clipped; no scroll. Use this instead of CSS overflow:hidden."
+        }
+      ],
+      "example": "width = 200\nheight = 80\noverflow = .clip"
+    },
+    {
+      "name": "BorderPosition",
+      "usedOn": [
+        "layout.borderPosition",
+        "text.borderPosition"
+      ],
+      "meaning": "Where the stroke is painted. Borders never change the layout box size.",
+      "cases": [
+        {
+          "case": "outside",
+          "meaning": "Stroke outside the border box (default when omitted)."
+        },
+        {
+          "case": "inside",
+          "meaning": "Stroke inside the border box."
+        }
+      ],
+      "example": "borderWidth = 1\nborderColor = #111111\nborderPosition = .inside"
+    },
+    {
+      "name": "TruncateStyle",
+      "usedOn": [
+        "text.truncateStyle"
+      ],
+      "meaning": "How leftover text is cut when lineClamp is set.",
+      "cases": [
+        {
+          "case": "clip",
+          "meaning": "Hard cut after N lines; no ellipsis."
+        },
+        {
+          "case": "ellipsis",
+          "meaning": "Trailing … after the last painted line. Default if lineClamp is set and truncateStyle is omitted."
+        }
+      ],
+      "example": "let blurb = Text(content: longCopy, lineClamp: 2, truncateStyle: .ellipsis)"
+    },
+    {
+      "name": "ContentMode",
+      "usedOn": [
+        "media.contentMode",
+        "MediaLayer.contentMode"
+      ],
+      "meaning": "How a media source fits its box.",
+      "cases": [
+        {
+          "case": "cover",
+          "meaning": "Fill the box; crop overflow. Preserves aspect ratio."
+        },
+        {
+          "case": "contain",
+          "meaning": "Fit entirely inside the box; may letterbox."
+        },
+        {
+          "case": "fill",
+          "meaning": "Stretch to the box; may distort."
+        },
+        {
+          "case": "scaleDown",
+          "meaning": "Like contain, but never scale up above intrinsic size."
+        }
+      ],
+      "example": "let hero = Media(source: media.hero, contentMode: .cover, width: .fill, height: 160)"
+    },
+    {
+      "name": "AlignSelf",
+      "usedOn": [
+        "child.alignSelf"
+      ],
+      "meaning": "Override the parent’s align for this child only.",
+      "cases": [
+        {
+          "case": "start",
+          "meaning": "Cross-axis start, ignoring parent align."
+        },
+        {
+          "case": "center",
+          "meaning": "Cross-axis center."
+        },
+        {
+          "case": "end",
+          "meaning": "Cross-axis end."
+        },
+        {
+          "case": "stretch",
+          "meaning": "Stretch on the cross axis."
+        },
+        {
+          "case": "auto",
+          "meaning": "Use the parent’s align (default)."
+        }
+      ],
+      "example": "direction = .row\nalign = .start\nlet sidebar = Layout(width: 200, alignSelf: .stretch, children: [])\nchildren = [sidebar, body]"
+    },
+    {
+      "name": "Position",
+      "usedOn": [
+        "child.position",
+        "child.inset"
+      ],
+      "meaning": "Whether a child of a layout sits in the flex flow. Set `position` and `inset` on the **child** (constructor args or `Child.position = …`), not on the parent. There is no `x` / `y` / `top =` property. Placement is only `position` + `inset`. `inset` is EdgeInsets from the parent’s **padding box**. The child must still appear in `children` — `.absolute` does not mount it.",
+      "cases": [
+        {
+          "case": "flow",
+          "meaning": "In-flow flex child (default). `inset` is ignored."
+        },
+        {
+          "case": "absolute",
+          "meaning": "Out of flow. Pin with `inset`. `inset = 8` is 8 on all four sides; `EdgeInsets(top:, right:, bottom:, left:)` parks a corner (use 0 on the sides you do not pin)."
+        }
+      ],
+      "example": "let body = Text(content: \"Card\")\nlet badge = Text(\n  content: \"New\",\n  position: .absolute,\n  inset: EdgeInsets(top: 8, right: 8, bottom: 0, left: 0)\n)\nchildren = [body, badge]"
+    },
+    {
+      "name": "BlurStyle",
+      "usedOn": [
+        "Blur.style"
+      ],
+      "meaning": "Which blur the preview uses. v1 only has `.standard`.",
+      "cases": [
+        {
+          "case": "standard",
+          "meaning": "Default host blur. The only v1 case."
+        }
+      ],
+      "example": "background = [Blur(radius: 16, style: .standard), color.surface]"
+    },
+    {
+      "name": "RampDirection",
+      "usedOn": [
+        "Ramp.direction"
+      ],
+      "meaning": "Axis of a Ramp (gradient / opacity mask). Not a frame-prop enum — only on Ramp.",
+      "cases": [
+        {
+          "case": "topToBottom",
+          "meaning": "Linear; start at the top edge."
+        },
+        {
+          "case": "bottomToTop",
+          "meaning": "Linear; start at the bottom edge."
+        },
+        {
+          "case": "leftToRight",
+          "meaning": "Linear; start at the left edge."
+        },
+        {
+          "case": "rightToLeft",
+          "meaning": "Linear; start at the right edge."
+        },
+        {
+          "case": "radial",
+          "meaning": "From the center. GradientStop.position is a fraction of radius (0 = center, 1 = edge)."
+        }
+      ],
+      "example": "background = Ramp(\n  direction: .bottomToTop,\n  stops: [\n    GradientStop(opacity: 1, position: 0),\n    GradientStop(opacity: 0, position: 1)\n  ]\n)"
+    },
+    {
+      "name": "IconSystem",
+      "usedOn": [
+        "IconRef.system"
+      ],
+      "meaning": "Which symbol library an IconRef names.",
+      "cases": [
+        {
+          "case": "sfSymbols",
+          "meaning": "SF Symbols (Apple)."
+        },
+        {
+          "case": "materialSymbols",
+          "meaning": "Material Symbols."
+        }
+      ],
+      "example": "icon = IconRef(system: .sfSymbols, name: \"star\")"
+    },
+    {
+      "name": "MediaKind",
+      "usedOn": [
+        "MediaSource.kind"
+      ],
+      "meaning": "Role of a media address when the extension is missing or ambiguous.",
+      "cases": [
+        {
+          "case": "raster",
+          "meaning": "Bitmap (JPEG, PNG, WebP, GIF, …)."
+        },
+        {
+          "case": "vector",
+          "meaning": "SVG / PDF / design vector."
+        },
+        {
+          "case": "video",
+          "meaning": "Video file or stream."
+        }
+      ],
+      "example": "primitive media.hero: MediaSource = MediaSource(url: \"https://cdn.example/abc\", kind: .raster)"
+    },
+    {
+      "name": "MediaFormat",
+      "usedOn": [
+        "MediaSource.format"
+      ],
+      "meaning": "Closed file format. Must agree with kind when both are set (PDL-E006). .jpg is an alias of .jpeg.",
+      "cases": [
+        {
+          "case": "webp",
+          "meaning": "WebP image."
+        },
+        {
+          "case": "jpeg",
+          "meaning": "JPEG image (.jpg is the same case)."
+        },
+        {
+          "case": "png",
+          "meaning": "PNG image."
+        },
+        {
+          "case": "gif",
+          "meaning": "GIF image."
+        },
+        {
+          "case": "svg",
+          "meaning": "SVG vector."
+        },
+        {
+          "case": "mp4",
+          "meaning": "MP4 video."
+        },
+        {
+          "case": "webm",
+          "meaning": "WebM video."
+        },
+        {
+          "case": "pdf",
+          "meaning": "PDF page / vector."
+        }
+      ],
+      "example": "primitive media.hero: MediaSource = MediaSource(url: \"https://cdn.example/abc\", kind: .raster, format: .jpeg)"
+    },
+    {
+      "name": "RuleStrength",
+      "usedOn": [
+        "Rule"
+      ],
+      "meaning": "How seriously a failed Rule is treated — stop the build, or just warn.",
+      "cases": [
+        {
+          "case": "must",
+          "meaning": "Violation is an error (fails validation / CI)."
+        },
+        {
+          "case": "mustNot",
+          "meaning": "If the query matches, error."
+        },
+        {
+          "case": "should",
+          "meaning": "Violation is a warning."
+        },
+        {
+          "case": "shouldNot",
+          "meaning": "If the query matches, warning."
+        }
+      ],
+      "example": "rules TabBar {\n  tags = [\"tab-bar\"]\n  Rule(.must, children.where(tag: \"tab-item\").count.between(2, 5),\n    description: \"A tab bar has between 2 and 5 tabs.\")\n}"
+    }
+  ],
+  "constructors": [
+    {
+      "name": "Layout",
+      "kind": "frame",
+      "meaning": "Build a layout frame. Arguments are the same properties as a layout body (direction:, gap:, children:, …)."
+    },
+    {
+      "name": "Text",
+      "kind": "frame",
+      "meaning": "Build a text frame (content:, style:, color:, fontSize:, …)."
+    },
+    {
+      "name": "Icon",
+      "kind": "frame",
+      "meaning": "Build an icon frame. The glyph is icon: (Icon token or IconRef). This is not IconRef."
+    },
+    {
+      "name": "Media",
+      "kind": "frame",
+      "meaning": "Build a media frame (source:, contentMode:, …). This is not MediaLayer."
+    },
+    {
+      "name": "Spacer",
+      "kind": "child",
+      "meaning": "Zero-argument child that absorbs remaining free space on the parent’s main axis. Only legal inside `children = […]`. Write `Spacer()` — bare `Spacer` is a name. `Spacer() @ opacity` is illegal.",
+      "example": "component Toolbar() layout {\n  direction = .row\n  align = .center\n\n  let title = Text(content: \"Library\")\n  let action = Text(content: \"Edit\")\n\n  children = [title, Spacer(), action]\n}"
+    },
+    {
+      "name": "EdgeInsets",
+      "kind": "value",
+      "meaning": "Box inset. EdgeInsets(x:, y:) or EdgeInsets(top:, right:, bottom:, left:). A number on padding/margin/inset means uniform EdgeInsets."
+    },
+    {
+      "name": "Corner",
+      "kind": "value",
+      "meaning": "Asymmetric radii: Corner(tl:, tr:, br:, bl:). Produces CornerRadii. A number on cornerRadius is a uniform Radius."
+    },
+    {
+      "name": "Shadow",
+      "kind": "value",
+      "meaning": "Shadow(x:, y:, blurRadius:, color: [, spread:]). Axes are numbers or numeric tokens; color is a Color. spread defaults to 0."
+    },
+    {
+      "name": "Color",
+      "kind": "layer",
+      "meaning": "Layer constructor Color(color: …). The token type Color is the same name — a hex or token is usually enough; use Color(…) inside a layer list when you need the explicit form."
+    },
+    {
+      "name": "Ramp",
+      "kind": "layer",
+      "meaning": "Ramp(direction: RampDirection, stops: [GradientStop, …]). Also a token type."
+    },
+    {
+      "name": "GradientStop",
+      "kind": "value",
+      "meaning": "GradientStop(position: 0…1 [, opacity:] [, color:])."
+    },
+    {
+      "name": "Blur",
+      "kind": "layer",
+      "meaning": "Blur(radius: [, style: BlurStyle] [, vibrancy: Vibrancy]). Not a bare number. Legacy Blur(blur: …) is rejected."
+    },
+    {
+      "name": "Vibrancy",
+      "kind": "value",
+      "meaning": "Vibrancy(saturation:, brightness:). Used on Blur or as its own layer token."
+    },
+    {
+      "name": "MediaLayer",
+      "kind": "layer",
+      "meaning": "Media fill in a background/foreground stack: MediaLayer(source:, contentMode: … [, opacity:]). Produces token type Media. Do not postfix @ if opacity: is already set (PDL-E020)."
+    },
+    {
+      "name": "IconRef",
+      "kind": "asset",
+      "meaning": "Concrete glyph: `IconRef(system: IconSystem, name: \"…\")` or `IconRef(file: \"icons/…\")`. This is the Icon token RHS — not the `Icon()` frame."
+    },
+    {
+      "name": "MediaSource",
+      "kind": "asset",
+      "meaning": "MediaSource(file: \"…\" [, kind:] [, format:]) or MediaSource(url: \"…\" [, kind:] [, format:]). Pack paths have no leading /."
+    }
+  ],
+  "constructorsExample": "component Card(title: String = \"Hello\") layout {\n  direction = .column\n  gap = 8\n  let photo = Media(source: media.hero, contentMode: .cover, height: 120)\n  let heading = Text(content: title, fontSize: 16)\n  let mark = Icon(icon: IconRef(system: .sfSymbols, name: \"star\"), size: 16)\n  children = [photo, heading, mark, Spacer()]\n}",
+  "childrenExample": "component Button(label: String = \"OK\") layout {\n  padding = 12\n  background = #2563EB\n  cornerRadius = 8\n\n  let text = Text(content: label, color: #FFFFFF)\n  children = [text]\n}\n\ncomponent Card(title: String = \"Hello\") layout {\n  direction = .column\n  gap = 8\n\n  let heading = Text(content: title)\n  let save = Button(label: \"Save\")\n\n  children = [heading, save]\n}",
+  "declarationExample": "import \"tokens.pdl\"\npreviewBackground color.surface\n\ncomponent Greeting(title: String = \"Hello\") layout {\n  let heading = Text(content: title, style: Title)\n  children = [heading]\n}",
+  "declarations": [
+    {
+      "name": "import",
+      "form": "import \"relative/path.pdl\"",
+      "meaning": "Pull another file into this design. Paths are relative to the importing file. There is no export — names are visible after merge. Later files win for themes and components; a second token of the same name is PDL-E003. Cycles are PDL-E002."
+    },
+    {
+      "name": "previewBackground",
+      "form": "previewBackground = color.token",
+      "meaning": "The preview canvas color. Use a Color token, not a layout property."
+    },
+    {
+      "name": "primitive",
+      "form": "primitive name: Type = …",
+      "meaning": "A raw palette value (`#3B82F6`, `12`). Components should use semantic names instead."
+    },
+    {
+      "name": "semantic",
+      "form": "semantic name: Type = …",
+      "meaning": "An intent name components should use (`color.surface`, `space.stack`). Points at a primitive or another semantic."
+    },
+    {
+      "name": "theme",
+      "form": "theme Name { token = value … }",
+      "meaning": "A named remap of tokens — light, dark, reduced motion. Body lines assign existing token names. Themes do not inherit from each other."
+    },
+    {
+      "name": "typeStyle",
+      "form": "typeStyle Name { … }",
+      "meaning": "A named bundle of text-frame properties. A text frame sets `style = Title`. See typeStyle."
+    },
+    {
+      "name": "variant",
+      "form": "variant Name { case a; case b }",
+      "meaning": "A closed set of visual choices (tone, size). Write `.primary` at use sites. Same as enum in v1."
+    },
+    {
+      "name": "enum",
+      "form": "enum Name { case a; case b }",
+      "meaning": "Same as variant in v1. Prefer `enum` for ids (`FilterId`); prefer `variant` for visual axes."
+    },
+    {
+      "name": "protocol",
+      "form": "protocol P: component { … }  or  protocol P { host … }",
+      "meaning": "A shared contract. Use an API protocol so mixed chips share `select`; use a host protocol so the preview can deliver clicks."
+    },
+    {
+      "name": "component",
+      "form": "component Name(params) kind { … }",
+      "meaning": "A reusable UI piece: a name, public parameters, and one root frame."
+    },
+    {
+      "name": "emits",
+      "form": "emits Name { channel(field: Type) }  or  } emits { … }",
+      "meaning": "What this component can tell its parent (selected, changed). Not a click from the preview — that is a host event."
+    },
+    {
+      "name": "fixtures",
+      "form": "fixtures Component { example \"Label\" { param = value } }",
+      "meaning": "Named preview scenarios (“Empty search”, “Focus mood”). A bag of parameters — not data you put on screen."
+    },
+    {
+      "name": "samples",
+      "form": "samples Bank { entry { field: Type = … } }",
+      "meaning": "A reusable catalog of instances you mount so a prototype can stay interactive. Point at `Tracks.library.tracks`."
+    },
+    {
+      "name": "usage",
+      "form": "usage Component { description = \"…\" }",
+      "meaning": "A written note for authors and tools. In v1 the only key is `description`. See Usage."
+    },
+    {
+      "name": "rules",
+      "form": "rules Component { tags = […]; Rule(.must, …) }",
+      "meaning": "Checks the design can fail in preview or CI. Tags and Rule lines live only here. See Rule."
+    },
+    {
+      "name": "extend",
+      "form": "extend Component { fixtures { … } usage { … } rules { … } }",
+      "meaning": "Add fixtures, usage, or rules to an imported component without copying its layout. See Extend."
+    }
+  ],
+  "theme": {
+    "meaning": "A named override bundle. Each line is `tokenName = value`. The left side is a declared `primitive` or `semantic` (prefer semantics so components stay stable). The right side is a value of that token’s type — another token, or a literal. The assignment replaces the whole token; there is no field-by-field merge inside a Shadow or Transition. Themes do not inherit. Write one theme per concern (Dark, ReducedMotion) and combine them when you bake or in the Playground — not with `theme Child: Parent`.",
+    "accept": [
+      {
+        "form": "theme Name { … }",
+        "meaning": "Declare a named bundle. Name is an identifier, not a string."
+      },
+      {
+        "form": "color.surface = color.ink",
+        "meaning": "Remap a semantic to another token. Preferred."
+      },
+      {
+        "form": "color.surface = #111827",
+        "meaning": "Literal of the token’s type. Fine for a skin; prefer a token ref when the value is reused."
+      },
+      {
+        "form": "motion.appear = motion.instant",
+        "meaning": "Replace a structured token wholly (Transition, Shadow, Background, …)."
+      }
+    ],
+    "reject": [
+      {
+        "form": "theme Dark: Light { … }",
+        "meaning": "Do not author parent/child themes. The `:` form is parsed but is not how themes combine."
+      },
+      {
+        "form": "shadow.card.x = 2",
+        "meaning": "No dotted field patch. Assign a new Shadow(…) to `shadow.card`."
+      }
+    ],
+    "example": "primitive color.white: Color = #FFFFFF\nprimitive color.ink: Color = #111827\nsemantic color.surface: Color = color.white\nsemantic color.text: Color = color.ink\n\ntheme Dark {\n  color.surface = color.ink\n  color.text = color.white\n}"
+  },
+  "lets": {
+    "meaning": "A `let` names something inside a component. Prefer a lowercase id so it does not look like the type: `let title = Text(…)` is a nested frame you mount in `children`. `let save = Button(label: \"Save\")` is a component you declared — instantiate it in a layout the same way. `let ramp: Ramp = Ramp(…)` is a typed value you reuse in props or layers — it is not a view and must not appear in `children`. The id must be unique in the component. Write the `let` before any `children = [id]` or `id.prop` that names it (PDL-E019).",
+    "accept": [
+      {
+        "form": "let title = Text(…)",
+        "meaning": "Nested text frame. Mount with `children = [title]`."
+      },
+      {
+        "form": "let box = Layout(…)",
+        "meaning": "Nested layout. Same four constructors as the root: Layout, Text, Icon, Media."
+      },
+      {
+        "form": "let save = Button(label: \"Save\")",
+        "meaning": "A component you declared. Pass its parameters; mount it in `children` like a frame."
+      },
+      {
+        "form": "let ramp: Ramp = Ramp(…)",
+        "meaning": "Typed value. Reuse in `background = [ramp]`. Not mountable."
+      },
+      {
+        "form": "title.color = color.ink",
+        "meaning": "Assign after the let. The let must appear earlier in the body."
+      }
+    ],
+    "reject": [
+      {
+        "form": "let id: text = { … }",
+        "meaning": "Classic kind-colon form is removed (PDL-E001). Use `let id = Text(…)`."
+      },
+      {
+        "form": "children = [ramp]",
+        "meaning": "A typed value let is not a frame. Put it on a property, not in children."
+      }
+    ],
+    "example": "component Button(label: String = \"OK\") layout {\n  padding = 12\n  background = #2563EB\n  cornerRadius = 8\n\n  let text = Text(content: label, color: #FFFFFF)\n  children = [text]\n}\n\ncomponent Card() layout {\n  direction = .column\n  gap = 8\n\n  let title = Text(content: \"Hello\")\n  let save = Button(label: \"Save\")\n  let ramp: Ramp = Ramp(\n    direction: .bottomToTop,\n    stops: [\n      GradientStop(color: #F00, opacity: 1, position: 0),\n      GradientStop(color: #00F, opacity: 1, position: 1)\n    ]\n  )\n\n  background = [ramp]\n  children = [title, save]\n}"
+  },
+  "parameters": {
+    "meaning": "Every name in `component Name(…)` is public inbound surface. Write `name: Type = default`. Types are String, Number, Bool, a token type, a variant/enum you declared, a component or protocol name, or `[Type]` for a list of instances. There is no private parameter and no `expose` filter.",
+    "accept": [
+      {
+        "form": "label: String = \"Chip\"",
+        "meaning": "Quoted string default."
+      },
+      {
+        "form": "selected: Bool = false",
+        "meaning": "Boolean. Write `Bool`, not `Boolean`."
+      },
+      {
+        "form": "tone: BannerTone = .success",
+        "meaning": "A variant/enum you declared. Default is a `.case`."
+      },
+      {
+        "form": "gap: Distance = 8",
+        "meaning": "Token or value builtin, with a literal or token default."
+      },
+      {
+        "form": "content: ModalContent = UpsellBody()",
+        "meaning": "Single slot — a component or protocol instance."
+      },
+      {
+        "form": "chips: [FilterChip] = [FilterChip()]",
+        "meaning": "List of instances. Empty `[]` is allowed."
+      }
+    ],
+    "reject": [
+      {
+        "form": "on: Boolean = false",
+        "meaning": "`Boolean` is PDL-E039. Write `Bool`."
+      }
+    ],
+    "example": "enum BannerTone {\n  case success\n  case warning\n}\n\ncomponent Chip(\n  label: String = \"Chip\",\n  selected: Bool = false,\n  tone: BannerTone = .success\n) layout {\n  if tone == .success {\n    background = #16A34A\n  } else {\n    background = #DC2626\n  }\n\n  let text = Text(content: label, color: #FFFFFF)\n  children = [text]\n}"
+  },
+  "conditionals": {
+    "meaning": "An `if` / `else if` / `else` chain overrides properties when a parameter or state matches. The resolver walks top to bottom and applies only the first matching branch — there is no fall-through. A branch is a flat list of assignments, not a script. Bare `prop = value` updates the enclosing frame (usually the root). `id.prop = value` updates a let. Write the let before any `id.prop` or `children = [id]` (PDL-E019).",
+    "accept": [
+      {
+        "form": "if tone == .warning { background = color.warn }",
+        "meaning": "First-match branch. Typical condition is `param == .case`."
+      },
+      {
+        "form": "else if tone == .danger { … }",
+        "meaning": "Tried only when earlier branches missed."
+      },
+      {
+        "form": "else { … }",
+        "meaning": "No condition. Runs when nothing above matched. Omit it when the frame defaults already express the base state."
+      },
+      {
+        "form": "statusIcon.color = color.accent",
+        "meaning": "Dotted assign on a let. Prefer this over nesting `if` inside a constructor."
+      },
+      {
+        "form": "if selected { … }",
+        "meaning": "A Bool parameter is truthy as a condition."
+      }
+    ],
+    "reject": [
+      {
+        "form": "if a { … } if a { … }",
+        "meaning": "Two separate `if`s both run when they match. A chain is first-match only; later `else if` arms do not also apply."
+      },
+      {
+        "form": "children = [title] … let title = Text(…)",
+        "meaning": "Forward reference. The let must appear first (PDL-E019)."
+      }
+    ],
+    "example": "enum InteractionState {\n  case rest\n  case hovered\n  case pressed\n}\n\ncomponent InteractiveChip(\n  label: String = \"Chip\",\n  interactionState: InteractionState = .rest\n) layout {\n  background = color.button.rest\n\n  if interactionState == .hovered {\n    background = color.button.hover\n  } else if interactionState == .pressed {\n    background = color.button.press\n  }\n\n  let text = Text(content: label)\n  children = [text]\n}"
+  },
+  "typeStyle": {
+    "meaning": "A named bundle of text-frame properties. Each line is `name = value` using the same property names as a text frame (`fontFamily`, `fontSize`, `fontWeight`, `lineHeight`, `letterSpacing`, …). A text frame applies the bundle with `style = Name`. Later frame props win over the style. `style = null` clears the binding.",
+    "accept": [
+      {
+        "form": "typeStyle Body { fontSize = 16 … }",
+        "meaning": "Declare a named bundle. Body is text-frame props only."
+      },
+      {
+        "form": "style = Body",
+        "meaning": "Apply the bundle on a text frame (constructor arg or assignment)."
+      },
+      {
+        "form": "style = null",
+        "meaning": "Clear the type-style binding without inventing typography literals."
+      }
+    ],
+    "reject": [
+      {
+        "form": "typeStyle Card { direction = .row }",
+        "meaning": "Layout props are not text-frame props."
+      }
+    ],
+    "example": "typeStyle Heading {\n  fontFamily = \"Inter\"\n  fontSize = 24\n  fontWeight = 700\n  lineHeight = 1.35\n}\n\ncomponent TypographyShowcase() layout {\n  direction = .column\n  gap = 8\n  let heading = Text(content: \"Heading style sample\", style: Heading)\n  children = [heading]\n}"
+  },
+  "null": {
+    "meaning": "The word `null` means pretend this property was never set. Use it on a frame or typeStyle property to erase a prior value so the default applies. It is not a Color, Opacity, or other token. `gap = null` clears `gap` only — it does not clear `columnGap` or `rowGap`.",
+    "accept": [
+      {
+        "form": "borderColor = null",
+        "meaning": "Unset. Often means absent (no border color)."
+      },
+      {
+        "form": "style = null",
+        "meaning": "Clear the type-style binding on a text frame."
+      },
+      {
+        "form": "color = null",
+        "meaning": "After `style = Title`, clears that property even if the style contributed it."
+      },
+      {
+        "form": "gap = null",
+        "meaning": "Unsets `gap` only. Does not clear `columnGap` / `rowGap`."
+      }
+    ],
+    "reject": [
+      {
+        "form": "primitive color.none: Color = null",
+        "meaning": "Not a token RHS (PDL-E005). Use a domain empty such as `borderWidth = 0` when that is the value."
+      }
+    ],
+    "example": "component Cleared() layout {\n  borderColor = #0066FF\n  borderColor = null\n}"
+  },
+  "conditions": {
+    "meaning": "What you write after `if` (and inside ForEach). Compare a parameter to a `.case`, test a Bool, negate, or combine with `&&` / `||`. Do not mix `&&` and `||` in one expression without parentheses.",
+    "accept": [
+      {
+        "form": "tone == .warning",
+        "meaning": "Parameter equals a variant case."
+      },
+      {
+        "form": "self.currentFilter == filter",
+        "meaning": "Same-type compare. `self.` is the enclosing component; bare `filter` is often a ForEach item field."
+      },
+      {
+        "form": "selected",
+        "meaning": "A Bool is truthy on its own."
+      },
+      {
+        "form": "!selected",
+        "meaning": "Negation."
+      },
+      {
+        "form": "a && b",
+        "meaning": "Both. Do not mix with `||` unless you parenthesize."
+      },
+      {
+        "form": "a || b",
+        "meaning": "Either. Do not mix with `&&` unless you parenthesize."
+      }
+    ],
+    "reject": [
+      {
+        "form": "a && b || c",
+        "meaning": "Ambiguous. Write `(a && b) || c` or `a && (b || c)`."
+      }
+    ],
+    "example": "variant BannerTone {\n  case success\n  case warning\n}\n\ncomponent Flag(on: Bool = false, tone: BannerTone = .success) layout {\n  if on && tone == .warning {\n    background = color.warn\n  }\n}"
+  },
+  "syntax": {
+    "meaning": "Identifiers are letters, digits, `_`, and `.` where the grammar allows (`MyComponent`, `color.text.primary`). Line comments are `// …`. Block comments are `/* … */`. Hex colors are not strings — write `#RRGGBB`, not `\"#RRGGBB\"`. Numbers are unitless; there is no `px` suffix.",
+    "accept": [
+      {
+        "form": "// line comment",
+        "meaning": "To end of line. Treated as whitespace."
+      },
+      {
+        "form": "/* block */",
+        "meaning": "May span lines."
+      },
+      {
+        "form": "#1E293B",
+        "meaning": "A Color literal, not a string."
+      },
+      {
+        "form": "12",
+        "meaning": "Unitless number. Distance and Size are design units (pixels in HTML preview)."
+      }
+    ],
+    "reject": [
+      {
+        "form": "\"#1E293B\"",
+        "meaning": "Quoted hex is PDL-E017."
+      },
+      {
+        "form": "12px",
+        "meaning": "No unit suffix."
+      }
+    ],
+    "example": "// Shared palette\nprimitive color.ink: Color = #111827  // inline\n\n/*\n  Block comment.\n*/\ncomponent Note() layout {\n  gap = 12\n}"
+  },
+  "files": {
+    "meaning": "The entry `.pdl` file is the root of the merged design. `import \"relative/path.pdl\"` pulls another module. There is no export — after merge, names are just names. Paths are relative to the importing file. Token names (`primitive` / `semantic`) are unique across the graph (PDL-E003). Themes, components, and most other top-level kinds: later wins. Import cycles are PDL-E002. The entry file’s own declarations merge last.",
+    "accept": [
+      {
+        "form": "import \"design/tokens.pdl\"",
+        "meaning": "Relative to this file. Merges that module into the design."
+      },
+      {
+        "form": "previewBackground = color.surface",
+        "meaning": "Canvas color for preview. A Color token, not a layout property."
+      }
+    ],
+    "reject": [
+      {
+        "form": "export component Card",
+        "meaning": "There is no export keyword. Import the file that declares the name."
+      },
+      {
+        "form": "import \"a.pdl\" that imports this file",
+        "meaning": "Cycles are PDL-E002."
+      },
+      {
+        "form": "primitive color.ink: Color = #111 in two files",
+        "meaning": "Token redeclaration is PDL-E003."
+      }
+    ],
+    "example": "previewBackground = color.surface\n\nimport \"design/tokens.pdl\"\nimport \"design/themes.pdl\"\nimport \"design/buttons.pdl\""
+  },
+  "arrayChildren": {
+    "meaning": "A list parameter (`chips: [FilterChip]`) mounts when it appears in `children`. `children = chips` and `children = [chips]` both splice the list in place. Mix siblings with brackets: `children = [header, chips, footer]`. A single slot (`content: ModalContent = UpsellBody()`) also expands in `children`. Dotted override `slot.field = value` is legal on a single slot — if `field` is a param it overrides the instance; otherwise it sets a root-frame prop. Array slots cannot use `slots.foo =` (PDL-E034); use ForEach.",
+    "accept": [
+      {
+        "form": "children = chips",
+        "meaning": "Mount the list. Same as `children = [chips]`."
+      },
+      {
+        "form": "children = [header, chips, footer]",
+        "meaning": "Compose: lists splice among siblings."
+      }
+    ],
+    "reject": [
+      {
+        "form": "slots.title = \"X\"",
+        "meaning": "Dotted override on an array slot is PDL-E034. Use ForEach."
+      }
+    ],
+    "example": "component Modal(\n  chromeTitle: String = \"Dialog\",\n  slots: [ModalContent] = [UpsellBody()]\n) layout {\n  let header = Text(content: chromeTitle)\n  children = [header, slots]\n}"
+  },
+  "variants": {
+    "meaning": "A `variant` (and `enum`, the same construct in v1) is a finite set of named cases. Use it as a parameter type and in conditions. Case names are identifiers without dots. At use sites write `.caseName`. Prefer `variant` for visual axes (tone, size); prefer `enum` for ids and state sets. Tooling may treat the keywords differently later.",
+    "accept": [
+      {
+        "form": "variant BannerTone { case success; case warning }",
+        "meaning": "Declare cases. Semicolons or newlines are fine."
+      },
+      {
+        "form": "enum FilterId { case all; case pop }",
+        "meaning": "Same as variant in v1."
+      },
+      {
+        "form": "tone: BannerTone = .success",
+        "meaning": "Parameter type and `.case` default."
+      },
+      {
+        "form": "if tone == .warning { … }",
+        "meaning": "Compare to a case in a condition."
+      }
+    ],
+    "reject": [
+      {
+        "form": "tone = success",
+        "meaning": "Cases need the leading dot: `.success`."
+      }
+    ],
+    "example": "variant BannerTone {\n  case success\n  case warning\n  case danger\n}\n\nenum FilterId {\n  case all\n  case podcasts\n}\n\ncomponent StatusBanner(\n  label: String = \"Fine\",\n  tone: BannerTone = .success\n) layout {\n  if tone == .warning {\n    background = color.warn\n  }\n  let text = Text(content: label)\n  children = [text]\n}"
+  },
+  "self": {
+    "meaning": "`self` is the enclosing component instance — not a frame id. `self.param` in a value or condition names that component’s parameter (the escape hatch when a ForEach item field would shadow). `self.prop = value` (not a brace block) sets a root-frame property. `self.channel = { … }` is a host inbound handler (`self.` is optional in the kind body). Inside `rules`, `self` is the instance whose rules block is running — a different namespace.",
+    "accept": [
+      {
+        "form": "self.currentFilter",
+        "meaning": "Enclosing component parameter. Prefer this in ForEach when the item might shadow the name."
+      },
+      {
+        "form": "self.background = #333",
+        "meaning": "Root frame property of this component — never an intermediate let."
+      },
+      {
+        "form": "self.pressEnd = { … }",
+        "meaning": "Host inbound handler. Bare `pressEnd = { … }` is the same in the kind body."
+      },
+      {
+        "form": "Rule(.should, self == parent.children.last, description: \"…\")",
+        "meaning": "Rules-query `self` — the instance being checked, not layout `self`."
+      }
+    ],
+    "reject": [
+      {
+        "form": "children = [self]",
+        "meaning": "`self` is not a frame id. Mount lets and slots, not `self`."
+      }
+    ],
+    "example": "component LibrarySubnav(\n  currentFilter: FilterId = .all,\n  chips: [FilterChip] = [FilterChip(filter: .all)]\n) layout {\n  ForEach(chips) { chip in\n    chip.selected = self.currentFilter == filter\n  }\n  self.background = color.surface\n  children = chips\n}"
+  },
+  "motion": {
+    "meaning": "Host handler bodies may name a transition and enter/exit snapshots. `animate = motion.appear` selects a Transition token. `from { … }` / `to { … }` list animatable props (`opacity`, `scale`, `translateX`, `translateY`; `scaleX`, `scaleY`, `blur` recommended). `stagger` is a millisecond increment between visible children; `staggerFrom` is `.first` or `.last`. The HTML host may not play these clauses. Treat this section as a sketch.",
+    "accept": [
+      {
+        "form": "animate = motion.interactive",
+        "meaning": "Use this Transition for property changes this handler triggers."
+      },
+      {
+        "form": "from { opacity = 0 scale = 0.95 }",
+        "meaning": "Enter snapshot on `appear`."
+      },
+      {
+        "form": "to { opacity = 0 }",
+        "meaning": "Exit snapshot on `dismiss`."
+      },
+      {
+        "form": "stagger = 30",
+        "meaning": "Delay increment in ms between consecutive visible children."
+      },
+      {
+        "form": "staggerFrom = .first",
+        "meaning": "Or `.last`. Order of stagger."
+      }
+    ],
+    "reject": [
+      {
+        "form": "interaction Appear { on appear { … } }",
+        "meaning": "The `interaction` keyword is removed (PDL-E001). Put motion on `self.appear = { … }`."
+      }
+    ],
+    "example": "component Modal <PointerInput>() layout {\n  let title = Text(content: \"Hello\")\n  children = [title]\n  self.appear = {\n    animate = motion.appear\n    from {\n      opacity = 0\n      scale = 0.95\n    }\n    stagger = 30\n    staggerFrom = .first\n  }\n  self.dismiss = {\n    animate = motion.dismiss\n    to {\n      opacity = 0\n      scale = 0.95\n    }\n  }\n}"
+  },
+  "eventDirections": [
+    {
+      "name": "emits",
+      "direction": "Child → parent",
+      "wire": "`emit select(filter)` in a host handler; parent writes `item.select(…) = { … }`",
+      "meaning": "The child tells the parent something happened (selected, changed)."
+    },
+    {
+      "name": "host inbound",
+      "direction": "Environment → component",
+      "wire": "`self.pressEnd = { … }` in the component body (self. is optional)",
+      "meaning": "The preview tells the component the user hovered, clicked, or typed. Opt in with `<PointerInput>` or `<EditableText>`."
+    },
+    {
+      "name": "host verbs",
+      "direction": "Component → environment",
+      "wire": "`beginEditing(value)` inside a handler",
+      "meaning": "The component asks the preview to do something — start or end typing."
+    }
+  ],
+  "eventDirectionsExample": "component Chip <PointerInput>(title: String = \"All\") layout {\n  let label = Text(content: title)\n  children = [label]\n  self.pressEnd = { emit select(title) }\n} emits {\n  select(title: String)\n}",
+  "emitExample": "enum FilterId {\n  case all\n  case podcasts\n}\n\ncomponent FilterChip <PointerInput>(\n  title: String = \"All\",\n  filter: FilterId = .all,\n  selected: Bool = false\n) layout {\n  let label = Text(content: title)\n  children = [label]\n  self.pressEnd = { emit select(filter) }\n} emits {\n  select(filter: FilterId)\n}\n\ncomponent FilterBar(currentFilter: FilterId = .all) layout {\n  let all = FilterChip(title: \"All\", filter: .all, selected: currentFilter == .all)\n  let podcasts = FilterChip(title: \"Podcasts\", filter: .podcasts, selected: currentFilter == .podcasts)\n  children = [all, podcasts]\n  all.select(filter_id: FilterId) = { currentFilter = filter_id }\n  podcasts.select(filter_id: FilterId) = { currentFilter = filter_id }\n}",
+  "emitForms": [
+    {
+      "form": "emits C { select(filter: FilterId) }",
+      "meaning": "Declare what this component can tell its parent, in a separate block. Each field needs a type."
+    },
+    {
+      "form": "} emits { select(filter: FilterId) }",
+      "meaning": "The same channels, written right after the component body."
+    },
+    {
+      "form": "protocol P: component { emits { select(filter: FilterId) } }",
+      "meaning": "One shared channel for every component that follows the protocol — a mixed list of chips all `select`."
+    },
+    {
+      "form": "emit select(filter)",
+      "meaning": "Fire the channel from a click (or other host handler). Pass values that match the declared types."
+    },
+    {
+      "form": "emit open(self)",
+      "meaning": "Send this whole instance to the parent — “open this row.”"
+    },
+    {
+      "form": "all.select(filter_id: FilterId) = { … }",
+      "meaning": "The parent hears one named child (`All`) and updates its own state."
+    },
+    {
+      "form": "chip.select(filter_id: FilterId) = { … }",
+      "meaning": "The parent hears each item in a list. Write this on `chip`, not on `chips`."
+    }
+  ],
+  "protocolForms": [
+    {
+      "form": "protocol P: component { … }",
+      "meaning": "A contract for components that share parameters and emits. Use for mixed lists and slots."
+    },
+    {
+      "form": "protocol P { host … }",
+      "meaning": "A contract with the preview — clicks, editing. Not something you put in a list."
+    },
+    {
+      "form": "component C <P>(…) kind { … }",
+      "meaning": "This component follows protocol P. It gets P’s parameters and may use P’s host events."
+    },
+    {
+      "form": "requires PointerInput",
+      "meaning": "This API protocol also needs preview events (clicks or typing)."
+    },
+    {
+      "form": "title = \"\"",
+      "meaning": "A parameter every conforming component has."
+    }
+  ],
+  "protocolExample": "protocol SubnavItem: component {\n  requires PointerInput\n  title = \"\"\n  filter: FilterId = .all\n  emits { select(filter: FilterId) }\n}\n\ncomponent FilterChip <SubnavItem>(\n  selected: Bool = false\n) layout {\n  let label = Text(content: title)\n  children = [label]\n  self.pressEnd = { emit select(filter) }\n}\n\ncomponent LibrarySubnav(\n  currentFilter: FilterId = .all,\n  chips: [SubnavItem] = [\n    FilterChip(title: \"All\", filter: .all),\n    FilterChip(title: \"Podcasts\", filter: .podcasts)\n  ]\n) layout {\n  ForEach(chips) { chip in\n    chip.selected = self.currentFilter == filter\n    chip.select(filter_id: FilterId) = { currentFilter = filter_id }\n  }\n  children = chips\n}",
+  "hostProtocols": [
+    {
+      "name": "PointerInput",
+      "meaning": "Use this when a component should react to hover, click, focus, or appear/dismiss — a button that changes color on hover, a chip that selects on click. Write `component Chip <PointerInput>` then `self.pressEnd = { … }`.",
+      "inbound": [
+        {
+          "name": "hoverStart",
+          "meaning": "Pointer entered the component."
+        },
+        {
+          "name": "hoverEnd",
+          "meaning": "Pointer left the component."
+        },
+        {
+          "name": "pressStart",
+          "meaning": "Pointer or button went down."
+        },
+        {
+          "name": "pressEnd",
+          "meaning": "Pointer or button went up — the usual tap / click complete."
+        },
+        {
+          "name": "pressCancel",
+          "meaning": "The press was aborted (drag-off or system cancel)."
+        },
+        {
+          "name": "focusStart",
+          "meaning": "Keyboard or accessibility focus entered."
+        },
+        {
+          "name": "focusEnd",
+          "meaning": "Focus left."
+        },
+        {
+          "name": "activate",
+          "meaning": "Primary activation (Enter / accessibility activate), distinct from press."
+        },
+        {
+          "name": "appear",
+          "meaning": "The component became visible / entered the tree."
+        },
+        {
+          "name": "dismiss",
+          "meaning": "The host asked this component to dismiss (sheet, modal)."
+        }
+      ],
+      "verbs": [],
+      "injected": [],
+      "example": "component Chip <PointerInput>(title: String = \"All\") layout {\n  let label = Text(content: title)\n  children = [label]\n  self.pressEnd = { emit select(title) }\n} emits {\n  select(title: String)\n}"
+    },
+    {
+      "name": "EditableText",
+      "meaning": "Use this for a field the user can type into. Pair with kind `text`. The preview starts editing on click or focus by default. Show the typed string with `content = self.value`.",
+      "inbound": [
+        {
+          "name": "editingBegan",
+          "meaning": "The editing session started."
+        },
+        {
+          "name": "editingFinished",
+          "meaning": "The session committed. Keep `value`."
+        },
+        {
+          "name": "editingCancelled",
+          "meaning": "The session aborted. Restore the checkpoint."
+        },
+        {
+          "name": "keyboardDismissed",
+          "meaning": "Older name for `editingFinished`."
+        },
+        {
+          "name": "keyboardCancelled",
+          "meaning": "Older name for `editingCancelled`."
+        }
+      ],
+      "verbs": [
+        {
+          "name": "beginEditing",
+          "form": "beginEditing(startingValue)",
+          "meaning": "Start a session seeded with this string."
+        },
+        {
+          "name": "finishEditing",
+          "form": "finishEditing()",
+          "meaning": "Commit the session."
+        },
+        {
+          "name": "cancelEditing",
+          "form": "cancelEditing()",
+          "meaning": "Abort the session and restore the checkpoint."
+        },
+        {
+          "name": "commitEditing",
+          "form": "commitEditing()",
+          "meaning": "Older name for `finishEditing()`."
+        }
+      ],
+      "injected": [
+        {
+          "name": "value",
+          "type": "String",
+          "meaning": "What the user has typed. Default \"\"."
+        },
+        {
+          "name": "isEditing",
+          "type": "Bool",
+          "meaning": "True while the field is being edited."
+        },
+        {
+          "name": "isEmpty",
+          "type": "Bool",
+          "meaning": "True when `value` is empty."
+        },
+        {
+          "name": "isOverLimit",
+          "type": "Bool",
+          "meaning": "True when `value` is longer than the host limit."
+        },
+        {
+          "name": "activatesOn",
+          "type": "TextFieldActivation",
+          "meaning": "When editing starts. Default `.focus`."
+        }
+      ],
+      "example": "component SearchField <EditableText>(\n  placeholder: String = \"Search\"\n) text {\n  content = placeholder\n  if isEditing {\n    content = self.value\n  } else if !isEmpty {\n    content = self.value\n  }\n  self.editingFinished = {\n    finishEditing()\n    emit change(value)\n  }\n} emits {\n  change(value: String)\n}"
+    }
+  ],
+  "preludeEnums": [
+    {
+      "name": "TextFieldActivation",
+      "usedOn": [
+        "activatesOn"
+      ],
+      "meaning": "When a text field starts editing. Use `.focus` for the usual click-or-focus field; `.none` if only your code should start editing.",
+      "cases": [
+        {
+          "case": "focus",
+          "meaning": "Default. Click, tap, or focus begins editing."
+        },
+        {
+          "case": "press",
+          "meaning": "Begin on press/click only — not bare focus."
+        },
+        {
+          "case": "none",
+          "meaning": "Program-only. Call beginEditing yourself; the leaf hit-test does not begin."
+        }
+      ],
+      "example": "component Note <EditableText>() text {\n  content = self.value\n  activatesOn = .none\n}"
+    }
+  ],
+  "forEachForms": [
+    {
+      "form": "ForEach(chips) { chip in … }",
+      "meaning": "For each item in the list, write overrides and listen for clicks. The name `chip` is the current item."
+    },
+    {
+      "form": "children = chips",
+      "meaning": "Put the list on screen. ForEach does not do this by itself. Use brackets when mixing siblings: `[Header, chips, Footer]`."
+    },
+    {
+      "form": "chip.selected = self.currentFilter == filter",
+      "meaning": "Set each item from parent state — which chip looks selected. Use `self.` when the parent and item share a name."
+    },
+    {
+      "form": "chip.select(filter_id: FilterId) = { … }",
+      "meaning": "Hear that item’s emit. Write `chip.select`, not `chips.select`."
+    },
+    {
+      "form": "if self.currentFilter == filter { chip.selected = true } else { … }",
+      "meaning": "Same `if` / `else` as layout, evaluated per list item. Prefer `chip.selected = self.currentFilter == filter` when one Bool is enough."
+    },
+    {
+      "form": "before { … } / between { … } / after { … }",
+      "meaning": "Reserved list chrome. Compilers reject these (PDL-E026). Do not invent dividers this way."
+    }
+  ],
+  "forEachExample": "component LibrarySubnav(\n  currentFilter: FilterId = .all,\n  chips: [FilterChip] = [\n    FilterChip(title: \"All\", filter: .all),\n    FilterChip(title: \"Pop\", filter: .pop)\n  ]\n) layout {\n  ForEach(chips) { chip in\n    chip.selected = self.currentFilter == filter\n    chip.select(filter_id: FilterId) = {\n      currentFilter = filter_id\n    }\n  }\n  children = chips\n}",
+  "sampleForms": [
+    {
+      "form": "samples Tracks { focus { tracks: [TrackRow] = [ … ] } }",
+      "meaning": "Declare a named catalog. A later `samples Tracks` replaces the earlier one. The name must not collide with a component."
+    },
+    {
+      "form": "entry { field: Type = value }",
+      "meaning": "One named slice of the catalog (`focus`, `empty`). Fields are typed. An empty list is real data — no rows."
+    },
+    {
+      "form": "Tracks.focus.tracks",
+      "meaning": "Point at one field: bank, then entry, then field. Use in defaults or layout so the prototype can switch data."
+    }
+  ],
+  "sampleExample": "samples Tracks {\n  library {\n    tracks: [TrackRow] = [\n      TrackRow(title: \"Neon\", trackId: \"neon\"),\n      TrackRow(title: \"Desk\", trackId: \"desk\")\n    ]\n  }\n  empty {\n    tracks: [TrackRow] = []\n  }\n}\n\ncomponent SampleShelf(\n  mood: MoodId = .all,\n  tracks: [TrackRow] = Tracks.library.tracks\n) layout {\n  let list = Layout(direction: .column, children: [tracks])\n  if mood == .focus {\n    list.children = Tracks.empty.tracks\n  }\n  children = [list]\n}",
+  "fixtures": {
+    "meaning": "Write `fixtures Component { … }` next to the component (or inside `extend`). Each `example \"Label\" { … }` is one row in the Fixture menu. The body assigns that component’s parameters to concrete values — a string, a `.case`, a sample path. It does not write layout, and it does not read other parameters.",
+    "accept": [
+      {
+        "form": "fixtures Button { example \"Primary\" { … } }",
+        "meaning": "Named scenarios for one component. The quoted label is what you pick in the Fixture menu."
+      },
+      {
+        "form": "example \"Secondary\" { label = \"Cancel\" emphasis = .secondary }",
+        "meaning": "One scenario. Every assignment is a concrete value."
+      },
+      {
+        "form": "tracks = Tracks.empty.tracks",
+        "meaning": "A field may point at a sample. The fixture still chooses the world; the sample is the catalog."
+      }
+    ],
+    "reject": [
+      {
+        "form": "example \"X\" { label = title }",
+        "meaning": "Not another parameter. Write a literal or a sample path."
+      },
+      {
+        "form": "fixtures Button { usage { description = \"…\" } }",
+        "meaning": "`usage`, `rules`, and `extend` are their own blocks. A fixtures block is only examples."
+      }
+    ],
+    "example": "variant Emphasis {\n  case primary\n  case secondary\n}\n\ncomponent Button(\n  label: String = \"OK\",\n  emphasis: Emphasis = .primary\n) layout {\n  padding = 12\n  background = #2563EB\n  if emphasis == .secondary {\n    background = #6B7280\n  }\n  let text = Text(content: label, color: #FFFFFF)\n  children = [text]\n}\n\nfixtures Button {\n  example \"Primary\" {\n    label = \"Save\"\n    emphasis = .primary\n  }\n  example \"Secondary\" {\n    label = \"Cancel\"\n    emphasis = .secondary\n  }\n}",
+    "complexExample": "samples Tracks {\n  library {\n    tracks: [TrackRow] = [\n      TrackRow(title: \"Neon\", trackId: \"neon\"),\n      TrackRow(title: \"Desk\", trackId: \"desk\")\n    ]\n  }\n  focus {\n    tracks: [TrackRow] = [\n      TrackRow(title: \"Desk\", trackId: \"desk\")\n    ]\n  }\n  empty {\n    tracks: [TrackRow] = []\n  }\n}\n\nenum MoodId {\n  case all\n  case focus\n}\n\ncomponent Playlist(\n  mood: MoodId = .all,\n  query: String = \"\",\n  tracks: [TrackRow] = Tracks.library.tracks\n) layout {\n  let list = Layout(direction: .column, children: [tracks])\n  children = [list]\n}\n\nfixtures Playlist {\n  example \"Full library\" {\n    mood = .all\n    tracks = Tracks.library.tracks\n  }\n  example \"Focus\" {\n    mood = .focus\n    tracks = Tracks.focus.tracks\n  }\n  example \"Empty search\" {\n    query = \"zzzz\"\n    tracks = Tracks.empty.tracks\n  }\n}"
+  },
+  "usage": {
+    "meaning": "A written note attached to a component. Authors and tools read it; it does not change layout. In v1 the only key is `description`. Write `usage Button { … }` next to the component (or inside `extend`).",
+    "accept": [
+      {
+        "form": "usage Button { description = \"…\" }",
+        "meaning": "Replace the note. The name is the component, not a string."
+      },
+      {
+        "form": "description += \" …\"",
+        "meaning": "Append with a single space. Use this inside `extend` so a project can add a sentence without wiping the imported note."
+      }
+    ],
+    "reject": [
+      {
+        "form": "usage Button { summary = \"…\" }",
+        "meaning": "Unknown keys are not defined in v1. Only `description`."
+      },
+      {
+        "form": "component Button() layout { usage { … } }",
+        "meaning": "`usage` is a top-level companion, not a frame property."
+      }
+    ],
+    "example": "usage Button {\n  description = \"Primary actions for forms. Prefer `emphasis = .primary` for one CTA per surface.\"\n}"
+  },
+  "extend": {
+    "meaning": "Add fixtures, usage, or rules to a component that already exists — usually one you imported — without copying its layout. Inner sections follow the same rules as standalone blocks. `description =` replaces; `description +=` appends. A later `tags =` replaces the whole tags array; `Rule(…)` lines append.",
+    "accept": [
+      {
+        "form": "extend Button { fixtures { example \"…\" { … } } }",
+        "meaning": "Add or replace a fixture by its label."
+      },
+      {
+        "form": "extend Button { usage { description += \" …\" } }",
+        "meaning": "Append to the imported note."
+      },
+      {
+        "form": "extend Button { rules { Rule(.should, …) } }",
+        "meaning": "Append a check. `tags =` in a later file replaces the tags array."
+      }
+    ],
+    "reject": [
+      {
+        "form": "extend BannerTone { … }",
+        "meaning": "Only components. There is no `extend` for a variant or token."
+      },
+      {
+        "form": "extend Button { direction = .row }",
+        "meaning": "Extend does not edit layout. Change the source component, or wrap it."
+      }
+    ],
+    "example": "extend Button {\n  fixtures {\n    example \"Project-specific\" { label = \"Submit request\" }\n  }\n  usage {\n    description += \" In this project, always pair with a cancel action.\"\n  }\n}"
+  },
+  "rule": {
+    "meaning": "Write `Rule(strength, query)` inside `rules Component { … }`. The query is true or false from this instance. `.must` / `.mustNot` fail validation; `.should` / `.shouldNot` warn. Optional `description:` is what authors see. `tags =` replaces the tag list; `tags.add` appends. An `if` in this block chooses tags and Rule lines from parameters — it does not restyle the frame. Rules-query `self` is this instance, not layout `self`.",
+    "accept": [
+      {
+        "form": "rules Button { tags = [\"button\"]; Rule(.must, …) }",
+        "meaning": "Attach checks to a component. Tags are strings this instance can be found by."
+      },
+      {
+        "form": "Rule(.mustNot, siblings.where(tag: \"primary-action\").count > 0, description: \"…\")",
+        "meaning": "If the query matches, fail. Optional `description` is what authors see."
+      },
+      {
+        "form": "Rule(.should, self == parent.children.last, description: \"…\")",
+        "meaning": "A softer check. Rules-query `self` is this instance — not layout `self`."
+      },
+      {
+        "form": "if emphasis == .primary { tags.add(\"primary-action\") }",
+        "meaning": "Inside `rules`, `if` chooses tags and Rule lines from parameters. It does not restyle the frame."
+      },
+      {
+        "form": "Rule(.must, siblings.where(tag: \"field-label\").precedes(self), description: \"…\")",
+        "meaning": "Order in the parent’s children. Also `.follows` and `.adjacentTo`."
+      }
+    ],
+    "reject": [
+      {
+        "form": "component Button() layout { tags = [\"button\"] }",
+        "meaning": "Tags are not frame properties. Put them in `rules`."
+      },
+      {
+        "form": "Rule(.must, …) in a layout body",
+        "meaning": "`Rule` is not a frame constructor. It only belongs in `rules`."
+      }
+    ],
+    "example": "rules Button {\n  tags = [\"button\"]\n  if emphasis == .primary {\n    tags.add(\"primary-action\")\n    Rule(.mustNot, siblings.where(tag: \"primary-action\").count > 0,\n      description: \"Only one primary button in this layout.\")\n  }\n}",
+    "examples": [
+      {
+        "title": "One primary action",
+        "code": "variant Emphasis {\n  case primary\n  case secondary\n}\n\ncomponent Button(\n  label: String = \"OK\",\n  emphasis: Emphasis = .primary\n) layout {\n  let text = Text(content: label)\n  children = [text]\n}\n\nrules Button {\n  tags = [\"button\"]\n\n  if emphasis == .primary {\n    tags.add(\"primary-action\")\n    Rule(.mustNot, siblings.where(tag: \"primary-action\").count > 0,\n      description: \"Only one primary button in this layout.\")\n  }\n}"
+      },
+      {
+        "title": "How many tabs",
+        "code": "component Tab(label: String = \"Tab\") layout {\n  let text = Text(content: label)\n  children = [text]\n}\n\nrules Tab {\n  tags = [\"tab-item\"]\n}\n\ncomponent TabBar(tabs: [Tab] = [Tab(), Tab()]) layout {\n  direction = .row\n  children = [tabs]\n}\n\nrules TabBar {\n  tags = [\"tab-bar\"]\n  Rule(.must, children.where(tag: \"tab-item\").count.between(2, 5),\n    description: \"A tab bar must have between 2 and 5 tabs.\")\n}"
+      },
+      {
+        "title": "Sit last in the parent",
+        "code": "rules TabBar {\n  tags = [\"tab-bar\"]\n  Rule(.should, self == parent.children.last,\n    description: \"A tab bar should sit last among its siblings — usually the bottom of a column.\")\n}"
+      },
+      {
+        "title": "A label before the field",
+        "code": "component FieldLabel(content: String = \"Name\") text {\n  content = content\n}\n\nrules FieldLabel {\n  tags = [\"field-label\"]\n}\n\ncomponent Field(value: String = \"\") layout {\n  let text = Text(content: value)\n  children = [text]\n}\n\nrules Field {\n  tags = [\"field\"]\n  Rule(.must, siblings.where(tag: \"field-label\").precedes(self),\n    description: \"A field must have a label sibling before it in the same parent.\")\n}"
+      },
+      {
+        "title": "Do not leave a card empty",
+        "code": "rules Card {\n  tags = [\"card\"]\n  Rule(.should, descendants.exists,\n    description: \"A card should contain at least one nested instance.\")\n}"
+      }
+    ]
+  },
+  "ruleQuery": {
+    "meaning": "Use rules to catch design mistakes the preview or CI can flag — only one primary button, a tab bar must have 2–5 tabs. An `if` in a frame changes how something looks; a Rule does not.",
+    "example": "rules Button {\n  tags = [\"button\", \"interactive\"]\n\n  if emphasis == .primary {\n    tags.add(\"primary-action\")\n    Rule(.mustNot, siblings.where(tag: \"primary-action\").count > 0,\n      description: \"Only one primary button in this layout.\")\n  }\n}\n\nrules TabBar {\n  tags = [\"tab-bar\"]\n  Rule(.must, children.where(tag: \"tab-item\").count.between(2, 5),\n    description: \"A tab bar has between 2 and 5 tabs.\")\n  Rule(.should, self == parent.children.last,\n    description: \"A tab bar usually sits at the bottom of its parent.\")\n}",
+    "navigators": [
+      {
+        "name": "self",
+        "meaning": "This component instance (the one whose `rules` block is running)."
+      },
+      {
+        "name": "parent",
+        "meaning": "The instance that contains this one. Empty at the design root."
+      },
+      {
+        "name": "ancestors",
+        "meaning": "Walk upward toward the root."
+      },
+      {
+        "name": "descendants",
+        "meaning": "Walk downward through nested instances."
+      },
+      {
+        "name": "siblings",
+        "meaning": "Other children of the same parent."
+      },
+      {
+        "name": "children",
+        "meaning": "Direct children only."
+      }
+    ],
+    "filters": [
+      {
+        "form": ".where(tag: \"name\")",
+        "meaning": "Keep instances tagged with that name. Tags come only from `rules` blocks."
+      }
+    ],
+    "aggregates": [
+      {
+        "form": ".exists",
+        "meaning": "True if any node matches."
+      },
+      {
+        "form": ".count",
+        "meaning": "Number of matches."
+      },
+      {
+        "form": ".first / .last",
+        "meaning": "Optional node, for ordering predicates."
+      },
+      {
+        "form": ".between(n, m)",
+        "meaning": "Inclusive range on a count."
+      }
+    ],
+    "ordering": [
+      {
+        "form": ".precedes(self)",
+        "meaning": "Some match appears before self in the parent’s children order."
+      },
+      {
+        "form": ".follows(self)",
+        "meaning": "Some match appears after self."
+      },
+      {
+        "form": ".adjacentTo(self)",
+        "meaning": "Some match is immediately next to self."
+      }
+    ]
+  }
+}

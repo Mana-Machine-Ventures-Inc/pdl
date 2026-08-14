@@ -27,7 +27,10 @@
     "test": "npm run build && vitest run",
     "test:watch": "vitest",
     "test:rust": "cargo test -p pdl-core",
-    "test:dual": "npm run build && cargo build -q -p pdl-cli && node scripts/dual-run-compare.mjs"
+    "test:dual": "npm run build && cargo build -q -p pdl-cli && node scripts/dual-run-compare.mjs",
+    "docs:gen": "node scripts/gen-docs.mjs",
+    "docs:dev": "npm run docs:gen && npm run dev --prefix website",
+    "docs:build": "npm run docs:gen && npm run build --prefix website"
   },
   "engines": {
     "node": ">=20"

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pdl.dev/schema/injection-pack.json",
+  "title": "PDL injection pack",
+  "description": "JSON input for `pdl bakePack` / `validatePack`. Not PDL syntax. Unknown root params are hard errors (PDL-E007); bad list items soft-skip with a warning.",
+  "type": "object",
+  "required": ["schemaVersion", "component"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "1.0.0-beta" },
+    "component": { "type": "string", "description": "Component name to bake." },
+    "theme": { "type": "string" },
+    "params": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Parameter values. Slot lists are arrays of instance literals."
+    }
+  },
+  "$defs": {
+    "instanceLiteral": {
+      "type": "object",
+      "required": ["component"],
+      "properties": {
+        "component": { "type": "string" },
+        "params": { "type": "object" }
+      }
+    }
+  }
+}

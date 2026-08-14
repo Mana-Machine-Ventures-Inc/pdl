@@ -46,16 +46,16 @@ component Button <PointerInput>(
     opacity = 1
   }
 
-  let Label = Text(
+  let text = Text(
     content: label,
     color: #FFFFFF,
     fontSize: 15,
     fontWeight: 600
   )
 
-  children = [Label]
+  children = [text]
 
-  // Host inbound (full-spec §4a′ / §8) — self. optional / clarifying
+  // Host inbound — self. optional / clarifying
   self.hoverStart = { interactionState = .hovered }
   hoverEnd = { interactionState = .rest }
   self.pressStart = { interactionState = .pressed }
@@ -179,16 +179,16 @@ component FilterChip <SubnavItem>(
     background = #222222
   }
 
-  let Label = Text(
+  let label = Text(
     content: title,
     fontSize: 13,
     fontWeight: 600,
     color: #111111
   )
   if selected {
-    Label.color = #FFFFFF
+    label.color = #FFFFFF
   }
-  children = [Label]
+  children = [label]
 
   self.pressEnd = { emit select(filter) }
 }
@@ -248,16 +248,16 @@ component FilterBar(
   cornerRadius = 12
   width = .fill
 
-  let Title = Text(
+  let heading = Text(
     content: title,
     color: #111111,
     fontSize: 17,
     fontWeight: 650
   )
 
-  let Body = Text(content: body, color: #555555, fontSize: 14)
+  let copy = Text(content: body, color: #555555, fontSize: 14)
 
-  children = [Title, Body]
+  children = [heading, copy]
 }
 `,
   },
@@ -272,16 +272,16 @@ component FilterBar(
   gap = 12
   width = .fill
 
-  let Primary = Text(
+  let primary = Text(
     content: "Primary",
     color: #FFFFFF,
     fontSize: 14,
     fontWeight: 600
   )
 
-  let Secondary = Text(content: "Secondary", color: #333333, fontSize: 14)
+  let secondary = Text(content: "Secondary", color: #333333, fontSize: 14)
 
-  children = [Primary, Secondary]
+  children = [primary, secondary]
 }
 `,
   },
@@ -402,19 +402,19 @@ semantic atoms.color.pageBg: Color = atoms.color.surface
   gap = 8
   padding = EdgeInsets(x: 10, y: 6)
 
-  let Glyph = Icon(
+  let glyph = Icon(
     icon: IconRef(system: .sfSymbols, name: "checkmark"),
     size: 18,
     color: #444444
   )
 
-  let Caption = Text(
+  let caption = Text(
     content: label,
     color: #222222,
     fontSize: 14
   )
 
-  children = [Glyph, Caption]
+  children = [glyph, caption]
 }
 `,
   },

@@ -1,0 +1,257 @@
+{
+  "$comment": "Machine lock for PDL diagnostics. Docs site generates Diagnostics from this file. Compiler still emits these codes; keep this table in lockstep when adding/retiring codes.",
+  "schemaVersion": 1,
+  "languageVersion": "1.0.0-beta",
+  "errors": [
+    {
+      "code": "PDL-E001",
+      "name": "unexpected-token",
+      "trigger": "The parser encountered a token it did not expect in the current context. Message MUST include the token and the production rule being parsed."
+    },
+    {
+      "code": "PDL-E002",
+      "name": "circular-import",
+      "trigger": "An `import` chain forms a cycle. Message MUST include the full cycle path."
+    },
+    {
+      "code": "PDL-E003",
+      "name": "duplicate-symbol",
+      "trigger": "Two top-level declarations share the same name within the same namespace (e.g. two `component Button` after merge)."
+    },
+    {
+      "code": "PDL-E004",
+      "name": "unknown-token-type",
+      "trigger": "A `primitive` or `semantic` declaration uses a `TokenType` name that is not in the §21.2 list."
+    },
+    {
+      "code": "PDL-E005",
+      "name": "token-type-mismatch",
+      "trigger": "The RHS value of a token declaration is incompatible with the declared `TokenType` (§23.2)."
+    },
+    {
+      "code": "PDL-E006",
+      "name": "frame-prop-type-mismatch",
+      "trigger": "A frame property (or `typeStyle` prop) is assigned a value of the wrong type (§23.3 / `shared/frame-props.json`)."
+    },
+    {
+      "code": "PDL-E007",
+      "name": "unresolved-reference",
+      "trigger": "A dotted identifier or bare identifier used as a value does not match any token, parameter, or frame id in scope."
+    },
+    {
+      "code": "PDL-E008",
+      "name": "unresolved-type-style",
+      "trigger": "A `style = Name` reference does not match any declared `typeStyle` (case-sensitive)."
+    },
+    {
+      "code": "PDL-E009",
+      "name": null,
+      "retired": true,
+      "trigger": "Formerly `interaction … for ComponentName`. The `interaction` keyword is removed (**PDL-E001**); do not emit E009 for new source."
+    },
+    {
+      "code": "PDL-E010",
+      "name": "invalid-condition-operand",
+      "trigger": "A condition expression compares a non-variant parameter, or uses an operator not supported for its type (§23.5)."
+    },
+    {
+      "code": "PDL-E011",
+      "name": "unknown-frame-property",
+      "trigger": "A property name is used on a frame kind (or `typeStyle`) that does not define it (§5 / `shared/frame-props.json`)."
+    },
+    {
+      "code": "PDL-E012",
+      "name": "invalid-frame-prop-target",
+      "trigger": "Unknown frame id in a dotted assign (`Ghost.hidden = …`), a property used on the wrong frame kind (e.g. `hidden` on `text`), or a fixture body that illegally references another param (§23.6)."
+    },
+    {
+      "code": "PDL-E013",
+      "name": "circular-token-reference",
+      "trigger": "A token's RHS resolves to itself directly or through a chain."
+    },
+    {
+      "code": "PDL-E014",
+      "name": "duplicate-fixture-label",
+      "trigger": "Two `example` blocks within the same `fixtures ComponentName { … }` have identical labels."
+    },
+    {
+      "code": "PDL-E015",
+      "name": null,
+      "retired": true,
+      "trigger": "Formerly `expose-unknown-param`. **`expose` removed** from the language — do not emit."
+    },
+    {
+      "code": "PDL-E016",
+      "name": "extend-unknown-target",
+      "trigger": "An `extend` block names a component that does not exist in the merged definition."
+    },
+    {
+      "code": "PDL-E017",
+      "name": "quoted-hex-color",
+      "trigger": "A string literal is used where a `Color` value is expected and the string content matches the hex color pattern — hex colors must be unquoted."
+    },
+    {
+      "code": "PDL-E018",
+      "name": "reserved-word-as-identifier",
+      "trigger": "A reserved word (§20.4) is used as a user-defined identifier."
+    },
+    {
+      "code": "PDL-E019",
+      "name": "invalid-override-target",
+      "trigger": "A `children` frame-id ref or `FrameId.prop` / `FrameId.children` assignment names a frame that has not been declared with `let` / `letInstance` earlier in the component body (forward reference)."
+    },
+    {
+      "code": "PDL-E020",
+      "name": "invalid-constructor-arg",
+      "trigger": "Constructor / pack argument error: required kw missing, illegal combination (e.g. **`MediaLayer(…)` already has `opacity:` and also uses postfix `@`**), or pack schema violation. (Wrong *types* on known kwargs are often **PDL-E040**.)"
+    },
+    {
+      "code": "PDL-E021",
+      "name": "duplicate-let-frame-id",
+      "trigger": "Two **`let`** or **`letInstance`** frames in the same component reuse the same **`id`** (names must be unique across the whole component body, including all **`if`** branches and sibling nested frames)."
+    },
+    {
+      "code": "PDL-E022",
+      "name": "unknown-protocol",
+      "trigger": "A `component C <P>` or protocol-typed param references an undeclared protocol `P`."
+    },
+    {
+      "code": "PDL-E023",
+      "name": "unknown-foreach-list",
+      "trigger": "`ForEach(name)` names a parameter that is not an expandable list/slot in the enclosing component (§4e)."
+    },
+    {
+      "code": "PDL-E024",
+      "name": "unknown-emit-channel",
+      "trigger": "Layout emit capture or `emit` names a channel not in the effective `emits` set for the relevant component/protocol (§4d–§4e)."
+    },
+    {
+      "code": "PDL-E025",
+      "name": "invalid-foreach-binding",
+      "trigger": "A derived bind inside `ForEach` references an unknown parent/item field or fails type rules for the target child param (§4e)."
+    },
+    {
+      "code": "PDL-E026",
+      "name": "foreach-chrome-unimplemented",
+      "trigger": "`before` / `between` / `after` appears in `ForEach` before B6 is implemented (implementations **MAY** use this code while rejecting chrome)."
+    },
+    {
+      "code": "PDL-E027",
+      "name": "emit-payload-mismatch",
+      "trigger": "Layout `channel(…) = { … }` arity or types do not match the effective emit signature by position, or a fire-site `emit` arg fails the declared payload type (§4d–§4e)."
+    },
+    {
+      "code": "PDL-E028",
+      "name": "ambient-as-emit-capture",
+      "trigger": "A host inbound channel name is used as a **child emit capture** (e.g. bare / parent-qualified `pressEnd(…) = { … }` without `self.`) (§4a′ / §8)."
+    },
+    {
+      "code": "PDL-E029",
+      "name": "declared-as-host-channel",
+      "trigger": "A declared emit channel name is used as a host inbound channel (`self.select = { … }`) (§8) — use parent layout handler assignment instead."
+    },
+    {
+      "code": "PDL-E030",
+      "name": "interaction-missing-host-protocol",
+      "trigger": "A component wires a host channel / verb (`self.pressEnd`, `beginEditing`, …) without effective host protocol conformance (§4a / §4a′)."
+    },
+    {
+      "code": "PDL-E031",
+      "name": "host-protocol-as-slot-type",
+      "trigger": "A host-role protocol is used as a param or `[T]` slot/array element type (§4a)."
+    },
+    {
+      "code": "PDL-E032",
+      "name": "invalid-protocol-requires",
+      "trigger": "`requires` targets a non-host protocol, an unknown name, or appears on a host protocol (§4a)."
+    },
+    {
+      "code": "PDL-E033",
+      "name": "unknown-host-verb",
+      "trigger": "Interaction body calls an unknown host verb (expected `beginEditing` / `cancelEditing` / `commitEditing`) (§4a)."
+    },
+    {
+      "code": "PDL-E034",
+      "name": "array-slot-dotted-override",
+      "trigger": "`slots.field = …` on an **array** slot/list param; use `ForEach(slots) { item in item.field = … }` (§4b / §4e)."
+    },
+    {
+      "code": "PDL-E035",
+      "name": "foreach-without-mount",
+      "trigger": "`ForEach(list)` appears but `list` is never referenced in any `children = […]` / `children = list` of the component (§4e)."
+    },
+    {
+      "code": "PDL-E036",
+      "name": "list-emit-capture",
+      "trigger": "Emit capture qualifies an **array/list** param (`chips.select(…) = { … }`); use `ForEach(chips) { chip in chip.select(…) = { … } }` (§4e)."
+    },
+    {
+      "code": "PDL-E037",
+      "name": "unknown-component",
+      "trigger": "A companion block, instance, bake, or resolve path names a component that does not exist in the merged definition."
+    },
+    {
+      "code": "PDL-E038",
+      "name": "mixed-condition-operators",
+      "trigger": "A condition expression mixes `&&` and `||` at the same precedence level without parentheses (§21.6)."
+    },
+    {
+      "code": "PDL-E039",
+      "name": "unknown-param-type",
+      "trigger": "A component / protocol / emit parameter uses a type name that is not a built-in (§23.1), declared `variant`, API protocol, or component. **`Boolean`** is rejected — use **`Bool`**."
+    },
+    {
+      "code": "PDL-E040",
+      "name": "param-type-mismatch",
+      "trigger": "A parameter default, instance kwarg, or fixture binding is not type-compatible with the declared parameter type (§23.4 / §23.6)."
+    },
+    {
+      "code": "PDL-E041",
+      "name": "unknown-sample-path",
+      "trigger": "A `Bank.entry.field` sample path names an unknown bank, entry, or field; a path is sample-shaped but invalid; or a `samples` bank name collides with a component (§11a)."
+    }
+  ],
+  "warnings": [
+    {
+      "code": "PDL-W001",
+      "name": "param-shadows-token",
+      "trigger": "A component parameter name matches an existing token name; the parameter takes precedence inside the component body."
+    },
+    {
+      "code": "PDL-W002",
+      "name": "primitive-token-in-component",
+      "trigger": "A component references a `primitive` token directly instead of a `semantic` token. Advisory only; valid in demos."
+    },
+    {
+      "code": "PDL-W003",
+      "name": "literal-opacity-in-library",
+      "trigger": "A raw `0…1` numeric literal is used where an `Opacity` token would be more appropriate for a design-system library context."
+    },
+    {
+      "code": "PDL-W004",
+      "name": "unfixable-schemaVersion",
+      "trigger": "The `schemaVersion` on a catalogue or manifest input is not a version this toolchain understands; output may be incomplete."
+    },
+    {
+      "code": "PDL-W005",
+      "name": "unknown-key-in-usage",
+      "trigger": "A `usage` block contains a key other than `description`. The key is preserved but has no normative behavior in v1."
+    },
+    {
+      "code": "PDL-W006",
+      "name": "empty-component",
+      "trigger": "A component's root frame has no children and no content properties set. Likely a stub."
+    },
+    {
+      "code": "PDL-W007",
+      "name": "unreachable-override-branch",
+      "trigger": "A branch in an `if` / `else if` / `else` chain can never be reached because an earlier branch covers all cases of the variant."
+    },
+    {
+      "code": "PDL-W008",
+      "name": null,
+      "retired": true,
+      "trigger": "Formerly `interaction-targets-unexposed-param`. **`expose` removed** — do not emit."
+    }
+  ]
+}

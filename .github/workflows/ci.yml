@@ -18,6 +18,21 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm install --prefix website
+      - run: npm run docs:build
+      - name: Generated docs match lock files
+        run: |
+          git diff --exit-code -- website/src/generated
+
   rust:
     runs-on: ubuntu-latest
     steps:

@@ -13,3 +13,8 @@ dist/
 
 .tmp/
 
+# VitePress
+website/src/.vitepress/cache/
+website/src/.vitepress/dist/
+website/node_modules/
+

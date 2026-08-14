@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pdl.dev/schema/component-catalogue.json",
+  "title": "PDL componentCatalogue",
+  "description": "Graph artefact. Token definitions may use primitive:/semantic: pointer strings. Empty maps may be omitted on CLI omitEmpty output.",
+  "type": "object",
+  "required": ["kind", "schemaVersion", "generatedAt", "components"],
+  "properties": {
+    "kind": { "const": "componentCatalogue" },
+    "schemaVersion": { "type": "string", "const": "1.0.0-beta" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "theme": { "type": "string", "description": "Present only when catalogue was built with --theme." },
+    "primitives": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/tokenRow" }
+    },
+    "semantics": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/tokenRow" }
+    },
+    "themes": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/themeEntry" }
+    },
+    "typeStyles": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/typeStyleEntry" }
+    },
+    "variantTypes": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/variantTypeDef" }
+    },
+    "samples": {
+      "type": "object",
+      "description": "Optional. Bank → entry → field → evaluated value. Empty arrays preserved.",
+      "additionalProperties": { "type": "object" }
+    },
+    "components": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/catalogueComponentRow" }
+    }
+  },
+  "$defs": {
+    "tokenRow": {
+      "type": "object",
+      "required": ["name", "tokenType", "definition"],
+      "properties": {
+        "name": { "type": "string" },
+        "tokenType": { "type": "string" },
+        "definition": true
+      }
+    },
+    "themeEntry": {
+      "type": "object",
+      "required": ["baseTheme", "overrides"],
+      "properties": {
+        "baseTheme": { "type": ["string", "null"] },
+        "overrides": { "type": "object" }
+      }
+    },
+    "typeStyleEntry": {
+      "type": "object",
+      "required": ["name", "props"],
+      "properties": {
+        "name": { "type": "string" },
+        "props": { "type": "object" }
+      }
+    },
+    "variantTypeDef": {
+      "type": "object",
+      "required": ["name", "cases"],
+      "properties": {
+        "name": { "type": "string" },
+        "cases": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "catalFrame": {
+      "type": "object",
+      "description": "Materialised frame in a default tree. Registry leaves (childNodes) omit nested children.",
+      "required": ["id", "kind", "props"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "type": "string" },
+        "props": { "type": "object" },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/catalFrame" }
+        },
+        "instanceOf": { "type": "string" },
+        "instanceKwargs": { "type": "object" }
+      }
+    },
+    "registryFrame": {
+      "type": "object",
+      "description": "childNodes registry entry: no nested materialised children.",
+      "required": ["id", "kind", "props"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "type": "string" },
+        "props": { "type": "object" },
+        "children": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "instanceOf": { "type": "string" },
+        "instanceKwargs": { "type": "object" }
+      }
+    },
+    "catalogueParam": {
+      "type": "object",
+      "required": ["name", "type", "default"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "default": true,
+        "variantTypeName": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "variantChange": {
+      "type": "object",
+      "required": ["frameId", "prop", "value"],
+      "properties": {
+        "frameId": { "type": "string" },
+        "prop": { "type": "string" },
+        "value": true
+      }
+    },
+    "catalogueVariantEntry": {
+      "type": "object",
+      "required": ["params", "affectedFrames"],
+      "properties": {
+        "params": { "type": "object" },
+        "affectedFrames": { "type": "array", "items": { "type": "string" } },
+        "changes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/variantChange" }
+        },
+        "structuralChange": { "type": "boolean" },
+        "childHierarchy": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "rootFrame": {
+      "type": "object",
+      "required": ["kind", "props"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string" },
+        "props": { "type": "object" }
+      }
+    },
+    "catalogueComponentRow": {
+      "type": "object",
+      "required": ["name", "root"],
+      "properties": {
+        "name": { "type": "string" },
+        "params": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/catalogueParam" }
+        },
+        "expose": { "type": "array", "items": { "type": "string" } },
+        "usage": { "type": "string" },
+        "usageByKey": { "type": "object" },
+        "fixtures": { "type": "object" },
+        "rules": { "type": "object" },
+        "interactions": { "type": "array" },
+        "root": { "$ref": "#/$defs/rootFrame" },
+        "defaultParams": { "type": "object" },
+        "childNodes": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/registryFrame" }
+        },
+        "childHierarchy": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "requiredComponents": { "type": "array", "items": { "type": "string" } },
+        "variants": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/catalogueVariantEntry" }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
