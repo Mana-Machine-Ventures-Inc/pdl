@@ -19,6 +19,8 @@ import {
 
 export { PDL_JSON_SCHEMA_VERSION, type GraphThemeEntry, type GraphTokenRow, type GraphTypeStyleEntry } from "./graphJson.js";
 import { serialiseConditionExpr, serialiseValueExpr, serialiseValueExprWithTokenRefs } from "./graph.js";
+import { collectMotionFromHandlerItems } from "./applyMotion.js";
+import { normalizeTransition, type MotionSpec } from "./motionProps.js";
 import { ruleLineToDef, type RuleDefJson } from "./rulesJson.js";
 import {
   isHiddenFrame,
@@ -110,6 +112,24 @@ function serialiseInteractionHandlerItem(item: InteractionHandlerItem): unknown 
       return { kind: "assign", param: item.param, value: serialiseValueExpr(item.value) };
     case "animate":
       return { kind: "animate", value: serialiseValueExpr(item.value) };
+    case "from":
+      return {
+        kind: "from",
+        props: Object.fromEntries(
+          Object.entries(item.props).map(([k, v]) => [k, serialiseValueExpr(v)]),
+        ),
+      };
+    case "to":
+      return {
+        kind: "to",
+        props: Object.fromEntries(
+          Object.entries(item.props).map(([k, v]) => [k, serialiseValueExpr(v)]),
+        ),
+      };
+    case "stagger":
+      return { kind: "stagger", ms: item.ms };
+    case "staggerFrom":
+      return { kind: "staggerFrom", value: item.value };
     case "emit":
       return { kind: "emit", name: item.name, args: item.args };
     case "hostVerb":
@@ -129,14 +149,57 @@ function serialiseInteractionHandlerItem(item: InteractionHandlerItem): unknown 
   }
 }
 
-function serialiseInteractionDecl(decl: InteractionDecl): unknown {
+function evaluateMotionSpec(
+  items: InteractionHandlerItem[],
+  design: DesignDefinition,
+  tokenMap: Map<string, unknown>,
+): MotionSpec | undefined {
+  const spec = collectMotionFromHandlerItems(
+    items,
+    (expr) => {
+      try {
+        const v = evaluateValue(expr, { design, tokens: tokenMap });
+        return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+      } catch {
+        return undefined;
+      }
+    },
+    (expr) => {
+      try {
+        return normalizeTransition(evaluateValue(expr, { design, tokens: tokenMap }));
+      } catch {
+        return undefined;
+      }
+    },
+  );
+  if (
+    !spec.transition &&
+    !spec.from &&
+    !spec.to &&
+    spec.stagger == null &&
+    spec.staggerFrom == null
+  ) {
+    return undefined;
+  }
+  return spec;
+}
+
+function serialiseInteractionDecl(
+  decl: InteractionDecl,
+  design: DesignDefinition,
+  tokenMap: Map<string, unknown>,
+): unknown {
   return {
     name: decl.name,
     component: decl.component,
-    handlers: decl.handlers.map((h) => ({
-      event: h.event,
-      body: h.body.map(serialiseInteractionHandlerItem),
-    })),
+    handlers: decl.handlers.map((h) => {
+      const motion = evaluateMotionSpec(h.body, design, tokenMap);
+      return {
+        event: h.event,
+        body: h.body.map(serialiseInteractionHandlerItem),
+        ...(motion ? { motion } : {}),
+      };
+    }),
   };
 }
 
@@ -865,7 +928,9 @@ export function buildCatalogueComponentRow(
   const imap = design.interactions.get(c.name);
   const interactionsOut =
     imap && imap.size > 0
-      ? [...imap.values()].sort((a, b) => a.name.localeCompare(b.name)).map(serialiseInteractionDecl)
+      ? [...imap.values()]
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((d) => serialiseInteractionDecl(d, design, tokenMap))
       : undefined;
 
   const requiredComponents = collectRequiredComponentNames(design, c.name);

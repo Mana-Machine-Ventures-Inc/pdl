@@ -312,6 +312,69 @@ emits FilterChip {
 }
 
 #[test]
+fn parses_motion_from_to_stagger_on_host_handlers() {
+    let src = r#"
+component Modal <PointerInput>() layout {
+  children = []
+  self.appear = {
+    animate = (duration: 250, easing: "ease-out")
+    from { opacity = 0 scale = 0.95 translateY = 8 }
+    stagger = 30
+    staggerFrom = .last
+  }
+  self.dismiss = {
+    to { opacity = 0 }
+  }
+}
+"#;
+    let m = parse_module_source(src, "motion.pdl").unwrap();
+    let ix = m
+        .declarations
+        .iter()
+        .find_map(|d| match d {
+            pdl_core::ast::TopLevelDecl::Interaction(i) => Some(i),
+            _ => None,
+        })
+        .expect("interaction");
+    let appear = ix.handlers.iter().find(|h| h.event == "appear").unwrap();
+    assert!(appear.body.iter().any(|it| matches!(
+        it,
+        pdl_core::ast::InteractionHandlerItem::From { .. }
+    )));
+    assert!(appear.body.iter().any(|it| matches!(
+        it,
+        pdl_core::ast::InteractionHandlerItem::Stagger { ms } if (*ms - 30.0).abs() < f64::EPSILON
+    )));
+    assert!(appear.body.iter().any(|it| matches!(
+        it,
+        pdl_core::ast::InteractionHandlerItem::StaggerFrom { value } if value == "last"
+    )));
+    let dismiss = ix.handlers.iter().find(|h| h.event == "dismiss").unwrap();
+    assert!(dismiss.body.iter().any(|it| matches!(
+        it,
+        pdl_core::ast::InteractionHandlerItem::To { .. }
+    )));
+}
+
+#[test]
+fn motion_lab_catalogue_evaluates_snapshots() {
+    use pdl_core::{build_component_catalogue, load_design};
+    let path = repo_root().join("test-fixtures/pdl/lab/motion/design.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load motion lab");
+    let cat = build_component_catalogue(&design, None, &[], Some("2026-01-01T00:00:00.000Z".into()))
+        .expect("catalogue");
+    let appear = &cat["components"]["MotionModal"]["interactions"][0]["handlers"][0];
+    assert_eq!(appear["event"], "appear");
+    assert_eq!(appear["motion"]["from"]["opacity"], 0.0);
+    assert_eq!(appear["motion"]["from"]["scale"], 0.95);
+    assert_eq!(appear["motion"]["from"]["translateY"], 8.0);
+    assert_eq!(appear["motion"]["transition"]["duration"], 250.0);
+    let list = &cat["components"]["MotionStaggerList"]["interactions"][0]["handlers"][0];
+    assert_eq!(list["motion"]["stagger"], 40.0);
+    assert_eq!(list["motion"]["staggerFrom"], "first");
+}
+
+#[test]
 fn self_prop_assigns_component_root_not_intermediate_let() {
     use pdl_core::design::load_design;
     use pdl_core::evaluate::build_resolved_token_map;

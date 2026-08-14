@@ -33,6 +33,7 @@ import {
   isBuiltinParamType,
   unwrapParamTypeName,
 } from "./paramTypes.js";
+import { isMotionPropName } from "./motionProps.js";
 import { splitSamplePath } from "./samples.js";
 
 function collectLetFrameKinds(items: FrameBodyItem[]): Map<string, string> {
@@ -405,6 +406,57 @@ function validateFixturesForComponent(design: DesignDefinition, componentName: s
   }
 }
 
+function validateAnimateTransition(
+  design: DesignDefinition,
+  value: ValueExpr,
+  componentName: string,
+): void {
+  if (value.kind === "transition") return;
+  if (value.kind === "ident") {
+    const t = tokenTypeOf(design, value.name);
+    if (t === "Transition") return;
+    throw new PdlError(
+      "PDL-E005",
+      t
+        ? `\`animate =\` must be a Transition (got ${t}) in ${componentName}`
+        : `\`animate =\` must be a Transition token or tuple in ${componentName} (unknown \`${value.name}\`)`,
+      { path: design.entryPath },
+    );
+  }
+  throw new PdlError(
+    "PDL-E005",
+    `\`animate =\` must be a Transition token or tuple \`(duration: …, easing: …)\` in ${componentName}`,
+    { path: design.entryPath },
+  );
+}
+
+function validateMotionSnapshot(
+  design: DesignDefinition,
+  props: Record<string, ValueExpr>,
+  kind: "from" | "to",
+  componentName: string,
+): void {
+  for (const [key, value] of Object.entries(props)) {
+    if (!isMotionPropName(key)) continue;
+    if (value.kind === "number") {
+      if (key === "opacity" && (value.value < 0 || value.value > 1)) {
+        throw new PdlError(
+          "PDL-E005",
+          `Motion \`${kind}.{${key}}\` must be a number in 0…1 (got ${value.value}) in ${componentName}`,
+          { path: design.entryPath },
+        );
+      }
+      continue;
+    }
+    if (value.kind === "ident") continue;
+    throw new PdlError(
+      "PDL-E005",
+      `Motion \`${kind}.{${key}}\` must be a number in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+}
+
 function validateInteractionBody(
   design: DesignDefinition,
   items: InteractionHandlerItem[],
@@ -420,6 +472,10 @@ function validateInteractionBody(
           { path: design.entryPath },
         );
       }
+    } else if (it.kind === "animate") {
+      validateAnimateTransition(design, it.value, componentName);
+    } else if (it.kind === "from" || it.kind === "to") {
+      validateMotionSnapshot(design, it.props, it.kind, componentName);
     } else if (it.kind === "if") {
       for (const br of it.chain.branches) {
         validateConditionExpr(design, br.condition, paramByName, componentName);
@@ -545,7 +601,7 @@ function validateOpacitySides(design: DesignDefinition, expr: ValueExpr): void {
   }
 }
 
-/** Expected shape description for error messages (full-spec §23.2). */
+/** Expected shape description for error messages (`shared/frame-props.json`). */
 function tokenRhsExpectation(tokenType: string): string {
   switch (tokenType) {
     case "Color":
@@ -821,7 +877,7 @@ function assertMediaSourceRefFields(
 }
 
 /**
- * Full-spec §23.2: one gate for every TokenType RHS shape.
+ * One gate for every TokenType RHS shape (`shared/frame-props.json` / language-objects).
  * Bare `ident` is accepted here; primitive/semantic alias rules run separately.
  */
 function assertTokenRhsCompatible(

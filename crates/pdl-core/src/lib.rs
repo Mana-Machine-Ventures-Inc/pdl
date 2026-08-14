@@ -15,6 +15,7 @@ pub mod frame_props;
 pub mod graph_serialize;
 pub mod interaction;
 pub mod lexer;
+pub mod motion;
 pub mod pack;
 pub mod param_bindings;
 pub mod param_types;
@@ -47,7 +48,7 @@ pub use stable_json::{stable_stringify, StableStringifyOptions};
 
 /// Schema version string carried by catalogue / bake / manifest documents.
 /// Pre-release: plain 1.0.0 lineage (see IMPLEMENTATION_PLAN Q5). Keep aligned with
-/// `docs/full-spec.md` when normative prose is updated.
+/// `shared/schema/*.json` when the wire contract is updated.
 pub const SCHEMA_VERSION: &str = "1.0.0";
 
 /// Crate/semver label for tooling (not the PDL document schemaVersion).

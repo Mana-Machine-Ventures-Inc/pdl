@@ -1,6 +1,11 @@
 import type { ComponentCatalogue } from "./catalogue.js";
 import type { BakedDesignDocument } from "./bakeDesign.js";
-import { escapeHtml, renderBakedComponentToHtmlFragment } from "./renderHtml.js";
+import {
+  companionPreviewFromCatalogue,
+  evaluateRulesOnComponent,
+  escapeHtml,
+  renderBakedComponentToHtmlFragment,
+} from "./renderHtml.js";
 
 function prettyJson(value: unknown): string {
   try {
@@ -30,6 +35,10 @@ table.pdl-data tr:last-child td { border-bottom: none; }
 .pdl-preview-block { border: 1px solid #e4e4e7; border-radius: 8px; padding: 14px; margin-bottom: 20px; background: #fff; }
 .pdl-preview-block h3 { margin: 0 0 6px; font-size: 1rem; }
 .pdl-preview-block .pdl-usage { font-size: 0.8rem; color: #52525b; margin: 0 0 10px; max-width: 72ch; }
+.pdl-rule-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pdl-rule { font-size: 0.78rem; line-height: 1.35; padding: 7px 9px; border-radius: 5px; border: 1px solid; }
+.pdl-rule--error { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+.pdl-rule--warn { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
 .pdl-empty-note { font-size: 0.85rem; color: #71717a; font-style: italic; }
 `.trim();
 
@@ -124,17 +133,31 @@ export function renderCatalogueSystemHtml(
   const ts = typeStylesSection(catalogue.typeStyles);
   const vt = variantTypesSection(catalogue.variantTypes);
 
+  const companions = companionPreviewFromCatalogue(
+    catalogue.components as unknown as Record<string, unknown>,
+  );
   const compNames = Object.keys(catalogue.components).sort();
   const previews = compNames
     .map((name) => {
       const row = catalogue.components[name]!;
       const usage = row.usage?.trim() ? `<p class="pdl-usage">${escapeHtml(row.usage)}</p>` : "";
       const bakedRow = baked.components[name];
+      const violations = bakedRow
+        ? evaluateRulesOnComponent(bakedRow, companions.rulesByComponent)
+        : [];
+      const rulesHtml = violations.length
+        ? `<ul class="pdl-rule-list">${violations
+            .map((v) => {
+              const tone = v.severity === "error" ? "error" : "warn";
+              return `<li class="pdl-rule pdl-rule--${tone}">${escapeHtml(v.message)}</li>`;
+            })
+            .join("")}</ul>`
+        : "";
       const canvas = bakedRow
         ? renderBakedComponentToHtmlFragment(bakedRow)
         : `<p class="pdl-empty-note">No baked preview for <code>${escapeHtml(name)}</code>.</p>`;
       const params = `<p class="pdl-muted">Default params: <code>${escapeHtml(JSON.stringify(bakedRow?.bakedParams ?? {}))}</code></p>`;
-      return `<div class="pdl-preview-block" id="pdl-component-${escapeHtml(name)}"><h3>${escapeHtml(name)}</h3>${usage}${params}${canvas}</div>`;
+      return `<div class="pdl-preview-block" id="pdl-component-${escapeHtml(name)}"><h3>${escapeHtml(name)}</h3>${usage}${rulesHtml}${params}${canvas}</div>`;
     })
     .join("\n");
 

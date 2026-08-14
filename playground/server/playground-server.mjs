@@ -63,6 +63,20 @@ const PACK_CATALOG = [
     defaultComponent: "AtomTextPlain",
     description: "Token / typeStyle language surfaces",
   },
+  {
+    id: "usage-rules",
+    label: "Usage & rules",
+    entry: "test-fixtures/pdl/lab/usage-rules/design.pdl",
+    defaultComponent: "UsageRulesLab",
+    description: "Usage notes plus red must / orange should warnings in the HTML preview",
+  },
+  {
+    id: "motion",
+    label: "Motion",
+    entry: "test-fixtures/pdl/lab/motion/design.pdl",
+    defaultComponent: "MotionLab",
+    description: "Appear / dismiss snapshots, stagger, and implicit animate = in the HTML preview",
+  },
 ];
 
 function collectPdlFiles(dirAbs, repoRoot, out = {}) {
@@ -225,6 +239,7 @@ const toolchainPromise = loadToolchain().then(async (m) => {
   const render = await import(pathToFileURL(join(DIST, "renderHtml.js")).href);
   const graph = await import(pathToFileURL(join(DIST, "graph.js")).href);
   const evaluate = await import(pathToFileURL(join(DIST, "evaluate.js")).href);
+  const companions = await import(pathToFileURL(join(DIST, "evaluateRules.js")).href);
   return {
     loadDesign: m.loadDesign,
     ...bake,
@@ -232,6 +247,9 @@ const toolchainPromise = loadToolchain().then(async (m) => {
     serialiseValueExpr: graph.serialiseValueExpr,
     evaluateValue: evaluate.evaluateValue,
     buildResolvedTokenMap: evaluate.buildResolvedTokenMap,
+    companionPreviewFromDesign: companions.companionPreviewFromDesign,
+    companionPreviewFromCatalogue: companions.companionPreviewFromCatalogue,
+    mergeCompanionPreview: companions.mergeCompanionPreview,
   };
 });
 
@@ -673,6 +691,10 @@ function enrichFromRustCatalogue(entryAbs) {
   const interactionsByComponent = {};
   /** @type {Record<string, unknown>} */
   const emitCapturesByComponent = {};
+  /** @type {Record<string, string>} */
+  const usageByComponent = {};
+  /** @type {Record<string, { tagOps: object[]; rules: object[] }>} */
+  const rulesByComponent = {};
   for (const [name, c] of Object.entries(cat.components ?? {})) {
     componentParams[name] = (c.params ?? []).map((p) => {
       // Array / object types are not Playground knobs — mark as object so controls skip them.
@@ -701,6 +723,19 @@ function enrichFromRustCatalogue(entryAbs) {
     if (Array.isArray(c.emitCaptures) && c.emitCaptures.length) {
       emitCapturesByComponent[name] = c.emitCaptures;
     }
+    if (typeof c.usage === "string" && c.usage.trim()) {
+      usageByComponent[name] = c.usage.trim();
+    }
+    if (c.rules && typeof c.rules === "object") {
+      const tags = Array.isArray(c.rules.tags) ? c.rules.tags.map(String) : [];
+      const rules = Array.isArray(c.rules.rules) ? c.rules.rules : [];
+      if (tags.length || rules.length) {
+        rulesByComponent[name] = {
+          tagOps: tags.length ? [{ kind: "set", tags }] : [],
+          rules,
+        };
+      }
+    }
   }
   return {
     ok: true,
@@ -720,6 +755,8 @@ function enrichFromRustCatalogue(entryAbs) {
     variantCases,
     interactionsByComponent,
     emitCapturesByComponent,
+    usageByComponent,
+    rulesByComponent,
     loader: "rust-catalogue",
   };
 }
@@ -732,8 +769,14 @@ function enrichFromRustCatalogue(entryAbs) {
  * @param {string} summaryRoot
  */
 async function enrichDesignAt(entryAbs, summaryRoot) {
-  const { loadDesign, serialiseValueExpr, evaluateValue, buildResolvedTokenMap } =
-    await toolchainPromise;
+  const {
+    loadDesign,
+    serialiseValueExpr,
+    evaluateValue,
+    buildResolvedTokenMap,
+    companionPreviewFromDesign,
+    mergeCompanionPreview,
+  } = await toolchainPromise;
   /** @type {ReturnType<typeof enrichFromRustCatalogue> | null} */
   let rustEnrich = null;
   try {
@@ -750,9 +793,24 @@ async function enrichDesignAt(entryAbs, summaryRoot) {
       buildResolvedTokenMap,
       summaryRoot,
     );
-    if (!rustEnrich) return tsPayload;
-    return {
+    const tsCompanions = companionPreviewFromDesign(design);
+    const rustCompanions = rustEnrich
+      ? {
+          usageByComponent: rustEnrich.usageByComponent ?? {},
+          rulesByComponent: rustEnrich.rulesByComponent ?? {},
+        }
+      : { usageByComponent: {}, rulesByComponent: {} };
+    const companions = rustEnrich
+      ? mergeCompanionPreview(rustCompanions, tsCompanions)
+      : tsCompanions;
+    const withCompanions = {
       ...tsPayload,
+      usageByComponent: companions.usageByComponent,
+      rulesByComponent: companions.rulesByComponent,
+    };
+    if (!rustEnrich) return withCompanions;
+    return {
+      ...withCompanions,
       // Rust wins for host/emit metadata (ForEach captures, host handlers).
       interactionsByComponent: {
         ...(tsPayload.interactionsByComponent ?? {}),
@@ -1082,6 +1140,8 @@ async function handleRender(body) {
       const { html, renderFailures } = renderBakedDesignToHtmlDocumentWithReport(synthetic, {
         title: `Variants — ${component}`,
         componentNames: Object.keys(mergedComponents),
+        usageByComponent: enriched.usageByComponent,
+        rulesByComponent: enriched.rulesByComponent,
       });
       return {
         ...enriched,
@@ -1139,6 +1199,8 @@ async function handleRender(body) {
       componentNames,
       interactiveHost: wantInteractive && mode !== "pack" && !bakeOnly,
       interactionsByComponent: enriched.interactionsByComponent,
+      usageByComponent: enriched.usageByComponent,
+      rulesByComponent: enriched.rulesByComponent,
       componentOverrides: mode === "system" ? componentOverrides : undefined,
       bakeOnly,
     });
@@ -1201,6 +1263,8 @@ async function handleRender(body) {
         interactiveHost: wantInteractive && mode !== "pack",
         interactionsByComponent: enriched.interactionsByComponent,
         emitCapturesByComponent: enriched.emitCapturesByComponent,
+        usageByComponent: enriched.usageByComponent,
+        rulesByComponent: enriched.rulesByComponent,
         paramControlsByComponent,
         fixtureControlsByComponent,
         componentSourcesByComponent,
@@ -1343,6 +1407,8 @@ async function handleRenderFromBake(body) {
       interactiveHost: wantInteractive,
       interactionsByComponent,
       emitCapturesByComponent,
+      usageByComponent: enriched?.usageByComponent,
+      rulesByComponent: enriched?.rulesByComponent,
       paramControlsByComponent,
       fixtureControlsByComponent,
     });

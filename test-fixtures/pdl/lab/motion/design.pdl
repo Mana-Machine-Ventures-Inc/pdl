@@ -1,0 +1,131 @@
+// Playground lab — HTML preview motion (WAAPI overlay + Replay).
+// Bake stays at rest pose. Hex colors and inline Transition tuples — no import.
+
+variant InteractionState {
+  case rest
+  case hovered
+}
+
+component MotionModal <PointerInput>() layout {
+  direction = .column
+  gap = 8
+  padding = 20
+  width = 280
+  background = #FFFFFF
+  cornerRadius = 12
+  borderWidth = 1
+  borderColor = #E5E7EB
+
+  let title = Text(content: "Save playlist?", color: #111827, fontSize: 16, fontWeight: 600)
+  let body = Text(content: "This card plays appear / dismiss. Use Replay motion.", color: #6B7280, fontSize: 13)
+  children = [title, body]
+
+  self.appear = {
+    animate = (duration: 250, easing: "cubic-bezier(0.2, 0, 0, 1)")
+    from {
+      opacity = 0
+      scale = 0.95
+      translateY = 8
+    }
+  }
+  self.dismiss = {
+    animate = (duration: 180, easing: "ease-in")
+    to {
+      opacity = 0
+      scale = 0.95
+      translateY = 8
+    }
+  }
+}
+
+usage MotionModal {
+  description = "Modal-shaped card. Appear fades and scales in from 8px below. Replay motion runs dismiss then appear."
+}
+
+component MotionStaggerRow(label: String = "Item") layout {
+  direction = .row
+  padding = EdgeInsets(x: 12, y: 8)
+  background = #F3F4F6
+  cornerRadius = 6
+  width = .fill
+  let text = Text(content: label, color: #111827, fontSize: 13)
+  children = [text]
+}
+
+component MotionStaggerList <PointerInput>() layout {
+  direction = .column
+  gap = 8
+  padding = 16
+  width = 280
+  background = #FFFFFF
+  cornerRadius = 12
+
+  let a = MotionStaggerRow(label: "First")
+  let b = MotionStaggerRow(label: "Second")
+  let c = MotionStaggerRow(label: "Third")
+  children = [a, b, c]
+
+  self.appear = {
+    animate = (duration: 220, easing: "ease-out")
+    from {
+      opacity = 0
+      translateY = 10
+    }
+    stagger = 40
+    staggerFrom = .first
+  }
+}
+
+usage MotionStaggerList {
+  description = "Direct children stagger in 40ms steps from the first row."
+}
+
+component MotionHoverChip <PointerInput>(
+  label: String = "Hover me",
+  interactionState: InteractionState = .rest
+) layout {
+  direction = .row
+  align = .center
+  justify = .center
+  padding = EdgeInsets(x: 14, y: 8)
+  cornerRadius = 999
+  width = .hug
+  background = #2563EB
+
+  if interactionState == .hovered {
+    background = #1D4ED8
+  }
+
+  let text = Text(content: label, color: #FFFFFF, fontSize: 13, fontWeight: 600)
+  children = [text]
+
+  self.hoverStart = {
+    animate = (duration: 200, easing: "ease-out")
+    interactionState = .hovered
+  }
+  hoverEnd = {
+    animate = (duration: 200, easing: "ease-out")
+    interactionState = .rest
+  }
+}
+
+usage MotionHoverChip {
+  description = "Implicit animate = — the hover background change should take 200ms when the host patches styles."
+}
+
+component MotionLab() layout {
+  direction = .column
+  gap = 20
+  padding = 20
+  background = #F9FAFB
+  width = .fill
+
+  let modal = MotionModal()
+  let list = MotionStaggerList()
+  let chip = MotionHoverChip()
+  children = [modal, list, chip]
+}
+
+usage MotionLab {
+  description = "Motion walkthrough. Replay motion on the modal and list. Hover the chip for implicit interpolation."
+}

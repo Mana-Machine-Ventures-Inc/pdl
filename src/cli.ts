@@ -6,7 +6,7 @@ import {
   buildBakedDesignSystem,
   type BakedDesignDocument,
 } from "./bakeDesign.js";
-import { renderBakedDesignToHtmlDocument } from "./renderHtml.js";
+import { companionPreviewFromDesign, renderBakedDesignToHtmlDocument } from "./renderHtml.js";
 import { buildComponentCatalogue } from "./catalogue.js";
 import { renderCatalogueSystemHtml } from "./renderCatalogueHtml.js";
 import { stableStringify } from "./stableJson.js";
@@ -233,8 +233,18 @@ function main() {
           theme,
           paramOverrides: kv,
         });
+    const companions = companionPreviewFromDesign(design);
+    const catalogue = buildComponentCatalogue(design, { theme });
+    const interactionsByComponent: Record<string, unknown> = {};
+    for (const [name, row] of Object.entries(catalogue.components)) {
+      if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
+    }
     const html = renderBakedDesignToHtmlDocument(baked, {
       singleComponent: systemMode ? undefined : compArg,
+      usageByComponent: companions.usageByComponent,
+      rulesByComponent: companions.rulesByComponent,
+      interactionsByComponent,
+      interactiveHost: Object.keys(interactionsByComponent).length > 0,
     });
     if (outPath) writeFileSync(outPath, html, "utf-8");
     else process.stdout.write(html);

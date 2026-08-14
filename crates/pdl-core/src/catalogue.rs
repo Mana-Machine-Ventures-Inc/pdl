@@ -18,6 +18,8 @@ use crate::evaluate::{build_resolved_token_map, evaluate_value, Eval, ParamMeta,
 use crate::graph_serialize::{
     serialise_condition_expr, serialise_value_expr, serialise_value_expr_with_token_refs,
 };
+use crate::motion::is_motion_prop_name;
+use crate::stable_json::number_value;
 use crate::resolve::{
     is_hidden_frame, resolve_component_tree, resolve_default_param_values, CatalFrame,
     RESOLVE_OPTIONS_GRAPH_CATALOGUE,
@@ -155,6 +157,22 @@ fn serialise_interaction_handler_item(item: &InteractionHandlerItem) -> Value {
             ("kind", Value::String("animate".to_string())),
             ("value", serialise_value_expr(value)),
         ]),
+        InteractionHandlerItem::From { props } => obj(vec![
+            ("kind", Value::String("from".to_string())),
+            ("props", serialise_motion_props(props)),
+        ]),
+        InteractionHandlerItem::To { props } => obj(vec![
+            ("kind", Value::String("to".to_string())),
+            ("props", serialise_motion_props(props)),
+        ]),
+        InteractionHandlerItem::Stagger { ms } => obj(vec![
+            ("kind", Value::String("stagger".to_string())),
+            ("ms", number_value(*ms)),
+        ]),
+        InteractionHandlerItem::StaggerFrom { value } => obj(vec![
+            ("kind", Value::String("staggerFrom".to_string())),
+            ("value", Value::String(value.clone())),
+        ]),
         InteractionHandlerItem::Emit { name, args } => obj(vec![
             ("kind", Value::String("emit".to_string())),
             ("name", Value::String(name.clone())),
@@ -217,18 +235,158 @@ fn serialise_interaction_if_chain(chain: &InteractionIfChain) -> Value {
     obj(entries)
 }
 
-fn serialise_interaction_decl(decl: &InteractionDecl) -> Value {
+fn serialise_motion_props(props: &IndexMap<String, ValueExpr>) -> Value {
+    let mut m = Map::new();
+    for (k, v) in props {
+        m.insert(k.clone(), serialise_value_expr(v));
+    }
+    Value::Object(m)
+}
+
+fn try_eval_value(
+    expr: &ValueExpr,
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+) -> Option<Value> {
+    let mut visiting = HashSet::new();
+    let empty_pv: ParamValues = Map::new();
+    let empty_pm: ParamMeta = IndexMap::new();
+    let mut ev = Eval {
+        design,
+        tokens,
+        visiting: &mut visiting,
+        param_values: Some(&empty_pv),
+        param_meta: Some(&empty_pm),
+        use_string_placeholders: false,
+    };
+    evaluate_value(expr, &mut ev).ok()
+}
+
+fn json_as_f64(v: &Value) -> Option<f64> {
+    match v {
+        Value::Number(n) => n.as_f64(),
+        _ => None,
+    }
+}
+
+fn evaluate_motion_transition(
+    expr: &ValueExpr,
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+) -> Option<Value> {
+    let raw = try_eval_value(expr, design, tokens)?;
+    let o = raw.as_object()?;
+    let duration = o.get("duration").and_then(json_as_f64)?;
+    if !duration.is_finite() || duration < 0.0 {
+        return None;
+    }
+    let easing = o
+        .get("easing")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or("linear")
+        .to_string();
+    let delay = o.get("delay").and_then(json_as_f64).unwrap_or(0.0);
+    let delay = if delay.is_finite() && delay > 0.0 {
+        delay
+    } else {
+        0.0
+    };
+    Some(obj(vec![
+        ("duration", number_value(duration)),
+        ("easing", Value::String(easing)),
+        ("delay", number_value(delay)),
+    ]))
+}
+
+fn evaluate_motion_snapshot(
+    props: &IndexMap<String, ValueExpr>,
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+) -> Option<Value> {
+    let mut m = Map::new();
+    for (k, v) in props {
+        if !is_motion_prop_name(k) {
+            continue;
+        }
+        if let Some(n) = try_eval_value(v, design, tokens).as_ref().and_then(json_as_f64) {
+            if n.is_finite() {
+                m.insert(k.clone(), number_value(n));
+            }
+        }
+    }
+    if m.is_empty() {
+        None
+    } else {
+        Some(Value::Object(m))
+    }
+}
+
+fn evaluate_handler_motion(
+    body: &[InteractionHandlerItem],
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+) -> Option<Value> {
+    let mut entries: Vec<(&str, Value)> = Vec::new();
+    for item in body {
+        match item {
+            InteractionHandlerItem::Animate { value } => {
+                if let Some(t) = evaluate_motion_transition(value, design, tokens) {
+                    entries.retain(|(k, _)| *k != "transition");
+                    entries.push(("transition", t));
+                }
+            }
+            InteractionHandlerItem::From { props } => {
+                if let Some(s) = evaluate_motion_snapshot(props, design, tokens) {
+                    entries.retain(|(k, _)| *k != "from");
+                    entries.push(("from", s));
+                }
+            }
+            InteractionHandlerItem::To { props } => {
+                if let Some(s) = evaluate_motion_snapshot(props, design, tokens) {
+                    entries.retain(|(k, _)| *k != "to");
+                    entries.push(("to", s));
+                }
+            }
+            InteractionHandlerItem::Stagger { ms } => {
+                entries.retain(|(k, _)| *k != "stagger");
+                entries.push(("stagger", number_value(*ms)));
+            }
+            InteractionHandlerItem::StaggerFrom { value } => {
+                entries.retain(|(k, _)| *k != "staggerFrom");
+                entries.push(("staggerFrom", Value::String(value.clone())));
+            }
+            _ => {}
+        }
+    }
+    if entries.is_empty() {
+        None
+    } else {
+        Some(obj(entries))
+    }
+}
+
+fn serialise_interaction_decl(
+    decl: &InteractionDecl,
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+) -> Value {
     let handlers: Vec<Value> = decl
         .handlers
         .iter()
         .map(|h| {
-            obj(vec![
+            let mut fields = vec![
                 ("event", Value::String(h.event.clone())),
                 (
                     "body",
                     Value::Array(h.body.iter().map(serialise_interaction_handler_item).collect()),
                 ),
-            ])
+            ];
+            if let Some(motion) = evaluate_handler_motion(&h.body, design, tokens) {
+                fields.push(("motion", motion));
+            }
+            obj(fields)
         })
         .collect();
     obj(vec![
@@ -1020,7 +1178,10 @@ pub fn build_catalogue_component_row(
             let mut decls: Vec<&InteractionDecl> = imap.values().collect();
             decls.sort_by(|a, b| a.name.cmp(&b.name));
             Some(Value::Array(
-                decls.into_iter().map(serialise_interaction_decl).collect(),
+                decls
+                    .into_iter()
+                    .map(|d| serialise_interaction_decl(d, design, tokens))
+                    .collect(),
             ))
         }
         _ => None,

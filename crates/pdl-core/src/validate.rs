@@ -11,6 +11,7 @@ use crate::conditions::validate_condition_expr;
 use crate::design::{effective_params, DesignDefinition};
 use crate::error::PdlError;
 use crate::frame_props::{validate_frame_props_in_body, validate_type_style_props};
+use crate::motion::is_motion_prop_name;
 use crate::param_bindings::{
     assert_param_value_compatible, validate_component_param_defaults,
     validate_param_bindings_in_body,
@@ -962,6 +963,73 @@ fn validate_fixtures_for_component(
     Ok(())
 }
 
+fn validate_animate_transition(
+    design: &DesignDefinition,
+    value: &ValueExpr,
+    component_name: &str,
+) -> Result<(), PdlError> {
+    match value {
+        ValueExpr::Transition { .. } => Ok(()),
+        ValueExpr::Ident { name } => match token_type_of(design, name).as_deref() {
+            Some("Transition") => Ok(()),
+            Some(t) => Err(err(
+                "PDL-E005",
+                format!("`animate =` must be a Transition (got {t}) in {component_name}"),
+                design,
+            )),
+            None => Err(err(
+                "PDL-E005",
+                format!(
+                    "`animate =` must be a Transition token or tuple in {component_name} (unknown `{name}`)"
+                ),
+                design,
+            )),
+        },
+        _ => Err(err(
+            "PDL-E005",
+            format!(
+                "`animate =` must be a Transition token or tuple `(duration: …, easing: …)` in {component_name}"
+            ),
+            design,
+        )),
+    }
+}
+
+fn validate_motion_snapshot(
+    design: &DesignDefinition,
+    props: &indexmap::IndexMap<String, ValueExpr>,
+    kind: &str,
+    component_name: &str,
+) -> Result<(), PdlError> {
+    for (key, value) in props {
+        if !is_motion_prop_name(key) {
+            continue;
+        }
+        match value {
+            ValueExpr::Number { value: n } => {
+                if key == "opacity" && (*n < 0.0 || *n > 1.0) {
+                    return Err(err(
+                        "PDL-E005",
+                        format!(
+                            "Motion `{kind}.{{{key}}}` must be a number in 0…1 (got {n}) in {component_name}"
+                        ),
+                        design,
+                    ));
+                }
+            }
+            ValueExpr::Ident { .. } => {}
+            _ => {
+                return Err(err(
+                    "PDL-E005",
+                    format!("Motion `{kind}.{{{key}}}` must be a number in {component_name}"),
+                    design,
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 fn validate_interaction_body(
     design: &DesignDefinition,
     items: &[InteractionHandlerItem],
@@ -981,6 +1049,15 @@ fn validate_interaction_body(
                         design,
                     ));
                 }
+            }
+            InteractionHandlerItem::Animate { value } => {
+                validate_animate_transition(design, value, component_name)?;
+            }
+            InteractionHandlerItem::From { props } => {
+                validate_motion_snapshot(design, props, "from", component_name)?;
+            }
+            InteractionHandlerItem::To { props } => {
+                validate_motion_snapshot(design, props, "to", component_name)?;
             }
             InteractionHandlerItem::HostVerb {
                 qualifier,
@@ -1721,7 +1798,7 @@ fn assert_media_source_ref_fields(
     }
 }
 
-/// Full-spec §23.2: one gate for every TokenType RHS shape.
+/// One gate for every TokenType RHS shape (`shared/frame-props.json`).
 /// Bare `Ident` is accepted here; primitive/semantic alias rules run separately.
 fn assert_token_rhs_compatible(
     design: &DesignDefinition,

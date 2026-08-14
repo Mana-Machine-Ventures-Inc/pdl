@@ -137,7 +137,13 @@ function runHandlerBody(
       emits.push({ name: item.name, args: Array.isArray(item.args) ? item.args.map(String) : [] });
       continue;
     }
-    if (item.kind === "animate") {
+    if (
+      item.kind === "animate" ||
+      item.kind === "from" ||
+      item.kind === "to" ||
+      item.kind === "stagger" ||
+      item.kind === "staggerFrom"
+    ) {
       continue;
     }
     if (item.kind === "hostVerb" && typeof item.name === "string") {

@@ -5,6 +5,25 @@ import {
   isPackRelativeFilePath,
 } from "./assetRefs.js";
 import type { BakedComponentJson, BakedDesignDocument, BakedFrame } from "./bakeDesign.js";
+import {
+  companionPreviewFromCatalogue,
+  companionPreviewFromDesign,
+  evaluateRulesOnComponent,
+  ruleMarksFromViolations,
+  type CompanionPreview,
+  type RuleSeverity,
+  type RuleViolation,
+  type RulesPreviewJson,
+} from "./evaluateRules.js";
+
+export {
+  companionPreviewFromCatalogue,
+  companionPreviewFromDesign,
+  evaluateRulesOnComponent,
+  type CompanionPreview,
+  type RuleViolation,
+  type RulesPreviewJson,
+};
 
 export function escapeHtml(text: string): string {
   return text
@@ -831,12 +850,16 @@ function stackChildOpts(
   parentOpts?: FrameRenderOpts,
 ): FrameRenderOpts {
   const isStack = isStackDirection(parentDirection);
-  const sessionParams = parentOpts?.sessionParams;
-  if (!isStack) return { stackChild: false, stackZ: 0, sessionParams };
+  const inherited: Partial<FrameRenderOpts> = {
+    sessionParams: parentOpts?.sessionParams,
+    instancePath: parentOpts?.instancePath,
+    isTreeRoot: false,
+  };
+  if (!isStack) return { stackChild: false, stackZ: 0, ...inherited };
   return {
     stackChild: true,
     stackZ: stackZIndex(index, childCount, parentDirection === "reverseStack"),
-    sessionParams,
+    ...inherited,
   };
 }
 
@@ -1012,6 +1035,10 @@ export type FrameRenderOpts = {
    * Propagated for root text fields so `.none` can render as non-interactive text.
    */
   sessionParams?: Record<string, unknown>;
+  /** Instance-tree path for rule marks (`Component` or `Component/letId`). */
+  instancePath?: string;
+  /** True only for the previewed component root frame. */
+  isTreeRoot?: boolean;
 };
 
 function textFieldActivationMode(
@@ -1051,6 +1078,8 @@ export type InstanceRenderCtx = {
   pointerInputTypes?: ReadonlySet<string>;
   /** EditableText baked defaults by component type (`isEditing`, `value`, …). */
   editableSessionDefaults?: Readonly<Record<string, Record<string, unknown>>>;
+  /** Rule-violation marks keyed by instance path. */
+  ruleMarks?: Readonly<Record<string, RuleSeverity>>;
 };
 
 function frameLooksEditableSession(params: Record<string, unknown> | null | undefined): boolean {
@@ -1519,7 +1548,12 @@ export function patchFrameProps(
       !/(?:^|;)position\s*:/.test(shell)
         ? mergeInlineStyles(shell, "position:relative")
         : shell;
-    el.setAttribute("style", style);
+    const pendingTransition = el.getAttribute("data-pdl-transition");
+    const withMotion =
+      pendingTransition && pendingTransition !== "none"
+        ? mergeInlineStyles(style, `transition:${pendingTransition}`, "transform-origin:center")
+        : style;
+    el.setAttribute("style", withMotion);
   }
 
   const nextProps = (next.props ?? {}) as Record<string, unknown>;
@@ -1672,7 +1706,18 @@ function renderFrame(
   // omitEmpty bake JSON may drop empty `props: {}` / `children: []`.
   const props = (frame.props ?? {}) as Record<string, unknown>;
   const kids = frame.children ?? [];
-  const dataId = ` data-pdl-id="${escapeAttr(id)}"`;
+  const isTreeRoot = opts.isTreeRoot === true;
+  const instancePath = isTreeRoot
+    ? (opts.instancePath ?? id)
+    : frame.instanceOf
+      ? `${opts.instancePath ?? ""}/${id}`.replace(/^\//, "")
+      : (opts.instancePath ?? id);
+  const ruleMark =
+    (isTreeRoot || frame.instanceOf) && instCtx?.ruleMarks
+      ? instCtx.ruleMarks[instancePath]
+      : undefined;
+  const ruleAttr = ruleMark ? ` data-pdl-rule="${escapeAttr(ruleMark)}"` : "";
+  const dataId = ` data-pdl-id="${escapeAttr(id)}"${ruleAttr}`;
   const wantInst = frame.instanceOf !== undefined && !opts.omitInstanceAttrs;
   const inst = wantInst ? ` data-pdl-instance-of="${escapeAttr(frame.instanceOf!)}"` : "";
   const kwargsAttr =
@@ -1686,14 +1731,18 @@ function renderFrame(
       ? ` data-pdl-pointer-input="1"`
       : "";
   // Nested EditableText: seed session bag from type defaults ∪ kwargs.
-  let frameOpts = opts;
+  let frameOpts: FrameRenderOpts = {
+    ...opts,
+    isTreeRoot: false,
+    instancePath: isTreeRoot || frame.instanceOf ? instancePath : opts.instancePath,
+  };
   let sessionAttr = "";
   if (wantInst && frame.instanceOf && instCtx?.editableSessionDefaults?.[frame.instanceOf]) {
     const childSession: Record<string, unknown> = {
       ...instCtx.editableSessionDefaults[frame.instanceOf],
       ...(frame.instanceKwargs ?? {}),
     };
-    frameOpts = { ...opts, sessionParams: childSession };
+    frameOpts = { ...frameOpts, sessionParams: childSession };
     sessionAttr = ` data-pdl-session-params="${escapeAttr(JSON.stringify(childSession))}"`;
   }
   const letAttr = wantInst && id ? ` data-pdl-instance-let="${escapeAttr(id)}"` : "";
@@ -2038,6 +2087,8 @@ function renderComponentBody(comp: BakedComponentJson, instCtx?: InstanceRenderC
       stackChild: false,
       stackZ: 0,
       sessionParams: bp,
+      isTreeRoot: true,
+      instancePath: comp.name,
     },
     instCtx,
   );
@@ -2060,6 +2111,21 @@ body { margin: 0; padding: 16px; background: var(--pdl-preview-background, #f6f6
   margin: 0 0 8px;
 }
 .pdl-preview-title { font-size: 0.9rem; font-weight: 600; margin: 0; }
+.pdl-usage { font-size: 0.8rem; color: #52525b; margin: 0 0 10px; max-width: 72ch; line-height: 1.4; }
+.pdl-rule-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pdl-rule {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  padding: 7px 9px;
+  border-radius: 5px;
+  border: 1px solid;
+}
+.pdl-rule--error { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+.pdl-rule--warn { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
+.pdl-rule-strength { font-weight: 650; text-transform: uppercase; letter-spacing: 0.02em; font-size: 0.68rem; }
+.pdl-rule-where { color: inherit; opacity: 0.75; }
+[data-pdl-rule="error"] { outline: 2px solid #dc2626; outline-offset: 2px; }
+[data-pdl-rule="warn"] { outline: 2px solid #ea580c; outline-offset: 2px; }
 .pdl-instance { display: block; }
 .pdl-inst-state[hidden] { display: none !important; }
 .pdl-source-link {
@@ -2177,6 +2243,31 @@ body { margin: 0; padding: 16px; background: var(--pdl-preview-background, #f6f6
 .pdl-fixture-bar {
   background: #f4f7fb;
   border-color: #d0dae8;
+}
+.pdl-motion-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  background: #f7f4fb;
+  border: 1px solid #ddd0e8;
+  border-radius: 6px;
+}
+.pdl-motion-replay {
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 4px 10px;
+  border: 1px solid #b9a8cc;
+  border-radius: 4px;
+  background: #fff;
+  color: #445;
+  cursor: pointer;
+}
+.pdl-frame,
+.pdl-instance {
+  transform-origin: center;
 }
 .pdl-param-bar label,
 .pdl-fixture-bar label {
@@ -2342,6 +2433,55 @@ function renderFixtureBar(
   return `<div class="pdl-fixture-bar" data-pdl-fixture-bar="${escapeAttr(componentName)}"><label for="${id}">Fixture<select id="${id}" data-pdl-fixture>${opts}</select></label></div>`;
 }
 
+function catalogueDeclsHaveMotionPlayback(decls: unknown): boolean {
+  if (!Array.isArray(decls)) return false;
+  for (const d of decls) {
+    if (!d || typeof d !== "object") continue;
+    const handlers = (d as { handlers?: unknown[] }).handlers;
+    if (!Array.isArray(handlers)) continue;
+    for (const h of handlers) {
+      if (!h || typeof h !== "object") continue;
+      const rec = h as { event?: string; motion?: { from?: unknown; to?: unknown } };
+      if (rec.event === "appear" || rec.event === "dismiss") return true;
+      if (rec.motion && (rec.motion.from || rec.motion.to)) return true;
+    }
+  }
+  return false;
+}
+
+function renderMotionReplayBar(componentName: string, show: boolean): string {
+  if (!show) return "";
+  return `<div class="pdl-motion-bar" data-pdl-motion-bar="${escapeAttr(componentName)}"><button type="button" class="pdl-motion-replay" data-pdl-motion-replay="${escapeAttr(componentName)}">Replay motion</button></div>`;
+}
+
+function renderUsageBlock(text: string | undefined): string {
+  const t = text?.trim();
+  if (!t) return "";
+  return `<p class="pdl-usage">${escapeHtml(t)}</p>`;
+}
+
+function strengthLabel(strength: string): string {
+  if (strength === "must") return "Must";
+  if (strength === "mustNot") return "Must not";
+  if (strength === "shouldNot") return "Should not";
+  return "Should";
+}
+
+function renderRuleList(violations: RuleViolation[], rootComponent: string): string {
+  if (!violations.length) return "";
+  const items = violations
+    .map((v) => {
+      const tone = v.severity === "error" ? "error" : "warn";
+      const where =
+        v.instancePath === rootComponent || v.instancePath === v.component
+          ? ""
+          : ` <span class="pdl-rule-where">on ${escapeHtml(v.instancePath)}</span>`;
+      return `<li class="pdl-rule pdl-rule--${tone}"><span class="pdl-rule-strength">${escapeHtml(strengthLabel(v.strength))}</span> — ${escapeHtml(v.message)}${where}</li>`;
+    })
+    .join("");
+  return `<ul class="pdl-rule-list" data-pdl-rules="${violations.length}">${items}</ul>`;
+}
+
 /** Compact one-line JSON + expandable pretty block for preview param bags. */
 function renderParamsBlock(bakedParams: unknown): string {
   const compact = JSON.stringify(bakedParams ?? {});
@@ -2394,6 +2534,10 @@ export function renderBakedDesignToHtmlDocumentWithReport(
      * Falls back to `doc.previewBackground` when set by bake.
      */
     previewBackground?: string;
+    /** `usage.description` keyed by component name. */
+    usageByComponent?: Record<string, string>;
+    /** Flattened `rules` (tag ops + Rule lines) keyed by component name. */
+    rulesByComponent?: Record<string, RulesPreviewJson>;
   } = {},
 ): { html: string; renderFailures: ComponentRenderFailure[] } {
   const title =
@@ -2423,10 +2567,13 @@ export function renderBakedDesignToHtmlDocumentWithReport(
   const renderFailures: ComponentRenderFailure[] = [];
   const pointerInputTypes = pointerInputTypesFromInteractions(opts.interactionsByComponent);
   const editableSessionDefaults = editableSessionDefaultsFromDoc(doc);
+  const rulesByComponent = opts.rulesByComponent ?? {};
+  const usageByComponent = opts.usageByComponent ?? {};
   const instCtx: InstanceRenderCtx | undefined =
     opts.instanceStateTrees ||
     pointerInputTypes.size > 0 ||
-    Object.keys(editableSessionDefaults).length > 0
+    Object.keys(editableSessionDefaults).length > 0 ||
+    Object.keys(rulesByComponent).length > 0
       ? {
           nextKey: 0,
           stateTrees: opts.instanceStateTrees ?? {},
@@ -2441,7 +2588,20 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       const comp = doc.components[name]!;
       const paramsBlock = renderParamsBlock(comp.bakedParams ?? {});
       try {
-        const body = wrapPdlCanvas(comp, instCtx);
+        const violations = evaluateRulesOnComponent(comp, rulesByComponent);
+        const ruleMarks = ruleMarksFromViolations(violations);
+        const sectionInstCtx: InstanceRenderCtx | undefined =
+          instCtx || Object.keys(ruleMarks).length > 0
+            ? {
+                nextKey: 0,
+                stateTrees: instCtx?.stateTrees ?? {},
+                chromeStateParams: instCtx?.chromeStateParams,
+                pointerInputTypes: instCtx?.pointerInputTypes,
+                editableSessionDefaults: instCtx?.editableSessionDefaults,
+                ruleMarks,
+              }
+            : undefined;
+        const body = wrapPdlCanvas(comp, sectionInstCtx);
         const stateExtra = opts.stateTrees?.[name];
         let stateBlocks = "";
         if (stateExtra) {
@@ -2529,8 +2689,32 @@ export function renderBakedDesignToHtmlDocumentWithReport(
               : "";
         const fixtureBar = renderFixtureBar(name, opts.fixtureControlsByComponent?.[name]);
         const paramBar = renderParamBar(name, opts.paramControlsByComponent?.[name]);
+        const hasMotionPlayback =
+          catalogueDeclsHaveMotionPlayback(opts.interactionsByComponent?.[name]) ||
+          (() => {
+            const walk = (nodes: unknown): boolean => {
+              if (!Array.isArray(nodes)) return false;
+              for (const n of nodes) {
+                if (!n || typeof n !== "object") continue;
+                const rec = n as { instanceOf?: string; children?: unknown };
+                if (
+                  typeof rec.instanceOf === "string" &&
+                  catalogueDeclsHaveMotionPlayback(opts.interactionsByComponent?.[rec.instanceOf])
+                ) {
+                  return true;
+                }
+                if (walk(rec.children)) return true;
+              }
+              return false;
+            };
+            return walk(comp.root?.children ?? (comp as { children?: unknown }).children);
+          })();
+        const motionBar = renderMotionReplayBar(name, hasMotionPlayback);
+        const motionAttr = hasMotionPlayback ? ` data-pdl-motion="1"` : "";
         const sourceLink = renderSourceFileLink(name, opts.componentSourcesByComponent?.[name]);
-        return `<section class="pdl-preview" data-pdl-component="${escapeAttr(name)}"${interactiveAttr}${chromeAttr}><div class="pdl-preview-head"><h2 class="pdl-preview-title">${escapeHtml(name)}</h2>${sourceLink}</div>${fixtureBar}${paramBar}${paramsBlock}${restWrap}</section>`;
+        const usageBlock = renderUsageBlock(usageByComponent[name]);
+        const ruleBlock = renderRuleList(violations, name);
+        return `<section class="pdl-preview" data-pdl-component="${escapeAttr(name)}"${interactiveAttr}${chromeAttr}${motionAttr}><div class="pdl-preview-head"><h2 class="pdl-preview-title">${escapeHtml(name)}</h2>${sourceLink}</div>${usageBlock}${ruleBlock}${fixtureBar}${paramBar}${motionBar}${paramsBlock}${restWrap}</section>`;
       } catch (err) {
         const message = formatThrownMessage(err);
         const stack = formatThrownStack(err);
@@ -2594,6 +2778,123 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       });
     });
     return map;
+  }
+  function motionByEvent(decls) {
+    var map = {};
+    (decls || []).forEach(function(d){
+      (d.handlers || []).forEach(function(h){
+        if (h && h.event) map[h.event] = h.motion || {};
+      });
+    });
+    return map;
+  }
+  function prefersReducedMotion() {
+    try {
+      return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    } catch (e) { return false; }
+  }
+  function snapshotCss(snap, restOpacity) {
+    snap = snap || {};
+    var tx = snap.translateX != null ? snap.translateX : 0;
+    var ty = snap.translateY != null ? snap.translateY : 0;
+    var sx = snap.scaleX != null ? snap.scaleX : (snap.scale != null ? snap.scale : 1);
+    var sy = snap.scaleY != null ? snap.scaleY : (snap.scale != null ? snap.scale : 1);
+    var op = snap.opacity != null ? snap.opacity : restOpacity;
+    var blur = snap.blur != null ? snap.blur : 0;
+    return {
+      transform: 'translate(' + tx + 'px, ' + ty + 'px) scale(' + sx + ', ' + sy + ')',
+      opacity: String(op),
+      filter: blur > 0 ? ('blur(' + blur + 'px)') : 'none'
+    };
+  }
+  function identitySnap(restOpacity) {
+    return { opacity: restOpacity, scale: 1, scaleX: 1, scaleY: 1, translateX: 0, translateY: 0, blur: 0 };
+  }
+  function implicitTransitionCss(t) {
+    if (!t || !(t.duration > 0)) return 'none';
+    var delay = t.delay > 0 ? (' ' + t.delay + 'ms') : '';
+    var props = ['opacity','background-color','border-color','box-shadow','color','transform','filter'];
+    return props.map(function(p){ return p + ' ' + t.duration + 'ms ' + (t.easing || 'linear') + delay; }).join(', ');
+  }
+  function applyImplicitTransition(el, spec) {
+    if (!el || !spec || !spec.transition) return;
+    if (prefersReducedMotion()) return;
+    var css = implicitTransitionCss(spec.transition);
+    if (css === 'none') return;
+    el.setAttribute('data-pdl-transition', css);
+    try {
+      el.style.transition = css;
+      el.style.transformOrigin = 'center';
+    } catch (e) {}
+  }
+  function directMotionChildren(el) {
+    var out = [];
+    if (!el || !el.children) return out;
+    for (var i = 0; i < el.children.length; i++) {
+      var c = el.children[i];
+      if (c.hidden || c.getAttribute('hidden') != null) continue;
+      if (c.classList && (c.classList.contains('pdl-frame') || c.classList.contains('pdl-instance'))) out.push(c);
+    }
+    return out;
+  }
+  function motionRootEl(section) {
+    var canvas = section.querySelector('.pdl-state:not([hidden]) .pdl-canvas, .pdl-canvas');
+    if (!canvas) canvas = section.querySelector('.pdl-state:not([hidden])');
+    if (!canvas) return null;
+    return canvas.querySelector(':scope > .pdl-frame, :scope > .pdl-instance') || canvas.firstElementChild;
+  }
+  function playMotionOnEl(el, spec, mode) {
+    if (!el || !spec || typeof el.animate !== 'function') return null;
+    var rest = 1;
+    try {
+      var cs = window.getComputedStyle(el);
+      var o = parseFloat(cs.opacity);
+      if (!isNaN(o)) rest = o;
+    } catch (e) {}
+    var ident = identitySnap(rest);
+    var from = ident;
+    var to = ident;
+    if (mode === 'appear') {
+      if (!spec.from) return null;
+      from = Object.assign({}, ident, spec.from);
+    } else if (mode === 'dismiss') {
+      if (!spec.to) return null;
+      to = Object.assign({}, ident, spec.to);
+    } else {
+      return null;
+    }
+    var t = spec.transition || { duration: 0, easing: 'linear', delay: 0 };
+    var reduced = prefersReducedMotion();
+    var duration = (reduced || !(t.duration > 0)) ? 0 : t.duration;
+    var delay = reduced ? 0 : (t.delay || 0);
+    var a = snapshotCss(from, rest);
+    var b = snapshotCss(to, rest);
+    try {
+      if (el.getAnimations) el.getAnimations().forEach(function(x){ x.cancel(); });
+    } catch (e) {}
+    return el.animate(
+      [{ transform: a.transform, opacity: a.opacity, filter: a.filter }, { transform: b.transform, opacity: b.opacity, filter: b.filter }],
+      { duration: duration, easing: t.easing || 'linear', delay: delay, fill: 'forwards' }
+    );
+  }
+  function playMotionTree(el, spec, mode) {
+    if (!el || !spec) return null;
+    var last = playMotionOnEl(el, spec, mode);
+    var step = spec.stagger || 0;
+    if (step > 0) {
+      var kids = directMotionChildren(el);
+      var n = kids.length;
+      for (var i = 0; i < n; i++) {
+        var idx = spec.staggerFrom === 'last' ? n - 1 - i : i;
+        var childSpec = Object.assign({}, spec, {
+          transition: Object.assign({}, spec.transition || {}, {
+            delay: ((spec.transition && spec.transition.delay) || 0) + idx * step
+          })
+        });
+        last = playMotionOnEl(kids[i], childSpec, mode) || last;
+      }
+    }
+    return last;
   }
   function runBody(body, params, emits) {
     var changed = false;
@@ -2922,15 +3223,31 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         return (
           ev.target &&
           ev.target.closest &&
-          (ev.target.closest('.pdl-param-bar') || ev.target.closest('.pdl-fixture-bar'))
+          (ev.target.closest('.pdl-param-bar') || ev.target.closest('.pdl-fixture-bar') || ev.target.closest('.pdl-motion-bar'))
         );
       }
       function postMsg(payload) {
         try { parent.postMessage(payload, '*'); } catch (e) {}
       }
+      var byMotion = motionByEvent(decls);
       function dispatchSelf(event) {
-        if (!byEvent[event]) return null;
+        if (!byEvent[event] && !byMotion[event]) return null;
         liveParams = readParams(section);
+        var mspec = byMotion[event];
+        if (mspec && mspec.transition && event !== 'appear' && event !== 'dismiss') {
+          applyImplicitTransition(motionRootEl(section) || canvas, mspec);
+        }
+        if (event === 'appear' || event === 'dismiss') {
+          var rootEl = motionRootEl(section);
+          var anim = playMotionTree(rootEl, mspec, event);
+          if (event === 'dismiss' && rootEl && anim && anim.finished) {
+            anim.finished.then(function(){
+              rootEl.setAttribute('data-pdl-dismissed', '1');
+              rootEl.style.visibility = 'hidden';
+            }).catch(function(){});
+          }
+        }
+        if (!byEvent[event]) return { params: liveParams, emits: [], changed: false, handled: true };
         var result = applyEvent(liveParams, decls, event);
         liveParams = result.params;
         writeParams(section, liveParams);
@@ -2985,9 +3302,24 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           var childLive = Object.assign({}, childParams);
           var down = false;
           node.style.cursor = 'pointer';
+          var childMotion = motionByEvent(childDecls);
           function childDispatch(event) {
-            if (!childBy[event]) return;
+            if (!childBy[event] && !childMotion[event]) return;
             liveParams = readParams(section);
+            var childSpec = childMotion[event];
+            if (childSpec && childSpec.transition && event !== 'appear' && event !== 'dismiss') {
+              applyImplicitTransition(node, childSpec);
+            }
+            if (event === 'appear' || event === 'dismiss') {
+              var childAnim = playMotionTree(node, childSpec, event);
+              if (event === 'dismiss' && childAnim && childAnim.finished) {
+                childAnim.finished.then(function(){
+                  node.setAttribute('data-pdl-dismissed', '1');
+                  node.style.visibility = 'hidden';
+                }).catch(function(){});
+              }
+            }
+            if (!childBy[event]) return;
             // Re-sync from DOM — parent rebake / reconcile may have refreshed
             // ForEach-derived params (selected) on this mount.
             try {
@@ -3474,6 +3806,55 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           }
         }
       });
+      if (byMotion.appear) {
+        requestAnimationFrame(function(){
+          playMotionTree(motionRootEl(section), byMotion.appear, 'appear');
+        });
+      }
+      section.querySelectorAll('[data-pdl-instance-of]').forEach(function(node){
+        var nestedType = node.getAttribute('data-pdl-instance-of');
+        var nestedMotion = motionByEvent(interactions[nestedType] || []);
+        if (nestedMotion.appear) {
+          requestAnimationFrame(function(){
+            playMotionTree(node, nestedMotion.appear, 'appear');
+          });
+        }
+      });
+      var replayBtn = section.querySelector('[data-pdl-motion-replay]');
+      if (replayBtn && replayBtn.getAttribute('data-pdl-listening') !== '1') {
+        replayBtn.setAttribute('data-pdl-listening', '1');
+        replayBtn.addEventListener('click', function(ev){
+          ev.preventDefault();
+          ev.stopPropagation();
+          var root = motionRootEl(section);
+          if (!root) return;
+          root.style.visibility = '';
+          root.removeAttribute('data-pdl-dismissed');
+          function replayNode(target, spec) {
+            if (!target || !spec) return null;
+            target.style.visibility = '';
+            target.removeAttribute('data-pdl-dismissed');
+            function appearOne() {
+              target.style.visibility = '';
+              playMotionTree(target, spec.appear || spec, 'appear');
+            }
+            if (spec.dismiss && spec.dismiss.to) {
+              var a = playMotionTree(target, spec.dismiss, 'dismiss');
+              if (a && a.finished) a.finished.then(appearOne).catch(appearOne);
+              else appearOne();
+              return a;
+            }
+            appearOne();
+            return null;
+          }
+          replayNode(root, byMotion);
+          section.querySelectorAll('[data-pdl-instance-of]').forEach(function(node){
+            var nestedType = node.getAttribute('data-pdl-instance-of');
+            var nestedMotion = motionByEvent(interactions[nestedType] || []);
+            if (nestedMotion.appear || nestedMotion.dismiss) replayNode(node, nestedMotion);
+          });
+        });
+      }
     });
   }
   function bindChromeControls() {
@@ -3572,7 +3953,16 @@ ${hostScript}
  */
 export function renderBakedDesignToHtmlDocument(
   doc: BakedDesignDocument,
-  opts: { title?: string; singleComponent?: string } = {},
+  opts: {
+    title?: string;
+    singleComponent?: string;
+    componentNames?: string[];
+    interactiveHost?: boolean;
+    usageByComponent?: Record<string, string>;
+    rulesByComponent?: Record<string, RulesPreviewJson>;
+    interactionsByComponent?: Record<string, unknown>;
+    emitCapturesByComponent?: Record<string, unknown>;
+  } = {},
 ): string {
   const { html, renderFailures } = renderBakedDesignToHtmlDocumentWithReport(doc, opts);
   if (renderFailures.length > 0) {

@@ -1,0 +1,254 @@
+// Playground lab — usage notes + live rule warnings (red must, orange should).
+// Open this pack and scroll the gallery: each scene is a separate component.
+
+variant LabEmphasis {
+  case primary
+  case secondary
+}
+
+component LabButton(
+  label: String = "OK",
+  emphasis: LabEmphasis = .primary
+) layout {
+  direction = .row
+  align = .center
+  justify = .center
+  padding = EdgeInsets(x: 16, y: 10)
+  cornerRadius = 8
+  width = .hug
+  height = .hug
+  background = #2563EB
+
+  if emphasis == .secondary {
+    background = #6B7280
+  }
+
+  let text = Text(content: label, color: #FFFFFF, fontSize: 14, fontWeight: 600)
+  children = [text]
+}
+
+usage LabButton {
+  description = "One primary action per surface. Use emphasis = .secondary for Cancel and other supporting actions."
+}
+
+rules LabButton {
+  tags = ["button"]
+  if emphasis == .primary {
+    tags.add("primary-action")
+    Rule(.mustNot, siblings.where(tag: "primary-action").count > 0,
+      description: "Only one primary button in this layout.")
+  }
+}
+
+component LabFieldLabel(content: String = "Name") text {
+  content = content
+  color = #374151
+  fontSize = 13
+  fontWeight = 600
+}
+
+rules LabFieldLabel {
+  tags = ["field-label"]
+}
+
+component LabField(value: String = "") layout {
+  direction = .row
+  padding = EdgeInsets(x: 12, y: 8)
+  background = #FFFFFF
+  borderWidth = 1
+  borderColor = #D1D5DB
+  cornerRadius = 6
+  width = .fill
+
+  let text = Text(content: value, color: #111827, fontSize: 14)
+  children = [text]
+}
+
+usage LabField {
+  description = "A value field. Pair it with a LabFieldLabel sibling before it in the same parent."
+}
+
+rules LabField {
+  tags = ["field"]
+  Rule(.must, siblings.where(tag: "field-label").precedes(self),
+    description: "A field must have a label sibling before it.")
+}
+
+component LabCard() layout {
+  direction = .column
+  gap = 8
+  padding = 16
+  background = #F3F4F6
+  cornerRadius = 12
+  width = .fill
+  children = []
+}
+
+usage LabCard {
+  description = "A surface for grouped content. Do not leave a card empty."
+}
+
+rules LabCard {
+  tags = ["card"]
+  Rule(.should, descendants.exists,
+    description: "A card should contain at least one nested instance.")
+}
+
+component LabTab(label: String = "Tab") layout {
+  direction = .row
+  padding = EdgeInsets(x: 14, y: 8)
+  background = #E5E7EB
+  cornerRadius = 8
+  width = .hug
+
+  let text = Text(content: label, color: #111827, fontSize: 13, fontWeight: 600)
+  children = [text]
+}
+
+rules LabTab {
+  tags = ["tab-item"]
+}
+
+component LabTabBar() layout {
+  direction = .row
+  gap = 8
+  let home = LabTab(label: "Home")
+  let search = LabTab(label: "Search")
+  children = [home, search]
+}
+
+usage LabTabBar {
+  description = "A tab bar holds between 2 and 5 tabs and usually sits last in its parent."
+}
+
+rules LabTabBar {
+  tags = ["tab-bar"]
+  Rule(.must, children.where(tag: "tab-item").count.between(2, 5),
+    description: "A tab bar must have between 2 and 5 tabs.")
+  Rule(.should, self == parent.children.last,
+    description: "A tab bar should sit last among its siblings.")
+}
+
+component LabTabBarThin() layout {
+  direction = .row
+  gap = 8
+  let only = LabTab(label: "Home")
+  children = [only]
+}
+
+rules LabTabBarThin {
+  tags = ["tab-bar"]
+  Rule(.must, children.where(tag: "tab-item").count.between(2, 5),
+    description: "A tab bar must have between 2 and 5 tabs.")
+}
+
+// --- Scenes (open these in the gallery) ---
+
+component TwoPrimaryActions() layout {
+  direction = .row
+  gap = 12
+  padding = 16
+  background = #FFFFFF
+  cornerRadius = 12
+  let save = LabButton(label: "Save", emphasis: .primary)
+  let ok = LabButton(label: "OK", emphasis: .primary)
+  children = [save, ok]
+}
+
+usage TwoPrimaryActions {
+  description = "Breaks the one-primary-action rule — both buttons are .primary. Expect two red warnings."
+}
+
+component OnePrimaryAction() layout {
+  direction = .row
+  gap = 12
+  padding = 16
+  background = #FFFFFF
+  cornerRadius = 12
+  let save = LabButton(label: "Save", emphasis: .primary)
+  let cancel = LabButton(label: "Cancel", emphasis: .secondary)
+  children = [save, cancel]
+}
+
+usage OnePrimaryAction {
+  description = "Correct pairing: one primary Save, one secondary Cancel. No rule warnings."
+}
+
+component LabeledFieldRow() layout {
+  direction = .column
+  gap = 6
+  padding = 16
+  background = #FFFFFF
+  cornerRadius = 12
+  width = 280
+  let label = LabFieldLabel(content: "Display name")
+  let field = LabField(value: "Ada Lovelace")
+  children = [label, field]
+}
+
+usage LabeledFieldRow {
+  description = "Label before the field — the must rule passes."
+}
+
+component UnlabeledFieldRow() layout {
+  direction = .column
+  gap = 6
+  padding = 16
+  background = #FFFFFF
+  cornerRadius = 12
+  width = 280
+  let field = LabField(value: "Ada Lovelace")
+  children = [field]
+}
+
+usage UnlabeledFieldRow {
+  description = "Field with no label sibling. Expect a red must warning."
+}
+
+component EmptyCardScene() layout {
+  direction = .column
+  padding = 16
+  width = 280
+  let card = LabCard()
+  children = [card]
+}
+
+usage EmptyCardScene {
+  description = "Wraps an empty LabCard. Expect an orange should warning on the card."
+}
+
+component TabBarNotLast() layout {
+  direction = .column
+  gap = 12
+  padding = 16
+  background = #FFFFFF
+  cornerRadius = 12
+  width = .fill
+  let bar = LabTabBar()
+  let extra = LabButton(label: "After the bar", emphasis: .secondary)
+  children = [bar, extra]
+}
+
+usage TabBarNotLast {
+  description = "Tab bar is not last among siblings. Expect an orange should warning."
+}
+
+component UsageRulesLab() layout {
+  direction = .column
+  gap = 20
+  padding = 20
+  background = #F9FAFB
+  width = .fill
+
+  let ok = OnePrimaryAction()
+  let bad = TwoPrimaryActions()
+  let labeled = LabeledFieldRow()
+  let unlabeled = UnlabeledFieldRow()
+  let empty = EmptyCardScene()
+  let tabs = TabBarNotLast()
+  children = [ok, bad, labeled, unlabeled, empty, tabs]
+}
+
+usage UsageRulesLab {
+  description = "Usage & rules walkthrough. Red banners are .must / .mustNot. Orange banners are .should / .shouldNot. Open the other scenes in this file to see each case alone."
+}

@@ -349,10 +349,136 @@ semantic atoms.color.pageBg: Color = atoms.color.surface
   },
   {
     id: "usage",
-    label: "Usage · description",
-    select: "Button",
-    snippet: `usage Button {
-  description = "Primary action control."
+    label: "Usage · description on a card",
+    select: "NoteCard",
+    snippet: `component NoteCard() layout {
+  direction = .column
+  gap = 8
+  padding = 16
+  background = #F3F4F6
+  cornerRadius = 12
+  width = 260
+
+  let title = Text(content: "Usage note", color: #111827, fontSize: 16, fontWeight: 650)
+  let body = Text(content: "The grey line under the title is usage.description.", color: #4B5563, fontSize: 13)
+  children = [title, body]
+}
+
+usage NoteCard {
+  description = "A written note for authors. It does not change layout."
+}
+`,
+  },
+  {
+    id: "rules-primary",
+    label: "Rules · one primary action (red)",
+    select: "TwoPrimaries",
+    snippet: `variant Emphasis {
+  case primary
+  case secondary
+}
+
+component Action(
+  label: String = "OK",
+  emphasis: Emphasis = .primary
+) layout {
+  direction = .row
+  padding = EdgeInsets(x: 16, y: 10)
+  cornerRadius = 8
+  background = #2563EB
+  if emphasis == .secondary {
+    background = #6B7280
+  }
+  let text = Text(content: label, color: #FFFFFF, fontSize: 14, fontWeight: 600)
+  children = [text]
+}
+
+rules Action {
+  tags = ["button"]
+  if emphasis == .primary {
+    tags.add("primary-action")
+    Rule(.mustNot, siblings.where(tag: "primary-action").count > 0,
+      description: "Only one primary button in this layout.")
+  }
+}
+
+component TwoPrimaries() layout {
+  direction = .row
+  gap = 12
+  let save = Action(label: "Save", emphasis: .primary)
+  let ok = Action(label: "OK", emphasis: .primary)
+  children = [save, ok]
+}
+
+usage TwoPrimaries {
+  description = "Both actions are primary — expect two red must-not warnings."
+}
+`,
+  },
+  {
+    id: "rules-card",
+    label: "Rules · empty card (orange)",
+    select: "EmptyCard",
+    snippet: `component EmptyCard() layout {
+  direction = .column
+  padding = 16
+  background = #F3F4F6
+  cornerRadius = 12
+  width = 240
+  height = 80
+  children = []
+}
+
+usage EmptyCard {
+  description = "A card should not be left empty. Expect an orange should warning."
+}
+
+rules EmptyCard {
+  tags = ["card"]
+  Rule(.should, descendants.exists,
+    description: "A card should contain at least one nested instance.")
+}
+`,
+  },
+  {
+    id: "rules-field",
+    label: "Rules · field needs a label (red)",
+    select: "MissingLabel",
+    snippet: `component FieldLabel(content: String = "Name") text {
+  content = content
+  color = #374151
+  fontSize = 13
+  fontWeight = 600
+}
+
+rules FieldLabel {
+  tags = ["field-label"]
+}
+
+component Field(value: String = "") layout {
+  padding = EdgeInsets(x: 12, y: 8)
+  borderWidth = 1
+  borderColor = #D1D5DB
+  cornerRadius = 6
+  let text = Text(content: value, color: #111827, fontSize: 14)
+  children = [text]
+}
+
+rules Field {
+  tags = ["field"]
+  Rule(.must, siblings.where(tag: "field-label").precedes(self),
+    description: "A field must have a label sibling before it.")
+}
+
+component MissingLabel() layout {
+  direction = .column
+  width = 260
+  let field = Field(value: "Ada Lovelace")
+  children = [field]
+}
+
+usage MissingLabel {
+  description = "No FieldLabel before the field — expect a red must warning."
 }
 `,
   },
@@ -387,6 +513,39 @@ semantic atoms.color.pageBg: Color = atoms.color.surface
   fontSize = 15
   fontWeight = 400
   color = #222222
+}
+`,
+  },
+  {
+    id: "motion-modal",
+    label: "Motion · Appear / dismiss card",
+    select: "MotionCard",
+    snippet: `component MotionCard <PointerInput>() layout {
+  direction = .column
+  gap = 8
+  padding = 20
+  width = 280
+  background = #FFFFFF
+  cornerRadius = 12
+
+  let title = Text(content: "Hello", color: #111827, fontSize: 16, fontWeight: 600)
+  children = [title]
+
+  self.appear = {
+    animate = (duration: 250, easing: "cubic-bezier(0.2, 0, 0, 1)")
+    from {
+      opacity = 0
+      scale = 0.95
+      translateY = 8
+    }
+  }
+  self.dismiss = {
+    animate = (duration: 180, easing: "ease-in")
+    to {
+      opacity = 0
+      scale = 0.95
+    }
+  }
 }
 `,
   },

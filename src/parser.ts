@@ -38,6 +38,7 @@ import type {
 } from "./ast.js";
 import { PdlError } from "./errors.js";
 import { looksLikeQualifiedEnumTypeName } from "./frameProps.js";
+import { isMotionPropName } from "./motionProps.js";
 import type { Token, TokenKind } from "./lexer.js";
 import { inferValueLetType } from "./paramTypes.js";
 import {
@@ -372,8 +373,36 @@ export class Parser {
         items.push({ kind: "emit", name, args });
         continue;
       }
-      if (this.is("from") || this.is("to") || this.is("stagger") || this.is("staggerFrom")) {
-        throw this.err("from/to/stagger in interaction handlers are not implemented yet");
+      if (this.is("from") || this.is("to")) {
+        const kind = this.advance().kind as "from" | "to";
+        this.consume("{");
+        const props: Record<string, ValueExpr> = {};
+        while (!this.is("}")) {
+          const key = this.consume("IDENT").value;
+          this.consume("=");
+          const value = this.parseValueExpr();
+          if (isMotionPropName(key)) props[key] = value;
+        }
+        this.consume("}");
+        items.push({ kind, props });
+        continue;
+      }
+      if (this.is("stagger")) {
+        this.advance();
+        this.consume("=");
+        const n = this.consume("NUMBER");
+        items.push({ kind: "stagger", ms: Number(n.value) });
+        continue;
+      }
+      if (this.is("staggerFrom")) {
+        this.advance();
+        this.consume("=");
+        const raw = this.consume("DOT_ENUM").value.replace(/^\./, "");
+        if (raw !== "first" && raw !== "last") {
+          throw this.err("`staggerFrom` must be `.first` or `.last`");
+        }
+        items.push({ kind: "staggerFrom", value: raw });
+        continue;
       }
       let param: string;
       let selfPrefixed = false;
@@ -700,15 +729,30 @@ export class Parser {
     return this.parseRuleChainFromAxis(nav.axis, []);
   }
 
+  /** `.count` after `where(…)` is lexed as DOT_ENUM because `)` is not an ident. */
+  private takeRuleDotName(): string | null {
+    if (this.is("DOT_ENUM")) {
+      return this.advance().value.replace(/^\./, "");
+    }
+    if (!this.is(".")) return null;
+    this.advance();
+    if (this.is("where")) {
+      this.advance();
+      return "where";
+    }
+    if (this.is("IDENT")) return this.advance().value;
+    return null;
+  }
+
   private parseRuleChainFromAxis(
     axis: "self" | "parent" | "ancestors" | "descendants" | "siblings" | "children",
     whereTags: string[],
   ): RuleQueryParsed {
     let terminal: RuleChainTerminalParsed = { kind: "exists" };
-    while (this.is(".")) {
-      this.advance();
-      if (this.is("where")) {
-        this.advance();
+    while (true) {
+      const name = this.takeRuleDotName();
+      if (name == null) break;
+      if (name === "where") {
         this.consume("(");
         const tagKw = this.consume("IDENT").value;
         if (tagKw !== "tag") throw this.err('Expected tag in where(tag: "...")');
@@ -717,13 +761,11 @@ export class Parser {
         this.consume(")");
         continue;
       }
-      if (this.is("IDENT") && this.peek().value === "exists") {
-        this.advance();
+      if (name === "exists") {
         terminal = { kind: "exists" };
         break;
       }
-      if (this.is("IDENT") && this.peek().value === "count") {
-        this.advance();
+      if (name === "count") {
         if (this.is(".")) {
           this.advance();
           if (this.peek().kind === "IDENT" && this.peek().value === "between") {
@@ -771,18 +813,14 @@ export class Parser {
         }
         throw this.err("Expected comparison after count");
       }
-      if (this.is("IDENT")) {
-        const rel = this.peek().value;
-        if (rel === "precedes" || rel === "follows" || rel === "adjacentTo") {
-          this.advance();
-          this.consume("(");
-          this.consume("self");
-          this.consume(")");
-          terminal = { kind: "ordering", relation: rel, ref: "self" };
-          break;
-        }
+      if (name === "precedes" || name === "follows" || name === "adjacentTo") {
+        this.consume("(");
+        this.consume("self");
+        this.consume(")");
+        terminal = { kind: "ordering", relation: name, ref: "self" };
+        break;
       }
-      throw this.err(`Unexpected rule query token ${this.peek().kind}`);
+      throw this.err(`Unexpected rule query token ${name}`);
     }
     return { kind: "chain", axis, whereTags, terminal };
   }

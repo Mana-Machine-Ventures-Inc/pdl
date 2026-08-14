@@ -1,5 +1,5 @@
 /**
- * AST shapes for PDL (informal; aligned with full-spec.md §21).
+ * AST shapes for PDL (informal; aligned with `grammar/pdl.ebnf`).
  */
 
 export type ConditionExpr =
@@ -267,6 +267,10 @@ export type InteractionIfChain = {
 export type InteractionHandlerItem =
   | { kind: "assign"; param: string; value: ValueExpr }
   | { kind: "animate"; value: ValueExpr }
+  | { kind: "from"; props: Record<string, ValueExpr> }
+  | { kind: "to"; props: Record<string, ValueExpr> }
+  | { kind: "stagger"; ms: number }
+  | { kind: "staggerFrom"; value: "first" | "last" }
   | { kind: "emit"; name: string; args: string[] }
   | { kind: "hostVerb"; name: string; args: string[]; qualifier?: string }
   | { kind: "if"; chain: InteractionIfChain };

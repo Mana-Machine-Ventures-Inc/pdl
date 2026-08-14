@@ -1,4 +1,4 @@
-//! AST shapes for PDL (informal; aligned with full-spec.md §21).
+//! AST shapes for PDL (informal; aligned with `grammar/pdl.ebnf`).
 //!
 //! Rust port of `src/ast.ts`. TypeScript discriminated unions (`{ kind: "..." }`)
 //! become idiomatic Rust enums; `Record<string, ValueExpr>` maps use
@@ -681,6 +681,22 @@ pub enum InteractionHandlerItem {
     },
     Animate {
         value: ValueExpr,
+    },
+    /// Enter snapshot: `from { opacity = 0; scale = 0.95 }`.
+    From {
+        props: IndexMap<String, ValueExpr>,
+    },
+    /// Exit snapshot: `to { opacity = 0 }`.
+    To {
+        props: IndexMap<String, ValueExpr>,
+    },
+    /// Millisecond increment between visible children.
+    Stagger {
+        ms: f64,
+    },
+    /// `.first` or `.last` — order of stagger.
+    StaggerFrom {
+        value: String,
     },
     /// Fire a declared intent: `emit select` / `emit select(filter)`.
     Emit {

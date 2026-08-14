@@ -1707,14 +1707,14 @@ component SearchField <EditableText>(
 
 ## Handler motion (draft) {#motion}
 
-Draft. Animation clauses on host handlers: which transition to run, enter/exit snapshots, and list stagger. The syntax and the HTML preview may still change.
+Animation clauses on host handlers: which [`Transition`](#transition) to run, enter/exit snapshots, and list stagger. Bake stays at rest pose; the HTML host plays a CSS overlay.
 
-Host handler bodies may name a transition and enter/exit snapshots. `animate = motion.appear` selects a [`Transition`](#transition) token. `from { … }` / `to { … }` list animatable props ([`opacity`](#opacity), `scale`, `translateX`, `translateY`; `scaleX`, `scaleY`, [`blur`](#blur) recommended). `stagger` is a millisecond increment between visible children; `staggerFrom` is `.first` or `.last`. The HTML host may not play these clauses. Treat this section as a sketch.
+Host handler bodies may name a [`Transition`](#transition) and enter/exit snapshots. Bake is the rest pose. The HTML host plays a CSS overlay — not layout. Units: [`Duration`](#duration) is milliseconds; translate and blur are CSS pixels; scale is unitless; opacity is 0…1. v1 props: [`opacity`](#opacity), `scale`, `scaleX`, `scaleY`, `translateX`, `translateY`, [`blur`](#blur). Unknown keys in `from` / `to` are ignored. `animate = motion.appear` selects a [`Transition`](#transition) token or tuple. `from { … }` is the appear start snapshot; `to { … }` is the dismiss end snapshot. `stagger` is a millisecond increment between direct visible child frames; `staggerFrom` is `.first` or `.last`.
 
 Accepted syntax:
 
-- `animate = motion.interactive` — Use this [`Transition`](#transition) for property changes this handler triggers.
-- `from { opacity = 0 scale = 0.95 }` — Enter snapshot on `appear`.
+- `animate = motion.interactive` — Use this [`Transition`](#transition) for property changes this handler triggers (implicit interpolation) and for from/to snapshots.
+- `from { opacity = 0 scale = 0.95 translateY = 8 }` — Enter snapshot on `appear`. translateY is px; scale is unitless.
 - `to { opacity = 0 }` — Exit snapshot on `dismiss`.
 - `stagger = 30` — Delay increment in ms between consecutive visible children.
 - `staggerFrom = .first` — Or `.last`. Order of stagger.

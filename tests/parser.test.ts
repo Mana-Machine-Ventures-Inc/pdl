@@ -147,6 +147,43 @@ describe("parser", () => {
     });
   });
 
+  it("parses from/to/stagger motion clauses on host handlers", () => {
+    const m = parseModule(
+      `component Modal <PointerInput>() layout {
+         self.appear = {
+           animate = (duration: 250, easing: "ease-out")
+           from { opacity = 0 scale = 0.95 translateY = 8 }
+           stagger = 30
+           staggerFrom = .last
+         }
+         self.dismiss = {
+           to { opacity = 0 blur = 4 }
+         }
+       }`,
+      "motion.pdl",
+    );
+    const ix = m.declarations.find((d) => d.kind === "interaction") as {
+      kind: "interaction";
+      handlers: Array<{ event: string; body: Array<Record<string, unknown>> }>;
+    };
+    const appear = ix.handlers.find((h) => h.event === "appear")!;
+    expect(appear.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "animate" }),
+        expect.objectContaining({
+          kind: "from",
+          props: expect.objectContaining({
+            opacity: { kind: "number", value: 0 },
+            scale: { kind: "number", value: 0.95 },
+            translateY: { kind: "number", value: 8 },
+          }),
+        }),
+        { kind: "stagger", ms: 30 },
+        { kind: "staggerFrom", value: "last" },
+      ]),
+    );
+  });
+
   it("parses Shadow(…) constructor on tokens", () => {
     const m = parseModule(
       `primitive s: Shadow = Shadow(x: 0, y: 4, blurRadius: 12, color: #000000 @ 0.15)`,

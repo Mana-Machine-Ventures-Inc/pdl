@@ -35,6 +35,7 @@
 use crate::ast::*;
 use crate::error::PdlError;
 use crate::frame_props::looks_like_qualified_enum_type_name;
+use crate::motion::is_motion_prop_name;
 use crate::lexer::{tokenize, Token, TokenKind};
 use crate::param_types::infer_value_let_type;
 use crate::world_a::{
@@ -381,14 +382,47 @@ impl Parser {
                 items.push(InteractionHandlerItem::Emit { name, args });
                 continue;
             }
-            if self.is(TokenKind::From)
-                || self.is(TokenKind::To)
-                || self.is(TokenKind::Stagger)
-                || self.is(TokenKind::StaggerFrom)
-            {
-                return Err(self.err(
-                    "from/to/stagger in interaction handlers are not implemented yet",
-                ));
+            if self.is(TokenKind::From) || self.is(TokenKind::To) {
+                let kind = self.peek().kind;
+                self.advance();
+                self.consume(TokenKind::LBrace)?;
+                let mut props: indexmap::IndexMap<String, ValueExpr> = indexmap::IndexMap::new();
+                while !self.is(TokenKind::RBrace) {
+                    let key = self.consume(TokenKind::Ident)?.value;
+                    self.consume(TokenKind::Eq)?;
+                    let value = self.parse_value_expr()?;
+                    if is_motion_prop_name(&key) {
+                        props.insert(key, value);
+                    }
+                }
+                self.consume(TokenKind::RBrace)?;
+                if kind == TokenKind::From {
+                    items.push(InteractionHandlerItem::From { props });
+                } else {
+                    items.push(InteractionHandlerItem::To { props });
+                }
+                continue;
+            }
+            if self.is(TokenKind::Stagger) {
+                self.advance();
+                self.consume(TokenKind::Eq)?;
+                let n = self.consume(TokenKind::Number)?;
+                let ms = self.num(&n.value);
+                items.push(InteractionHandlerItem::Stagger { ms });
+                continue;
+            }
+            if self.is(TokenKind::StaggerFrom) {
+                self.advance();
+                self.consume(TokenKind::Eq)?;
+                let raw = self.consume(TokenKind::DotEnum)?.value;
+                let value = raw.strip_prefix('.').unwrap_or(&raw);
+                if value != "first" && value != "last" {
+                    return Err(self.err("`staggerFrom` must be `.first` or `.last`"));
+                }
+                items.push(InteractionHandlerItem::StaggerFrom {
+                    value: value.to_string(),
+                });
+                continue;
             }
             let mut self_prefixed = false;
             let param = if self.is(TokenKind::SelfKw) {
@@ -802,16 +836,37 @@ impl Parser {
         Ok(None)
     }
 
+    /// `.count` after `where(…)` is lexed as `DotEnum` because `)` is not an ident.
+    fn take_rule_dot_name(&mut self) -> Option<String> {
+        if self.is(TokenKind::DotEnum) {
+            let raw = self.advance().value;
+            return Some(raw.trim_start_matches('.').to_string());
+        }
+        if !self.is(TokenKind::Dot) {
+            return None;
+        }
+        self.advance();
+        if self.is(TokenKind::Where) {
+            self.advance();
+            return Some("where".to_string());
+        }
+        if self.is(TokenKind::Ident) {
+            return Some(self.advance().value);
+        }
+        None
+    }
+
     fn parse_rule_chain_from_axis(
         &mut self,
         axis: NavAxis,
         mut where_tags: Vec<String>,
     ) -> Result<RuleQueryParsed, PdlError> {
         let mut terminal = RuleChainTerminalParsed::Exists;
-        while self.is(TokenKind::Dot) {
-            self.advance();
-            if self.is(TokenKind::Where) {
-                self.advance();
+        loop {
+            let Some(name) = self.take_rule_dot_name() else {
+                break;
+            };
+            if name == "where" {
                 self.consume(TokenKind::LParen)?;
                 let tag_kw = self.consume(TokenKind::Ident)?.value;
                 if tag_kw != "tag" {
@@ -822,13 +877,11 @@ impl Parser {
                 self.consume(TokenKind::RParen)?;
                 continue;
             }
-            if self.is(TokenKind::Ident) && self.peek().value == "exists" {
-                self.advance();
+            if name == "exists" {
                 terminal = RuleChainTerminalParsed::Exists;
                 break;
             }
-            if self.is(TokenKind::Ident) && self.peek().value == "count" {
-                self.advance();
+            if name == "count" {
                 if self.is(TokenKind::Dot) {
                     self.advance();
                     if self.peek().kind == TokenKind::Ident && self.peek().value == "between" {
@@ -874,30 +927,23 @@ impl Parser {
                 }
                 return Err(self.err("Expected comparison after count"));
             }
-            if self.is(TokenKind::Ident) {
-                let rel = self.peek().value.clone();
-                let relation = match rel.as_str() {
-                    "precedes" => Some(OrderingRelation::Precedes),
-                    "follows" => Some(OrderingRelation::Follows),
-                    "adjacentTo" => Some(OrderingRelation::AdjacentTo),
-                    _ => None,
+            let relation = match name.as_str() {
+                "precedes" => Some(OrderingRelation::Precedes),
+                "follows" => Some(OrderingRelation::Follows),
+                "adjacentTo" => Some(OrderingRelation::AdjacentTo),
+                _ => None,
+            };
+            if let Some(relation) = relation {
+                self.consume(TokenKind::LParen)?;
+                self.consume(TokenKind::SelfKw)?;
+                self.consume(TokenKind::RParen)?;
+                terminal = RuleChainTerminalParsed::Ordering {
+                    relation,
+                    r#ref: OrderingRef::SelfRef,
                 };
-                if let Some(relation) = relation {
-                    self.advance();
-                    self.consume(TokenKind::LParen)?;
-                    self.consume(TokenKind::SelfKw)?;
-                    self.consume(TokenKind::RParen)?;
-                    terminal = RuleChainTerminalParsed::Ordering {
-                        relation,
-                        r#ref: OrderingRef::SelfRef,
-                    };
-                    break;
-                }
+                break;
             }
-            return Err(self.err(format!(
-                "Unexpected rule query token {:?}",
-                self.peek().kind
-            )));
+            return Err(self.err(format!("Unexpected rule query token {name}")));
         }
         Ok(RuleQueryParsed::Chain {
             axis,

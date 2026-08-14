@@ -50,7 +50,9 @@ WASM only sees an in-memory map, so in disk mode the Playground calls **`POST /a
 - Host posts `pdl-interaction` with `{ event, params, emits, previewHandled }` so Playground syncs knobs from real handler results.
 - Airbnb-lite opens on **`AbnPointerLab`** for a full pointer-cycle demo.
 - Protocols opens on **`LibrarySubnav`**: nested FilterChip host handlers (hover/press) + `emit select` → parent `ForEach` capture rebinds `currentFilter` → rebake (Pattern A). Enrichment merges Rust catalogue `emitCaptures` (TS still skims ForEach).
-- Insert templates cover Button host handlers, EditableText SearchField, and a FilterBar (emits + ForEach).
+- Insert templates cover Button host handlers, EditableText SearchField, a FilterBar (emits + ForEach), and usage / rules scenes (usage note, two primaries, empty card, unlabeled field).
+- Pack **Usage & rules** (`test-fixtures/pdl/lab/usage-rules/`) is a gallery of those cases — red `.must` / orange `.should` banners on the HTML preview.
+- Pack **Motion** (`test-fixtures/pdl/lab/motion/`) plays appear/dismiss overlays (Replay motion), stagger, and implicit `animate =` on hover. Bake stays at rest pose.
 
 ## Variants (P5)
 
@@ -62,4 +64,4 @@ WASM only sees an in-memory map, so in disk mode the Playground calls **`POST /a
 
 - **Fixtures** are per-component scenario param bags. Each preview section with declared `fixtures` shows a **Fixture** select under the title (above param knobs). Left-rail chips mirror the **primary** component only — not a global Preview-panel dropdown.
 - **Samples** (`samples Tracks { … }`) are design-global typed banks. Reference them in `.pdl` as `Tracks.focus.tracks`; bake mounts them. The Playground does **not** keep a parallel JS catalog (see playlist-composer-lite).
-- Lab: `test-fixtures/pdl/lab/samples-tracks.pdl`. Spec: `docs/full-spec.md` §11 / §11a.
+- Lab: `test-fixtures/pdl/lab/samples-tracks.pdl`. Lock: `shared/language-objects.json` `samples` / `companions`.

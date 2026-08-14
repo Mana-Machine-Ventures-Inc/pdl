@@ -252,6 +252,11 @@
       "name": null,
       "retired": true,
       "trigger": "Formerly `interaction-targets-unexposed-param`. **`expose` removed** — do not emit."
+    },
+    {
+      "code": "PDL-W009",
+      "name": "unknown-motion-prop",
+      "trigger": "A `from` / `to` snapshot names a key that is not a v1 motion overlay prop (`opacity`, `scale`, `scaleX`, `scaleY`, `translateX`, `translateY`, `blur`). The key is ignored; bake does not fail."
     }
   ]
 }

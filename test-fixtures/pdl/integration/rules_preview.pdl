@@ -1,0 +1,133 @@
+// Preview-time usage + rule evaluation (HTML host)
+
+import "../atoms/typestyle_atoms.pdl"
+
+variant PvEmphasis {
+  case primary
+  case secondary
+}
+
+component PvButton(label: String = "OK", emphasis: PvEmphasis = .primary) layout {
+  let text = Text(content: label, style: AtomCaption)
+  children = [text]
+}
+
+usage PvButton {
+  description = "Primary actions for forms."
+}
+
+rules PvButton {
+  tags = ["button"]
+  if emphasis == .primary {
+    tags.add("primary-action")
+    Rule(.mustNot, siblings.where(tag: "primary-action").count > 0,
+      description: "Only one primary button in this layout.")
+  }
+}
+
+component PvTwoPrimary() layout {
+  direction = .row
+  let save = PvButton(label: "Save", emphasis: .primary)
+  let ok = PvButton(label: "OK", emphasis: .primary)
+  children = [save, ok]
+}
+
+component PvOnePrimary() layout {
+  direction = .row
+  let save = PvButton(label: "Save", emphasis: .primary)
+  let cancel = PvButton(label: "Cancel", emphasis: .secondary)
+  children = [save, cancel]
+}
+
+component PvTab(label: String = "Tab") layout {
+  let text = Text(content: label, style: AtomCaption)
+  children = [text]
+}
+
+rules PvTab {
+  tags = ["tab-item"]
+}
+
+component PvTabBar() layout {
+  direction = .row
+  let t0 = PvTab(label: "Home")
+  let t1 = PvTab(label: "Search")
+  children = [t0, t1]
+}
+
+rules PvTabBar {
+  tags = ["tab-bar"]
+  Rule(.must, children.where(tag: "tab-item").count.between(2, 5),
+    description: "A tab bar must have between 2 and 5 tabs.")
+}
+
+component PvTabBarThin() layout {
+  direction = .row
+  let only = PvTab(label: "Home")
+  children = [only]
+}
+
+rules PvTabBarThin {
+  tags = ["tab-bar"]
+  Rule(.must, children.where(tag: "tab-item").count.between(2, 5),
+    description: "A tab bar must have between 2 and 5 tabs.")
+}
+
+component PvFieldLabel(content: String = "Name") text {
+  content = content
+  style = AtomCaption
+}
+
+rules PvFieldLabel {
+  tags = ["field-label"]
+}
+
+component PvField(value: String = "") layout {
+  let text = Text(content: value, style: AtomCaption)
+  children = [text]
+}
+
+rules PvField {
+  tags = ["field"]
+  Rule(.must, siblings.where(tag: "field-label").precedes(self),
+    description: "A field must have a label sibling before it.")
+}
+
+component PvLabeledField() layout {
+  direction = .column
+  let label = PvFieldLabel(content: "Name")
+  let field = PvField(value: "Ada")
+  children = [label, field]
+}
+
+component PvUnlabeledField() layout {
+  let field = PvField(value: "Ada")
+  children = [field]
+}
+
+component PvCard() layout {
+  direction = .column
+  children = []
+}
+
+usage PvCard {
+  description = "A surface for grouped content."
+}
+
+rules PvCard {
+  tags = ["card"]
+  Rule(.should, descendants.exists,
+    description: "A card should contain at least one nested instance.")
+}
+
+component PvLastBar() layout {
+  direction = .column
+  let bar = PvTabBar()
+  let extra = PvButton(label: "After", emphasis: .secondary)
+  children = [bar, extra]
+}
+
+rules PvTabBar {
+  Rule(.should, self == parent.children.last,
+    description: "A tab bar should sit last among its siblings.")
+}
