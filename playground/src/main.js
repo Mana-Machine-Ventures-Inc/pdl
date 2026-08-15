@@ -272,6 +272,30 @@ function storeControlsFromData(data) {
   variantCases = data.variantCases ?? {};
 }
 
+/** Catalogue EditableText defaults — nested bake kwargs omit `activatesOn`. */
+function editableTypeDefaultsFromParams() {
+  /** @type {Record<string, Record<string, unknown>>} */
+  const out = {};
+  for (const [name, params] of Object.entries(componentParams ?? {})) {
+    /** @type {Record<string, unknown>} */
+    const bag = {};
+    for (const p of Array.isArray(params) ? params : []) {
+      if (!p?.name) continue;
+      if (
+        (p.name === "activatesOn" ||
+          p.name === "isEditing" ||
+          p.name === "value" ||
+          p.name === "isEmpty") &&
+        p.default !== undefined
+      ) {
+        bag[p.name] = p.default;
+      }
+    }
+    if (Object.keys(bag).length) out[name] = bag;
+  }
+  return out;
+}
+
 function readKvObject() {
   const raw = kvJson.value.trim();
   if (!raw) return {};
@@ -2815,8 +2839,9 @@ function tryIncrementalBakeReconcile(doc, prevBake, nextBake) {
     // Defaults from full live design + dirty patch (includes nested instanceOf types
     // like NoteField inside NoteEditor — parent-only bake omits them from components).
     const defaultsSource = mergeBakedDesign(prevBake, nextBake);
-    const editableSessionDefaults = collectEditableSessionDefaults(defaultsSource);
-    const prevEditableDefaults = collectEditableSessionDefaults(prevBake);
+    const typeDefaults = editableTypeDefaultsFromParams();
+    const editableSessionDefaults = collectEditableSessionDefaults(defaultsSource, typeDefaults);
+    const prevEditableDefaults = collectEditableSessionDefaults(prevBake, typeDefaults);
     const changedEditableTypes = changedEditableSessionTypes(
       prevEditableDefaults,
       editableSessionDefaults,

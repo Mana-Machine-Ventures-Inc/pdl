@@ -1069,6 +1069,30 @@ function buildParamControlsByComponent(enriched, names, kvByComponent) {
   return out;
 }
 
+/** EditableText type defaults (activatesOn) — nested kwargs omit these. */
+function editableTypeDefaultsFromEnriched(enriched) {
+  /** @type {Record<string, Record<string, unknown>>} */
+  const out = {};
+  for (const [name, params] of Object.entries(enriched?.componentParams ?? {})) {
+    /** @type {Record<string, unknown>} */
+    const bag = {};
+    for (const p of Array.isArray(params) ? params : []) {
+      if (!p?.name) continue;
+      if (
+        (p.name === "activatesOn" ||
+          p.name === "isEditing" ||
+          p.name === "value" ||
+          p.name === "isEmpty") &&
+        p.default !== undefined
+      ) {
+        bag[p.name] = p.default;
+      }
+    }
+    if (Object.keys(bag).length) out[name] = bag;
+  }
+  return out;
+}
+
 
 async function handleRender(body) {
   const {
@@ -1356,6 +1380,7 @@ async function handleRender(body) {
         emitCapturesByComponent: enriched.emitCapturesByComponent,
         usageByComponent: enriched.usageByComponent,
         rulesByComponent: enriched.rulesByComponent,
+        editableTypeDefaults: editableTypeDefaultsFromEnriched(enriched),
         paramControlsByComponent,
         fixtureControlsByComponent,
         componentSourcesByComponent,
@@ -1501,6 +1526,7 @@ async function handleRenderFromBake(body) {
       emitCapturesByComponent,
       usageByComponent: enriched?.usageByComponent,
       rulesByComponent: enriched?.rulesByComponent,
+      editableTypeDefaults: editableTypeDefaultsFromEnriched(enriched),
       paramControlsByComponent,
       fixtureControlsByComponent,
     });
@@ -1541,6 +1567,21 @@ function serveStatic(pathname, res) {
             : ext === "wasm"
               ? "application/wasm"
               : "application/octet-stream";
+    if (safe === "device.html" || safe === "index.html") {
+      const jsName = safe === "device.html" ? "device-app.js" : "playground-app.js";
+      let v = Date.now();
+      try {
+        v = Math.round(statSync(resolve(STATIC_DIR, jsName)).mtimeMs);
+      } catch {
+        /* keep Date.now() */
+      }
+      const html = buf
+        .toString("utf8")
+        .replace(`src="/${jsName}"`, `src="/${jsName}?v=${v}"`);
+      res.writeHead(200, { "Content-Type": ct, "Cache-Control": "no-store" });
+      res.end(html);
+      return;
+    }
     res.writeHead(200, { "Content-Type": ct, "Cache-Control": "no-store" });
     res.end(buf);
   } catch {

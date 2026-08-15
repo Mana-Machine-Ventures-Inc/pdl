@@ -33,9 +33,16 @@ The playground binds on `0.0.0.0` so a phone on the same Wi-Fi can open a device
 2. On the Mac, click **Open on phone** (or copy the `Phone` URL printed in the terminal)
 3. On the iPhone, open that URL in Safari — same Wi-Fi, not a guest network. Allow Node in the macOS firewall if prompted.
 
-`/device` shows one component full-bleed with tap, appear/dismiss, Replay, and the existing fixture/variant bars. **Following** tracks the desktop selection (and editor drafts). Tap **Local** (or change pack/component on the phone) to pick independently.
+`/device` shows one component, centered, with pack + component dropdowns. If the component (or a nested instance) registers appear/dismiss motion, a **Replay motion** button sits at the bottom of the stage. Bake, HTML, and IR reconcile all run in Safari. The Mac is only for pack fetch, catalogue enrich (once per pack), and optional Follow. A tap patches the live iframe (`· live apply`); pack/component changes remount. A local interaction that changes parent state (title rename, chip select) leaves Follow so the Mac idle stage cannot snap the phone back.
 
-Hover-only handlers do not run on iPhone — author `pressStart` / `pressEnd` (or Replay) for touch. Lock the server to loopback with `PLAYGROUND_HOST=127.0.0.1` if you do not want LAN access.
+Hover-only handlers do not run on iPhone — author `pressStart` / `pressEnd` for touch. Lock the server to loopback with `PLAYGROUND_HOST=127.0.0.1` if you do not want LAN access.
+
+**Device stages:**
+
+1. **WASM bake on the phone** — skip the Rust CLI spawn on each tap.
+2. **On-device HTML + IR reconcile** (now) — bundle `renderHtml` / reconcile; no LAN HTML hop or `srcdoc` remount on select.
+3. **Press chrome without a child rebake** — keep instance-resolve cache warmer; treat hover as desktop-only.
+4. **Offline / no Mac** — cache WASM + packs (PWA) so a tap works with the laptop off.
 
 ## Session drafts
 

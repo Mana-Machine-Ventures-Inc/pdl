@@ -64,7 +64,7 @@ Pack (.pdl files)
 | **Fixtures UI** | §11 scenarios live **on each preview section** (Fixture select above param knobs). Left-rail chips still mirror the **primary** component. No global Preview-panel fixture dropdown. |
 | **Typed samples** | Packs author `samples` banks; Playground only assigns scalars/variants. Playlist Composer mood/search worlds mount `Tracks.*.tracks` at bake — host JS catalogs removed. |
 
-**Device stage:** `/device` on the same LAN — one component, HTML host, Follow or local picker. Not a mobile editor. See [`playground/README.md`](../playground/README.md) (Phone / same-network stage).
+**Device stage:** `/device` on the same LAN — one component, HTML host, WASM bake + local HTML / IR reconcile in Safari. Not a mobile editor. See [`playground/README.md`](../playground/README.md) (Phone / same-network stage).
 
 **Still deferred:** Phase S (Studio) — authoring-first product, governance, possibly separate repo.
 

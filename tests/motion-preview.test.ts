@@ -85,4 +85,24 @@ describe("HTML preview motion", () => {
     expect(html).toContain('"kind":"motion"');
     expect(html).toContain("motionFromHandler");
   });
+
+  it("device hostChrome still shows Replay when appear/dismiss is registered", () => {
+    const design = loadDesign(fx("lab/motion/design.pdl"));
+    const cat = buildComponentCatalogue(design);
+    const interactionsByComponent: Record<string, unknown> = {};
+    for (const [name, row] of Object.entries(cat.components)) {
+      if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
+    }
+    const doc = buildBakedDesignComponent(design, { componentName: "MotionModal" });
+    const html = renderBakedDesignToHtmlDocument(doc, {
+      singleComponent: "MotionModal",
+      interactionsByComponent,
+      interactiveHost: true,
+      hostChrome: "device",
+    });
+    expect(html).toContain("Replay motion");
+    expect(html).toContain('data-pdl-motion="1"');
+    expect(html).toContain("body.pdl-device-stage .pdl-motion-bar");
+    expect(html).not.toMatch(/body\.pdl-device-stage \.pdl-motion-bar\s*\{[^}]*display:\s*none/);
+  });
 });

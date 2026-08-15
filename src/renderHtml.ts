@@ -1115,14 +1115,25 @@ function seedEditableSessionDefault(
  */
 export function collectEditableSessionDefaults(
   doc: Pick<BakedDesignDocument, "components"> | { components?: BakedDesignDocument["components"] },
+  typeDefaults?: Record<string, Record<string, unknown>>,
 ): Record<string, Record<string, unknown>> {
-  return editableSessionDefaultsFromDoc(doc as BakedDesignDocument);
+  return editableSessionDefaultsFromDoc(doc as BakedDesignDocument, typeDefaults);
 }
 
 function editableSessionDefaultsFromDoc(
   doc: BakedDesignDocument,
+  typeDefaults?: Record<string, Record<string, unknown>>,
 ): Record<string, Record<string, unknown>> {
   const out: Record<string, Record<string, unknown>> = {};
+  for (const [name, bag] of Object.entries(typeDefaults ?? {})) {
+    if (!bag || typeof bag !== "object" || Array.isArray(bag)) continue;
+    out[name] = {
+      value: "",
+      isEditing: false,
+      activatesOn: "focus",
+      ...bag,
+    };
+  }
   for (const [name, comp] of Object.entries(doc.components ?? {})) {
     const bp = (comp.bakedParams ?? {}) as Record<string, unknown>;
     if (frameLooksEditableSession(bp)) {
@@ -1917,6 +1928,9 @@ function renderFrame(
         ? String(frameOpts.sessionParams!.value ?? "")
         : content;
       const editing = sessionParamIsEditing(frameOpts.sessionParams);
+      const pressLocked =
+        textFieldActivationMode(frameOpts.sessionParams) === "press" && !editing;
+      const readonlyAttr = pressLocked ? " readonly" : "";
       const placeholderAttr =
         hasSessionValue && !editing && sessionVal === "" && content !== ""
           ? ` placeholder="${escapeAttr(content)}"`
@@ -1932,7 +1946,7 @@ function renderFrame(
         "width:100%",
         "box-sizing:border-box",
       );
-      return `<input class="pdl-frame pdl-text pdl-text--editable" type="text"${dataId}${instAttrs} data-pdl-editable="${escapeAttr(editableBind)}" value="${escapeAttr(sessionVal)}"${placeholderAttr} style="${escapeStyleAttr(style)}" />`;
+      return `<input class="pdl-frame pdl-text pdl-text--editable" type="text"${dataId}${instAttrs} data-pdl-editable="${escapeAttr(editableBind)}" value="${escapeAttr(sessionVal)}"${placeholderAttr}${readonlyAttr} style="${escapeStyleAttr(style)}" />`;
     }
     const clamped = textLineClamp(props) !== undefined;
     if (textLayerBandsActive(props)) {
@@ -2169,8 +2183,7 @@ body.pdl-device-stage .pdl-preview-head,
 body.pdl-device-stage .pdl-usage,
 body.pdl-device-stage .pdl-rule-list,
 body.pdl-device-stage .pdl-fixture-bar,
-body.pdl-device-stage .pdl-param-bar,
-body.pdl-device-stage .pdl-motion-bar {
+body.pdl-device-stage .pdl-param-bar {
   display: none !important;
 }
 body.pdl-device-stage .pdl-gallery {
@@ -2180,6 +2193,7 @@ body.pdl-device-stage .pdl-gallery {
   min-height: 100%;
 }
 body.pdl-device-stage .pdl-preview {
+  position: relative;
   flex: 1;
   display: flex;
   align-items: center;
@@ -2192,6 +2206,25 @@ body.pdl-device-stage .pdl-preview {
   height: 100%;
   box-sizing: border-box;
   background: transparent;
+}
+body.pdl-device-stage .pdl-motion-bar {
+  display: flex;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  margin: 0;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  justify-content: center;
+  background: transparent;
+  border: none;
+}
+body.pdl-device-stage .pdl-motion-replay {
+  min-height: 44px;
+  padding: 10px 18px;
+  font-size: 16px;
+  border-radius: 10px;
 }
 body.pdl-device-stage .pdl-canvas {
   border: none;
@@ -2664,6 +2697,11 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     usageByComponent?: Record<string, string>;
     /** Flattened `rules` (tag ops + Rule lines) keyed by component name. */
     rulesByComponent?: Record<string, RulesPreviewJson>;
+    /**
+     * Catalogue type defaults for EditableText (`activatesOn`, …). Nested
+     * instance kwargs omit these; without them the host invents `.focus`.
+     */
+    editableTypeDefaults?: Record<string, Record<string, unknown>>;
   } = {},
 ): { html: string; renderFailures: ComponentRenderFailure[] } {
   const title =
@@ -2692,7 +2730,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
   }
   const renderFailures: ComponentRenderFailure[] = [];
   const pointerInputTypes = pointerInputTypesFromInteractions(opts.interactionsByComponent);
-  const editableSessionDefaults = editableSessionDefaultsFromDoc(doc);
+  const editableSessionDefaults = editableSessionDefaultsFromDoc(doc, opts.editableTypeDefaults);
   const rulesByComponent = opts.rulesByComponent ?? {};
   const usageByComponent = opts.usageByComponent ?? {};
   const instCtx: InstanceRenderCtx | undefined =
@@ -3713,7 +3751,6 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       // Note: activatesOn=.none + !isEditing renders as inert text (no <input>) at bake time.
       section.querySelectorAll('input.pdl-text--editable[data-pdl-editable]').forEach(function(input){
         if (input.getAttribute('data-pdl-listening') === '1') return;
-        input.setAttribute('data-pdl-listening', '1');
         var bind = input.getAttribute('data-pdl-editable') || 'value';
         var instNode = input.closest('[data-pdl-instance-of]');
         var childType = instNode ? (instNode.getAttribute('data-pdl-instance-of') || '') : '';
@@ -3829,12 +3866,19 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           });
           return { emits: result.emits, changed: result.changed || needRebake, handled: result.handled, needRebake: needRebake };
         }
+        var ignoreBlurUntil = 0;
+        var ignoreNextBlurCommit = false;
+        function suppressBlurForOpen() {
+          // LAN / WASM rebake is often >500ms; the first blur is the remount, not Done.
+          ignoreBlurUntil = Date.now() + 2500;
+          ignoreNextBlurCommit = true;
+        }
         function beginSession(from) {
-          if (!hasEditableSession) return;
-          if (isEditingNow()) return;
+          if (!hasEditableSession) return { started: false, skipFocus: false };
+          if (isEditingNow()) return { started: false, skipFocus: false };
           var mode = activationMode();
-          if (mode === 'none') return;
-          if (mode === 'press' && from === 'focus') return;
+          if (mode === 'none') return { started: false, skipFocus: false };
+          if (mode === 'press' && from === 'focus') return { started: false, skipFocus: false };
           var b = bag();
           var seed = String(b.value == null ? '' : b.value);
           b._editCheckpoint = seed;
@@ -3876,7 +3920,10 @@ export function renderBakedDesignToHtmlDocumentWithReport(
               changed: true,
               previewHandled: beginNeedRebake ? false : true
             });
-            return;
+            // Parent rebake (Title.began → editingTitle) replaces/reconciles this
+            // input. Don't focus or blur-commit across that turn — same as Rename.
+            if (beginNeedRebake) suppressBlurForOpen();
+            return { started: true, skipFocus: beginNeedRebake };
           }
           // Root EditableText: if-isEditing chrome is bake-time. Always rebake —
           // dispatchSelf would mark previewHandled via dual-bake rest and leave
@@ -3904,6 +3951,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             changed: true,
             previewHandled: false
           });
+          suppressBlurForOpen();
+          return { started: true, skipFocus: true };
         }
         function finishSession(kind) {
           // kind: 'finished' | 'cancelled'
@@ -3973,12 +4022,6 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           });
         }
         syncHitTarget();
-        input.addEventListener('mousedown', function(ev){
-          ev.stopPropagation();
-          if (activationMode() === 'none' && !isEditingNow()) {
-            ev.preventDefault();
-          }
-        });
         function focusSessionInput() {
           var target = input;
           if (instNode) {
@@ -3992,18 +4035,49 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             if (typeof target.setSelectionRange === 'function') target.setSelectionRange(len, len);
           } catch (e) {}
         }
+        var pressArmed = 0;
+        function beginFromPress(ev) {
+          if (ev && ev.type && ev.type.indexOf('mouse') === 0 && (Date.now() - pressArmed) < 700) return;
+          if (ev && ev.type && ev.type.indexOf('pointer') === 0) pressArmed = Date.now();
+          if (activationMode() === 'none' && !isEditingNow()) {
+            if (ev && ev.preventDefault) ev.preventDefault();
+            return;
+          }
+          var wasEditing = isEditingNow();
+          var r = beginSession('press');
+          if (r.skipFocus || (wasEditing && Date.now() < ignoreBlurUntil)) return;
+          if (r.started || isEditingNow()) focusSessionInput();
+        }
+        input.addEventListener('pointerdown', function(ev){
+          ev.stopPropagation();
+          if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+          beginFromPress(ev);
+        });
+        input.addEventListener('mousedown', function(ev){
+          ev.stopPropagation();
+          if (activationMode() === 'none' && !isEditingNow()) {
+            ev.preventDefault();
+          }
+          if (ev.button !== 0) return;
+          beginFromPress(ev);
+        });
         input.addEventListener('click', function(ev){
           ev.stopPropagation();
           if (activationMode() === 'none' && !isEditingNow()) {
             ev.preventDefault();
             return;
           }
-          beginSession('press');
-          focusSessionInput();
+          beginFromPress(ev);
         });
         input.addEventListener('focus', function(){
           if (activationMode() === 'none' && !isEditingNow()) {
             try { input.blur(); } catch (e) {}
+            syncHitTarget();
+            return;
+          }
+          // .press: iOS srcdoc often focuses the field without pointerdown.
+          if (activationMode() === 'press') {
+            beginFromPress({ type: 'focus' });
             syncHitTarget();
             return;
           }
@@ -4026,6 +4100,11 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           var blurSt = input.closest('.pdl-inst-state');
           setTimeout(function(){
             if (!input.isConnected) return;
+            if (ignoreNextBlurCommit) {
+              ignoreNextBlurCommit = false;
+              return;
+            }
+            if (Date.now() < ignoreBlurUntil) return;
             if (!isEditingNow()) {
               syncHitTarget();
               return;
@@ -4063,6 +4142,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             requestAnimationFrame(function(){ focusSessionInput(); });
           }
         }
+        input.setAttribute('data-pdl-listening', '1');
       });
       if (byMotion.appear && byMotion.appear.from) {
         requestAnimationFrame(function(){
