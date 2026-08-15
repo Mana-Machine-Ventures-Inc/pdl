@@ -1,16 +1,16 @@
 # About
 
-**PDL (Programmatic Design Language)** is a **closed set of objects** you compose in text files: declarations (`component`, `emits`, `protocol`, `samples`, `fixtures`), four frame kinds, named token types, enums with fixed cases, and a short list of constructors. Those meanings are locked in `shared/language-objects.json`. The language grows by adding objects there — not by quietly changing what `.row`, `emit`, or `Bank.entry.field` already means.
+**PDL (Programmatic Design Language)** is a **declarative, type-safe language** for an organization’s design system: tokens, components, variants, usage, and rules, checked into git as ordinary files. You declare objects, compose them, and the compiler checks the types — closer to SwiftUI than to HTML or a stylesheet.
 
-You write **tokens** and **components** in `.pdl`. A compiler flattens them. A **preview** draws the snapshot.
+Design should not live forever in a proprietary canvas. Adobe and Figma are strong for making and collaborating; they are poor long-term stewards of the repository. PDL is meant to be the **source of truth** you own — transportable, diffable, compilable, and yours to fork or move.
 
-It is closer to “SwiftUI views checked into git” than to CSS, Figma, or React.
+You write `.pdl` the way you write SwiftUI: a closed set of objects, explicit parameters, and real logic. That is what makes variants honest, prototypes dynamic, and the same source compilable into other formats. A compiler flattens the files; a preview draws the snapshot. HTML is the host today; other apps come later.
 
-| You write | The compiler produces | Something on screen |
-|-----------|----------------------|---------------------|
-| `.pdl` files | A flattened layout (and a typed graph for tools) | HTML preview now; other apps later |
+The files are for **designers, maintainers, and developers** together. Components say what can vary. Usage and rules say how it should be used. Bake output is what hosts draw. Nothing important lives only in someone’s head or in a file you cannot open next year.
 
-This repo is a **language toolchain**, not a hosted design app. You clone it, run Playground or the CLI, and edit files. A future **Studio** product is not in this repository.
+The vocabulary is closed and locked in `shared/language-objects.json`. The language grows by adding objects there — not by quietly changing what `.row`, `emit`, or `Bank.entry.field` already means.
+
+This repository is the **language toolchain**, not a hosted design app. Clone it, run Playground or the CLI, edit files. A future Studio is not in this repo.
 
 Language version: **`1.0.0-beta`** (still allowed to change).
 
