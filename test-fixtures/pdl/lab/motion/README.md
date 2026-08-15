@@ -28,6 +28,8 @@ Open the pack in Playground (Project → **Motion**). The canvas is this file’
 | `MotionPulse` | Standing keys through dim/scale and `.rest` |
 | `MotionSheen` | Shine starts off the left (`translateX: -80`), sweeps to off the right (`160`), loops |
 | `MotionAppearThenPulse` | Appear fade, then standing pulse on the same opacity channel |
+| `PressPopButton` | Press shrinks + darkens; release pops forward (scale overshoot) onto a raised shadow |
+| `PressPopLab` | Soft gray stage for the press-pop stub |
 
 Units: duration **ms**, translate/blur **px**, scale unitless, opacity / origin 0…1, rotate degrees.
 

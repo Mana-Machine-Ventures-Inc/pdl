@@ -222,7 +222,7 @@ let photo = Media(source: media.hero, contentMode: .cover, height: 120)
 
 ## Children {#children}
 
-[`children`](#children) belongs on [`Layout`](#layout) — that is how PDL draws views and nested views. A child [`Layout`](#layout) has its own [`children`](#children). [`Text()`](#text), [`Icon()`](#icon-frame), and [`Media()`](#media-frame) are leaves: they do not take [`children`](#children) and do not nest views. Every entry is a component — a built-in frame or one you declared (`Button(…)`). Name them with [`let`](#let), then mount them with `children = [heading, save]`. A [`let`](#let) that never appears in [`children`](#children) is not drawn. [`Spacer()`](#spacer) is the leftover-space exception. A [`ForEach`](#foreach) block does not mount views by itself.
+[`children`](#children) belongs on [`Layout`](#layout) — that is how PDL draws views and nested views. A child [`Layout`](#layout) has its own [`children`](#children). [`Text()`](#text), [`Icon()`](#icon-frame), and [`Media()`](#media-frame) are leaves: they do not take [`children`](#children) and do not nest views. Every entry is a component — a built-in frame or one you declared (`Button(…)`). Name them with [`let`](#let), then mount them with `children = [heading, save]`. A [`let`](#let) that never appears in [`children`](#children) is not drawn. A [`let`](#let) mounts at most once (PDL-E042); two identical-looking children are two lets or a list. [`Spacer()`](#spacer) is the leftover-space exception. A [`ForEach`](#foreach) block does not mount views by itself.
 
 ```pdl
 component Button(label: String = "OK") layout {
@@ -331,7 +331,7 @@ component LibrarySubnav(
 
 Name a nested frame, or a typed value you reuse in props. Prefer a lowercase id (`let title`, `let ramp`) so the name is not the same word as the type. Frame lets go in [`children`](#children). Typed value lets do not.
 
-A `let` names something inside a component. Prefer a lowercase id so it does not look like the type: `let title = Text(…)` is a nested frame you mount in [`children`](#children). `let save = Button(label: "Save")` is a component you declared — instantiate it in a layout the same way. `let ramp: Ramp = Ramp(…)` is a typed value you reuse in props or layers — it is not a view and must not appear in [`children`](#children). The id must be unique in the component. Write the `let` before any `children = [id]` or `id.prop` that names it (PDL-E019).
+A `let` names something inside a component. Prefer a lowercase id so it does not look like the type: `let title = Text(…)` is a nested frame you mount in [`children`](#children). `let save = Button(label: "Save")` is a component you declared — instantiate it in a layout the same way. `let ramp: Ramp = Ramp(…)` is a typed value you reuse in props or layers — it is not a view and must not appear in [`children`](#children). The id must be unique in the component. Write the `let` before any `children = [id]` or `id.prop` that names it (PDL-E019). A frame let mounts at most once (PDL-E042).
 
 Accepted syntax:
 
@@ -345,6 +345,7 @@ Rejected:
 
 - `let id: text = { … }` — Classic kind-colon form is removed (PDL-E001). Use `let id = Text(…)`.
 - `children = [ramp]` — A typed value let is not a frame. Put it on a property, not in children.
+- `children = [button, button]` — A let mounts once (PDL-E042). Write `let a = Button(); let b = Button()` or a list.
 
 ```pdl
 component Button(label: String = "OK") layout {

@@ -6,7 +6,7 @@ Oracle `.pdl` files under [`test-fixtures/pdl/errors/`](https://github.com/Mana-
 
 A conforming compiler **MUST** emit the code encoded in the filename (`e007-…` → **PDL-E007**), except where a test documents a different code (language evolution — see [Filename vs observed](#filename-vs-observed)). Diagnostic meanings: [Diagnostics](./diagnostics.md).
 
-**94** current oracles · **2** support files · **5** legacy · **1** valid controls.
+**96** current oracles · **2** support files · **5** legacy · **1** valid controls.
 
 ## Coverage by catalog code
 
@@ -53,6 +53,7 @@ Active `PDL-E` codes from `shared/diagnostics.json`. **Current** counts ignore `
 | **PDL-E039** | `unknown-param-type` | 2 | 0 | covered |
 | **PDL-E040** | `param-type-mismatch` | 4 | 0 | covered |
 | **PDL-E041** | `unknown-sample-path` | 1 | 0 | covered |
+| **PDL-E042** | `duplicate-mount` | 2 | 0 | covered |
 
 ## Codes without an oracle
 
@@ -188,6 +189,8 @@ The filename still records the original intent. TypeScript tests assert a **diff
 | [`e040-let-instance-bool-to-string.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e040-let-instance-bool-to-string.pdl) | **PDL-E040** | **PDL-E040** | `param-type-mismatch` | load | let instance bool to string |
 | [`e040-let-instance-wrong-type.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e040-let-instance-wrong-type.pdl) | **PDL-E040** | **PDL-E040** | `param-type-mismatch` | load | let instance wrong type |
 | [`e041-unknown-sample-path.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e041-unknown-sample-path.pdl) | **PDL-E041** | **PDL-E041** | `unknown-sample-path` | load | unknown sample path |
+| [`e042-duplicate-mount-nested.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e042-duplicate-mount-nested.pdl) | **PDL-E042** | **PDL-E042** | `duplicate-mount` | load | PDL-E042: the same let cannot be a child of two parents. |
+| [`e042-duplicate-mount.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e042-duplicate-mount.pdl) | **PDL-E042** | **PDL-E042** | `duplicate-mount` | load | PDL-E042: the same let cannot appear twice in children. |
 
 ## Support files
 

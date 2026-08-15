@@ -1569,6 +1569,62 @@ function collectListIdentsFromKwargs(
   }
 }
 
+function duplicateMountError(
+  design: DesignDefinition,
+  id: string,
+  componentName: string,
+): PdlError {
+  return new PdlError(
+    "PDL-E042",
+    `Frame \`${id}\` is mounted more than once in component ${componentName} — a \`let\` is one object; write two lets or a list`,
+    { path: design.entryPath },
+  );
+}
+
+/** A frame `let` / `letInstance` may appear at most once in any single `children` list. */
+function validateUniqueFrameMountsInBody(
+  design: DesignDefinition,
+  items: FrameBodyItem[],
+  frameLets: Set<string>,
+  componentName: string,
+): void {
+  for (const it of items) {
+    switch (it.kind) {
+      case "children": {
+        const seen = new Set<string>();
+        for (const e of it.entries) {
+          if (e.kind === "frameRef" && frameLets.has(e.id)) {
+            if (seen.has(e.id)) throw duplicateMountError(design, e.id, componentName);
+            seen.add(e.id);
+          }
+        }
+        break;
+      }
+      case "let":
+        validateUniqueFrameMountsInBody(design, it.body, frameLets, componentName);
+        break;
+      case "if":
+        for (const br of it.chain.branches) {
+          validateUniqueFrameMountsInBody(design, br.body, frameLets, componentName);
+        }
+        if (it.chain.elseBody) {
+          validateUniqueFrameMountsInBody(design, it.chain.elseBody, frameLets, componentName);
+        }
+        break;
+      default:
+        break;
+    }
+  }
+}
+
+function validateUniqueFrameMounts(
+  design: DesignDefinition,
+  c: ComponentDecl,
+  frameLets: Set<string>,
+): void {
+  validateUniqueFrameMountsInBody(design, c.body, frameLets, c.name);
+}
+
 function collectForeachAndChildrenMounts(
   items: FrameBodyItem[],
   foreachLists: Set<string>,
@@ -1684,6 +1740,7 @@ export function validateMergedDesign(design: DesignDefinition): void {
     validateLetValuesInBody(design, c.body, callerParams, c.name);
     validateParamBindingsInBody(design, c.body, callerParams, c.name);
     validateForeachMounts(design, c);
+    validateUniqueFrameMounts(design, c, allFrameIds);
     validateFixturesForComponent(design, c.name);
     validateInteractionsForComponent(design, c.name);
     validateRulesForComponent(design, c.name);

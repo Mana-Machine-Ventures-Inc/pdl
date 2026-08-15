@@ -1236,6 +1236,11 @@ document.querySelectorAll("[data-output-tab]").forEach((btn) => {
 });
 
 function syncEditorToFiles() {
+  // Scratch must never attach its buffer to a disk-pack path (that flush
+  // overwrote Motion's design.pdl with the scratch starter).
+  if (!diskRootMode() && typeof activePath === "string" && activePath.startsWith("test-fixtures/pdl/")) {
+    return;
+  }
   const prev = files[activePath];
   const next = getEditorText();
   files[activePath] = next;
@@ -1413,6 +1418,9 @@ function replaceScratchFiles(newMap, opts = {}) {
  * }} [opts]
  */
 function enterScratchProject(opts = {}) {
+  // Drop pack dirty flags so a later disk-mode analyze cannot flush leftover
+  // Motion/Airbnb paths using the scratch buffer.
+  dirtyDiskPaths.clear();
   const fileMap =
     opts.fileMap && Object.keys(opts.fileMap).length > 0
       ? { ...opts.fileMap }
@@ -1699,11 +1707,9 @@ async function restoreDraft(draft) {
     if (vvRadio) vvRadio.checked = true;
     themeInput.value = typeof draft.theme === "string" ? draft.theme : "";
 
-    const scratch =
-      draft.packId === SCRATCH_PACK_ID ||
-      draft.workspace === "editor" ||
-      !draft.packId ||
-      draft.packId === "";
+    // Only the scratch pack id is scratch. `workspace === "editor"` used to
+    // force Scratch even when packId was Motion — reload then looked stuck.
+    const scratch = draft.packId === SCRATCH_PACK_ID;
 
     if (scratch) {
       enterScratchProject({
@@ -2960,19 +2966,43 @@ function fillComponentSelect(names) {
   else if (component.options.length > 0) component.selectedIndex = 0;
 }
 
+function looksLikeScratchStarter(content) {
+  return (
+    typeof content === "string" &&
+    content.startsWith("// Scratch project — separate from fixture packs")
+  );
+}
+
+/** Directory prefix of the open disk pack (`test-fixtures/pdl/lab/motion/`). */
+function diskPackDirPrefix() {
+  const entry = (entryPath.value || activePath || "").trim();
+  if (!entry.startsWith("test-fixtures/pdl/")) return "";
+  const i = entry.lastIndexOf("/");
+  return i > 0 ? entry.slice(0, i + 1) : "";
+}
+
 async function flushDiskWrites() {
   if (!diskRootMode()) return;
+  if (packSelect.value === SCRATCH_PACK_ID) return;
   syncEditorToFiles();
-  const toWrite = [...dirtyDiskPaths].filter(
-    (rel) =>
-      rel.endsWith(".pdl") &&
-      rel.startsWith("test-fixtures/pdl/") &&
-      typeof files[rel] === "string",
-  );
+  const packDir = diskPackDirPrefix();
+  const toWrite = [...dirtyDiskPaths].filter((rel) => {
+    if (!rel.endsWith(".pdl") || !rel.startsWith("test-fixtures/pdl/")) return false;
+    if (typeof files[rel] !== "string") return false;
+    if (packDir && !rel.startsWith(packDir)) return false;
+    // Never persist the scratch starter onto a fixture pack file.
+    if (looksLikeScratchStarter(files[rel]) && fileBasename(rel) !== "lab.pdl") return false;
+    return true;
+  });
   /** @type {string[]} */
   const conflicts = [];
   for (const rel of toWrite) {
+    if (!diskRootMode() || packSelect.value === SCRATCH_PACK_ID) return;
     const content = files[rel];
+    if (typeof content !== "string") {
+      dirtyDiskPaths.delete(rel);
+      continue;
+    }
     // No-op vs last disk load — drop dirty without touching the file.
     if (diskBaseline[rel] !== undefined && content === diskBaseline[rel]) {
       dirtyDiskPaths.delete(rel);
@@ -3091,7 +3121,6 @@ async function runAnalyze() {
   updateRenderConsole([]);
   setStatus("Analyzing…");
   try {
-    await flushDiskWrites();
     const res = await fetch("/api/load", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -3112,6 +3141,8 @@ async function runAnalyze() {
       completionSymbols = [];
       return false;
     }
+    // Persist only after parse succeeds — a typo must not overwrite the pack on disk.
+    await flushDiskWrites();
     fillComponentSelect(data.components ?? []);
     themeList.replaceChildren();
     for (const t of data.themes ?? []) {
@@ -3155,6 +3186,7 @@ async function runRender({ debounced = false } = {}) {
   const ownerOnly = nextRenderOwnerOnly;
   nextRenderIncremental = false;
   nextRenderOwnerOnly = false;
+  let persistDisk = false;
   // Source/theme ticks: drop cached child IR so next hover/press rebakes from sources.
   // Owner-only SoT rebakes: cancel in-flight resolves so a stale pressEnd/hover
   // bake (e.g. selected:false) cannot clobber ForEach presentation after remount.
@@ -3168,7 +3200,6 @@ async function runRender({ debounced = false } = {}) {
   }
   setStatus(debounced ? "Updating preview…" : "Rendering…");
   try {
-    await flushDiskWrites();
     refreshCanvasHint();
     const canvas = lastCanvas ?? resolveCanvasTarget(activePath, files);
     const variantView = selectedVariantView();
@@ -3203,6 +3234,7 @@ async function runRender({ debounced = false } = {}) {
       renderDesignSummary(loadData.designSummary);
       frame.srcdoc = tokensPreviewHtml(canvas.tokens, lastDesignSummary);
       setStatus("Preview updated · tokens");
+      persistDisk = true;
       return;
     }
     if (canvas.kind === "empty" || canvas.componentNames.length === 0) {
@@ -3256,6 +3288,7 @@ async function runRender({ debounced = false } = {}) {
           : wasm.bake_system_sources(filesJson, virtEntry, theme || undefined);
       const bakeMs = Math.round(performance.now() - t0);
       const bake = JSON.parse(bakeJson);
+      persistDisk = true;
       if (names.length > 1 && bake.components && !dirtyOnly) {
         const filtered = {};
         for (const n of names) {
@@ -3454,6 +3487,7 @@ async function runRender({ debounced = false } = {}) {
       renderDesignSummary(data.designSummary);
       setCompletionSymbolsFromAnalyze(data);
     }
+    persistDisk = true;
   } catch (e) {
     if (id !== latestRenderId) return;
     const raw = e instanceof Error ? e.message : String(e);
@@ -3469,6 +3503,14 @@ async function runRender({ debounced = false } = {}) {
     ]);
     frame.removeAttribute("srcdoc");
     setStatus("");
+  }
+  if (persistDisk && id === latestRenderId) {
+    try {
+      await flushDiskWrites();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      showError(msg);
+    }
   }
 }
 

@@ -46,6 +46,26 @@ semantic motion.sheen: Motion = Motion(
   ]
 )
 
+variant PressPopState {
+  case rest
+  case pressed
+}
+
+semantic motion.pressIn: Motion = Motion(
+  transition: (duration: 90, easing: "ease-in"),
+  keys: [Key(pose: Pose(scale: 0.94, translateY: 1), at: 1)]
+)
+
+semantic motion.pressPop: Motion = Motion(
+  transition: (duration: 420, easing: "ease-out"),
+  play: .toPose,
+  keys: [
+    Key(pose: Pose(scale: 1.08, translateY: -3), at: 0.35),
+    Key(pose: Pose(scale: 0.98), at: 0.65),
+    Key(pose: .rest, at: 1)
+  ]
+)
+
 component MotionModal <PointerInput>() layout {
   direction = .column
   gap = 8
@@ -627,6 +647,63 @@ usage MotionPoseLab {
   description = "One card per Pose field. Appear / Dismiss / Reset isolate that channel."
 }
 
+component PressPopButton <PointerInput>(
+  label: String = "Press me",
+  chrome: PressPopState = .rest
+) layout {
+  direction = .row
+  align = .center
+  justify = .center
+  padding = EdgeInsets(x: 22, y: 12)
+  width = .hug
+  cornerRadius = 14
+  background = #E8EEF4
+  shadow = Shadow(x: 4, y: 6, blurRadius: 14, color: #1E293B @ 0.2)
+
+  if chrome == .pressed {
+    background = #C5CED8
+    shadow = Shadow(x: 1, y: 1, blurRadius: 3, color: #1E293B @ 0.12)
+  }
+
+  let text = Text(content: label, color: #334155, fontSize: 15, fontWeight: 600)
+  children = [text]
+
+  self.pressStart = {
+    animate = motion.pressIn
+    chrome = .pressed
+  }
+  self.pressEnd = {
+    animate = motion.pressPop
+    chrome = .rest
+  }
+  self.pressCancel = {
+    animate = Motion(motion.pressIn, play: .toRest)
+    chrome = .rest
+  }
+}
+
+usage PressPopButton {
+  description = "Press shrinks and darkens (hold .toPose). Release plays a forward pop — not a reverse — then sits on a raised shadow. pressEnd must set play: .toPose or the host reverses the shrink."
+}
+
+component PressPopLab() layout {
+  direction = .column
+  align = .center
+  justify = .center
+  gap = 16
+  padding = 40
+  width = .fill
+  background = #D5DCE6
+
+  let button = PressPopButton()
+  let hint = Text(content: "Press, hold, release. Clip rack: Press start / Press end.", color: #64748B, fontSize: 13)
+  children = [button, hint]
+}
+
+usage PressPopLab {
+  description = "Soft stage so the raised / pressed shadows read. Default for the press-pop stub."
+}
+
 component MotionLab() layout {
   direction = .column
   gap = 20
@@ -646,7 +723,8 @@ component MotionLab() layout {
   let pulse = MotionPulse()
   let sheen = MotionSheen()
   let appearPulse = MotionAppearThenPulse()
-  children = [modal, list, blur, chip, flourish, pop, overridePop, spin, spinSelf, pulse, sheen, appearPulse]
+  let pressPop = PressPopButton()
+  children = [modal, list, blur, chip, flourish, pop, overridePop, spin, spinSelf, pulse, sheen, appearPulse, pressPop]
 }
 
 usage MotionLab {

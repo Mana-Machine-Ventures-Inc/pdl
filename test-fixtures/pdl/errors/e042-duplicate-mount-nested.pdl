@@ -1,0 +1,9 @@
+// PDL-E042: the same let cannot be a child of two parents.
+component DupMountNested() layout {
+  direction = .column
+
+  let label = Text(content: "A")
+  let row = Layout(direction: .row)
+  row.children = [label]
+  children = [row, label]
+}

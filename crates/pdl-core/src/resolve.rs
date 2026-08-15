@@ -1236,6 +1236,7 @@ fn resolve_component_tree_with_list_forwards(
         &param_meta,
         &slot_ctx,
         &mut HashSet::new(),
+        &mut HashSet::new(),
         options,
     )
 }
@@ -1407,8 +1408,20 @@ fn materialize(
     param_meta: &ParamMeta,
     slot_ctx: &SlotResolveCtx,
     visiting_inst: &mut HashSet<String>,
+    mounted: &mut HashSet<String>,
     options: ResolveOptions,
 ) -> Result<CatalFrame, PdlError> {
+    if id != "Root" && !mounted.insert(id.to_string()) {
+        return Err(PdlError::new(
+            "PDL-E042",
+            format!(
+                "Frame `{id}` is mounted more than once — a `let` is one object; write two lets or a list"
+            ),
+            Some(design.entry_path.clone()),
+            None,
+            None,
+        ));
+    }
     let mf = frames.get(id).ok_or_else(|| {
         PdlError::new("PDL-E001", format!("Missing frame {id}"), None, None, None)
     })?;
@@ -1439,6 +1452,7 @@ fn materialize(
                         param_meta,
                         slot_ctx,
                         visiting_inst,
+                        mounted,
                         options,
                     )?);
                 } else if let Some(meta) = param_meta.get(cid) {

@@ -609,6 +609,7 @@ export function resolveComponentTree(
     slotCtx,
     ctx,
     visitingInst,
+    new Set(),
     options,
   );
 }
@@ -703,8 +704,19 @@ function materialize(
   slotCtx: SlotResolveCtx,
   ctx: BuildCtx,
   visitingInst: Set<string>,
+  mounted: Set<string>,
   resolveOptions: { useStringPlaceholders?: boolean; catalogueTokenRefs?: boolean },
 ): CatalFrame {
+  if (id !== "Root") {
+    if (mounted.has(id)) {
+      throw new PdlError(
+        "PDL-E042",
+        `Frame \`${id}\` is mounted more than once — a \`let\` is one object; write two lets or a list`,
+        { path: design.entryPath },
+      );
+    }
+    mounted.add(id);
+  }
   const mf = frames.get(id);
   if (!mf) {
     throw new PdlError("PDL-E001", `Missing frame ${id}`);
@@ -730,6 +742,7 @@ function materialize(
             slotCtx,
             ctx,
             visitingInst,
+            mounted,
             resolveOptions,
           ),
         );

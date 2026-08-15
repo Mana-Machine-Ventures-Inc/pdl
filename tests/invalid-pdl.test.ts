@@ -183,6 +183,16 @@ describe("invalid PDL — frame & hidden rules (PDL-E012)", () => {
   });
 });
 
+describe("invalid PDL — duplicate mount (PDL-E042)", () => {
+  it("rejects children = [button, button]", () => {
+    expectPdl(
+      () => loadDesign(err("e042-duplicate-mount.pdl")),
+      "PDL-E042",
+      /button.*mounted more than once|two lets or a list/i,
+    );
+  });
+});
+
 describe("invalid PDL — forward visibility (PDL-E019)", () => {
   it("rejects children = [Title] before let Title", () => {
     expectPdl(

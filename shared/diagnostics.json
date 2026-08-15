@@ -209,6 +209,11 @@
       "code": "PDL-E041",
       "name": "unknown-sample-path",
       "trigger": "A `Bank.entry.field` sample path names an unknown bank, entry, or field; a path is sample-shaped but invalid; or a `samples` bank name collides with a component (§11a)."
+    },
+    {
+      "code": "PDL-E042",
+      "name": "duplicate-mount",
+      "trigger": "The same **`let`** / **`letInstance`** frame is mounted more than once (`children = [button, button]`, or the same id under two parents). A let is one object with one place in the tree; write two lets or a list."
     }
   ],
   "warnings": [

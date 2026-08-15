@@ -2221,6 +2221,58 @@ fn bakes_single_slot_dotted_overrides() {
 }
 
 #[test]
+fn duplicate_mount_in_children_is_e042() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/dup.pdl".to_string(),
+        r#"
+component DupMount() layout {
+  let button = Text(content: "A")
+  children = [button, button]
+}
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/dup.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E042");
+}
+
+#[test]
+fn duplicate_mount_two_parents_is_e042() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::evaluate::build_resolved_token_map;
+    use pdl_core::resolve::{resolve_component_tree, RESOLVE_OPTIONS_LITERAL_BAKE};
+    use pdl_core::SourceMap;
+    use serde_json::Map;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/nested.pdl".to_string(),
+        r#"
+component DupMountNested() layout {
+  let label = Text(content: "A")
+  let row = Layout(direction: .row)
+  row.children = [label]
+  children = [row, label]
+}
+"#
+        .to_string(),
+    );
+    let design = load_design_from_sources("/v/nested.pdl", &sources).expect("load");
+    let mut tokens = build_resolved_token_map(&design, None, &[]).unwrap();
+    let err = resolve_component_tree(
+        &design,
+        "DupMountNested",
+        &mut tokens,
+        &Map::new(),
+        RESOLVE_OPTIONS_LITERAL_BAKE,
+    )
+    .unwrap_err();
+    assert_eq!(err.code, "PDL-E042");
+}
+
+#[test]
 fn foreach_without_children_is_e035() {
     use pdl_core::design::load_design_from_sources;
     use pdl_core::SourceMap;

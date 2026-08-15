@@ -635,6 +635,74 @@ fn collect_foreach_and_children_mounts(
     }
 }
 
+fn duplicate_mount_error(
+    design: &DesignDefinition,
+    id: &str,
+    component_name: &str,
+) -> PdlError {
+    err(
+        "PDL-E042",
+        format!(
+            "Frame `{id}` is mounted more than once in component {component_name} — a `let` is one object; write two lets or a list"
+        ),
+        design,
+    )
+}
+
+/// A frame `let` / `letInstance` may appear at most once in any single `children` list.
+fn validate_unique_frame_mounts_in_body(
+    design: &DesignDefinition,
+    items: &[FrameBodyItem],
+    frame_lets: &HashSet<String>,
+    component_name: &str,
+) -> Result<(), PdlError> {
+    for it in items {
+        match it {
+            FrameBodyItem::Children { entries, .. } => {
+                let mut seen = HashSet::new();
+                for e in entries {
+                    if let ChildEntry::FrameRef { id, .. } = e {
+                        if frame_lets.contains(id) && !seen.insert(id.clone()) {
+                            return Err(duplicate_mount_error(design, id, component_name));
+                        }
+                    }
+                }
+            }
+            FrameBodyItem::Let { body, .. } => {
+                validate_unique_frame_mounts_in_body(design, body, frame_lets, component_name)?;
+            }
+            FrameBodyItem::If { chain } => {
+                for br in &chain.branches {
+                    validate_unique_frame_mounts_in_body(
+                        design,
+                        &br.body,
+                        frame_lets,
+                        component_name,
+                    )?;
+                }
+                if let Some(else_body) = &chain.else_body {
+                    validate_unique_frame_mounts_in_body(
+                        design,
+                        else_body,
+                        frame_lets,
+                        component_name,
+                    )?;
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+fn validate_unique_frame_mounts(
+    design: &DesignDefinition,
+    c: &ComponentDecl,
+    frame_lets: &HashSet<String>,
+) -> Result<(), PdlError> {
+    validate_unique_frame_mounts_in_body(design, &c.body, frame_lets, &c.name)
+}
+
 fn validate_foreach_mounts(
     design: &DesignDefinition,
     c: &ComponentDecl,
@@ -2823,6 +2891,7 @@ pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError>
             &c.name,
         )?;
         validate_foreach_mounts(design, c)?;
+        validate_unique_frame_mounts(design, c, &all_frame_ids)?;
         let let_kinds = collect_let_frame_kinds(&c.body);
         validate_hidden_in_body(
             design,

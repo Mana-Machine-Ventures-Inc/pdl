@@ -1,0 +1,8 @@
+// PDL-E042: the same let cannot appear twice in children.
+component DupMount() layout {
+  direction = .row
+  gap = 8
+
+  let button = Text(content: "A")
+  children = [button, button]
+}

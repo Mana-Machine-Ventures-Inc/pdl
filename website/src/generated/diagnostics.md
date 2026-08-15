@@ -51,6 +51,7 @@ Catalog: [`shared/diagnostics.json`](https://github.com/Mana-Machine-Ventures-In
 | **PDL-E039** | `unknown-param-type` | A component / protocol / emit parameter uses a type name that is not a built-in (§23.1), declared `variant`, API protocol, or component. **`Boolean`** is rejected — use **`Bool`**. |
 | **PDL-E040** | `param-type-mismatch` | A parameter default, instance kwarg, or fixture binding is not type-compatible with the declared parameter type (§23.4 / §23.6). |
 | **PDL-E041** | `unknown-sample-path` | A `Bank.entry.field` sample path names an unknown bank, entry, or field; a path is sample-shaped but invalid; or a `samples` bank name collides with a component (§11a). |
+| **PDL-E042** | `duplicate-mount` | The same **`let`** / **`letInstance`** frame is mounted more than once (`children = [button, button]`, or the same id under two parents). A let is one object with one place in the tree; write two lets or a list. |
 
 ## Warnings (PDL-W0xx)
 

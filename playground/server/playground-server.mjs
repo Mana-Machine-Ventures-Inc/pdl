@@ -76,7 +76,7 @@ const PACK_CATALOG = [
     label: "Motion",
     entry: "test-fixtures/pdl/lab/motion/design.pdl",
     defaultComponent: "MotionLab",
-    description: "Appear / dismiss snapshots, stagger, and implicit animate = in the HTML preview",
+    description: "Appear / dismiss, press-pop, stagger, and implicit animate = in the HTML preview",
   },
   {
     id: "effect",
