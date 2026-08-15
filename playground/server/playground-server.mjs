@@ -13,7 +13,8 @@ import {
   readdirSync,
   statSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
+import { networkInterfaces, tmpdir } from "node:os";
+import { createRequire } from "node:module";
 import { dirname, join, relative, resolve, extname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -145,6 +146,73 @@ function handleCatalog() {
   return { ok: true, packs: PACK_CATALOG };
 }
 
+function lanIPv4Addresses() {
+  /** @type {string[]} */
+  const out = [];
+  for (const list of Object.values(networkInterfaces())) {
+    for (const info of list ?? []) {
+      if (info.internal) continue;
+      const v4 = info.family === "IPv4" || info.family === 4;
+      if (v4 && info.address) out.push(info.address);
+    }
+  }
+  return [...new Set(out)];
+}
+
+function lanInfo(port) {
+  const localhost = `http://127.0.0.1:${port}`;
+  const lan = lanIPv4Addresses().map((ip) => `http://${ip}:${port}`);
+  return {
+    ok: true,
+    host: HOST,
+    port,
+    localhost,
+    lan,
+    device: {
+      local: `${localhost}/device`,
+      lan: lan.map((base) => `${base}/device`),
+    },
+  };
+}
+
+/** Desktop → phone projection snapshot (one session per Playground process). */
+let stageRev = 0;
+/** @type {Record<string, unknown> | null} */
+let stageSnapshot = null;
+
+function handleGetStage() {
+  if (!stageSnapshot) return { ok: true, rev: stageRev, stage: null };
+  const slim = { ...stageSnapshot };
+  // Disk packs are on the Mac already — don't ship sources to the phone.
+  if (slim.diskRoot === true) slim.files = {};
+  return { ok: true, rev: stageRev, stage: slim };
+}
+
+function handlePutStage(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new Error("Expected a stage snapshot object");
+  }
+  const component = typeof body.component === "string" ? body.component.trim() : "";
+  const entry = typeof body.entry === "string" ? body.entry.trim() : "";
+  if (!component) throw new Error('Expected "component"');
+  if (!entry) throw new Error('Expected "entry"');
+  stageRev += 1;
+  stageSnapshot = {
+    rev: stageRev,
+    packId: typeof body.packId === "string" ? body.packId : "",
+    entry,
+    component,
+    theme: typeof body.theme === "string" ? body.theme : "",
+    diskRoot: body.diskRoot === true,
+    files: body.files && typeof body.files === "object" && !Array.isArray(body.files) ? body.files : {},
+    kv: body.kv && typeof body.kv === "object" && !Array.isArray(body.kv) ? body.kv : {},
+    activeFixture: typeof body.activeFixture === "string" ? body.activeFixture : null,
+    components: Array.isArray(body.components) ? body.components.map(String) : [],
+    updatedAt: Date.now(),
+  };
+  return { ok: true, rev: stageRev };
+}
+
 function handleOpenPack(packId) {
   const pack = PACK_CATALOG.find((p) => p.id === packId);
   if (!pack) throw new Error(`Unknown pack: ${packId}`);
@@ -217,7 +285,7 @@ const REPO_ROOT = resolve(__dirname, "..", "..");
 const DIST = join(REPO_ROOT, "dist");
 const STATIC_DIR = resolve(__dirname, "..", "static");
 const MAX_BODY_BYTES = 12 * 1024 * 1024;
-const HOST = "127.0.0.1";
+const HOST = process.env.PLAYGROUND_HOST || "0.0.0.0";
 const DEFAULT_FIRST_PORT = 3847;
 const PORT_FALLBACK_SPAN = 10; // try DEFAULT_FIRST_PORT .. +9 when PLAYGROUND_PORT is unset
 const envPort = process.env.PLAYGROUND_PORT;
@@ -655,7 +723,7 @@ function mergeInteractionsPreferMotion(tsIx, rustIx) {
       return {
         ...rd,
         handlers: rustHandlers.map((rh) => {
-          if (rh?.motion && (rh.motion.from || rh.motion.to || rh.motion.transition)) return rh;
+          if (rh?.motion && (rh.motion.pose || rh.motion.from || rh.motion.to || rh.motion.transition)) return rh;
           const th = tsHandlers.find((h) => h && h.event === rh?.event);
           return th?.motion ? { ...rh, motion: th.motion } : rh;
         }),
@@ -1283,6 +1351,7 @@ async function handleRender(body) {
         singleComponent:
           mode === "component" && typeof component === "string" ? component : undefined,
         interactiveHost: wantInteractive && mode !== "pack",
+        hostChrome: body.hostChrome === "device" ? "device" : undefined,
         interactionsByComponent: enriched.interactionsByComponent,
         emitCapturesByComponent: enriched.emitCapturesByComponent,
         usageByComponent: enriched.usageByComponent,
@@ -1427,6 +1496,7 @@ async function handleRenderFromBake(body) {
       singleComponent: component,
       componentNames,
       interactiveHost: wantInteractive,
+      hostChrome: body.hostChrome === "device" ? "device" : undefined,
       interactionsByComponent,
       emitCapturesByComponent,
       usageByComponent: enriched?.usageByComponent,
@@ -1448,7 +1518,9 @@ async function handleRenderFromBake(body) {
 }
 
 function serveStatic(pathname, res) {
-  const safe = pathname === "/" ? "index.html" : pathname.replace(/^\//, "");
+  const mapped =
+    pathname === "/device" || pathname === "/device/" ? "/device.html" : pathname;
+  const safe = mapped === "/" ? "index.html" : mapped.replace(/^\//, "");
   const filePath = resolve(STATIC_DIR, safe);
   const rel = relative(STATIC_DIR, filePath);
   if (rel.startsWith("..") || rel === "") {
@@ -1477,13 +1549,69 @@ function serveStatic(pathname, res) {
   }
 }
 
+function isLoopback(addr) {
+  const a = String(addr ?? "");
+  return a === "127.0.0.1" || a === "::1" || a.endsWith("::1") || a.includes("127.0.0.1");
+}
+
+function isMobileUa(ua) {
+  return /iPhone|iPad|iPod|Android/i.test(String(ua ?? ""));
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
   const pathname = url.pathname;
+  const remote = req.socket.remoteAddress ?? "";
+  if (!isLoopback(remote)) {
+    console.log(`  ${req.method} ${pathname} ← ${remote}`);
+  }
+
+  if (req.method === "GET" && pathname === "/" && isMobileUa(req.headers["user-agent"])) {
+    res.writeHead(302, { Location: "/device" });
+    res.end();
+    return;
+  }
 
   if (req.method === "GET" && pathname === "/api/catalog") {
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify(handleCatalog()));
+    return;
+  }
+
+  if (req.method === "GET" && pathname === "/api/lan") {
+    const bound = /** @type {import("node:net").AddressInfo | null} */ (server.address());
+    const port = bound?.port ?? DEFAULT_FIRST_PORT;
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify(lanInfo(port)));
+    return;
+  }
+
+  if (req.method === "GET" && pathname === "/api/stage") {
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify(handleGetStage()));
+    return;
+  }
+
+  if (req.method === "GET" && pathname === "/api/qr") {
+    const bound = /** @type {import("node:net").AddressInfo | null} */ (server.address());
+    const port = bound?.port ?? DEFAULT_FIRST_PORT;
+    const info = lanInfo(port);
+    const raw = url.searchParams.get("u") ?? "";
+    const allowed = new Set([info.device.local, ...info.device.lan]);
+    if (!allowed.has(raw)) {
+      res.writeHead(400);
+      res.end("Unknown device URL");
+      return;
+    }
+    try {
+      const QRCode = createRequire(import.meta.url)("qrcode");
+      const png = await QRCode.toBuffer(raw, { type: "png", width: 240, margin: 1 });
+      res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "no-store" });
+      res.end(png);
+    } catch (e) {
+      res.writeHead(503);
+      res.end(formatErr(e));
+    }
     return;
   }
 
@@ -1570,6 +1698,19 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "POST" && pathname === "/api/stage") {
+    try {
+      const body = await readJsonBody(req);
+      const out = handlePutStage(body);
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify(out));
+    } catch (e) {
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ ok: false, error: formatErr(e) }));
+    }
+    return;
+  }
+
   if (req.method === "POST" && pathname === "/api/render-from-bake") {
     try {
       const body = await readJsonBody(req);
@@ -1620,8 +1761,20 @@ function listenPlayground() {
   server.listen(first, HOST, () => {
     const bound = /** @type {import("node:net").AddressInfo} */ (server.address());
     const p = bound?.port ?? first;
-    console.log(`PDL Playground at http://${HOST}:${p}`);
-    console.log(`  Phase P5 · file canvas · interactive host · variant grid`);
+    const info = lanInfo(p);
+    console.log(`PDL Playground`);
+    console.log(`  Local   ${info.localhost}`);
+    if (info.lan.length === 0) {
+      console.log(`  Phone   (no LAN IPv4 — check Wi-Fi; bind is ${HOST})`);
+    } else {
+      for (const url of info.device.lan) {
+        console.log(`  Phone   ${url}`);
+      }
+    }
+    console.log(`  Phase P5 · file canvas · interactive host · /device stage`);
+    if (HOST === "0.0.0.0") {
+      console.log(`  Same Wi-Fi only (not guest). macOS may prompt to allow Node.`);
+    }
     if (!strictPort && p !== DEFAULT_FIRST_PORT) {
       console.error(`(Using ${p} because ${DEFAULT_FIRST_PORT} was busy.)`);
     }

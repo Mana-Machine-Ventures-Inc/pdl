@@ -25,6 +25,18 @@ npm run playground
 
 **Default bake engine is Rust WASM** (in-browser, ~ms). Prefer it for interactive preview; **Rust CLI** spawns `pdl` each tick and feels much slower. Rebuild WASM after language changes: `npm run build:wasm`.
 
+## Phone / same-network stage
+
+The playground binds on `0.0.0.0` so a phone on the same Wi-Fi can open a device stage (not the three-pane editor).
+
+1. `npm run playground`
+2. On the Mac, click **Open on phone** (or copy the `Phone` URL printed in the terminal)
+3. On the iPhone, open that URL in Safari — same Wi-Fi, not a guest network. Allow Node in the macOS firewall if prompted.
+
+`/device` shows one component full-bleed with tap, appear/dismiss, Replay, and the existing fixture/variant bars. **Following** tracks the desktop selection (and editor drafts). Tap **Local** (or change pack/component on the phone) to pick independently.
+
+Hover-only handlers do not run on iPhone — author `pressStart` / `pressEnd` (or Replay) for touch. Lock the server to loopback with `PLAYGROUND_HOST=127.0.0.1` if you do not want LAN access.
+
 ## Session drafts
 
 Edits autosave in the browser (`localStorage`) so a reload restores files, entry, pack, and param knobs. Use **Reload from disk** to discard the draft and reopen the selected pack. Switching packs also reloads from disk.

@@ -1,0 +1,75 @@
+:root {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: #e8eaed;
+  background: #111318;
+  line-height: 1.4;
+}
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.dev-top {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #111318;
+  border-bottom: 1px solid #2a2e38;
+}
+.dev-top select {
+  width: 100%;
+  font: inherit;
+  font-size: 16px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #3a404c;
+  background: #1a1e27;
+  color: #e8eaed;
+}
+.dev-error {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  color: #ff8a80;
+  white-space: pre-wrap;
+  background: #1a1214;
+}
+.dev-stage {
+  flex: 1;
+  min-height: 0;
+  background: #f6f6f6;
+}
+.dev-stage iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #f6f6f6;
+}

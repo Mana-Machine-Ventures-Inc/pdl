@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#111318" />
+  <title>PDL Device</title>
+  <link rel="stylesheet" href="/device.css" />
+</head>
+<body>
+  <header class="dev-top">
+    <label>
+      <span class="sr-only">Pack</span>
+      <select id="packSelect" aria-label="Pack"></select>
+    </label>
+    <label>
+      <span class="sr-only">Component</span>
+      <select id="componentSelect" aria-label="Component"></select>
+    </label>
+  </header>
+  <p class="sr-only" id="status" role="status"></p>
+  <p class="dev-error" id="error" hidden></p>
+  <main class="dev-stage">
+    <iframe id="frame" title="PDL component" sandbox="allow-same-origin allow-scripts"></iframe>
+  </main>
+  <script type="module" src="/device-app.js"></script>
+</body>
+</html>

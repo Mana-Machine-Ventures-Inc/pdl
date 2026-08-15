@@ -154,6 +154,13 @@ const canvasHint = $("canvasHint");
 const addProperty = $("addProperty");
 const addPropertyKind = $("addPropertyKind");
 const insertTemplate = $("insertTemplate");
+const btnOpenPhone = $("btnOpenPhone");
+const phoneDialog = $("phoneDialog");
+const phoneUrls = $("phoneUrls");
+const phoneHint = $("phoneHint");
+const phoneQr = $("phoneQr");
+const phoneUrlBig = $("phoneUrlBig");
+const btnCopyPhone = $("btnCopyPhone");
 
 /** @type {string | null} */
 let preferredComponent = "AbnPointerLab";
@@ -2365,6 +2372,72 @@ function getBodyBase() {
   };
 }
 
+async function publishStage() {
+  const component = preferredComponent || primaryComponent || "";
+  const entry = bakeEntryPath();
+  if (!component || !entry) return;
+  syncEditorToFiles();
+  try {
+    await fetch("/api/stage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        packId: packSelect.value,
+        entry,
+        component,
+        theme: themeInput.value.trim(),
+        diskRoot: diskRootMode() || undefined,
+        files,
+        kv: kvByComponent[component] ?? {},
+        activeFixture: activeFixtureByComponent[component] ?? null,
+        components: lastCanvas?.componentNames ?? [],
+      }),
+    });
+  } catch {
+    /* phone follow is best-effort */
+  }
+}
+
+/** @type {string} */
+let lastCopiedPhoneUrl = "";
+
+async function openPhoneDialog() {
+  phoneUrls.replaceChildren();
+  phoneHint.textContent = "";
+  phoneUrlBig.textContent = "";
+  phoneQr.hidden = true;
+  phoneQr.removeAttribute("src");
+  lastCopiedPhoneUrl = "";
+  try {
+    const res = await fetch("/api/lan");
+    const info = await res.json();
+    const urls = Array.isArray(info.device?.lan) ? info.device.lan : [];
+    if (urls.length === 0) {
+      phoneHint.textContent =
+        "No LAN IPv4 address found. Join Wi-Fi (not guest) and restart the playground. " +
+        `127.0.0.1 will not work on a phone.`;
+    } else {
+      lastCopiedPhoneUrl = urls[0];
+      phoneUrlBig.textContent = lastCopiedPhoneUrl;
+      phoneQr.src = `/api/qr?u=${encodeURIComponent(lastCopiedPhoneUrl)}`;
+      phoneQr.hidden = false;
+      for (const url of urls) {
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        a.href = url;
+        a.textContent = url;
+        li.append(a);
+        phoneUrls.append(li);
+      }
+      phoneHint.textContent =
+        "Scan the QR, or type that URL in Safari. Messages links to 127.0.0.1 will fail.";
+    }
+  } catch (e) {
+    phoneHint.textContent = e instanceof Error ? e.message : String(e);
+  }
+  if (typeof phoneDialog.showModal === "function") phoneDialog.showModal();
+}
+
 /**
  * @param {number} [delayMs] — `0` runs render on the next task (e.g. mode / component change); default debounces editor typing.
  */
@@ -2703,6 +2776,7 @@ function applyPreviewUpdate(data, opts) {
       // Rebind only when IR actually mutated (or morph). Equal-IR no-ops still ok.
       requestInteractiveRebind(frame);
       frame.dataset.pdlLastApply = applyKind;
+      void publishStage();
       return "incremental";
     }
   }
@@ -2723,6 +2797,7 @@ function applyPreviewUpdate(data, opts) {
     },
     { once: true },
   );
+  void publishStage();
   return "remount";
 }
 
@@ -3157,6 +3232,7 @@ async function runRender({ debounced = false } = {}) {
               ? `Preview updated · wasm · bake ${bakeMs}ms${applyBit} · ${workspaceWarn.length} workspace warning(s)`
               : `Preview updated · wasm · bake ${bakeMs}ms${applyBit}`,
           );
+          void publishStage();
           return;
         }
       }
@@ -3525,9 +3601,11 @@ window.addEventListener("message", (ev) => {
       setStatus(`Interaction · ${comp}${childBit} · ${evName}${emitBit}`);
     }
     if (data.params && typeof data.params === "object" && !Array.isArray(data.params)) {
-      // Pointer chrome is per mount. Writing it into the type-level KV bag
-      // rebakes every gallery instance of that component.
-      if (!chromeEvent) {
+      // Pointer chrome is per mount (previewHandled). pressEnd + emit updates
+      // parent SoT (currentMood / selectedTrack) and must rebake even though
+      // the event name is a pointer channel.
+      const parentSoTChanged = data.previewHandled !== true && data.changed;
+      if (!chromeEvent || parentSoTChanged) {
         primaryComponent = comp || primaryComponent;
         preferredComponent = primaryComponent;
         setKvForComponent(
@@ -3537,12 +3615,21 @@ window.addEventListener("message", (ev) => {
         if (primaryComponent) delete activeFixtureByComponent[primaryComponent];
         refreshControlsUi();
       }
-      // Rebake when emit capture changed parent SoT. Nested / implicit chrome
-      // uses pdl-resolve-instance (previewHandled) and does not rebake the type.
-      if (data.previewHandled !== true && data.changed && !chromeEvent) {
+      if (parentSoTChanged) {
         scheduleDebouncedRender(0, { incremental: true, ownerOnly: true });
       }
     }
+  }
+});
+
+btnOpenPhone.addEventListener("click", () => void openPhoneDialog());
+btnCopyPhone.addEventListener("click", async () => {
+  if (!lastCopiedPhoneUrl) return;
+  try {
+    await navigator.clipboard.writeText(lastCopiedPhoneUrl);
+    phoneHint.textContent = "Copied. Open it in Safari on your iPhone.";
+  } catch {
+    phoneHint.textContent = lastCopiedPhoneUrl;
   }
 });
 

@@ -19,6 +19,9 @@
         </p>
       </div>
       <div class="badge-stack" aria-label="Build badges">
+        <button type="button" class="btn secondary" id="btnOpenPhone" title="Open the device stage on a phone on this Wi-Fi">
+          Open on phone
+        </button>
         <span class="badge badge-wasm" id="engineBadge" title="Default bake engine — switch under Bake engine">Rust WASM</span>
         <span class="badge">HTML host</span>
         <span class="badge badge-muted">Phase P5</span>
@@ -177,6 +180,25 @@
 
   <!-- Hidden select kept for script compatibility during migration -->
   <select id="component" hidden aria-hidden="true"></select>
+
+  <dialog id="phoneDialog" class="phone-dialog">
+    <form method="dialog">
+      <h2>Open on phone</h2>
+      <p class="hint">
+        Point the iPhone camera at the QR code. Do not send
+        <code>127.0.0.1</code> — that address is this Mac, not the phone.
+        Same Wi-Fi (not guest, not VPN).
+      </p>
+      <img id="phoneQr" class="phone-qr" alt="QR code for the phone stage" hidden />
+      <p class="phone-url-big" id="phoneUrlBig"></p>
+      <ul class="phone-urls" id="phoneUrls"></ul>
+      <p class="hint" id="phoneHint"></p>
+      <div class="row">
+        <button type="button" class="btn secondary" id="btnCopyPhone">Copy phone URL</button>
+        <button type="submit" class="btn primary">Close</button>
+      </div>
+    </form>
+  </dialog>
 
   <script type="module" src="/playground-app.js"></script>
 </body>

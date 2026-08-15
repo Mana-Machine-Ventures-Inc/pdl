@@ -320,4 +320,33 @@ describe("host posts pdl-resolve-instance", () => {
     );
     expect(parentIx).toBeTruthy();
   });
+
+  it("EditorBtn pointer events resolve like mouse press", async () => {
+    const bake = bakeComponent("NoteEditor", ["editing=false"]);
+    const { window, document, messages } = await mountInteractive(bake, "NoteEditor");
+    const edit = document.querySelector('[data-pdl-instance-let="Edit"]')!;
+    const PointerEventCtor = window.PointerEvent;
+    if (typeof PointerEventCtor !== "function") return;
+    edit.dispatchEvent(
+      new PointerEventCtor("pointerdown", {
+        button: 0,
+        pointerId: 1,
+        pointerType: "touch",
+        bubbles: true,
+      }),
+    );
+    edit.dispatchEvent(
+      new PointerEventCtor("pointerup", {
+        button: 0,
+        pointerId: 1,
+        pointerType: "touch",
+        bubbles: true,
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 30));
+    const resolveReasons = messages
+      .filter((m) => (m as { type?: string }).type === "pdl-resolve-instance")
+      .map((m) => (m as { reason?: string }).reason);
+    expect(resolveReasons.length).toBeGreaterThan(0);
+  });
 });

@@ -5,7 +5,7 @@
 **Proposal:** [`PROPOSAL_PDL_PLAYGROUND.md`](./PROPOSAL_PDL_PLAYGROUND.md)  
 **How-to:** [`playground/README.md`](../playground/README.md)  
 **Coverage walk:** [`PLAYGROUND_COVERAGE_CHECKLIST.md`](./PLAYGROUND_COVERAGE_CHECKLIST.md)  
-**Language:** fixtures §11 · typed samples §11a (`docs/full-spec.md`)
+**Language:** fixtures + typed samples (`shared/language-objects.json` `companions` / `samples`)
 
 ---
 
@@ -64,6 +64,8 @@ Pack (.pdl files)
 | **Fixtures UI** | §11 scenarios live **on each preview section** (Fixture select above param knobs). Left-rail chips still mirror the **primary** component. No global Preview-panel fixture dropdown. |
 | **Typed samples** | Packs author `samples` banks; Playground only assigns scalars/variants. Playlist Composer mood/search worlds mount `Tracks.*.tracks` at bake — host JS catalogs removed. |
 
+**Device stage:** `/device` on the same LAN — one component, HTML host, Follow or local picker. Not a mobile editor. See [`playground/README.md`](../playground/README.md) (Phone / same-network stage).
+
 **Still deferred:** Phase S (Studio) — authoring-first product, governance, possibly separate repo.
 
 ---
@@ -94,6 +96,7 @@ Pack (.pdl files)
 | `test-fixtures/pdl/systems/airbnb-lite/` | Flagship veracity pack |
 | `test-fixtures/pdl/systems/playlist-composer-lite/` | Samples + ForEach + EditableText pack |
 | `test-fixtures/pdl/lab/samples-tracks.pdl` | Minimal typed-samples lab |
+| `test-fixtures/pdl/lab/usage-rules/` | Usage notes + red/orange rule warnings |
 | `src/renderHtml.ts` | Bake JSON → HTML (+ interactive host, per-component fixture bars) |
 
 ---
@@ -106,6 +109,8 @@ Pack (.pdl files)
 4. Hover `AbnButton` for press/hover feedback; try **Variants → Grid**
 5. Use **Add property** to insert layout/text snippets while learning PDL
 6. Open **Playlist Composer** → try each section’s **Fixture** select (mood / Kite / Empty); left chips track the focused component
+7. Open **Usage & rules** → `UsageRulesLab` shows usage text plus red (must) and orange (should) banners. Insert templates under Usage / Rules bake the same cases into Scratch.
+8. **Open on phone** → Safari on the same Wi-Fi opens `/device` (tap + motion + variants; Follow tracks the desktop canvas)
 
 Edits autosave to a **browser draft** (`localStorage`, ~14 days) so a page reload restores **knobs** (not a stale file bag over disk packs). **Reload from disk** clears dirty buffers + draft and reopens the pack. With **Pack on disk**, Analyze/Render flushes only **dirty** `.pdl` paths and refuses overwrite when disk changed under you (`expectedBaseline`).
 
@@ -120,4 +125,4 @@ Edits autosave to a **browser draft** (`localStorage`, ~14 days) so a page reloa
 3. **SoT stays `.pdl`** — knobs may override bake params; teaching inserts write into source.  
 4. **Don’t blur into Studio** — no governance, multiplayer, or Figma parity here.
 
-**Language notes:** `enum` and `variant` are the same closed-set construct in v1 (bake → HTML is keyword-agnostic). Prefer `enum` for interaction/domain state and `variant` for design-axis combinators. Typed **`samples`** banks are normative in **`full-spec` §11a** — hosts assign drivers; bake mounts `Bank.entry.field`.
+**Language notes:** `enum` and `variant` are the same closed-set construct in v1 (bake → HTML is keyword-agnostic). Prefer `enum` for interaction/domain state and `variant` for design-axis combinators. Typed **`samples`** banks are locked in `shared/language-objects.json` — hosts assign drivers; bake mounts `Bank.entry.field`.

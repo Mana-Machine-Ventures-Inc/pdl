@@ -2153,6 +2153,67 @@ const BASE_CSS = `
 :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; padding: 16px; background: var(--pdl-preview-background, #f6f6f6); color: #111; }
+html:has(body.pdl-device-stage),
+body.pdl-device-stage {
+  height: 100%;
+  min-height: 100%;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+}
+body.pdl-device-stage .pdl-doc-title,
+body.pdl-device-stage .pdl-meta,
+body.pdl-device-stage .pdl-source-link,
+body.pdl-device-stage .pdl-preview-params,
+body.pdl-device-stage .pdl-preview-head,
+body.pdl-device-stage .pdl-usage,
+body.pdl-device-stage .pdl-rule-list,
+body.pdl-device-stage .pdl-fixture-bar,
+body.pdl-device-stage .pdl-param-bar,
+body.pdl-device-stage .pdl-motion-bar {
+  display: none !important;
+}
+body.pdl-device-stage .pdl-gallery {
+  display: flex;
+  gap: 0;
+  height: 100%;
+  min-height: 100%;
+}
+body.pdl-device-stage .pdl-preview {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 0;
+  padding: 24px;
+  margin: 0;
+  min-height: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  background: transparent;
+}
+body.pdl-device-stage .pdl-canvas {
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  width: max-content;
+  max-width: 100%;
+  height: auto;
+  max-height: 100%;
+}
+body.pdl-device-stage .pdl-canvas--fill-width {
+  width: 100%;
+  max-width: 100%;
+  align-self: stretch;
+}
+body.pdl-device-stage .pdl-canvas--fill-height {
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  align-self: stretch;
+  overflow: auto;
+}
 .pdl-doc-title { font-size: 1.1rem; margin: 0 0 12px; }
 .pdl-meta { font-size: 0.85rem; color: #444; margin-bottom: 20px; }
 .pdl-gallery { display: flex; flex-direction: column; gap: 16px; }
@@ -2271,6 +2332,7 @@ body { margin: 0; padding: 16px; background: var(--pdl-preview-background, #f6f6
 .pdl-preview[data-pdl-interactive] .pdl-canvas,
 .pdl-instance[data-pdl-pointer-input] {
   cursor: pointer;
+  touch-action: manipulation;
 }
 .pdl-text--editable::placeholder { opacity: 1; color: inherit; }
 .pdl-text--editable {
@@ -2388,9 +2450,16 @@ function rootUsesHeightFill(comp: BakedComponentJson): boolean {
   return root?.props?.height === "fill";
 }
 
+function rootUsesWidthFill(comp: BakedComponentJson): boolean {
+  const root = comp.root as { props?: Record<string, unknown> } | undefined;
+  return root?.props?.width === "fill";
+}
+
 function wrapPdlCanvas(comp: BakedComponentJson, instCtx?: InstanceRenderCtx): string {
-  const cls = rootUsesHeightFill(comp) ? "pdl-canvas pdl-canvas--fill-height" : "pdl-canvas";
-  return `<div class="${cls}">${renderComponentBody(comp, instCtx)}</div>`;
+  const bits = ["pdl-canvas"];
+  if (rootUsesWidthFill(comp)) bits.push("pdl-canvas--fill-width");
+  if (rootUsesHeightFill(comp)) bits.push("pdl-canvas--fill-height");
+  return `<div class="${bits.join(" ")}">${renderComponentBody(comp, instCtx)}</div>`;
 }
 
 /**
@@ -2557,6 +2626,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     componentNames?: string[];
     /** Enable hover/press host script (Phase 4). */
     interactiveHost?: boolean;
+    /** `device` hides lab chrome and enlarges fixture/variant/replay hit targets. */
+    hostChrome?: "lab" | "device";
     /**
      * Extra bake trees per component for interaction states other than default.
      * e.g. `{ FilterChip: { hovered: <bakedComponentJson> } }`
@@ -2852,21 +2923,48 @@ export function renderBakedDesignToHtmlDocumentWithReport(
   }
   function motionFromHandler(h) {
     var m = (h && h.motion && typeof h.motion === 'object') ? Object.assign({}, h.motion) : {};
-    if ((m.from && Object.keys(m.from).length) || (m.to && Object.keys(m.to).length) || m.transition) {
+    if ((m.pose && Object.keys(m.pose).length) || (m.from && Object.keys(m.from).length) || (m.to && Object.keys(m.to).length) || m.transition) {
       return m;
+    }
+    function transitionFromValue(v) {
+      if (!v || typeof v !== 'object') return null;
+      var inner = v.transition || v;
+      var dur = numberish(inner.duration);
+      var delay = numberish(inner.delay);
+      var easing = typeof inner.easing === 'string' ? inner.easing : (inner.easing && inner.easing.value);
+      if (dur == null) return null;
+      return { duration: dur, easing: easing || 'linear', delay: delay || 0 };
+    }
+    function poseFromValue(v) {
+      if (!v || typeof v !== 'object') return null;
+      var props = v.props || v;
+      var snap = snapshotFromProps(props);
+      return Object.keys(snap).length ? snap : null;
+    }
+    function staggerFromValue(v) {
+      if (!v || typeof v !== 'object') return null;
+      var step = numberish(v.step != null ? v.step : v.ms);
+      var from = typeof v.from === 'string' ? v.from.replace(/^\\./, '') : (v.staggerFrom || (v.from && v.from.value));
+      if (from && typeof from === 'string') from = from.replace(/^\\./, '');
+      var out = {};
+      if (step != null) out.stagger = step;
+      if (from === 'first' || from === 'last') out.staggerFrom = from;
+      return Object.keys(out).length ? out : null;
     }
     (h && h.body || []).forEach(function(item){
       if (!item || typeof item !== 'object') return;
-      if (item.kind === 'from') m.from = snapshotFromProps(item.props);
-      else if (item.kind === 'to') m.to = snapshotFromProps(item.props);
-      else if (item.kind === 'stagger') m.stagger = item.ms;
-      else if (item.kind === 'staggerFrom') m.staggerFrom = item.value;
-      else if (item.kind === 'animate') {
-        var v = item.value || {};
-        var dur = numberish(v.duration);
-        var delay = numberish(v.delay);
-        var easing = typeof v.easing === 'string' ? v.easing : (v.easing && v.easing.value);
-        if (dur != null) m.transition = { duration: dur, easing: easing || 'linear', delay: delay || 0 };
+      if (item.kind !== 'animate') return;
+      var v = item.value || {};
+      if (v.kind === 'motion') {
+        var t = transitionFromValue(v.transition);
+        if (t) m.transition = t;
+        var pose = poseFromValue(v.pose);
+        if (pose) m.pose = pose;
+        var st = staggerFromValue(v.stagger);
+        if (st) { if (st.stagger != null) m.stagger = st.stagger; if (st.staggerFrom) m.staggerFrom = st.staggerFrom; }
+      } else {
+        var t2 = transitionFromValue(v);
+        if (t2) m.transition = t2;
       }
     });
     return m;
@@ -2953,12 +3051,12 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     var ident = identitySnap(rest);
     var from = ident;
     var to = ident;
+    var pose = spec.pose || (mode === 'appear' ? spec.from : spec.to);
+    if (!pose) return null;
     if (mode === 'appear') {
-      if (!spec.from) return null;
-      from = Object.assign({}, ident, spec.from);
+      from = Object.assign({}, ident, pose);
     } else if (mode === 'dismiss') {
-      if (!spec.to) return null;
-      to = Object.assign({}, ident, spec.to);
+      to = Object.assign({}, ident, pose);
     } else {
       return null;
     }
@@ -3307,6 +3405,45 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       parent.postMessage({ type: 'pdl-resize', height: h }, '*');
     } catch (e) {}
   }
+  function bindPress(el, handlers) {
+    var ignore = handlers.ignore;
+    var stop = handlers.stop === true;
+    var suppressMouse = 0;
+    function blocked(ev) {
+      return ignore && ignore(ev);
+    }
+    function fromPointer(ev) {
+      return ev.type.indexOf('pointer') === 0;
+    }
+    function mouseAfterPointer(ev) {
+      return ev.type.indexOf('mouse') === 0 && (Date.now() - suppressMouse) < 700;
+    }
+    function start(ev) {
+      if (blocked(ev) || mouseAfterPointer(ev)) return;
+      if (ev.type === 'mousedown' && ev.button !== 0) return;
+      if (fromPointer(ev) && ev.pointerType === 'mouse' && ev.button !== 0) return;
+      if (fromPointer(ev)) {
+        suppressMouse = Date.now();
+        try { if (el.setPointerCapture && ev.pointerId != null) el.setPointerCapture(ev.pointerId); } catch (e) {}
+      }
+      if (stop) ev.stopPropagation();
+      handlers.onStart(ev);
+    }
+    function end(ev) {
+      if (blocked(ev) || mouseAfterPointer(ev)) return;
+      if (fromPointer(ev)) suppressMouse = Date.now();
+      if (stop) ev.stopPropagation();
+      handlers.onEnd(ev);
+    }
+    function cancel() {
+      handlers.onCancel();
+    }
+    el.addEventListener('pointerdown', start);
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', cancel);
+    el.addEventListener('mousedown', start);
+    el.addEventListener('mouseup', end);
+  }
   function bindInteractiveHost() {
   if (!${opts.interactiveHost ? "true" : "false"}) return;
   document.querySelectorAll('section.pdl-preview[data-pdl-interactive]').forEach(function(section){
@@ -3506,19 +3643,23 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             });
           }
           if (childBy.pressStart || childBy.pressEnd || childBy.pressCancel) {
-            node.addEventListener('mousedown', function(ev){
-              if (inParamBar(ev)) return;
-              if (ev.button !== 0) return;
-              ev.stopPropagation();
-              down = true;
-              childDispatch('pressStart');
-            });
-            node.addEventListener('mouseup', function(ev){
-              if (inParamBar(ev)) return;
-              if (!down) return;
-              ev.stopPropagation();
-              down = false;
-              childDispatch('pressEnd');
+            bindPress(node, {
+              ignore: inParamBar,
+              stop: true,
+              onStart: function(){
+                down = true;
+                childDispatch('pressStart');
+              },
+              onEnd: function(){
+                if (!down) return;
+                down = false;
+                childDispatch('pressEnd');
+              },
+              onCancel: function(){
+                if (!down) return;
+                down = false;
+                childDispatch('pressCancel');
+              }
             });
           }
         });
@@ -3538,18 +3679,25 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           });
         }
         if (byEvent.pressStart || byEvent.pressEnd || byEvent.pressCancel) {
-          section.addEventListener('mousedown', function(ev){
-            if (inParamBar(ev)) return;
-            if (ev.target && ev.target.closest && ev.target.closest('[data-pdl-instance-of]')) return;
-            if (ev.button !== 0) return;
-            pointerDown = true;
-            dispatchSelf('pressStart');
-          });
-          section.addEventListener('mouseup', function(ev){
-            if (inParamBar(ev)) return;
-            if (!pointerDown) return;
-            pointerDown = false;
-            dispatchSelf('pressEnd');
+          bindPress(section, {
+            ignore: function(ev){
+              if (inParamBar(ev)) return true;
+              return !!(ev.target && ev.target.closest && ev.target.closest('[data-pdl-instance-of]'));
+            },
+            onStart: function(){
+              pointerDown = true;
+              dispatchSelf('pressStart');
+            },
+            onEnd: function(){
+              if (!pointerDown) return;
+              pointerDown = false;
+              dispatchSelf('pressEnd');
+            },
+            onCancel: function(){
+              if (!pointerDown) return;
+              pointerDown = false;
+              dispatchSelf('pressCancel');
+            }
           });
         }
         // Only PointerInput hit targets get the pointer cursor — not EditableText alone.
@@ -4044,7 +4192,7 @@ ${previewBgDecl}
 .pdl-state[hidden] { display: none !important; }
 </style>
 </head>
-<body>
+<body${opts.hostChrome === "device" ? ' class="pdl-device-stage"' : ""}>
 <h1 class="pdl-doc-title">${escapeHtml(title)}</h1>
 <p class="pdl-meta">${meta}</p>
 <div class="pdl-gallery">
@@ -4068,6 +4216,7 @@ export function renderBakedDesignToHtmlDocument(
     singleComponent?: string;
     componentNames?: string[];
     interactiveHost?: boolean;
+    hostChrome?: "lab" | "device";
     usageByComponent?: Record<string, string>;
     rulesByComponent?: Record<string, RulesPreviewJson>;
     interactionsByComponent?: Record<string, unknown>;

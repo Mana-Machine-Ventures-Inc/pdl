@@ -1221,4 +1221,19 @@ describe("renderHtml", () => {
     expect(frag).toContain("line-height:1.5");
     expect(frag).toContain("letter-spacing:0.4px");
   });
+
+  it("device hostChrome marks the stage and keeps the interactive host", () => {
+    const design = loadDesign(fx("integration/empty_layout_shell.pdl"));
+    const doc = buildBakedDesignComponent(design, { componentName: "EmptyLayoutShell" });
+    const html = renderBakedDesignToHtmlDocument(doc, {
+      singleComponent: "EmptyLayoutShell",
+      interactiveHost: true,
+      hostChrome: "device",
+    });
+    expect(html).toContain('class="pdl-device-stage"');
+    expect(html).toContain("touch-action: manipulation");
+    expect(html).toContain("bindPress");
+    expect(html).toContain(".pdl-preview-head");
+    expect(html).toContain("display: none !important");
+  });
 });

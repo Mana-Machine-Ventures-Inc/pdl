@@ -567,3 +567,47 @@ select {
   white-space: pre-wrap;
   word-break: break-word;
 }
+.phone-dialog {
+  width: min(420px, calc(100vw - 32px));
+  border: 1px solid #ccd;
+  border-radius: 10px;
+  padding: 18px 18px 16px;
+  background: #fff;
+}
+.phone-dialog::backdrop {
+  background: rgba(20, 24, 32, 0.45);
+}
+.phone-dialog h2 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+.phone-urls {
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+.phone-urls li {
+  margin: 0 0 8px;
+}
+.phone-urls a {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+.phone-qr {
+  display: block;
+  width: 200px;
+  height: 200px;
+  margin: 12px auto;
+  background: #fff;
+  border: 1px solid #ccd;
+  border-radius: 8px;
+}
+.phone-url-big {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+  word-break: break-all;
+  text-align: center;
+  margin: 0 0 10px;
+}
