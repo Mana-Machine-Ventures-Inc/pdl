@@ -272,6 +272,6 @@ export function playMotionOnElement(
     duration: t.duration,
     easing: t.easing,
     delay,
-    fill: "forwards",
+    fill: "both",
   });
 }

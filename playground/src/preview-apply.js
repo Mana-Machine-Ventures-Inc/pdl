@@ -449,3 +449,20 @@ export function requestInteractiveRebind(frame) {
     /* ignore */
   }
 }
+
+/**
+ * Push a fresh catalogue into the live iframe host (motion pose/duration edits).
+ * @param {HTMLIFrameElement} frame
+ * @param {Record<string, unknown> | null | undefined} interactions
+ */
+export function pushPreviewInteractions(frame, interactions) {
+  if (!interactions || typeof interactions !== "object") return;
+  try {
+    frame.contentWindow?.postMessage(
+      { type: "pdl-update-interactions", interactions },
+      "*",
+    );
+  } catch {
+    /* ignore */
+  }
+}

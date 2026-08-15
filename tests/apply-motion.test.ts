@@ -77,6 +77,13 @@ describe("applyMotion", () => {
     expect(css.filter).toBe("blur(3px)");
   });
 
+  it("uniform scale applies to both axes when scaleX/scaleY are omitted", () => {
+    expect(snapshotToCss({ scale: 0.5 }, 1).transform).toBe("translate(0px, 0px) scale(0.5, 0.5)");
+    expect(snapshotToCss({ scale: 0.5, scaleX: 0.2 }, 1).transform).toBe(
+      "translate(0px, 0px) scale(0.2, 0.5)",
+    );
+  });
+
   it("reverses stagger from last", () => {
     const spec = collectMotionFromHandlerItems(appearBody);
     expect(staggerDelayMs(spec, 0, 3)).toBe(80);

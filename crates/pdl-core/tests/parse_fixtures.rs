@@ -371,7 +371,21 @@ fn motion_lab_catalogue_evaluates_snapshots() {
     assert_eq!(appear["motion"]["transition"]["duration"], 250.0);
     let list = &cat["components"]["MotionStaggerList"]["interactions"][0]["handlers"][0];
     assert_eq!(list["motion"]["stagger"], 40.0);
-    assert_eq!(list["motion"]["staggerFrom"], "first");
+    assert_eq!(list["motion"]["staggerFrom"], "last");
+    let blur = &cat["components"]["MotionBlurCard"]["interactions"][0]["handlers"][0];
+    assert_eq!(blur["event"], "appear");
+    assert_eq!(blur["motion"]["pose"]["blur"], 18.0);
+    assert_eq!(blur["motion"]["pose"]["opacity"], 0.35);
+    let pose = |name: &str| {
+        &cat["components"][name]["interactions"][0]["handlers"][0]["motion"]["pose"]
+    };
+    assert_eq!(pose("MotionPoseOpacity")["opacity"], 0.0);
+    assert_eq!(pose("MotionPoseScale")["scale"], 0.5);
+    assert_eq!(pose("MotionPoseScaleX")["scaleX"], 0.2);
+    assert_eq!(pose("MotionPoseScaleY")["scaleY"], 0.2);
+    assert_eq!(pose("MotionPoseTranslateX")["translateX"], 48.0);
+    assert_eq!(pose("MotionPoseTranslateY")["translateY"], 24.0);
+    assert_eq!(pose("MotionPoseBlur")["blur"], 16.0);
 }
 
 #[test]

@@ -49,7 +49,9 @@ describe("motion hover isolation", () => {
     const { document, messages } = await mountMotionHoverChip();
     const section = document.querySelector('section.pdl-preview[data-pdl-component="MotionHoverChip"]')!;
     expect(section).toBeTruthy();
-    section.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
+    const canvas = section.querySelector(".pdl-canvas")!;
+    expect(canvas).toBeTruthy();
+    canvas.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
     await new Promise((r) => setTimeout(r, 20));
 
     const resolveMsgs = messages.filter(
@@ -74,5 +76,24 @@ describe("motion hover isolation", () => {
         (m as { event?: string }).event === "hoverStart",
     ) as { previewHandled?: boolean } | undefined;
     expect(ix?.previewHandled).toBe(true);
+  });
+
+  it("preview chrome (title, usage, clip rack) does not fire hover", async () => {
+    const { document, messages } = await mountMotionHoverChip();
+    const section = document.querySelector('section.pdl-preview[data-pdl-component="MotionHoverChip"]')!;
+    const usage = section.querySelector(".pdl-usage");
+    const title = section.querySelector(".pdl-preview-title");
+    const bar = section.querySelector("[data-pdl-motion-bar]");
+    for (const el of [section, usage, title, bar]) {
+      el?.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
+    }
+    await new Promise((r) => setTimeout(r, 20));
+    expect(
+      messages.some(
+        (m) =>
+          (m as { type?: string }).type === "pdl-interaction" &&
+          (m as { event?: string }).event === "hoverStart",
+      ),
+    ).toBe(false);
   });
 });

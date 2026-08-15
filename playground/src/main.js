@@ -23,6 +23,7 @@ import {
   capturePreviewEphemerals,
   restorePreviewEphemerals,
   requestInteractiveRebind,
+  pushPreviewInteractions,
 } from "./preview-apply.js";
 import { allowIrOnlyPreviewApply } from "./dual-bake-policy.js";
 import {
@@ -2398,6 +2399,25 @@ function getBodyBase() {
   };
 }
 
+/** WASM IR-only ticks have no enrich payload — load the catalogue and push it. */
+async function refreshPreviewInteractionsFromLoad(renderId) {
+  try {
+    const res = await fetch("/api/load", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(getBodyBase()),
+    });
+    if (renderId !== latestRenderId) return;
+    const loaded = await res.json();
+    if (renderId !== latestRenderId) return;
+    if (loaded?.interactionsByComponent) {
+      pushPreviewInteractions(frame, loaded.interactionsByComponent);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 async function publishStage() {
   const component = preferredComponent || primaryComponent || "";
   const entry = bakeEntryPath();
@@ -2801,6 +2821,9 @@ function applyPreviewUpdate(data, opts) {
       restorePreviewEphemerals(doc, ephem);
       // Rebind only when IR actually mutated (or morph). Equal-IR no-ops still ok.
       requestInteractiveRebind(frame);
+      // Pose/duration live in the catalogue, not rest-pose IR — push even when
+      // reconcile was a no-op so the host can re-arm appear with the new spec.
+      pushPreviewInteractions(frame, data.interactionsByComponent);
       frame.dataset.pdlLastApply = applyKind;
       void publishStage();
       return "incremental";
@@ -3260,6 +3283,8 @@ async function runRender({ debounced = false } = {}) {
               : `Preview updated · wasm · bake ${bakeMs}ms${applyBit}`,
           );
           void publishStage();
+          // IR-only skip HTML/enrich — source ticks still need a live catalogue.
+          if (!ownerOnly) void refreshPreviewInteractionsFromLoad(id);
           return;
         }
       }

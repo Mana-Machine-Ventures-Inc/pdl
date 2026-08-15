@@ -723,7 +723,13 @@ function mergeInteractionsPreferMotion(tsIx, rustIx) {
       return {
         ...rd,
         handlers: rustHandlers.map((rh) => {
-          if (rh?.motion && (rh.motion.pose || rh.motion.from || rh.motion.to || rh.motion.transition)) return rh;
+          if (rh?.motion && (rh.motion.pose || rh.motion.from || rh.motion.to || rh.motion.transition)) {
+            const th = tsHandlers.find((h) => h && h.event === rh?.event);
+            if (th?.motion?.staggerFrom && !rh.motion.staggerFrom) {
+              return { ...rh, motion: { ...rh.motion, staggerFrom: th.motion.staggerFrom } };
+            }
+            return rh;
+          }
           const th = tsHandlers.find((h) => h && h.event === rh?.event);
           return th?.motion ? { ...rh, motion: th.motion } : rh;
         }),
@@ -1328,6 +1334,8 @@ async function handleRender(body) {
     }
 
     // Hot-path IR reconcile: return bake scene graph only (no HTML / dual-bake).
+    // Still send the catalogue — pose/duration edits do not change rest-pose IR,
+    // so the iframe host must replace `interactions` without a srcdoc remount.
     if (bakeOnly) {
       return {
         ok: true,
@@ -1337,6 +1345,7 @@ async function handleRender(body) {
         components: Object.keys(
           /** @type {{ components?: object }} */ (result.baked)?.components ?? {},
         ),
+        interactionsByComponent: enriched.interactionsByComponent ?? {},
       };
     }
 

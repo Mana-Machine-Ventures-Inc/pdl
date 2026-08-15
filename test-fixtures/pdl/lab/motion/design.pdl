@@ -17,12 +17,12 @@ component MotionModal <PointerInput>() layout {
   borderColor = #E5E7EB
 
   let title = Text(content: "Save playlist?", color: #111827, fontSize: 16, fontWeight: 600)
-  let body = Text(content: "This card plays appear / dismiss. Use Replay motion.", color: #6B7280, fontSize: 13)
+  let body = Text(content: "This card plays appear / dismiss. Use Appear and Dismiss.", color: #6B7280, fontSize: 13)
   children = [title, body]
 
   self.appear = {
     animate = Motion(
-      transition: (duration: 250, easing: "cubic-bezier(0.2, 0, 0, 1)"),
+      transition: (duration: 250, easing: "ease-out"),
       pose: Pose(opacity: 0, scale: 0.95, translateY: 8)
     )
   }
@@ -35,7 +35,7 @@ component MotionModal <PointerInput>() layout {
 }
 
 usage MotionModal {
-  description = "Modal-shaped card. Appear fades and scales in from 8px below. Replay motion runs dismiss then appear."
+  description = "Modal-shaped card. Appear fades and scales in from 8px below. Use Appear / Dismiss on the clip rack."
 }
 
 component MotionStaggerRow(label: String = "Item") layout {
@@ -64,14 +64,14 @@ component MotionStaggerList <PointerInput>() layout {
   self.appear = {
     animate = Motion(
       transition: (duration: 220, easing: "ease-out"),
-      pose: Pose(opacity: 0, translateY: 10),
-      stagger: Stagger(step: 40, from: .first)
+      pose: Pose(blur: 18, opacity: 0, translateY: 10),
+      stagger: Stagger(step: 40, from: .last)
     )
   }
 }
 
 usage MotionStaggerList {
-  description = "Direct children stagger in 40ms steps from the first row."
+  description = "Direct children stagger in 40ms steps from the last row."
 }
 
 component MotionHoverChip <PointerInput>(
@@ -108,6 +108,283 @@ usage MotionHoverChip {
   description = "Implicit animate = — the hover background change should take 200ms when the host patches styles."
 }
 
+component MotionBlurCard <PointerInput>() layout {
+  direction = .column
+  gap = 8
+  padding = 20
+  width = 280
+  background = #FFFFFF
+  cornerRadius = 12
+  borderWidth = 1
+  borderColor = #E5E7EB
+
+  let title = Text(content: "In focus", color: #111827, fontSize: 16, fontWeight: 600)
+  let body = Text(content: "Appear unblurs 18px → sharp.", color: #6B7280, fontSize: 13)
+  children = [title, body]
+
+  self.appear = {
+    animate = Motion(
+      transition: (duration: 420, easing: "ease-out"),
+      pose: Pose(blur: 18, opacity: 0.35)
+    )
+  }
+  self.dismiss = {
+    animate = Motion(
+      transition: (duration: 280, easing: "ease-in"),
+      pose: Pose(blur: 18, opacity: 0.35)
+    )
+  }
+}
+
+usage MotionBlurCard {
+  description = "Pose.blur is a CSS filter overlay (px), not a Blur() layer. Appear goes 18px blur → sharp."
+}
+
+component MotionPoseOpacity <PointerInput>() layout {
+  direction = .column
+  gap = 6
+  padding = 20
+  width = 280
+  background = #FFFFFF
+  cornerRadius = 12
+  borderWidth = 1
+  borderColor = #E5E7EB
+
+  let title = Text(content: "opacity", color: #111827, fontSize: 16, fontWeight: 600)
+  let body = Text(content: "0 → 1. Fade only.", color: #6B7280, fontSize: 13)
+  children = [title, body]
+
+  self.appear = {
+    animate = Motion(
+      transition: (duration: 400, easing: "ease-out"),
+      pose: Pose(opacity: 0)
+    )
+  }
+  self.dismiss = {
+    animate = Motion(
+      transition: (duration: 280, easing: "ease-in"),
+      pose: Pose(opacity: 0)
+    )
+  }
+}
+
+usage MotionPoseOpacity {
+  description = "Pose.opacity 0…1. Appear fades in from 0. No transform."
+}
+
+component MotionPoseScale <PointerInput>() layout {
+  direction = .column
+  gap = 6
+  padding = 20
+  width = 280
+  background = #FFFFFF
+  cornerRadius = 12
+  borderWidth = 1
+  borderColor = #E5E7EB
+
+  let title = Text(content: "scale", color: #111827, fontSize: 16, fontWeight: 600)
+  let body = Text(content: "0.5 → 1. Uniform grow.", color: #6B7280, fontSize: 13)
+  children = [title, body]
+
+  self.appear = {
+    animate = Motion(
+      transition: (duration: 400, easing: "ease-out"),
+      pose: Pose(scale: 0.5)
+    )
+  }
+  self.dismiss = {
+    animate = Motion(
+      transition: (duration: 280, easing: "ease-in"),
+      pose: Pose(scale: 0.5)
+    )
+  }
+}
+
+usage MotionPoseScale {
+  description = "Pose.scale is unitless and sets both axes. Appear grows from 0.5."
+}
+
+component MotionPoseScaleX <PointerInput>() layout {
+  direction = .column
+  gap = 6
+  padding = 20
+  width = 280
+  background = #FFFFFF
+  cornerRadius = 12
+  borderWidth = 1
+  borderColor = #E5E7EB
+
+  let title = Text(content: "scaleX", color: #111827, fontSize: 16, fontWeight: 600)
+  let body = Text(content: "0.2 → 1. Horizontal un-squash.", color: #6B7280, fontSize: 13)
+  children = [title, body]
+
+  self.appear = {
+    animate = Motion(
+      transition: (duration: 400, easing: "ease-out"),
+      pose: Pose(scaleX: 0.2)
+    )
+  }
+  self.dismiss = {
+    animate = Motion(
+      transition: (duration: 280, easing: "ease-in"),
+      pose: Pose(scaleX: 0.2)
+    )
+  }
+}
+
+usage MotionPoseScaleX {
+  description = "Pose.scaleX only. Appear opens from a thin strip; height stays 1."
+}
+
+component MotionPoseScaleY <PointerInput>() layout {
+  direction = .column
+  gap = 6
+  padding = 20
+  width = 280
+  background = #FFFFFF
+  cornerRadius = 12
+  borderWidth = 1
+  borderColor = #E5E7EB
+
+  let title = Text(content: "scaleY", color: #111827, fontSize: 16, fontWeight: 600)
+  let body = Text(content: "0.2 → 1. Vertical un-squash.", color: #6B7280, fontSize: 13)
+  children = [title, body]
+
+  self.appear = {
+    animate = Motion(
+      transition: (duration: 400, easing: "ease-out"),
+      pose: Pose(scaleY: 0.0)
+    )
+  }
+  self.dismiss = {
+    animate = Motion(
+      transition: (duration: 280, easing: "ease-in"),
+      pose: Pose(scaleY: 0.0)
+    )
+  }
+}
+
+usage MotionPoseScaleY {
+  description = "Pose.scaleY only. Appear opens from a flat band; width stays 1."
+}
+
+component MotionPoseTranslateX <PointerInput>() layout {
+  direction = .column
+  gap = 6
+  padding = 20
+  width = 280
+  background = #FFFFFF
+  cornerRadius = 12
+  borderWidth = 1
+  borderColor = #E5E7EB
+
+  let title = Text(content: "translateX", color: #111827, fontSize: 16, fontWeight: 600)
+  let body = Text(content: "48px → 0. Slide from the right.", color: #6B7280, fontSize: 13)
+  children = [title, body]
+
+  self.appear = {
+    animate = Motion(
+      transition: (duration: 400, easing: "ease-out"),
+      pose: Pose(translateX: 48)
+    )
+  }
+  self.dismiss = {
+    animate = Motion(
+      transition: (duration: 280, easing: "ease-in"),
+      pose: Pose(translateX: 48)
+    )
+  }
+}
+
+usage MotionPoseTranslateX {
+  description = "Pose.translateX in CSS px. Appear slides in from +48."
+}
+
+component MotionPoseTranslateY <PointerInput>() layout {
+  direction = .column
+  gap = 6
+  padding = 20
+  width = 280
+  background = #FFFFFF
+  cornerRadius = 12
+  borderWidth = 1
+  borderColor = #E5E7EB
+
+  let title = Text(content: "translateY", color: #111827, fontSize: 16, fontWeight: 600)
+  let body = Text(content: "24px → 0. Slide from below.", color: #6B7280, fontSize: 13)
+  children = [title, body]
+
+  self.appear = {
+    animate = Motion(
+      transition: (duration: 400, easing: "ease-out"),
+      pose: Pose(translateY: 24)
+    )
+  }
+  self.dismiss = {
+    animate = Motion(
+      transition: (duration: 280, easing: "ease-in"),
+      pose: Pose(translateY: 24)
+    )
+  }
+}
+
+usage MotionPoseTranslateY {
+  description = "Pose.translateY in CSS px. Appear slides in from +24."
+}
+
+component MotionPoseBlur <PointerInput>() layout {
+  direction = .column
+  gap = 6
+  padding = 20
+  width = 280
+  background = #FFFFFF
+  cornerRadius = 12
+  borderWidth = 1
+  borderColor = #E5E7EB
+
+  let title = Text(content: "blur", color: #111827, fontSize: 16, fontWeight: 600)
+  let body = Text(content: "16px → 0. Filter overlay, opacity stays 1.", color: #6B7280, fontSize: 13)
+  children = [title, body]
+
+  self.appear = {
+    animate = Motion(
+      transition: (duration: 420, easing: "ease-out"),
+      pose: Pose(blur: 16)
+    )
+  }
+  self.dismiss = {
+    animate = Motion(
+      transition: (duration: 280, easing: "ease-in"),
+      pose: Pose(blur: 16)
+    )
+  }
+}
+
+usage MotionPoseBlur {
+  description = "Pose.blur in CSS px (filter). Appear unblurs 16 → sharp without fading."
+}
+
+component MotionPoseLab() layout {
+  direction = .column
+  gap = 16
+  padding = 20
+  background = #F9FAFB
+  width = .fill
+
+  let opacity = MotionPoseOpacity()
+  let scale = MotionPoseScale()
+  let scaleX = MotionPoseScaleX()
+  let scaleY = MotionPoseScaleY()
+  let translateX = MotionPoseTranslateX()
+  let translateY = MotionPoseTranslateY()
+  let blur = MotionPoseBlur()
+  children = [opacity, scale, scaleX, scaleY, translateX, translateY, blur]
+}
+
+usage MotionPoseLab {
+  description = "One card per Pose field. Appear / Dismiss / Reset isolate that channel."
+}
+
 component MotionLab() layout {
   direction = .column
   gap = 20
@@ -117,10 +394,11 @@ component MotionLab() layout {
 
   let modal = MotionModal()
   let list = MotionStaggerList()
+  let blur = MotionBlurCard()
   let chip = MotionHoverChip()
-  children = [modal, list, chip]
+  children = [modal, list, blur, chip]
 }
 
 usage MotionLab {
-  description = "Motion walkthrough. Replay motion on the modal and list. Hover the chip for implicit interpolation."
+  description = "Motion walkthrough. Play each clip on the rack (modal, list, blur, chip). Hover the chip for implicit interpolation."
 }

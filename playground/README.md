@@ -33,7 +33,7 @@ The playground binds on `0.0.0.0` so a phone on the same Wi-Fi can open a device
 2. On the Mac, click **Open on phone** (or copy the `Phone` URL printed in the terminal)
 3. On the iPhone, open that URL in Safari — same Wi-Fi, not a guest network. Allow Node in the macOS firewall if prompted.
 
-`/device` shows one component, centered, with pack + component dropdowns. If the component (or a nested instance) registers appear/dismiss motion, a **Replay motion** button sits at the bottom of the stage. Bake, HTML, and IR reconcile all run in Safari. The Mac is only for pack fetch, catalogue enrich (once per pack), and optional Follow. A tap patches the live iframe (`· live apply`); pack/component changes remount. A local interaction that changes parent state (title rename, chip select) leaves Follow so the Mac idle stage cannot snap the phone back.
+`/device` shows one component, centered, with pack + component dropdowns. If the component (or a nested instance) has animating handlers, a clip rack (**Appear**, **Dismiss**, **Hover start**, …) plus **Reset** / **Slow-mo** sits at the bottom of the stage. Bake, HTML, and IR reconcile all run in Safari. The Mac is only for pack fetch, catalogue enrich (once per pack), and optional Follow. A tap patches the live iframe (`· live apply`); pack/component changes remount. A local interaction that changes parent state (title rename, chip select) leaves Follow so the Mac idle stage cannot snap the phone back.
 
 Hover-only handlers do not run on iPhone — author `pressStart` / `pressEnd` for touch. Lock the server to loopback with `PLAYGROUND_HOST=127.0.0.1` if you do not want LAN access.
 
@@ -71,7 +71,7 @@ WASM only sees an in-memory map, so in disk mode the Playground calls **`POST /a
 - Protocols opens on **`LibrarySubnav`**: nested FilterChip host handlers (hover/press) + `emit select` → parent `ForEach` capture rebinds `currentFilter` → rebake (Pattern A). Enrichment merges Rust catalogue `emitCaptures` (TS still skims ForEach).
 - Insert templates cover Button host handlers, EditableText SearchField, a FilterBar (emits + ForEach), and usage / rules scenes (usage note, two primaries, empty card, unlabeled field).
 - Pack **Usage & rules** (`test-fixtures/pdl/lab/usage-rules/`) is a gallery of those cases — red `.must` / orange `.should` banners on the HTML preview.
-- Pack **Motion** (`test-fixtures/pdl/lab/motion/`) plays appear/dismiss overlays (Replay motion), stagger, and implicit `animate =` on hover. Bake stays at rest pose.
+- Pack **Motion** (`test-fixtures/pdl/lab/motion/`) plays appear/dismiss overlays and hover tweens from a per-handler clip rack (**Reset** / **Slow-mo**), plus stagger, `Pose(blur:)`, and a **Pose lab** (`MotionPoseLab`) that isolates each overlay field. Bake stays at rest pose.
 
 ## Variants (P5)
 
