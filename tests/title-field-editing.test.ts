@@ -91,6 +91,7 @@ describe("PlaylistComposer title field session", () => {
     expect(String(session.activatesOn).replace(/^\./, "")).toBe("press");
     expect(html).toContain("beginFromPress");
     expect(html).toContain("suppressBlurForOpen");
+    expect(html).toContain("promotePressHitToInput");
   });
 
   it("paints TitleField as a press hit target until the session begins", async () => {
@@ -118,6 +119,28 @@ describe("PlaylistComposer title field session", () => {
         (m as { params?: { editingSearch?: boolean } }).params?.editingSearch === true,
     );
     expect(ix).toBeTruthy();
+    expect(document.querySelector('[data-pdl-instance-let="Search"]')?.tagName).toBe("INPUT");
+  });
+
+  it("Search Done/Enter finishes even right after the session opens", async () => {
+    const bake = bakeComposer(["editingSearch=false"]);
+    const { window, document, messages } = await mountInteractive(bake);
+    const hit = document.querySelector('[data-pdl-instance-let="Search"]');
+    hit!.dispatchEvent(new window.MouseEvent("mousedown", { button: 0, bubbles: true }));
+    hit!.dispatchEvent(new window.MouseEvent("click", { button: 0, bubbles: true }));
+    await new Promise((r) => setTimeout(r, 20));
+    const input = document.querySelector(
+      '[data-pdl-instance-let="Search"]',
+    ) as HTMLInputElement | null;
+    expect(input?.tagName).toBe("INPUT");
+    input!.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await new Promise((r) => setTimeout(r, 40));
+    const done = messages.find(
+      (m) =>
+        (m as { type?: string }).type === "pdl-interaction" &&
+        (m as { params?: { editingSearch?: boolean } }).params?.editingSearch === false,
+    );
+    expect(done).toBeTruthy();
   });
 
   it("Title field press opens editingTitle (no Rename required)", async () => {

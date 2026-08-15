@@ -1547,11 +1547,16 @@ export function patchFrameProps(
   // Prev key must use prior session defaults; sharing `instCtx` made none→press look unchanged.
   const prevPaintOpts = prevOpts ?? opts;
   const prevPaintCtx = prevInstCtx ?? instCtx;
-  if (
-    framePaintStructureKey(prev, prevPaintOpts, prevPaintCtx) !==
-    framePaintStructureKey(next, opts, instCtx)
-  ) {
-    return "needsRemount";
+  const prevPaintKey = framePaintStructureKey(prev, prevPaintOpts, prevPaintCtx);
+  const nextPaintKey = framePaintStructureKey(next, opts, instCtx);
+  if (prevPaintKey !== nextPaintKey) {
+    // Host may promote a .press hit <span> to <input> in the same gesture so
+    // iOS can open the keyboard. Keep that node — remounting it dismisses IME.
+    const gesturePromoted =
+      el.tagName === "INPUT" &&
+      prevPaintKey === "text:press-hit" &&
+      nextPaintKey === "text:input";
+    if (!gesturePromoted) return "needsRemount";
   }
 
   let frameOpts = opts;
@@ -3910,7 +3915,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           ignoreBlurUntil = Date.now() + 2500;
           ignoreNextBlurCommit = true;
         }
-        function beginSession(from) {
+        function beginSession(from, opts) {
+          var keepFocusNode = !!(opts && opts.keepFocusNode);
           if (!hasEditableSession) return { started: false, skipFocus: false };
           if (isEditingNow()) return { started: false, skipFocus: false };
           var mode = activationMode();
@@ -3959,8 +3965,9 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             });
             // Parent rebake (Title.began → editingTitle) replaces/reconciles this
             // input. Don't focus or blur-commit across that turn — same as Rename.
-            if (beginNeedRebake) suppressBlurForOpen();
-            return { started: true, skipFocus: beginNeedRebake };
+            // Gesture-promoted nodes stay put; suppressing blur here ate iOS Done.
+            if (beginNeedRebake && !keepFocusNode) suppressBlurForOpen();
+            return { started: true, skipFocus: beginNeedRebake && !keepFocusNode };
           }
           // Root EditableText: if-isEditing chrome is bake-time. Always rebake —
           // dispatchSelf would mark previewHandled via dual-bake rest and leave
@@ -3988,11 +3995,12 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             changed: true,
             previewHandled: false
           });
-          suppressBlurForOpen();
-          return { started: true, skipFocus: true };
+          if (!keepFocusNode) suppressBlurForOpen();
+          return { started: true, skipFocus: !keepFocusNode };
         }
         function finishSession(kind) {
           // kind: 'finished' | 'cancelled'
+          if (!isEditingNow()) return;
           var b = bag();
           if (kind === 'cancelled' && b._editCheckpoint !== undefined) {
             b.value = b._editCheckpoint;
@@ -4073,6 +4081,105 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           } catch (e) {}
         }
         var pressArmed = 0;
+        function attachInputSessionListeners() {
+          if (!input || input.getAttribute('data-pdl-input-listening') === '1') return;
+          input.setAttribute('data-pdl-input-listening', '1');
+          input.addEventListener('focus', function(){
+            if (activationMode() === 'none' && !isEditingNow()) {
+              try { input.blur(); } catch (e) {}
+              syncHitTarget();
+              return;
+            }
+            // .press: iOS srcdoc often focuses the field without pointerdown.
+            if (activationMode() === 'press') {
+              beginFromPress({ type: 'focus' });
+              syncHitTarget();
+              return;
+            }
+            beginSession('focus');
+            syncHitTarget();
+          });
+          input.addEventListener('input', function(){
+            if (input.readOnly) return;
+            var b = bag();
+            b[bind] = input.value;
+            b.value = input.value;
+            b.isEmpty = input.value.length === 0;
+            persistBag();
+          });
+          input.addEventListener('blur', function(){
+            // Defer: Playground rebake replaces iframe srcdoc in the same turn as
+            // Edit/began. A sync blur-commit was finishing the new session and
+            // snapping parent editing back to false. After teardown, the input
+            // is disconnected and we no-op.
+            var blurSt = input.closest('.pdl-inst-state');
+            setTimeout(function(){
+              if (!input.isConnected) return;
+              if (ignoreNextBlurCommit) {
+                ignoreNextBlurCommit = false;
+                return;
+              }
+              if (Date.now() < ignoreBlurUntil) return;
+              if (!isEditingNow()) {
+                syncHitTarget();
+                return;
+              }
+              if (nested && instNode) {
+                var active = document.activeElement;
+                if (active && instNode.contains(active)) return;
+                if (blurSt && blurSt.hidden) return;
+              }
+              if (document.activeElement === input) return;
+              finishSession('finished');
+            }, 0);
+          });
+          input.addEventListener('keydown', function(ev){
+            if (ev.key === 'Escape') {
+              finishSession('cancelled');
+              try { input.blur(); } catch (e) {}
+            } else if (ev.key === 'Enter' || ev.key === 'Go' || ev.keyCode === 13) {
+              // iOS Done (enterkeyhint) may send Enter; don't wait for blur —
+              // suppressBlurForOpen would otherwise leave the field in session.
+              ev.preventDefault();
+              finishSession('finished');
+              try { input.blur(); } catch (e) {}
+            }
+          });
+        }
+        function promotePressHitToInput() {
+          // iOS only opens the keyboard when focus() runs inside the tap gesture.
+          // The idle .press control is a <span>; rebake would mount an <input>
+          // too late. Promote + focus here, then patch chrome onto this node.
+          if (input) return input;
+          if (!el || el.getAttribute('data-pdl-press-activate') !== '1' || !el.parentNode) {
+            return null;
+          }
+          var next = el.ownerDocument.createElement('input');
+          next.type = 'text';
+          next.setAttribute('autocomplete', 'off');
+          next.setAttribute('autocorrect', 'off');
+          next.setAttribute('enterkeyhint', 'done');
+          next.className = String(el.className || '').replace(/pdl-text--press-hit/g, 'pdl-text--editable');
+          for (var ai = 0; ai < el.attributes.length; ai++) {
+            var attr = el.attributes[ai];
+            if (
+              attr.name === 'class' ||
+              attr.name === 'role' ||
+              attr.name === 'tabindex' ||
+              attr.name === 'data-pdl-press-activate'
+            ) continue;
+            next.setAttribute(attr.name, attr.value);
+          }
+          next.setAttribute('data-pdl-editable', bind);
+          next.value = String(bag().value == null ? '' : bag().value);
+          var old = el;
+          old.parentNode.replaceChild(next, old);
+          el = next;
+          input = next;
+          if (instNode === old) instNode = next;
+          attachInputSessionListeners();
+          return next;
+        }
         function beginFromPress(ev) {
           if (ev && ev.type && ev.type.indexOf('mouse') === 0 && (Date.now() - pressArmed) < 700) return;
           if (ev && ev.type && ev.type.indexOf('pointer') === 0) pressArmed = Date.now();
@@ -4080,8 +4187,17 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             if (ev && ev.preventDefault) ev.preventDefault();
             return;
           }
+          var promoted = promotePressHitToInput();
           var wasEditing = isEditingNow();
-          var r = beginSession('press');
+          var r = beginSession('press', { keepFocusNode: Boolean(promoted) });
+          if (promoted) {
+            // Swallow only the same-turn focus shuffle, not iOS Done (was 2500ms).
+            ignoreBlurUntil = Date.now() + 200;
+            ignoreNextBlurCommit = false;
+            // Must focus in this turn — skipFocus after rebake is too late for iOS.
+            try { promoted.focus(); } catch (e) {}
+            return;
+          }
           if (r.skipFocus || (wasEditing && Date.now() < ignoreBlurUntil)) return;
           if (r.started || isEditingNow()) focusSessionInput();
         }
@@ -4106,65 +4222,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           }
           beginFromPress(ev);
         });
-        if (input) {
-        input.addEventListener('focus', function(){
-          if (activationMode() === 'none' && !isEditingNow()) {
-            try { input.blur(); } catch (e) {}
-            syncHitTarget();
-            return;
-          }
-          // .press: iOS srcdoc often focuses the field without pointerdown.
-          if (activationMode() === 'press') {
-            beginFromPress({ type: 'focus' });
-            syncHitTarget();
-            return;
-          }
-          beginSession('focus');
-          syncHitTarget();
-        });
-        input.addEventListener('input', function(){
-          if (input.readOnly) return;
-          var b = bag();
-          b[bind] = input.value;
-          b.value = input.value;
-          b.isEmpty = input.value.length === 0;
-          persistBag();
-        });
-        input.addEventListener('blur', function(ev){
-          // Defer: Playground rebake replaces iframe srcdoc in the same turn as
-          // Edit/began. A sync blur-commit was finishing the new session and
-          // snapping parent editing back to false. After teardown, the input
-          // is disconnected and we no-op.
-          var blurSt = input.closest('.pdl-inst-state');
-          setTimeout(function(){
-            if (!input.isConnected) return;
-            if (ignoreNextBlurCommit) {
-              ignoreNextBlurCommit = false;
-              return;
-            }
-            if (Date.now() < ignoreBlurUntil) return;
-            if (!isEditingNow()) {
-              syncHitTarget();
-              return;
-            }
-            if (nested && instNode) {
-              var active = document.activeElement;
-              if (active && instNode.contains(active)) return;
-              if (blurSt && blurSt.hidden) return;
-            }
-            if (document.activeElement === input) return;
-            finishSession('finished');
-          }, 0);
-        });
-        input.addEventListener('keydown', function(ev){
-          if (ev.key === 'Escape') {
-            finishSession('cancelled');
-            try { input.blur(); } catch (e) {}
-          } else if (ev.key === 'Enter') {
-            try { input.blur(); } catch (e) {}
-          }
-        });
-        }
+        attachInputSessionListeners();
         // isEditing=true (param bar / fixture) ⇒ first responder: accept keystrokes.
         if (input && hasEditableSession && isEditingNow()) {
           var hiddenState = input.closest('.pdl-inst-state[hidden]');

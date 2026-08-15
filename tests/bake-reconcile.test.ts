@@ -140,6 +140,54 @@ describe("patchFrameProps", () => {
     });
     expect(solid.getAttribute("style") ?? "").toContain("#1D4ED8");
   });
+
+  it("keeps a gesture-promoted press-hit <input> when the bake flips to editing", () => {
+    const defaults = {
+      SearchField: { isEditing: false, value: "", activatesOn: "press" },
+    };
+    const prev: BakedFrame = {
+      id: "Search",
+      kind: "text",
+      props: { content: "Search tracks…", editable: "value", background: "#eee" },
+      children: [],
+      instanceOf: "SearchField",
+      instanceKwargs: { isEditing: false, value: "", activatesOn: "press" },
+    };
+    const next: BakedFrame = {
+      ...prev,
+      props: { ...prev.props, background: "#000", content: "" },
+      instanceKwargs: { isEditing: true, value: "", activatesOn: "press" },
+    };
+    const html = renderFrameForReconcile(
+      prev,
+      { stackChild: false, stackZ: 0 },
+      { nextKey: 0, stateTrees: {}, editableSessionDefaults: defaults },
+    );
+    document.body.innerHTML = html;
+    const span = document.body.firstElementChild!;
+    expect(span.hasAttribute("data-pdl-press-activate")).toBe(true);
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "pdl-frame pdl-text pdl-text--editable";
+    for (const a of Array.from(span.attributes)) {
+      if (a.name === "data-pdl-press-activate" || a.name === "role" || a.name === "tabindex") {
+        continue;
+      }
+      input.setAttribute(a.name, a.value);
+    }
+    span.replaceWith(input);
+    expect(
+      patchFrameProps(
+        input,
+        prev,
+        next,
+        { stackChild: false, stackZ: 0 },
+        { editableSessionDefaults: { SearchField: { ...defaults.SearchField, isEditing: true } } },
+        { editableSessionDefaults: defaults },
+      ),
+    ).toBe("patched");
+    expect(input.isConnected).toBe(true);
+  });
 });
 
 describe("reconcileBakedComponentIntoCanvas NoteEditor-shaped", () => {
