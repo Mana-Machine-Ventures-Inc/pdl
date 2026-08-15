@@ -1,6 +1,6 @@
 # Compilers for **PDL** (Programmatic Design Language).
 
-**New to the language?** [Public docs](https://verytinymachines.github.io/pdl/) (`npm run docs:dev` locally): guide, language objects, diagnostics. Binding lock files: **`shared/*.json`**, **`grammar/pdl.ebnf`**, and fixtures. This README is the **compiler repo**.
+**New to the language?** [Public docs](https://mana-machine-ventures-inc.github.io/pdl/) (`npm run docs:dev` locally): guide, language objects, diagnostics. Binding lock files: **`shared/*.json`**, **`grammar/pdl.ebnf`**, and fixtures. This README is the **compiler repo**.
 
 - **TypeScript** (`src/`) — current reference CLI / oracle (`npm test`)  
 - **Rust** (`crates/pdl-core`, `crates/pdl-cli`) — portable core + JSON CLI (`cargo test -p pdl-core`, `cargo run -q -p pdl-cli -- …`); see **`docs/IMPLEMENTATION_PLAN.md`**
@@ -89,7 +89,7 @@ Same pattern with `bakeSystem` / `bakeComponent` for non-protocol designs.
 
 ## Documentation
 
-Public site (the human spec): **`website/`** — `npm run docs:dev`. Published at **https://verytinymachines.github.io/pdl/** (GitHub Pages). **About**, **Getting Started**, **Language**, and **Diagnostics** are for people writing `.pdl`. `docs/PROPOSAL_*.md` is design history.
+Public site (the human spec): **`website/`** — `npm run docs:dev`. Published at **https://mana-machine-ventures-inc.github.io/pdl/** (GitHub Pages). **About**, **Getting Started**, **Language**, and **Diagnostics** are for people writing `.pdl`. `docs/PROPOSAL_*.md` is design history.
 
 - Language lock: **`shared/language-objects.json`** (generated into the site as Language objects)
 - Surface grammar: **`grammar/pdl.ebnf`** (edit the file; `npm run docs:gen` wraps it for CI)

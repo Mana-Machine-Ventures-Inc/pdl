@@ -2,7 +2,7 @@
 
 # Grammar (EBNF)
 
-Binding surface syntax. Edit [`grammar/pdl.ebnf`](https://github.com/VeryTinyMachines/pdl/blob/main/grammar/pdl.ebnf); this page is an unpublished CI wrap. Fences are untagged: VitePress/Shiki does not ship an ISO EBNF grammar.
+Binding surface syntax. Edit [`grammar/pdl.ebnf`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/grammar/pdl.ebnf); this page is an unpublished CI wrap. Fences are untagged: VitePress/Shiki does not ship an ISO EBNF grammar.
 
 `foreach-chrome` (`before` / `between` / `after`) is reserved and may be rejected (PDL-E026). Top-level `interaction` and layout `on` are PDL-E001.
 

@@ -6,10 +6,10 @@ Hosts and emitters consume JSON, not `.pdl`. Nested frame and component-row shap
 
 | Artefact | Discriminant | Schema file | Role |
 |----------|--------------|-------------|------|
-| **Bake** | `schemaKind: "bakedDesign"` | [`shared/schema/baked-design.json`](https://github.com/VeryTinyMachines/pdl/blob/main/shared/schema/baked-design.json) | Literal trees for drawing (HTML, future native) |
-| **Catalogue** | `kind: "componentCatalogue"` | [`shared/schema/component-catalogue.json`](https://github.com/VeryTinyMachines/pdl/blob/main/shared/schema/component-catalogue.json) | Token graph + default/variant trees for codegen |
-| **Resolved slice** | `schemaKind: "resolvedComponent"` | [`shared/schema/resolved-component.json`](https://github.com/VeryTinyMachines/pdl/blob/main/shared/schema/resolved-component.json) | One component + trimmed `system` |
-| **Injection pack** | (input JSON) | [`shared/schema/injection-pack.json`](https://github.com/VeryTinyMachines/pdl/blob/main/shared/schema/injection-pack.json) | `pdl bakePack` / `validatePack` — not PDL syntax |
+| **Bake** | `schemaKind: "bakedDesign"` | [`shared/schema/baked-design.json`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/shared/schema/baked-design.json) | Literal trees for drawing (HTML, future native) |
+| **Catalogue** | `kind: "componentCatalogue"` | [`shared/schema/component-catalogue.json`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/shared/schema/component-catalogue.json) | Token graph + default/variant trees for codegen |
+| **Resolved slice** | `schemaKind: "resolvedComponent"` | [`shared/schema/resolved-component.json`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/shared/schema/resolved-component.json) | One component + trimmed `system` |
+| **Injection pack** | (input JSON) | [`shared/schema/injection-pack.json`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/shared/schema/injection-pack.json) | `pdl bakePack` / `validatePack` — not PDL syntax |
 
 Language `schemaVersion` is **`1.0.0-beta`**. Regenerated with `npm run docs:gen`.
 

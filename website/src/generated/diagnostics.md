@@ -4,7 +4,7 @@
 
 When compilation stops, the message includes a **PDL-E** code (error) or **PDL-W** code (warning). Look up the code here. Codes are never reused after retirement.
 
-Catalog: [`shared/diagnostics.json`](https://github.com/VeryTinyMachines/pdl/blob/main/shared/diagnostics.json) (language **1.0.0-beta**).
+Catalog: [`shared/diagnostics.json`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/shared/diagnostics.json) (language **1.0.0-beta**).
 
 ## Errors (PDL-E0xx)
 
@@ -79,7 +79,7 @@ Every diagnostic **MUST** include:
 
 Words you cannot use as your own names (**PDL-E018**). You do not need to memorize this while learning; the compiler will say so.
 
-Catalog: [`shared/keywords.json`](https://github.com/VeryTinyMachines/pdl/blob/main/shared/keywords.json) (language **1.0.0-beta**).
+Catalog: [`shared/keywords.json`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/shared/keywords.json) (language **1.0.0-beta**).
 
 ### Top-level declarations
 

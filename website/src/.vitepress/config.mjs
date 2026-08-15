@@ -22,7 +22,7 @@ export default defineConfig({
   title: "PDL",
   description: "A text language for design systems — tokens and components in files, compiled to a layout you can preview.",
   lang: "en-US",
-  // Project Pages URL is https://verytinymachines.github.io/pdl/
+  // Project Pages URL is https://mana-machine-ventures-inc.github.io/pdl/
   base: process.env.GITHUB_PAGES === "1" ? "/pdl/" : "/",
   lastUpdated: true,
   ignoreDeadLinks: true,
@@ -37,7 +37,7 @@ export default defineConfig({
   themeConfig: {
     nav: [],
     sidebar: pages,
-    socialLinks: [{ icon: "github", link: "https://github.com/VeryTinyMachines/pdl" }],
+    socialLinks: [{ icon: "github", link: "https://github.com/Mana-Machine-Ventures-Inc/pdl" }],
     search: { provider: "local" },
     outline: [2, 3],
     footer: {

@@ -7,7 +7,7 @@ You do not need the language specification to start. This repository is the comp
 You need **Node.js 20+**. Clone the repo and install:
 
 ```bash
-git clone https://github.com/VeryTinyMachines/pdl.git
+git clone https://github.com/Mana-Machine-Ventures-Inc/pdl.git
 cd pdl
 npm install
 npm run playground
