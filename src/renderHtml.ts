@@ -1067,6 +1067,24 @@ function editableInputColorOverride(
   return "color:inherit";
 }
 
+/**
+ * Strip UA input chrome without clobbering baked fill / type. Trailing
+ * `background:transparent` and `font:inherit` used to win over SearchField
+ * `#000` and PcBody (shorthand `font` resets size/weight/family/line-height).
+ */
+function editableInputHostDecls(props: Record<string, unknown>): string[] {
+  const decls = [
+    "border:none",
+    "outline:none",
+    "width:100%",
+    "box-sizing:border-box",
+  ];
+  const color = editableInputColorOverride(props);
+  if (color) decls.push(color);
+  if (!backgroundCssDecl(props)) decls.push("background:transparent");
+  return decls;
+}
+
 export type InstanceRenderCtx = {
   nextKey: number;
   /** Prebaked non-rest trees keyed by instance key (`i0`, …) then state name. */
@@ -1284,11 +1302,12 @@ function framePaintStructureKey(
         ...(frame.instanceKwargs ?? {}),
       };
     }
+    const act = textFieldActivationMode(session);
+    const editing = sessionParamIsEditing(session);
     const suppress =
       Boolean(bind) &&
-      textFieldActivationMode(session) === "none" &&
-      !sessionParamIsEditing(session);
-    const mode = bind && !suppress ? "input" : textLayerBandsActive(props) ? "layers" : textLineClamp(props) !== undefined ? "clamp" : "plain";
+      ((act === "none" && !editing) || (act === "press" && !editing));
+    const mode = bind && !suppress ? "input" : act === "press" && !editing ? "press-hit" : textLayerBandsActive(props) ? "layers" : textLineClamp(props) !== undefined ? "clamp" : "plain";
     return `text:${mode}`;
   }
   if (kind === "media") {
@@ -1346,13 +1365,7 @@ function computeShellStyleForPatch(
         textInlineStyle(props),
         ...textFlexItemDecls(props),
         ...(opts.stackChild ? stackCellDecls(opts.stackZ) : []),
-        "border:none",
-        "outline:none",
-        "background:transparent",
-        "font:inherit",
-        editableInputColorOverride(props),
-        "width:100%",
-        "box-sizing:border-box",
+        ...editableInputHostDecls(props),
       );
     }
     if (textLayerBandsActive(props)) {
@@ -1605,6 +1618,11 @@ export function patchFrameProps(
     } else if (!editing) {
       input.removeAttribute("placeholder");
     }
+    const pressLocked =
+      textFieldActivationMode(session) === "press" && !editing;
+    input.readOnly = pressLocked || (textFieldActivationMode(session) === "none" && !editing);
+    if (pressLocked) input.setAttribute("readonly", "");
+    else input.removeAttribute("readonly");
   } else if (next.kind === "text") {
     const prevProps = (prev.props ?? {}) as Record<string, unknown>;
     const prevContent = typeof prevProps.content === "string" ? prevProps.content : "";
@@ -1914,39 +1932,43 @@ function renderFrame(
       ...(frameOpts.stackChild ? stackCellDecls(frameOpts.stackZ) : []),
     );
     // activatesOn=.none and not editing → paint as inert text (not an <input>).
+    // .press idle is a clickable hit target, not a readonly input — iOS would
+    // otherwise open the keyboard without Title.began / Search.began.
+    const activation = textFieldActivationMode(frameOpts.sessionParams);
+    const editingNow = sessionParamIsEditing(frameOpts.sessionParams);
     const suppressEditableHitTarget =
-      Boolean(editableBind) &&
-      textFieldActivationMode(frameOpts.sessionParams) === "none" &&
-      !sessionParamIsEditing(frameOpts.sessionParams);
+      Boolean(editableBind) && activation === "none" && !editingNow;
+    const pressIdle = Boolean(editableBind) && activation === "press" && !editingNow;
+    const hasSessionValue =
+      frameOpts.sessionParams != null &&
+      Object.prototype.hasOwnProperty.call(frameOpts.sessionParams, "value");
+    const sessionVal = hasSessionValue
+      ? String(frameOpts.sessionParams!.value ?? "")
+      : content;
+    if (pressIdle) {
+      const display = sessionVal !== "" ? sessionVal : content;
+      const style = mergeInlineStyles(
+        textInlineStyle(props),
+        itemStack,
+        "cursor:pointer",
+        "user-select:none",
+        "box-sizing:border-box",
+      );
+      return `<span class="pdl-frame pdl-text pdl-text--press-hit" role="textbox" tabindex="0"${dataId}${instAttrs} data-pdl-editable="${escapeAttr(String(editableBind))}" data-pdl-press-activate="1" style="${escapeStyleAttr(style)}">${escapeHtml(display)}</span>`;
+    }
     if (editableBind && !suppressEditableHitTarget) {
       // Session `value` is the input buffer; baked `content` is presentation
       // (placeholder / mask). Never seed the DOM value from placeholder copy.
-      const hasSessionValue =
-        frameOpts.sessionParams != null &&
-        Object.prototype.hasOwnProperty.call(frameOpts.sessionParams, "value");
-      const sessionVal = hasSessionValue
-        ? String(frameOpts.sessionParams!.value ?? "")
-        : content;
-      const editing = sessionParamIsEditing(frameOpts.sessionParams);
-      const pressLocked =
-        textFieldActivationMode(frameOpts.sessionParams) === "press" && !editing;
-      const readonlyAttr = pressLocked ? " readonly" : "";
       const placeholderAttr =
-        hasSessionValue && !editing && sessionVal === "" && content !== ""
+        hasSessionValue && !editingNow && sessionVal === "" && content !== ""
           ? ` placeholder="${escapeAttr(content)}"`
           : "";
       const style = mergeInlineStyles(
         textInlineStyle(props),
         itemStack,
-        "border:none",
-        "outline:none",
-        "background:transparent",
-        "font:inherit",
-        editableInputColorOverride(props),
-        "width:100%",
-        "box-sizing:border-box",
+        ...editableInputHostDecls(props),
       );
-      return `<input class="pdl-frame pdl-text pdl-text--editable" type="text"${dataId}${instAttrs} data-pdl-editable="${escapeAttr(editableBind)}" value="${escapeAttr(sessionVal)}"${placeholderAttr}${readonlyAttr} style="${escapeStyleAttr(style)}" />`;
+      return `<input class="pdl-frame pdl-text pdl-text--editable" type="text"${dataId}${instAttrs} data-pdl-editable="${escapeAttr(editableBind)}" value="${escapeAttr(sessionVal)}"${placeholderAttr} style="${escapeStyleAttr(style)}" />`;
     }
     const clamped = textLineClamp(props) !== undefined;
     if (textLayerBandsActive(props)) {
@@ -3573,10 +3595,24 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       if (instances.length && (captures.length || true)) {
         instances.forEach(function(node){
           if (node.getAttribute('data-pdl-listening') === '1') return;
+          // EditableText owns press-hit / input listeners below. SearchField and
+          // TitleField only declare editingBegan/Finished — claiming listening
+          // here bound no press handler and made the editable host skip them.
+          if (
+            node.hasAttribute('data-pdl-editable') ||
+            node.hasAttribute('data-pdl-press-activate') ||
+            (node.matches && node.matches('input.pdl-text--editable'))
+          ) {
+            return;
+          }
           var childType = node.getAttribute('data-pdl-instance-of');
           var childDecls = interactions[childType] || [];
           var childBy = handlersByEvent(childDecls);
           if (!Object.keys(childBy).length) return;
+          var hasPointer =
+            childBy.hoverStart || childBy.hoverEnd ||
+            childBy.pressStart || childBy.pressEnd || childBy.pressCancel;
+          if (!hasPointer) return;
           node.setAttribute('data-pdl-listening', '1');
           // Prefer ForEach list name (catalogue emitCapture qualifier) over synthetic instance-let.
           var foreachList = node.getAttribute('data-pdl-foreach-list') || null;
@@ -3749,10 +3785,11 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       // EditableText host: activatesOn (.focus|.press|.none); blur/Enter finish; Esc cancel.
       // Nested instances own a child session bag (data-pdl-session-params); parent SoT via emits.
       // Note: activatesOn=.none + !isEditing renders as inert text (no <input>) at bake time.
-      section.querySelectorAll('input.pdl-text--editable[data-pdl-editable]').forEach(function(input){
-        if (input.getAttribute('data-pdl-listening') === '1') return;
-        var bind = input.getAttribute('data-pdl-editable') || 'value';
-        var instNode = input.closest('[data-pdl-instance-of]');
+      section.querySelectorAll('input.pdl-text--editable[data-pdl-editable], [data-pdl-press-activate]').forEach(function(el){
+        if (el.getAttribute('data-pdl-listening') === '1') return;
+        var input = el.tagName === 'INPUT' ? el : null;
+        var bind = el.getAttribute('data-pdl-editable') || 'value';
+        var instNode = el.closest('[data-pdl-instance-of]') || (el.hasAttribute('data-pdl-instance-of') ? el : null);
         var childType = instNode ? (instNode.getAttribute('data-pdl-instance-of') || '') : '';
         var childDecls = childType ? (interactions[childType] || []) : [];
         var childBy = handlersByEvent(childDecls);
@@ -3835,12 +3872,12 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           return found;
         }
         function syncHitTarget() {
+          if (!input) return;
           var mode = activationMode();
           var editing = isEditingNow();
-          // .none: fully inert until program begins. .press: read-only until click begins
-          // (still focusable/clickable — unlike .none which blocks pointer events).
+          // .none: fully inert until program begins. .press idle is a hit target, not this input.
           var blocked = mode === 'none' && !editing;
-          var readOnly = !editing && (mode === 'none' || mode === 'press');
+          var readOnly = !editing && mode === 'none';
           input.readOnly = readOnly;
           input.tabIndex = blocked ? -1 : 0;
           input.style.pointerEvents = blocked ? 'none' : '';
@@ -4048,12 +4085,12 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           if (r.skipFocus || (wasEditing && Date.now() < ignoreBlurUntil)) return;
           if (r.started || isEditingNow()) focusSessionInput();
         }
-        input.addEventListener('pointerdown', function(ev){
+        el.addEventListener('pointerdown', function(ev){
           ev.stopPropagation();
           if (ev.pointerType === 'mouse' && ev.button !== 0) return;
           beginFromPress(ev);
         });
-        input.addEventListener('mousedown', function(ev){
+        el.addEventListener('mousedown', function(ev){
           ev.stopPropagation();
           if (activationMode() === 'none' && !isEditingNow()) {
             ev.preventDefault();
@@ -4061,7 +4098,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           if (ev.button !== 0) return;
           beginFromPress(ev);
         });
-        input.addEventListener('click', function(ev){
+        el.addEventListener('click', function(ev){
           ev.stopPropagation();
           if (activationMode() === 'none' && !isEditingNow()) {
             ev.preventDefault();
@@ -4069,6 +4106,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           }
           beginFromPress(ev);
         });
+        if (input) {
         input.addEventListener('focus', function(){
           if (activationMode() === 'none' && !isEditingNow()) {
             try { input.blur(); } catch (e) {}
@@ -4126,8 +4164,9 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             try { input.blur(); } catch (e) {}
           }
         });
+        }
         // isEditing=true (param bar / fixture) ⇒ first responder: accept keystrokes.
-        if (hasEditableSession && isEditingNow()) {
+        if (input && hasEditableSession && isEditingNow()) {
           var hiddenState = input.closest('.pdl-inst-state[hidden]');
           if (hiddenState) {
             // Listeners still attach on prebaked editing trees; only the visible leaf autofocuses.
@@ -4142,7 +4181,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             requestAnimationFrame(function(){ focusSessionInput(); });
           }
         }
-        input.setAttribute('data-pdl-listening', '1');
+        el.setAttribute('data-pdl-listening', '1');
       });
       if (byMotion.appear && byMotion.appear.from) {
         requestAnimationFrame(function(){

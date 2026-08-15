@@ -376,6 +376,7 @@ describe("reconcileBakedComponentIntoCanvas NoteEditor-shaped", () => {
       }),
     ).toBe(true);
 
-    expect(canvas.querySelector("input.pdl-text--editable")).toBeTruthy();
+    expect(canvas.querySelector("input.pdl-text--editable")).toBeFalsy();
+    expect(canvas.querySelector("[data-pdl-press-activate]")).toBeTruthy();
   });
 });

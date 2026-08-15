@@ -62,13 +62,23 @@ async function mountInteractive(bake: unknown) {
   return { window, document, html, messages };
 }
 
+function bakeComposer(overrides: string[] = []) {
+  const r = spawnSync(
+    "cargo",
+    ["run", "-q", "-p", "pdl-cli", "--", "bakeComponent", ENTRY, "PlaylistComposer", ...overrides],
+    { encoding: "utf8" },
+  );
+  if (r.status !== 0) throw new Error(r.stderr || "composer bake failed");
+  return JSON.parse(r.stdout);
+}
+
 describe("SearchField root editing chrome", () => {
-  it("bake isEditing=true uses accent border + ink background (no placeholder)", () => {
+  it("bake isEditing=true uses accent border + #000 background (no placeholder)", () => {
     const bake = bakeSearchField(["isEditing=true"]);
     const props = bake.components.SearchField.root.props;
     expect(String(props.borderColor).toUpperCase()).toMatch(/F59E0B|#F59E0B/i);
     expect(Number(props.borderWidth)).toBe(2);
-    expect(String(props.background).toUpperCase()).toMatch(/0B1220|#0B1220/i);
+    expect(String(props.background).toUpperCase()).toMatch(/#000|#000000/i);
     expect(props.content === "" || props.content == null).toBe(true);
   });
 
@@ -77,9 +87,12 @@ describe("SearchField root editing chrome", () => {
     const { window, document, messages, html } = await mountInteractive(bake);
     expect(html).toMatch(/Search tracks/);
 
-    const input = document.querySelector("input.pdl-text--editable") as HTMLInputElement;
-    expect(input).toBeTruthy();
-    input.dispatchEvent(new window.MouseEvent("click", { bubbles: true, button: 0 }));
+    const hit =
+      (document.querySelector("[data-pdl-press-activate]") as HTMLElement | null) ||
+      (document.querySelector("input.pdl-text--editable") as HTMLInputElement | null);
+    expect(hit).toBeTruthy();
+    hit!.dispatchEvent(new window.MouseEvent("mousedown", { button: 0, bubbles: true }));
+    hit!.dispatchEvent(new window.MouseEvent("click", { bubbles: true, button: 0 }));
     await new Promise((r) => setTimeout(r, 30));
 
     const ix = messages.find(
@@ -106,5 +119,21 @@ describe("SearchField root editing chrome", () => {
         "{}",
     );
     expect(live.isEditing).toBe(true);
+  });
+});
+
+describe("PlaylistComposer nested search session", () => {
+  it("editingSearch=true paints Search writable (not readonly)", () => {
+    const bake = bakeComposer(["editingSearch=true", "searchQuery=kite"]);
+    const { html } = renderBakedDesignToHtmlDocumentWithReport(bake, {
+      title: "t",
+      singleComponent: "PlaylistComposer",
+      interactiveHost: true,
+      editableTypeDefaults: { SearchField: { activatesOn: "press", isEditing: false, value: "" } },
+    });
+    expect(html).toContain('data-pdl-instance-let="Search"');
+    expect(html).toContain("pdl-text--editable");
+    expect(html).toContain("#000");
+    expect(html).not.toMatch(/data-pdl-instance-let="Search"[^>]*data-pdl-press-activate/);
   });
 });

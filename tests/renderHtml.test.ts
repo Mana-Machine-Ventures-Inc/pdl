@@ -906,6 +906,9 @@ describe("renderHtml", () => {
               editable: true,
               color: "#F1F5F9",
               background: "#141C2E",
+              fontSize: 15,
+              fontWeight: 600,
+              fontFamily: "Georgia",
             },
             children: [],
           },
@@ -920,6 +923,13 @@ describe("renderHtml", () => {
     expect(html).toContain("pdl-text--editable");
     expect(html).toContain("color:#F1F5F9");
     expect(html).not.toMatch(/pdl-text--editable[^>]*color:inherit/);
+    expect(html).not.toMatch(/pdl-text--editable[^>]*font:inherit/);
+    const style = html.match(/<input[^>]*pdl-text--editable[^>]*style="([^"]*)"/)?.[1] ?? "";
+    const fills = [...style.matchAll(/background:([^;]+)/g)].map((m) => m[1]);
+    expect(fills.at(-1)).toBe("#141C2E");
+    expect(style).toContain("font-size:15px");
+    expect(style).toContain("font-weight:600");
+    expect(style).toContain("font-family:Georgia");
   });
 
   it("marks EditableText interactive even with zero author handlers", () => {

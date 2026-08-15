@@ -14,10 +14,10 @@ component SearchField <EditableText>(
   color = pc.color.fg
 
   if isEditing {
-    color = #000
+    color = #FFF
     borderColor = pc.color.accent
     borderWidth = 2
-    background = pc.color.ink
+    background = #000
   } else if isEmpty {
     content = "Search tracks…"
     color = pc.color.fgMuted

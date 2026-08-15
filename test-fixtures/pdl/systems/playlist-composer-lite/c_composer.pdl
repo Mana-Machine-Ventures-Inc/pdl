@@ -105,6 +105,7 @@ component PlaylistComposer(
   draftTitle: String = "Late Drive Mix",
   editingTitle: Bool = false,
   searchQuery: String = "",
+  editingSearch: Bool = false,
   currentMood: MoodId = .all,
   selectedTrack: TrackId = .none,
   status: String = "Pick a mood, search, or rename the playlist",
@@ -119,7 +120,7 @@ component PlaylistComposer(
   direction = .column
   gap = pc.space.lg
   padding = EdgeInsets(x: 24, y: 24)
-  width = 420
+  width = .flex(min: 300, max: 450)
   background = pc.color.surface
   cornerRadius = pc.radius.md
   borderWidth = 1
@@ -141,7 +142,7 @@ component PlaylistComposer(
     width: .fill,
     children: [Title, Edit]
   )
-  let Search = SearchField(value: searchQuery)
+  let Search = SearchField(value: searchQuery, isEditing: editingSearch)
 
   let ChipRow = Layout(
     direction: .row,
@@ -220,13 +221,16 @@ component PlaylistComposer(
   }
 
   Search.began(value: String) = {
+    editingSearch = true
     status = "Searching…"
   }
   Search.finished(value: String) = {
     searchQuery = value
+    editingSearch = false
     status = "Search updated"
   }
   Search.cancelled(value: String) = {
+    editingSearch = false
     status = "Search cancelled"
   }
 }
@@ -268,6 +272,11 @@ fixtures PlaylistComposer {
     draftTitle = "Late Drive Mix (working title)"
     committedTitle = "Late Drive Mix"
     status = "Fixture: mid-rename session"
+  }
+  example "Searching" {
+    editingSearch = true
+    searchQuery = "kite"
+    status = "Fixture: mid-search session"
   }
   example "Idle" {
     searchQuery = ""

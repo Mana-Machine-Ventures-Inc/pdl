@@ -406,8 +406,10 @@ function commitKvTextareaToOwner(owner) {
  */
 function setKvForComponent(owner, params) {
   if (!owner) return;
-  const filtered = filterKvToDeclaredParams(owner, params);
-  if (Object.keys(filtered).length) kvByComponent[owner] = filtered;
+  // Interaction SoT is authoritative. Do not drop new author params (e.g.
+  // editingSearch) when componentParams is still from a prior catalogue.
+  const incoming = bakeKv(params);
+  if (Object.keys(incoming).length) kvByComponent[owner] = incoming;
   else delete kvByComponent[owner];
   if (owner === primaryComponent || owner === preferredComponent || owner === component.value) {
     syncKvTextareaFromOwner(owner);
@@ -424,8 +426,8 @@ function buildComponentOverrides(names) {
   for (const name of names) {
     const bag = kvByComponent[name];
     if (!bag) continue;
-    const filtered = filterKvToDeclaredParams(name, bag);
-    if (Object.keys(filtered).length) out[name] = filtered;
+    const next = bakeKv(bag);
+    if (Object.keys(next).length) out[name] = next;
   }
   return out;
 }

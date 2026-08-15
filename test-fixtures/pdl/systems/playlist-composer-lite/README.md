@@ -44,7 +44,7 @@ Also open:
 2. Click a mood chip — `currentMood` rebakes; layout `if` mounts `Tracks.<mood>.tracks`
 3. Click a track — `selectedTrack` rebakes; ForEach derives `track.selected`
 4. **Rename** → edit title → **Done** / **Cancel** (EditableText session + shell swap)
-5. Search → blur/Enter — updates `searchQuery` / status (free-text filter worlds use fixtures + sample overrides)
+5. Tap search (no button) — `editingSearch` keeps the field writable across the shell rebake; blur/Enter commits `searchQuery` (filter worlds still use fixtures + sample overrides)
 6. **Fixtures** — use each preview section’s Fixture select (or left chips for the primary): mood / Kite / Empty snapshots
 
 ## Sample worlds

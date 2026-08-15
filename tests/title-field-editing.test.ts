@@ -93,12 +93,49 @@ describe("PlaylistComposer title field session", () => {
     expect(html).toContain("suppressBlurForOpen");
   });
 
-  it("paints TitleField readonly until the press session begins", async () => {
+  it("paints TitleField as a press hit target until the session begins", async () => {
     const bake = bakeComposer(["editingTitle=false"]);
     const { document } = await mountInteractive(bake);
-    const title = document.querySelector('[data-pdl-instance-let="Title"]') as HTMLInputElement | null;
+    const title = document.querySelector('[data-pdl-instance-let="Title"]');
     expect(title).toBeTruthy();
-    expect(title!.hasAttribute("readonly")).toBe(true);
+    expect(title!.getAttribute("data-pdl-press-activate")).toBe("1");
+    expect(title!.tagName).not.toBe("INPUT");
+  });
+
+  it("Search field press opens editingSearch (no button)", async () => {
+    const bake = bakeComposer(["editingSearch=false"]);
+    const { window, document, messages } = await mountInteractive(bake);
+    const search = document.querySelector('[data-pdl-instance-let="Search"]');
+    expect(search).toBeTruthy();
+    expect(search!.getAttribute("data-pdl-press-activate")).toBe("1");
+    search!.dispatchEvent(new window.MouseEvent("mousedown", { button: 0, bubbles: true }));
+    search!.dispatchEvent(new window.MouseEvent("mouseup", { button: 0, bubbles: true }));
+    search!.dispatchEvent(new window.MouseEvent("click", { button: 0, bubbles: true }));
+    await new Promise((r) => setTimeout(r, 40));
+    const ix = messages.find(
+      (m) =>
+        (m as { type?: string }).type === "pdl-interaction" &&
+        (m as { params?: { editingSearch?: boolean } }).params?.editingSearch === true,
+    );
+    expect(ix).toBeTruthy();
+  });
+
+  it("Title field press opens editingTitle (no Rename required)", async () => {
+    const bake = bakeComposer(["editingTitle=false"]);
+    const { window, document, messages } = await mountInteractive(bake);
+    const title = document.querySelector('[data-pdl-instance-let="Title"]');
+    expect(title).toBeTruthy();
+    expect(title!.getAttribute("data-pdl-press-activate")).toBe("1");
+    title!.dispatchEvent(new window.MouseEvent("mousedown", { button: 0, bubbles: true }));
+    title!.dispatchEvent(new window.MouseEvent("mouseup", { button: 0, bubbles: true }));
+    title!.dispatchEvent(new window.MouseEvent("click", { button: 0, bubbles: true }));
+    await new Promise((r) => setTimeout(r, 40));
+    const ix = messages.find(
+      (m) =>
+        (m as { type?: string }).type === "pdl-interaction" &&
+        (m as { params?: { editingTitle?: boolean } }).params?.editingTitle === true,
+    );
+    expect(ix).toBeTruthy();
   });
 
   it("Rename (Edit.tap) still opens the shell session", async () => {
