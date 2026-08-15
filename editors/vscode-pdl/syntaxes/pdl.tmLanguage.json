@@ -137,7 +137,7 @@
         },
         {
           "name": "keyword.control.flow.pdl",
-          "match": "\\b(?:on|for|where|from|to|animate|stagger|staggerFrom)\\b"
+          "match": "\\b(?:on|for|where|animate)\\b"
         },
         {
           "name": "keyword.declaration.pdl",
@@ -157,11 +157,11 @@
       "patterns": [
         {
           "name": "support.type.pdl",
-          "match": "\\b(?:Color|Opacity|Distance|Radius|Shadow|Icon|MediaSource|Ratio|FontFamily|Size|Weight|Sizing|Duration|Easing|Transition|String|Number|Bool)\\b"
+          "match": "\\b(?:Color|Opacity|Distance|Radius|Shadow|Icon|MediaSource|Ratio|FontFamily|Size|Weight|Sizing|Duration|Easing|Transition|Pose|Stagger|Motion|String|Number|Bool)\\b"
         },
         {
           "name": "support.function.constructor.pdl",
-          "match": "\\b(?:EdgeInsets|Corner|CornerRadii|GradientStop|Ramp|Blur|BlurStyle|Media|Vibrancy|Background|Foreground|Color|Transition)\\b"
+          "match": "\\b(?:EdgeInsets|Corner|CornerRadii|GradientStop|Ramp|Blur|BlurStyle|Media|Vibrancy|Background|Foreground|Color|Transition|Pose|Stagger|Motion)\\b"
         }
       ]
     },

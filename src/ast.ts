@@ -58,6 +58,9 @@ export type ValueExpr =
   | { kind: "array"; items: ValueExpr[] }
   | { kind: "instance"; component: string; kwargs: Record<string, ValueExpr> }
   | { kind: "transition"; duration: ValueExpr; easing: ValueExpr; delay?: ValueExpr }
+  | { kind: "pose"; props: Record<string, ValueExpr> }
+  | { kind: "stagger"; step: ValueExpr; from?: ValueExpr }
+  | { kind: "motion"; transition: ValueExpr; pose?: ValueExpr; stagger?: ValueExpr }
   | { kind: "vibrancyTuple"; saturation: number; brightness: number }
   | { kind: "rampInline"; direction: string; stops: ValueExpr[] }
   | {
@@ -267,10 +270,6 @@ export type InteractionIfChain = {
 export type InteractionHandlerItem =
   | { kind: "assign"; param: string; value: ValueExpr }
   | { kind: "animate"; value: ValueExpr }
-  | { kind: "from"; props: Record<string, ValueExpr> }
-  | { kind: "to"; props: Record<string, ValueExpr> }
-  | { kind: "stagger"; ms: number }
-  | { kind: "staggerFrom"; value: "first" | "last" }
   | { kind: "emit"; name: string; args: string[] }
   | { kind: "hostVerb"; name: string; args: string[]; qualifier?: string }
   | { kind: "if"; chain: InteractionIfChain };

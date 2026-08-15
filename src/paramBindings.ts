@@ -241,6 +241,18 @@ export function assertParamValueCompatible(
     if (value.kind === "transition") return;
     mismatch();
   }
+  if (expected === "Pose") {
+    if (value.kind === "pose") return;
+    mismatch();
+  }
+  if (expected === "Stagger") {
+    if (value.kind === "stagger") return;
+    mismatch();
+  }
+  if (expected === "Motion") {
+    if (value.kind === "motion" || value.kind === "transition") return;
+    mismatch();
+  }
   if (expected === "Background" || expected === "Foreground") {
     if (value.kind === "hex" || value.kind === "opacityOf" || value.kind === "array") return;
     if (value.kind === "call") return;

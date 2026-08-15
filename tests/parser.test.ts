@@ -147,17 +147,21 @@ describe("parser", () => {
     });
   });
 
-  it("parses from/to/stagger motion clauses on host handlers", () => {
+  it("parses Motion/Pose/Stagger on host handlers", () => {
     const m = parseModule(
       `component Modal <PointerInput>() layout {
          self.appear = {
-           animate = (duration: 250, easing: "ease-out")
-           from { opacity = 0 scale = 0.95 translateY = 8 }
-           stagger = 30
-           staggerFrom = .last
+           animate = Motion(
+             transition: (duration: 250, easing: "ease-out"),
+             pose: Pose(opacity: 0, scale: 0.95, translateY: 8),
+             stagger: Stagger(step: 30, from: .last)
+           )
          }
          self.dismiss = {
-           to { opacity = 0 blur = 4 }
+           animate = Motion(
+             transition: (duration: 180, easing: "ease-in"),
+             pose: Pose(opacity: 0, blur: 4)
+           )
          }
        }`,
       "motion.pdl",
@@ -167,21 +171,52 @@ describe("parser", () => {
       handlers: Array<{ event: string; body: Array<Record<string, unknown>> }>;
     };
     const appear = ix.handlers.find((h) => h.event === "appear")!;
-    expect(appear.body).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ kind: "animate" }),
-        expect.objectContaining({
-          kind: "from",
-          props: expect.objectContaining({
-            opacity: { kind: "number", value: 0 },
-            scale: { kind: "number", value: 0.95 },
-            translateY: { kind: "number", value: 8 },
-          }),
-        }),
-        { kind: "stagger", ms: 30 },
-        { kind: "staggerFrom", value: "last" },
-      ]),
-    );
+    expect(appear.body).toEqual([
+      {
+        kind: "animate",
+        value: {
+          kind: "motion",
+          transition: {
+            kind: "transition",
+            duration: { kind: "number", value: 250 },
+            easing: { kind: "string", value: "ease-out" },
+          },
+          pose: {
+            kind: "pose",
+            props: {
+              opacity: { kind: "number", value: 0 },
+              scale: { kind: "number", value: 0.95 },
+              translateY: { kind: "number", value: 8 },
+            },
+          },
+          stagger: {
+            kind: "stagger",
+            step: { kind: "number", value: 30 },
+            from: { kind: "dotEnum", value: ".last" },
+          },
+        },
+      },
+    ]);
+  });
+
+  it("rejects removed from { } handler snapshots", () => {
+    expect(() =>
+      parseModule(
+        `component Modal <PointerInput>() layout {
+           self.appear = { from { opacity = 0 } }
+         }`,
+        "motion.pdl",
+      ),
+    ).toThrow(/from \{ \}.*removed/);
+  });
+
+  it("rejects empty Pose and Motion without transition", () => {
+    expect(() =>
+      parseModule(`primitive p: Pose = Pose()`, "x.pdl"),
+    ).toThrow(/at least one overlay field/);
+    expect(() =>
+      parseModule(`primitive m: Motion = Motion(pose: Pose(opacity: 0))`, "x.pdl"),
+    ).toThrow(/requires `transition:`/);
   });
 
   it("parses Shadow(…) constructor on tokens", () => {

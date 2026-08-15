@@ -1,4 +1,4 @@
-//! PDL lexer (`docs/full-spec.md` §20). Faithful port of `src/lexer.ts`.
+//! PDL lexer (`shared/keywords.json` + `grammar/pdl.ebnf`). Faithful port of `src/lexer.ts`.
 
 use crate::error::PdlError;
 
@@ -42,10 +42,6 @@ pub enum TokenKind {
     Rule,
     Description,
     Animate,
-    From,
-    To,
-    Stagger,
-    StaggerFrom,
     Where,
     Tags,
     EdgeInsets,
@@ -70,6 +66,9 @@ pub enum TokenKind {
     Duration,
     Easing,
     Transition,
+    Pose,
+    Stagger,
+    Motion,
     Ramp,
     Blur,
     Media,
@@ -150,10 +149,6 @@ fn keyword(raw: &str) -> Option<TokenKind> {
         "Rule" => TokenKind::Rule,
         "description" => TokenKind::Description,
         "animate" => TokenKind::Animate,
-        "from" => TokenKind::From,
-        "to" => TokenKind::To,
-        "stagger" => TokenKind::Stagger,
-        "staggerFrom" => TokenKind::StaggerFrom,
         "where" => TokenKind::Where,
         "tags" => TokenKind::Tags,
         "EdgeInsets" => TokenKind::EdgeInsets,
@@ -178,6 +173,9 @@ fn keyword(raw: &str) -> Option<TokenKind> {
         "Duration" => TokenKind::Duration,
         "Easing" => TokenKind::Easing,
         "Transition" => TokenKind::Transition,
+        "Pose" => TokenKind::Pose,
+        "Stagger" => TokenKind::Stagger,
+        "Motion" => TokenKind::Motion,
         "Ramp" => TokenKind::Ramp,
         "Blur" => TokenKind::Blur,
         "Media" => TokenKind::Media,

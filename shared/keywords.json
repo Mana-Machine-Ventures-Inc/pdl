@@ -72,11 +72,7 @@
         { "word": "description" },
         { "word": "tags" },
         { "word": "where" },
-        { "word": "animate" },
-        { "word": "from" },
-        { "word": "to" },
-        { "word": "stagger" },
-        { "word": "staggerFrom" }
+        { "word": "animate" }
       ]
     },
     {
@@ -106,6 +102,9 @@
         { "word": "Duration" },
         { "word": "Easing" },
         { "word": "Transition" },
+        { "word": "Pose" },
+        { "word": "Stagger" },
+        { "word": "Motion" },
         { "word": "Ramp" },
         { "word": "Blur" },
         { "word": "Media" },

@@ -2,7 +2,7 @@
 
 **Accepted:** `docs/PROPOSAL_PORTABLE_CORE.md`, `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` (2026-08-05)  
 **Shipped:** `docs/PROPOSAL_PDL_PLAYGROUND.md` / `docs/PLAYGROUND_OVERVIEW.md` — Playground demo shell (P0–P5) vs `preview` stress harness vs future Studio  
-**Normative until shipped:** `docs/full-spec.md` (`1.0.0-beta`) remains binding for the **current** language. Proposal features land via **spec patches + goldens** per slice.
+**Binding:** `shared/*.json` + `grammar/pdl.ebnf` + fixtures (`1.0.0-beta`). Proposal features land via **lock-file updates + goldens** per slice.
 
 ---
 
@@ -10,9 +10,9 @@
 
 1. **TypeScript is the oracle** until Rust bake/catalogue matches goldens.  
 2. **New language features prefer Rust** once load→bake parity exists (avoid double implementation).  
-3. **Vertical slices** — one feature train at a time, each with fixtures + goldens + `full-spec` patch.  
+3. **Vertical slices** — one feature train at a time, each with fixtures + goldens + lock-file update.  
 4. **Bake JSON** is the stability boundary for HTML / future SwiftUI hosts.  
-5. Proposal text is **accepted intent**, not grammar law, until merged into `full-spec.md`.
+5. Proposal text is **accepted intent**, not grammar law, until locked in `shared/*.json` / `grammar/pdl.ebnf`.
 
 ---
 
@@ -54,12 +54,12 @@ Implement **after A2** unless a spike is explicitly throwaway.
 |-------|-------------|-----------------|
 | Classic PDL → bake / catalogue (TS + Rust parity) | Tokens, themes, variants, components, `if`, companions | — |
 | Rust-first language | **B1–B4** (`protocol`, `[T]`, packs, `emits` / host inbound handlers) | TS oracle port of B1–B4 |
-| Normative grammar | §4a–§4e in `full-spec.md`; Rust B4b/B5 | **B6** chrome; TS oracle lag; B7 host dispatch |
-| Typed samples (§11a) | `samples` banks + `Bank.entry.field`; Rust + TS; catalogue `samples`; playlist-composer-lite + `lab/samples-tracks.pdl`; **PDL-E041** | ForEach over sample path; sample RHS in emit-assign; lints for bare `children = list` |
+| Normative grammar | `grammar/pdl.ebnf` + language-objects; Rust B4b/B5 | **B6** chrome; TS oracle lag; B7 host dispatch |
+| Typed samples | `samples` banks + `Bank.entry.field`; Rust + TS; catalogue `samples`; playlist-composer-lite + `lab/samples-tracks.pdl`; **PDL-E041** | ForEach over sample path; sample RHS in emit-assign; lints for bare `children = list` |
 | HTML host (C1) | Static draw of bake IR; `npm run preview` / playground | Live interactions; emit dispatch (B7); motion runtime |
 | Native / prototype | — | C2 SwiftUI; C3 routes/stack; A5 C ABI |
 
-**Bake JSON** remains the stability boundary. HTML is a static C1 host: it draws whatever bake already flattened. `ForEach` / emit capture become visible in HTML only after Rust expands them at bake (Phase 2 after §4e review). Host prelude stubs: **`full-spec` §4a′**.
+**Bake JSON** remains the stability boundary. HTML is a static C1 host: it draws whatever bake already flattened. `ForEach` / emit capture become visible in HTML only after Rust expands them at bake. Host prelude stubs: `test-fixtures/pdl/stdlib/host_protocols.pdl`.
 
 ---
 
@@ -104,7 +104,7 @@ Implement **after A2** unless a spike is explicitly throwaway.
 
 ## Decisions still open
 
-None from the A0 question set. Further grammar nits can be decided when writing `full-spec` patches.
+None from the A0 question set. Further grammar nits can be decided when updating `grammar/pdl.ebnf` / lock files.
 
 ---
 
@@ -118,13 +118,14 @@ None from the A0 question set. Further grammar nits can be decided when writing 
 - [x] A3 catalogue / graph *(53 TS `graphSystem` goldens + 4 `graphComponent` goldens, byte match)*  
 - [x] A4 Rust CLI (`crates/pdl-cli` / `pdl`) for bake/graph/catalogue/resolve  
 - [x] Dual-run CI job (TS vs Rust JSON, volatiles normalized) — `.github/workflows/ci.yml` + `scripts/dual-run-compare.mjs`  
-- [x] First `full-spec` patch with B1 (§4a protocols; Rust-first)  
-- [x] B2 `[T]` / instance literals / children expand (§4b; Rust-first)  
+- [x] B1 protocols locked (Rust-first)  
+- [x] B2 `[T]` / instance literals / children expand (Rust-first)  
 - [x] B3 injection packs (`bakePack` / `validatePack`)  
 - [x] B4 emits + host inbound `[self.]channel = { … }` (declare/fire; host dispatch B7)  
 - [x] C1a live preview (`npm run preview` + playground Rust bake path)  
-- [x] B5 language formalized in `full-spec` §4e; Rust parse + ForEach bake expand shipped (B4b/B5)  
-- [x] Typed samples (§11a) — Rust + TS; catalogue `samples`; playlist-composer-lite + lab; **PDL-E041**; Playground per-component fixtures  
+- [x] B5 ForEach locked; Rust parse + bake expand shipped (B4b/B5)  
+- [x] Typed samples — Rust + TS; catalogue `samples`; playlist-composer-lite + lab; **PDL-E041**; Playground per-component fixtures  
+- [x] Public docs site (`website/`) + generated reference (frame props, diagnostics, keywords, bake/catalogue JSON Schema sketches)  
 - [ ] Align published `schemaVersion` string to plain **`1.0.0`** when touching normative version prose (drop `-beta` framing; still unreleased)
 
 Progress and intentional gaps also tracked in **`docs/SPEC_GAPS.md`**.

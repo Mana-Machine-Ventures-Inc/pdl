@@ -1,7 +1,7 @@
 # Proposal: TextField editing sessions (host protocol package)
 
 **Status:** accepted / implementing (2026-08-11; `value` locked — M1–M3 landed: prelude, injected facts, HTML session host, fixture migrate)  
-**Depends on:** `docs/full-spec.md` §4a / §4a′ / §5 / §8; `docs/PROPOSAL_PROTOCOL_CAPABILITIES.md`; `test-fixtures/pdl/stdlib/host_protocols.pdl`; World A (`docs/PROPOSAL_WORLD_A_EXPRESSION_TREES.md`)  
+**Depends on:** `shared/language-objects.json` host prelude; `docs/PROPOSAL_PROTOCOL_CAPABILITIES.md`; `test-fixtures/pdl/stdlib/host_protocols.pdl`. **Superseded as binding spec** by lock files.  
 **Related:** Playground / `renderHtml` editable host; future value controls (Slider, Picker, …)  
 **Supersedes (authoring):** param-live bind `editable = someAuthorParam` + bare `beginEditing(value)` / `keyboardDismissed` as the *primary* field API
 

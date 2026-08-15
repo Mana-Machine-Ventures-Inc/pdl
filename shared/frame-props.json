@@ -1,5 +1,5 @@
 {
-  "$comment": "Machine SoT for full-spec §5 frame properties and §23.3 type checks. Loaded by src/frameProps.ts and crates/pdl-core/src/frame_props.rs. Enum valueKinds with typeName accept TypeName.case as sugar for .case (Sizing stays a keyword sizing-literal).",
+  "$comment": "Machine lock for frame properties and type checks. Loaded by src/frameProps.ts and crates/pdl-core/src/frame_props.rs. Enum valueKinds with typeName accept TypeName.case as sugar for .case (Sizing stays a keyword sizing-literal). Case *meanings* live in shared/language-objects.json — docs:gen fails if a case exists here without a meaning there.",
   "schemaVersion": 1,
   "valueKinds": {
     "sizing": {

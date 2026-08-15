@@ -40,3 +40,21 @@ describe("validateMergedDesign (if conditions)", () => {
     expectLoadFails("PDL-E021", "errors/legacy/e021-duplicate-let-frame-id.pdl", /Dup/);
   });
 });
+
+describe("validateMergedDesign (motion)", () => {
+  it("PDL-E005 when Motion stagger has no pose", () => {
+    expectLoadFails(
+      "PDL-E005",
+      "errors/e005-motion-stagger-without-pose.pdl",
+      /stagger:.*requires `pose:`/,
+    );
+  });
+
+  it("PDL-E005 when Motion pose is used on hoverStart", () => {
+    expectLoadFails(
+      "PDL-E005",
+      "errors/e005-motion-pose-on-hover.pdl",
+      /appear \/ dismiss/,
+    );
+  });
+});

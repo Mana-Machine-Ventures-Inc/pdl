@@ -1,5 +1,5 @@
 /**
- * Canonical JSON for `Rule(…)` queries (full-spec.md §12.5) from parsed companion AST.
+ * Canonical JSON for `Rule(…)` queries (`shared/language-objects.json` ruleQuery) from parsed companion AST.
  */
 import type { RuleChainTerminalParsed, RulePathExpr, RuleQueryParsed } from "./ast.js";
 

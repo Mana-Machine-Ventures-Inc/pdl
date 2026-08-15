@@ -590,7 +590,7 @@ component Cleared() layout {
 
 ## Token types
 
-Named values you declare once and reuse. Write `primitive` for the raw palette and `semantic` for the names components should use ([`color.surface`](#color)). Pick a type when a property needs a color, a gap, a shadow, and so on. [`Duration`](#duration), [`Easing`](#easing), and [`Transition`](#transition) are draft — they exist for handler motion, which is not finished.
+Named values you declare once and reuse. Write `primitive` for the raw palette and `semantic` for the names components should use ([`color.surface`](#color)). Pick a type when a property needs a color, a gap, a shadow, and so on. [`Duration`](#duration), [`Easing`](#easing), [`Transition`](#transition), [`Pose`](#pose), [`Stagger`](#stagger), and [`Motion`](#motion) are the motion types — they exist for handler `animate =`.
 
 ### `Color`
 
@@ -867,7 +867,7 @@ width = 240
 
 Draft. Animation length in milliseconds. Unitless — not `150ms`.
 
-Category: motion (draft). Used on: [`Transition`](#transition).[`duration`](#duration), `animate`.
+Category: motion (draft). Used on: [`Transition`](#transition).[`duration`](#duration), [`Stagger`](#stagger).`step`, `animate`.
 
 Accepted syntax:
 
@@ -898,9 +898,9 @@ primitive motion.easing.linear: Easing = "linear"
 
 ### `Transition`
 
-Draft. A duration plus easing, and an optional delay (default 0). Written as a tuple, not a constructor call. Themes replace a Transition wholly — no deep merge.
+A duration plus easing, and an optional delay (default 0). Written as a tuple, not a constructor call. Themes replace a Transition wholly — no deep merge. A Transition is valid `animate =` sugar for `Motion(transition: …)`.
 
-Category: motion (draft). Used on: `animate`.
+Category: motion (draft). Used on: [`Motion`](#motion).[`transition`](#transition), `animate`.
 
 Accepted syntax:
 
@@ -911,6 +911,57 @@ Accepted syntax:
 ```pdl
 semantic motion.appear: Transition = (duration: motion.duration.standard, easing: motion.easing.standard)
 semantic motion.instant: Transition = (duration: 0, easing: motion.easing.linear)
+```
+
+### `Pose`
+
+An overlay snapshot for appear / dismiss. Not layout. v1 fields: opacity (0…1), scale (unitless), scaleX, scaleY, translateX, translateY, blur (CSS px). At least one field is required. Unknown labels are PDL-E005. The handler names the direction: appear plays from the pose to rest; dismiss plays from rest to the pose. Themes replace a Pose wholly — no field merge.
+
+Category: motion (draft). Used on: [`Motion`](#motion).[`pose`](#pose).
+
+Accepted syntax:
+
+- `Pose(opacity: 0, scale: 0.95, translateY: 8)` — Constructor. All fields optional except that one must be present.
+- `pose.fadeUp` — A Pose token.
+
+```pdl
+semantic pose.fadeUp: Pose = Pose(opacity: 0, scale: 0.95, translateY: 8)
+```
+
+### `Stagger`
+
+How a [`Pose`](#pose) is distributed across the handler’s direct visible children. `step` is a Duration (milliseconds). `from` is `.first` or `.last` (default `.first`). Illegal without a [`Pose`](#pose) on the same [`Motion`](#motion). Themes replace a Stagger wholly.
+
+Category: motion (draft). Used on: [`Motion`](#motion).[`stagger`](#stagger).
+
+Accepted syntax:
+
+- `Stagger(step: 30)` — Step only; direction defaults to `.first`.
+- `Stagger(step: 30, from: .first)` — Or `from: .last`.
+- `motion.stagger.list` — A Stagger token.
+
+```pdl
+semantic motion.stagger.list: Stagger = Stagger(step: 30, from: .first)
+```
+
+### `Motion`
+
+The value of `animate =`. Joins a [`Transition`](#transition) with an optional [`Pose`](#pose) and optional [`Stagger`](#stagger): pose these nodes with this curve, staggered like this. [`transition`](#transition) is required. [`pose`](#pose) and [`stagger`](#stagger) are lifecycle-only (`appear` / `dismiss`). [`stagger`](#stagger) without [`pose`](#pose) is rejected. A [`Transition`](#transition) token or tuple is sugar for `Motion(transition: …)`. Themes replace a Motion wholly — no field merge.
+
+Category: motion (draft). Used on: `animate`.
+
+Accepted syntax:
+
+- `Motion(transition: motion.appear)` — Curve only — hover / implicit interpolation.
+- `Motion(transition: motion.appear, pose: Pose(opacity: 0))` — Lifecycle overlay. Handler name is the direction.
+- `Motion(transition: motion.appear, pose: pose.fadeUp, stagger: Stagger(step: 30, from: .first))` — Full join.
+- `motion.appear` — A [`Transition`](#transition) token — sugar for Motion(transition: that).
+- `(duration: 250, easing: "ease-out")` — A [`Transition`](#transition) tuple — same sugar.
+- `motion.enterCard` — A Motion token.
+
+```pdl
+semantic motion.enterCard: Motion = Motion(transition: motion.appear, pose: pose.fadeUp)
+semantic motion.enterList: Motion = Motion(transition: motion.appear, pose: pose.fadeUp, stagger: Stagger(step: 30, from: .first))
 ```
 
 ### `Blur`
@@ -1161,6 +1212,9 @@ Asymmetric radii: Corner(tl:, tr:, br:, bl:). Produces [`CornerRadii`](#cornerra
 | [`Shadow(…)`](#shadow) | Shadow(x:, y:, blurRadius:, color: [, spread:]). Axes are numbers or numeric tokens; color is a [`Color`](#color). spread defaults to 0. |
 | [`GradientStop(…)`](#gradientstop) | GradientStop(position: 0…1 [, opacity:] [, color:]). |
 | [`Vibrancy(…)`](#vibrancy) | Vibrancy(saturation:, brightness:). Used on [`Blur`](#blur) or as its own layer token. |
+| [`Pose(…)`](#pose) | Overlay snapshot: Pose(opacity:, scale:, scaleX:, scaleY:, translateX:, translateY:, blur:). At least one field. Used on [`Motion.pose`](#motion). |
+| [`Stagger(…)`](#stagger) | Stagger(step: [`Duration`](#duration) [, from: .first\|.last]). Used on [`Motion.stagger`](#motion). from defaults to .first. |
+| [`Motion(…)`](#motion) | Motion(transition: [`Transition`](#transition) [, pose: [`Pose`](#pose)] [, stagger: [`Stagger`](#stagger)]). The type of animate =. A bare [`Transition`](#transition) is sugar for Motion(transition: …). |
 
 ## Layers {#layers}
 
@@ -1707,41 +1761,37 @@ component SearchField <EditableText>(
 
 ## Handler motion (draft) {#motion}
 
-Animation clauses on host handlers: which [`Transition`](#transition) to run, enter/exit snapshots, and list stagger. Bake stays at rest pose; the HTML host plays a CSS overlay.
+One `animate =` assignment on a host handler. Its type is Motion: a [`Transition`](#transition), an optional [`Pose`](#pose), and an optional [`Stagger`](#stagger). A bare [`Transition`](#transition) is sugar for Motion(transition: …). Bake stays at rest; the HTML host plays a CSS overlay.
 
-Host handler bodies may name a [`Transition`](#transition) and enter/exit snapshots. Bake is the rest pose. The HTML host plays a CSS overlay — not layout. Units: [`Duration`](#duration) is milliseconds; translate and blur are CSS pixels; scale is unitless; opacity is 0…1. v1 props: [`opacity`](#opacity), `scale`, `scaleX`, `scaleY`, `translateX`, `translateY`, [`blur`](#blur). Unknown keys in `from` / `to` are ignored. `animate = motion.appear` selects a [`Transition`](#transition) token or tuple. `from { … }` is the appear start snapshot; `to { … }` is the dismiss end snapshot. `stagger` is a millisecond increment between direct visible child frames; `staggerFrom` is `.first` or `.last`.
+Host handler bodies have one motion assignment: `animate =`. Its type is Motion — a [`Transition`](#transition) plus an optional [`Pose`](#pose) and optional [`Stagger`](#stagger). A [`Transition`](#transition) token or tuple is sugar for `Motion(transition: …)`. Bake is the rest pose. The HTML host plays a CSS overlay — not layout. Units: [`Duration`](#duration) is milliseconds; translate and blur are CSS pixels; scale is unitless; opacity is 0…1. v1 [`Pose`](#pose) fields: [`opacity`](#opacity), `scale`, `scaleX`, `scaleY`, `translateX`, `translateY`, [`blur`](#blur). The handler is the direction: `appear` plays from the pose to rest; `dismiss` plays from rest to the pose. [`pose`](#pose) and [`stagger`](#stagger) are legal only on `appear` / `dismiss`. [`stagger`](#stagger) without [`pose`](#pose) is rejected.
 
 Accepted syntax:
 
-- `animate = motion.interactive` — Use this [`Transition`](#transition) for property changes this handler triggers (implicit interpolation) and for from/to snapshots.
-- `from { opacity = 0 scale = 0.95 translateY = 8 }` — Enter snapshot on `appear`. translateY is px; scale is unitless.
-- `to { opacity = 0 }` — Exit snapshot on `dismiss`.
-- `stagger = 30` — Delay increment in ms between consecutive visible children.
-- `staggerFrom = .first` — Or `.last`. Order of stagger.
+- `animate = motion.interactive` — [`Transition`](#transition) sugar. Use this curve for property changes this handler triggers (implicit interpolation).
+- `animate = Motion(transition: motion.appear, pose: Pose(opacity: 0, scale: 0.95, translateY: 8))` — Lifecycle overlay. appear = from pose; dismiss = to pose.
+- `animate = Motion(transition: motion.appear, pose: pose.fadeUp, stagger: Stagger(step: 30, from: .first))` — [`Pose`](#pose) each direct visible child with this [`Transition`](#transition); stagger them like this.
 
 Rejected:
 
 - `interaction Appear { on appear { … } }` — The `interaction` keyword is removed (PDL-E001). Put motion on `self.appear = { … }`.
+- `from { opacity = 0 }` — Removed. Write `pose: Pose(opacity: 0)` on Motion.
+- `stagger = 30` — Removed. Write `stagger: Stagger(step: 30, from: .first)` on Motion.
+- `animate = Motion(transition: motion.appear, stagger: Stagger(step: 30))` — [`Stagger`](#stagger) without pose is rejected.
+- `self.hoverStart = { animate = Motion(transition: motion.interactive, pose: Pose(opacity: 0)) }` — pose and stagger are appear / dismiss only.
 
 ```pdl
 component Modal <PointerInput>() layout {
   let title = Text(content: "Hello")
   children = [title]
   self.appear = {
-    animate = motion.appear
-    from {
-      opacity = 0
-      scale = 0.95
-    }
-    stagger = 30
-    staggerFrom = .first
+    animate = Motion(
+      transition: motion.appear,
+      pose: Pose(opacity: 0, scale: 0.95),
+      stagger: Stagger(step: 30, from: .first)
+    )
   }
   self.dismiss = {
-    animate = motion.dismiss
-    to {
-      opacity = 0
-      scale = 0.95
-    }
+    animate = Motion(transition: motion.dismiss, pose: Pose(opacity: 0, scale: 0.95))
   }
 }
 ```

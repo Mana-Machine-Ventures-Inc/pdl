@@ -27,6 +27,8 @@ import { pathToFileURL } from "node:url";
  * @property {boolean} [interactiveHost] Inject hover/press host script
  * @property {Record<string, unknown>} [interactionsByComponent]
  * @property {Record<string, unknown>} [emitCapturesByComponent]
+ * @property {Record<string, string>} [usageByComponent]
+ * @property {Record<string, unknown>} [rulesByComponent]
  * @property {Record<string, Record<string, unknown>>} [stateTrees] Extra state bakes per component
  * @property {Record<string, unknown>} [paramControlsByComponent]
  * @property {Record<string, Record<string, unknown>>} [componentOverrides] Per-component bake param overrides
@@ -281,6 +283,8 @@ export async function bakeAndRender(req) {
       interactiveHost: req.interactiveHost === true,
       interactionsByComponent: req.interactionsByComponent,
       emitCapturesByComponent: req.emitCapturesByComponent,
+      usageByComponent: req.usageByComponent,
+      rulesByComponent: req.rulesByComponent,
       stateTrees: req.stateTrees,
       paramControlsByComponent: req.paramControlsByComponent,
     });

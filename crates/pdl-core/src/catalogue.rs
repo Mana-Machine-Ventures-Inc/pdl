@@ -157,22 +157,6 @@ fn serialise_interaction_handler_item(item: &InteractionHandlerItem) -> Value {
             ("kind", Value::String("animate".to_string())),
             ("value", serialise_value_expr(value)),
         ]),
-        InteractionHandlerItem::From { props } => obj(vec![
-            ("kind", Value::String("from".to_string())),
-            ("props", serialise_motion_props(props)),
-        ]),
-        InteractionHandlerItem::To { props } => obj(vec![
-            ("kind", Value::String("to".to_string())),
-            ("props", serialise_motion_props(props)),
-        ]),
-        InteractionHandlerItem::Stagger { ms } => obj(vec![
-            ("kind", Value::String("stagger".to_string())),
-            ("ms", number_value(*ms)),
-        ]),
-        InteractionHandlerItem::StaggerFrom { value } => obj(vec![
-            ("kind", Value::String("staggerFrom".to_string())),
-            ("value", Value::String(value.clone())),
-        ]),
         InteractionHandlerItem::Emit { name, args } => obj(vec![
             ("kind", Value::String("emit".to_string())),
             ("name", Value::String(name.clone())),
@@ -235,14 +219,6 @@ fn serialise_interaction_if_chain(chain: &InteractionIfChain) -> Value {
     obj(entries)
 }
 
-fn serialise_motion_props(props: &IndexMap<String, ValueExpr>) -> Value {
-    let mut m = Map::new();
-    for (k, v) in props {
-        m.insert(k.clone(), serialise_value_expr(v));
-    }
-    Value::Object(m)
-}
-
 fn try_eval_value(
     expr: &ValueExpr,
     design: &DesignDefinition,
@@ -269,12 +245,7 @@ fn json_as_f64(v: &Value) -> Option<f64> {
     }
 }
 
-fn evaluate_motion_transition(
-    expr: &ValueExpr,
-    design: &DesignDefinition,
-    tokens: &mut Tokens,
-) -> Option<Value> {
-    let raw = try_eval_value(expr, design, tokens)?;
+fn transition_from_json(raw: &Value) -> Option<Value> {
     let o = raw.as_object()?;
     let duration = o.get("duration").and_then(json_as_f64)?;
     if !duration.is_finite() || duration < 0.0 {
@@ -300,17 +271,14 @@ fn evaluate_motion_transition(
     ]))
 }
 
-fn evaluate_motion_snapshot(
-    props: &IndexMap<String, ValueExpr>,
-    design: &DesignDefinition,
-    tokens: &mut Tokens,
-) -> Option<Value> {
+fn pose_from_json(raw: &Value) -> Option<Value> {
+    let o = raw.as_object()?;
     let mut m = Map::new();
-    for (k, v) in props {
-        if !is_motion_prop_name(k) {
+    for (k, v) in o {
+        if k == "kind" || !is_motion_prop_name(k) {
             continue;
         }
-        if let Some(n) = try_eval_value(v, design, tokens).as_ref().and_then(json_as_f64) {
+        if let Some(n) = json_as_f64(v) {
             if n.is_finite() {
                 m.insert(k.clone(), number_value(n));
             }
@@ -323,48 +291,77 @@ fn evaluate_motion_snapshot(
     }
 }
 
-fn evaluate_handler_motion(
-    body: &[InteractionHandlerItem],
-    design: &DesignDefinition,
-    tokens: &mut Tokens,
-) -> Option<Value> {
+fn stagger_from_json(raw: &Value) -> (Option<f64>, Option<String>) {
+    let Some(o) = raw.as_object() else {
+        return (json_as_f64(raw).filter(|n| n.is_finite() && *n >= 0.0), None);
+    };
+    let step = o.get("step").and_then(json_as_f64).filter(|n| n.is_finite() && *n >= 0.0);
+    let from = o
+        .get("from")
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim_start_matches('.').to_string())
+        .filter(|s| s == "first" || s == "last");
+    (step, from)
+}
+
+fn motion_spec_from_eval(raw: &Value) -> Option<Value> {
+    let o = raw.as_object()?;
     let mut entries: Vec<(&str, Value)> = Vec::new();
-    for item in body {
-        match item {
-            InteractionHandlerItem::Animate { value } => {
-                if let Some(t) = evaluate_motion_transition(value, design, tokens) {
-                    entries.retain(|(k, _)| *k != "transition");
-                    entries.push(("transition", t));
-                }
-            }
-            InteractionHandlerItem::From { props } => {
-                if let Some(s) = evaluate_motion_snapshot(props, design, tokens) {
-                    entries.retain(|(k, _)| *k != "from");
-                    entries.push(("from", s));
-                }
-            }
-            InteractionHandlerItem::To { props } => {
-                if let Some(s) = evaluate_motion_snapshot(props, design, tokens) {
-                    entries.retain(|(k, _)| *k != "to");
-                    entries.push(("to", s));
-                }
-            }
-            InteractionHandlerItem::Stagger { ms } => {
-                entries.retain(|(k, _)| *k != "stagger");
-                entries.push(("stagger", number_value(*ms)));
-            }
-            InteractionHandlerItem::StaggerFrom { value } => {
-                entries.retain(|(k, _)| *k != "staggerFrom");
-                entries.push(("staggerFrom", Value::String(value.clone())));
-            }
-            _ => {}
+    let is_motion = o.get("kind").and_then(|v| v.as_str()) == Some("motion")
+        || o.contains_key("transition")
+        || o.contains_key("pose");
+    if is_motion {
+        let t_src = o.get("transition").unwrap_or(raw);
+        if let Some(t) = transition_from_json(t_src) {
+            entries.push(("transition", t));
         }
+        if let Some(p) = o.get("pose").and_then(pose_from_json) {
+            entries.push(("pose", p));
+        }
+        if let Some(st) = o.get("stagger") {
+            let (step, from) = stagger_from_json(st);
+            if let Some(n) = step {
+                entries.push(("stagger", number_value(n)));
+            }
+            if let Some(f) = from {
+                entries.push(("staggerFrom", Value::String(f)));
+            }
+        }
+        if let Some(from) = o
+            .get("staggerFrom")
+            .and_then(|v| v.as_str())
+            .map(|s| s.trim_start_matches('.').to_string())
+            .filter(|s| s == "first" || s == "last")
+        {
+            entries.retain(|(k, _)| *k != "staggerFrom");
+            entries.push(("staggerFrom", Value::String(from)));
+        }
+    } else if let Some(t) = transition_from_json(raw) {
+        entries.push(("transition", t));
     }
     if entries.is_empty() {
         None
     } else {
         Some(obj(entries))
     }
+}
+
+fn evaluate_handler_motion(
+    body: &[InteractionHandlerItem],
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+) -> Option<Value> {
+    let mut merged: Option<Value> = None;
+    for item in body {
+        if let InteractionHandlerItem::Animate { value } = item {
+            if let Some(raw) = try_eval_value(value, design, tokens) {
+                if let Some(spec) = motion_spec_from_eval(&raw) {
+                    merged = Some(spec);
+                }
+            }
+        }
+    }
+    merged
 }
 
 fn serialise_interaction_decl(

@@ -116,11 +116,7 @@ fn run_body(
                     _ => {}
                 }
             }
-            InteractionHandlerItem::Animate { .. }
-            | InteractionHandlerItem::From { .. }
-            | InteractionHandlerItem::To { .. }
-            | InteractionHandlerItem::Stagger { .. }
-            | InteractionHandlerItem::StaggerFrom { .. } => {}
+            InteractionHandlerItem::Animate { .. } => {}
             InteractionHandlerItem::If { chain } => {
                 if run_if_chain(chain, params, emits) {
                     changed = true;

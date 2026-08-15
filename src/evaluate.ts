@@ -343,6 +343,26 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
         easing: evaluateValue(expr.easing, opts),
         ...(expr.delay !== undefined ? { delay: evaluateValue(expr.delay, opts) } : {}),
       };
+    case "pose": {
+      const props: Record<string, unknown> = { kind: "pose" };
+      for (const [k, v] of Object.entries(expr.props)) {
+        props[k] = evaluateValue(v, opts);
+      }
+      return props;
+    }
+    case "stagger":
+      return {
+        kind: "stagger",
+        step: evaluateValue(expr.step, opts),
+        ...(expr.from !== undefined ? { from: evaluateValue(expr.from, opts) } : {}),
+      };
+    case "motion":
+      return {
+        kind: "motion",
+        transition: evaluateValue(expr.transition, opts),
+        ...(expr.pose !== undefined ? { pose: evaluateValue(expr.pose, opts) } : {}),
+        ...(expr.stagger !== undefined ? { stagger: evaluateValue(expr.stagger, opts) } : {}),
+      };
     case "vibrancyTuple":
       return { saturation: expr.saturation, brightness: expr.brightness };
     case "rampInline":

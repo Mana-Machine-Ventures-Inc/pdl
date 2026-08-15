@@ -255,8 +255,9 @@
     },
     {
       "code": "PDL-W009",
-      "name": "unknown-motion-prop",
-      "trigger": "A `from` / `to` snapshot names a key that is not a v1 motion overlay prop (`opacity`, `scale`, `scaleX`, `scaleY`, `translateX`, `translateY`, `blur`). The key is ignored; bake does not fail."
+      "name": null,
+      "retired": true,
+      "trigger": "Formerly `unknown-motion-prop` on `from` / `to` snapshot keys. Those blocks are removed; unknown `Pose(…)` labels are PDL-E005."
     }
   ]
 }

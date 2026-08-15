@@ -64,7 +64,7 @@ Catalog: [`shared/diagnostics.json`](https://github.com/VeryTinyMachines/pdl/blo
 | **PDL-W006** | `empty-component` | A component's root frame has no children and no content properties set. Likely a stub. |
 | **PDL-W007** | `unreachable-override-branch` | A branch in an `if` / `else if` / `else` chain can never be reached because an earlier branch covers all cases of the variant. |
 | **PDL-W008** | *(retired)* | Formerly `interaction-targets-unexposed-param`. **`expose` removed** — do not emit. |
-| **PDL-W009** | `unknown-motion-prop` | A `from` / `to` snapshot names a key that is not a v1 motion overlay prop (`opacity`, `scale`, `scaleX`, `scaleY`, `translateX`, `translateY`, `blur`). The key is ignored; bake does not fail. |
+| **PDL-W009** | *(retired)* | Formerly `unknown-motion-prop` on `from` / `to` snapshot keys. Those blocks are removed; unknown `Pose(…)` labels are PDL-E005. |
 
 ## Message requirements
 
@@ -147,10 +147,6 @@ Catalog: [`shared/keywords.json`](https://github.com/VeryTinyMachines/pdl/blob/m
 | `tags` | — |
 | `where` | — |
 | `animate` | — |
-| `from` | — |
-| `to` | — |
-| `stagger` | — |
-| `staggerFrom` | — |
 
 ### Typed constructors (lexer keywords)
 
@@ -180,6 +176,9 @@ These are type/ctor names, not user identifiers. World A frame ctors Text / Layo
 | `Duration` | — |
 | `Easing` | — |
 | `Transition` | — |
+| `Pose` | — |
+| `Stagger` | — |
+| `Motion` | — |
 | `Ramp` | — |
 | `Blur` | — |
 | `Media` | — |

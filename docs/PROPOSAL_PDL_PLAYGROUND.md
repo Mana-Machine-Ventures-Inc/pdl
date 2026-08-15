@@ -178,7 +178,7 @@ React Native note: **reuse `pdl-core`**, not the web Playground UI. A React **ho
 | **Quick preview** | Remains eng harness; Playground is the **demo shell**. Amend §4: playground is no longer “freeze only” — it becomes this product under a hard fence vs Studio. |
 | **Portable core** | Playground is a consumer of Rust bake; WASM/C ABI are packaging steps, not a new language. |
 | **Slots / protocols / fixtures** | Packs and per-component Playground fixture selects exercise §11 scenarios. |
-| **Typed samples** | Packs author `samples` banks (`full-spec` §11a); Playground assigns scalars only — no host JS catalogs. |
+| **Typed samples** | Packs author `samples` banks; Playground assigns scalars only — no host JS catalogs. |
 | **Manifesto** | Open SoT, working artifacts, compose — packs + visible PDL + bake preview. |
 
 ---

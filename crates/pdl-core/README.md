@@ -35,7 +35,7 @@ let resolved =
 
 | Module | Role |
 |--------|------|
-| `lexer` / `parser` / `ast` | §20–§21 parse (`enum` ≡ `variant` closed sets) |
+| `lexer` / `parser` / `ast` | `grammar/pdl.ebnf` parse (`enum` ≡ `variant` closed sets) |
 | `design` | Import graph + merge → `DesignDefinition` |
 | `validate` | Merged-design checks |
 | `evaluate` | Token map / value eval |

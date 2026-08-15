@@ -1,7 +1,7 @@
 import { fixedSizingAxisProps, uniformEdgeInsetProps } from "./frameProps.js";
 import { PdlError } from "./errors.js";
 
-/** Frame props where a single non-negative number means uniform `EdgeInsets` (full-spec §6 / shared/frame-props.json). */
+/** Frame props where a single non-negative number means uniform `EdgeInsets` (`shared/frame-props.json`). */
 const UNIFORM_EDGE_INSETS = uniformEdgeInsetProps();
 
 /** `width` / `height`: non-negative number is sugar for `.fixed(n)` → `{ fixed: n }` after evaluation. */

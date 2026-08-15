@@ -15,7 +15,7 @@
     "conditionals": "Change a handful of properties when a parameter or state changes. First match wins.",
     "conditions": "Comparisons and booleans used in `if` and ForEach. Keep `&&` and `||` in separate expressions, or parenthesize.",
     "null": "Clear a frame or typeStyle property so the default applies. Not a token value.",
-    "tokenTypes": "Named values you declare once and reuse. Write `primitive` for the raw palette and `semantic` for the names components should use (`color.surface`). Pick a type when a property needs a color, a gap, a shadow, and so on. Duration, Easing, and Transition are draft — they exist for handler motion, which is not finished.",
+    "tokenTypes": "Named values you declare once and reuse. Write `primitive` for the raw palette and `semantic` for the names components should use (`color.surface`). Pick a type when a property needs a color, a gap, a shadow, and so on. Duration, Easing, Transition, Pose, Stagger, and Motion are the motion types — they exist for handler `animate =`.",
     "theme": "A named remap of tokens you already declared. Use a theme for light/dark, brand, or reduced motion. Components keep using semantic names; the theme changes what those names resolve to.",
     "typeStyle": "A named bundle of text-frame properties. A text frame sets `style = Name`. Body lines are the same properties as a text frame.",
     "values": "Structured values you pass to properties — insets, shadows, corners, gradient stops.",
@@ -26,7 +26,7 @@
     "emits": "How a child tells its parent something happened — a chip was selected, a field changed. Declare the channel, fire it from a click, and listen on the parent.",
     "protocols": "A shared contract so several components can sit in the same list and speak the same language. Use an API protocol when different chip types all `select`. Use a host protocol when the preview must deliver clicks or typing.",
     "hostPrelude": "A host protocol lets the preview (or app) trigger component changes: hover color, a click, focus, typing. Use `PointerInput` for buttons and chips; use `EditableText` for a field the user types into. Opt in with `component C <PointerInput>`. These names are built in — you do not import them.",
-    "motion": "Animation clauses on host handlers: which Transition to run, enter/exit snapshots, and list stagger. Bake stays at rest pose; the HTML host plays a CSS overlay.",
+    "motion": "One `animate =` assignment on a host handler. Its type is Motion: a Transition, an optional Pose, and an optional Stagger. A bare Transition is sugar for Motion(transition: …). Bake stays at rest; the HTML host plays a CSS overlay.",
     "samples": "Reusable catalogs of instances you mount in layout so a prototype can stay interactive — a library of tracks, a set of chips, an empty list you can switch to. Write the catalog once and point at `Tracks.library.tracks` from a parameter default or from `children`. Isolated component examples, the kind you would put in design-system documentation, belong in fixtures.",
     "fixtures": "A fixture is a named bag of parameter values for one component. The Playground Fixture menu shows the labels. Each `example` is concrete values only — not other parameters, not layout. Flip through them to preview states without editing the component. Use fixtures for the examples you would put in design-system documentation — primary vs secondary, large vs small. Use them also for a whole view: empty search, a night playlist, mid-rename. Samples are the catalogs you mount; a fixture chooses which world the preview is in.",
     "usage": "A written note on a component for authors and tools. In v1 the only key is `description`.",
@@ -471,6 +471,7 @@
       "category": "motion",
       "usedOn": [
         "Transition.duration",
+        "Stagger.step",
         "animate"
       ],
       "meaning": "Draft. Animation length in milliseconds. Unitless — not `150ms`.",
@@ -513,9 +514,10 @@
       "name": "Transition",
       "category": "motion",
       "usedOn": [
+        "Motion.transition",
         "animate"
       ],
-      "meaning": "Draft. A duration plus easing, and an optional delay (default 0). Written as a tuple, not a constructor call. Themes replace a Transition wholly — no deep merge.",
+      "meaning": "A duration plus easing, and an optional delay (default 0). Written as a tuple, not a constructor call. Themes replace a Transition wholly — no deep merge. A Transition is valid `animate =` sugar for `Motion(transition: …)`.",
       "accept": [
         {
           "form": "(duration: …, easing: …)",
@@ -531,6 +533,83 @@
         }
       ],
       "example": "semantic motion.appear: Transition = (duration: motion.duration.standard, easing: motion.easing.standard)\nsemantic motion.instant: Transition = (duration: 0, easing: motion.easing.linear)"
+    },
+    {
+      "name": "Pose",
+      "category": "motion",
+      "usedOn": [
+        "Motion.pose"
+      ],
+      "meaning": "An overlay snapshot for appear / dismiss. Not layout. v1 fields: opacity (0…1), scale (unitless), scaleX, scaleY, translateX, translateY, blur (CSS px). At least one field is required. Unknown labels are PDL-E005. The handler names the direction: appear plays from the pose to rest; dismiss plays from rest to the pose. Themes replace a Pose wholly — no field merge.",
+      "accept": [
+        {
+          "form": "Pose(opacity: 0, scale: 0.95, translateY: 8)",
+          "meaning": "Constructor. All fields optional except that one must be present."
+        },
+        {
+          "form": "pose.fadeUp",
+          "meaning": "A Pose token."
+        }
+      ],
+      "example": "semantic pose.fadeUp: Pose = Pose(opacity: 0, scale: 0.95, translateY: 8)"
+    },
+    {
+      "name": "Stagger",
+      "category": "motion",
+      "usedOn": [
+        "Motion.stagger"
+      ],
+      "meaning": "How a Pose is distributed across the handler’s direct visible children. `step` is a Duration (milliseconds). `from` is `.first` or `.last` (default `.first`). Illegal without a Pose on the same Motion. Themes replace a Stagger wholly.",
+      "accept": [
+        {
+          "form": "Stagger(step: 30)",
+          "meaning": "Step only; direction defaults to `.first`."
+        },
+        {
+          "form": "Stagger(step: 30, from: .first)",
+          "meaning": "Or `from: .last`."
+        },
+        {
+          "form": "motion.stagger.list",
+          "meaning": "A Stagger token."
+        }
+      ],
+      "example": "semantic motion.stagger.list: Stagger = Stagger(step: 30, from: .first)"
+    },
+    {
+      "name": "Motion",
+      "category": "motion",
+      "usedOn": [
+        "animate"
+      ],
+      "meaning": "The value of `animate =`. Joins a Transition with an optional Pose and optional Stagger: pose these nodes with this curve, staggered like this. `transition` is required. `pose` and `stagger` are lifecycle-only (`appear` / `dismiss`). `stagger` without `pose` is rejected. A Transition token or tuple is sugar for `Motion(transition: …)`. Themes replace a Motion wholly — no field merge.",
+      "accept": [
+        {
+          "form": "Motion(transition: motion.appear)",
+          "meaning": "Curve only — hover / implicit interpolation."
+        },
+        {
+          "form": "Motion(transition: motion.appear, pose: Pose(opacity: 0))",
+          "meaning": "Lifecycle overlay. Handler name is the direction."
+        },
+        {
+          "form": "Motion(transition: motion.appear, pose: pose.fadeUp, stagger: Stagger(step: 30, from: .first))",
+          "meaning": "Full join."
+        },
+        {
+          "form": "motion.appear",
+          "meaning": "A Transition token — sugar for Motion(transition: that)."
+        },
+        {
+          "form": "(duration: 250, easing: \"ease-out\")",
+          "meaning": "A Transition tuple — same sugar."
+        },
+        {
+          "form": "motion.enterCard",
+          "meaning": "A Motion token."
+        }
+      ],
+      "example": "semantic motion.enterCard: Motion = Motion(transition: motion.appear, pose: pose.fadeUp)\nsemantic motion.enterList: Motion = Motion(transition: motion.appear, pose: pose.fadeUp, stagger: Stagger(step: 30, from: .first))"
     },
     {
       "name": "Blur",
@@ -1237,6 +1316,21 @@
       "meaning": "Vibrancy(saturation:, brightness:). Used on Blur or as its own layer token."
     },
     {
+      "name": "Pose",
+      "kind": "value",
+      "meaning": "Overlay snapshot: Pose(opacity:, scale:, scaleX:, scaleY:, translateX:, translateY:, blur:). At least one field. Used on Motion.pose."
+    },
+    {
+      "name": "Stagger",
+      "kind": "value",
+      "meaning": "Stagger(step: Duration [, from: .first|.last]). Used on Motion.stagger. from defaults to .first."
+    },
+    {
+      "name": "Motion",
+      "kind": "value",
+      "meaning": "Motion(transition: Transition [, pose: Pose] [, stagger: Stagger]). The type of animate =. A bare Transition is sugar for Motion(transition: …)."
+    },
+    {
       "name": "MediaLayer",
       "kind": "layer",
       "meaning": "Media fill in a background/foreground stack: MediaLayer(source:, contentMode: … [, opacity:]). Produces token type Media. Do not postfix @ if opacity: is already set (PDL-E020)."
@@ -1702,36 +1796,44 @@
     "example": "component LibrarySubnav(\n  currentFilter: FilterId = .all,\n  chips: [FilterChip] = [FilterChip(filter: .all)]\n) layout {\n  ForEach(chips) { chip in\n    chip.selected = self.currentFilter == filter\n  }\n  self.background = color.surface\n  children = chips\n}"
   },
   "motion": {
-    "meaning": "Host handler bodies may name a Transition and enter/exit snapshots. Bake is the rest pose. The HTML host plays a CSS overlay — not layout. Units: Duration is milliseconds; translate and blur are CSS pixels; scale is unitless; opacity is 0…1. v1 props: `opacity`, `scale`, `scaleX`, `scaleY`, `translateX`, `translateY`, `blur`. Unknown keys in `from` / `to` are ignored. `animate = motion.appear` selects a Transition token or tuple. `from { … }` is the appear start snapshot; `to { … }` is the dismiss end snapshot. `stagger` is a millisecond increment between direct visible child frames; `staggerFrom` is `.first` or `.last`.",
+    "meaning": "Host handler bodies have one motion assignment: `animate =`. Its type is Motion — a Transition plus an optional Pose and optional Stagger. A Transition token or tuple is sugar for `Motion(transition: …)`. Bake is the rest pose. The HTML host plays a CSS overlay — not layout. Units: Duration is milliseconds; translate and blur are CSS pixels; scale is unitless; opacity is 0…1. v1 Pose fields: `opacity`, `scale`, `scaleX`, `scaleY`, `translateX`, `translateY`, `blur`. The handler is the direction: `appear` plays from the pose to rest; `dismiss` plays from rest to the pose. `pose` and `stagger` are legal only on `appear` / `dismiss`. `stagger` without `pose` is rejected.",
     "accept": [
       {
         "form": "animate = motion.interactive",
-        "meaning": "Use this Transition for property changes this handler triggers (implicit interpolation) and for from/to snapshots."
+        "meaning": "Transition sugar. Use this curve for property changes this handler triggers (implicit interpolation)."
       },
       {
-        "form": "from { opacity = 0 scale = 0.95 translateY = 8 }",
-        "meaning": "Enter snapshot on `appear`. translateY is px; scale is unitless."
+        "form": "animate = Motion(transition: motion.appear, pose: Pose(opacity: 0, scale: 0.95, translateY: 8))",
+        "meaning": "Lifecycle overlay. appear = from pose; dismiss = to pose."
       },
       {
-        "form": "to { opacity = 0 }",
-        "meaning": "Exit snapshot on `dismiss`."
-      },
-      {
-        "form": "stagger = 30",
-        "meaning": "Delay increment in ms between consecutive visible children."
-      },
-      {
-        "form": "staggerFrom = .first",
-        "meaning": "Or `.last`. Order of stagger."
+        "form": "animate = Motion(transition: motion.appear, pose: pose.fadeUp, stagger: Stagger(step: 30, from: .first))",
+        "meaning": "Pose each direct visible child with this Transition; stagger them like this."
       }
     ],
     "reject": [
       {
         "form": "interaction Appear { on appear { … } }",
         "meaning": "The `interaction` keyword is removed (PDL-E001). Put motion on `self.appear = { … }`."
+      },
+      {
+        "form": "from { opacity = 0 }",
+        "meaning": "Removed. Write `pose: Pose(opacity: 0)` on Motion."
+      },
+      {
+        "form": "stagger = 30",
+        "meaning": "Removed. Write `stagger: Stagger(step: 30, from: .first)` on Motion."
+      },
+      {
+        "form": "animate = Motion(transition: motion.appear, stagger: Stagger(step: 30))",
+        "meaning": "Stagger without pose is rejected."
+      },
+      {
+        "form": "self.hoverStart = { animate = Motion(transition: motion.interactive, pose: Pose(opacity: 0)) }",
+        "meaning": "pose and stagger are appear / dismiss only."
       }
     ],
-    "example": "component Modal <PointerInput>() layout {\n  let title = Text(content: \"Hello\")\n  children = [title]\n  self.appear = {\n    animate = motion.appear\n    from {\n      opacity = 0\n      scale = 0.95\n    }\n    stagger = 30\n    staggerFrom = .first\n  }\n  self.dismiss = {\n    animate = motion.dismiss\n    to {\n      opacity = 0\n      scale = 0.95\n    }\n  }\n}"
+    "example": "component Modal <PointerInput>() layout {\n  let title = Text(content: \"Hello\")\n  children = [title]\n  self.appear = {\n    animate = Motion(\n      transition: motion.appear,\n      pose: Pose(opacity: 0, scale: 0.95),\n      stagger: Stagger(step: 30, from: .first)\n    )\n  }\n  self.dismiss = {\n    animate = Motion(transition: motion.dismiss, pose: Pose(opacity: 0, scale: 0.95))\n  }\n}"
   },
   "eventDirections": [
     {

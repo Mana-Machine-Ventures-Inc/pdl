@@ -9,7 +9,7 @@
 | **`PointerInput`** | Pointer / focus / lifecycle **inbound** channels (`pressEnd`, `hoverStart`, …) |
 | **`EditableText`** | Text editing session: inbound + verbs + injected **`value` (String)** / facts |
 
-These are **always in scope** — no import. Compilers inject the same contracts into every design merge (`crates/pdl-core` `HOST_PROTOCOL_PRELUDE`). Normative prose: [`docs/full-spec.md`](../../../docs/full-spec.md) **§4a′**. Proposal: [`docs/PROPOSAL_TEXTFIELD_EDITING_SESSIONS.md`](../../../docs/PROPOSAL_TEXTFIELD_EDITING_SESSIONS.md).
+These are **always in scope** — no import. Compilers inject the same contracts into every design merge (`crates/pdl-core` `HOST_PROTOCOL_PRELUDE`). Locked meanings: [`shared/language-objects.json`](../../../shared/language-objects.json) host prelude. Proposal: [`docs/PROPOSAL_TEXTFIELD_EDITING_SESSIONS.md`](../../../docs/PROPOSAL_TEXTFIELD_EDITING_SESSIONS.md).
 
 They are **not** child→parent `emits`. Host protocols declare:
 

@@ -112,24 +112,6 @@ function serialiseInteractionHandlerItem(item: InteractionHandlerItem): unknown 
       return { kind: "assign", param: item.param, value: serialiseValueExpr(item.value) };
     case "animate":
       return { kind: "animate", value: serialiseValueExpr(item.value) };
-    case "from":
-      return {
-        kind: "from",
-        props: Object.fromEntries(
-          Object.entries(item.props).map(([k, v]) => [k, serialiseValueExpr(v)]),
-        ),
-      };
-    case "to":
-      return {
-        kind: "to",
-        props: Object.fromEntries(
-          Object.entries(item.props).map(([k, v]) => [k, serialiseValueExpr(v)]),
-        ),
-      };
-    case "stagger":
-      return { kind: "stagger", ms: item.ms };
-    case "staggerFrom":
-      return { kind: "staggerFrom", value: item.value };
     case "emit":
       return { kind: "emit", name: item.name, args: item.args };
     case "hostVerb":
@@ -171,11 +153,17 @@ function evaluateMotionSpec(
         return undefined;
       }
     },
+    (expr) => {
+      try {
+        return evaluateValue(expr, { design, tokens: tokenMap });
+      } catch {
+        return undefined;
+      }
+    },
   );
   if (
     !spec.transition &&
-    !spec.from &&
-    !spec.to &&
+    !spec.pose &&
     spec.stagger == null &&
     spec.staggerFrom == null
   ) {

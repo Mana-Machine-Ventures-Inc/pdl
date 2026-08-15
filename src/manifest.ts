@@ -23,8 +23,8 @@ export type ManifestComponent = {
 };
 
 /**
- * Thin registry for tooling, CI, and documentation — not a substitute for the Component Catalogue (§16).
- * See `full-spec.md` §17.
+ * Thin registry for tooling, CI, and documentation — not a substitute for the Component Catalogue
+ * (`shared/schema/component-catalogue.json`).
  */
 export type DesignManifest = {
   kind: "designManifest";

@@ -1,6 +1,6 @@
 # Spec walk — blank-canvas coverage checklist
 
-**Goal:** From an empty `.pdl` file, author the language **bottom-up** and **see** each spec surface paint correctly (Rust bake → HTML). Closely tracks [`full-spec.md`](./full-spec.md) §§1–8, 14–15 (layers).
+**Goal:** From an empty `.pdl` file, author the language **bottom-up** and **see** each surface paint correctly (Rust bake → HTML). Tracks Language objects (`shared/language-objects.json`) — frames, tokens, `if`, `let`, layers.
 
 **Setup**
 

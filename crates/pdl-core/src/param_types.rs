@@ -1,4 +1,4 @@
-//! Built-in component / emit / value-let / token type names (§23.1 / §23.4).
+//! Built-in component / emit / value-let / token type names (`shared/language-objects.json`).
 //! Boolean params use **`Bool`** only — `Boolean` is not a type name.
 
 use crate::ast::{CallCallee, ValueExpr};
@@ -22,6 +22,9 @@ pub const BUILTIN_PARAM_TYPES: &[&str] = &[
     "Duration",
     "Easing",
     "Transition",
+    "Pose",
+    "Stagger",
+    "Motion",
     "Blur",
     "Vibrancy",
     "Ramp",
@@ -118,6 +121,9 @@ pub fn infer_value_let_type(value: &ValueExpr) -> Option<&'static str> {
         ValueExpr::IconFile { .. } | ValueExpr::IconSystem { .. } => Some("Icon"),
         ValueExpr::MediaSourceFile { .. } | ValueExpr::MediaSourceUrl { .. } => Some("MediaSource"),
         ValueExpr::Transition { .. } => Some("Transition"),
+        ValueExpr::Pose { .. } => Some("Pose"),
+        ValueExpr::Stagger { .. } => Some("Stagger"),
+        ValueExpr::Motion { .. } => Some("Motion"),
         ValueExpr::RampInline { .. } => Some("Ramp"),
         ValueExpr::Hex { .. } | ValueExpr::OpacityOf { .. } => Some("Color"),
         ValueExpr::Sizing { .. } => Some("Sizing"),

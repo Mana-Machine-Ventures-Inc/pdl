@@ -18,6 +18,107 @@ export function numberFromValueExpr(expr: ValueExpr): number | undefined {
   return undefined;
 }
 
+function snapshotFromPoseExpr(
+  expr: ValueExpr,
+  evalNumber: (expr: ValueExpr) => number | undefined,
+): MotionSnapshot | undefined {
+  if (expr.kind !== "pose") return undefined;
+  return evalSnapshot(expr.props, evalNumber);
+}
+
+function staggerFromExpr(
+  expr: ValueExpr,
+  evalNumber: (expr: ValueExpr) => number | undefined,
+): { stagger?: number; staggerFrom?: "first" | "last" } {
+  if (expr.kind !== "stagger") return {};
+  const step = evalNumber(expr.step);
+  const from =
+    expr.from?.kind === "dotEnum"
+      ? expr.from.value.replace(/^\./, "")
+      : expr.from?.kind === "string"
+        ? expr.from.value
+        : undefined;
+  return {
+    ...(step != null && Number.isFinite(step) ? { stagger: step } : {}),
+    ...(from === "first" || from === "last" ? { staggerFrom: from } : {}),
+  };
+}
+
+function specFromEvaluated(raw: unknown): MotionSpec {
+  if (raw == null || typeof raw !== "object") return {};
+  const o = raw as Record<string, unknown>;
+  const spec: MotionSpec = {};
+  if (o.kind === "motion" || o.transition != null || o.pose != null) {
+    const t = normalizeTransition(o.transition ?? o);
+    if (t) spec.transition = t;
+    const poseRaw = o.pose;
+    if (poseRaw && typeof poseRaw === "object") {
+      const pose = snapshotFromUnknown(poseRaw);
+      if (pose) spec.pose = pose;
+    }
+    const st = o.stagger;
+    if (st && typeof st === "object") {
+      const so = st as Record<string, unknown>;
+      const step = Number(so.step);
+      if (Number.isFinite(step) && step >= 0) spec.stagger = step;
+      const from = typeof so.from === "string" ? so.from.replace(/^\./, "") : undefined;
+      if (from === "first" || from === "last") spec.staggerFrom = from;
+    } else if (typeof st === "number" && Number.isFinite(st)) {
+      spec.stagger = st;
+    }
+    if (typeof o.staggerFrom === "string") {
+      const from = o.staggerFrom.replace(/^\./, "");
+      if (from === "first" || from === "last") spec.staggerFrom = from;
+    }
+    return spec;
+  }
+  const t = normalizeTransition(o);
+  if (t) spec.transition = t;
+  return spec;
+}
+
+function snapshotFromUnknown(raw: unknown): MotionSnapshot | undefined {
+  if (raw == null || typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  const snap: MotionSnapshot = {};
+  for (const key of Object.keys(o)) {
+    if (!isMotionPropName(key)) continue;
+    const n = Number(o[key]);
+    if (Number.isFinite(n)) snap[key] = n;
+  }
+  return Object.keys(snap).length ? snap : undefined;
+}
+
+function specFromAnimateExpr(
+  expr: ValueExpr,
+  evalNumber: (expr: ValueExpr) => number | undefined,
+  evalValue: (expr: ValueExpr) => unknown,
+): MotionSpec {
+  if (expr.kind === "motion") {
+    const spec: MotionSpec = {};
+    const t = normalizeTransition(evalValue(expr.transition));
+    if (t) spec.transition = t;
+    if (expr.pose) {
+      const pose =
+        snapshotFromPoseExpr(expr.pose, evalNumber) ?? snapshotFromUnknown(evalValue(expr.pose));
+      if (pose) spec.pose = pose;
+    }
+    if (expr.stagger) {
+      const fromAst = staggerFromExpr(expr.stagger, evalNumber);
+      Object.assign(spec, fromAst);
+      if (spec.stagger == null) {
+        Object.assign(spec, specFromEvaluated({ kind: "motion", stagger: evalValue(expr.stagger) }));
+      }
+    }
+    return spec;
+  }
+  if (expr.kind === "transition") {
+    const t = normalizeTransition(evalValue(expr));
+    return t ? { transition: t } : {};
+  }
+  return specFromEvaluated(evalValue(expr));
+}
+
 export function collectMotionFromHandlerItems(
   items: InteractionHandlerItem[],
   evalNumber: (expr: ValueExpr) => number | undefined = numberFromValueExpr,
@@ -30,21 +131,38 @@ export function collectMotionFromHandlerItems(
     }
     return undefined;
   },
+  evalValue: (expr: ValueExpr) => unknown = (expr) => {
+    if (expr.kind === "transition") return evalTransition(expr);
+    if (expr.kind === "number") return expr.value;
+    if (expr.kind === "string") return expr.value;
+    if (expr.kind === "dotEnum") return expr.value.replace(/^\./, "");
+    if (expr.kind === "pose") return { kind: "pose", ...evalSnapshot(expr.props, evalNumber) };
+    if (expr.kind === "stagger") {
+      return {
+        kind: "stagger",
+        step: evalNumber(expr.step),
+        ...(expr.from ? { from: evalValue(expr.from) } : {}),
+      };
+    }
+    if (expr.kind === "motion") {
+      return {
+        kind: "motion",
+        transition: evalValue(expr.transition),
+        ...(expr.pose ? { pose: evalValue(expr.pose) } : {}),
+        ...(expr.stagger ? { stagger: evalValue(expr.stagger) } : {}),
+      };
+    }
+    return undefined;
+  },
 ): MotionSpec {
   const spec: MotionSpec = {};
   for (const item of items) {
-    if (item.kind === "animate") {
-      const t = evalTransition(item.value);
-      if (t) spec.transition = t;
-    } else if (item.kind === "from") {
-      spec.from = evalSnapshot(item.props, evalNumber);
-    } else if (item.kind === "to") {
-      spec.to = evalSnapshot(item.props, evalNumber);
-    } else if (item.kind === "stagger") {
-      spec.stagger = item.ms;
-    } else if (item.kind === "staggerFrom") {
-      spec.staggerFrom = item.value;
-    }
+    if (item.kind !== "animate") continue;
+    const next = specFromAnimateExpr(item.value, evalNumber, evalValue);
+    if (next.transition) spec.transition = next.transition;
+    if (next.pose) spec.pose = next.pose;
+    if (next.stagger != null) spec.stagger = next.stagger;
+    if (next.staggerFrom) spec.staggerFrom = next.staggerFrom;
   }
   return spec;
 }
@@ -116,13 +234,13 @@ export function snapshotsForMode(
   restOpacity = 1,
 ): { from: MotionSnapshot; to: MotionSnapshot } | undefined {
   const rest: MotionSnapshot = { opacity: restOpacity };
+  const pose = spec.pose;
+  if (!pose || Object.keys(pose).length === 0) return undefined;
   if (mode === "appear") {
-    if (!spec.from || Object.keys(spec.from).length === 0) return undefined;
-    return { from: { ...rest, ...spec.from }, to: rest };
+    return { from: { ...rest, ...pose }, to: rest };
   }
   if (mode === "dismiss") {
-    if (!spec.to || Object.keys(spec.to).length === 0) return undefined;
-    return { from: rest, to: { ...rest, ...spec.to } };
+    return { from: rest, to: { ...rest, ...pose } };
   }
   return undefined;
 }

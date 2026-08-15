@@ -312,18 +312,22 @@ emits FilterChip {
 }
 
 #[test]
-fn parses_motion_from_to_stagger_on_host_handlers() {
+fn parses_motion_pose_stagger_on_host_handlers() {
     let src = r#"
 component Modal <PointerInput>() layout {
   children = []
   self.appear = {
-    animate = (duration: 250, easing: "ease-out")
-    from { opacity = 0 scale = 0.95 translateY = 8 }
-    stagger = 30
-    staggerFrom = .last
+    animate = Motion(
+      transition: (duration: 250, easing: "ease-out"),
+      pose: Pose(opacity: 0, scale: 0.95, translateY: 8),
+      stagger: Stagger(step: 30, from: .last)
+    )
   }
   self.dismiss = {
-    to { opacity = 0 }
+    animate = Motion(
+      transition: (duration: 180, easing: "ease-in"),
+      pose: Pose(opacity: 0)
+    )
   }
 }
 "#;
@@ -339,20 +343,16 @@ component Modal <PointerInput>() layout {
     let appear = ix.handlers.iter().find(|h| h.event == "appear").unwrap();
     assert!(appear.body.iter().any(|it| matches!(
         it,
-        pdl_core::ast::InteractionHandlerItem::From { .. }
-    )));
-    assert!(appear.body.iter().any(|it| matches!(
-        it,
-        pdl_core::ast::InteractionHandlerItem::Stagger { ms } if (*ms - 30.0).abs() < f64::EPSILON
-    )));
-    assert!(appear.body.iter().any(|it| matches!(
-        it,
-        pdl_core::ast::InteractionHandlerItem::StaggerFrom { value } if value == "last"
+        pdl_core::ast::InteractionHandlerItem::Animate {
+            value: pdl_core::ast::ValueExpr::Motion { .. }
+        }
     )));
     let dismiss = ix.handlers.iter().find(|h| h.event == "dismiss").unwrap();
     assert!(dismiss.body.iter().any(|it| matches!(
         it,
-        pdl_core::ast::InteractionHandlerItem::To { .. }
+        pdl_core::ast::InteractionHandlerItem::Animate {
+            value: pdl_core::ast::ValueExpr::Motion { .. }
+        }
     )));
 }
 
@@ -365,9 +365,9 @@ fn motion_lab_catalogue_evaluates_snapshots() {
         .expect("catalogue");
     let appear = &cat["components"]["MotionModal"]["interactions"][0]["handlers"][0];
     assert_eq!(appear["event"], "appear");
-    assert_eq!(appear["motion"]["from"]["opacity"], 0.0);
-    assert_eq!(appear["motion"]["from"]["scale"], 0.95);
-    assert_eq!(appear["motion"]["from"]["translateY"], 8.0);
+    assert_eq!(appear["motion"]["pose"]["opacity"], 0.0);
+    assert_eq!(appear["motion"]["pose"]["scale"], 0.95);
+    assert_eq!(appear["motion"]["pose"]["translateY"], 8.0);
     assert_eq!(appear["motion"]["transition"]["duration"], 250.0);
     let list = &cat["components"]["MotionStaggerList"]["interactions"][0]["handlers"][0];
     assert_eq!(list["motion"]["stagger"], 40.0);

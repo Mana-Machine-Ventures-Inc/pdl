@@ -4,7 +4,7 @@
 //! catalogue-gated validation (with soft-skip warnings for bad list items),
 //! packs reuse the same bake path as explicit `bakeComponent` overrides.
 //!
-//! See `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` §9.3 and `docs/full-spec.md` §4c.
+//! See `shared/schema/injection-pack.json` and `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` §9.3.
 
 use serde_json::{Map, Value};
 

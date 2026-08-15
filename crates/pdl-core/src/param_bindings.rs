@@ -311,6 +311,30 @@ pub fn assert_param_value_compatible(
             Err(mismatch())
         };
     }
+    if expected == "Pose" {
+        return if matches!(value, ValueExpr::Pose { .. }) {
+            Ok(())
+        } else {
+            Err(mismatch())
+        };
+    }
+    if expected == "Stagger" {
+        return if matches!(value, ValueExpr::Stagger { .. }) {
+            Ok(())
+        } else {
+            Err(mismatch())
+        };
+    }
+    if expected == "Motion" {
+        return if matches!(
+            value,
+            ValueExpr::Motion { .. } | ValueExpr::Transition { .. }
+        ) {
+            Ok(())
+        } else {
+            Err(mismatch())
+        };
+    }
 
     if is_host_enum_type(expected) {
         let cases = host_enum_cases(expected).unwrap();

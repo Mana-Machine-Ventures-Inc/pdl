@@ -38,8 +38,8 @@ import type {
 } from "./ast.js";
 import { PdlError } from "./errors.js";
 import { looksLikeQualifiedEnumTypeName } from "./frameProps.js";
-import { isMotionPropName } from "./motionProps.js";
 import type { Token, TokenKind } from "./lexer.js";
+import { isMotionPropName, MOTION_PROP_NAMES } from "./motionProps.js";
 import { inferValueLetType } from "./paramTypes.js";
 import {
   FRAME_CTOR_TO_KIND,
@@ -181,6 +181,9 @@ export class Parser {
       "Duration",
       "Easing",
       "Transition",
+      "Pose",
+      "Stagger",
+      "Motion",
       "Blur",
       "Vibrancy",
       "Ramp",
@@ -219,6 +222,9 @@ export class Parser {
       "Duration",
       "Easing",
       "Transition",
+      "Pose",
+      "Stagger",
+      "Motion",
       "Blur",
       "Vibrancy",
       "Ramp",
@@ -373,36 +379,18 @@ export class Parser {
         items.push({ kind: "emit", name, args });
         continue;
       }
-      if (this.is("from") || this.is("to")) {
-        const kind = this.advance().kind as "from" | "to";
-        this.consume("{");
-        const props: Record<string, ValueExpr> = {};
-        while (!this.is("}")) {
-          const key = this.consume("IDENT").value;
-          this.consume("=");
-          const value = this.parseValueExpr();
-          if (isMotionPropName(key)) props[key] = value;
+      if (this.is("IDENT")) {
+        const name = this.peek().value;
+        if ((name === "from" || name === "to") && this.lookaheadKind(1) === "{") {
+          throw this.err(
+            `\`from { }\` / \`to { }\` were removed; write \`animate = Motion(transition: …, pose: Pose(…))\``,
+          );
         }
-        this.consume("}");
-        items.push({ kind, props });
-        continue;
-      }
-      if (this.is("stagger")) {
-        this.advance();
-        this.consume("=");
-        const n = this.consume("NUMBER");
-        items.push({ kind: "stagger", ms: Number(n.value) });
-        continue;
-      }
-      if (this.is("staggerFrom")) {
-        this.advance();
-        this.consume("=");
-        const raw = this.consume("DOT_ENUM").value.replace(/^\./, "");
-        if (raw !== "first" && raw !== "last") {
-          throw this.err("`staggerFrom` must be `.first` or `.last`");
+        if ((name === "stagger" || name === "staggerFrom") && this.lookaheadKind(1) === "=") {
+          throw this.err(
+            `\`stagger\` / \`staggerFrom\` handler keys were removed; write \`stagger: Stagger(step: …, from: .first)\` on Motion`,
+          );
         }
-        items.push({ kind: "staggerFrom", value: raw });
-        continue;
       }
       let param: string;
       let selfPrefixed = false;
@@ -1694,6 +1682,9 @@ export class Parser {
       "Blur",
       "Media",
       "Vibrancy",
+      "Pose",
+      "Stagger",
+      "Motion",
     ];
     if (kwCallStarts.includes(t.kind)) {
       const name = this.advance().value;
@@ -1860,6 +1851,21 @@ export class Parser {
       this.consume(")");
       return { kind: "gradientStop", fields };
     }
+    if (name === "Pose") {
+      const args = this.parseLabelledArgs();
+      this.consume(")");
+      return this.finishPose(args);
+    }
+    if (name === "Stagger") {
+      const args = this.parseLabelledArgs();
+      this.consume(")");
+      return this.finishStagger(args);
+    }
+    if (name === "Motion") {
+      const args = this.parseLabelledArgs();
+      this.consume(")");
+      return this.finishMotion(args);
+    }
     if (name === "Media") {
       throw this.err(
         "`Media(…)` is the World A frame constructor; layer fills use `MediaLayer(source:, contentMode: …)`",
@@ -1938,6 +1944,59 @@ export class Parser {
       this.consume(",");
     }
     return args;
+  }
+
+  private finishPose(args: Record<string, ValueExpr>): ValueExpr {
+    const unknown = Object.keys(args).filter((k) => !isMotionPropName(k));
+    if (unknown.length) {
+      throw this.err(
+        `Pose unknown label(s): ${unknown.join(", ")} (expected ${MOTION_PROP_NAMES.join(", ")})`,
+      );
+    }
+    if (!Object.keys(args).length) {
+      throw this.err("`Pose(…)` requires at least one overlay field (opacity, scale, translateY, …)");
+    }
+    return { kind: "pose", props: args };
+  }
+
+  private finishStagger(args: Record<string, ValueExpr>): ValueExpr {
+    if (!("step" in args)) {
+      throw this.err("`Stagger(…)` requires `step:` (a Duration / milliseconds)");
+    }
+    const unknown = Object.keys(args).filter((k) => k !== "step" && k !== "from");
+    if (unknown.length) {
+      throw this.err(`Stagger unknown label(s): ${unknown.join(", ")} (expected step, optional from)`);
+    }
+    if (args.from) {
+      if (args.from.kind !== "dotEnum") {
+        throw this.err("`Stagger` `from:` must be `.first` or `.last`");
+      }
+      const raw = args.from.value.replace(/^\./, "");
+      if (raw !== "first" && raw !== "last") {
+        throw this.err("`Stagger` `from:` must be `.first` or `.last`");
+      }
+    }
+    return { kind: "stagger", step: args.step, ...(args.from ? { from: args.from } : {}) };
+  }
+
+  private finishMotion(args: Record<string, ValueExpr>): ValueExpr {
+    if (!("transition" in args)) {
+      throw this.err("`Motion(…)` requires `transition:` (a Transition token or tuple)");
+    }
+    const unknown = Object.keys(args).filter(
+      (k) => k !== "transition" && k !== "pose" && k !== "stagger",
+    );
+    if (unknown.length) {
+      throw this.err(
+        `Motion unknown label(s): ${unknown.join(", ")} (expected transition, optional pose, stagger)`,
+      );
+    }
+    return {
+      kind: "motion",
+      transition: args.transition,
+      ...(args.pose ? { pose: args.pose } : {}),
+      ...(args.stagger ? { stagger: args.stagger } : {}),
+    };
   }
 
   /** `.aspect(…)` arg: number, `W:H` sugar, or Ratio token ident. */

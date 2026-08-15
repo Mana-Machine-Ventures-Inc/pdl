@@ -1,0 +1,9 @@
+component BadHover <PointerInput>() layout {
+  children = []
+  self.hoverStart = {
+    animate = Motion(
+      transition: (duration: 200, easing: "ease-out"),
+      pose: Pose(opacity: 0)
+    )
+  }
+}

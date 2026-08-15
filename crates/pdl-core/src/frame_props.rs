@@ -1,4 +1,4 @@
-//! Frame property SoT loaded from `shared/frame-props.json` (§5 / §23.3).
+//! Frame property lock loaded from `shared/frame-props.json`.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
@@ -107,6 +107,9 @@ fn value_kind_name(value: &ValueExpr) -> &'static str {
         ValueExpr::MediaSourceFile { .. } | ValueExpr::MediaSourceUrl { .. } => "mediaSourceRef",
         ValueExpr::Array { .. } => "array",
         ValueExpr::Transition { .. } => "transition",
+        ValueExpr::Pose { .. } => "pose",
+        ValueExpr::Stagger { .. } => "stagger",
+        ValueExpr::Motion { .. } => "motion",
         ValueExpr::VibrancyTuple { .. } => "vibrancyTuple",
         ValueExpr::RampInline { .. } => "rampInline",
         ValueExpr::Sizing { .. } => "sizing",
@@ -991,7 +994,7 @@ pub fn validate_type_style_props(design: &DesignDefinition) -> Result<(), PdlErr
                 return Err(err(
                     "PDL-E011",
                     format!(
-                        "{ctx}: unknown property `{prop}` (typeStyle allows text frame props from §5)"
+                        "{ctx}: unknown property `{prop}` (typeStyle allows text frame props only)"
                     ),
                     design,
                 ));

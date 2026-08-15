@@ -182,7 +182,7 @@ function literalOk(vk: ValueKindDef, value: ValueExpr, typeId?: string): boolean
   return true;
 }
 
-/** §15 layer constructors (keyword-call form). */
+/** Layer constructors (keyword-call form). */
 const LAYER_CTORS = new Set(["Color", "Ramp", "Blur", "MediaLayer", "Vibrancy"]);
 
 /** Token types valid as a whole layer entry (Blur/Media/Vibrancy/Ramp are layer objects). */
@@ -418,7 +418,7 @@ export function assertLayerStackValue(
 }
 
 /**
- * §23.3 — assert a frame (or typeStyle) property RHS matches the SoT value kind.
+ * Assert a frame (or typeStyle) property RHS matches the lock-file value kind.
  * Unknown props are handled by the caller (PDL-E011).
  */
 export function assertFramePropCompatible(
@@ -747,7 +747,7 @@ export function validateFramePropsInBody(
   assertAspectBoxConsistent(design, propsOnFrame, ctx);
 }
 
-/** typeStyle bodies may only use valid `text` frame property names (§3 / §5), excluding `style`. */
+/** typeStyle bodies may only use valid `text` frame property names, excluding `style`. */
 export function validateTypeStyleProps(design: DesignDefinition): void {
   for (const ts of design.typeStyles.values()) {
     const ctx = `typeStyle ${ts.name}`;
@@ -755,7 +755,7 @@ export function validateTypeStyleProps(design: DesignDefinition): void {
       if (prop === "style" || !TABLE.kinds.text.props[prop]) {
         throw new PdlError(
           "PDL-E011",
-          `${ctx}: unknown property \`${prop}\` (typeStyle allows text frame props from §5)`,
+          `${ctx}: unknown property \`${prop}\` (typeStyle allows text frame props only)`,
           { path: design.entryPath },
         );
       }

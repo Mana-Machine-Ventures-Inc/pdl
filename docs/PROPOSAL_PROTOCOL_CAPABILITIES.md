@@ -1,7 +1,7 @@
 # Proposal: Protocol roles — API contracts vs host runtime powers
 
 **Status:** accepted / implemented (2026-08-07) in Rust `pdl-core` + Playground/`renderHtml` host  
-**Depends on:** `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` (protocols, emits, interaction lanes); `docs/full-spec.md` §4a, **§4a′** (prelude stubs), §5, §8  
+**Depends on:** `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` (protocols, emits, interaction lanes); `shared/language-objects.json` host prelude. **Superseded as binding spec** by lock files.  
 **Related:** Playground / `renderHtml` interactive host; editable text / forms; `InteractionState`  
 **Implementation:** D0–D4 landed — `requires` / `host` marker, **`PointerInput` + `EditableText` language prelude** (normative stubs in **`full-spec` §4a′**), **PDL-E030**, **PDL-E031**, catalogue `protocolRoles` / `hostProtocols`, `editable` + host verbs + keyboard dismiss in HTML host. Canonical wiring is `self.<channel> = { … }`; `interaction` blocks are rejected (**PDL-E001**). Compat matrix (D5) still future.
 

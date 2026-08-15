@@ -1,5 +1,5 @@
 /**
- * v1 motion overlay props (`from` / `to` snapshots). Not frame/layout props.
+ * v1 Pose overlay fields. Not frame/layout props.
  * Units: opacity 0…1, scale unitless, translate/blur CSS px, duration ms.
  */
 
@@ -31,8 +31,7 @@ export type MotionSnapshot = Partial<Record<MotionPropName, number>>;
 
 export type MotionSpec = {
   transition?: MotionTransition;
-  from?: MotionSnapshot;
-  to?: MotionSnapshot;
+  pose?: MotionSnapshot;
   stagger?: number;
   staggerFrom?: "first" | "last";
 };

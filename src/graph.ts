@@ -97,6 +97,26 @@ export function serialiseValueExpr(e: ValueExpr): unknown {
         easing: serialiseValueExpr(e.easing),
         ...(e.delay ? { delay: serialiseValueExpr(e.delay) } : {}),
       };
+    case "pose":
+      return {
+        kind: "pose",
+        props: Object.fromEntries(
+          Object.entries(e.props).map(([k, v]) => [k, serialiseValueExpr(v)]),
+        ),
+      };
+    case "stagger":
+      return {
+        kind: "stagger",
+        step: serialiseValueExpr(e.step),
+        ...(e.from ? { from: serialiseValueExpr(e.from) } : {}),
+      };
+    case "motion":
+      return {
+        kind: "motion",
+        transition: serialiseValueExpr(e.transition),
+        ...(e.pose ? { pose: serialiseValueExpr(e.pose) } : {}),
+        ...(e.stagger ? { stagger: serialiseValueExpr(e.stagger) } : {}),
+      };
     case "vibrancyTuple":
       return { kind: "vibrancyTuple", saturation: e.saturation, brightness: e.brightness };
     case "rampInline":
@@ -233,6 +253,26 @@ export function serialiseValueExprWithTokenRefs(expr: ValueExpr, design: DesignD
         duration: serialiseValueExprWithTokenRefs(expr.duration, design),
         easing: serialiseValueExprWithTokenRefs(expr.easing, design),
         ...(expr.delay ? { delay: serialiseValueExprWithTokenRefs(expr.delay, design) } : {}),
+      };
+    case "pose":
+      return {
+        kind: "pose",
+        props: Object.fromEntries(
+          Object.entries(expr.props).map(([k, v]) => [k, serialiseValueExprWithTokenRefs(v, design)]),
+        ),
+      };
+    case "stagger":
+      return {
+        kind: "stagger",
+        step: serialiseValueExprWithTokenRefs(expr.step, design),
+        ...(expr.from ? { from: serialiseValueExprWithTokenRefs(expr.from, design) } : {}),
+      };
+    case "motion":
+      return {
+        kind: "motion",
+        transition: serialiseValueExprWithTokenRefs(expr.transition, design),
+        ...(expr.pose ? { pose: serialiseValueExprWithTokenRefs(expr.pose, design) } : {}),
+        ...(expr.stagger ? { stagger: serialiseValueExprWithTokenRefs(expr.stagger, design) } : {}),
       };
     case "vibrancyTuple":
       return { kind: "vibrancyTuple", saturation: expr.saturation, brightness: expr.brightness };

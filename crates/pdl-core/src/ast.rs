@@ -161,6 +161,21 @@ pub enum ValueExpr {
         easing: Box<ValueExpr>,
         delay: Option<Box<ValueExpr>>,
     },
+    /// `Pose(opacity:, scale:, …)` — overlay snapshot.
+    Pose {
+        props: IndexMap<String, ValueExpr>,
+    },
+    /// `Stagger(step: [, from:])`.
+    Stagger {
+        step: Box<ValueExpr>,
+        from: Option<Box<ValueExpr>>,
+    },
+    /// `Motion(transition: [, pose:] [, stagger:])`.
+    Motion {
+        transition: Box<ValueExpr>,
+        pose: Option<Box<ValueExpr>>,
+        stagger: Option<Box<ValueExpr>>,
+    },
     VibrancyTuple {
         saturation: f64,
         brightness: f64,
@@ -681,22 +696,6 @@ pub enum InteractionHandlerItem {
     },
     Animate {
         value: ValueExpr,
-    },
-    /// Enter snapshot: `from { opacity = 0; scale = 0.95 }`.
-    From {
-        props: IndexMap<String, ValueExpr>,
-    },
-    /// Exit snapshot: `to { opacity = 0 }`.
-    To {
-        props: IndexMap<String, ValueExpr>,
-    },
-    /// Millisecond increment between visible children.
-    Stagger {
-        ms: f64,
-    },
-    /// `.first` or `.last` — order of stagger.
-    StaggerFrom {
-        value: String,
     },
     /// Fire a declared intent: `emit select` / `emit select(filter)`.
     Emit {

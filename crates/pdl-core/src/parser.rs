@@ -16,12 +16,12 @@
 //!   `Component`, `Interaction`, `Expose`, `Fixtures`, `Usage`, `Rules`,
 //!   `Extend`, `Let`,
 //!   `If`, `Else`, `On`, `For`, `True`, `False`, `Case`, `Example`, `Rule`,
-//!   `Description`, `Animate`, `From`, `To`, `Stagger`, `StaggerFrom`, `Where`,
+//!   `Description`, `Animate`, `Where`,
 //!   `Tags`, and the type/call keywords `EdgeInsets`, `Corner`, `GradientStop`,
 //!   `Color`, `Opacity`, `Distance`, `Radius`, `Shadow`, `Icon`, `MediaSource`,
 //!   `Ratio`, `FontFamily`, `Size`, `Weight`, `LineHeight`, `LetterSpacing`,
 //!   `Sizing`, `Duration`, `Easing`,
-//!   `Transition`, `Ramp`, `Blur`, `Media`, `Vibrancy`, `Background`,
+//!   `Transition`, `Pose`, `Stagger`, `Motion`, `Ramp`, `Blur`, `Media`, `Vibrancy`, `Background`,
 //!   `Foreground`.
 //! * The `self` keyword is spelled **`SelfKw`** (Rust reserves `Self`/`self`).
 //! * Punctuation: `LBrace` `{`, `RBrace` `}`, `LParen` `(`, `RParen` `)`,
@@ -35,7 +35,7 @@
 use crate::ast::*;
 use crate::error::PdlError;
 use crate::frame_props::looks_like_qualified_enum_type_name;
-use crate::motion::is_motion_prop_name;
+use crate::motion::{is_motion_prop_name, MOTION_PROP_NAMES};
 use crate::lexer::{tokenize, Token, TokenKind};
 use crate::param_types::infer_value_let_type;
 use crate::world_a::{
@@ -382,47 +382,20 @@ impl Parser {
                 items.push(InteractionHandlerItem::Emit { name, args });
                 continue;
             }
-            if self.is(TokenKind::From) || self.is(TokenKind::To) {
-                let kind = self.peek().kind;
-                self.advance();
-                self.consume(TokenKind::LBrace)?;
-                let mut props: indexmap::IndexMap<String, ValueExpr> = indexmap::IndexMap::new();
-                while !self.is(TokenKind::RBrace) {
-                    let key = self.consume(TokenKind::Ident)?.value;
-                    self.consume(TokenKind::Eq)?;
-                    let value = self.parse_value_expr()?;
-                    if is_motion_prop_name(&key) {
-                        props.insert(key, value);
-                    }
+            if self.is(TokenKind::Ident) {
+                let name = self.peek().value.clone();
+                if (name == "from" || name == "to") && self.peek_ahead_kind(1) == TokenKind::LBrace {
+                    return Err(self.err(
+                        "`from { }` / `to { }` were removed; write `animate = Motion(transition: …, pose: Pose(…))`",
+                    ));
                 }
-                self.consume(TokenKind::RBrace)?;
-                if kind == TokenKind::From {
-                    items.push(InteractionHandlerItem::From { props });
-                } else {
-                    items.push(InteractionHandlerItem::To { props });
+                if (name == "stagger" || name == "staggerFrom")
+                    && self.peek_ahead_kind(1) == TokenKind::Eq
+                {
+                    return Err(self.err(
+                        "`stagger` / `staggerFrom` handler keys were removed; write `stagger: Stagger(step: …, from: .first)` on Motion",
+                    ));
                 }
-                continue;
-            }
-            if self.is(TokenKind::Stagger) {
-                self.advance();
-                self.consume(TokenKind::Eq)?;
-                let n = self.consume(TokenKind::Number)?;
-                let ms = self.num(&n.value);
-                items.push(InteractionHandlerItem::Stagger { ms });
-                continue;
-            }
-            if self.is(TokenKind::StaggerFrom) {
-                self.advance();
-                self.consume(TokenKind::Eq)?;
-                let raw = self.consume(TokenKind::DotEnum)?.value;
-                let value = raw.strip_prefix('.').unwrap_or(&raw);
-                if value != "first" && value != "last" {
-                    return Err(self.err("`staggerFrom` must be `.first` or `.last`"));
-                }
-                items.push(InteractionHandlerItem::StaggerFrom {
-                    value: value.to_string(),
-                });
-                continue;
             }
             let mut self_prefixed = false;
             let param = if self.is(TokenKind::SelfKw) {
@@ -2530,6 +2503,21 @@ impl Parser {
             self.consume(TokenKind::RParen)?;
             return Ok(ValueExpr::GradientStop { fields });
         }
+        if name == "Pose" {
+            let args = self.parse_labelled_args()?;
+            self.consume(TokenKind::RParen)?;
+            return finish_pose(args).map_err(|m| self.err(m));
+        }
+        if name == "Stagger" {
+            let args = self.parse_labelled_args()?;
+            self.consume(TokenKind::RParen)?;
+            return finish_stagger(args).map_err(|m| self.err(m));
+        }
+        if name == "Motion" {
+            let args = self.parse_labelled_args()?;
+            self.consume(TokenKind::RParen)?;
+            return finish_motion(args).map_err(|m| self.err(m));
+        }
         if name == "Media" {
             return Err(self.err(
                 "`Media(…)` is the World A frame constructor; layer fills use `MediaLayer(source:, contentMode: …)`",
@@ -2921,6 +2909,9 @@ fn is_type_keyword(kind: TokenKind) -> bool {
             | TokenKind::Duration
             | TokenKind::Easing
             | TokenKind::Transition
+            | TokenKind::Pose
+            | TokenKind::Stagger
+            | TokenKind::Motion
             | TokenKind::Blur
             | TokenKind::Vibrancy
             | TokenKind::Ramp
@@ -2948,7 +2939,79 @@ fn is_kw_call_start(kind: TokenKind) -> bool {
             | TokenKind::Blur
             | TokenKind::Media
             | TokenKind::Vibrancy
+            | TokenKind::Pose
+            | TokenKind::Stagger
+            | TokenKind::Motion
     )
+}
+
+fn finish_pose(args: indexmap::IndexMap<String, ValueExpr>) -> Result<ValueExpr, String> {
+    let unknown: Vec<_> = args
+        .keys()
+        .filter(|k| !is_motion_prop_name(k))
+        .cloned()
+        .collect();
+    if !unknown.is_empty() {
+        return Err(format!(
+            "Pose unknown label(s): {} (expected {})",
+            unknown.join(", "),
+            MOTION_PROP_NAMES.join(", ")
+        ));
+    }
+    if args.is_empty() {
+        return Err(
+            "`Pose(…)` requires at least one overlay field (opacity, scale, translateY, …)"
+                .to_string(),
+        );
+    }
+    Ok(ValueExpr::Pose { props: args })
+}
+
+fn finish_stagger(mut args: indexmap::IndexMap<String, ValueExpr>) -> Result<ValueExpr, String> {
+    let step = args
+        .swap_remove("step")
+        .ok_or_else(|| "`Stagger(…)` requires `step:` (a Duration / milliseconds)".to_string())?;
+    let from = args.swap_remove("from");
+    if !args.is_empty() {
+        let unknown = args.keys().cloned().collect::<Vec<_>>().join(", ");
+        return Err(format!(
+            "Stagger unknown label(s): {unknown} (expected step, optional from)"
+        ));
+    }
+    if let Some(ref f) = from {
+        match f {
+            ValueExpr::DotEnum { value } => {
+                let raw = value.strip_prefix('.').unwrap_or(value.as_str());
+                if raw != "first" && raw != "last" {
+                    return Err("`Stagger` `from:` must be `.first` or `.last`".to_string());
+                }
+            }
+            _ => return Err("`Stagger` `from:` must be `.first` or `.last`".to_string()),
+        }
+    }
+    Ok(ValueExpr::Stagger {
+        step: Box::new(step),
+        from: from.map(Box::new),
+    })
+}
+
+fn finish_motion(mut args: indexmap::IndexMap<String, ValueExpr>) -> Result<ValueExpr, String> {
+    let transition = args.swap_remove("transition").ok_or_else(|| {
+        "`Motion(…)` requires `transition:` (a Transition token or tuple)".to_string()
+    })?;
+    let pose = args.swap_remove("pose");
+    let stagger = args.swap_remove("stagger");
+    if !args.is_empty() {
+        let unknown = args.keys().cloned().collect::<Vec<_>>().join(", ");
+        return Err(format!(
+            "Motion unknown label(s): {unknown} (expected transition, optional pose, stagger)"
+        ));
+    }
+    Ok(ValueExpr::Motion {
+        transition: Box::new(transition),
+        pose: pose.map(Box::new),
+        stagger: stagger.map(Box::new),
+    })
 }
 
 /// Lift `self.<channel> = { … }` items out of a kind body into interaction handlers.

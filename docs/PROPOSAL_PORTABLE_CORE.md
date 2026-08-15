@@ -1,7 +1,7 @@
 # Proposal: Portable PDL Core & Native Instantiation
 
 **Status:** accepted (2026-08-05) — not yet shipped; TypeScript remains the reference oracle until Rust parity  
-**Schema / reference:** `docs/full-spec.md` (`1.0.0-beta`)  
+**Schema / reference:** `shared/schema/*.json` (`1.0.0-beta`). **Superseded as binding spec** by lock files; this proposal is design history.  
 **Related:** `docs/manifesto.md`, current TypeScript toolchain in `src/`  
 **Follow-on:** `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` (protocols, `[T]` slots, dual fixtures, emits)  
 **Implementation:** `docs/IMPLEMENTATION_PLAN.md`, crate `crates/pdl-core`

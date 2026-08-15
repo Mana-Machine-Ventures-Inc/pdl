@@ -1,9 +1,9 @@
 # Proposal: Protocols, Slots, Expandable Lists, Emits & Dual Fixtures
 
-**Status:** accepted (2026-08-05) — **B1–B4** shipped in Rust + normative §4a–§4d; **B5** normative in `docs/full-spec.md` §4e (**compiler impl pending**); **B6** chrome deferred; **B7** host dispatch open  
+**Status:** accepted (2026-08-05) — **B1–B5** shipped in Rust; **B6** chrome deferred; **B7** host dispatch open. **Superseded as binding spec** by `shared/language-objects.json` + `grammar/pdl.ebnf`.  
 **Depends on:** `docs/PROPOSAL_PORTABLE_CORE.md` (portable core, bake → native views)  
-**Related:** `docs/full-spec.md` §4a–§4e (incl. **§4a′** host prelude stubs), §8 (interactions), §11 (fixtures / usage / rules), **§11a (typed `samples` banks)** — PDL-authored catalogs distinct from injection packs, §16 (catalogue / bake)  
-**See also:** `docs/PROPOSAL_TYPED_SAMPLES.md` (accepted; folded into §11a)  
+**Related:** language-objects (`protocols`, `forEach`, `emits`, `arrayChildren`, `samples`) · `shared/schema/injection-pack.json`  
+**See also:** `docs/PROPOSAL_TYPED_SAMPLES.md` (accepted; folded into `samples`)  
 **Implementation:** `docs/IMPLEMENTATION_PLAN.md`
 
 ---

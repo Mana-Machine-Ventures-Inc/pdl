@@ -1,7 +1,7 @@
 # Proposal: World A — Expression-tree authoring
 
 **Status:** accepted / implementing  
-**Depends on:** `docs/full-spec.md` §5 / §7 (frames, children, E019); `docs/PROPOSAL_PROTOCOL_CAPABILITIES.md` (kinds ≠ protocols); `docs/PROPOSAL_PORTABLE_CORE.md` (bake IR host contract)  
+**Depends on:** `shared/language-objects.json` (`lets`, `conditionals`) + `shared/frame-props.json`. **Superseded as binding spec** by lock files. `docs/PROPOSAL_PROTOCOL_CAPABILITIES.md` (kinds ≠ protocols); `docs/PROPOSAL_PORTABLE_CORE.md` (bake IR host contract)  
 **Related:** value lets (`Blur(…)`, `Ramp(…)`); layer stacks; PointerInput handlers  
 
 ---

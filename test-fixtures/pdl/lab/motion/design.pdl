@@ -21,20 +21,16 @@ component MotionModal <PointerInput>() layout {
   children = [title, body]
 
   self.appear = {
-    animate = (duration: 250, easing: "cubic-bezier(0.2, 0, 0, 1)")
-    from {
-      opacity = 0
-      scale = 0.95
-      translateY = 8
-    }
+    animate = Motion(
+      transition: (duration: 250, easing: "cubic-bezier(0.2, 0, 0, 1)"),
+      pose: Pose(opacity: 0, scale: 0.95, translateY: 8)
+    )
   }
   self.dismiss = {
-    animate = (duration: 180, easing: "ease-in")
-    to {
-      opacity = 0
-      scale = 0.95
-      translateY = 8
-    }
+    animate = Motion(
+      transition: (duration: 180, easing: "ease-in"),
+      pose: Pose(opacity: 0, scale: 0.95, translateY: 8)
+    )
   }
 }
 
@@ -66,13 +62,11 @@ component MotionStaggerList <PointerInput>() layout {
   children = [a, b, c]
 
   self.appear = {
-    animate = (duration: 220, easing: "ease-out")
-    from {
-      opacity = 0
-      translateY = 10
-    }
-    stagger = 40
-    staggerFrom = .first
+    animate = Motion(
+      transition: (duration: 220, easing: "ease-out"),
+      pose: Pose(opacity: 0, translateY: 10),
+      stagger: Stagger(step: 40, from: .first)
+    )
   }
 }
 
@@ -93,18 +87,19 @@ component MotionHoverChip <PointerInput>(
   background = #2563EB
 
   if interactionState == .hovered {
-    background = #1D4ED8
+    background = #000000
   }
-
+  
   let text = Text(content: label, color: #FFFFFF, fontSize: 13, fontWeight: 600)
   children = [text]
 
-  self.hoverStart = {
-    animate = (duration: 200, easing: "ease-out")
+  hoverStart = {
+    animate = (duration: 500, easing: "ease-out")
     interactionState = .hovered
   }
+  
   hoverEnd = {
-    animate = (duration: 200, easing: "ease-out")
+    animate = (duration: 500, easing: "ease-out")
     interactionState = .rest
   }
 }

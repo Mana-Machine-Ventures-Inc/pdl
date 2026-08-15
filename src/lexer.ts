@@ -1,5 +1,5 @@
 /**
- * PDL lexer (full-spec.md §20).
+ * PDL lexer (`shared/keywords.json` + `grammar/pdl.ebnf`).
  */
 import { PdlError } from "./errors.js";
 
@@ -39,10 +39,6 @@ export type TokenKind =
   | "Rule"
   | "description"
   | "animate"
-  | "from"
-  | "to"
-  | "stagger"
-  | "staggerFrom"
   | "where"
   | "tags"
   | "EdgeInsets"
@@ -67,6 +63,9 @@ export type TokenKind =
   | "Duration"
   | "Easing"
   | "Transition"
+  | "Pose"
+  | "Stagger"
+  | "Motion"
   | "Ramp"
   | "Blur"
   | "Media"
@@ -145,10 +144,6 @@ const KEYWORDS = new Map<string, TokenKind>([
   ["Rule", "Rule"],
   ["description", "description"],
   ["animate", "animate"],
-  ["from", "from"],
-  ["to", "to"],
-  ["stagger", "stagger"],
-  ["staggerFrom", "staggerFrom"],
   ["where", "where"],
   ["tags", "tags"],
   ["EdgeInsets", "EdgeInsets"],
@@ -173,6 +168,9 @@ const KEYWORDS = new Map<string, TokenKind>([
   ["Duration", "Duration"],
   ["Easing", "Easing"],
   ["Transition", "Transition"],
+  ["Pose", "Pose"],
+  ["Stagger", "Stagger"],
+  ["Motion", "Motion"],
   ["Ramp", "Ramp"],
   ["Blur", "Blur"],
   ["Media", "Media"],

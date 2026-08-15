@@ -479,6 +479,41 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
             }
             Ok(obj(entries))
         }
+        ValueExpr::Pose { props } => {
+            let mut m = Map::new();
+            m.insert("kind".to_string(), Value::String("pose".to_string()));
+            for (k, v) in props {
+                m.insert(k.clone(), evaluate_value(v, ev)?);
+            }
+            Ok(Value::Object(m))
+        }
+        ValueExpr::Stagger { step, from } => {
+            let mut entries = vec![
+                ("kind", Value::String("stagger".to_string())),
+                ("step", evaluate_value(step, ev)?),
+            ];
+            if let Some(f) = from {
+                entries.push(("from", evaluate_value(f, ev)?));
+            }
+            Ok(obj(entries))
+        }
+        ValueExpr::Motion {
+            transition,
+            pose,
+            stagger,
+        } => {
+            let mut entries = vec![
+                ("kind", Value::String("motion".to_string())),
+                ("transition", evaluate_value(transition, ev)?),
+            ];
+            if let Some(p) = pose {
+                entries.push(("pose", evaluate_value(p, ev)?));
+            }
+            if let Some(s) = stagger {
+                entries.push(("stagger", evaluate_value(s, ev)?));
+            }
+            Ok(obj(entries))
+        }
         ValueExpr::VibrancyTuple {
             saturation,
             brightness,

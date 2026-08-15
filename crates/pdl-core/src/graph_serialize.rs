@@ -263,6 +263,37 @@ pub fn serialise_value_expr(e: &ValueExpr) -> Value {
             }
             obj(entries)
         }
+        ValueExpr::Pose { props } => obj(vec![
+            ("kind", Value::String("pose".to_string())),
+            ("props", serialise_fields(props, serialise_value_expr)),
+        ]),
+        ValueExpr::Stagger { step, from } => {
+            let mut entries = vec![
+                ("kind", Value::String("stagger".to_string())),
+                ("step", serialise_value_expr(step)),
+            ];
+            if let Some(f) = from {
+                entries.push(("from", serialise_value_expr(f)));
+            }
+            obj(entries)
+        }
+        ValueExpr::Motion {
+            transition,
+            pose,
+            stagger,
+        } => {
+            let mut entries = vec![
+                ("kind", Value::String("motion".to_string())),
+                ("transition", serialise_value_expr(transition)),
+            ];
+            if let Some(p) = pose {
+                entries.push(("pose", serialise_value_expr(p)));
+            }
+            if let Some(s) = stagger {
+                entries.push(("stagger", serialise_value_expr(s)));
+            }
+            obj(entries)
+        }
         ValueExpr::VibrancyTuple {
             saturation,
             brightness,
@@ -512,6 +543,43 @@ pub fn serialise_value_expr_with_token_refs(expr: &ValueExpr, design: &DesignDef
             }
             obj(entries)
         }
+        ValueExpr::Pose { props } => obj(vec![
+            ("kind", Value::String("pose".to_string())),
+            (
+                "props",
+                serialise_fields(props, |v| serialise_value_expr_with_token_refs(v, design)),
+            ),
+        ]),
+        ValueExpr::Stagger { step, from } => {
+            let mut entries = vec![
+                ("kind", Value::String("stagger".to_string())),
+                ("step", serialise_value_expr_with_token_refs(step, design)),
+            ];
+            if let Some(f) = from {
+                entries.push(("from", serialise_value_expr_with_token_refs(f, design)));
+            }
+            obj(entries)
+        }
+        ValueExpr::Motion {
+            transition,
+            pose,
+            stagger,
+        } => {
+            let mut entries = vec![
+                ("kind", Value::String("motion".to_string())),
+                (
+                    "transition",
+                    serialise_value_expr_with_token_refs(transition, design),
+                ),
+            ];
+            if let Some(p) = pose {
+                entries.push(("pose", serialise_value_expr_with_token_refs(p, design)));
+            }
+            if let Some(s) = stagger {
+                entries.push(("stagger", serialise_value_expr_with_token_refs(s, design)));
+            }
+            obj(entries)
+        }
         ValueExpr::VibrancyTuple {
             saturation,
             brightness,
@@ -652,6 +720,30 @@ pub fn collect_declared_token_names_from_value_expr(
             collect_declared_token_names_from_value_expr(easing, design, sink);
             if let Some(d) = delay {
                 collect_declared_token_names_from_value_expr(d, design, sink);
+            }
+        }
+        ValueExpr::Pose { props } => {
+            for v in props.values() {
+                collect_declared_token_names_from_value_expr(v, design, sink);
+            }
+        }
+        ValueExpr::Stagger { step, from } => {
+            collect_declared_token_names_from_value_expr(step, design, sink);
+            if let Some(f) = from {
+                collect_declared_token_names_from_value_expr(f, design, sink);
+            }
+        }
+        ValueExpr::Motion {
+            transition,
+            pose,
+            stagger,
+        } => {
+            collect_declared_token_names_from_value_expr(transition, design, sink);
+            if let Some(p) = pose {
+                collect_declared_token_names_from_value_expr(p, design, sink);
+            }
+            if let Some(s) = stagger {
+                collect_declared_token_names_from_value_expr(s, design, sink);
             }
         }
         ValueExpr::RampInline { stops, .. } => {

@@ -406,10 +406,14 @@ function validateFixturesForComponent(design: DesignDefinition, componentName: s
   }
 }
 
-function validateAnimateTransition(
+function isLifecycleMotionEvent(event: string): boolean {
+  return event === "appear" || event === "dismiss";
+}
+
+function validateTransitionValue(
   design: DesignDefinition,
   value: ValueExpr,
-  componentName: string,
+  where: string,
 ): void {
   if (value.kind === "transition") return;
   if (value.kind === "ident") {
@@ -418,40 +422,169 @@ function validateAnimateTransition(
     throw new PdlError(
       "PDL-E005",
       t
-        ? `\`animate =\` must be a Transition (got ${t}) in ${componentName}`
-        : `\`animate =\` must be a Transition token or tuple in ${componentName} (unknown \`${value.name}\`)`,
+        ? `${where} must be a Transition (got ${t})`
+        : `${where} must be a Transition token or tuple (unknown \`${value.name}\`)`,
       { path: design.entryPath },
     );
   }
   throw new PdlError(
     "PDL-E005",
-    `\`animate =\` must be a Transition token or tuple \`(duration: …, easing: …)\` in ${componentName}`,
+    `${where} must be a Transition token or tuple \`(duration: …, easing: …)\``,
     { path: design.entryPath },
   );
 }
 
-function validateMotionSnapshot(
+function validatePoseValue(
   design: DesignDefinition,
-  props: Record<string, ValueExpr>,
-  kind: "from" | "to",
+  value: ValueExpr,
   componentName: string,
 ): void {
-  for (const [key, value] of Object.entries(props)) {
+  if (value.kind === "ident") {
+    const t = tokenTypeOf(design, value.name);
+    if (t === "Pose") return;
+    throw new PdlError(
+      "PDL-E005",
+      t
+        ? `Motion \`pose:\` must be a Pose (got ${t}) in ${componentName}`
+        : `Motion \`pose:\` must be a Pose (unknown \`${value.name}\`) in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+  if (value.kind !== "pose") {
+    throw new PdlError(
+      "PDL-E005",
+      `Motion \`pose:\` must be \`Pose(…)\` or a Pose token in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+  for (const [key, field] of Object.entries(value.props)) {
     if (!isMotionPropName(key)) continue;
-    if (value.kind === "number") {
-      if (key === "opacity" && (value.value < 0 || value.value > 1)) {
+    if (field.kind === "number") {
+      if (key === "opacity" && (field.value < 0 || field.value > 1)) {
         throw new PdlError(
           "PDL-E005",
-          `Motion \`${kind}.{${key}}\` must be a number in 0…1 (got ${value.value}) in ${componentName}`,
+          `Pose \`${key}\` must be a number in 0…1 (got ${field.value}) in ${componentName}`,
           { path: design.entryPath },
         );
       }
       continue;
     }
-    if (value.kind === "ident") continue;
+    if (field.kind === "ident") continue;
     throw new PdlError(
       "PDL-E005",
-      `Motion \`${kind}.{${key}}\` must be a number in ${componentName}`,
+      `Pose \`${key}\` must be a number in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+}
+
+function validateStaggerValue(
+  design: DesignDefinition,
+  value: ValueExpr,
+  componentName: string,
+): void {
+  if (value.kind === "ident") {
+    const t = tokenTypeOf(design, value.name);
+    if (t === "Stagger") return;
+    throw new PdlError(
+      "PDL-E005",
+      t
+        ? `Motion \`stagger:\` must be a Stagger (got ${t}) in ${componentName}`
+        : `Motion \`stagger:\` must be a Stagger (unknown \`${value.name}\`) in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+  if (value.kind !== "stagger") {
+    throw new PdlError(
+      "PDL-E005",
+      `Motion \`stagger:\` must be \`Stagger(…)\` or a Stagger token in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+  const step = value.step;
+  if (step.kind === "number") {
+    if (step.value < 0) {
+      throw new PdlError(
+        "PDL-E005",
+        `Stagger \`step:\` must be a non-negative Duration in ${componentName}`,
+        { path: design.entryPath },
+      );
+    }
+  } else if (step.kind === "ident") {
+    const t = tokenTypeOf(design, step.name);
+    if (t && t !== "Duration") {
+      throw new PdlError(
+        "PDL-E005",
+        `Stagger \`step:\` must be a Duration (got ${t}) in ${componentName}`,
+        { path: design.entryPath },
+      );
+    }
+  } else {
+    throw new PdlError(
+      "PDL-E005",
+      `Stagger \`step:\` must be a Duration / milliseconds in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+}
+
+function motionHasPose(design: DesignDefinition, value: ValueExpr): boolean {
+  if (value.kind === "pose") return true;
+  if (value.kind === "ident") return tokenTypeOf(design, value.name) === "Pose";
+  return false;
+}
+
+function motionHasStagger(design: DesignDefinition, value: ValueExpr): boolean {
+  if (value.kind === "stagger") return true;
+  if (value.kind === "ident") return tokenTypeOf(design, value.name) === "Stagger";
+  return false;
+}
+
+function validateAnimateMotion(
+  design: DesignDefinition,
+  value: ValueExpr,
+  componentName: string,
+  event: string,
+): void {
+  if (value.kind === "transition") return;
+  if (value.kind === "ident") {
+    const t = tokenTypeOf(design, value.name);
+    if (t === "Transition" || t === "Motion") return;
+    throw new PdlError(
+      "PDL-E005",
+      t
+        ? `\`animate =\` must be a Motion or Transition (got ${t}) in ${componentName}`
+        : `\`animate =\` must be a Motion or Transition in ${componentName} (unknown \`${value.name}\`)`,
+      { path: design.entryPath },
+    );
+  }
+  if (value.kind !== "motion") {
+    throw new PdlError(
+      "PDL-E005",
+      `\`animate =\` must be \`Motion(…)\` or a Transition token/tuple in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+  validateTransitionValue(
+    design,
+    value.transition,
+    `Motion \`transition:\` in ${componentName}`,
+  );
+  if (value.pose) validatePoseValue(design, value.pose, componentName);
+  if (value.stagger) validateStaggerValue(design, value.stagger, componentName);
+  const hasPose = Boolean(value.pose && motionHasPose(design, value.pose));
+  const hasStagger = Boolean(value.stagger && motionHasStagger(design, value.stagger));
+  if (hasStagger && !hasPose) {
+    throw new PdlError(
+      "PDL-E005",
+      `Motion \`stagger:\` requires \`pose:\` in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+  if ((hasPose || hasStagger) && !isLifecycleMotionEvent(event)) {
+    throw new PdlError(
+      "PDL-E005",
+      `Motion \`pose:\` / \`stagger:\` are only legal on appear / dismiss (got \`${event}\`) in ${componentName}`,
       { path: design.entryPath },
     );
   }
@@ -462,6 +595,7 @@ function validateInteractionBody(
   items: InteractionHandlerItem[],
   paramByName: Map<string, { typeName: string }>,
   componentName: string,
+  event: string,
 ): void {
   for (const it of items) {
     if (it.kind === "assign") {
@@ -473,16 +607,14 @@ function validateInteractionBody(
         );
       }
     } else if (it.kind === "animate") {
-      validateAnimateTransition(design, it.value, componentName);
-    } else if (it.kind === "from" || it.kind === "to") {
-      validateMotionSnapshot(design, it.props, it.kind, componentName);
+      validateAnimateMotion(design, it.value, componentName, event);
     } else if (it.kind === "if") {
       for (const br of it.chain.branches) {
         validateConditionExpr(design, br.condition, paramByName, componentName);
-        validateInteractionBody(design, br.body, paramByName, componentName);
+        validateInteractionBody(design, br.body, paramByName, componentName, event);
       }
       if (it.chain.elseBody) {
-        validateInteractionBody(design, it.chain.elseBody, paramByName, componentName);
+        validateInteractionBody(design, it.chain.elseBody, paramByName, componentName, event);
       }
     }
   }
@@ -495,7 +627,7 @@ function validateInteractionsForComponent(design: DesignDefinition, componentNam
   const paramByName = new Map(c.params.map((p) => [p.name, { typeName: p.typeName }]));
   for (const decl of m.values()) {
     for (const h of decl.handlers) {
-      validateInteractionBody(design, h.body, paramByName, componentName);
+      validateInteractionBody(design, h.body, paramByName, componentName, h.event);
     }
   }
 }
@@ -635,6 +767,12 @@ function tokenRhsExpectation(tokenType: string): string {
       return '`MediaSource(file: "…" [, kind:, format:])`, `MediaSource(url: "…" [, kind:, format:])`, an http(s) URL, or a pack-relative path string';
     case "Transition":
       return "a transition tuple `(duration: …, easing: …)`";
+    case "Pose":
+      return "`Pose(opacity:, scale:, …)`";
+    case "Stagger":
+      return "`Stagger(step: … [, from: .first|.last])`";
+    case "Motion":
+      return "`Motion(transition: … [, pose:] [, stagger:])` or a Transition";
     case "Vibrancy":
       return "`Vibrancy(saturation: …, brightness: …)`";
     case "Ramp":
@@ -951,6 +1089,12 @@ function assertTokenRhsCompatible(
         );
       case "Transition":
         return value.kind === "transition";
+      case "Pose":
+        return value.kind === "pose";
+      case "Stagger":
+        return value.kind === "stagger";
+      case "Motion":
+        return value.kind === "motion" || value.kind === "transition";
       case "Vibrancy":
         return value.kind === "call" && value.callee === "Vibrancy";
       case "Ramp":
@@ -1029,6 +1173,24 @@ function assertTokenRhsCompatible(
 
   if (tokenType === "Shadow" && value.kind === "shadow") {
     assertShadowConstructorFields(design, name, value);
+  }
+  if (tokenType === "Pose" && value.kind === "pose") {
+    validatePoseValue(design, value, name);
+  }
+  if (tokenType === "Stagger" && value.kind === "stagger") {
+    validateStaggerValue(design, value, name);
+  }
+  if (tokenType === "Motion" && value.kind === "motion") {
+    validateTransitionValue(design, value.transition, `Motion token \`${name}\` transition:`);
+    if (value.pose) validatePoseValue(design, value.pose, name);
+    if (value.stagger) validateStaggerValue(design, value.stagger, name);
+    if (value.stagger && !value.pose) {
+      throw new PdlError(
+        "PDL-E005",
+        `Motion token \`${name}\` has \`stagger:\` but no \`pose:\``,
+        { path: design.entryPath },
+      );
+    }
   }
   if (tokenType === "Blur" && value.kind === "call" && value.callee === "Blur") {
     try {

@@ -10,7 +10,7 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const fx = (...p: string[]) => resolve(__dirname, "../test-fixtures/pdl", ...p);
 
 describe("HTML preview motion", () => {
-  it("catalogue evaluates Transition and from/to snapshots", () => {
+  it("catalogue evaluates Motion pose snapshots", () => {
     const design = loadDesign(fx("lab/motion/design.pdl"));
     const cat = buildComponentCatalogue(design);
     const modal = cat.components.MotionModal!;
@@ -19,12 +19,12 @@ describe("HTML preview motion", () => {
     const appear = handlers.find((h) => h.event === "appear") as {
       motion: {
         transition: { duration: number; easing: string; delay: number };
-        from: Record<string, number>;
+        pose: Record<string, number>;
       };
     };
     expect(appear.motion.transition.duration).toBe(250);
     expect(appear.motion.transition.easing).toContain("cubic-bezier");
-    expect(appear.motion.from).toEqual({ opacity: 0, scale: 0.95, translateY: 8 });
+    expect(appear.motion.pose).toEqual({ opacity: 0, scale: 0.95, translateY: 8 });
     const list = cat.components.MotionStaggerList!;
     const listAppear = (
       list.interactions?.[0] as { handlers: Array<{ event: string; motion?: { stagger?: number } }> }
@@ -50,16 +50,16 @@ describe("HTML preview motion", () => {
     expect(html).toContain("playMotionTree");
     expect(html).toContain("applyImplicitTransition");
     expect(html).toContain("motionFromHandler");
-    expect(html).toContain('"from":{"opacity":0');
+    expect(html).toContain('"pose":{"opacity":0');
   });
 
   it("playground enrich payload includes evaluated motion", () => {
     const design = loadDesign(fx("lab/motion/design.pdl"));
     const ix = interactionsByComponentFromDesign(design);
     const appear = (
-      ix.MotionModal as Array<{ handlers: Array<{ event: string; motion?: { from?: unknown } }> }>
+      ix.MotionModal as Array<{ handlers: Array<{ event: string; motion?: { pose?: unknown } }> }>
     )[0]!.handlers.find((h) => h.event === "appear");
-    expect(appear?.motion?.from).toEqual({ opacity: 0, scale: 0.95, translateY: 8 });
+    expect(appear?.motion?.pose).toEqual({ opacity: 0, scale: 0.95, translateY: 8 });
   });
 
   it("HTML host still plays appear when catalogue omitted the motion key", () => {
@@ -82,7 +82,7 @@ describe("HTML preview motion", () => {
       interactiveHost: true,
     });
     expect(html).toContain("Replay motion");
-    expect(html).toContain('"kind":"from"');
+    expect(html).toContain('"kind":"motion"');
     expect(html).toContain("motionFromHandler");
   });
 });

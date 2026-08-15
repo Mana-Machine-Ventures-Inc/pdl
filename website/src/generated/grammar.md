@@ -61,7 +61,7 @@ token-type-name
   ::= 'Color' | 'Opacity' | 'Distance' | 'Radius' | 'Shadow'
     | 'Icon' | 'MediaSource' | 'Ratio' | 'FontFamily' | 'Size'
     | 'Weight' | 'LineHeight' | 'LetterSpacing' | 'Sizing' | 'Duration'
-    | 'Easing' | 'Transition'
+    | 'Easing' | 'Transition' | 'Pose' | 'Stagger' | 'Motion'
     | 'Blur' | 'Vibrancy' | 'Ramp' | 'Background' | 'Foreground'
     ;
 
@@ -291,10 +291,7 @@ event-name
 handler-statement
   ::= param-assignment          (* component params only — not FrameId.prop *)
     | emit-statement
-    | animate-statement
-    | from-block
-    | to-block
-    | stagger-statement
+    | animate-statement         (* value-expr is Motion, or Transition sugar *)
     | if-chain                  (* conditions over params; still param assigns only *)
     ;
 
@@ -308,21 +305,7 @@ param-assignment
     ;
 
 animate-statement
-  ::= 'animate' '=' value-expr ;
-
-from-block
-  ::= 'from' '{' { animatable-prop-assignment } '}' ;
-
-to-block
-  ::= 'to' '{' { animatable-prop-assignment } '}' ;
-
-animatable-prop-assignment
-  ::= IDENT '=' value-expr ;
-
-stagger-statement
-  ::= 'stagger' '=' NUMBER
-    | 'staggerFrom' '=' ( '.first' | '.last' )
-    ;
+  ::= 'animate' '=' value-expr ;   (* Motion(…) or Transition token/tuple *)
 
 (* 21.8 Companion blocks and typed samples *)
 fixtures-decl
@@ -425,6 +408,9 @@ value-expr
     | corner-literal
     | shadow-literal
     | transition-literal
+    | pose-literal
+    | stagger-literal
+    | motion-literal
     | vibrancy-literal
     | ramp-literal
     | layer-list
@@ -497,6 +483,21 @@ number-or-token
 transition-literal
   ::= '(' 'duration' ':' value-expr ',' 'easing' ':' value-expr
       [ ',' 'delay' ':' value-expr ] ')' ;
+
+pose-literal
+  ::= 'Pose' '(' pose-arg { ',' pose-arg } ')' ;
+
+pose-arg
+  ::= ( 'opacity' | 'scale' | 'scaleX' | 'scaleY'
+      | 'translateX' | 'translateY' | 'blur' ) ':' value-expr ;
+
+stagger-literal
+  ::= 'Stagger' '(' 'step' ':' value-expr [ ',' 'from' ':' ( '.first' | '.last' ) ] ')' ;
+
+motion-literal
+  ::= 'Motion' '(' 'transition' ':' value-expr
+      [ ',' 'pose' ':' value-expr ]
+      [ ',' 'stagger' ':' value-expr ] ')' ;
 
 vibrancy-literal
   ::= 'Vibrancy' '(' 'saturation' ':' NUMBER ',' 'brightness' ':' NUMBER ')' ;

@@ -963,10 +963,14 @@ fn validate_fixtures_for_component(
     Ok(())
 }
 
-fn validate_animate_transition(
+fn is_lifecycle_motion_event(event: &str) -> bool {
+    event == "appear" || event == "dismiss"
+}
+
+fn validate_transition_value(
     design: &DesignDefinition,
     value: &ValueExpr,
-    component_name: &str,
+    where_: &str,
 ) -> Result<(), PdlError> {
     match value {
         ValueExpr::Transition { .. } => Ok(()),
@@ -974,60 +978,214 @@ fn validate_animate_transition(
             Some("Transition") => Ok(()),
             Some(t) => Err(err(
                 "PDL-E005",
-                format!("`animate =` must be a Transition (got {t}) in {component_name}"),
+                format!("{where_} must be a Transition (got {t})"),
                 design,
             )),
             None => Err(err(
                 "PDL-E005",
-                format!(
-                    "`animate =` must be a Transition token or tuple in {component_name} (unknown `{name}`)"
-                ),
+                format!("{where_} must be a Transition token or tuple (unknown `{name}`)"),
                 design,
             )),
         },
         _ => Err(err(
             "PDL-E005",
-            format!(
-                "`animate =` must be a Transition token or tuple `(duration: …, easing: …)` in {component_name}"
-            ),
+            format!("{where_} must be a Transition token or tuple `(duration: …, easing: …)`"),
             design,
         )),
     }
 }
 
-fn validate_motion_snapshot(
+fn validate_pose_value(
     design: &DesignDefinition,
-    props: &indexmap::IndexMap<String, ValueExpr>,
-    kind: &str,
+    value: &ValueExpr,
     component_name: &str,
 ) -> Result<(), PdlError> {
-    for (key, value) in props {
-        if !is_motion_prop_name(key) {
-            continue;
-        }
-        match value {
-            ValueExpr::Number { value: n } => {
-                if key == "opacity" && (*n < 0.0 || *n > 1.0) {
-                    return Err(err(
-                        "PDL-E005",
-                        format!(
-                            "Motion `{kind}.{{{key}}}` must be a number in 0…1 (got {n}) in {component_name}"
-                        ),
-                        design,
-                    ));
+    match value {
+        ValueExpr::Ident { name } => match token_type_of(design, name).as_deref() {
+            Some("Pose") => Ok(()),
+            Some(t) => Err(err(
+                "PDL-E005",
+                format!("Motion `pose:` must be a Pose (got {t}) in {component_name}"),
+                design,
+            )),
+            None => Err(err(
+                "PDL-E005",
+                format!("Motion `pose:` must be a Pose (unknown `{name}`) in {component_name}"),
+                design,
+            )),
+        },
+        ValueExpr::Pose { props } => {
+            for (key, field) in props {
+                if !is_motion_prop_name(key) {
+                    continue;
+                }
+                match field {
+                    ValueExpr::Number { value: n } => {
+                        if key == "opacity" && (*n < 0.0 || *n > 1.0) {
+                            return Err(err(
+                                "PDL-E005",
+                                format!(
+                                    "Pose `{key}` must be a number in 0…1 (got {n}) in {component_name}"
+                                ),
+                                design,
+                            ));
+                        }
+                    }
+                    ValueExpr::Ident { .. } => {}
+                    _ => {
+                        return Err(err(
+                            "PDL-E005",
+                            format!("Pose `{key}` must be a number in {component_name}"),
+                            design,
+                        ));
+                    }
                 }
             }
-            ValueExpr::Ident { .. } => {}
-            _ => {
+            Ok(())
+        }
+        _ => Err(err(
+            "PDL-E005",
+            format!("Motion `pose:` must be `Pose(…)` or a Pose token in {component_name}"),
+            design,
+        )),
+    }
+}
+
+fn validate_stagger_value(
+    design: &DesignDefinition,
+    value: &ValueExpr,
+    component_name: &str,
+) -> Result<(), PdlError> {
+    match value {
+        ValueExpr::Ident { name } => match token_type_of(design, name).as_deref() {
+            Some("Stagger") => Ok(()),
+            Some(t) => Err(err(
+                "PDL-E005",
+                format!("Motion `stagger:` must be a Stagger (got {t}) in {component_name}"),
+                design,
+            )),
+            None => Err(err(
+                "PDL-E005",
+                format!(
+                    "Motion `stagger:` must be a Stagger (unknown `{name}`) in {component_name}"
+                ),
+                design,
+            )),
+        },
+        ValueExpr::Stagger { step, .. } => match step.as_ref() {
+            ValueExpr::Number { value: n } if *n < 0.0 => Err(err(
+                "PDL-E005",
+                format!("Stagger `step:` must be a non-negative Duration in {component_name}"),
+                design,
+            )),
+            ValueExpr::Number { .. } => Ok(()),
+            ValueExpr::Ident { name } => match token_type_of(design, name).as_deref() {
+                Some(t) if t != "Duration" => Err(err(
+                    "PDL-E005",
+                    format!("Stagger `step:` must be a Duration (got {t}) in {component_name}"),
+                    design,
+                )),
+                _ => Ok(()),
+            },
+            _ => Err(err(
+                "PDL-E005",
+                format!("Stagger `step:` must be a Duration / milliseconds in {component_name}"),
+                design,
+            )),
+        },
+        _ => Err(err(
+            "PDL-E005",
+            format!("Motion `stagger:` must be `Stagger(…)` or a Stagger token in {component_name}"),
+            design,
+        )),
+    }
+}
+
+fn motion_field_is_pose(design: &DesignDefinition, value: &ValueExpr) -> bool {
+    match value {
+        ValueExpr::Pose { .. } => true,
+        ValueExpr::Ident { name } => token_type_of(design, name).as_deref() == Some("Pose"),
+        _ => false,
+    }
+}
+
+fn motion_field_is_stagger(design: &DesignDefinition, value: &ValueExpr) -> bool {
+    match value {
+        ValueExpr::Stagger { .. } => true,
+        ValueExpr::Ident { name } => token_type_of(design, name).as_deref() == Some("Stagger"),
+        _ => false,
+    }
+}
+
+fn validate_animate_motion(
+    design: &DesignDefinition,
+    value: &ValueExpr,
+    component_name: &str,
+    event: &str,
+) -> Result<(), PdlError> {
+    match value {
+        ValueExpr::Transition { .. } => Ok(()),
+        ValueExpr::Ident { name } => match token_type_of(design, name).as_deref() {
+            Some("Transition") | Some("Motion") => Ok(()),
+            Some(t) => Err(err(
+                "PDL-E005",
+                format!("`animate =` must be a Motion or Transition (got {t}) in {component_name}"),
+                design,
+            )),
+            None => Err(err(
+                "PDL-E005",
+                format!(
+                    "`animate =` must be a Motion or Transition in {component_name} (unknown `{name}`)"
+                ),
+                design,
+            )),
+        },
+        ValueExpr::Motion {
+            transition,
+            pose,
+            stagger,
+        } => {
+            validate_transition_value(
+                design,
+                transition,
+                &format!("Motion `transition:` in {component_name}"),
+            )?;
+            if let Some(p) = pose {
+                validate_pose_value(design, p, component_name)?;
+            }
+            if let Some(s) = stagger {
+                validate_stagger_value(design, s, component_name)?;
+            }
+            let has_pose = pose.as_ref().is_some_and(|p| motion_field_is_pose(design, p));
+            let has_stagger = stagger
+                .as_ref()
+                .is_some_and(|s| motion_field_is_stagger(design, s));
+            if has_stagger && !has_pose {
                 return Err(err(
                     "PDL-E005",
-                    format!("Motion `{kind}.{{{key}}}` must be a number in {component_name}"),
+                    format!("Motion `stagger:` requires `pose:` in {component_name}"),
                     design,
                 ));
             }
+            if (has_pose || has_stagger) && !is_lifecycle_motion_event(event) {
+                return Err(err(
+                    "PDL-E005",
+                    format!(
+                        "Motion `pose:` / `stagger:` are only legal on appear / dismiss (got `{event}`) in {component_name}"
+                    ),
+                    design,
+                ));
+            }
+            Ok(())
         }
+        _ => Err(err(
+            "PDL-E005",
+            format!(
+                "`animate =` must be `Motion(…)` or a Transition token/tuple in {component_name}"
+            ),
+            design,
+        )),
     }
-    Ok(())
 }
 
 fn validate_interaction_body(
@@ -1035,6 +1193,7 @@ fn validate_interaction_body(
     items: &[InteractionHandlerItem],
     param_by_name: &HashMap<String, String>,
     component_name: &str,
+    event: &str,
 ) -> Result<(), PdlError> {
     for it in items {
         match it {
@@ -1051,13 +1210,7 @@ fn validate_interaction_body(
                 }
             }
             InteractionHandlerItem::Animate { value } => {
-                validate_animate_transition(design, value, component_name)?;
-            }
-            InteractionHandlerItem::From { props } => {
-                validate_motion_snapshot(design, props, "from", component_name)?;
-            }
-            InteractionHandlerItem::To { props } => {
-                validate_motion_snapshot(design, props, "to", component_name)?;
+                validate_animate_motion(design, value, component_name, event)?;
             }
             InteractionHandlerItem::HostVerb {
                 qualifier,
@@ -1076,10 +1229,22 @@ fn validate_interaction_body(
             InteractionHandlerItem::If { chain } => {
                 for br in &chain.branches {
                     validate_condition_expr(design, &br.condition, param_by_name, component_name)?;
-                    validate_interaction_body(design, &br.body, param_by_name, component_name)?;
+                    validate_interaction_body(
+                        design,
+                        &br.body,
+                        param_by_name,
+                        component_name,
+                        event,
+                    )?;
                 }
                 if let Some(else_body) = &chain.else_body {
-                    validate_interaction_body(design, else_body, param_by_name, component_name)?;
+                    validate_interaction_body(
+                        design,
+                        else_body,
+                        param_by_name,
+                        component_name,
+                        event,
+                    )?;
                 }
             }
             _ => {}
@@ -1279,7 +1444,7 @@ fn validate_interactions_for_component(
                     design,
                 ));
             }
-            validate_interaction_body(design, &h.body, &param_by_name, component_name)?;
+            validate_interaction_body(design, &h.body, &param_by_name, component_name, &h.event)?;
         }
     }
     validate_host_protocol_coverage(design, component_name)?;
@@ -1416,6 +1581,33 @@ fn validate_opacity_sides(design: &DesignDefinition, expr: &ValueExpr) -> Result
             }
             Ok(())
         }
+        ValueExpr::Pose { props } => {
+            for v in props.values() {
+                validate_opacity_sides(design, v)?;
+            }
+            Ok(())
+        }
+        ValueExpr::Stagger { step, from } => {
+            validate_opacity_sides(design, step)?;
+            if let Some(f) = from {
+                validate_opacity_sides(design, f)?;
+            }
+            Ok(())
+        }
+        ValueExpr::Motion {
+            transition,
+            pose,
+            stagger,
+        } => {
+            validate_opacity_sides(design, transition)?;
+            if let Some(p) = pose {
+                validate_opacity_sides(design, p)?;
+            }
+            if let Some(s) = stagger {
+                validate_opacity_sides(design, s)?;
+            }
+            Ok(())
+        }
         ValueExpr::Call { args, .. } => {
             for v in args.values() {
                 validate_opacity_sides(design, v)?;
@@ -1460,6 +1652,9 @@ fn token_rhs_expectation(token_type: &str) -> &'static str {
             "`MediaSource(file: \"…\" [, kind:, format:])`, `MediaSource(url: \"…\" [, kind:, format:])`, an http(s) URL, or a pack-relative path string"
         }
         "Transition" => "a transition tuple `(duration: …, easing: …)`",
+        "Pose" => "`Pose(opacity:, scale:, …)`",
+        "Stagger" => "`Stagger(step: … [, from: .first|.last])`",
+        "Motion" => "`Motion(transition: … [, pose:] [, stagger:])` or a Transition",
         "Vibrancy" => "`Vibrancy(saturation: …, brightness: …)`",
         "Ramp" => "a ramp literal `(direction: …, stops: […])` or `Ramp(…)`",
         "Sizing" => {
@@ -1496,6 +1691,9 @@ fn value_expr_kind_name(value: &ValueExpr) -> &'static str {
         ValueExpr::Array { .. } => "array",
         ValueExpr::Instance { .. } => "instance",
         ValueExpr::Transition { .. } => "transition",
+        ValueExpr::Pose { .. } => "pose",
+        ValueExpr::Stagger { .. } => "stagger",
+        ValueExpr::Motion { .. } => "motion",
         ValueExpr::VibrancyTuple { .. } => "vibrancyTuple",
         ValueExpr::RampInline { .. } => "rampInline",
         ValueExpr::Sizing { .. } => "sizing",
@@ -1875,6 +2073,12 @@ fn assert_token_rhs_compatible(
             _ => false,
         },
         "Transition" => matches!(value, ValueExpr::Transition { .. }),
+        "Pose" => matches!(value, ValueExpr::Pose { .. }),
+        "Stagger" => matches!(value, ValueExpr::Stagger { .. }),
+        "Motion" => matches!(
+            value,
+            ValueExpr::Motion { .. } | ValueExpr::Transition { .. }
+        ),
         "Vibrancy" => matches!(
             value,
             ValueExpr::Call {

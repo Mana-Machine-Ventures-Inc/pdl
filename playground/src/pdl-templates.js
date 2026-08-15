@@ -532,19 +532,16 @@ usage MissingLabel {
   children = [title]
 
   self.appear = {
-    animate = (duration: 250, easing: "cubic-bezier(0.2, 0, 0, 1)")
-    from {
-      opacity = 0
-      scale = 0.95
-      translateY = 8
-    }
+    animate = Motion(
+      transition: (duration: 250, easing: "cubic-bezier(0.2, 0, 0, 1)"),
+      pose: Pose(opacity: 0, scale: 0.95, translateY: 8)
+    )
   }
   self.dismiss = {
-    animate = (duration: 180, easing: "ease-in")
-    to {
-      opacity = 0
-      scale = 0.95
-    }
+    animate = Motion(
+      transition: (duration: 180, easing: "ease-in"),
+      pose: Pose(opacity: 0, scale: 0.95)
+    )
   }
 }
 `,

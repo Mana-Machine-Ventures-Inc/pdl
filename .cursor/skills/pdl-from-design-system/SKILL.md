@@ -19,7 +19,7 @@ Port a design system into a **small, bakeable PDL pack**. Do not invent CSS/Swif
 3. Skim [references/anti-patterns.md](references/anti-patterns.md).
 4. Copy patterns from [references/canonical-examples.md](references/canonical-examples.md) or existing fixtures — do not freestyle structure.
 
-Normative language: `docs/full-spec.md` (only when cheatsheet is insufficient). Spec gaps: `docs/SPEC_GAPS.md`.
+Language lock: `shared/language-objects.json` and the public Language objects page (only when the cheatsheet is insufficient). Open items: `docs/SPEC_GAPS.md`.
 
 ## Pack layout
 

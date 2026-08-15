@@ -1,5 +1,5 @@
 /**
- * Built-in component / emit / value-let / token type names (§23.1 / §23.4).
+ * Built-in component / emit / value-let / token type names (`shared/language-objects.json`).
  * Boolean params use **`Bool`** only — `Boolean` is not a type name.
  *
  * Host frame enums (`Direction`, `Align`, …) and **`BlurStyle`** are named types
@@ -23,6 +23,9 @@ export const BUILTIN_PARAM_TYPES: ReadonlySet<string> = new Set([
   "Duration",
   "Easing",
   "Transition",
+  "Pose",
+  "Stagger",
+  "Motion",
   "Blur",
   "Vibrancy",
   "Ramp",
@@ -114,6 +117,12 @@ export function inferValueLetType(value: {
       return "MediaSource";
     case "transition":
       return "Transition";
+    case "pose":
+      return "Pose";
+    case "stagger":
+      return "Stagger";
+    case "motion":
+      return "Motion";
     case "rampInline":
       return "Ramp";
     case "hex":

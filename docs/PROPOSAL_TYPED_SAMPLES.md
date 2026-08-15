@@ -1,8 +1,8 @@
 # Proposal: Typed Samples (Named Data Banks)
 
-**Status:** accepted / implemented (2026-08-12) — **normative home: `docs/full-spec.md` §11a** (also §2 merge, §16 / §16a, §20/§21, **PDL-E041**). Rust SoT + TS oracle; playlist-composer-lite migrated. This proposal remains design history; open follow-ups live in `docs/SPEC_GAPS.md`.
+**Status:** accepted / implemented (2026-08-12). **Superseded as binding spec** by `shared/language-objects.json` `samples` + `shared/schema/component-catalogue.json`. This proposal remains design history; open follow-ups live in `docs/SPEC_GAPS.md`.
 
-**Schema / reference:** `docs/full-spec.md` (`1.0.0-beta`) §11a (samples), §4 / §4e, §6, §7, §11 (fixtures)  
+**Schema / reference:** `shared/language-objects.json` (`samples`, `arrayChildren`) · `shared/schema/component-catalogue.json`  
 **Related:** `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` (lists, dual fixtures / injection packs); pack `test-fixtures/pdl/systems/playlist-composer-lite/`  
 **Does not replace:** §11 component `fixtures` (scenario param maps for preview / docs)
 

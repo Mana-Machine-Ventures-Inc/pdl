@@ -66,6 +66,18 @@ export function collectDeclaredTokenNamesFromValueExpr(
       collectDeclaredTokenNamesFromValueExpr(expr.easing, design, sink);
       if (expr.delay) collectDeclaredTokenNamesFromValueExpr(expr.delay, design, sink);
       return;
+    case "pose":
+      for (const v of Object.values(expr.props)) collectDeclaredTokenNamesFromValueExpr(v, design, sink);
+      return;
+    case "stagger":
+      collectDeclaredTokenNamesFromValueExpr(expr.step, design, sink);
+      if (expr.from) collectDeclaredTokenNamesFromValueExpr(expr.from, design, sink);
+      return;
+    case "motion":
+      collectDeclaredTokenNamesFromValueExpr(expr.transition, design, sink);
+      if (expr.pose) collectDeclaredTokenNamesFromValueExpr(expr.pose, design, sink);
+      if (expr.stagger) collectDeclaredTokenNamesFromValueExpr(expr.stagger, design, sink);
+      return;
     case "rampInline":
       for (const s of expr.stops) collectDeclaredTokenNamesFromValueExpr(s, design, sink);
       return;

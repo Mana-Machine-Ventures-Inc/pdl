@@ -13,30 +13,55 @@ import type { InteractionHandlerItem } from "../src/ast.js";
 const appearBody: InteractionHandlerItem[] = [
   {
     kind: "animate",
-    value: { kind: "transition", duration: { kind: "number", value: 250 }, easing: { kind: "string", value: "ease-out" } },
-  },
-  {
-    kind: "from",
-    props: {
-      opacity: { kind: "number", value: 0 },
-      scale: { kind: "number", value: 0.95 },
-      translateY: { kind: "number", value: 8 },
+    value: {
+      kind: "motion",
+      transition: {
+        kind: "transition",
+        duration: { kind: "number", value: 250 },
+        easing: { kind: "string", value: "ease-out" },
+      },
+      pose: {
+        kind: "pose",
+        props: {
+          opacity: { kind: "number", value: 0 },
+          scale: { kind: "number", value: 0.95 },
+          translateY: { kind: "number", value: 8 },
+        },
+      },
+      stagger: {
+        kind: "stagger",
+        step: { kind: "number", value: 40 },
+        from: { kind: "dotEnum", value: ".last" },
+      },
     },
   },
-  { kind: "stagger", ms: 40 },
-  { kind: "staggerFrom", value: "last" },
 ];
 
 describe("applyMotion", () => {
-  it("collects from/to/stagger and a Transition tuple", () => {
+  it("collects Motion(transition, pose, stagger)", () => {
     const spec = collectMotionFromHandlerItems(appearBody);
     expect(spec.transition).toEqual({ duration: 250, easing: "ease-out", delay: 0 });
-    expect(spec.from).toEqual({ opacity: 0, scale: 0.95, translateY: 8 });
+    expect(spec.pose).toEqual({ opacity: 0, scale: 0.95, translateY: 8 });
     expect(spec.stagger).toBe(40);
     expect(spec.staggerFrom).toBe("last");
   });
 
-  it("builds appear keyframes from snapshot to identity", () => {
+  it("treats a bare Transition as Motion sugar", () => {
+    const spec = collectMotionFromHandlerItems([
+      {
+        kind: "animate",
+        value: {
+          kind: "transition",
+          duration: { kind: "number", value: 200 },
+          easing: { kind: "string", value: "ease-out" },
+        },
+      },
+    ]);
+    expect(spec.transition).toEqual({ duration: 200, easing: "ease-out", delay: 0 });
+    expect(spec.pose).toBeUndefined();
+  });
+
+  it("builds appear keyframes from pose to identity", () => {
     const spec = collectMotionFromHandlerItems(appearBody);
     const snaps = snapshotsForMode(spec, "appear", 1)!;
     const [from, to] = motionKeyframes(snaps.from, snaps.to, 1);
