@@ -1,0 +1,8 @@
+primitive color.red: Color = #FF0000
+
+component BadCopy <PointerInput>() layout {
+  children = []
+  self.appear = {
+    animate = Motion(color.red, play: .toRest)
+  }
+}

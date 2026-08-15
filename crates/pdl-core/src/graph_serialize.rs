@@ -277,20 +277,64 @@ pub fn serialise_value_expr(e: &ValueExpr) -> Value {
             }
             obj(entries)
         }
+        ValueExpr::Key { pose, at, easing } => {
+            let mut entries = vec![
+                ("kind", Value::String("key".to_string())),
+                ("pose", serialise_value_expr(pose)),
+                ("at", serialise_value_expr(at)),
+            ];
+            if let Some(e) = easing {
+                entries.push(("easing", serialise_value_expr(e)));
+            }
+            obj(entries)
+        }
         ValueExpr::Motion {
+            base,
             transition,
             pose,
+            keys,
+            play,
+            repeat,
             stagger,
         } => {
-            let mut entries = vec![
-                ("kind", Value::String("motion".to_string())),
-                ("transition", serialise_value_expr(transition)),
-            ];
+            let mut entries = vec![("kind", Value::String("motion".to_string()))];
+            if let Some(b) = base {
+                entries.push(("base", serialise_value_expr(b)));
+            }
+            if let Some(t) = transition {
+                entries.push(("transition", serialise_value_expr(t)));
+            }
+            if let Some(p) = play {
+                entries.push(("play", serialise_value_expr(p)));
+            }
             if let Some(p) = pose {
                 entries.push(("pose", serialise_value_expr(p)));
             }
+            if let Some(k) = keys {
+                entries.push(("keys", serialise_value_expr(k)));
+            }
             if let Some(s) = stagger {
                 entries.push(("stagger", serialise_value_expr(s)));
+            }
+            if let Some(r) = repeat {
+                entries.push(("repeat", serialise_value_expr(r)));
+            }
+            obj(entries)
+        }
+        ValueExpr::Effect {
+            effect_kind,
+            radius,
+            vibrancy,
+        } => {
+            let mut entries = vec![
+                ("kind", Value::String("effect".to_string())),
+                ("effectKind", serialise_value_expr(effect_kind)),
+            ];
+            if let Some(r) = radius {
+                entries.push(("radius", serialise_value_expr(r)));
+            }
+            if let Some(v) = vibrancy {
+                entries.push(("vibrancy", serialise_value_expr(v)));
             }
             obj(entries)
         }
@@ -560,23 +604,70 @@ pub fn serialise_value_expr_with_token_refs(expr: &ValueExpr, design: &DesignDef
             }
             obj(entries)
         }
+        ValueExpr::Key { pose, at, easing } => {
+            let mut entries = vec![
+                ("kind", Value::String("key".to_string())),
+                ("pose", serialise_value_expr_with_token_refs(pose, design)),
+                ("at", serialise_value_expr_with_token_refs(at, design)),
+            ];
+            if let Some(e) = easing {
+                entries.push(("easing", serialise_value_expr_with_token_refs(e, design)));
+            }
+            obj(entries)
+        }
         ValueExpr::Motion {
+            base,
             transition,
             pose,
+            keys,
+            play,
+            repeat,
             stagger,
         } => {
-            let mut entries = vec![
-                ("kind", Value::String("motion".to_string())),
-                (
+            let mut entries = vec![("kind", Value::String("motion".to_string()))];
+            if let Some(b) = base {
+                entries.push(("base", serialise_value_expr_with_token_refs(b, design)));
+            }
+            if let Some(t) = transition {
+                entries.push((
                     "transition",
-                    serialise_value_expr_with_token_refs(transition, design),
-                ),
-            ];
+                    serialise_value_expr_with_token_refs(t, design),
+                ));
+            }
+            if let Some(p) = play {
+                entries.push(("play", serialise_value_expr_with_token_refs(p, design)));
+            }
             if let Some(p) = pose {
                 entries.push(("pose", serialise_value_expr_with_token_refs(p, design)));
             }
+            if let Some(k) = keys {
+                entries.push(("keys", serialise_value_expr_with_token_refs(k, design)));
+            }
             if let Some(s) = stagger {
                 entries.push(("stagger", serialise_value_expr_with_token_refs(s, design)));
+            }
+            if let Some(r) = repeat {
+                entries.push(("repeat", serialise_value_expr_with_token_refs(r, design)));
+            }
+            obj(entries)
+        }
+        ValueExpr::Effect {
+            effect_kind,
+            radius,
+            vibrancy,
+        } => {
+            let mut entries = vec![
+                ("kind", Value::String("effect".to_string())),
+                (
+                    "effectKind",
+                    serialise_value_expr_with_token_refs(effect_kind, design),
+                ),
+            ];
+            if let Some(r) = radius {
+                entries.push(("radius", serialise_value_expr_with_token_refs(r, design)));
+            }
+            if let Some(v) = vibrancy {
+                entries.push(("vibrancy", serialise_value_expr_with_token_refs(v, design)));
             }
             obj(entries)
         }
@@ -733,17 +824,55 @@ pub fn collect_declared_token_names_from_value_expr(
                 collect_declared_token_names_from_value_expr(f, design, sink);
             }
         }
+        ValueExpr::Key { pose, at, easing } => {
+            collect_declared_token_names_from_value_expr(pose, design, sink);
+            collect_declared_token_names_from_value_expr(at, design, sink);
+            if let Some(e) = easing {
+                collect_declared_token_names_from_value_expr(e, design, sink);
+            }
+        }
         ValueExpr::Motion {
+            base,
             transition,
             pose,
+            keys,
+            play,
+            repeat,
             stagger,
         } => {
-            collect_declared_token_names_from_value_expr(transition, design, sink);
+            if let Some(b) = base {
+                collect_declared_token_names_from_value_expr(b, design, sink);
+            }
+            if let Some(t) = transition {
+                collect_declared_token_names_from_value_expr(t, design, sink);
+            }
             if let Some(p) = pose {
                 collect_declared_token_names_from_value_expr(p, design, sink);
             }
+            if let Some(k) = keys {
+                collect_declared_token_names_from_value_expr(k, design, sink);
+            }
+            if let Some(p) = play {
+                collect_declared_token_names_from_value_expr(p, design, sink);
+            }
+            if let Some(r) = repeat {
+                collect_declared_token_names_from_value_expr(r, design, sink);
+            }
             if let Some(s) = stagger {
                 collect_declared_token_names_from_value_expr(s, design, sink);
+            }
+        }
+        ValueExpr::Effect {
+            effect_kind,
+            radius,
+            vibrancy,
+        } => {
+            collect_declared_token_names_from_value_expr(effect_kind, design, sink);
+            if let Some(r) = radius {
+                collect_declared_token_names_from_value_expr(r, design, sink);
+            }
+            if let Some(v) = vibrancy {
+                collect_declared_token_names_from_value_expr(v, design, sink);
             }
         }
         ValueExpr::RampInline { stops, .. } => {

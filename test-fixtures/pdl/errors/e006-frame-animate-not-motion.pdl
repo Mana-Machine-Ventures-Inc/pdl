@@ -1,0 +1,6 @@
+primitive color.red: Color = #FF0000
+
+component BadAnimate() layout {
+  children = []
+  animate = color.red
+}

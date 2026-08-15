@@ -1,0 +1,4 @@
+component BadEffectFill() layout {
+  children = []
+  background = [Effect(.blurBehind, radius: 16)]
+}

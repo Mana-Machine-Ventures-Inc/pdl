@@ -1,6 +1,7 @@
 /**
- * v1 Pose overlay fields. Not frame/layout props.
- * Units: opacity 0…1, scale unitless, translate/blur CSS px, duration ms.
+ * Pose overlay fields. Not frame/layout props.
+ * Units: opacity / origin 0…1, scale unitless, translate/blur CSS px,
+ * rotate degrees, duration ms.
  */
 
 export const MOTION_PROP_NAMES = [
@@ -11,6 +12,9 @@ export const MOTION_PROP_NAMES = [
   "translateX",
   "translateY",
   "blur",
+  "rotate",
+  "originX",
+  "originY",
 ] as const;
 
 export type MotionPropName = (typeof MOTION_PROP_NAMES)[number];
@@ -29,21 +33,68 @@ export type MotionTransition = {
 
 export type MotionSnapshot = Partial<Record<MotionPropName, number>>;
 
-export type MotionSpec = {
-  transition?: MotionTransition;
-  pose?: MotionSnapshot;
-  stagger?: number;
-  staggerFrom?: "first" | "last";
+export type MotionPlay = "toRest" | "toPose" | "loop";
+
+export type MotionKey = {
+  pose: MotionSnapshot | "rest";
+  at: number;
+  easing?: string;
 };
 
-export const MOTION_IDENTITY: Required<MotionSnapshot> = {
+export type MotionSpec = {
+  transition?: MotionTransition;
+  play?: MotionPlay;
+  pose?: MotionSnapshot;
+  keys?: MotionKey[];
+  stagger?: number;
+  staggerFrom?: "first" | "last";
+  repeat?: number;
+};
+
+/** Site default `play` when the Motion value omitted it. */
+export function defaultMotionPlay(event: string, hasPoseTrack: boolean): MotionPlay | undefined {
+  switch (event) {
+    case "appear":
+      return "toRest";
+    case "dismiss":
+      return "toPose";
+    case "hoverStart":
+    case "pressStart":
+      return hasPoseTrack ? "toPose" : undefined;
+    case "hoverEnd":
+    case "pressEnd":
+    case "pressCancel":
+      return hasPoseTrack ? "toRest" : undefined;
+    default:
+      return hasPoseTrack ? "toRest" : undefined;
+  }
+}
+
+/** Fill `play` on an evaluated frame `animate` value when the spec omitted it. */
+export function applyFrameAnimatePlay(raw: unknown): unknown {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.play === "string" && o.play.replace(/^\./, "")) return raw;
+  const hasPath = o.pose != null || o.keys != null;
+  const play = defaultMotionPlay("frame", hasPath);
+  return play ? { ...o, play } : raw;
+}
+
+/** Fill `play` from the handler site when the spec omitted it. */
+export function applySiteDefaultPlay(spec: MotionSpec, event: string): MotionSpec {
+  if (spec.play) return spec;
+  const hasPath = spec.pose != null || spec.keys != null;
+  const play = defaultMotionPlay(event, hasPath);
+  return play ? { ...spec, play } : spec;
+}
+
+export const MOTION_IDENTITY: MotionSnapshot = {
   opacity: 1,
   scale: 1,
-  scaleX: 1,
-  scaleY: 1,
   translateX: 0,
   translateY: 0,
   blur: 0,
+  rotate: 0,
 };
 
 export function normalizeTransition(raw: unknown): MotionTransition | undefined {
@@ -64,16 +115,21 @@ export function normalizeTransition(raw: unknown): MotionTransition | undefined 
 export function snapshotToCss(
   snap: MotionSnapshot,
   restOpacity = 1,
-): { transform: string; opacity: string; filter: string } {
+): { transform: string; opacity: string; filter: string; transformOrigin: string } {
   const tx = snap.translateX ?? 0;
   const ty = snap.translateY ?? 0;
+  const rot = snap.rotate ?? 0;
   const sx = snap.scaleX ?? snap.scale ?? 1;
   const sy = snap.scaleY ?? snap.scale ?? 1;
-  const transform = `translate(${tx}px, ${ty}px) scale(${sx}, ${sy})`;
+  const transform = `translate(${tx}px, ${ty}px) rotate(${rot}deg) scale(${sx}, ${sy})`;
   const opacity = String(snap.opacity ?? restOpacity);
   const blur = snap.blur ?? 0;
   const filter = blur > 0 ? `blur(${blur}px)` : "none";
-  return { transform, opacity, filter };
+  const ox = snap.originX;
+  const oy = snap.originY;
+  const transformOrigin =
+    ox != null || oy != null ? `${(ox ?? 0.5) * 100}% ${(oy ?? 0.5) * 100}%` : "center";
+  return { transform, opacity, filter, transformOrigin };
 }
 
 export const IMPLICIT_TRANSITION_PROPS = [

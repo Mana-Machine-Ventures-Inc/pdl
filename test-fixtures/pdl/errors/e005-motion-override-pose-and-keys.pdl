@@ -1,0 +1,11 @@
+semantic motion.pop: Motion = Motion(
+  transition: (duration: 200, easing: "ease-out"),
+  keys: [Key(pose: Pose(scale: 1.1), at: 1)]
+)
+
+component BadMerge <PointerInput>() layout {
+  children = []
+  self.appear = {
+    animate = Motion(motion.pop, pose: Pose(opacity: 0))
+  }
+}

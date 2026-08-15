@@ -40,6 +40,55 @@ describe("bakedDesign", () => {
     expect(caption.props.fontWeight).toBe(600);
   });
 
+  it("bakes frame animate when the if is true and omits it when false", () => {
+    const design = loadDesign(fx("lab/motion/design.pdl"));
+    const on = buildBakedDesignComponent(design, {
+      componentName: "MotionStandingSpin",
+      paramOverrides: { isLoading: true },
+    });
+    const spinner = on.components.MotionStandingSpin!.root.children.find((c) => c.id === "spinner")!;
+    expect(spinner.props.animate).toMatchObject({
+      kind: "motion",
+      play: "loop",
+      pose: { rotate: 360 },
+      transition: { duration: 800, easing: "linear" },
+    });
+    const off = buildBakedDesignComponent(design, {
+      componentName: "MotionStandingSpin",
+      paramOverrides: { isLoading: false },
+    });
+    const idle = off.components.MotionStandingSpin!.root.children.find((c) => c.id === "spinner")!;
+    expect(idle.props).not.toHaveProperty("animate");
+    const selfOn = buildBakedDesignComponent(design, {
+      componentName: "MotionStandingSelf",
+      paramOverrides: { isLoading: true },
+    });
+    expect(selfOn.components.MotionStandingSelf!.root.props.animate).toMatchObject({
+      play: "loop",
+      pose: { rotate: 360 },
+    });
+  });
+
+  it("bakes blur sugar and Effect tokens onto frame effect", () => {
+    const design = loadDesign(fx("lab/effect/design.pdl"));
+    const self = buildBakedDesignComponent(design, { componentName: "EffectSelfBlur" });
+    expect(self.components.EffectSelfBlur!.root.props.effect).toEqual({
+      kind: "effect",
+      case: "blurSelf",
+      radius: 8,
+    });
+    expect(self.components.EffectSelfBlur!.root.props).not.toHaveProperty("blur");
+    const frost = buildBakedDesignComponent(design, { componentName: "EffectFrostPane" });
+    const pane = frost.components.EffectFrostPane!.root.children.find((c) =>
+      Array.isArray(c.children) ? c.children.length > 0 && c.props.effect : c.props.effect,
+    );
+    expect(pane?.props.effect).toMatchObject({
+      kind: "effect",
+      case: "blurBehind",
+      radius: 20,
+    });
+  });
+
   it("keeps explicit typography overrides over typeStyle defaults when baking", () => {
     const design = loadDesign(fx("atoms/text_atoms.pdl"));
     const doc = buildBakedDesignSystem(design);

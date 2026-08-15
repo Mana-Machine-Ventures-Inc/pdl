@@ -110,12 +110,30 @@ export function serialiseValueExpr(e: ValueExpr): unknown {
         step: serialiseValueExpr(e.step),
         ...(e.from ? { from: serialiseValueExpr(e.from) } : {}),
       };
+    case "key":
+      return {
+        kind: "key",
+        pose: serialiseValueExpr(e.pose),
+        at: serialiseValueExpr(e.at),
+        ...(e.easing ? { easing: serialiseValueExpr(e.easing) } : {}),
+      };
     case "motion":
       return {
         kind: "motion",
-        transition: serialiseValueExpr(e.transition),
+        ...(e.base ? { base: serialiseValueExpr(e.base) } : {}),
+        ...(e.transition ? { transition: serialiseValueExpr(e.transition) } : {}),
+        ...(e.play ? { play: serialiseValueExpr(e.play) } : {}),
         ...(e.pose ? { pose: serialiseValueExpr(e.pose) } : {}),
+        ...(e.keys ? { keys: serialiseValueExpr(e.keys) } : {}),
         ...(e.stagger ? { stagger: serialiseValueExpr(e.stagger) } : {}),
+        ...(e.repeat ? { repeat: serialiseValueExpr(e.repeat) } : {}),
+      };
+    case "effect":
+      return {
+        kind: "effect",
+        effectKind: serialiseValueExpr(e.effectKind),
+        ...(e.radius ? { radius: serialiseValueExpr(e.radius) } : {}),
+        ...(e.vibrancy ? { vibrancy: serialiseValueExpr(e.vibrancy) } : {}),
       };
     case "vibrancyTuple":
       return { kind: "vibrancyTuple", saturation: e.saturation, brightness: e.brightness };
@@ -267,12 +285,34 @@ export function serialiseValueExprWithTokenRefs(expr: ValueExpr, design: DesignD
         step: serialiseValueExprWithTokenRefs(expr.step, design),
         ...(expr.from ? { from: serialiseValueExprWithTokenRefs(expr.from, design) } : {}),
       };
+    case "key":
+      return {
+        kind: "key",
+        pose: serialiseValueExprWithTokenRefs(expr.pose, design),
+        at: serialiseValueExprWithTokenRefs(expr.at, design),
+        ...(expr.easing ? { easing: serialiseValueExprWithTokenRefs(expr.easing, design) } : {}),
+      };
     case "motion":
       return {
         kind: "motion",
-        transition: serialiseValueExprWithTokenRefs(expr.transition, design),
+        ...(expr.base ? { base: serialiseValueExprWithTokenRefs(expr.base, design) } : {}),
+        ...(expr.transition
+          ? { transition: serialiseValueExprWithTokenRefs(expr.transition, design) }
+          : {}),
+        ...(expr.play ? { play: serialiseValueExprWithTokenRefs(expr.play, design) } : {}),
         ...(expr.pose ? { pose: serialiseValueExprWithTokenRefs(expr.pose, design) } : {}),
+        ...(expr.keys ? { keys: serialiseValueExprWithTokenRefs(expr.keys, design) } : {}),
         ...(expr.stagger ? { stagger: serialiseValueExprWithTokenRefs(expr.stagger, design) } : {}),
+        ...(expr.repeat ? { repeat: serialiseValueExprWithTokenRefs(expr.repeat, design) } : {}),
+      };
+    case "effect":
+      return {
+        kind: "effect",
+        effectKind: serialiseValueExprWithTokenRefs(expr.effectKind, design),
+        ...(expr.radius ? { radius: serialiseValueExprWithTokenRefs(expr.radius, design) } : {}),
+        ...(expr.vibrancy
+          ? { vibrancy: serialiseValueExprWithTokenRefs(expr.vibrancy, design) }
+          : {}),
       };
     case "vibrancyTuple":
       return { kind: "vibrancyTuple", saturation: expr.saturation, brightness: expr.brightness };

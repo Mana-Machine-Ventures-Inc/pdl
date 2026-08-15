@@ -1277,13 +1277,28 @@ impl Parser {
             ));
         }
 
+        // `animate = Motion(…)` — `animate` is a lexer keyword, not Ident.
+        if self.is(TokenKind::Animate) && self.peek_ahead_kind(1) == TokenKind::Eq {
+            self.advance();
+            self.consume(TokenKind::Eq)?;
+            if self.is(TokenKind::LBrace) {
+                return Err(self.err(
+                    "`animate =` on a frame must be a Motion or Transition, not a handler block",
+                ));
+            }
+            return Ok(FrameBodyItem::Prop {
+                name: "animate".to_string(),
+                value: self.parse_value_expr()?,
+            });
+        }
+
         // `self.IDENT = …`:
         // - `{ … }` → host inbound handler
         // - otherwise → prop on the enclosing **component root** (not a nested let)
         if self.is(TokenKind::SelfKw) {
             self.advance();
             self.consume(TokenKind::Dot)?;
-            let field = self.consume(TokenKind::Ident)?.value;
+            let field = self.consume_frame_field_name()?;
             self.consume(TokenKind::Eq)?;
             if self.is(TokenKind::LBrace) {
                 self.consume(TokenKind::LBrace)?;
@@ -1336,7 +1351,7 @@ impl Parser {
             self.advance();
             if self.is(TokenKind::Dot) {
                 self.consume(TokenKind::Dot)?;
-                let field = self.consume(TokenKind::Ident)?.value;
+                let field = self.consume_frame_field_name()?;
                 if field == "children" {
                     self.consume(TokenKind::Eq)?;
                     let entries = self.parse_children_rhs()?;
@@ -2513,10 +2528,40 @@ impl Parser {
             self.consume(TokenKind::RParen)?;
             return finish_stagger(args).map_err(|m| self.err(m));
         }
-        if name == "Motion" {
+        if name == "Key" {
             let args = self.parse_labelled_args()?;
             self.consume(TokenKind::RParen)?;
-            return finish_motion(args).map_err(|m| self.err(m));
+            return finish_key(args).map_err(|m| self.err(m));
+        }
+        if name == "Motion" {
+            let base = if self.looks_like_motion_base() {
+                let b = self.parse_value_expr()?;
+                if self.is(TokenKind::Comma) {
+                    self.consume(TokenKind::Comma)?;
+                }
+                Some(b)
+            } else {
+                None
+            };
+            let args = self.parse_labelled_args()?;
+            self.consume(TokenKind::RParen)?;
+            return finish_motion(base, args).map_err(|m| self.err(m));
+        }
+        if name == "Effect" {
+            if self.is(TokenKind::RParen) {
+                return Err(self.err(
+                    "`Effect(…)` requires a kind (`.blurSelf`, `.blurBehind`, or `.glass`)",
+                ));
+            }
+            let effect_kind = self.parse_value_expr()?;
+            let args = if self.is(TokenKind::Comma) {
+                self.consume(TokenKind::Comma)?;
+                self.parse_labelled_args()?
+            } else {
+                indexmap::IndexMap::new()
+            };
+            self.consume(TokenKind::RParen)?;
+            return finish_effect(effect_kind, args).map_err(|m| self.err(m));
         }
         if name == "Media" {
             return Err(self.err(
@@ -2702,6 +2747,11 @@ impl Parser {
                 "`.spacer` was renamed to `Spacer()` (zero-arg child constructor)",
             ));
         }
+        if self.is(TokenKind::Effect) {
+            return Err(self.err(
+                "`Effect(…)` is a frame property, not a child — set `effect =` on a layout (or `blur = n` for self blur)",
+            ));
+        }
         // World A frame ctors: Ident (`Text`/`Layout`) or keywords (`Icon`/`Media`).
         if let Some(ctor) = self.peek_frame_ctor_name() {
             self.advance();
@@ -2787,7 +2837,7 @@ impl Parser {
             return Ok((props, None));
         }
         loop {
-            let lab = self.consume(TokenKind::Ident)?.value;
+            let lab = self.consume_frame_field_name()?;
             self.consume(TokenKind::Colon)?;
             if lab == "children" {
                 child_entries = Some(self.parse_children_list()?);
@@ -2802,11 +2852,41 @@ impl Parser {
         Ok((props, child_entries))
     }
 
+    fn consume_frame_field_name(&mut self) -> Result<String, PdlError> {
+        if self.is(TokenKind::Ident) {
+            return Ok(self.consume(TokenKind::Ident)?.value);
+        }
+        if self.is(TokenKind::Animate) {
+            return Ok(self.advance().value);
+        }
+        Err(self.err(format!(
+            "Expected frame property name, got {:?}",
+            self.peek().kind
+        )))
+    }
+
     fn peek_ahead_kind(&self, n: usize) -> TokenKind {
         self.tokens
             .get(self.index + n)
             .map(|t| t.kind)
             .unwrap_or(TokenKind::Eof)
+    }
+
+    /// `Motion(motion.hoverPop, …)` — ident path followed by `,` or `)`, not `label:`.
+    fn looks_like_motion_base(&self) -> bool {
+        if !self.is(TokenKind::Ident) {
+            return false;
+        }
+        let mut i = 1;
+        while self.peek_ahead_kind(i) == TokenKind::Dot
+            && self.peek_ahead_kind(i + 1) == TokenKind::Ident
+        {
+            i += 2;
+        }
+        matches!(
+            self.peek_ahead_kind(i),
+            TokenKind::Comma | TokenKind::RParen
+        )
     }
 
     fn parse_kw_args(&mut self) -> Result<indexmap::IndexMap<String, ValueExpr>, PdlError> {
@@ -2912,6 +2992,7 @@ fn is_type_keyword(kind: TokenKind) -> bool {
             | TokenKind::Pose
             | TokenKind::Stagger
             | TokenKind::Motion
+            | TokenKind::Effect
             | TokenKind::Blur
             | TokenKind::Vibrancy
             | TokenKind::Ramp
@@ -2942,6 +3023,7 @@ fn is_kw_call_start(kind: TokenKind) -> bool {
             | TokenKind::Pose
             | TokenKind::Stagger
             | TokenKind::Motion
+            | TokenKind::Effect
     )
 }
 
@@ -2995,22 +3077,99 @@ fn finish_stagger(mut args: indexmap::IndexMap<String, ValueExpr>) -> Result<Val
     })
 }
 
-fn finish_motion(mut args: indexmap::IndexMap<String, ValueExpr>) -> Result<ValueExpr, String> {
-    let transition = args.swap_remove("transition").ok_or_else(|| {
-        "`Motion(…)` requires `transition:` (a Transition token or tuple)".to_string()
-    })?;
+fn finish_key(mut args: indexmap::IndexMap<String, ValueExpr>) -> Result<ValueExpr, String> {
+    let pose = args
+        .swap_remove("pose")
+        .ok_or_else(|| "`Key(…)` requires `pose:` and `at:` (0…1 of transition.duration)".to_string())?;
+    let at = args
+        .swap_remove("at")
+        .ok_or_else(|| "`Key(…)` requires `pose:` and `at:` (0…1 of transition.duration)".to_string())?;
+    let easing = args.swap_remove("easing");
+    if !args.is_empty() {
+        let unknown = args.keys().cloned().collect::<Vec<_>>().join(", ");
+        return Err(format!(
+            "Key unknown label(s): {unknown} (expected pose, at, optional easing)"
+        ));
+    }
+    let rest = matches!(
+        &pose,
+        ValueExpr::DotEnum { value } if value.trim_start_matches('.') == "rest"
+    );
+    if !matches!(pose, ValueExpr::Pose { .. } | ValueExpr::Ident { .. }) && !rest {
+        return Err("`Key` `pose:` must be a Pose, a Pose token, or `.rest`".to_string());
+    }
+    Ok(ValueExpr::Key {
+        pose: Box::new(pose),
+        at: Box::new(at),
+        easing: easing.map(Box::new),
+    })
+}
+
+fn finish_motion(
+    base: Option<ValueExpr>,
+    mut args: indexmap::IndexMap<String, ValueExpr>,
+) -> Result<ValueExpr, String> {
+    let transition = args.swap_remove("transition");
+    if base.is_none() && transition.is_none() {
+        return Err("`Motion(…)` requires `transition:` (a Transition token or tuple)".to_string());
+    }
     let pose = args.swap_remove("pose");
+    let keys = args.swap_remove("keys");
+    let play = args.swap_remove("play");
+    let repeat = args.swap_remove("repeat");
     let stagger = args.swap_remove("stagger");
     if !args.is_empty() {
         let unknown = args.keys().cloned().collect::<Vec<_>>().join(", ");
         return Err(format!(
-            "Motion unknown label(s): {unknown} (expected transition, optional pose, stagger)"
+            "Motion unknown label(s): {unknown} (expected transition, optional play, pose, keys, stagger, repeat)"
         ));
     }
     Ok(ValueExpr::Motion {
-        transition: Box::new(transition),
+        base: base.map(Box::new),
+        transition: transition.map(Box::new),
         pose: pose.map(Box::new),
+        keys: keys.map(Box::new),
+        play: play.map(Box::new),
+        repeat: repeat.map(Box::new),
         stagger: stagger.map(Box::new),
+    })
+}
+
+fn finish_effect(
+    effect_kind: ValueExpr,
+    mut args: indexmap::IndexMap<String, ValueExpr>,
+) -> Result<ValueExpr, String> {
+    let ValueExpr::DotEnum { value } = &effect_kind else {
+        return Err(
+            "`Effect(…)` first argument must be `.blurSelf`, `.blurBehind`, or `.glass`".to_string(),
+        );
+    };
+    let raw = value.strip_prefix('.').unwrap_or(value.as_str());
+    if raw != "blurSelf" && raw != "blurBehind" && raw != "glass" {
+        return Err("`Effect(…)` kind must be `.blurSelf`, `.blurBehind`, or `.glass`".to_string());
+    }
+    let unknown: Vec<_> = args
+        .keys()
+        .filter(|k| *k != "radius" && *k != "vibrancy")
+        .cloned()
+        .collect();
+    if !unknown.is_empty() {
+        return Err(format!(
+            "Effect unknown label(s): {} (expected optional radius, vibrancy)",
+            unknown.join(", ")
+        ));
+    }
+    if (raw == "blurSelf" || raw == "blurBehind") && !args.contains_key("radius") {
+        return Err(format!(
+            "`Effect(.{raw})` requires `radius:` (a Radius / number)"
+        ));
+    }
+    let radius = args.swap_remove("radius");
+    let vibrancy = args.swap_remove("vibrancy");
+    Ok(ValueExpr::Effect {
+        effect_kind: Box::new(effect_kind),
+        radius: radius.map(Box::new),
+        vibrancy: vibrancy.map(Box::new),
     })
 }
 

@@ -2,7 +2,7 @@ import type { ChildEntry, ComponentDecl, FrameBodyItem, ValueExpr } from "./ast.
 import { validateConditionExpr } from "./conditions.js";
 import type { DesignDefinition } from "./designModel.js";
 import { PdlError } from "./errors.js";
-import { assertBlurCallCompatible, assertVibrancyCallCompatible } from "./frameProps.js";
+import { assertBlurCallCompatible, assertEffectValue, assertVibrancyCallCompatible } from "./frameProps.js";
 import {
   hostEnumCases,
   isBoolParamType,
@@ -251,6 +251,17 @@ export function assertParamValueCompatible(
   }
   if (expected === "Motion") {
     if (value.kind === "motion" || value.kind === "transition") return;
+    mismatch();
+  }
+  if (expected === "Effect") {
+    if (value.kind === "effect") {
+      assertEffectValue(design, value, where);
+      return;
+    }
+    if (value.kind === "call" && value.callee === "Blur") {
+      assertBlurCallCompatible(design, value.args, where);
+      return;
+    }
     mismatch();
   }
   if (expected === "Background" || expected === "Foreground") {

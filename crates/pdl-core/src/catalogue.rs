@@ -18,7 +18,7 @@ use crate::evaluate::{build_resolved_token_map, evaluate_value, Eval, ParamMeta,
 use crate::graph_serialize::{
     serialise_condition_expr, serialise_value_expr, serialise_value_expr_with_token_refs,
 };
-use crate::motion::is_motion_prop_name;
+use crate::motion::{apply_site_default_play, is_motion_prop_name};
 use crate::stable_json::number_value;
 use crate::resolve::{
     is_hidden_frame, resolve_component_tree, resolve_default_param_values, CatalFrame,
@@ -309,14 +309,29 @@ fn motion_spec_from_eval(raw: &Value) -> Option<Value> {
     let mut entries: Vec<(&str, Value)> = Vec::new();
     let is_motion = o.get("kind").and_then(|v| v.as_str()) == Some("motion")
         || o.contains_key("transition")
-        || o.contains_key("pose");
+        || o.contains_key("pose")
+        || o.contains_key("keys");
     if is_motion {
         let t_src = o.get("transition").unwrap_or(raw);
         if let Some(t) = transition_from_json(t_src) {
             entries.push(("transition", t));
         }
+        if let Some(play) = o.get("play").and_then(|v| v.as_str()) {
+            entries.push((
+                "play",
+                Value::String(play.trim_start_matches('.').to_string()),
+            ));
+        }
         if let Some(p) = o.get("pose").and_then(pose_from_json) {
             entries.push(("pose", p));
+        }
+        if let Some(keys) = o.get("keys") {
+            entries.push(("keys", keys.clone()));
+        }
+        if let Some(n) = o.get("repeat").and_then(json_as_f64) {
+            if n.is_finite() && n >= 1.0 {
+                entries.push(("repeat", number_value(n)));
+            }
         }
         if let Some(st) = o.get("stagger") {
             let (step, from) = stagger_from_json(st);
@@ -381,7 +396,7 @@ fn serialise_interaction_decl(
                 ),
             ];
             if let Some(motion) = evaluate_handler_motion(&h.body, design, tokens) {
-                fields.push(("motion", motion));
+                fields.push(("motion", apply_site_default_play(motion, &h.event)));
             }
             obj(fields)
         })

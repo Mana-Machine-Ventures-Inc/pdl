@@ -210,6 +210,153 @@ describe("parser", () => {
     ).toThrow(/from \{ \}.*removed/);
   });
 
+  it("parses frame animate on a child and on self", () => {
+    const m = parseModule(
+      `semantic motion.spin: Motion = Motion(
+         transition: (duration: 800, easing: "linear"),
+         play: .loop,
+         pose: Pose(rotate: 360)
+       )
+       component Spin(isLoading: Bool = true) layout {
+         let icon = Text(content: "↻")
+         children = [icon]
+         if isLoading {
+           icon.animate = motion.spin
+           self.animate = motion.spin
+         }
+       }`,
+      "frame-animate.pdl",
+    );
+    const comp = m.declarations.find((d) => d.kind === "component") as {
+      kind: "component";
+      body: Array<Record<string, unknown>>;
+    };
+    const iff = comp.body.find((it) => it.kind === "if") as {
+      kind: "if";
+      chain: { branches: Array<{ body: Array<Record<string, unknown>> }> };
+    };
+    expect(iff.chain.branches[0]!.body).toEqual([
+      {
+        kind: "frameProp",
+        frame: "icon",
+        name: "animate",
+        value: { kind: "ident", name: "motion.spin" },
+      },
+      {
+        kind: "frameProp",
+        frame: "self",
+        name: "animate",
+        value: { kind: "ident", name: "motion.spin" },
+      },
+    ]);
+  });
+
+  it("parses bare frame animate on the component root", () => {
+    const m = parseModule(
+      `semantic motion.spin: Motion = Motion(
+         transition: (duration: 800, easing: "linear"),
+         play: .loop,
+         pose: Pose(rotate: 360)
+       )
+       component Spin() layout {
+         children = []
+         animate = motion.spin
+       }`,
+      "bare-frame-animate.pdl",
+    );
+    const comp = m.declarations.find((d) => d.kind === "component") as {
+      kind: "component";
+      body: Array<Record<string, unknown>>;
+    };
+    expect(comp.body).toContainEqual({
+      kind: "prop",
+      name: "animate",
+      value: { kind: "ident", name: "motion.spin" },
+    });
+  });
+
+  it("parses Motion(token, play:) copy + override", () => {
+    const m = parseModule(
+      `semantic motion.hoverPop: Motion = Motion(
+         transition: (duration: 280, easing: "ease-out"),
+         keys: [Key(pose: Pose(scale: 1.12), at: 1)]
+       )
+       component Chip <PointerInput>() layout {
+         children = []
+         self.hoverEnd = {
+           animate = Motion(motion.hoverPop, play: .toRest)
+         }
+       }`,
+      "motion-override.pdl",
+    );
+    const ix = m.declarations.find((d) => d.kind === "interaction") as {
+      kind: "interaction";
+      handlers: Array<{ event: string; body: Array<Record<string, unknown>> }>;
+    };
+    const end = ix.handlers.find((h) => h.event === "hoverEnd")!;
+    expect(end.body).toEqual([
+      {
+        kind: "animate",
+        value: {
+          kind: "motion",
+          base: { kind: "ident", name: "motion.hoverPop" },
+          play: { kind: "dotEnum", value: ".toRest" },
+        },
+      },
+    ]);
+  });
+
+  it("parses Effect and blur sugar on a frame", () => {
+    const m = parseModule(
+      `primitive effect.frost: Effect = Effect(.blurBehind, radius: 20)
+       component Card() layout {
+         let photo = Layout(width: .fill, height: 80)
+         photo.blur = 8
+         children = [photo]
+         effect = effect.frost
+       }`,
+      "effect.pdl",
+    );
+    const prim = m.declarations.find((d) => d.kind === "primitive") as {
+      kind: "primitive";
+      tokenType: string;
+      value: Record<string, unknown>;
+    };
+    expect(prim.tokenType).toBe("Effect");
+    expect(prim.value).toMatchObject({
+      kind: "effect",
+      effectKind: { kind: "dotEnum", value: ".blurBehind" },
+      radius: { kind: "number", value: 20 },
+    });
+    const comp = m.declarations.find((d) => d.kind === "component") as {
+      kind: "component";
+      body: Array<Record<string, unknown>>;
+    };
+    expect(comp.body).toContainEqual({
+      kind: "prop",
+      name: "effect",
+      value: { kind: "ident", name: "effect.frost" },
+    });
+    expect(comp.body).toContainEqual({
+      kind: "frameProp",
+      frame: "photo",
+      name: "blur",
+      value: { kind: "number", value: 8 },
+    });
+  });
+
+  it("rejects Effect as a child and Effect without radius", () => {
+    expect(() =>
+      parseModule(
+        `component C() layout { children = [Effect(.blurSelf, radius: 8)] }`,
+        "x.pdl",
+      ),
+    ).toThrow(/not a child/);
+    expect(() =>
+      parseModule(`primitive e: Effect = Effect(.blurSelf)`, "x.pdl"),
+    ).toThrow(/requires `radius:`/);
+  });
+
   it("rejects empty Pose and Motion without transition", () => {
     expect(() =>
       parseModule(`primitive p: Pose = Pose()`, "x.pdl"),

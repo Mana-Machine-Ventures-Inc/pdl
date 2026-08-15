@@ -386,6 +386,240 @@ fn motion_lab_catalogue_evaluates_snapshots() {
     assert_eq!(pose("MotionPoseTranslateX")["translateX"], 48.0);
     assert_eq!(pose("MotionPoseTranslateY")["translateY"], 24.0);
     assert_eq!(pose("MotionPoseBlur")["blur"], 16.0);
+    assert_eq!(pose("MotionPoseRotate")["rotate"], -12.0);
+    let flourish_handlers = cat["components"]["MotionHoverFlourish"]["interactions"][0]["handlers"]
+        .as_array()
+        .expect("flourish handlers");
+    let start = flourish_handlers
+        .iter()
+        .find(|h| h["event"] == "hoverStart")
+        .expect("hoverStart");
+    assert_eq!(start["motion"]["play"], "toRest");
+    assert_eq!(start["motion"]["keys"].as_array().map(|a| a.len()), Some(3));
+    let flourish_end = flourish_handlers
+        .iter()
+        .find(|h| h["event"] == "hoverEnd")
+        .expect("hoverEnd");
+    assert_eq!(flourish_end["motion"]["play"], "toRest");
+    let pop_handlers = cat["components"]["MotionHoverPop"]["interactions"][0]["handlers"]
+        .as_array()
+        .expect("hoverPop handlers");
+    let pop_start = pop_handlers
+        .iter()
+        .find(|h| h["event"] == "hoverStart")
+        .expect("hoverStart");
+    let pop_end = pop_handlers
+        .iter()
+        .find(|h| h["event"] == "hoverEnd")
+        .expect("hoverEnd");
+    assert_eq!(pop_start["motion"]["play"], "toPose");
+    assert_eq!(pop_end["motion"]["play"], "toRest");
+    assert_eq!(
+        pop_start["motion"]["keys"].as_array().map(|a| a.len()),
+        Some(2)
+    );
+    let override_handlers = cat["components"]["MotionHoverPopOverride"]["interactions"][0]
+        ["handlers"]
+        .as_array()
+        .expect("override handlers");
+    let ov_end = override_handlers
+        .iter()
+        .find(|h| h["event"] == "hoverEnd")
+        .expect("hoverEnd");
+    assert_eq!(ov_end["motion"]["play"], "toRest");
+    assert_eq!(appear["motion"]["play"], "toRest");
+    let modal_handlers = cat["components"]["MotionModal"]["interactions"][0]["handlers"]
+        .as_array()
+        .expect("modal handlers");
+    let dismiss = modal_handlers
+        .iter()
+        .find(|h| h["event"] == "dismiss")
+        .expect("dismiss");
+    assert_eq!(dismiss["motion"]["play"], "toPose");
+}
+
+#[test]
+fn rejects_motion_copy_base_and_merged_pose_keys() {
+    use pdl_core::design::load_design;
+    let not_motion = repo_root().join("test-fixtures/pdl/errors/e005-motion-override-not-motion.pdl");
+    let err = load_design(not_motion.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(
+        err.message.contains("copy base must be a Motion token"),
+        "{}",
+        err.message
+    );
+    let both = repo_root().join("test-fixtures/pdl/errors/e005-motion-override-pose-and-keys.pdl");
+    let err = load_design(both.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(
+        err.message.contains("both `pose:` and `keys:`"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn parses_motion_token_play_override() {
+    let src = r#"
+semantic motion.hoverPop: Motion = Motion(
+  transition: (duration: 280, easing: "ease-out"),
+  keys: [Key(pose: Pose(scale: 1.12), at: 1)]
+)
+component Chip <PointerInput>() layout {
+  children = []
+  self.hoverEnd = {
+    animate = Motion(motion.hoverPop, play: .toRest)
+  }
+}
+"#;
+    let m = parse_module_source(src, "motion-override.pdl").unwrap();
+    let ix = m
+        .declarations
+        .iter()
+        .find_map(|d| match d {
+            pdl_core::ast::TopLevelDecl::Interaction(i) => Some(i),
+            _ => None,
+        })
+        .expect("interaction");
+    let end = ix.handlers.iter().find(|h| h.event == "hoverEnd").unwrap();
+    assert!(end.body.iter().any(|it| matches!(
+        it,
+        pdl_core::ast::InteractionHandlerItem::Animate {
+            value: pdl_core::ast::ValueExpr::Motion {
+                base: Some(_),
+                play: Some(_),
+                ..
+            }
+        }
+    )));
+}
+
+#[test]
+fn frame_animate_bakes_when_if_true_and_omits_when_false() {
+    use pdl_core::design::load_design;
+    use pdl_core::evaluate::build_resolved_token_map;
+    use pdl_core::resolve::{resolve_component_tree, RESOLVE_OPTIONS_LITERAL_BAKE};
+    use serde_json::{json, Map, Value};
+
+    let path = repo_root().join("test-fixtures/pdl/lab/motion/design.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load");
+    let mut tokens = build_resolved_token_map(&design, None, &[]).unwrap();
+    let mut on = Map::new();
+    on.insert("isLoading".into(), Value::Bool(true));
+    let root = resolve_component_tree(
+        &design,
+        "MotionStandingSpin",
+        &mut tokens,
+        &on,
+        RESOLVE_OPTIONS_LITERAL_BAKE,
+    )
+    .expect("resolve on");
+    let spinner = root
+        .children
+        .iter()
+        .find(|c| c.id == "spinner")
+        .expect("spinner");
+    assert_eq!(spinner.props["animate"]["play"], json!("loop"));
+    assert_eq!(spinner.props["animate"]["pose"]["rotate"], json!(360));
+    let mut off = Map::new();
+    off.insert("isLoading".into(), Value::Bool(false));
+    let idle = resolve_component_tree(
+        &design,
+        "MotionStandingSpin",
+        &mut tokens,
+        &off,
+        RESOLVE_OPTIONS_LITERAL_BAKE,
+    )
+    .expect("resolve off");
+    let idle_spin = idle
+        .children
+        .iter()
+        .find(|c| c.id == "spinner")
+        .expect("spinner");
+    assert!(!idle_spin.props.contains_key("animate"));
+}
+
+#[test]
+fn rejects_frame_animate_that_is_not_motion() {
+    use pdl_core::design::load_design;
+    let entry = repo_root().join("test-fixtures/pdl/errors/e006-frame-animate-not-motion.pdl");
+    let err = load_design(entry.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E006");
+    assert!(err.message.contains("property `animate`"), "{}", err.message);
+}
+
+#[test]
+fn parses_effect_ctor_and_blur_sugar() {
+    let src = r#"
+primitive effect.frost: Effect = Effect(.blurBehind, radius: 20)
+component Card() layout {
+  let photo = Layout(width: .fill, height: 80)
+  photo.blur = 8
+  children = [photo]
+  effect = effect.frost
+}
+"#;
+    let m = parse_module_source(src, "effect.pdl").unwrap();
+    let prim = m
+        .declarations
+        .iter()
+        .find_map(|d| match d {
+            pdl_core::ast::TopLevelDecl::Primitive(p) => Some(p),
+            _ => None,
+        })
+        .expect("primitive");
+    assert_eq!(prim.token_type, "Effect");
+    assert!(matches!(
+        prim.value,
+        pdl_core::ast::ValueExpr::Effect { .. }
+    ));
+}
+
+#[test]
+fn rejects_effect_as_child_and_glass() {
+    use pdl_core::design::load_design;
+    let child = repo_root().join("test-fixtures/pdl/errors/e001-effect-as-child.pdl");
+    let err = load_design(child.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E001");
+    assert!(err.message.contains("not a child"), "{}", err.message);
+    let glass = repo_root().join("test-fixtures/pdl/errors/e005-effect-glass.pdl");
+    let err = load_design(glass.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(err.message.contains("not implemented"), "{}", err.message);
+    let both = repo_root().join("test-fixtures/pdl/errors/e005-blur-and-effect.pdl");
+    let err = load_design(both.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(err.message.contains("same slot"), "{}", err.message);
+    let fill = repo_root().join("test-fixtures/pdl/errors/e006-effect-in-background.pdl");
+    let err = load_design(fill.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E006");
+    assert!(err.message.contains("not a layer"), "{}", err.message);
+}
+
+#[test]
+fn bakes_blur_sugar_to_effect() {
+    use pdl_core::design::load_design;
+    use pdl_core::evaluate::build_resolved_token_map;
+    use pdl_core::resolve::{resolve_component_tree, RESOLVE_OPTIONS_LITERAL_BAKE};
+    use serde_json::json;
+
+    let path = repo_root().join("test-fixtures/pdl/lab/effect/design.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load effect lab");
+    let mut tokens = build_resolved_token_map(&design, None, &[]).unwrap();
+    let root = resolve_component_tree(
+        &design,
+        "EffectSelfBlur",
+        &mut tokens,
+        &Default::default(),
+        RESOLVE_OPTIONS_LITERAL_BAKE,
+    )
+    .expect("resolve");
+    assert_eq!(
+        root.props["effect"],
+        json!({ "kind": "effect", "case": "blurSelf", "radius": 8 })
+    );
+    assert!(!root.props.contains_key("blur"));
 }
 
 #[test]

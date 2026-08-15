@@ -6,6 +6,7 @@ import type { ParamEvalMeta } from "./evaluate.js";
 import { evaluateCondition, evaluateValue, type EvalOptions } from "./evaluate.js";
 import { coerceIconValue, coerceMediaSourceValue } from "./assetRefs.js";
 import { coerceFramePropValue } from "./frameNumericSugar.js";
+import { applyFrameAnimatePlay } from "./motionProps.js";
 import { isKnownSamplePath, lookupSampleField } from "./samples.js";
 
 export type CatalFrame = {
@@ -380,6 +381,28 @@ function isUnresolvedRefString(value: unknown): boolean {
   );
 }
 
+function blurSugarToEffect(value: unknown): unknown {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return { kind: "effect", case: "blurSelf", radius: value };
+  }
+  return value;
+}
+
+function coerceEffectValue(value: unknown): unknown {
+  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+    const o = value as Record<string, unknown>;
+    if (o.kind === "blur") {
+      return {
+        kind: "effect",
+        case: "blurBehind",
+        ...(o.radius !== undefined ? { radius: o.radius } : {}),
+        ...(o.vibrancy !== undefined ? { vibrancy: o.vibrancy } : {}),
+      };
+    }
+  }
+  return value;
+}
+
 function assignFrameProp(
   props: Record<string, unknown>,
   name: string,
@@ -387,13 +410,20 @@ function assignFrameProp(
   entryPath: string,
 ): void {
   if (value === null) {
-    props[name] = null;
+    props[name === "blur" ? "effect" : name] = null;
     return;
   }
-  let next = value;
+  let next: unknown = value;
   if (!isUnresolvedRefString(value)) {
     if (name === "icon") next = coerceIconValue(value, entryPath);
     else if (name === "source") next = coerceMediaSourceValue(value, entryPath);
+  }
+  if (name === "animate") next = applyFrameAnimatePlay(next);
+  if (name === "blur") {
+    next = blurSugarToEffect(next);
+    name = "effect";
+  } else if (name === "effect") {
+    next = coerceEffectValue(next);
   }
   props[name] = coerceFramePropValue(name, next, entryPath);
   if (name === "gap") {

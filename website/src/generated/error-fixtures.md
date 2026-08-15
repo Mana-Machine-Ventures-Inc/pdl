@@ -6,7 +6,7 @@ Oracle `.pdl` files under [`test-fixtures/pdl/errors/`](https://github.com/VeryT
 
 A conforming compiler **MUST** emit the code encoded in the filename (`e007-…` → **PDL-E007**), except where a test documents a different code (language evolution — see [Filename vs observed](#filename-vs-observed)). Diagnostic meanings: [Diagnostics](./diagnostics.md).
 
-**82** current oracles · **2** support files · **5** legacy · **1** valid controls.
+**94** current oracles · **2** support files · **5** legacy · **1** valid controls.
 
 ## Coverage by catalog code
 
@@ -14,12 +14,12 @@ Active `PDL-E` codes from `shared/diagnostics.json`. **Current** counts ignore `
 
 | Code | Name | Current | Legacy | Status |
 |------|------|---------|--------|--------|
-| **PDL-E001** | `unexpected-token` | 15 | 0 | covered |
+| **PDL-E001** | `unexpected-token` | 16 | 0 | covered |
 | **PDL-E002** | `circular-import` | 1 | 0 | covered |
 | **PDL-E003** | `duplicate-symbol` | 3 | 0 | covered |
 | **PDL-E004** | `unknown-token-type` | 1 | 0 | covered |
-| **PDL-E005** | `token-type-mismatch` | 23 | 0 | covered |
-| **PDL-E006** | `frame-prop-type-mismatch` | 11 | 0 | covered |
+| **PDL-E005** | `token-type-mismatch` | 32 | 0 | covered |
+| **PDL-E006** | `frame-prop-type-mismatch` | 13 | 0 | covered |
 | **PDL-E007** | `unresolved-reference` | 5 | 1 | covered |
 | **PDL-E008** | `unresolved-type-style` | 0 | 0 | **gap** |
 | **PDL-E010** | `invalid-condition-operand` | 1 | 2 | covered |
@@ -99,6 +99,7 @@ The filename still records the original intent. TypeScript tests assert a **diff
 | [`e001-blur-legacy-blur-arg.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e001-blur-legacy-blur-arg.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | blur legacy blur arg |
 | [`e001-blur-vibrancy-naked-tuple.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e001-blur-vibrancy-naked-tuple.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | blur vibrancy naked tuple |
 | [`e001-classic-frame-let.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e001-classic-frame-let.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | classic frame let |
+| [`e001-effect-as-child.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e001-effect-as-child.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | effect as child |
 | [`e001-handler-frame-prop-assign.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e001-handler-frame-prop-assign.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | handler frame prop assign |
 | [`e001-import-missing.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e001-import-missing.pdl) | **PDL-E001** | **ENOENT** | `unexpected-token` | io | import missing |
 | [`e001-invalid-hex.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e001-invalid-hex.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | invalid hex |
@@ -114,9 +115,11 @@ The filename still records the original intent. TypeScript tests assert a **diff
 | [`e003-duplicate-token-import.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e003-duplicate-token-import.pdl) | **PDL-E003** | **PDL-E003** | `duplicate-symbol` | load | duplicate token import |
 | [`e003-duplicate-token.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e003-duplicate-token.pdl) | **PDL-E003** | **PDL-E003** | `duplicate-symbol` | load | duplicate token |
 | [`e004-circular-primitives.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e004-circular-primitives.pdl) | **PDL-E004** | **PDL-E004** | `unknown-token-type` | token-map | Circular aliases must use semantic (primitives cannot reference tokens). |
+| [`e005-blur-and-effect.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-blur-and-effect.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | blur and effect |
 | [`e005-blur-number-token.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-blur-number-token.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | Blur is a layer object — bare numbers are Radius, not Blur. |
 | [`e005-color-number.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-color-number.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | PDL-E005 — Color tokens must be #hex (or color @ opacity) |
 | [`e005-distance-string.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-distance-string.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | distance string |
+| [`e005-effect-glass.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-effect-glass.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | effect glass |
 | [`e005-fontfamily-hex.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-fontfamily-hex.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | PDL-E005 — FontFamily tokens must be strings |
 | [`e005-fontfamily-number.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-fontfamily-number.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | PDL-E005 — FontFamily tokens must be strings |
 | [`e005-icon-bare-name.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-icon-bare-name.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | PDL-E005 — bare Icon names are ambiguous (SF Symbol vs file vs Material) |
@@ -124,6 +127,13 @@ The filename still records the original intent. TypeScript tests assert a **diff
 | [`e005-letterspacing-string.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-letterspacing-string.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | letterspacing string |
 | [`e005-lineheight-string.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-lineheight-string.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | lineheight string |
 | [`e005-lineheight-zero.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-lineheight-zero.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | lineheight zero |
+| [`e005-motion-key-at-range.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-key-at-range.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | motion key at range |
+| [`e005-motion-loop-with-repeat.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-loop-with-repeat.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | motion loop with repeat |
+| [`e005-motion-override-not-motion.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-override-not-motion.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | motion override not motion |
+| [`e005-motion-override-pose-and-keys.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-override-pose-and-keys.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | motion override pose and keys |
+| [`e005-motion-pose-and-keys.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-pose-and-keys.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | motion pose and keys |
+| [`e005-motion-repeat-without-path.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-repeat-without-path.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | motion repeat without path |
+| [`e005-motion-stagger-without-pose.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-stagger-without-pose.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | motion stagger without pose |
 | [`e005-opacity-of-out-of-range.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-opacity-of-out-of-range.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | PDL-E005 — `@` opacity literals must be in 0…1 |
 | [`e005-opacity-string.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-opacity-string.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | PDL-E005 — Opacity tokens must be a number in 0…1 |
 | [`e005-primitive-token-ref.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-primitive-token-ref.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | primitive token ref |
@@ -139,6 +149,8 @@ The filename still records the original intent. TypeScript tests assert a **diff
 | [`e005-unknown-theme.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e005-unknown-theme.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | catalogue | unknown theme |
 | [`e006-aspect-overconstrained.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e006-aspect-overconstrained.pdl) | **PDL-E006** | **PDL-E006** | `frame-prop-type-mismatch` | load | PDL-E006 — aspectRatio with both width and height closed |
 | [`e006-direction-string.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e006-direction-string.pdl) | **PDL-E006** | **PDL-E006** | `frame-prop-type-mismatch` | load | direction string |
+| [`e006-effect-in-background.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e006-effect-in-background.pdl) | **PDL-E006** | **PDL-E006** | `frame-prop-type-mismatch` | load | effect in background |
+| [`e006-frame-animate-not-motion.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e006-frame-animate-not-motion.pdl) | **PDL-E006** | **PDL-E006** | `frame-prop-type-mismatch` | load | frame animate not motion |
 | [`e006-gap-hex-color.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e006-gap-hex-color.pdl) | **PDL-E006** | **PDL-E006** | `frame-prop-type-mismatch` | load | gap hex color |
 | [`e006-gap-ratio-sugar.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e006-gap-ratio-sugar.pdl) | **PDL-E006** | **PDL-E006** | `frame-prop-type-mismatch` | load | gap ratio sugar |
 | [`e006-icon-unknown-system.pdl`](https://github.com/VeryTinyMachines/pdl/blob/main/test-fixtures/pdl/errors/e006-icon-unknown-system.pdl) | **PDL-E006** | **PDL-E006** | `frame-prop-type-mismatch` | load | PDL-E006 — unknown IconSystem |

@@ -178,7 +178,9 @@ These are type/ctor names, not user identifiers. World A frame ctors Text / Layo
 | `Transition` | — |
 | `Pose` | — |
 | `Stagger` | — |
+| `Key` | — |
 | `Motion` | — |
+| `Effect` | — |
 | `Ramp` | — |
 | `Blur` | — |
 | `Media` | — |

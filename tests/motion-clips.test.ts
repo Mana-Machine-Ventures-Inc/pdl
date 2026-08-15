@@ -38,6 +38,12 @@ describe("motion clips", () => {
       "blur:dismiss",
       "chip:hoverStart",
       "chip:hoverEnd",
+      "flourish:hoverStart",
+      "flourish:hoverEnd",
+      "pop:hoverStart",
+      "pop:hoverEnd",
+      "overridePop:hoverStart",
+      "overridePop:hoverEnd",
     ]);
   });
 
@@ -69,6 +75,8 @@ describe("motion clips", () => {
       "translateY:dismiss",
       "blur:appear",
       "blur:dismiss",
+      "rotate:appear",
+      "rotate:dismiss",
     ]);
   });
 });

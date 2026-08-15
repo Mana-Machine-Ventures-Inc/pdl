@@ -1,0 +1,110 @@
+// Playground lab — frame Effect (self blur / behind blur).
+// Hex colors only — no import.
+
+primitive effect.frost: Effect = Effect(.blurBehind, radius: 20)
+
+semantic motion.unblur: Motion = Motion(
+  transition: (duration: 400, easing: "ease-out"),
+  pose: Pose(blur: 18)
+)
+
+component EffectSelfBlur() layout {
+  width = 220
+  height = 140
+  direction = .column
+  padding = 16
+  gap = 8
+  background = #3B82F6
+  cornerRadius = 12
+  children = [
+    Text(content: "blur = 8", color: #FFFFFF, fontSize: 16, fontWeight: 600),
+    Text(content: "softens this card", color: #DBEAFE, fontSize: 13)
+  ]
+  blur = 8
+}
+
+component EffectBehindSheet() layout {
+  width = 280
+  height = 180
+  direction = .stack
+  background = #1E3A5F
+  cornerRadius = 16
+  children = [
+    Layout(
+      width: .fill,
+      height: .fill,
+      direction: .column,
+      padding: 16,
+      gap: 6,
+      children: [
+        Text(content: "Photo", color: #93C5FD, fontSize: 13),
+        Text(content: "Behind this pane", color: #FFFFFF, fontSize: 32, fontWeight: 600)
+      ]
+    ),
+    Layout(
+      width: .fill,
+      height: 56,
+      position: .absolute,
+      inset: EdgeInsets(top: 0, right: 0, bottom: 0, left: 0),
+      padding: 16,
+      background: #FFFFFF @ 0.45,
+      effect: Effect(.blurBehind, radius: 16),
+      children: [
+        Text(content: "Effect(.blurBehind)", color: #0F172A, fontSize: 14, fontWeight: 600)
+      ]
+    )
+  ]
+}
+
+component EffectFrostPane() layout {
+  width = 280
+  height = 180
+  direction = .stack
+  background = #1E3A5F
+  cornerRadius = 16
+  children = [
+    Text(content: "Sky", color: #93C5FD, fontSize: 48, fontWeight: 700, padding: 16),
+    Layout(
+      width: .fill,
+      height: 56,
+      position: .absolute,
+      inset: EdgeInsets(top: 0, right: 0, bottom: 0, left: 0),
+      padding: 16,
+      background: #FFFFFF @ 0.4,
+      effect: effect.frost,
+      children: [
+        Text(content: "Frosted strip", color: #0F172A, fontSize: 14, fontWeight: 600)
+      ]
+    )
+  ]
+}
+
+component EffectAppearUnblur <PointerInput>() layout {
+  width = 220
+  height = 120
+  direction = .column
+  padding = 16
+  gap = 6
+  background = #F59E0B
+  cornerRadius = 12
+  children = [
+    Text(content: "rest blur 2", color: #78350F, fontSize: 24, fontWeight: 600),
+    Text(content: "appear from 18", color: #78350F, fontSize: 13)
+  ]
+  blur = 2
+  self.appear = {
+    animate = motion.unblur
+  }
+}
+
+component EffectLab() layout {
+  direction = .column
+  gap = 16
+  padding = 16
+  children = [
+    EffectSelfBlur(),
+    EffectBehindSheet(),
+    EffectFrostPane(),
+    EffectAppearUnblur()
+  ]
+}

@@ -6,6 +6,46 @@ variant InteractionState {
   case hovered
 }
 
+semantic motion.hoverPop: Motion = Motion(
+  transition: (duration: 280, easing: "ease-out"),
+  keys: [
+    Key(pose: Pose(scale: 1.12), at: 0.4),
+    Key(pose: Pose(scale: 1.04), at: 1)
+  ]
+)
+
+semantic motion.hoverPopHeld: Motion = Motion(
+  transition: (duration: 280, easing: "ease-out"),
+  play: .toPose,
+  keys: [
+    Key(pose: Pose(scale: 1.12), at: 1)
+  ]
+)
+
+semantic motion.spin: Motion = Motion(
+  transition: (duration: 800, easing: "linear"),
+  play: .loop,
+  pose: Pose(rotate: 360)
+)
+
+semantic motion.pulse: Motion = Motion(
+  transition: (duration: 900, easing: "ease-in-out"),
+  play: .loop,
+  keys: [
+    Key(pose: Pose(opacity: 0.45, scale: 0.96), at: 0.5),
+    Key(pose: .rest, at: 1)
+  ]
+)
+
+semantic motion.sheen: Motion = Motion(
+  transition: (duration: 1400, easing: "linear"),
+  play: .loop,
+  keys: [
+    Key(pose: Pose(translateX: -80), at: 0),
+    Key(pose: Pose(translateX: 160), at: 1)
+  ]
+)
+
 component MotionModal <PointerInput>() layout {
   direction = .column
   gap = 8
@@ -106,6 +146,175 @@ component MotionHoverChip <PointerInput>(
 
 usage MotionHoverChip {
   description = "Implicit animate = — the hover background change should take 200ms when the host patches styles."
+}
+
+component MotionHoverFlourish <PointerInput>() layout {
+  direction = .column
+  gap = 6
+  padding = 16
+  width = 160
+  background = #111827
+  cornerRadius = 999
+  children = [Text(content: "Flourish", color: #FFFFFF, fontSize: 14, fontWeight: 600)]
+
+  self.hoverStart = {
+    animate = Motion(
+      transition: (duration: 400, easing: "ease-out"),
+      play: .toRest,
+      keys: [
+        Key(pose: Pose(scale: 1.16, translateY: -4), at: 0.35),
+        Key(pose: Pose(scale: 0.98), at: 0.7),
+        Key(pose: .rest, at: 1)
+      ]
+    )
+  }
+  self.hoverEnd = {
+    animate = Motion(
+      transition: (duration: 280, easing: "ease-out"),
+      keys: [
+        Key(pose: Pose(scale: 1.16, translateY: -4), at: 0.35),
+        Key(pose: Pose(scale: 0.98), at: 0.7),
+        Key(pose: .rest, at: 1)
+      ]
+    )
+  }
+}
+
+usage MotionHoverFlourish {
+  description = "Pose track on hover: keys through a pop, then .rest. hoverEnd reverses from current progress."
+}
+
+component MotionHoverPop <PointerInput>() layout {
+  direction = .column
+  gap = 6
+  padding = 16
+  width = 160
+  background = #0F766E
+  cornerRadius = 999
+  children = [Text(content: "hoverPop", color: #FFFFFF, fontSize: 14, fontWeight: 600)]
+
+  self.hoverStart = {
+    animate = motion.hoverPop
+  }
+  self.hoverEnd = {
+    animate = motion.hoverPop
+  }
+}
+
+usage MotionHoverPop {
+  description = "Token omits play. hoverStart defaults .toPose; hoverEnd defaults .toRest (same keys)."
+}
+
+component MotionHoverPopOverride <PointerInput>() layout {
+  direction = .column
+  gap = 6
+  padding = 16
+  width = 200
+  background = #7C3AED
+  cornerRadius = 999
+  children = [Text(content: "override", color: #FFFFFF, fontSize: 14, fontWeight: 600)]
+
+  self.hoverStart = {
+    animate = motion.hoverPopHeld
+  }
+  self.hoverEnd = {
+    animate = Motion(motion.hoverPopHeld, play: .toRest)
+  }
+}
+
+usage MotionHoverPopOverride {
+  description = "Token sets play: .toPose. hoverEnd copies it and overrides play: .toRest."
+}
+
+component MotionStandingSpin(isLoading: Bool = true) layout {
+  direction = .column
+  gap = 6
+  padding = 16
+  width = 160
+  align = .center
+  background = #111827
+  cornerRadius = 12
+  let spinner = Text(content: "spin", color: #FBBF24, fontSize: 18, fontWeight: 700)
+  children = [spinner]
+  if isLoading {
+    spinner.animate = motion.spin
+  }
+}
+
+usage MotionStandingSpin {
+  description = "Child spinner.animate = motion.spin while isLoading. Linear rotate 360 loops without a snap."
+}
+
+component MotionStandingSelf(isLoading: Bool = true) layout {
+  direction = .column
+  gap = 6
+  padding = 16
+  width = 160
+  background = #1F2937
+  cornerRadius = 12
+  children = [Text(content: "self.animate", color: #E5E7EB, fontSize: 14, fontWeight: 600)]
+  if isLoading {
+    self.animate = motion.spin
+  }
+}
+
+usage MotionStandingSelf {
+  description = "Root self.animate = motion.spin while isLoading. Same loop as the child spinner."
+}
+
+component MotionPulse() layout {
+  direction = .column
+  gap = 6
+  padding = 16
+  width = 160
+  background = #111827
+  cornerRadius = 12
+  children = [Text(content: "pulse", color: #F9A8D4, fontSize: 18, fontWeight: 700)]
+  self.animate = motion.pulse
+}
+
+usage MotionPulse {
+  description = "Standing keys through a dim/scale pole and .rest. play: .loop."
+}
+
+component MotionSheen() layout {
+  direction = .row
+  width = 160
+  height = 36
+  overflow = .clip
+  cornerRadius = 8
+  background = #111827
+  let shine = Layout(width: 80, height: .fill, background: #FFFFFF, opacity: 0.28)
+
+shine.blur = 12
+  
+  children = [shine]
+  shine.animate = motion.sheen
+}
+
+usage MotionSheen {
+  description = "Keys from translateX −80 (off left) to 160 (off right). Loop wrap is hidden by overflow: .clip."
+}
+
+component MotionAppearThenPulse <PointerInput>() layout {
+  direction = .column
+  gap = 6
+  padding = 16
+  width = 160
+  background = #111827
+  cornerRadius = 12
+  children = [Text(content: "appear→pulse", color: #93C5FD, fontSize: 14, fontWeight: 700)]
+  self.appear = {
+    animate = Motion(
+      transition: (duration: 200, easing: "linear"),
+      pose: Pose(opacity: 0)
+    )
+  }
+  self.animate = motion.pulse
+}
+
+usage MotionAppearThenPulse {
+  description = "Appear fades opacity 0→1, then standing pulse takes the same channel."
 }
 
 component MotionBlurCard <PointerInput>() layout {
@@ -253,13 +462,13 @@ component MotionPoseScaleY <PointerInput>() layout {
   self.appear = {
     animate = Motion(
       transition: (duration: 400, easing: "ease-out"),
-      pose: Pose(scaleY: 0.0)
+      pose: Pose(scaleY: 0.2)
     )
   }
   self.dismiss = {
     animate = Motion(
       transition: (duration: 280, easing: "ease-in"),
-      pose: Pose(scaleY: 0.0)
+      pose: Pose(scaleY: 0.2)
     )
   }
 }
@@ -364,6 +573,38 @@ usage MotionPoseBlur {
   description = "Pose.blur in CSS px (filter). Appear unblurs 16 → sharp without fading."
 }
 
+component MotionPoseRotate <PointerInput>() layout {
+  direction = .column
+  gap = 6
+  padding = 20
+  width = 280
+  background = #FFFFFF
+  cornerRadius = 12
+  borderWidth = 1
+  borderColor = #E5E7EB
+
+  let title = Text(content: "rotate", color: #111827, fontSize: 16, fontWeight: 600)
+  let body = Text(content: "−12° → 0. Tilt in around center.", color: #6B7280, fontSize: 13)
+  children = [title, body]
+
+  self.appear = {
+    animate = Motion(
+      transition: (duration: 400, easing: "ease-out"),
+      pose: Pose(rotate: -12)
+    )
+  }
+  self.dismiss = {
+    animate = Motion(
+      transition: (duration: 280, easing: "ease-in"),
+      pose: Pose(rotate: -12)
+    )
+  }
+}
+
+usage MotionPoseRotate {
+  description = "Pose.rotate in degrees. Appear untilts −12 → 0. originX / originY (0…1) set the pivot."
+}
+
 component MotionPoseLab() layout {
   direction = .column
   gap = 16
@@ -378,7 +619,8 @@ component MotionPoseLab() layout {
   let translateX = MotionPoseTranslateX()
   let translateY = MotionPoseTranslateY()
   let blur = MotionPoseBlur()
-  children = [opacity, scale, scaleX, scaleY, translateX, translateY, blur]
+  let rotate = MotionPoseRotate()
+  children = [opacity, scale, scaleX, scaleY, translateX, translateY, blur, rotate]
 }
 
 usage MotionPoseLab {
@@ -396,9 +638,17 @@ component MotionLab() layout {
   let list = MotionStaggerList()
   let blur = MotionBlurCard()
   let chip = MotionHoverChip()
-  children = [modal, list, blur, chip]
+  let flourish = MotionHoverFlourish()
+  let pop = MotionHoverPop()
+  let overridePop = MotionHoverPopOverride()
+  let spin = MotionStandingSpin()
+  let spinSelf = MotionStandingSelf()
+  let pulse = MotionPulse()
+  let sheen = MotionSheen()
+  let appearPulse = MotionAppearThenPulse()
+  children = [modal, list, blur, chip, flourish, pop, overridePop, spin, spinSelf, pulse, sheen, appearPulse]
 }
 
 usage MotionLab {
-  description = "Motion walkthrough. Play each clip on the rack (modal, list, blur, chip). Hover the chip for implicit interpolation."
+  description = "Motion walkthrough. Play each clip on the rack. Hover the chip (tree tween) or the pop tokens (pose track)."
 }

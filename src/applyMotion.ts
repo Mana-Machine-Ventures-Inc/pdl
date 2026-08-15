@@ -70,11 +70,37 @@ function specFromEvaluated(raw: unknown): MotionSpec {
       const from = o.staggerFrom.replace(/^\./, "");
       if (from === "first" || from === "last") spec.staggerFrom = from;
     }
+    const play = typeof o.play === "string" ? o.play.replace(/^\./, "") : undefined;
+    if (play === "toRest" || play === "toPose" || play === "loop") spec.play = play;
+    if (Array.isArray(o.keys)) {
+      const keys = o.keys
+        .map((k) => keyFromUnknown(k))
+        .filter((k): k is NonNullable<typeof k> => k != null);
+      if (keys.length) spec.keys = keys;
+    }
+    const repeat = Number(o.repeat);
+    if (Number.isFinite(repeat) && repeat >= 1) spec.repeat = repeat;
     return spec;
   }
   const t = normalizeTransition(o);
   if (t) spec.transition = t;
   return spec;
+}
+
+function keyFromUnknown(raw: unknown): import("./motionProps.js").MotionKey | undefined {
+  if (raw == null || typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  const at = Number(o.at);
+  if (!Number.isFinite(at)) return undefined;
+  let pose: import("./motionProps.js").MotionKey["pose"];
+  if (o.pose === "rest" || o.pose === ".rest") pose = "rest";
+  else {
+    const snap = snapshotFromUnknown(o.pose);
+    if (!snap) return undefined;
+    pose = snap;
+  }
+  const easing = typeof o.easing === "string" && o.easing.trim() ? o.easing.trim() : undefined;
+  return { pose, at, ...(easing ? { easing } : {}) };
 }
 
 function snapshotFromUnknown(raw: unknown): MotionSnapshot | undefined {
@@ -96,8 +122,11 @@ function specFromAnimateExpr(
 ): MotionSpec {
   if (expr.kind === "motion") {
     const spec: MotionSpec = {};
-    const t = normalizeTransition(evalValue(expr.transition));
-    if (t) spec.transition = t;
+    if (expr.base) Object.assign(spec, specFromEvaluated(evalValue(expr.base)));
+    if (expr.transition) {
+      const t = normalizeTransition(evalValue(expr.transition));
+      if (t) spec.transition = t;
+    }
     if (expr.pose) {
       const pose =
         snapshotFromPoseExpr(expr.pose, evalNumber) ?? snapshotFromUnknown(evalValue(expr.pose));
@@ -109,6 +138,19 @@ function specFromAnimateExpr(
       if (spec.stagger == null) {
         Object.assign(spec, specFromEvaluated({ kind: "motion", stagger: evalValue(expr.stagger) }));
       }
+    }
+    if (expr.play) {
+      const raw = evalValue(expr.play);
+      const play = typeof raw === "string" ? raw.replace(/^\./, "") : undefined;
+      if (play === "toRest" || play === "toPose" || play === "loop") spec.play = play;
+    }
+    if (expr.keys) {
+      const extra = specFromEvaluated({ kind: "motion", keys: evalValue(expr.keys) });
+      if (extra.keys) spec.keys = extra.keys;
+    }
+    if (expr.repeat) {
+      const n = Number(evalValue(expr.repeat));
+      if (Number.isFinite(n) && n >= 1) spec.repeat = n;
     }
     return spec;
   }
@@ -144,13 +186,29 @@ export function collectMotionFromHandlerItems(
         ...(expr.from ? { from: evalValue(expr.from) } : {}),
       };
     }
-    if (expr.kind === "motion") {
+    if (expr.kind === "key") {
       return {
-        kind: "motion",
-        transition: evalValue(expr.transition),
-        ...(expr.pose ? { pose: evalValue(expr.pose) } : {}),
-        ...(expr.stagger ? { stagger: evalValue(expr.stagger) } : {}),
+        kind: "key",
+        pose: evalValue(expr.pose),
+        at: evalValue(expr.at),
+        ...(expr.easing ? { easing: evalValue(expr.easing) } : {}),
       };
+    }
+    if (expr.kind === "motion") {
+      const out: Record<string, unknown> = { kind: "motion" };
+      if (expr.base) {
+        const base = evalValue(expr.base);
+        if (base && typeof base === "object" && !Array.isArray(base)) {
+          Object.assign(out, base, { kind: "motion" });
+        }
+      }
+      if (expr.transition) out.transition = evalValue(expr.transition);
+      if (expr.play) out.play = evalValue(expr.play);
+      if (expr.pose) out.pose = evalValue(expr.pose);
+      if (expr.keys) out.keys = evalValue(expr.keys);
+      if (expr.stagger) out.stagger = evalValue(expr.stagger);
+      if (expr.repeat) out.repeat = evalValue(expr.repeat);
+      return out;
     }
     return undefined;
   },
@@ -160,9 +218,12 @@ export function collectMotionFromHandlerItems(
     if (item.kind !== "animate") continue;
     const next = specFromAnimateExpr(item.value, evalNumber, evalValue);
     if (next.transition) spec.transition = next.transition;
+    if (next.play) spec.play = next.play;
     if (next.pose) spec.pose = next.pose;
+    if (next.keys) spec.keys = next.keys;
     if (next.stagger != null) spec.stagger = next.stagger;
     if (next.staggerFrom) spec.staggerFrom = next.staggerFrom;
+    if (next.repeat != null) spec.repeat = next.repeat;
   }
   return spec;
 }
@@ -192,8 +253,18 @@ export function motionKeyframes(
   const a = snapshotToCss(from, restOpacity);
   const b = snapshotToCss(to, restOpacity);
   return [
-    { transform: a.transform, opacity: a.opacity, filter: a.filter },
-    { transform: b.transform, opacity: b.opacity, filter: b.filter },
+    {
+      transform: a.transform,
+      opacity: a.opacity,
+      filter: a.filter,
+      transformOrigin: a.transformOrigin,
+    },
+    {
+      transform: b.transform,
+      opacity: b.opacity,
+      filter: b.filter,
+      transformOrigin: b.transformOrigin,
+    },
   ];
 }
 
@@ -226,7 +297,75 @@ export function effectiveTransition(
   return t;
 }
 
-export type MotionPlayMode = "appear" | "dismiss" | "implicit";
+export type MotionPlayMode = "appear" | "dismiss" | "implicit" | "standing";
+
+export function hasPoseTrack(spec: MotionSpec): boolean {
+  return Boolean(spec.pose || (spec.keys && spec.keys.length));
+}
+
+export function resolvedMotionKeys(spec: MotionSpec): import("./motionProps.js").MotionKey[] {
+  if (spec.keys && spec.keys.length) return spec.keys;
+  if (spec.pose) return [{ pose: spec.pose, at: 1 }];
+  return [];
+}
+
+export function snapshotForKeyPose(
+  pose: import("./motionProps.js").MotionKey["pose"],
+  restOpacity = 1,
+): MotionSnapshot {
+  if (pose === "rest") return identitySnapshot(restOpacity);
+  return { ...identitySnapshot(restOpacity), ...pose };
+}
+
+function cssFields(snap: MotionSnapshot, restOpacity: number): Keyframe {
+  const c = snapshotToCss(snap, restOpacity);
+  return {
+    transform: c.transform,
+    opacity: c.opacity,
+    filter: c.filter,
+    transformOrigin: c.transformOrigin,
+  };
+}
+
+function clamp01(n: number): number {
+  if (!(n > 0)) return 0;
+  if (n > 1) return 1;
+  return n;
+}
+
+/** WAAPI keyframes along `keys` / `pose:` sugar. Offset 0 is identity when the first key is after 0. */
+export function poseTrackKeyframes(spec: MotionSpec, restOpacity = 1): Keyframe[] {
+  const keys = resolvedMotionKeys(spec);
+  if (!keys.length) return [];
+  const frames: Keyframe[] = [];
+  if (keys[0]!.at > 0) {
+    frames.push({ offset: 0, ...cssFields(identitySnapshot(restOpacity), restOpacity) });
+  }
+  for (const k of keys) {
+    frames.push({
+      offset: clamp01(k.at),
+      ...cssFields(snapshotForKeyPose(k.pose, restOpacity), restOpacity),
+      ...(k.easing ? { easing: k.easing } : {}),
+    });
+  }
+  return frames;
+}
+
+export function waapiEffectTiming(
+  spec: MotionSpec,
+  reduced: boolean,
+): KeyframeEffectOptions {
+  const t = effectiveTransition(spec, reduced);
+  const play = spec.play;
+  const repeat = spec.repeat != null && spec.repeat > 1 ? spec.repeat : 1;
+  return {
+    duration: t.duration,
+    easing: t.easing,
+    delay: t.delay,
+    fill: play === "loop" ? "none" : "both",
+    iterations: play === "loop" ? Number.POSITIVE_INFINITY : repeat,
+  };
+}
 
 export function snapshotsForMode(
   spec: MotionSpec,
@@ -254,10 +393,10 @@ export function playMotionOnElement(
   mode: MotionPlayMode,
   opts?: { restOpacity?: number; reduced?: boolean; staggerIndex?: number; staggerCount?: number },
 ): Animation | undefined {
+  if (typeof el.animate !== "function") return undefined;
   const restOpacity = opts?.restOpacity ?? 1;
-  const snaps = snapshotsForMode(spec, mode, restOpacity);
-  if (!snaps || typeof el.animate !== "function") return undefined;
-  const t = effectiveTransition(spec, Boolean(opts?.reduced));
+  const reduced = Boolean(opts?.reduced);
+  const t = effectiveTransition(spec, reduced);
   const delay =
     t.delay +
     (opts?.staggerIndex != null && opts.staggerCount != null
@@ -268,10 +407,20 @@ export function playMotionOnElement(
   } catch {
     /* ignore */
   }
-  return el.animate(motionKeyframes(snaps.from, snaps.to, restOpacity), {
-    duration: t.duration,
-    easing: t.easing,
-    delay,
-    fill: "both",
-  });
+  if (mode === "appear" || mode === "dismiss") {
+    const snaps = snapshotsForMode(spec, mode, restOpacity);
+    if (!snaps) return undefined;
+    return el.animate(motionKeyframes(snaps.from, snaps.to, restOpacity), {
+      duration: t.duration,
+      easing: t.easing,
+      delay,
+      fill: "both",
+    });
+  }
+  if (!hasPoseTrack(spec)) return undefined;
+  if (reduced && spec.play === "loop") return undefined;
+  const frames = poseTrackKeyframes(spec, restOpacity);
+  if (!frames.length) return undefined;
+  const timing = waapiEffectTiming(spec, reduced);
+  return el.animate(frames, { ...timing, delay: (timing.delay ?? 0) + (delay - t.delay) });
 }

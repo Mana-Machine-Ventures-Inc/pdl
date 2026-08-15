@@ -52,7 +52,7 @@ token-type-name
   ::= 'Color' | 'Opacity' | 'Distance' | 'Radius' | 'Shadow'
     | 'Icon' | 'MediaSource' | 'Ratio' | 'FontFamily' | 'Size'
     | 'Weight' | 'LineHeight' | 'LetterSpacing' | 'Sizing' | 'Duration'
-    | 'Easing' | 'Transition' | 'Pose' | 'Stagger' | 'Motion'
+    | 'Easing' | 'Transition' | 'Pose' | 'Stagger' | 'Motion' | 'Effect'
     | 'Blur' | 'Vibrancy' | 'Ramp' | 'Background' | 'Foreground'
     ;
 
@@ -143,7 +143,10 @@ component-body-item
     ;
 
 prop-assignment
-  ::= IDENT '=' value-expr ;
+  ::= frame-field-name '=' value-expr ;
+
+frame-field-name
+  ::= IDENT | 'animate' ;
 
 deferred-children-assignment
   ::= IDENT '.' 'children' '=' children-list ;
@@ -216,7 +219,7 @@ if-body-item
     ;
 
 frame-prop-assignment
-  ::= IDENT '.' IDENT '=' value-expr ;
+  ::= ( IDENT | 'self' ) '.' frame-field-name '=' value-expr ;
 
 children-assignment
   ::= 'children' '=' children-rhs
@@ -401,7 +404,9 @@ value-expr
     | transition-literal
     | pose-literal
     | stagger-literal
+    | key-literal
     | motion-literal
+    | effect-literal
     | vibrancy-literal
     | ramp-literal
     | layer-list
@@ -480,15 +485,43 @@ pose-literal
 
 pose-arg
   ::= ( 'opacity' | 'scale' | 'scaleX' | 'scaleY'
-      | 'translateX' | 'translateY' | 'blur' ) ':' value-expr ;
+      | 'translateX' | 'translateY' | 'blur'
+      | 'rotate' | 'originX' | 'originY' ) ':' value-expr ;
 
 stagger-literal
   ::= 'Stagger' '(' 'step' ':' value-expr [ ',' 'from' ':' ( '.first' | '.last' ) ] ')' ;
 
+key-literal
+  ::= 'Key' '(' 'pose' ':' value-expr ',' 'at' ':' value-expr
+      [ ',' 'easing' ':' value-expr ] ')' ;
+
 motion-literal
-  ::= 'Motion' '(' 'transition' ':' value-expr
-      [ ',' 'pose' ':' value-expr ]
-      [ ',' 'stagger' ':' value-expr ] ')' ;
+  ::= 'Motion' '(' motion-args ')' ;
+
+motion-args
+  ::= motion-base [ ',' motion-arg { ',' motion-arg } ]
+    | motion-arg { ',' motion-arg } ;
+
+motion-base
+  ::= IDENT { '.' IDENT } ;
+
+motion-arg
+  ::= 'transition' ':' value-expr
+    | 'play' ':' value-expr
+    | 'pose' ':' value-expr
+    | 'keys' ':' value-expr
+    | 'stagger' ':' value-expr
+    | 'repeat' ':' value-expr ;
+
+effect-literal
+  ::= 'Effect' '(' effect-kind [ ',' effect-arg { ',' effect-arg } ] ')' ;
+
+effect-kind
+  ::= '.blurSelf' | '.blurBehind' | '.glass' ;
+
+effect-arg
+  ::= 'radius' ':' value-expr
+    | 'vibrancy' ':' value-expr ;
 
 vibrancy-literal
   ::= 'Vibrancy' '(' 'saturation' ':' NUMBER ',' 'brightness' ':' NUMBER ')' ;

@@ -26,6 +26,7 @@ export const BUILTIN_PARAM_TYPES: ReadonlySet<string> = new Set([
   "Pose",
   "Stagger",
   "Motion",
+  "Effect",
   "Blur",
   "Vibrancy",
   "Ramp",
@@ -50,6 +51,7 @@ export const BUILTIN_PARAM_TYPES: ReadonlySet<string> = new Set([
   "AlignSelf",
   "Position",
   "BlurStyle",
+  "EffectKind",
 ]);
 
 /** Closed cases for host enum types (params / value lets / token RHS). */
@@ -66,6 +68,7 @@ export const HOST_ENUM_CASES: Readonly<Record<string, readonly string[]>> = {
   Position: ["flow", "absolute"],
   /** Reserved shell — more cases (gaussian, bokeh, fast, …) later. */
   BlurStyle: ["standard"],
+  EffectKind: ["blurSelf", "blurBehind", "glass"],
 };
 
 /** Strip `[T]` array sugar → `T`. */
@@ -121,8 +124,12 @@ export function inferValueLetType(value: {
       return "Pose";
     case "stagger":
       return "Stagger";
+    case "key":
+      return undefined;
     case "motion":
       return "Motion";
+    case "effect":
+      return "Effect";
     case "rampInline":
       return "Ramp";
     case "hex":

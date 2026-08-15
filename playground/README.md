@@ -72,6 +72,7 @@ WASM only sees an in-memory map, so in disk mode the Playground calls **`POST /a
 - Insert templates cover Button host handlers, EditableText SearchField, a FilterBar (emits + ForEach), and usage / rules scenes (usage note, two primaries, empty card, unlabeled field).
 - Pack **Usage & rules** (`test-fixtures/pdl/lab/usage-rules/`) is a gallery of those cases — red `.must` / orange `.should` banners on the HTML preview.
 - Pack **Motion** (`test-fixtures/pdl/lab/motion/`) plays appear/dismiss overlays and hover tweens from a per-handler clip rack (**Reset** / **Slow-mo**), plus stagger, `Pose(blur:)`, and a **Pose lab** (`MotionPoseLab`) that isolates each overlay field. Bake stays at rest pose.
+- Pack **Effect** (`test-fixtures/pdl/lab/effect/`) is standing paint: `blur = n` (self), `Effect(.blurBehind)` / `effect.frost` (behind), and appear from `Pose(blur:)` to a baked rest self blur.
 
 ## Variants (P5)
 

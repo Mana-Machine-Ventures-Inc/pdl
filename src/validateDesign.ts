@@ -18,6 +18,7 @@ import { validateConditionExpr } from "./conditions.js";
 import { PdlError } from "./errors.js";
 import {
   assertBlurCallCompatible,
+  assertEffectValue,
   assertLayerStackValue,
   assertVibrancyCallCompatible,
   validateFramePropsInBody,
@@ -406,10 +407,6 @@ function validateFixturesForComponent(design: DesignDefinition, componentName: s
   }
 }
 
-function isLifecycleMotionEvent(event: string): boolean {
-  return event === "appear" || event === "dismiss";
-}
-
 function validateTransitionValue(
   design: DesignDefinition,
   value: ValueExpr,
@@ -460,7 +457,10 @@ function validatePoseValue(
   for (const [key, field] of Object.entries(value.props)) {
     if (!isMotionPropName(key)) continue;
     if (field.kind === "number") {
-      if (key === "opacity" && (field.value < 0 || field.value > 1)) {
+      if (
+        (key === "opacity" || key === "originX" || key === "originY") &&
+        (field.value < 0 || field.value > 1)
+      ) {
         throw new PdlError(
           "PDL-E005",
           `Pose \`${key}\` must be a number in 0…1 (got ${field.value}) in ${componentName}`,
@@ -534,17 +534,140 @@ function motionHasPose(design: DesignDefinition, value: ValueExpr): boolean {
   return false;
 }
 
+function playName(value: ValueExpr): string | undefined {
+  if (value.kind !== "dotEnum") return undefined;
+  return value.value.replace(/^\./, "");
+}
+
+function validatePlayValue(design: DesignDefinition, value: ValueExpr, componentName: string): void {
+  const name = playName(value);
+  if (name === "toRest" || name === "toPose" || name === "loop") return;
+  throw new PdlError(
+    "PDL-E005",
+    `Motion \`play:\` must be \`.toRest\`, \`.toPose\`, or \`.loop\` in ${componentName}`,
+    { path: design.entryPath },
+  );
+}
+
+function validateRepeatValue(design: DesignDefinition, value: ValueExpr, componentName: string): void {
+  if (value.kind === "number") {
+    if (!Number.isInteger(value.value) || value.value < 1) {
+      throw new PdlError(
+        "PDL-E005",
+        `Motion \`repeat:\` must be an integer ≥ 1 (got ${value.value}) in ${componentName}`,
+        { path: design.entryPath },
+      );
+    }
+    return;
+  }
+  if (value.kind === "ident") return;
+  throw new PdlError(
+    "PDL-E005",
+    `Motion \`repeat:\` must be a finite count in ${componentName}`,
+    { path: design.entryPath },
+  );
+}
+
+function validateKeyValue(design: DesignDefinition, value: ValueExpr, componentName: string): void {
+  if (value.kind !== "key") {
+    throw new PdlError(
+      "PDL-E005",
+      `Motion \`keys:\` entries must be \`Key(…)\` in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+  const rest =
+    value.pose.kind === "dotEnum" && value.pose.value.replace(/^\./, "") === "rest";
+  if (!rest) validatePoseValue(design, value.pose, componentName);
+  if (value.at.kind === "number" && (value.at.value < 0 || value.at.value > 1)) {
+    throw new PdlError(
+      "PDL-E005",
+      `Key \`at:\` must be 0…1 (got ${value.at.value}) in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+}
+
+function validateKeysValue(design: DesignDefinition, value: ValueExpr, componentName: string): void {
+  if (value.kind !== "array" || value.items.length === 0) {
+    throw new PdlError(
+      "PDL-E005",
+      `Motion \`keys:\` must be a non-empty list of Key in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+  for (const item of value.items) validateKeyValue(design, item, componentName);
+}
+
 function motionHasStagger(design: DesignDefinition, value: ValueExpr): boolean {
   if (value.kind === "stagger") return true;
   if (value.kind === "ident") return tokenTypeOf(design, value.name) === "Stagger";
   return false;
 }
 
+type MotionFields = {
+  transition?: ValueExpr;
+  pose?: ValueExpr;
+  keys?: ValueExpr;
+  play?: ValueExpr;
+  repeat?: ValueExpr;
+  stagger?: ValueExpr;
+};
+
+function motionTokenValue(design: DesignDefinition, name: string): ValueExpr | undefined {
+  return design.semantics.get(name)?.value ?? design.primitives.get(name)?.value;
+}
+
+function flattenMotionFields(
+  design: DesignDefinition,
+  value: ValueExpr,
+  depth = 0,
+): MotionFields {
+  if (depth > 8) return {};
+  if (value.kind === "ident") {
+    const inner = motionTokenValue(design, value.name);
+    return inner ? flattenMotionFields(design, inner, depth + 1) : {};
+  }
+  if (value.kind !== "motion") return {};
+  const base = value.base ? flattenMotionFields(design, value.base, depth + 1) : {};
+  return {
+    transition: value.transition ?? base.transition,
+    pose: value.pose ?? base.pose,
+    keys: value.keys ?? base.keys,
+    play: value.play ?? base.play,
+    repeat: value.repeat ?? base.repeat,
+    stagger: value.stagger ?? base.stagger,
+  };
+}
+
+function validateMotionBase(design: DesignDefinition, base: ValueExpr, componentName: string): void {
+  if (base.kind === "ident") {
+    const t = tokenTypeOf(design, base.name);
+    if (t === "Motion") return;
+    throw new PdlError(
+      "PDL-E005",
+      t
+        ? `Motion copy base must be a Motion token (got ${t}) in ${componentName}`
+        : `Motion copy base must be a Motion token in ${componentName} (unknown \`${base.name}\`)`,
+      { path: design.entryPath },
+    );
+  }
+  if (base.kind === "motion") {
+    validateAnimateMotion(design, base, componentName, "");
+    return;
+  }
+  throw new PdlError(
+    "PDL-E005",
+    `Motion copy base must be a Motion token in ${componentName}`,
+    { path: design.entryPath },
+  );
+}
+
 function validateAnimateMotion(
   design: DesignDefinition,
   value: ValueExpr,
   componentName: string,
-  event: string,
+  _event: string,
 ): void {
   if (value.kind === "transition") return;
   if (value.kind === "ident") {
@@ -565,28 +688,114 @@ function validateAnimateMotion(
       { path: design.entryPath },
     );
   }
-  validateTransitionValue(
-    design,
-    value.transition,
-    `Motion \`transition:\` in ${componentName}`,
-  );
-  if (value.pose) validatePoseValue(design, value.pose, componentName);
-  if (value.stagger) validateStaggerValue(design, value.stagger, componentName);
-  const hasPose = Boolean(value.pose && motionHasPose(design, value.pose));
-  const hasStagger = Boolean(value.stagger && motionHasStagger(design, value.stagger));
-  if (hasStagger && !hasPose) {
+  if (value.base) validateMotionBase(design, value.base, componentName);
+  if (value.transition) {
+    validateTransitionValue(
+      design,
+      value.transition,
+      `Motion \`transition:\` in ${componentName}`,
+    );
+  } else if (!value.base) {
     throw new PdlError(
       "PDL-E005",
-      `Motion \`stagger:\` requires \`pose:\` in ${componentName}`,
+      `Motion requires \`transition:\` in ${componentName}`,
       { path: design.entryPath },
     );
   }
-  if ((hasPose || hasStagger) && !isLifecycleMotionEvent(event)) {
+  if (value.pose) validatePoseValue(design, value.pose, componentName);
+  if (value.keys) validateKeysValue(design, value.keys, componentName);
+  if (value.play) validatePlayValue(design, value.play, componentName);
+  if (value.repeat) validateRepeatValue(design, value.repeat, componentName);
+  if (value.stagger) validateStaggerValue(design, value.stagger, componentName);
+  const flat = flattenMotionFields(design, value);
+  const hasPose = Boolean(flat.pose && motionHasPose(design, flat.pose));
+  const hasKeys = Boolean(flat.keys);
+  const hasPath = hasPose || hasKeys;
+  const hasStagger = Boolean(flat.stagger && motionHasStagger(design, flat.stagger));
+  if (hasPose && hasKeys) {
     throw new PdlError(
       "PDL-E005",
-      `Motion \`pose:\` / \`stagger:\` are only legal on appear / dismiss (got \`${event}\`) in ${componentName}`,
+      `Motion cannot take both \`pose:\` and \`keys:\` in ${componentName}`,
       { path: design.entryPath },
     );
+  }
+  if (hasStagger && !hasPath) {
+    throw new PdlError(
+      "PDL-E005",
+      `Motion \`stagger:\` requires \`pose:\` or \`keys:\` in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+  const play = flat.play ? playName(flat.play) : undefined;
+  if (play === "loop" && flat.repeat) {
+    throw new PdlError(
+      "PDL-E005",
+      `Motion \`play: .loop\` is forever — do not set \`repeat:\` in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+  if (flat.repeat && !hasPath) {
+    throw new PdlError(
+      "PDL-E005",
+      `Motion \`repeat:\` requires \`pose:\` or \`keys:\` in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+}
+
+function validateBlurEffectConflictInBody(
+  design: DesignDefinition,
+  items: FrameBodyItem[],
+  componentName: string,
+): void {
+  const seen = new Map<string, Set<string>>();
+  const mark = (target: string, name: string) => {
+    let set = seen.get(target);
+    if (!set) {
+      set = new Set();
+      seen.set(target, set);
+    }
+    set.add(name);
+    if (set.has("blur") && set.has("effect")) {
+      throw new PdlError(
+        "PDL-E005",
+        `\`blur =\` and \`effect =\` are the same slot — use one in ${componentName}`,
+        { path: design.entryPath },
+      );
+    }
+  };
+  for (const item of items) {
+    if ((item.kind === "prop" || item.kind === "frameProp") && (item.name === "blur" || item.name === "effect")) {
+      if (item.value.kind === "null") continue;
+      const target = item.kind === "frameProp" ? item.frame : "self";
+      mark(target, item.name);
+    } else if (item.kind === "let") {
+      validateBlurEffectConflictInBody(design, item.body, componentName);
+    } else if (item.kind === "if") {
+      for (const br of item.chain.branches) {
+        validateBlurEffectConflictInBody(design, br.body, componentName);
+      }
+      if (item.chain.elseBody) validateBlurEffectConflictInBody(design, item.chain.elseBody, componentName);
+    }
+  }
+}
+
+function validateFrameAnimateInBody(
+  design: DesignDefinition,
+  items: FrameBodyItem[],
+  componentName: string,
+): void {
+  for (const item of items) {
+    if ((item.kind === "prop" || item.kind === "frameProp") && item.name === "animate") {
+      validateAnimateMotion(design, item.value, componentName, "frame");
+    } else if (item.kind === "let") {
+      validateFrameAnimateInBody(design, item.body, componentName);
+    } else if (item.kind === "if") {
+      for (const br of item.chain.branches) {
+        validateFrameAnimateInBody(design, br.body, componentName);
+      }
+      if (item.chain.elseBody) validateFrameAnimateInBody(design, item.chain.elseBody, componentName);
+    }
   }
 }
 
@@ -728,6 +937,11 @@ function validateOpacitySides(design: DesignDefinition, expr: ValueExpr): void {
     case "gradientStop":
       for (const v of Object.values(expr.fields)) validateOpacitySides(design, v);
       return;
+    case "effect":
+      validateOpacitySides(design, expr.effectKind);
+      if (expr.radius) validateOpacitySides(design, expr.radius);
+      if (expr.vibrancy) validateOpacitySides(design, expr.vibrancy);
+      return;
     default:
       return;
   }
@@ -771,8 +985,10 @@ function tokenRhsExpectation(tokenType: string): string {
       return "`Pose(opacity:, scale:, …)`";
     case "Stagger":
       return "`Stagger(step: … [, from: .first|.last])`";
-    case "Motion":
-      return "`Motion(transition: … [, pose:] [, stagger:])` or a Transition";
+      case "Motion":
+        return "`Motion(transition: … [, play:] [, pose:] [, keys:] [, stagger:] [, repeat:])`, `Motion(token, field:)`, or a Transition";
+      case "Effect":
+        return "`Effect(.blurSelf | .blurBehind, radius: [, vibrancy:])` (`.glass` is not implemented yet)";
     case "Vibrancy":
       return "`Vibrancy(saturation: …, brightness: …)`";
     case "Ramp":
@@ -1095,6 +1311,11 @@ function assertTokenRhsCompatible(
         return value.kind === "stagger";
       case "Motion":
         return value.kind === "motion" || value.kind === "transition";
+      case "Effect":
+        return (
+          value.kind === "effect" ||
+          (value.kind === "call" && value.callee === "Blur")
+        );
       case "Vibrancy":
         return value.kind === "call" && value.callee === "Vibrancy";
       case "Ramp":
@@ -1181,15 +1402,26 @@ function assertTokenRhsCompatible(
     validateStaggerValue(design, value, name);
   }
   if (tokenType === "Motion" && value.kind === "motion") {
-    validateTransitionValue(design, value.transition, `Motion token \`${name}\` transition:`);
-    if (value.pose) validatePoseValue(design, value.pose, name);
-    if (value.stagger) validateStaggerValue(design, value.stagger, name);
-    if (value.stagger && !value.pose) {
-      throw new PdlError(
-        "PDL-E005",
-        `Motion token \`${name}\` has \`stagger:\` but no \`pose:\``,
-        { path: design.entryPath },
-      );
+    validateAnimateMotion(design, value, name, "");
+  }
+  if (tokenType === "Effect" && value.kind === "effect") {
+    try {
+      assertEffectValue(design, value, `Token \`${name}\``);
+    } catch (e) {
+      if (e instanceof PdlError && (e.code === "PDL-E040" || e.code === "PDL-E020")) {
+        throw new PdlError("PDL-E005", e.message, { path: design.entryPath });
+      }
+      throw e;
+    }
+  }
+  if (tokenType === "Effect" && value.kind === "call" && value.callee === "Blur") {
+    try {
+      assertBlurCallCompatible(design, value.args, `Token \`${name}\``);
+    } catch (e) {
+      if (e instanceof PdlError && (e.code === "PDL-E040" || e.code === "PDL-E020")) {
+        throw new PdlError("PDL-E005", e.message, { path: design.entryPath });
+      }
+      throw e;
     }
   }
   if (tokenType === "Blur" && value.kind === "call" && value.callee === "Blur") {
@@ -1447,6 +1679,8 @@ export function validateMergedDesign(design: DesignDefinition): void {
     const letKinds = collectLetFrameKinds(c.body);
     validateHiddenInBody(design, c.body, paramByName, c.name, c.rootKind, letKinds);
     validateFramePropsInBody(design, c.body, c.name, c.rootKind, letKinds);
+    validateFrameAnimateInBody(design, c.body, c.name);
+    validateBlurEffectConflictInBody(design, c.body, c.name);
     validateLetValuesInBody(design, c.body, callerParams, c.name);
     validateParamBindingsInBody(design, c.body, callerParams, c.name);
     validateForeachMounts(design, c);

@@ -8,7 +8,9 @@ use crate::ast::*;
 use crate::conditions::validate_condition_expr;
 use crate::design::{effective_params, DesignDefinition};
 use crate::error::PdlError;
-use crate::frame_props::{assert_blur_call_compatible, assert_vibrancy_call_compatible};
+use crate::frame_props::{
+    assert_blur_call_compatible, assert_effect_value, assert_vibrancy_call_compatible,
+};
 use crate::param_types::{
     host_enum_cases, is_bool_param_type, is_host_enum_type, unwrap_param_type_name,
 };
@@ -333,6 +335,16 @@ pub fn assert_param_value_compatible(
             Ok(())
         } else {
             Err(mismatch())
+        };
+    }
+    if expected == "Effect" {
+        return match value {
+            ValueExpr::Effect { .. } => assert_effect_value(design, value, where_),
+            ValueExpr::Call {
+                callee: CallCallee::Blur,
+                args,
+            } => assert_blur_call_compatible(design, args, where_),
+            _ => Err(mismatch()),
         };
     }
 

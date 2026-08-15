@@ -66,6 +66,7 @@ export type TokenKind =
   | "Pose"
   | "Stagger"
   | "Motion"
+  | "Effect"
   | "Ramp"
   | "Blur"
   | "Media"
@@ -171,6 +172,7 @@ const KEYWORDS = new Map<string, TokenKind>([
   ["Pose", "Pose"],
   ["Stagger", "Stagger"],
   ["Motion", "Motion"],
+  ["Effect", "Effect"],
   ["Ramp", "Ramp"],
   ["Blur", "Blur"],
   ["Media", "Media"],

@@ -1,0 +1,9 @@
+component BadAt <PointerInput>() layout {
+  children = []
+  self.appear = {
+    animate = Motion(
+      transition: (duration: 200, easing: "ease-out"),
+      keys: [Key(pose: Pose(scale: 0.9), at: 1.5)]
+    )
+  }
+}

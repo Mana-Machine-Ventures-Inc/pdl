@@ -1,0 +1,3 @@
+component BadEffectChild() layout {
+  children = [Effect(.blurSelf, radius: 8)]
+}

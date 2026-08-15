@@ -53,6 +53,19 @@
       "tokenTypes": ["Opacity"],
       "range": [0, 1]
     },
+    "motion": {
+      "accept": ["motion", "transition"],
+      "tokenTypes": ["Motion", "Transition"]
+    },
+    "effect": {
+      "accept": ["effect"],
+      "tokenTypes": ["Effect"]
+    },
+    "blurRadius": {
+      "accept": ["number"],
+      "tokenTypes": ["Radius"],
+      "nonNegativeNumber": true
+    },
     "color": {
       "accept": ["hex", "opacityOf"],
       "tokenTypes": ["Color"]
@@ -249,6 +262,18 @@
     "inset": { "type": "edgeInsets" }
   },
   "special": {
+    "animate": {
+      "kinds": ["layout", "text", "icon", "media"],
+      "type": "motion"
+    },
+    "effect": {
+      "kinds": ["layout", "text", "icon", "media"],
+      "type": "effect"
+    },
+    "blur": {
+      "kinds": ["layout", "text", "icon", "media"],
+      "type": "blurRadius"
+    },
     "hidden": {
       "kinds": ["layout"],
       "type": "booleanOrCondition"

@@ -71,6 +71,21 @@ function stripLeadingDot(s: string): string {
   return s.startsWith(".") ? s.slice(1) : s;
 }
 
+/** Shallow Motion object from a token/value used as `Motion(base, field:)`. */
+function motionObjectFromEval(raw: unknown): Record<string, unknown> {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return { kind: "motion" };
+  }
+  const o = raw as Record<string, unknown>;
+  if (o.kind === "motion" || o.pose != null || o.keys != null || o.play != null) {
+    return { ...o, kind: "motion" };
+  }
+  if (o.duration != null) {
+    return { kind: "motion", transition: o };
+  }
+  return { ...o, kind: "motion" };
+}
+
 /** Evaluate a variant `if` condition against bound component parameters (values without leading dot). */
 export function evaluateCondition(c: ConditionExpr, paramValues: Record<string, unknown>): boolean {
   switch (c.kind) {
@@ -356,13 +371,34 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
         step: evaluateValue(expr.step, opts),
         ...(expr.from !== undefined ? { from: evaluateValue(expr.from, opts) } : {}),
       };
-    case "motion":
+    case "key":
       return {
-        kind: "motion",
-        transition: evaluateValue(expr.transition, opts),
-        ...(expr.pose !== undefined ? { pose: evaluateValue(expr.pose, opts) } : {}),
-        ...(expr.stagger !== undefined ? { stagger: evaluateValue(expr.stagger, opts) } : {}),
+        kind: "key",
+        pose: evaluateValue(expr.pose, opts),
+        at: evaluateValue(expr.at, opts),
+        ...(expr.easing !== undefined ? { easing: evaluateValue(expr.easing, opts) } : {}),
       };
+    case "motion": {
+      const out: Record<string, unknown> = expr.base
+        ? motionObjectFromEval(evaluateValue(expr.base, opts))
+        : { kind: "motion" };
+      if (expr.transition !== undefined) out.transition = evaluateValue(expr.transition, opts);
+      if (expr.play !== undefined) out.play = evaluateValue(expr.play, opts);
+      if (expr.pose !== undefined) out.pose = evaluateValue(expr.pose, opts);
+      if (expr.keys !== undefined) out.keys = evaluateValue(expr.keys, opts);
+      if (expr.stagger !== undefined) out.stagger = evaluateValue(expr.stagger, opts);
+      if (expr.repeat !== undefined) out.repeat = evaluateValue(expr.repeat, opts);
+      return out;
+    }
+    case "effect": {
+      const raw = evaluateValue(expr.effectKind, opts);
+      const caseName =
+        typeof raw === "string" ? raw.replace(/^\./, "") : String(raw).replace(/^\./, "");
+      const out: Record<string, unknown> = { kind: "effect", case: caseName };
+      if (expr.radius !== undefined) out.radius = evaluateValue(expr.radius, opts);
+      if (expr.vibrancy !== undefined) out.vibrancy = evaluateValue(expr.vibrancy, opts);
+      return out;
+    }
     case "vibrancyTuple":
       return { saturation: expr.saturation, brightness: expr.brightness };
     case "rampInline":

@@ -248,6 +248,67 @@ function isRadiusExpr(design: DesignDefinition, value: ValueExpr): boolean {
 /**
  * Type-check `Blur(radius: … [, style:] [, vibrancy:])` arguments (layers, tokens, value lets).
  */
+function effectCaseName(value: ValueExpr): string | undefined {
+  if (value.kind === "dotEnum") return stripDot(value.value);
+  if (value.kind === "ident") return value.name;
+  return undefined;
+}
+
+/**
+ * Type-check `Effect(.blurSelf | .blurBehind | .glass, radius: [, vibrancy:])`.
+ * `.glass` is reserved (PDL-E005) until the host can draw it.
+ */
+export function assertEffectValue(
+  design: DesignDefinition,
+  value: Extract<ValueExpr, { kind: "effect" }>,
+  context: string,
+): void {
+  const raw = effectCaseName(value.effectKind);
+  if (!raw || (raw !== "blurSelf" && raw !== "blurBehind" && raw !== "glass")) {
+    throw new PdlError(
+      "PDL-E005",
+      `${context}: \`Effect(…)\` kind must be \`.blurSelf\`, \`.blurBehind\`, or \`.glass\``,
+      { path: design.entryPath },
+    );
+  }
+  if (raw === "glass") {
+    throw new PdlError(
+      "PDL-E005",
+      `${context}: \`Effect(.glass)\` is not implemented yet — use \`.blurSelf\` or \`.blurBehind\``,
+      { path: design.entryPath },
+    );
+  }
+  if (!value.radius) {
+    throw new PdlError(
+      "PDL-E005",
+      `${context}: \`Effect(.${raw})\` requires \`radius:\` (a Radius / number)`,
+      { path: design.entryPath },
+    );
+  }
+  if (!isRadiusExpr(design, value.radius)) {
+    throw new PdlError(
+      "PDL-E040",
+      `${context}: \`Effect\` argument \`radius:\` expects a Radius / non-negative number (got ${value.radius.kind})`,
+      { path: design.entryPath },
+    );
+  }
+  if (value.vibrancy !== undefined) {
+    if (!isVibrancyExpr(design, value.vibrancy)) {
+      throw new PdlError(
+        "PDL-E040",
+        `${context}: \`Effect\` argument \`vibrancy:\` expects \`Vibrancy(saturation:, brightness:)\` or a Vibrancy token (got ${value.vibrancy.kind})`,
+        { path: design.entryPath },
+      );
+    }
+    if (value.vibrancy.kind === "call" && value.vibrancy.callee === "Vibrancy") {
+      assertVibrancyCallCompatible(design, value.vibrancy.args, context);
+    }
+  }
+}
+
+/**
+ * Type-check `Blur(radius: … [, style:] [, vibrancy:])` arguments (layers, tokens, value lets).
+ */
 export function assertBlurCallCompatible(
   design: DesignDefinition,
   args: Record<string, ValueExpr>,
@@ -363,6 +424,13 @@ function assertLayerEntry(
           { path: design.entryPath },
         );
       }
+      if (refType === "Effect") {
+        throw new PdlError(
+          "PDL-E006",
+          `${context}: Effect token \`${entry.name}\` is not a layer — set \`effect = ${entry.name}\` on the frame`,
+          { path: design.entryPath },
+        );
+      }
       throw new PdlError(
         "PDL-E006",
         `${context}: layer entry \`${entry.name}\` has type ${refType}; expected a Color / Background / Foreground / Ramp / Blur / Media / Vibrancy layer, #hex, color @ opacity, or layer constructor (Media fills use MediaLayer)`,
@@ -385,6 +453,12 @@ function assertLayerEntry(
       }
       return;
     }
+    case "effect":
+      throw new PdlError(
+        "PDL-E006",
+        `${context}: \`Effect(…)\` is not a layer — set \`effect =\` on the frame (fills stay Color / Ramp / Media)`,
+        { path: design.entryPath },
+      );
     default:
       throw new PdlError(
         "PDL-E006",
@@ -471,6 +545,17 @@ export function assertFramePropCompatible(
       `${context}: property \`${prop}\` expects ${valueKindExpectation(typeId)} (got ident)`,
       { path: design.entryPath },
     );
+  }
+
+  if (typeId === "effect") {
+    if (value.kind === "effect") {
+      assertEffectValue(design, value, `${context}: property \`${prop}\``);
+      return;
+    }
+    if (value.kind === "call" && value.callee === "Blur") {
+      assertBlurCallCompatible(design, value.args, `${context}: property \`${prop}\``);
+      return;
+    }
   }
 
   if (literalOk(vk, value, typeId)) {

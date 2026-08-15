@@ -184,6 +184,7 @@ export class Parser {
       "Pose",
       "Stagger",
       "Motion",
+      "Effect",
       "Blur",
       "Vibrancy",
       "Ramp",
@@ -225,6 +226,7 @@ export class Parser {
       "Pose",
       "Stagger",
       "Motion",
+      "Effect",
       "Blur",
       "Vibrancy",
       "Ramp",
@@ -1136,13 +1138,25 @@ export class Parser {
     if (this.is("let")) return this.parseLet();
     if (this.is("if")) return { kind: "if", chain: this.parseIfChain() };
 
+    // `animate = Motion(…)` — `animate` is a lexer keyword, not IDENT.
+    if (this.is("animate") && this.peekAheadKind(1) === "=") {
+      this.advance();
+      this.consume("=");
+      if (this.is("{")) {
+        throw this.err(
+          "`animate =` on a frame must be a Motion or Transition, not a handler block",
+        );
+      }
+      return { kind: "prop", name: "animate", value: this.parseValueExpr() };
+    }
+
     // `self.IDENT = …`:
     // - `{ … }` → host inbound handler (lifted after component)
     // - otherwise → prop on the enclosing **component root** (not a nested let)
     if (this.is("self")) {
       this.advance();
       this.consume(".");
-      const field = this.consume("IDENT").value;
+      const field = this.consumeFrameFieldName();
       this.consume("=");
       if (this.is("{")) {
         this.consume("{");
@@ -1171,7 +1185,7 @@ export class Parser {
       this.advance();
       if (this.is(".")) {
         this.consume(".");
-        const field = this.consume("IDENT").value;
+        const field = this.consumeFrameFieldName();
         if (field === "children") {
           this.consume("=");
           const entries = this.parseChildrenRhs();
@@ -1685,6 +1699,7 @@ export class Parser {
       "Pose",
       "Stagger",
       "Motion",
+      "Effect",
     ];
     if (kwCallStarts.includes(t.kind)) {
       const name = this.advance().value;
@@ -1861,10 +1876,30 @@ export class Parser {
       this.consume(")");
       return this.finishStagger(args);
     }
-    if (name === "Motion") {
+    if (name === "Key") {
       const args = this.parseLabelledArgs();
       this.consume(")");
-      return this.finishMotion(args);
+      return this.finishKey(args);
+    }
+    if (name === "Motion") {
+      const base = this.looksLikeMotionBase() ? this.parseValueExpr() : undefined;
+      if (base && this.is(",")) this.advance();
+      const args = this.parseLabelledArgs();
+      this.consume(")");
+      return this.finishMotion(base, args);
+    }
+    if (name === "Effect") {
+      if (this.is(")")) {
+        throw this.err("`Effect(…)` requires a kind (`.blurSelf`, `.blurBehind`, or `.glass`)");
+      }
+      const effectKind = this.parseValueExpr();
+      let args: Record<string, ValueExpr> = {};
+      if (this.is(",")) {
+        this.advance();
+        args = this.parseLabelledArgs();
+      }
+      this.consume(")");
+      return this.finishEffect(effectKind, args);
     }
     if (name === "Media") {
       throw this.err(
@@ -1979,23 +2014,84 @@ export class Parser {
     return { kind: "stagger", step: args.step, ...(args.from ? { from: args.from } : {}) };
   }
 
-  private finishMotion(args: Record<string, ValueExpr>): ValueExpr {
-    if (!("transition" in args)) {
+  private finishKey(args: Record<string, ValueExpr>): ValueExpr {
+    if (!("pose" in args) || !("at" in args)) {
+      throw this.err("`Key(…)` requires `pose:` and `at:` (0…1 of transition.duration)");
+    }
+    const unknown = Object.keys(args).filter((k) => k !== "pose" && k !== "at" && k !== "easing");
+    if (unknown.length) {
+      throw this.err(`Key unknown label(s): ${unknown.join(", ")} (expected pose, at, optional easing)`);
+    }
+    const pose = args.pose;
+    const rest =
+      pose.kind === "dotEnum" && pose.value.replace(/^\./, "") === "rest";
+    if (pose.kind !== "pose" && pose.kind !== "ident" && !rest) {
+      throw this.err("`Key` `pose:` must be a Pose, a Pose token, or `.rest`");
+    }
+    return {
+      kind: "key",
+      pose,
+      at: args.at,
+      ...(args.easing ? { easing: args.easing } : {}),
+    };
+  }
+
+  /** `Motion(motion.hoverPop, …)` — ident path followed by `,` or `)`, not `label:`. */
+  private looksLikeMotionBase(): boolean {
+    if (!this.is("IDENT")) return false;
+    let i = 1;
+    while (this.peekAheadKind(i) === "." && this.peekAheadKind(i + 1) === "IDENT") {
+      i += 2;
+    }
+    const next = this.peekAheadKind(i);
+    return next === "," || next === ")";
+  }
+
+  private finishMotion(base: ValueExpr | undefined, args: Record<string, ValueExpr>): ValueExpr {
+    if (!base && !("transition" in args)) {
       throw this.err("`Motion(…)` requires `transition:` (a Transition token or tuple)");
     }
-    const unknown = Object.keys(args).filter(
-      (k) => k !== "transition" && k !== "pose" && k !== "stagger",
-    );
+    const allowed = new Set(["transition", "play", "pose", "keys", "stagger", "repeat"]);
+    const unknown = Object.keys(args).filter((k) => !allowed.has(k));
     if (unknown.length) {
       throw this.err(
-        `Motion unknown label(s): ${unknown.join(", ")} (expected transition, optional pose, stagger)`,
+        `Motion unknown label(s): ${unknown.join(", ")} (expected transition, optional play, pose, keys, stagger, repeat)`,
       );
     }
     return {
       kind: "motion",
-      transition: args.transition,
+      ...(base ? { base } : {}),
+      ...(args.transition ? { transition: args.transition } : {}),
+      ...(args.play ? { play: args.play } : {}),
       ...(args.pose ? { pose: args.pose } : {}),
+      ...(args.keys ? { keys: args.keys } : {}),
       ...(args.stagger ? { stagger: args.stagger } : {}),
+      ...(args.repeat ? { repeat: args.repeat } : {}),
+    };
+  }
+
+  private finishEffect(effectKind: ValueExpr, args: Record<string, ValueExpr>): ValueExpr {
+    if (effectKind.kind !== "dotEnum") {
+      throw this.err("`Effect(…)` first argument must be `.blurSelf`, `.blurBehind`, or `.glass`");
+    }
+    const raw = effectKind.value.replace(/^\./, "");
+    if (raw !== "blurSelf" && raw !== "blurBehind" && raw !== "glass") {
+      throw this.err("`Effect(…)` kind must be `.blurSelf`, `.blurBehind`, or `.glass`");
+    }
+    const unknown = Object.keys(args).filter((k) => k !== "radius" && k !== "vibrancy");
+    if (unknown.length) {
+      throw this.err(
+        `Effect unknown label(s): ${unknown.join(", ")} (expected optional radius, vibrancy)`,
+      );
+    }
+    if ((raw === "blurSelf" || raw === "blurBehind") && !("radius" in args)) {
+      throw this.err(`\`Effect(.${raw})\` requires \`radius:\` (a Radius / number)`);
+    }
+    return {
+      kind: "effect",
+      effectKind,
+      ...(args.radius ? { radius: args.radius } : {}),
+      ...(args.vibrancy ? { vibrancy: args.vibrancy } : {}),
     };
   }
 
@@ -2071,6 +2167,11 @@ export class Parser {
     if (this.is("DOT_ENUM") && this.peek().value === ".spacer") {
       throw this.err("`.spacer` was renamed to `Spacer()` (zero-arg child constructor)");
     }
+    if (this.is("Effect")) {
+      throw this.err(
+        "`Effect(…)` is a frame property, not a child — set `effect =` on a layout (or `blur = n` for self blur)",
+      );
+    }
     const peek = this.peek();
     const id = peek.value;
     const nameTok =
@@ -2127,7 +2228,7 @@ export class Parser {
     let childEntries: ChildEntry[] | undefined;
     if (this.is(")")) return { props };
     while (true) {
-      const lab = this.consume("IDENT").value;
+      const lab = this.consumeFrameFieldName();
       this.consume(":");
       if (lab === "children") {
         childEntries = this.parseChildrenList();
@@ -2142,6 +2243,13 @@ export class Parser {
 
   private peekAheadKind(n: number): TokenKind {
     return this.tokens[this.index + n]?.kind ?? "EOF";
+  }
+
+  /** Frame property name — IDENT, or the `animate` keyword. */
+  private consumeFrameFieldName(): string {
+    if (this.is("IDENT")) return this.consume("IDENT").value;
+    if (this.is("animate")) return this.advance().value;
+    throw this.err(`Expected frame property name, got ${this.peek().kind}`);
   }
 
   private parseKwArgs(): Record<string, ValueExpr> {

@@ -101,13 +101,16 @@ A flex-like container — the usual root of a component, and any nested group. W
 | Property | Type | Values |
 |----------|------|--------|
 | `align` | [`Align`](#align) | [`.start`](#align) · [`.center`](#align) · [`.end`](#align) · [`.stretch`](#align) |
+| `animate` | [`Motion`](#motion), [`Transition`](#transition) | motion, transition |
 | `background` | [`Color`](#color), [`Background`](#background), [`Foreground`](#foreground), [`Ramp`](#ramp), [`Blur`](#blur), [`Media`](#media), [`Vibrancy`](#vibrancy) | hex, opacityOf, array |
+| `blur` | [`Radius`](#radius) | ≥ 0 |
 | `borderColor` | [`Color`](#color) | hex, opacityOf |
 | `borderPosition` | [`BorderPosition`](#borderposition) | [`.inside`](#borderposition) · [`.outside`](#borderposition) |
 | `borderWidth` | `nonNegNumber` | ≥ 0 |
 | `columnGap` | [`Distance`](#distance) | ≥ 0 |
 | `cornerRadius` | [`Radius`](#radius), [`CornerRadii`](#cornerradii) | ≥ 0 |
 | `direction` | [`Direction`](#direction) | [`.row`](#direction) · [`.column`](#direction) · [`.rowReverse`](#direction) · [`.columnReverse`](#direction) · [`.stack`](#direction) · [`.reverseStack`](#direction) |
+| `effect` | [`Effect`](#effect) | effect |
 | `foreground` | [`Color`](#color), [`Background`](#background), [`Foreground`](#foreground), [`Ramp`](#ramp), [`Blur`](#blur), [`Media`](#media), [`Vibrancy`](#vibrancy) | hex, opacityOf, array |
 | `gap` | [`Distance`](#distance) | ≥ 0 |
 | `height` | [`Sizing`](#sizing) | ≥ 0 · [`.hug`](#sizing) · [`.fill`](#sizing) · `.fixed(n)` |
@@ -139,7 +142,9 @@ A typography node. `content` is the string. Prefer `style:` naming a [`typeStyle
 | Property | Type | Values |
 |----------|------|--------|
 | `align` | [`Align`](#align) | [`.start`](#align) · [`.center`](#align) · [`.end`](#align) |
+| `animate` | [`Motion`](#motion), [`Transition`](#transition) | motion, transition |
 | `background` | [`Color`](#color), [`Background`](#background), [`Foreground`](#foreground), [`Ramp`](#ramp), [`Blur`](#blur), [`Media`](#media), [`Vibrancy`](#vibrancy) | hex, opacityOf, array |
+| `blur` | [`Radius`](#radius) | ≥ 0 |
 | `borderColor` | [`Color`](#color) | hex, opacityOf |
 | `borderPosition` | [`BorderPosition`](#borderposition) | [`.inside`](#borderposition) · [`.outside`](#borderposition) |
 | `borderWidth` | `nonNegNumber` | ≥ 0 |
@@ -147,6 +152,7 @@ A typography node. `content` is the string. Prefer `style:` naming a [`typeStyle
 | `content` | [`String`](#string) | string |
 | `cornerRadius` | [`Radius`](#radius), [`CornerRadii`](#cornerradii) | ≥ 0 |
 | `editable` | `structural` | — |
+| `effect` | [`Effect`](#effect) | effect |
 | `fontFamily` | [`FontFamily`](#fontfamily) | string |
 | `fontSize` | [`Size`](#size) | ≥ 0 |
 | `fontWeight` | [`Weight`](#weight) | number |
@@ -175,7 +181,10 @@ A small tintable glyph. The `icon` property is an [`Icon`](#icon) token or [`Ico
 
 | Property | Type | Values |
 |----------|------|--------|
+| `animate` | [`Motion`](#motion), [`Transition`](#transition) | motion, transition |
+| `blur` | [`Radius`](#radius) | ≥ 0 |
 | `color` | [`Color`](#color) | hex, opacityOf |
+| `effect` | [`Effect`](#effect) | effect |
 | `height` | [`Sizing`](#sizing) | ≥ 0 · [`.hug`](#sizing) · [`.fill`](#sizing) · `.fixed(n)` |
 | `icon` | [`Icon`](#icon) | string, iconRef |
 | `opacity` | [`Opacity`](#opacity) | 0…1 |
@@ -193,10 +202,13 @@ A box that draws raster, vector, or video from a [`MediaSource`](#mediasource). 
 | Property | Type | Values |
 |----------|------|--------|
 | `align` | [`Align`](#align) | [`.start`](#align) · [`.center`](#align) · [`.end`](#align) |
+| `animate` | [`Motion`](#motion), [`Transition`](#transition) | motion, transition |
 | `aspectRatio` | [`Ratio`](#ratio) | number, ratio |
 | `background` | [`Color`](#color), [`Background`](#background), [`Foreground`](#foreground), [`Ramp`](#ramp), [`Blur`](#blur), [`Media`](#media), [`Vibrancy`](#vibrancy) | hex, opacityOf, array |
+| `blur` | [`Radius`](#radius) | ≥ 0 |
 | `contentMode` | [`ContentMode`](#contentmode) | [`.cover`](#contentmode) · [`.contain`](#contentmode) · [`.fill`](#contentmode) · [`.scaleDown`](#contentmode) |
 | `cornerRadius` | [`Radius`](#radius), [`CornerRadii`](#cornerradii) | ≥ 0 |
+| `effect` | [`Effect`](#effect) | effect |
 | `foreground` | [`Color`](#color), [`Background`](#background), [`Foreground`](#foreground), [`Ramp`](#ramp), [`Blur`](#blur), [`Media`](#media), [`Vibrancy`](#vibrancy) | hex, opacityOf, array |
 | `height` | [`Sizing`](#sizing) | ≥ 0 · [`.hug`](#sizing) · [`.fill`](#sizing) · `.fixed(n)` |
 | `justify` | [`Justify`](#justify) | [`.start`](#justify) · [`.center`](#justify) · [`.end`](#justify) |
@@ -590,7 +602,7 @@ component Cleared() layout {
 
 ## Token types
 
-Named values you declare once and reuse. Write `primitive` for the raw palette and `semantic` for the names components should use ([`color.surface`](#color)). Pick a type when a property needs a color, a gap, a shadow, and so on. [`Duration`](#duration), [`Easing`](#easing), [`Transition`](#transition), [`Pose`](#pose), [`Stagger`](#stagger), and [`Motion`](#motion) are the motion types — they exist for handler `animate =`.
+Named values you declare once and reuse. Write `primitive` for the raw palette and `semantic` for the names components should use ([`color.surface`](#color)). Pick a type when a property needs a color, a gap, a shadow, and so on. [`Duration`](#duration), [`Easing`](#easing), [`Transition`](#transition), [`Pose`](#pose), [`Stagger`](#stagger), and [`Motion`](#motion) are the motion types — they exist for handler `animate =` and for frame `animate`. [`Effect`](#effect) is paint: [`.blurSelf`](#effectkind) softens the node, [`.blurBehind`](#effectkind) samples what is behind.
 
 ### `Color`
 
@@ -865,9 +877,9 @@ width = 240
 
 ### `Duration`
 
-Draft. Animation length in milliseconds. Unitless — not `150ms`.
+Animation length in milliseconds. Unitless — not `150ms`.
 
-Category: motion (draft). Used on: [`Transition`](#transition).[`duration`](#duration), [`Stagger`](#stagger).`step`, `animate`.
+Category: motion. Used on: [`Transition`](#transition).[`duration`](#duration), [`Stagger`](#stagger).`step`, `animate`.
 
 Accepted syntax:
 
@@ -881,9 +893,9 @@ primitive motion.duration.standard: Duration = 250
 
 ### `Easing`
 
-Draft. A timing curve. A quoted CSS easing string.
+A timing curve. A quoted CSS easing string.
 
-Category: motion (draft). Used on: [`Transition`](#transition).[`easing`](#easing).
+Category: motion. Used on: [`Transition`](#transition).[`easing`](#easing).
 
 Accepted syntax:
 
@@ -900,7 +912,7 @@ primitive motion.easing.linear: Easing = "linear"
 
 A duration plus easing, and an optional delay (default 0). Written as a tuple, not a constructor call. Themes replace a Transition wholly — no deep merge. A Transition is valid `animate =` sugar for `Motion(transition: …)`.
 
-Category: motion (draft). Used on: [`Motion`](#motion).[`transition`](#transition), `animate`.
+Category: motion. Used on: [`Motion`](#motion).[`transition`](#transition), `animate`.
 
 Accepted syntax:
 
@@ -915,9 +927,9 @@ semantic motion.instant: Transition = (duration: 0, easing: motion.easing.linear
 
 ### `Pose`
 
-An overlay snapshot for appear / dismiss. Not layout. v1 fields: opacity (0…1), scale (unitless), scaleX, scaleY, translateX, translateY, blur (CSS px). At least one field is required. Unknown labels are PDL-E005. The handler names the direction: appear plays from the pose to rest; dismiss plays from rest to the pose. Themes replace a Pose wholly — no field merge.
+An overlay snapshot — not layout. Used on appear / dismiss, hover flourish, keys, and standing frame `animate`. Fields: opacity (0…1), scale (unitless), scaleX, scaleY, translateX, translateY, blur (CSS px), rotate (degrees), originX / originY (0…1, transform origin). At least one field is required. Unknown labels are PDL-E005. Appear plays from the pose to rest; dismiss plays from rest to the pose; other sites follow [`play`](#play). Themes replace a Pose wholly — no field merge.
 
-Category: motion (draft). Used on: [`Motion`](#motion).[`pose`](#pose).
+Category: motion. Used on: [`Motion`](#motion).[`pose`](#pose), [`Key`](#key).[`pose`](#pose).
 
 Accepted syntax:
 
@@ -930,9 +942,9 @@ semantic pose.fadeUp: Pose = Pose(opacity: 0, scale: 0.95, translateY: 8)
 
 ### `Stagger`
 
-How a [`Pose`](#pose) is distributed across the handler’s direct visible children. `step` is a Duration (milliseconds). `from` is `.first` or `.last` (default `.first`). Illegal without a [`Pose`](#pose) on the same [`Motion`](#motion). Themes replace a Stagger wholly.
+How a pose track is distributed across the handler’s direct visible children. `step` is a Duration (milliseconds). `from` is `.first` or `.last` (default `.first`). Illegal without `pose:` or `keys:` on the same [`Motion`](#motion). Themes replace a Stagger wholly.
 
-Category: motion (draft). Used on: [`Motion`](#motion).[`stagger`](#stagger).
+Category: motion. Used on: [`Motion`](#motion).[`stagger`](#stagger).
 
 Accepted syntax:
 
@@ -946,27 +958,53 @@ semantic motion.stagger.list: Stagger = Stagger(step: 30, from: .first)
 
 ### `Motion`
 
-The value of `animate =`. Joins a [`Transition`](#transition) with an optional [`Pose`](#pose) and optional [`Stagger`](#stagger): pose these nodes with this curve, staggered like this. [`transition`](#transition) is required. [`pose`](#pose) and [`stagger`](#stagger) are lifecycle-only (`appear` / `dismiss`). [`stagger`](#stagger) without [`pose`](#pose) is rejected. A [`Transition`](#transition) token or tuple is sugar for `Motion(transition: …)`. Themes replace a Motion wholly — no field merge.
+The value of `animate =` (handler or frame). Joins a [`Transition`](#transition) with an optional [`Play`](#play), [`Pose`](#pose) or keys, [`Stagger`](#stagger), and finite repeat. [`transition`](#transition) is required unless the first operand is a Motion token (`Motion(token, field:)` copies then overrides). `pose:` and `keys:` together are rejected. `play: .loop` is forever — do not also set `repeat:`. [`stagger`](#stagger) and `repeat` require a pose track. Omit [`play`](#play) on reusable tokens so the site default applies. A [`Transition`](#transition) token or tuple is sugar for `Motion(transition: …)`. Themes replace a Motion wholly — no field merge.
 
-Category: motion (draft). Used on: `animate`.
+Category: motion. Used on: `animate`.
 
 Accepted syntax:
 
 - `Motion(transition: motion.appear)` — Curve only — hover / implicit interpolation.
 - `Motion(transition: motion.appear, pose: Pose(opacity: 0))` — Lifecycle overlay. Handler name is the direction.
 - `Motion(transition: motion.appear, pose: pose.fadeUp, stagger: Stagger(step: 30, from: .first))` — Full join.
+- `Motion(motion.hoverPop, play: .toRest)` — Shallow copy of a Motion token; labeled fields replace those fields.
 - `motion.appear` — A [`Transition`](#transition) token — sugar for Motion(transition: that).
 - `(duration: 250, easing: "ease-out")` — A [`Transition`](#transition) tuple — same sugar.
 - `motion.enterCard` — A Motion token.
 
 ```pdl
-semantic motion.enterCard: Motion = Motion(transition: motion.appear, pose: pose.fadeUp)
-semantic motion.enterList: Motion = Motion(transition: motion.appear, pose: pose.fadeUp, stagger: Stagger(step: 30, from: .first))
+semantic motion.hoverPop: Motion = Motion(transition: motion.appear, keys: [Key(pose: Pose(scale: 1.12), at: 1)])
+hoverEnd = { animate = Motion(motion.hoverPop, play: .toRest) }
+```
+
+### `Effect`
+
+A paint-time distortion on a frame — not a fill, not a child. [`.blurSelf`](#effectkind) softens this node's pixels (`filter`). [`.blurBehind`](#effectkind) samples what is behind (`backdrop-filter`). [`.glass`](#effectkind) is reserved. `blur = n` is sugar for `Effect(.blurSelf, radius: n)`. One `effect` per frame. [`Blur()`](#blur) in a fill list is the alias window for [`.blurBehind`](#effectkind).
+
+Category: paint. Used on: [`effect`](#effect).
+
+Accepted syntax:
+
+- `Effect(.blurSelf, radius: 8)` — Soften this node's pixels.
+- `Effect(.blurBehind, radius: 16)` — Pane over what is behind. Optional vibrancy:.
+- `effect.frost` — An Effect token.
+- `8` — Only on `blur =` — sugar for Effect([`.blurSelf`](#effectkind), radius: 8).
+
+Rejected:
+
+- `background = [Effect(.blurBehind, radius: 16)]` — Effect is not a layer. Set effect = on the frame.
+- `children = [Effect(.blurSelf, radius: 8)]` — Not a frame. Wear the effect on a child layout.
+- `Effect(.glass)` — Reserved — not implemented yet.
+
+```pdl
+primitive effect.frost: Effect = Effect(.blurBehind, radius: 20)
+sheet.effect = effect.frost
+photo.blur = 8
 ```
 
 ### `Blur`
 
-A blur layer object. [`Radius`](#radius) amounts reuse [`Radius`](#radius) — there is no numeric Blur token. A bare Blur token is a valid layer entry. Legacy `Blur(blur: …)` is rejected.
+A blur layer object (alias window). Prefer `effect = Effect(.blurBehind, radius:)` on the frame. [`Radius`](#radius) amounts reuse [`Radius`](#radius) — there is no numeric Blur token. A bare Blur token is still a valid layer entry. Legacy `Blur(blur: …)` is rejected.
 
 Category: layer. Used on: [`background`](#background), [`foreground`](#foreground).
 
@@ -1128,11 +1166,11 @@ Accepted syntax:
 
 - `color.ink @ opacity.state.hover` — Scalar color sugar.
 - `[color.ink @ opacity.state.hover]` — Layer list.
-- `effect.hoverTint` — A Foreground token.
+- `fg.hoverTint` — A Foreground token.
 
 ```pdl
-semantic effect.hoverTint: Foreground = [color.ink @ opacity.state.hover]
-foreground = effect.hoverTint
+semantic fg.hoverTint: Foreground = [color.ink @ opacity.state.hover]
+foreground = fg.hoverTint
 ```
 
 ## Theme {#theme}
@@ -1212,13 +1250,15 @@ Asymmetric radii: Corner(tl:, tr:, br:, bl:). Produces [`CornerRadii`](#cornerra
 | [`Shadow(…)`](#shadow) | Shadow(x:, y:, blurRadius:, color: [, spread:]). Axes are numbers or numeric tokens; color is a [`Color`](#color). spread defaults to 0. |
 | [`GradientStop(…)`](#gradientstop) | GradientStop(position: 0…1 [, opacity:] [, color:]). |
 | [`Vibrancy(…)`](#vibrancy) | Vibrancy(saturation:, brightness:). Used on [`Blur`](#blur) or as its own layer token. |
-| [`Pose(…)`](#pose) | Overlay snapshot: Pose(opacity:, scale:, scaleX:, scaleY:, translateX:, translateY:, blur:). At least one field. Used on [`Motion.pose`](#motion). |
+| [`Pose(…)`](#pose) | Overlay snapshot: Pose(opacity:, scale:, scaleX:, scaleY:, translateX:, translateY:, blur:, rotate:, originX:, originY:). At least one field. Used on [`Motion.pose`](#motion). |
 | [`Stagger(…)`](#stagger) | Stagger(step: [`Duration`](#duration) [, from: .first\|.last]). Used on [`Motion.stagger`](#motion). from defaults to .first. |
-| [`Motion(…)`](#motion) | Motion(transition: [`Transition`](#transition) [, pose: [`Pose`](#pose)] [, stagger: [`Stagger`](#stagger)]). The type of animate =. A bare [`Transition`](#transition) is sugar for Motion(transition: …). |
+| [`Key(…)`](#key) | Key(pose: [`Pose`](#pose) \| .rest, at: 0…1 [, easing:]). A waypoint on [`Motion.keys`](#motion). |
+| [`Motion(…)`](#motion) | Motion(transition: [`Transition`](#transition) [, play:] [, pose: [`Pose`](#pose)] [, keys: [Key, …]] [, stagger: [`Stagger`](#stagger)] [, repeat: n]) or Motion(token, field:). The type of animate =. A bare [`Transition`](#transition) is sugar for Motion(transition: …). Site default fills play when omitted. |
+| [`Effect(…)`](#effect) | Effect([`.blurSelf`](#effectkind) \| [`.blurBehind`](#effectkind) \| [`.glass`](#effectkind), radius: [, vibrancy:]). Frame property [`effect`](#effect). `blur = n` is sugar for [`.blurSelf`](#effectkind). [`.glass`](#effectkind) is reserved. Not a layer and not a child. |
 
 ## Layers {#layers}
 
-Fills stacked in [`background`](#background) and [`foreground`](#foreground). A hex [`Color`](#color) is usually enough; use these constructors for a gradient, blur, or a [`MediaLayer`](#medialayer).
+Fills stacked in [`background`](#background) and [`foreground`](#foreground). A hex [`Color`](#color) is usually enough; use these constructors for a gradient or a [`MediaLayer`](#medialayer). [`Blur()`](#blur) in a fill list is the alias window for a behind pane — prefer `effect = Effect(.blurBehind, …)` on the frame.
 
 ### MediaLayer {#medialayer}
 
@@ -1452,6 +1492,40 @@ Used on: [`Blur`](#blur).`style`.
 
 ```pdl
 background = [Blur(radius: 16, style: .standard), color.surface]
+```
+
+### `EffectKind`
+
+What an [`Effect`](#effect) samples. `.blurSelf` is this node's pixels. `.blurBehind` and `.glass` share the behind slot.
+
+Used on: [`Effect`](#effect).
+
+| Case | Meaning |
+|------|--------|
+| `.blurSelf` | Soften this frame's own pixels. CSS `filter: blur()`. |
+| `.blurBehind` | Sample what is behind this frame. CSS `backdrop-filter`. |
+| `.glass` | Behind plus lighting / refraction. Reserved — not implemented yet. |
+
+```pdl
+photo.effect = Effect(.blurSelf, radius: 8)
+sheet.effect = Effect(.blurBehind, radius: 16)
+```
+
+### `Play`
+
+How a [`Motion`](#motion) runs its pose track. Not a token type — only the `play:` field on [`Motion`](#motion). Omit it on reusable tokens so the site default applies.
+
+Used on: [`Motion`](#motion).[`play`](#play).
+
+| Case | Meaning |
+|------|--------|
+| `.toRest` | Run the path and finish on rest (identity overlay). Default for appear, hoverEnd, and pressEnd. |
+| `.toPose` | Run the path and finish on the last key. Default for dismiss, hoverStart, and pressStart when a pose track is present. |
+| `.loop` | Repeat the path forever. Do not also set `repeat:`. |
+
+```pdl
+hoverEnd = { animate = Motion(motion.hoverPop, play: .toRest) }
+icon.animate = Motion(transition: motion.appear, play: .loop, pose: Pose(rotate: 360))
 ```
 
 ### `RampDirection`
@@ -1759,25 +1833,28 @@ component SearchField <EditableText>(
 }
 ```
 
-## Handler motion (draft) {#motion}
+## Handler motion {#handler-motion}
 
-One `animate =` assignment on a host handler. Its type is Motion: a [`Transition`](#transition), an optional [`Pose`](#pose), and an optional [`Stagger`](#stagger). A bare [`Transition`](#transition) is sugar for Motion(transition: …). Bake stays at rest; the HTML host plays a CSS overlay.
+One `animate =` assignment on a host handler, or a standing `animate` on any frame. Its type is [`Motion`](#motion): a [`Transition`](#transition), an optional play mode, [`Pose`](#pose) or keys, [`Stagger`](#stagger), and finite repeat. A bare [`Transition`](#transition) is sugar for Motion(transition: …). Bake stays at rest; the HTML host plays a CSS overlay.
 
-Host handler bodies have one motion assignment: `animate =`. Its type is Motion — a [`Transition`](#transition) plus an optional [`Pose`](#pose) and optional [`Stagger`](#stagger). A [`Transition`](#transition) token or tuple is sugar for `Motion(transition: …)`. Bake is the rest pose. The HTML host plays a CSS overlay — not layout. Units: [`Duration`](#duration) is milliseconds; translate and blur are CSS pixels; scale is unitless; opacity is 0…1. v1 [`Pose`](#pose) fields: [`opacity`](#opacity), `scale`, `scaleX`, `scaleY`, `translateX`, `translateY`, [`blur`](#blur). The handler is the direction: `appear` plays from the pose to rest; `dismiss` plays from rest to the pose. [`pose`](#pose) and [`stagger`](#stagger) are legal only on `appear` / `dismiss`. [`stagger`](#stagger) without [`pose`](#pose) is rejected.
+Host handler bodies have one motion assignment: `animate =`. Its type is [`Motion`](#motion) — a [`Transition`](#transition) plus optional play, [`Pose`](#pose) or keys, [`Stagger`](#stagger), and finite repeat. A [`Transition`](#transition) token or tuple is sugar for `Motion(transition: …)`. `Motion(token, field:)` copies a [`Motion`](#motion) token and overrides labeled fields. Bake is the rest pose. The HTML host plays a CSS overlay — not layout. Units: [`Duration`](#duration) is milliseconds; translate and blur are CSS pixels; scale is unitless; opacity is 0…1; rotate is degrees; originX / originY are 0…1. [`Pose`](#pose) fields: [`opacity`](#opacity), `scale`, `scaleX`, `scaleY`, `translateX`, `translateY`, [`blur`](#blur), `rotate`, `originX`, `originY`. Appear defaults to play toward rest; dismiss toward the last key; hoverStart / pressStart with a pose track default [`.toPose`](#play); hoverEnd / pressEnd default [`.toRest`](#play). Reusable tokens omit [`play`](#play). [`Pose`](#pose) / keys are legal on pointer handlers (flourish). [`stagger`](#stagger) without a pose track is rejected.
 
 Accepted syntax:
 
 - `animate = motion.interactive` — [`Transition`](#transition) sugar. Use this curve for property changes this handler triggers (implicit interpolation).
 - `animate = Motion(transition: motion.appear, pose: Pose(opacity: 0, scale: 0.95, translateY: 8))` — Lifecycle overlay. appear = from pose; dismiss = to pose.
 - `animate = Motion(transition: motion.appear, pose: pose.fadeUp, stagger: Stagger(step: 30, from: .first))` — [`Pose`](#pose) each direct visible child with this [`Transition`](#transition); stagger them like this.
+- `animate = Motion(motion.hoverPop, play: .toRest)` — Copy a [`Motion`](#motion) token and override play (or any other field).
+- `if isLoading { icon.animate = motion.spin }` — Standing overlay on a frame. Bake carries the [`Motion`](#motion) while the if is true; omit the field when false.
+- `self.animate = motion.spin` — Same property on the component root.
 
 Rejected:
 
 - `interaction Appear { on appear { … } }` — The `interaction` keyword is removed (PDL-E001). Put motion on `self.appear = { … }`.
-- `from { opacity = 0 }` — Removed. Write `pose: Pose(opacity: 0)` on Motion.
-- `stagger = 30` — Removed. Write `stagger: Stagger(step: 30, from: .first)` on Motion.
+- `from { opacity = 0 }` — Removed. Write `pose: Pose(opacity: 0)` on [`Motion`](#motion).
+- `stagger = 30` — Removed. Write `stagger: Stagger(step: 30, from: .first)` on [`Motion`](#motion).
 - `animate = Motion(transition: motion.appear, stagger: Stagger(step: 30))` — [`Stagger`](#stagger) without pose is rejected.
-- `self.hoverStart = { animate = Motion(transition: motion.interactive, pose: Pose(opacity: 0)) }` — pose and stagger are appear / dismiss only.
+- `Motion(color.red, play: .toRest)` — Copy base must be a [`Motion`](#motion) token (PDL-E005).
 
 ```pdl
 component Modal <PointerInput>() layout {

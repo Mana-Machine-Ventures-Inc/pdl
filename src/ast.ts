@@ -60,7 +60,25 @@ export type ValueExpr =
   | { kind: "transition"; duration: ValueExpr; easing: ValueExpr; delay?: ValueExpr }
   | { kind: "pose"; props: Record<string, ValueExpr> }
   | { kind: "stagger"; step: ValueExpr; from?: ValueExpr }
-  | { kind: "motion"; transition: ValueExpr; pose?: ValueExpr; stagger?: ValueExpr }
+  | { kind: "key"; pose: ValueExpr; at: ValueExpr; easing?: ValueExpr }
+  | {
+      kind: "motion";
+      /** Positional copy source: `Motion(motion.hoverPop, play: .toRest)`. */
+      base?: ValueExpr;
+      transition?: ValueExpr;
+      pose?: ValueExpr;
+      keys?: ValueExpr;
+      play?: ValueExpr;
+      repeat?: ValueExpr;
+      stagger?: ValueExpr;
+    }
+  /** `Effect(.blurSelf | .blurBehind | .glass, radius: [, vibrancy:])`. */
+  | {
+      kind: "effect";
+      effectKind: ValueExpr;
+      radius?: ValueExpr;
+      vibrancy?: ValueExpr;
+    }
   | { kind: "vibrancyTuple"; saturation: number; brightness: number }
   | { kind: "rampInline"; direction: string; stops: ValueExpr[] }
   | {

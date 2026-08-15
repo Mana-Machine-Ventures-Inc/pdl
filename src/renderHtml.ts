@@ -172,6 +172,45 @@ function vibrancyBackdropFilter(v: VibrancyFilter): string {
   return `saturate(${String(v.saturate)}) brightness(${String(v.brightness)})`;
 }
 
+function bakedEffect(props: Record<string, unknown>): {
+  case: string;
+  radius?: number;
+  vibrancy?: VibrancyFilter;
+} | undefined {
+  const raw = props.effect;
+  if (raw === null || raw === undefined || typeof raw !== "object" || Array.isArray(raw)) {
+    return undefined;
+  }
+  const o = raw as Record<string, unknown>;
+  if (o.kind !== "effect") return undefined;
+  const caseName = typeof o.case === "string" ? o.case.replace(/^\./, "") : undefined;
+  if (!caseName) return undefined;
+  const radius = finiteNum(o.radius);
+  const vibrancy = vibrancyFromValue(o.vibrancy);
+  return { case: caseName, ...(radius !== undefined ? { radius } : {}), ...(vibrancy ? { vibrancy } : {}) };
+}
+
+function restSelfBlurPx(props: Record<string, unknown>): number {
+  const e = bakedEffect(props);
+  if (e?.case === "blurSelf" && e.radius !== undefined && e.radius > 0) return e.radius;
+  return 0;
+}
+
+function effectCssDecls(props: Record<string, unknown>): string[] {
+  const e = bakedEffect(props);
+  if (!e) return [];
+  if (e.case === "blurSelf" && e.radius !== undefined && e.radius > 0) {
+    return [`filter:blur(${String(e.radius)}px)`];
+  }
+  if (e.case === "blurBehind" && e.radius !== undefined && e.radius > 0) {
+    const parts = [`blur(${String(e.radius)}px)`];
+    if (e.vibrancy) parts.push(vibrancyBackdropFilter(e.vibrancy));
+    const filter = parts.join(" ");
+    return [`backdrop-filter:${filter}`, `-webkit-backdrop-filter:${filter}`];
+  }
+  return [];
+}
+
 function dotEnumValue(v: unknown): string | undefined {
   if (typeof v === "string") return v;
   if (v !== null && typeof v === "object" && !Array.isArray(v)) {
@@ -779,6 +818,7 @@ function boxMetricsStyle(
     const ov = overflowCss(props.overflow);
     if (ov) parts.push(ov);
   }
+  parts.push(...effectCssDecls(props));
   return parts.join(";");
 }
 
@@ -1003,6 +1043,7 @@ function textMetricsShellStyle(props: Record<string, unknown>): string {
   if (typeof props.opacity === "number" && Number.isFinite(props.opacity)) {
     parts.push(`opacity:${props.opacity}`);
   }
+  parts.push(...effectCssDecls(props));
   return parts.join(";");
 }
 
@@ -1610,6 +1651,18 @@ export function patchFrameProps(
   }
 
   const nextProps = (next.props ?? {}) as Record<string, unknown>;
+  const prevAnimate = ((prev.props ?? {}) as Record<string, unknown>).animate;
+  const nextAnimate = nextProps.animate;
+  if (!deepEqualJson(prevAnimate, nextAnimate)) {
+    if (nextAnimate != null && typeof nextAnimate === "object") {
+      el.setAttribute("data-pdl-animate", JSON.stringify(nextAnimate));
+    } else {
+      el.removeAttribute("data-pdl-animate");
+    }
+  }
+  const nextRestBlur = restSelfBlurPx(nextProps);
+  if (nextRestBlur > 0) el.setAttribute("data-pdl-rest-blur", String(nextRestBlur));
+  else el.removeAttribute("data-pdl-rest-blur");
   syncInsideBorderOverlay(el, nextProps);
 
   if (next.kind === "text" && el.tagName === "INPUT") {
@@ -1811,7 +1864,14 @@ function renderFrame(
       ? instCtx.ruleMarks[instancePath]
       : undefined;
   const ruleAttr = ruleMark ? ` data-pdl-rule="${escapeAttr(ruleMark)}"` : "";
-  const dataId = ` data-pdl-id="${escapeAttr(id)}"${ruleAttr}`;
+  const animateRaw = props.animate;
+  const animateAttr =
+    animateRaw != null && typeof animateRaw === "object"
+      ? ` data-pdl-animate="${escapeAttr(JSON.stringify(animateRaw))}"`
+      : "";
+  const restBlur = restSelfBlurPx(props);
+  const restBlurAttr = restBlur > 0 ? ` data-pdl-rest-blur="${escapeAttr(String(restBlur))}"` : "";
+  const dataId = ` data-pdl-id="${escapeAttr(id)}"${ruleAttr}${animateAttr}${restBlurAttr}`;
   const wantInst = frame.instanceOf !== undefined && !opts.omitInstanceAttrs;
   const inst = wantInst ? ` data-pdl-instance-of="${escapeAttr(frame.instanceOf!)}"` : "";
   const kwargsAttr =
@@ -2990,7 +3050,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
   function snapshotFromProps(props) {
     var snap = {};
     if (!props || typeof props !== 'object') return snap;
-    ['opacity','scale','scaleX','scaleY','translateX','translateY','blur'].forEach(function(k){
+    ['opacity','scale','scaleX','scaleY','translateX','translateY','blur','rotate','originX','originY'].forEach(function(k){
       var n = numberish(props[k]);
       if (n != null) snap[k] = n;
     });
@@ -2999,7 +3059,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
   function motionFromHandler(h) {
     var m = (h && h.motion && typeof h.motion === 'object') ? Object.assign({}, h.motion) : {};
     if (m.staggerFrom) m.staggerFrom = stripDot(m.staggerFrom);
-    var hasEvaluated = (m.pose && Object.keys(m.pose).length) || (m.from && Object.keys(m.from).length) || (m.to && Object.keys(m.to).length) || m.transition;
+    if (typeof m.play === 'string') m.play = stripDot(m.play);
+    var hasEvaluated = (m.pose && Object.keys(m.pose).length) || (m.from && Object.keys(m.from).length) || (m.to && Object.keys(m.to).length) || m.transition || (m.keys && m.keys.length);
     function transitionFromValue(v) {
       if (!v || typeof v !== 'object') return null;
       var inner = v.transition || v;
@@ -3025,6 +3086,38 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       if (from === 'first' || from === 'last') out.staggerFrom = from;
       return Object.keys(out).length ? out : null;
     }
+    function keysFromValue(v) {
+      if (!Array.isArray(v)) return null;
+      var out = [];
+      for (var i = 0; i < v.length; i++) {
+        var k = v[i];
+        if (!k || typeof k !== 'object') continue;
+        var at = numberish(k.at);
+        if (at == null) continue;
+        var poseRaw = k.pose;
+        var entry = { at: at };
+        if (typeof k.easing === 'string' && k.easing) entry.easing = k.easing;
+        if (poseRaw === 'rest' || poseRaw === '.rest') entry.pose = 'rest';
+        else {
+          var snap = poseFromValue(poseRaw);
+          if (!snap) continue;
+          entry.pose = snap;
+        }
+        out.push(entry);
+      }
+      return out.length ? out : null;
+    }
+    function playFromValue(v) {
+      if (typeof v === 'string') {
+        var p = stripDot(v);
+        if (p === 'toRest' || p === 'toPose' || p === 'loop') return p;
+      }
+      if (v && typeof v === 'object') {
+        if (typeof v.value === 'string') return playFromValue(v.value);
+        if (v.kind === 'dotEnum') return playFromValue(v.value);
+      }
+      return null;
+    }
     (h && h.body || []).forEach(function(item){
       if (!item || typeof item !== 'object') return;
       if (item.kind !== 'animate') return;
@@ -3040,6 +3133,14 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         if (st) {
           if (m.stagger == null && st.stagger != null) m.stagger = st.stagger;
           if (!m.staggerFrom && st.staggerFrom) m.staggerFrom = st.staggerFrom;
+        }
+        if (!m.keys) {
+          var keys = keysFromValue(v.keys);
+          if (keys) m.keys = keys;
+        }
+        if (!m.play) {
+          var play = playFromValue(v.play);
+          if (play) m.play = play;
         }
       } else if (!hasEvaluated) {
         var t2 = transitionFromValue(v);
@@ -3066,18 +3167,39 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     snap = snap || {};
     var tx = snap.translateX != null ? snap.translateX : 0;
     var ty = snap.translateY != null ? snap.translateY : 0;
+    var rot = snap.rotate != null ? snap.rotate : 0;
     var sx = snap.scaleX != null ? snap.scaleX : (snap.scale != null ? snap.scale : 1);
     var sy = snap.scaleY != null ? snap.scaleY : (snap.scale != null ? snap.scale : 1);
     var op = snap.opacity != null ? snap.opacity : restOpacity;
     var blur = snap.blur != null ? snap.blur : 0;
+    var ox = snap.originX;
+    var oy = snap.originY;
     return {
-      transform: 'translate(' + tx + 'px, ' + ty + 'px) scale(' + sx + ', ' + sy + ')',
+      transform: 'translate(' + tx + 'px, ' + ty + 'px) rotate(' + rot + 'deg) scale(' + sx + ', ' + sy + ')',
       opacity: String(op),
-      filter: blur > 0 ? ('blur(' + blur + 'px)') : 'none'
+      filter: blur > 0 ? ('blur(' + blur + 'px)') : 'none',
+      transformOrigin: (ox != null || oy != null)
+        ? (((ox != null ? ox : 0.5) * 100) + '% ' + ((oy != null ? oy : 0.5) * 100) + '%')
+        : 'center'
     };
   }
-  function identitySnap(restOpacity) {
-    return { opacity: restOpacity, scale: 1, translateX: 0, translateY: 0, blur: 0 };
+  function applyOverlayCss(el, css) {
+    try {
+      el.style.transform = css.transform;
+      el.style.opacity = css.opacity;
+      el.style.filter = css.filter;
+      el.style.transformOrigin = css.transformOrigin;
+    } catch (e) {}
+  }
+  function restBlurOf(el) {
+    try {
+      var a = el && el.getAttribute ? el.getAttribute('data-pdl-rest-blur') : null;
+      var n = a != null ? Number(a) : 0;
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    } catch (e) { return 0; }
+  }
+  function identitySnap(restOpacity, restBlur) {
+    return { opacity: restOpacity, scale: 1, translateX: 0, translateY: 0, blur: restBlur != null ? restBlur : 0, rotate: 0 };
   }
   function motionTimeScale(el) {
     try {
@@ -3129,6 +3251,41 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     if (!canvas) return null;
     return canvas.querySelector(':scope > .pdl-frame, :scope > .pdl-instance') || canvas.firstElementChild;
   }
+  function hasPoseTrack(spec) {
+    return !!(spec && (spec.pose || (spec.keys && spec.keys.length)));
+  }
+  function resolvedKeys(spec) {
+    if (spec && spec.keys && spec.keys.length) return spec.keys;
+    if (spec && spec.pose) return [{ pose: spec.pose, at: 1 }];
+    return [];
+  }
+  function snapFromKeyPose(pose, ident) {
+    if (pose === 'rest' || pose === '.rest') return ident;
+    if (!pose || typeof pose !== 'object') return ident;
+    return Object.assign({}, ident, pose);
+  }
+  function cssFields(snap, rest) {
+    var c = snapshotCss(snap, rest);
+    return { transform: c.transform, opacity: c.opacity, filter: c.filter, transformOrigin: c.transformOrigin };
+  }
+  function poseTrackFrames(spec, ident, rest) {
+    var keys = resolvedKeys(spec);
+    var frames = [];
+    if (!keys.length) return frames;
+    if (!(typeof keys[0].at === 'number') || keys[0].at > 0) {
+      frames.push(Object.assign({ offset: 0 }, cssFields(ident, rest)));
+    }
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      var at = typeof k.at === 'number' && isFinite(k.at) ? k.at : 1;
+      if (at < 0) at = 0;
+      if (at > 1) at = 1;
+      var frame = Object.assign({ offset: at }, cssFields(snapFromKeyPose(k.pose, ident), rest));
+      if (typeof k.easing === 'string' && k.easing) frame.easing = k.easing;
+      frames.push(frame);
+    }
+    return frames;
+  }
   function playMotionOnEl(el, spec, mode) {
     if (!el || !spec || typeof el.animate !== 'function') return null;
     try {
@@ -3137,40 +3294,212 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     // Rest pose is identity, not the current overlay (dismiss fill would make
     // appear tween back to opacity 0).
     var rest = 1;
-    var ident = identitySnap(rest);
-    var from = ident;
-    var to = ident;
-    var pose = spec.pose || (mode === 'appear' ? spec.from : spec.to);
-    if (!pose) return null;
-    if (mode === 'appear') {
-      from = Object.assign({}, ident, pose);
-    } else if (mode === 'dismiss') {
-      to = Object.assign({}, ident, pose);
-    } else {
-      return null;
-    }
+    var ident = identitySnap(rest, restBlurOf(el));
     var t = spec.transition || { duration: 0, easing: 'linear', delay: 0 };
     var reduced = prefersReducedMotion();
     var scale = motionTimeScale(el);
     var duration = (reduced || !(t.duration > 0)) ? 0 : t.duration * scale;
     var delay = reduced ? 0 : (t.delay || 0) * scale;
-    var a = snapshotCss(from, rest);
-    var b = snapshotCss(to, rest);
-    var anim = el.animate(
-      [{ transform: a.transform, opacity: a.opacity, filter: a.filter }, { transform: b.transform, opacity: b.opacity, filter: b.filter }],
-      { duration: duration, easing: t.easing || 'linear', delay: delay, fill: 'both' }
-    );
-    if (mode === 'appear' && anim && anim.finished) {
+    var play = stripDot(spec.play || '');
+    if (mode === 'appear' || mode === 'dismiss') {
+      var from = ident;
+      var to = ident;
+      var pose = spec.pose || (mode === 'appear' ? spec.from : spec.to);
+      if (!pose && spec.keys && spec.keys.length) {
+        pose = spec.keys[mode === 'appear' ? 0 : spec.keys.length - 1].pose;
+        if (pose === 'rest' || pose === '.rest') pose = null;
+      }
+      if (!pose) return null;
+      if (mode === 'appear') from = Object.assign({}, ident, pose);
+      else to = Object.assign({}, ident, pose);
+      var a = snapshotCss(from, rest);
+      var b = snapshotCss(to, rest);
+      var appearAnim = el.animate(
+        [
+          { transform: a.transform, opacity: a.opacity, filter: a.filter, transformOrigin: a.transformOrigin },
+          { transform: b.transform, opacity: b.opacity, filter: b.filter, transformOrigin: b.transformOrigin }
+        ],
+        { duration: duration, easing: t.easing || 'linear', delay: delay, fill: 'both' }
+      );
+      if (mode === 'appear' && appearAnim && appearAnim.finished) {
+        appearAnim.finished.then(function(){
+          applyOverlayCss(el, snapshotCss(ident, rest));
+        }).catch(function(){});
+      }
+      return appearAnim;
+    }
+    if (!hasPoseTrack(spec)) return null;
+    if (reduced && play === 'loop') return null;
+    var frames = poseTrackFrames(spec, ident, rest);
+    if (!frames.length) return null;
+    var iterations = play === 'loop' ? Infinity : (spec.repeat > 1 ? spec.repeat : 1);
+    var fill = play === 'loop' ? 'none' : 'both';
+    var trackAnim = el.animate(frames, {
+      duration: duration,
+      easing: t.easing || 'linear',
+      delay: delay,
+      fill: fill,
+      iterations: iterations
+    });
+    try {
+      if (play === 'toPose') el.setAttribute('data-pdl-pose-hold', '1');
+      else el.removeAttribute('data-pdl-pose-hold');
+    } catch (e) {}
+    return trackAnim;
+  }
+  function poseTrackFramesToRest(spec, ident, rest) {
+    var fwd = poseTrackFrames(spec, ident, rest);
+    var frames = [];
+    for (var i = fwd.length - 1; i >= 0; i--) {
+      var f = Object.assign({}, fwd[i]);
+      var off = typeof fwd[i].offset === 'number' ? fwd[i].offset : 0;
+      f.offset = 1 - off;
+      frames.push(f);
+    }
+    return frames;
+  }
+  function animationDuration(a) {
+    try {
+      if (a.effect && a.effect.getComputedTiming) {
+        var ct = a.effect.getComputedTiming();
+        if (ct && typeof ct.duration === 'number' && isFinite(ct.duration)) return ct.duration;
+      }
+      if (a.effect && a.effect.getTiming) {
+        var t = a.effect.getTiming();
+        if (t && typeof t.duration === 'number' && isFinite(t.duration)) return t.duration;
+      }
+    } catch (e) {}
+    if (typeof a.currentTime === 'number' && isFinite(a.currentTime)) return a.currentTime;
+    return 0;
+  }
+  function holdingPose(el) {
+    return !!(el && el.getAttribute && el.getAttribute('data-pdl-pose-hold') === '1');
+  }
+  function reverseInFlight(el) {
+    if (!el || !el.getAnimations) return null;
+    var anims = [];
+    try { anims = el.getAnimations() || []; } catch (e) { return null; }
+    for (var i = 0; i < anims.length; i++) {
+      var a = anims[i];
+      if (!a || a.playState === 'idle') continue;
+      if (a.playState === 'finished' && !holdingPose(el)) continue;
+      try {
+        if (typeof a.reverse === 'function') {
+          a.reverse();
+        } else {
+          if (a.playState === 'finished') {
+            var dur = animationDuration(a);
+            if (dur > 0) a.currentTime = dur;
+          }
+          a.playbackRate = -1;
+          if (a.playState !== 'running') a.play();
+        }
+        if (a.finished) {
+          a.finished.then(function(){
+            try { el.removeAttribute('data-pdl-pose-hold'); } catch (e) {}
+            applyOverlayCss(el, snapshotCss(identitySnap(1, restBlurOf(el)), 1));
+          }).catch(function(){});
+        }
+        return a;
+      } catch (e) {}
+    }
+    return null;
+  }
+  function playReturnToRest(el, spec) {
+    if (!el || !spec) return null;
+    var reversed = reverseInFlight(el);
+    if (reversed) return reversed;
+    if (!hasPoseTrack(spec)) return null;
+    var rest = 1;
+    var ident = identitySnap(rest, restBlurOf(el));
+    var keys = resolvedKeys(spec);
+    if (!keys.length) return null;
+    var last = snapFromKeyPose(keys[keys.length - 1].pose, ident);
+    applyOverlayCss(el, snapshotCss(last, rest));
+    try {
+      if (el.getAnimations) el.getAnimations().forEach(function(x){ x.cancel(); });
+    } catch (e) {}
+    var t = spec.transition || { duration: 0, easing: 'linear', delay: 0 };
+    var reduced = prefersReducedMotion();
+    var scale = motionTimeScale(el);
+    var duration = (reduced || !(t.duration > 0)) ? 0 : t.duration * scale;
+    var frames = poseTrackFramesToRest(spec, ident, rest);
+    if (!frames.length) return null;
+    try { el.removeAttribute('data-pdl-pose-hold'); } catch (e) {}
+    var anim = el.animate(frames, {
+      duration: duration,
+      easing: t.easing || 'linear',
+      delay: 0,
+      fill: 'both',
+      iterations: 1
+    });
+    if (anim && anim.finished) {
       anim.finished.then(function(){
-        var restCss = snapshotCss(ident, rest);
-        try {
-          el.style.transform = restCss.transform;
-          el.style.opacity = restCss.opacity;
-          el.style.filter = restCss.filter;
-        } catch (e) {}
+        applyOverlayCss(el, snapshotCss(ident, rest));
       }).catch(function(){});
     }
     return anim;
+  }
+  function parseAnimateAttr(el) {
+    if (!el || !el.getAttribute) return null;
+    var raw = el.getAttribute('data-pdl-animate');
+    if (!raw) return null;
+    try {
+      var spec = JSON.parse(raw);
+      return spec && typeof spec === 'object' ? spec : null;
+    } catch (e) { return null; }
+  }
+  function appearHoldOn(el) {
+    var n = el;
+    while (n && n.nodeType === 1) {
+      if (n.getAttribute && n.getAttribute('data-pdl-appear-hold') === '1') return true;
+      n = n.parentElement;
+    }
+    return false;
+  }
+  function stopStanding(el) {
+    if (!el) return;
+    try {
+      if (el.getAnimations) el.getAnimations().forEach(function(x){ x.cancel(); });
+    } catch (e) {}
+    try {
+      el.removeAttribute('data-pdl-standing');
+      applyOverlayCss(el, snapshotCss(identitySnap(1, restBlurOf(el)), 1));
+    } catch (e) {}
+  }
+  function startStanding(el, spec) {
+    if (!el || !spec || !hasPoseTrack(spec)) return;
+    if (appearHoldOn(el)) return;
+    var sig = '';
+    try { sig = JSON.stringify(spec); } catch (e) { sig = String(spec.play || ''); }
+    if (el.getAttribute('data-pdl-standing') === sig) {
+      var live = [];
+      try { live = el.getAnimations ? el.getAnimations() : []; } catch (e) {}
+      if (live && live.length) return;
+    }
+    el.setAttribute('data-pdl-standing', sig);
+    playMotionOnEl(el, spec, 'standing');
+  }
+  function syncStandingUnder(root) {
+    if (!root || !root.querySelectorAll) return;
+    var nodes = root.querySelectorAll('[data-pdl-animate]');
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      var spec = parseAnimateAttr(el);
+      if (spec) startStanding(el, spec);
+      else stopStanding(el);
+    }
+    if (root.getAttribute && root.getAttribute('data-pdl-animate')) {
+      var selfSpec = parseAnimateAttr(root);
+      if (selfSpec) startStanding(root, selfSpec);
+    }
+    var stale = root.querySelectorAll('[data-pdl-standing]');
+    for (var j = 0; j < stale.length; j++) {
+      if (!stale[j].hasAttribute('data-pdl-animate')) stopStanding(stale[j]);
+    }
+    if (root.getAttribute && root.getAttribute('data-pdl-standing') && !root.hasAttribute('data-pdl-animate')) {
+      stopStanding(root);
+    }
   }
   function playMotionTree(el, spec, mode) {
     if (!el || !spec) return null;
@@ -3195,7 +3524,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
   function appearSpecOf(spec) {
     if (!spec) return null;
     if (spec.appear) return spec.appear;
-    if (spec.pose || spec.from) return spec;
+    if (spec.pose || spec.from || (spec.keys && spec.keys.length)) return spec;
     return null;
   }
   function holdMotionOnEl(el, spec, pole) {
@@ -3204,14 +3533,12 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       if (el.getAnimations) el.getAnimations().forEach(function(x){ x.cancel(); });
     } catch (e) {}
     var rest = 1;
-    var ident = identitySnap(rest);
+    var ident = identitySnap(rest, restBlurOf(el));
     var pose = spec.pose || spec.from;
     var snap = pole === 'from' && pose ? Object.assign({}, ident, pose) : ident;
     var css = snapshotCss(snap, rest);
+    applyOverlayCss(el, css);
     try {
-      el.style.transform = css.transform;
-      el.style.opacity = css.opacity;
-      el.style.filter = css.filter;
       el.style.visibility = '';
       el.removeAttribute('data-pdl-dismissed');
     } catch (e) {}
@@ -3607,17 +3934,41 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         if (!byEventNow[event] && !byMotionNow[event]) return null;
         liveParams = readParams(section);
         var mspec = byMotionNow[event];
-        var implicit = !!(mspec && mspec.transition && event !== 'appear' && event !== 'dismiss');
+        var track = hasPoseTrack(mspec);
+        var implicit = !!(mspec && mspec.transition && !track && event !== 'appear' && event !== 'dismiss');
         if (implicit) {
           applyImplicitTransition(motionRootEl(section) || canvas, mspec);
+        }
+        if (track && event !== 'appear' && event !== 'dismiss') {
+          var rootForTrack = motionRootEl(section);
+          var endPlay = stripDot((mspec && mspec.play) || '');
+          if ((event === 'hoverEnd' || event === 'pressEnd' || event === 'pressCancel') && endPlay === 'toRest') {
+            playReturnToRest(rootForTrack, mspec);
+          } else {
+            playMotionTree(rootForTrack, mspec, event);
+          }
         }
         if (event === 'appear' || event === 'dismiss') {
           var rootEl = motionRootEl(section);
           if (event === 'appear' && rootEl) {
             rootEl.style.visibility = '';
             rootEl.removeAttribute('data-pdl-dismissed');
+            try { rootEl.setAttribute('data-pdl-appear-hold', '1'); } catch (e) {}
+          }
+          if (event === 'dismiss' && rootEl) {
+            if (rootEl.querySelectorAll) rootEl.querySelectorAll('[data-pdl-standing]').forEach(stopStanding);
+            if (rootEl.hasAttribute && rootEl.hasAttribute('data-pdl-standing')) stopStanding(rootEl);
           }
           var anim = playMotionTree(rootEl, mspec, event);
+          if (event === 'appear' && rootEl) {
+            function appearDoneSelf() {
+              try { rootEl.removeAttribute('data-pdl-appear-hold'); } catch (e) {}
+              syncStandingUnder(rootEl);
+              syncStandingUnder(section);
+            }
+            if (anim && anim.finished) anim.finished.then(appearDoneSelf).catch(appearDoneSelf);
+            else appearDoneSelf();
+          }
           if (event === 'dismiss' && rootEl && anim && anim.finished) {
             anim.finished.then(function(){
               rootEl.setAttribute('data-pdl-dismissed', '1');
@@ -3711,15 +4062,37 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             if (!childByNow[event] && !childMotionNow[event]) return;
             liveParams = readParams(section);
             var childSpec = childMotionNow[event];
-            if (childSpec && childSpec.transition && event !== 'appear' && event !== 'dismiss') {
+            var childTrack = hasPoseTrack(childSpec);
+            if (childSpec && childSpec.transition && !childTrack && event !== 'appear' && event !== 'dismiss') {
               applyImplicitTransition(node, childSpec);
+            }
+            if (childTrack && event !== 'appear' && event !== 'dismiss') {
+              var childEnd = stripDot((childSpec && childSpec.play) || '');
+              if ((event === 'hoverEnd' || event === 'pressEnd' || event === 'pressCancel') && childEnd === 'toRest') {
+                playReturnToRest(node, childSpec);
+              } else {
+                playMotionTree(node, childSpec, event);
+              }
             }
             if (event === 'appear' || event === 'dismiss') {
               if (event === 'appear') {
                 node.style.visibility = '';
                 node.removeAttribute('data-pdl-dismissed');
+                try { node.setAttribute('data-pdl-appear-hold', '1'); } catch (e) {}
+              }
+              if (event === 'dismiss') {
+                if (node.querySelectorAll) node.querySelectorAll('[data-pdl-standing]').forEach(stopStanding);
+                if (node.hasAttribute && node.hasAttribute('data-pdl-standing')) stopStanding(node);
               }
               var childAnim = playMotionTree(node, childSpec, event);
+              if (event === 'appear') {
+                function appearDoneChild() {
+                  try { node.removeAttribute('data-pdl-appear-hold'); } catch (e) {}
+                  syncStandingUnder(node);
+                }
+                if (childAnim && childAnim.finished) childAnim.finished.then(appearDoneChild).catch(appearDoneChild);
+                else appearDoneChild();
+              }
               if (event === 'dismiss' && childAnim && childAnim.finished) {
                 childAnim.finished.then(function(){
                   node.setAttribute('data-pdl-dismissed', '1');
@@ -4341,20 +4714,33 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       function holdAppearFrom() {
         eachMotionTarget(function(target, spec){
           var appear = appearSpecOf(spec);
-          if (!appear || !(appear.pose || appear.from)) return;
+          if (!appear || !(appear.pose || appear.from || (appear.keys && appear.keys.length))) return;
+          try { target.setAttribute('data-pdl-appear-hold', '1'); } catch (e) {}
+          if (target.querySelectorAll) {
+            target.querySelectorAll('[data-pdl-standing]').forEach(stopStanding);
+          }
+          if (target.hasAttribute && target.hasAttribute('data-pdl-standing')) stopStanding(target);
           holdMotionTree(target, appear, 'from');
         });
       }
       function playAppearAll() {
         eachMotionTarget(function(target, spec){
           var appear = appearSpecOf(spec);
-          if (!appear || !(appear.pose || appear.from)) return;
+          if (!appear || !(appear.pose || appear.from || (appear.keys && appear.keys.length))) return;
           try {
             target.style.visibility = '';
             target.removeAttribute('data-pdl-dismissed');
+            target.setAttribute('data-pdl-appear-hold', '1');
           } catch (e) {}
-          playMotionTree(target, appear, 'appear');
+          var appearAnim = playMotionTree(target, appear, 'appear');
+          function appearDone() {
+            try { target.removeAttribute('data-pdl-appear-hold'); } catch (e) {}
+            syncStandingUnder(target);
+          }
+          if (appearAnim && appearAnim.finished) appearAnim.finished.then(appearDone).catch(appearDone);
+          else appearDone();
         });
+        syncStandingUnder(section);
       }
       function playAppearWhenVisible(opts) {
         var requireLeave = !!(opts && opts.requireLeave);
@@ -4429,6 +4815,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         holdAppearFrom();
         playAppearWhenVisible();
       }
+      syncStandingUnder(section);
       var motionBar = section.querySelector('[data-pdl-motion-bar]');
       if (motionBar && motionBar.getAttribute('data-pdl-listening') !== '1') {
         motionBar.setAttribute('data-pdl-listening', '1');
@@ -4476,6 +4863,9 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           });
         }
       }
+    });
+    document.querySelectorAll('section.pdl-preview').forEach(function(section){
+      syncStandingUnder(section);
     });
   }
   function bindChromeControls() {

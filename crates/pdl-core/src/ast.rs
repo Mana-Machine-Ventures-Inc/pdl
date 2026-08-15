@@ -170,11 +170,28 @@ pub enum ValueExpr {
         step: Box<ValueExpr>,
         from: Option<Box<ValueExpr>>,
     },
-    /// `Motion(transition: [, pose:] [, stagger:])`.
+    /// `Key(pose: Pose | .rest, at: [, easing:])`.
+    Key {
+        pose: Box<ValueExpr>,
+        at: Box<ValueExpr>,
+        easing: Option<Box<ValueExpr>>,
+    },
+    /// `Motion(transition: [, play:] [, pose:] [, keys:] [, stagger:] [, repeat:])`.
     Motion {
-        transition: Box<ValueExpr>,
+        /// Positional copy source: `Motion(motion.hoverPop, play: .toRest)`.
+        base: Option<Box<ValueExpr>>,
+        transition: Option<Box<ValueExpr>>,
         pose: Option<Box<ValueExpr>>,
+        keys: Option<Box<ValueExpr>>,
+        play: Option<Box<ValueExpr>>,
+        repeat: Option<Box<ValueExpr>>,
         stagger: Option<Box<ValueExpr>>,
+    },
+    /// `Effect(.blurSelf | .blurBehind | .glass, radius: [, vibrancy:])`.
+    Effect {
+        effect_kind: Box<ValueExpr>,
+        radius: Option<Box<ValueExpr>>,
+        vibrancy: Option<Box<ValueExpr>>,
     },
     VibrancyTuple {
         saturation: f64,

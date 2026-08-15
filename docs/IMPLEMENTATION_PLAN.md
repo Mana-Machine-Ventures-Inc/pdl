@@ -1,6 +1,6 @@
 # Implementation plan — accepted proposals
 
-**Accepted:** `docs/PROPOSAL_PORTABLE_CORE.md`, `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` (2026-08-05)  
+**Accepted:** `docs/PROPOSAL_PORTABLE_CORE.md`, `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` (2026-08-05); `docs/PROPOSAL_MOTION_PLAY.md` / `docs/PROPOSAL_FRAME_BLUR.md` (2026-08-14)  
 **Shipped:** `docs/PROPOSAL_PDL_PLAYGROUND.md` / `docs/PLAYGROUND_OVERVIEW.md` — Playground demo shell (P0–P5) vs `preview` stress harness vs future Studio  
 **Binding:** `shared/*.json` + `grammar/pdl.ebnf` + fixtures (`1.0.0-beta`). Proposal features land via **lock-file updates + goldens** per slice.
 
@@ -56,7 +56,7 @@ Implement **after A2** unless a spike is explicitly throwaway.
 | Rust-first language | **B1–B4** (`protocol`, `[T]`, packs, `emits` / host inbound handlers) | TS oracle port of B1–B4 |
 | Normative grammar | `grammar/pdl.ebnf` + language-objects; Rust B4b/B5 | **B6** chrome; TS oracle lag; B7 host dispatch |
 | Typed samples | `samples` banks + `Bank.entry.field`; Rust + TS; catalogue `samples`; playlist-composer-lite + `lab/samples-tracks.pdl`; **PDL-E041** | ForEach over sample path; sample RHS in emit-assign; lints for bare `children = list` |
-| HTML host (C1) | Static draw of bake IR; `npm run preview` / playground | Live interactions; emit dispatch (B7); motion runtime |
+| HTML host (C1) | Static draw of bake IR; interactive host; handler + standing motion overlay (appear/dismiss, play / keys, frame `animate`, `rotate`, clip rack); frame `effect` / `blur =` (filter + backdrop-filter) | Emit dispatch (B7); M4 teaching tokens; E1 `Blur()` alias close; E4 `.glass` |
 | Native / prototype | — | C2 SwiftUI; C3 routes/stack; A5 C ABI |
 
 **Bake JSON** remains the stability boundary. HTML is a static C1 host: it draws whatever bake already flattened. `ForEach` / emit capture become visible in HTML only after Rust expands them at bake. Host prelude stubs: `test-fixtures/pdl/stdlib/host_protocols.pdl`.
@@ -74,6 +74,27 @@ Implement **after A2** unless a spike is explicitly throwaway.
 | **C3** | Prototype env (routes / stack / data) after B4–B5 |
 
 **Fence:** `preview` = eng disk-watch loop; **Playground** = language demo / iterative testing; **Studio** (future) = full authoring — not Track C1b.
+
+---
+
+## Track M — Motion play, keys, frame `animate`
+
+**Proposal:** `docs/PROPOSAL_MOTION_PLAY.md` (accepted — **P** + **M0–M3** shipped; **M4** open).  
+**Baseline already shipped:** `Motion` / `Pose` / `Stagger` / `Play` / `Key` on handler and frame `animate =`; HTML WAAPI overlay; Playground clip rack + live pose-param updates.  
+**Principle:** Rust-first parse/validate (A2 parity exists). One `motion-literal` / Pose-field slice at a time.
+
+| Step | Deliverable | Done when |
+|------|-------------|-----------|
+| **P** | `Pose.rotate` (+ `originX` / `originY`) | Grammar + TS/Rust `MOTION_PROP_NAMES` + `snapshotToCss` (`translate` → `rotate` → `scale`); appear tilt in `lab/motion`; unknown field still E005 |
+| **M0** | `Play`, `Key`, `.rest`, finite `repeat` | Parse/validate fixtures; E005 on `pose`+`keys`, `.loop`+`repeat`, `repeat` without a path, `at` out of range; no `Cycle` / `.forever` |
+| **M1** | Site default `play` + `Motion(token, play:)` | Appear/dismiss visually unchanged; hover+keys lab; token that omits `play` flips on `hoverEnd`; override-spelling golden |
+| **M2** | Frame `animate` on bake IR | Bake golden; `if` omits the field; legal on any frame including `self` |
+| **M3** | HTML key WAAPI + standing start/stop | Labs: spinner, pulse, sheen child, hover flourish; tests: continuous `rotate: 360` loop, interrupt reverse-from-current, appear-then-standing on shared opacity |
+| **M4** | Tokens + teaching | `motion.spin` / `pulse` / `hoverPop` / `shake`; Language objects + Guide line from the proposal |
+
+**Locked (do not re-open in implementation):** `.loop` is forever (`repeat` is finite only); reusable tokens omit `play`; `hoverEnd` reverses from current progress; standing waits for appear `finished`; one standing spec per node (handler `animate` is an event shot).
+
+**Risk slice:** M3 only (WAAPI wrap, appear hold vs `data-pdl-appear-armed`, reverse-from-current with `fill: both`, standing cancel on incremental IR omit).
 
 ---
 
@@ -127,5 +148,7 @@ None from the A0 question set. Further grammar nits can be decided when updating
 - [x] Typed samples — Rust + TS; catalogue `samples`; playlist-composer-lite + lab; **PDL-E041**; Playground per-component fixtures  
 - [x] Public docs site (`website/`) + generated reference (frame props, diagnostics, keywords, bake/catalogue JSON Schema sketches)  
 - [ ] Align published `schemaVersion` string to plain **`1.0.0`** when touching normative version prose (drop `-beta` framing; still unreleased)
+- [ ] Track M — **P** + **M0** + **M1** + **M2** + **M3** shipped (keys WAAPI + standing); next **M4** tokens + teaching (`docs/PROPOSAL_MOTION_PLAY.md`)
+- [ ] Track E — **E0** + **E2** + E3 lab / `effect.frost` shipped (frame `effect` / `blur =` sugar, HTML filter + backdrop-filter, Pose rest = baked self blur); **E1** `Blur()` alias window still open; leftover E3 is `material.sheet` as fill + `effect`; **E4** `.glass` reserved (`docs/PROPOSAL_FRAME_BLUR.md`)
 
 Progress and intentional gaps also tracked in **`docs/SPEC_GAPS.md`**.

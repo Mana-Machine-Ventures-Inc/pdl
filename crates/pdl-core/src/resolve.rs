@@ -12,6 +12,7 @@ use crate::ast::*;
 use crate::design::{effective_params, DesignDefinition};
 use crate::error::PdlError;
 use crate::evaluate::{evaluate_condition, evaluate_value, Eval, ParamMeta, ParamValues, Tokens};
+use crate::motion::apply_site_default_play;
 use crate::stable_json::number_value;
 
 /// Resolve options (subset used by bake / catalogue paths).
@@ -343,6 +344,11 @@ fn coerce_frame_prop_value(prop: &str, value: Value, entry_path: &str) -> Result
     } else {
         value
     };
+    let value = if prop == "animate" {
+        apply_site_default_play(value, "frame")
+    } else {
+        value
+    };
     if is_uniform_edge_inset(prop) {
         if let Value::Number(n) = &value {
             let f = n.as_f64().unwrap_or(0.0);
@@ -470,13 +476,51 @@ fn normalize_aspect_box_props(props: &mut Map<String, Value>, entry_path: &str) 
 /// Later `gap = …` clears prior `columnGap` / `rowGap` (uniform gap replaces per-axis overrides).
 /// `null` is stored as a sentinel so bake can clear typeStyle contributions too;
 /// final bake omits null keys (`gap = null` does **not** clear columnGap/rowGap).
+fn blur_sugar_to_effect(value: Value) -> Value {
+    if value.is_number() {
+        let mut o = Map::new();
+        o.insert("kind".into(), Value::String("effect".into()));
+        o.insert("case".into(), Value::String("blurSelf".into()));
+        o.insert("radius".into(), value);
+        return Value::Object(o);
+    }
+    value
+}
+
+fn coerce_effect_value(value: Value) -> Value {
+    let Some(o) = value.as_object() else {
+        return value;
+    };
+    if o.get("kind").and_then(|v| v.as_str()) != Some("blur") {
+        return value;
+    }
+    let mut out = Map::new();
+    out.insert("kind".into(), Value::String("effect".into()));
+    out.insert("case".into(), Value::String("blurBehind".into()));
+    if let Some(r) = o.get("radius") {
+        out.insert("radius".into(), r.clone());
+    }
+    if let Some(v) = o.get("vibrancy") {
+        out.insert("vibrancy".into(), v.clone());
+    }
+    Value::Object(out)
+}
+
 fn assign_frame_prop(props: &mut Map<String, Value>, name: &str, value: Value) {
     if value.is_null() {
-        props.insert(name.to_string(), Value::Null);
+        let store = if name == "blur" { "effect" } else { name };
+        props.insert(store.to_string(), Value::Null);
         return;
     }
-    props.insert(name.to_string(), value);
-    if name == "gap" {
+    let (store_name, store_value) = if name == "blur" {
+        ("effect", blur_sugar_to_effect(value))
+    } else if name == "effect" {
+        ("effect", coerce_effect_value(value))
+    } else {
+        (name, value)
+    };
+    props.insert(store_name.to_string(), store_value);
+    if store_name == "gap" {
         props.remove("columnGap");
         props.remove("rowGap");
     }

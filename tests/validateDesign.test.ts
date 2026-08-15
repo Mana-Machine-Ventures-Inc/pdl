@@ -42,19 +42,95 @@ describe("validateMergedDesign (if conditions)", () => {
 });
 
 describe("validateMergedDesign (motion)", () => {
-  it("PDL-E005 when Motion stagger has no pose", () => {
+  it("PDL-E005 when Motion stagger has no pose or keys", () => {
     expectLoadFails(
       "PDL-E005",
       "errors/e005-motion-stagger-without-pose.pdl",
-      /stagger:.*requires `pose:`/,
+      /stagger:.*requires `pose:` or `keys:`/,
     );
   });
 
-  it("PDL-E005 when Motion pose is used on hoverStart", () => {
+  it("PDL-E005 when Motion has both pose and keys", () => {
     expectLoadFails(
       "PDL-E005",
-      "errors/e005-motion-pose-on-hover.pdl",
-      /appear \/ dismiss/,
+      "errors/e005-motion-pose-and-keys.pdl",
+      /both `pose:` and `keys:`/,
     );
+  });
+
+  it("PDL-E005 when .loop also sets repeat", () => {
+    expectLoadFails(
+      "PDL-E005",
+      "errors/e005-motion-loop-with-repeat.pdl",
+      /play: \.loop/,
+    );
+  });
+
+  it("PDL-E005 when repeat has no pose track", () => {
+    expectLoadFails(
+      "PDL-E005",
+      "errors/e005-motion-repeat-without-path.pdl",
+      /repeat:.*requires `pose:` or `keys:`/,
+    );
+  });
+
+  it("PDL-E005 when Key at is out of range", () => {
+    expectLoadFails("PDL-E005", "errors/e005-motion-key-at-range.pdl", /at:.*0…1/);
+  });
+
+  it("parses keys, play, and pose on hover", () => {
+    const design = loadDesign(fx("lab/motion/design.pdl"));
+    expect(design.components.has("MotionHoverFlourish")).toBe(true);
+    expect(design.components.has("MotionHoverPop")).toBe(true);
+    expect(design.components.has("MotionHoverPopOverride")).toBe(true);
+  });
+
+  it("PDL-E006 when frame animate is not a Motion", () => {
+    expectLoadFails(
+      "PDL-E006",
+      "errors/e006-frame-animate-not-motion.pdl",
+      /property `animate`/,
+    );
+  });
+
+  it("PDL-E005 when Motion copy base is not a Motion token", () => {
+    expectLoadFails(
+      "PDL-E005",
+      "errors/e005-motion-override-not-motion.pdl",
+      /copy base must be a Motion token/,
+    );
+  });
+
+  it("PDL-E005 when Motion(token, pose:) conflicts with token keys", () => {
+    expectLoadFails(
+      "PDL-E005",
+      "errors/e005-motion-override-pose-and-keys.pdl",
+      /both `pose:` and `keys:`/,
+    );
+  });
+});
+
+describe("validateMergedDesign (effect)", () => {
+  it("PDL-E005 when blur and effect are both set", () => {
+    expectLoadFails("PDL-E005", "errors/e005-blur-and-effect.pdl", /same slot/);
+  });
+
+  it("PDL-E005 when Effect(.glass) is used", () => {
+    expectLoadFails("PDL-E005", "errors/e005-effect-glass.pdl", /not implemented/);
+  });
+
+  it("PDL-E006 when Effect is used as a fill", () => {
+    expectLoadFails("PDL-E006", "errors/e006-effect-in-background.pdl", /not a layer/);
+  });
+
+  it("PDL-E001 when Effect is used as a child", () => {
+    expectLoadFails("PDL-E001", "errors/e001-effect-as-child.pdl", /not a child/);
+  });
+
+  it("loads the effect lab", () => {
+    const design = loadDesign(fx("lab/effect/design.pdl"));
+    expect(design.components.has("EffectSelfBlur")).toBe(true);
+    expect(design.components.has("EffectFrostPane")).toBe(true);
+    expect(design.primitives.get("effect.frost")?.tokenType).toBe("Effect");
   });
 });

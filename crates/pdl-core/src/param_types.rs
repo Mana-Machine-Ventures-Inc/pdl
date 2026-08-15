@@ -25,6 +25,7 @@ pub const BUILTIN_PARAM_TYPES: &[&str] = &[
     "Pose",
     "Stagger",
     "Motion",
+    "Effect",
     "Blur",
     "Vibrancy",
     "Ramp",
@@ -48,6 +49,7 @@ pub const BUILTIN_PARAM_TYPES: &[&str] = &[
     "AlignSelf",
     "Position",
     "BlurStyle",
+    "EffectKind",
 ];
 
 /// Closed cases for host enum types.
@@ -78,6 +80,7 @@ pub fn host_enum_cases(type_name: &str) -> Option<&'static [&'static str]> {
         "AlignSelf" => &["start", "center", "end", "stretch", "auto"],
         "Position" => &["flow", "absolute"],
         "BlurStyle" => &["standard"],
+        "EffectKind" => &["blurSelf", "blurBehind", "glass"],
         _ => return None,
     })
 }
@@ -123,7 +126,9 @@ pub fn infer_value_let_type(value: &ValueExpr) -> Option<&'static str> {
         ValueExpr::Transition { .. } => Some("Transition"),
         ValueExpr::Pose { .. } => Some("Pose"),
         ValueExpr::Stagger { .. } => Some("Stagger"),
+        ValueExpr::Key { .. } => None,
         ValueExpr::Motion { .. } => Some("Motion"),
+        ValueExpr::Effect { .. } => Some("Effect"),
         ValueExpr::RampInline { .. } => Some("Ramp"),
         ValueExpr::Hex { .. } | ValueExpr::OpacityOf { .. } => Some("Color"),
         ValueExpr::Sizing { .. } => Some("Sizing"),

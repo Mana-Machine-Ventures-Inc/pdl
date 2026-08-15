@@ -73,10 +73,24 @@ export function collectDeclaredTokenNamesFromValueExpr(
       collectDeclaredTokenNamesFromValueExpr(expr.step, design, sink);
       if (expr.from) collectDeclaredTokenNamesFromValueExpr(expr.from, design, sink);
       return;
+    case "key":
+      collectDeclaredTokenNamesFromValueExpr(expr.pose, design, sink);
+      collectDeclaredTokenNamesFromValueExpr(expr.at, design, sink);
+      if (expr.easing) collectDeclaredTokenNamesFromValueExpr(expr.easing, design, sink);
+      return;
     case "motion":
-      collectDeclaredTokenNamesFromValueExpr(expr.transition, design, sink);
+      if (expr.base) collectDeclaredTokenNamesFromValueExpr(expr.base, design, sink);
+      if (expr.transition) collectDeclaredTokenNamesFromValueExpr(expr.transition, design, sink);
       if (expr.pose) collectDeclaredTokenNamesFromValueExpr(expr.pose, design, sink);
+      if (expr.keys) collectDeclaredTokenNamesFromValueExpr(expr.keys, design, sink);
+      if (expr.play) collectDeclaredTokenNamesFromValueExpr(expr.play, design, sink);
+      if (expr.repeat) collectDeclaredTokenNamesFromValueExpr(expr.repeat, design, sink);
       if (expr.stagger) collectDeclaredTokenNamesFromValueExpr(expr.stagger, design, sink);
+      return;
+    case "effect":
+      collectDeclaredTokenNamesFromValueExpr(expr.effectKind, design, sink);
+      if (expr.radius) collectDeclaredTokenNamesFromValueExpr(expr.radius, design, sink);
+      if (expr.vibrancy) collectDeclaredTokenNamesFromValueExpr(expr.vibrancy, design, sink);
       return;
     case "rampInline":
       for (const s of expr.stops) collectDeclaredTokenNamesFromValueExpr(s, design, sink);

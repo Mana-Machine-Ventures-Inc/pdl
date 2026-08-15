@@ -497,22 +497,73 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
             }
             Ok(obj(entries))
         }
-        ValueExpr::Motion {
-            transition,
-            pose,
-            stagger,
-        } => {
+        ValueExpr::Key { pose, at, easing } => {
             let mut entries = vec![
-                ("kind", Value::String("motion".to_string())),
-                ("transition", evaluate_value(transition, ev)?),
+                ("kind", Value::String("key".to_string())),
+                ("pose", evaluate_value(pose, ev)?),
+                ("at", evaluate_value(at, ev)?),
             ];
-            if let Some(p) = pose {
-                entries.push(("pose", evaluate_value(p, ev)?));
-            }
-            if let Some(s) = stagger {
-                entries.push(("stagger", evaluate_value(s, ev)?));
+            if let Some(e) = easing {
+                entries.push(("easing", evaluate_value(e, ev)?));
             }
             Ok(obj(entries))
+        }
+        ValueExpr::Motion {
+            base,
+            transition,
+            pose,
+            keys,
+            play,
+            repeat,
+            stagger,
+        } => {
+            let mut map = if let Some(b) = base {
+                motion_object_from_eval(evaluate_value(b, ev)?)
+            } else {
+                let mut m = Map::new();
+                m.insert("kind".into(), Value::String("motion".into()));
+                m
+            };
+            if let Some(t) = transition {
+                map.insert("transition".into(), evaluate_value(t, ev)?);
+            }
+            if let Some(p) = play {
+                map.insert("play".into(), evaluate_value(p, ev)?);
+            }
+            if let Some(p) = pose {
+                map.insert("pose".into(), evaluate_value(p, ev)?);
+            }
+            if let Some(k) = keys {
+                map.insert("keys".into(), evaluate_value(k, ev)?);
+            }
+            if let Some(s) = stagger {
+                map.insert("stagger".into(), evaluate_value(s, ev)?);
+            }
+            if let Some(r) = repeat {
+                map.insert("repeat".into(), evaluate_value(r, ev)?);
+            }
+            Ok(Value::Object(map))
+        }
+        ValueExpr::Effect {
+            effect_kind,
+            radius,
+            vibrancy,
+        } => {
+            let raw = evaluate_value(effect_kind, ev)?;
+            let case_name = raw
+                .as_str()
+                .map(|s| s.strip_prefix('.').unwrap_or(s).to_string())
+                .unwrap_or_else(|| "blurSelf".to_string());
+            let mut map = Map::new();
+            map.insert("kind".into(), Value::String("effect".into()));
+            map.insert("case".into(), Value::String(case_name));
+            if let Some(r) = radius {
+                map.insert("radius".into(), evaluate_value(r, ev)?);
+            }
+            if let Some(v) = vibrancy {
+                map.insert("vibrancy".into(), evaluate_value(v, ev)?);
+            }
+            Ok(Value::Object(map))
         }
         ValueExpr::VibrancyTuple {
             saturation,
@@ -807,6 +858,33 @@ fn obj(entries: Vec<(&str, Value)>) -> Value {
         m.insert(k.to_string(), v);
     }
     Value::Object(m)
+}
+
+/// Shallow Motion object from a token/value used as `Motion(base, field:)`.
+fn motion_object_from_eval(raw: Value) -> Map<String, Value> {
+    let Value::Object(o) = raw else {
+        let mut m = Map::new();
+        m.insert("kind".into(), Value::String("motion".into()));
+        return m;
+    };
+    let is_motion = o.get("kind").and_then(|v| v.as_str()) == Some("motion")
+        || o.contains_key("pose")
+        || o.contains_key("keys")
+        || o.contains_key("play");
+    if is_motion {
+        let mut m = o;
+        m.insert("kind".into(), Value::String("motion".into()));
+        return m;
+    }
+    if o.contains_key("duration") {
+        let mut m = Map::new();
+        m.insert("kind".into(), Value::String("motion".into()));
+        m.insert("transition".into(), Value::Object(o));
+        return m;
+    }
+    let mut m = o;
+    m.insert("kind".into(), Value::String("motion".into()));
+    m
 }
 
 /// Build the resolved token map for a design (optionally applying a base + modifier themes).

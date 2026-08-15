@@ -878,6 +878,18 @@ describe("renderHtml", () => {
     expect(frag).toContain("#f7f7f79e");
   });
 
+  it("renders frame Effect blurSelf as filter and blurBehind as backdrop-filter", () => {
+    const design = loadDesign(fx("lab/effect/design.pdl"));
+    const self = buildBakedDesignComponent(design, { componentName: "EffectSelfBlur" });
+    const selfFrag = renderBakedComponentToHtmlFragment(self.components.EffectSelfBlur!);
+    expect(selfFrag).toMatch(/filter:blur\(8px\)/);
+    expect(selfFrag).toContain('data-pdl-rest-blur="8"');
+    const frost = buildBakedDesignComponent(design, { componentName: "EffectFrostPane" });
+    const frostFrag = renderBakedComponentToHtmlFragment(frost.components.EffectFrostPane!);
+    expect(frostFrag).toMatch(/backdrop-filter:blur\(20px\)/);
+    expect(frostFrag).not.toContain("data-pdl-rest-blur");
+  });
+
   it("keeps baked color on editable inputs (does not force color:inherit)", () => {
     const doc = {
       schemaKind: "bakedDesign" as const,

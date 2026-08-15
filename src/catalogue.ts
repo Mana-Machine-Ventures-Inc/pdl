@@ -20,7 +20,7 @@ import {
 export { PDL_JSON_SCHEMA_VERSION, type GraphThemeEntry, type GraphTokenRow, type GraphTypeStyleEntry } from "./graphJson.js";
 import { serialiseConditionExpr, serialiseValueExpr, serialiseValueExprWithTokenRefs } from "./graph.js";
 import { collectMotionFromHandlerItems } from "./applyMotion.js";
-import { normalizeTransition, type MotionSpec } from "./motionProps.js";
+import { applySiteDefaultPlay, normalizeTransition, type MotionSpec } from "./motionProps.js";
 import { ruleLineToDef, type RuleDefJson } from "./rulesJson.js";
 import {
   isHiddenFrame,
@@ -164,8 +164,11 @@ function evaluateMotionSpec(
   if (
     !spec.transition &&
     !spec.pose &&
+    !spec.keys &&
+    !spec.play &&
     spec.stagger == null &&
-    spec.staggerFrom == null
+    spec.staggerFrom == null &&
+    spec.repeat == null
   ) {
     return undefined;
   }
@@ -182,10 +185,11 @@ function serialiseInteractionDecl(
     component: decl.component,
     handlers: decl.handlers.map((h) => {
       const motion = evaluateMotionSpec(h.body, design, tokenMap);
+      const withPlay = motion ? applySiteDefaultPlay(motion, h.event) : undefined;
       return {
         event: h.event,
         body: h.body.map(serialiseInteractionHandlerItem),
-        ...(motion ? { motion } : {}),
+        ...(withPlay ? { motion: withPlay } : {}),
       };
     }),
   };

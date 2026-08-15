@@ -68,6 +68,9 @@ Rust B4b/B5 + host-protocol validation + `self.<channel> = { … }` parse landed
 | [`PROPOSAL_PDL_PLAYGROUND.md`](./PROPOSAL_PDL_PLAYGROUND.md) | **Accepted** — P0–P5 shipped | Demo/lab vs Studio; file canvas, interactive HTML, variants. Overview: [`PLAYGROUND_OVERVIEW.md`](./PLAYGROUND_OVERVIEW.md) |
 | [`PROPOSAL_TYPED_SAMPLES.md`](./PROPOSAL_TYPED_SAMPLES.md) | **Accepted** 2026-08-12 | Folded into `shared/language-objects.json` `samples` + `shared/schema/component-catalogue.json`. Rust bake + TS oracle; playlist-composer-lite + `lab/samples-tracks.pdl`. Open follow-ups below. |
 | [`PROPOSAL_LANGUAGE_SITE.md`](./PROPOSAL_LANGUAGE_SITE.md) | **Accepted** 2026-08-12 | Public VitePress site (`website/`) **is** the human spec. Lock files in `shared/*` + `grammar/pdl.ebnf`. |
+| [`PROPOSAL_MOTION_PLAY.md`](./PROPOSAL_MOTION_PLAY.md) | **Accepted** — **P** + **M0–M3** shipped | Play / keys / frame `animate` / HTML WAAPI. **M4** teaching tokens open. |
+| [`PROPOSAL_FRAME_BLUR.md`](./PROPOSAL_FRAME_BLUR.md) | **Accepted** — **E0** + **E2** + E3 lab shipped | Frame `effect` / `blur =`. **E1** `Blur()` alias window; leftover E3 `material.sheet`; **E4** `.glass` reserved. |
+| [`PROPOSAL_MOTION_TEXT_STAGGER.md`](./PROPOSAL_MOTION_TEXT_STAGGER.md) | **Proposed** | `Stagger.unit` / text split. Do not start until M3 is stable. |
 
 **Follow-up — `children` list spelling (2026-08-12):** Bare `children = tracks` / `Frame.children = Tracks.focus.tracks` reads as **replace** with a list; `children = [Header, tracks, Footer]` reads as **compose** (lists splice). Solo `children = [tracks]` is legal sugar (bare ≡ brackets) but feels like “array-in-array.” Guidance lives in `shared/language-objects.json` `arrayChildren`; later lints may prefer bare for pure replace. Do not ban `[list]` in v1.
 
@@ -126,7 +129,7 @@ Until a feature is locked in **`shared/*.json`** / **`grammar/pdl.ebnf`**, tooli
 
 **`samples`** banks are design-global (not per-component companions): merge/replace by bank name, paths `Bank.entry.field` in value / children / defaults / fixture bodies, catalogue root **`samples`**, empty arrays preserved under omitEmpty, unknown paths **PDL-E041**. See `shared/language-objects.json` `samples`.
 
-Later surfaces (motion, layers, composite tokens) may still outpace the reference compiler in spots — see the gap notes below.
+Motion (play / keys / frame `animate`) and frame `effect` are locked in `language-objects.json` and implemented in both compilers. Layer `Blur()` remains an alias window (E1). Composite-token edges may still outpace the reference compiler in spots — see the gap notes below.
 
 ## Design manifest — thin only
 

@@ -1,0 +1,5 @@
+component BadBlurAndEffect() layout {
+  children = []
+  blur = 8
+  effect = Effect(.blurSelf, radius: 8)
+}

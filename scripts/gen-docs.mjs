@@ -1135,7 +1135,7 @@ ${linkProse(intro.declarations ?? "", catalog)}
     body += `### \`${t.name}\`\n\n`;
     body += `${linkProse(t.meaning, catalog, slug)}\n\n`;
     const meta = [];
-    if (t.category) meta.push(`Category: ${t.category}${t.category === "motion" ? " (draft)" : ""}`);
+    if (t.category) meta.push(`Category: ${t.category}`);
     if (t.usedOn?.length) meta.push(`Used on: ${linkUsedOn(t.usedOn, catalog)}`);
     if (meta.length) body += `${meta.join(". ")}.\n\n`;
     if (t.accept?.length) {
@@ -1240,7 +1240,7 @@ ${linkProse(intro.declarations ?? "", catalog)}
     }
   }
 
-  body += renderLockedDetail("Handler motion (draft)", "motion", intro.motion, sot.motion, catalog);
+  body += renderLockedDetail("Handler motion", "handler-motion", intro.motion, sot.motion, catalog);
 
   if (sot.sampleForms?.length) {
     body += `## Samples\n\n${linkProse(intro.samples ?? "", catalog)}\n\n`;
@@ -1323,6 +1323,27 @@ ${linkProse(intro.declarations ?? "", catalog)}
   return body;
 }
 
+/** VitePress rejects duplicate heading ids. Explicit `{#id}` wins; else github-style slug. */
+function assertUniqueHeadingIds(md, fileLabel) {
+  const seen = new Map();
+  const dups = [];
+  for (const line of md.split("\n")) {
+    const m = line.match(/^(#{2,6})\s+(.+?)\s*$/);
+    if (!m) continue;
+    const rest = m[2];
+    const expl = rest.match(/\{#([A-Za-z0-9_-]+)\}\s*$/);
+    const id = expl
+      ? expl[1]
+      : rest.replace(/`/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    if (!id) continue;
+    if (seen.has(id)) dups.push(`${id} (${seen.get(id)} and ${line.slice(0, 48)})`);
+    else seen.set(id, line.slice(0, 48));
+  }
+  if (dups.length) {
+    throw new Error(`Duplicate heading ids in ${fileLabel}:\n  - ${dups.join("\n  - ")}`);
+  }
+}
+
 const diagnostics = loadJson("shared/diagnostics.json");
 const frameProps = loadJson("shared/frame-props.json");
 const languageObjects = loadJson("shared/language-objects.json");
@@ -1340,7 +1361,9 @@ const { observed, loadEntries } = collectObservedFromTests();
 const errorRows = collectErrorFixtures(observed, loadEntries);
 
 mkdirSync(OUT_DIR, { recursive: true });
-writeFileSync(join(OUT_DIR, "objects.md"), renderObjects(languageObjects, frameProps));
+const objectsMd = renderObjects(languageObjects, frameProps);
+assertUniqueHeadingIds(objectsMd, "objects.md");
+writeFileSync(join(OUT_DIR, "objects.md"), objectsMd);
 writeFileSync(join(OUT_DIR, "diagnostics.md"), renderDiagnostics(diagnostics, loadJson("shared/keywords.json")));
 writeFileSync(join(OUT_DIR, "json-ir.md"), renderJsonIr());
 writeFileSync(join(OUT_DIR, "error-fixtures.md"), renderErrorFixtures(errorRows, diagnostics));

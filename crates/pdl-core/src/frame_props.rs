@@ -109,7 +109,9 @@ fn value_kind_name(value: &ValueExpr) -> &'static str {
         ValueExpr::Transition { .. } => "transition",
         ValueExpr::Pose { .. } => "pose",
         ValueExpr::Stagger { .. } => "stagger",
+        ValueExpr::Key { .. } => "key",
         ValueExpr::Motion { .. } => "motion",
+        ValueExpr::Effect { .. } => "effect",
         ValueExpr::VibrancyTuple { .. } => "vibrancyTuple",
         ValueExpr::RampInline { .. } => "rampInline",
         ValueExpr::Sizing { .. } => "sizing",
@@ -362,6 +364,21 @@ pub fn assert_frame_prop_compatible(
             ),
             design,
         ));
+    }
+
+    if type_id == "effect" {
+        if matches!(value, ValueExpr::Effect { .. }) {
+            assert_effect_value(design, value, &format!("{context}: property `{prop}`"))?;
+            return Ok(());
+        }
+        if let ValueExpr::Call {
+            callee: CallCallee::Blur,
+            args,
+        } = value
+        {
+            assert_blur_call_compatible(design, args, &format!("{context}: property `{prop}`"))?;
+            return Ok(());
+        }
     }
 
     if literal_ok(vk, value, &type_id) {
@@ -655,6 +672,94 @@ fn is_radius_expr(design: &DesignDefinition, value: &ValueExpr) -> bool {
     }
 }
 
+fn effect_case_name(value: &ValueExpr) -> Option<&str> {
+    match value {
+        ValueExpr::DotEnum { value } => Some(value.strip_prefix('.').unwrap_or(value.as_str())),
+        ValueExpr::Ident { name } => Some(name.as_str()),
+        _ => None,
+    }
+}
+
+/// Type-check `Effect(.blurSelf | .blurBehind | .glass, radius: [, vibrancy:])`.
+pub fn assert_effect_value(
+    design: &DesignDefinition,
+    value: &ValueExpr,
+    context: &str,
+) -> Result<(), PdlError> {
+    let ValueExpr::Effect {
+        effect_kind,
+        radius,
+        vibrancy,
+    } = value
+    else {
+        return Err(err(
+            "PDL-E005",
+            format!("{context}: expected `Effect(…)`"),
+            design,
+        ));
+    };
+    let Some(raw) = effect_case_name(effect_kind) else {
+        return Err(err(
+            "PDL-E005",
+            format!("{context}: `Effect(…)` kind must be `.blurSelf`, `.blurBehind`, or `.glass`"),
+            design,
+        ));
+    };
+    if raw != "blurSelf" && raw != "blurBehind" && raw != "glass" {
+        return Err(err(
+            "PDL-E005",
+            format!("{context}: `Effect(…)` kind must be `.blurSelf`, `.blurBehind`, or `.glass`"),
+            design,
+        ));
+    }
+    if raw == "glass" {
+        return Err(err(
+            "PDL-E005",
+            format!(
+                "{context}: `Effect(.glass)` is not implemented yet — use `.blurSelf` or `.blurBehind`"
+            ),
+            design,
+        ));
+    }
+    let Some(radius) = radius else {
+        return Err(err(
+            "PDL-E005",
+            format!("{context}: `Effect(.{raw})` requires `radius:` (a Radius / number)"),
+            design,
+        ));
+    };
+    if !is_radius_expr(design, radius) {
+        return Err(err(
+            "PDL-E040",
+            format!(
+                "{context}: `Effect` argument `radius:` expects a Radius / non-negative number (got {})",
+                value_kind_name(radius)
+            ),
+            design,
+        ));
+    }
+    if let Some(vibrancy) = vibrancy {
+        if !is_vibrancy_expr(design, vibrancy) {
+            return Err(err(
+                "PDL-E040",
+                format!(
+                    "{context}: `Effect` argument `vibrancy:` expects `Vibrancy(saturation:, brightness:)` or a Vibrancy token (got {})",
+                    value_kind_name(vibrancy)
+                ),
+                design,
+            ));
+        }
+        if let ValueExpr::Call {
+            callee: CallCallee::Vibrancy,
+            args,
+        } = vibrancy.as_ref()
+        {
+            assert_vibrancy_call_compatible(design, args, context)?;
+        }
+    }
+    Ok(())
+}
+
 /// Type-check `Blur(radius: … [, style:] [, vibrancy:])` arguments.
 pub fn assert_blur_call_compatible(
     design: &DesignDefinition,
@@ -818,6 +923,15 @@ fn assert_layer_entry(
                     design,
                 ));
             }
+            if ref_type == "Effect" {
+                return Err(err(
+                    "PDL-E006",
+                    format!(
+                        "{context}: Effect token `{name}` is not a layer — set `effect = {name}` on the frame"
+                    ),
+                    design,
+                ));
+            }
             Err(err(
                 "PDL-E006",
                 format!(
@@ -826,6 +940,13 @@ fn assert_layer_entry(
                     design,
                 ))
             }
+        ValueExpr::Effect { .. } => Err(err(
+            "PDL-E006",
+            format!(
+                "{context}: `Effect(…)` is not a layer — set `effect =` on the frame (fills stay Color / Ramp / Media)"
+            ),
+            design,
+        )),
             _ => Err(err(
             "PDL-E006",
             format!(
@@ -852,6 +973,13 @@ pub fn assert_layer_stack_value(
             }
             Ok(())
         }
+        ValueExpr::Effect { .. } => Err(err(
+            "PDL-E006",
+            format!(
+                "{context}: `Effect(…)` is not a layer — set `effect =` on the frame (fills stay Color / Ramp / Media)"
+            ),
+            design,
+        )),
         _ => Ok(()),
     }
 }

@@ -78,6 +78,13 @@ const PACK_CATALOG = [
     defaultComponent: "MotionLab",
     description: "Appear / dismiss snapshots, stagger, and implicit animate = in the HTML preview",
   },
+  {
+    id: "effect",
+    label: "Effect",
+    entry: "test-fixtures/pdl/lab/effect/design.pdl",
+    defaultComponent: "EffectLab",
+    description: "Frame effect: blur self, blur behind, and appear-to-rest self blur",
+  },
 ];
 
 function collectPdlFiles(dirAbs, repoRoot, out = {}) {
