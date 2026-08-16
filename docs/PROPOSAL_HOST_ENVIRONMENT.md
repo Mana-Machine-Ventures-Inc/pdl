@@ -1,6 +1,6 @@
 # Proposal: Host environment (unified `host`, facts bag, `<Host>`, `catalog`)
 
-**Status:** proposed (2026-08-16); revised same day — unified `host` params; **`theme` vs `catalog`**; **`host["k"] as? T ?? …` coalesce** in `mount`  
+**Status:** accepted (2026-08-16) — **H0–H5 shipped**; unified `host` params; **`theme` vs `catalog`**; **`host["k"] as? T ?? …` coalesce** in `mount`  
 **Depends on:** `docs/PROPOSAL_PROTOCOL_CAPABILITIES.md`; bake API / portable core (`docs/PROPOSAL_PORTABLE_CORE.md`); themes (`shared/language-objects.json` `theme`)  
 **Revises:** `docs/PROPOSAL_ADAPTIVE_LAYOUT.md` — size taxonomy / measure→case on `host` params + `mount`, not a language-fixed `SizeClass`  
 **Related:** Playground vs future Studio; `previewBackground`; fixtures / bake knobs  
@@ -19,7 +19,7 @@ Design systems need to talk to **host environments** (PDL Playground, future PDL
 4. Misusing **`theme`** for platform asset catalogs (icons) — themes are user-toggleable color/a11y modes; Studio should not offer AppleIcons next to Dark.
 5. A separate `hostSchema` that must stay hand-synced with named host profiles.
 
-Today the bake boundary is already clean JSON (`sources + theme + kv → bake IR`). Hosts do not yet pass an opaque **facts bag**, and packs have nowhere honest to declare **environment params** or **host-applied remaps**.
+Before this track, the bake boundary was already clean JSON (`sources + theme + kv → bake IR`). Hosts had no opaque **facts bag**, and packs had nowhere honest to declare **environment params** or **host-applied remaps**.
 
 ---
 

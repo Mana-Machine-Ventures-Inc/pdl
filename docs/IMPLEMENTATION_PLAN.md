@@ -57,7 +57,7 @@ Implement **after A2** unless a spike is explicitly throwaway.
 | Normative grammar | `grammar/pdl.ebnf` + language-objects; Rust B4b/B5 | **B6** chrome; TS oracle lag; B7 host dispatch |
 | Typed samples | `samples` banks + `Bank.entry.field`; Rust + TS; catalogue `samples`; playlist-composer-lite + `lab/samples-tracks.pdl`; **PDL-E041** | ForEach over sample path; sample RHS in emit-assign; lints for bare `children = list` |
 | HTML host (C1) | Static draw of bake IR; interactive host; handler + standing motion overlay (appear/dismiss, play / keys, frame `animate`, `rotate`, clip rack); frame `effect` / `blur =` (filter + backdrop-filter) | Emit dispatch (B7); M4 teaching tokens; E1 `Blur()` alias close; E4 `.glass` |
-| Native / prototype | — | C2 SwiftUI; C3 routes/stack; A5 C ABI |
+| Native / prototype | — | C2 SwiftUI; C3 / Track N (`Presenter` stack); A5 C ABI |
 
 **Bake JSON** remains the stability boundary. HTML is a static C1 host: it draws whatever bake already flattened. `ForEach` / emit capture become visible in HTML only after Rust expands them at bake. Host prelude stubs: `test-fixtures/pdl/stdlib/host_protocols.pdl`.
 
@@ -71,7 +71,7 @@ Implement **after A2** unless a spike is explicitly throwaway.
 | **C1a** | Live stress harness: disk watch → Rust bake → HTML (`npm run preview`); shared `scripts/lib/bake-pipeline.mjs` |
 | **C1b** | **PDL Playground** — file canvas + interactive HTML + variant grid (P3–P5); see `PROPOSAL_PDL_PLAYGROUND.md` |
 | **C2** | SwiftUI mapper spike on bake IR |
-| **C3** | Prototype env (routes / stack / data) after B4–B5 |
+| **C3** | Prototype env — superseded in-language by Track N (`Presenter`); remaining host blob is data / B7 dispatch |
 
 **Fence:** `preview` = eng disk-watch loop; **Playground** = language demo / iterative testing; **Studio** (future) = full authoring — not Track C1b.
 
@@ -79,7 +79,7 @@ Implement **after A2** unless a spike is explicitly throwaway.
 
 ## Track H — Host environment
 
-**Proposal:** `docs/PROPOSAL_HOST_ENVIRONMENT.md` (proposed). **Plan:** [`IMPLEMENTATION_PLAN_HOST_ENVIRONMENT.md`](./IMPLEMENTATION_PLAN_HOST_ENVIRONMENT.md).
+**Proposal:** `docs/PROPOSAL_HOST_ENVIRONMENT.md` (accepted — **H0–H5 shipped**). **Plan:** [`IMPLEMENTATION_PLAN_HOST_ENVIRONMENT.md`](./IMPLEMENTATION_PLAN_HOST_ENVIRONMENT.md).
 
 Unified `host Name(params) [mount]`, `<Host>` inject, opaque facts bag, `theme` vs `catalog`. Bake-time only (no nested measure). Multi-protocol headers (`<Host, PointerInput>`) are H0.
 
@@ -91,6 +91,23 @@ Unified `host Name(params) [mount]`, `<Host>` inject, opaque facts bag, `theme` 
 | **H3** | ✅ `mount` + `host["k"] as? T` + `??` + `hostFactsJson` |
 | **H4** | ✅ `use catalog` + role metadata |
 | **H5** | ✅ Playground `view.*` facts; fixture env pins; host `previewBackground` chrome |
+
+---
+
+## Track N — Pages, screens, Presenter
+
+**Proposal:** `docs/PROPOSAL_ROUTING_PAGES_SCREENS.md` (proposed). **Plan:** [`IMPLEMENTATION_PLAN_ROUTING_PAGES_SCREENS.md`](./IMPLEMENTATION_PLAN_ROUTING_PAGES_SCREENS.md).
+
+`page` / `screen` roles, prelude `Presenter(root:)`, `emits(propagation:)`, bare ancestor capture on the screen. Screen is the parent; it does not `<ShowEpisode>`. Live click-to-push waits on B7.
+
+| Step | Deliverable |
+|------|-------------|
+| **N0** | `page` / `screen` roles + catalogue + prelude `Page` |
+| **N1** | `emits(propagation: .parent \| .ancestors)` |
+| **N2** | Bare `channel(…) =` ancestor capture |
+| **N3** | `Presenter(root:)` + `replace` + lab |
+| **N4** | `push` / `pop` + pinned-stack fixture |
+| **N5** | `present(.cover)` / `dismiss` |
 
 ---
 
@@ -167,6 +184,7 @@ None from the A0 question set. Further grammar nits can be decided when updating
 - [ ] Align published `schemaVersion` string to plain **`1.0.0`** when touching normative version prose (drop `-beta` framing; still unreleased)
 - [ ] Track M — **P** + **M0** + **M1** + **M2** + **M3** shipped (keys WAAPI + standing); next **M4** tokens + teaching (`docs/PROPOSAL_MOTION_PLAY.md`)
 - [ ] Track E — **E0** + **E2** + E3 lab / `effect.frost` shipped (frame `effect` / `blur =` sugar, HTML filter + backdrop-filter, Pose rest = baked self blur); **E1** `Blur()` alias window still open; leftover E3 is `material.sheet` as fill + `effect`; **E4** `.glass` reserved (`docs/PROPOSAL_FRAME_BLUR.md`)
-- [x] Track H — Host environment **proposed** — **H0–H5 shipped** (`docs/IMPLEMENTATION_PLAN_HOST_ENVIRONMENT.md`)
+- [x] Track H — Host environment **accepted** — **H0–H5 shipped** (`docs/IMPLEMENTATION_PLAN_HOST_ENVIRONMENT.md`)
+- [ ] Track N — Pages / screens / Presenter **proposed** (`docs/IMPLEMENTATION_PLAN_ROUTING_PAGES_SCREENS.md`)
 
 Progress and intentional gaps also tracked in **`docs/SPEC_GAPS.md`**.

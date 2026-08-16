@@ -1,11 +1,9 @@
 # Implementation plan — Host environment
 
-**Proposal:** [`PROPOSAL_HOST_ENVIRONMENT.md`](./PROPOSAL_HOST_ENVIRONMENT.md) (2026-08-16)  
+**Proposal:** [`PROPOSAL_HOST_ENVIRONMENT.md`](./PROPOSAL_HOST_ENVIRONMENT.md) (accepted — **H0–H5 shipped**, 2026-08-16)  
 **Revises:** [`PROPOSAL_ADAPTIVE_LAYOUT.md`](./PROPOSAL_ADAPTIVE_LAYOUT.md) — pack `host` + `<Host>` instead of prelude `SizeClass` / `<AdaptiveLayout>`  
-**Binding:** lock files + goldens per slice. Proposal text is intent until `shared/*.json` / `grammar/pdl.ebnf` change.  
+**Binding:** lock files + goldens. `host` / `catalog` / `??` / multi-protocol headers are normative in `shared/*.json` / `grammar/pdl.ebnf`.  
 **Core:** Rust-first (`crates/pdl-core`). WASM / Playground consume the bake API. TS oracle does not need a parallel port.
-
-Until a slice is locked, tooling must not treat `host` / `catalog` / `??` / multi-protocol headers as normative.
 
 ---
 
