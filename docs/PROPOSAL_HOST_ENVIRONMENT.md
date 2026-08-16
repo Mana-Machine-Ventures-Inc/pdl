@@ -1,9 +1,9 @@
-# Proposal: Host environment (unified `host`, facts bag, `<Host>`)
+# Proposal: Host environment (unified `host`, facts bag, `<Host>`, `catalog`)
 
-**Status:** proposed (2026-08-16); **revised** same day — unify `hostSchema` into component-like `host` params  
+**Status:** proposed (2026-08-16); revised same day — unified `host` params; **`theme` vs `catalog`** (same remap IR, different system roles); fail-fast `host["key"]` probes  
 **Depends on:** `docs/PROPOSAL_PROTOCOL_CAPABILITIES.md`; bake API / portable core (`docs/PROPOSAL_PORTABLE_CORE.md`); themes (`shared/language-objects.json` `theme`)  
-**Revises:** `docs/PROPOSAL_ADAPTIVE_LAYOUT.md` — size class remains an injectable fact, but **taxonomy and measure→case policy live on `host` params / `mount` body**, not a language-fixed `SizeClass { compact, regular }`  
-**Related:** Playground vs future Studio; `previewBackground`; theme modifiers; fixtures / bake knobs  
+**Revises:** `docs/PROPOSAL_ADAPTIVE_LAYOUT.md` — size taxonomy / measure→case on `host` params + `mount`, not a language-fixed `SizeClass`  
+**Related:** Playground vs future Studio; `previewBackground`; fixtures / bake knobs  
 
 Until this is locked in `shared/*.json` / `grammar/pdl.ebnf`, tooling must not treat the syntax as normative.
 
@@ -16,17 +16,10 @@ Design systems need to talk to **host environments** (PDL Playground, future PDL
 1. Sprinkling magic ambient params through every molecule (`width`, `platform`, `watchOS`, …).
 2. Hardcoding one OS’s size-class POV in the language (Apple `.compact` / `.regular`).
 3. Coupling `.pdl` packs to a named product (`hostInputs Studio { … }`).
-4. Splitting “what components see” (`hostSchema`) from “how profiles fill it” (`host Name`) into two constructs that must stay in sync by hand.
+4. Misusing **`theme`** for platform asset catalogs (icons) — themes are user-toggleable color/a11y modes; Studio should not offer AppleIcons next to Dark.
+5. A separate `hostSchema` that must stay hand-synced with named host profiles.
 
-Today the bake boundary is already clean JSON:
-
-```text
-sources + theme + component kv  →  portable core  →  bake IR
-```
-
-Hosts already pass **theme** and **param overrides**. They do **not** yet pass a structured **environment facts bag**, and packs have nowhere honest to declare **environment params** the way they declare component params.
-
-`previewBackground` is a lonely top-level declaration — proof that host chrome settings exist, but not a general pattern.
+Today the bake boundary is already clean JSON (`sources + theme + kv → bake IR`). Hosts do not yet pass an opaque **facts bag**, and packs have nowhere honest to declare **environment params** or **host-applied remaps**.
 
 ---
 
@@ -34,67 +27,57 @@ Hosts already pass **theme** and **param overrides**. They do **not** yet pass a
 
 | Goal | Meaning |
 |------|---------|
-| **One construct** | `host` carries param shape + defaults + optional `mount` body (no separate `hostSchema`) |
-| **Component-like** | Same param mental model as `component`; different lifecycle / injection point |
-| **Defaults in one place** | Header defaults bake anywhere; `mount { }` is optional overlays from the facts bag |
-| **Same shape across hosts** | Every `host` in a design shares one param signature (or an explicit host protocol); mismatch → error |
-| **Host-agnostic packs** | Probe opaque keys via `hostInput`; no `hostInputs Studio` catalogs in source |
-| **Explicit component surface** | Components opt into `<Host>` and read those **host params** |
-| **Pack-owned size taxonomy** | Variant + policy authored by the DS on the host, not the language |
-| **Theme binding** | `theme Name for Host.<param> == .case` |
-| **Typed missing values** | `T?`, `as?`, `if let`, `??` at the foreign-bag boundary |
-| **Same bake API family** | `hostFactsJson` alongside `theme` / component `kv` |
+| **One `host` construct** | Params + defaults + optional `mount` (no `hostSchema`) |
+| **Component-like** | Same param model as `component`; different lifecycle / injection |
+| **`<Host>` opt-in** | Components read resolved host params only |
+| **Same shape across hosts** | Mismatch → error; optional pack `protocol … : host` |
+| **Host-agnostic packs** | Probe facts bag by key; no Studio-specific input schemas |
+| **Fail-fast bag reads** | `host["width"] < 400` fails if missing/wrong kind; `.isNumber` / `.isString` when soft |
+| **`theme` vs `catalog`** | Same remap merge; different **roles** for Studio / bake selection |
+| **Pack-owned size taxonomy** | Variant + policy on the host, not the language |
 
 ### Non-goals (v1)
 
-- Free-form `expr as? Type` on every typed PDL value (casts stay at the **host-bag boundary**).
-- Equating frame-prop `null` (unset) with `T?` (missing foreign value).
-- Multi-protocol headers on components (`<Host, PointerInput>`) — still single `<P>` until a follow-up.
-- CSS `@media` / container queries in bake IR or `.pdl`.
-- Requiring every runtime to implement every facts-bag key.
+- `theme Name for Host.…` auto-binding (host applies catalogs explicitly).
+- Equating frame-prop `null` with missing bag keys.
+- Multi-protocol component headers (`<Host, PointerInput>`).
+- CSS `@media` in bake / `.pdl`.
+- Requiring every runtime to send every key.
 
 ---
 
 ## 3. Preferred metaphor
 
-A **`host` is almost a component**: named, parameterized, defaulted, with an optional body. It is not drawn as a frame tree. The language mounts it **once per bake** as the environment instance and injects its **resolved params** into components that opt into `<Host>`.
+**`host` ≈ component** for params; **`mount`** refines from the runtime bag; language injects via **`<Host>`**.
 
-| | `component` | `host` |
-|--|-------------|--------|
-| **Params + defaults** | Yes | Yes — **this is the public environment surface** |
-| **Body** | `layout` / `text` / … draw tree | Optional `mount { }` — probe bag, override params |
-| **Lifecycle** | Instanced in the tree | One active profile per bake |
-| **Injection** | Parent kwargs / fixtures | Language supplies `<Host>` effective params |
-| **Children** | `children = …` | None |
+**`theme` and `catalog` ≈ same remap object**, different audience:
+
+| | `theme` | `catalog` |
+|--|---------|-----------|
+| **IR** | Named token remap bundle | Same |
+| **Means** | User / a11y mode (Light, Dark, ReducedMotion) | Host / environment assets (AppleIcons, MaterialIcons) |
+| **Studio** | Show in theme picker / toggles | **Do not** list as user themes |
+| **Applied by** | Bake `--theme` / user choice (and optionally `use theme` if needed) | **`use catalog` inside `mount` only** |
 
 Authors’ gloss:
 
-> *“`host Default(…)` declares what the environment is. The `mount` body may refine it from whatever keys this runtime sent. Buttons that care opt into `<Host>` — same as opting into `PointerInput`, different facts.”*
+> *“Themes are what a person flips. Catalogs are what the host picks from the device bag. Both rewrite tokens the same way.”*
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│  HOST APP (Playground / Studio / RN / …)                    │
-│  measure, chrome, device pickers → hostFactsJson            │
-└─────────────────────────────┬───────────────────────────────┘
-                              │ bake(…, host: Default, hostFacts)
-┌─────────────────────────────▼───────────────────────────────┐
-│  PORTABLE CORE                                              │
-│  start from host param defaults                             │
-│  run mount { } with hostInput(…) → override params            │
-│  inject resolved host params into <Host> components         │
-│  apply theme … for Host.… ; resolve / bake tree             │
-└─────────────────────────────┬───────────────────────────────┘
-                              │ bake IR
-┌─────────────────────────────▼───────────────────────────────┐
-│  VIEW RUNTIME (HTML / SwiftUI / …)                          │
-└─────────────────────────────────────────────────────────────┘
+Host app → hostFactsJson
+     ↓
+Evaluate host defaults → mount { host["…"]; use catalog …; self.param = … }
+     ↓
+Token map += bake theme(s) + catalogs used in mount
+     ↓
+Inject host params into <Host> → resolve / bake tree
 ```
 
 ---
 
 ## 4. Language
 
-### 4.1 Unified `host` (params are the schema)
+### 4.1 Unified `host`
 
 ```pdl
 variant WindowSize {
@@ -114,111 +97,63 @@ host Default(
   surface: AppSurface = .mobile,
   previewBackground: Color = color.surface
 ) mount {
-  // optional — see §5
+  // §5–§6
 }
 
-// Body omitted: defaults alone are a valid host (empty facts bag → these values)
 host CI(
   sizeClass: WindowSize = .medium,
   surface: AppSurface = .mobile,
   previewBackground: Color = color.white
-)
+)  // mount optional — defaults alone bake
 ```
 
-**No `hostSchema`.** The param list **is** the contract components will see.
+- Param list **is** the contract `<Host>` exposes.
+- Every `host` in the design shares the same param **names and types** (defaults may differ) → else error.
+- Optional `protocol AppHost: host { … }` + `host Default <AppHost>(…)` to name that shape.
 
-**Rules:**
-
-- Every `host` in the merged design must share the **same param names and types** (defaults may differ). Mismatch → load/bake error.
-- Authors who want that shape locked in a named API can factor a host protocol (§4.4).
-- Well-known names (`sizeClass`, `previewBackground`) remain **conventions** runtimes may honor (§7) — still just params.
-- **Components never read the facts bag.** They only see resolved host params via `<Host>`.
-
-### 4.2 Optional `mount` body
-
-`mount { }` is optional. When present, it may:
-
-- Read `hostInput("…")` with `as?` / `if let` / `??`
-- Assign `self.sizeClass = …` (or bare `sizeClass = …` — spelling TBD; lean `self.` for clarity)
-- Use ordinary `if` on locals
-
-It does **not** build a draw tree. Keyword `mount` marks lifecycle (environment init), parallel to `layout` on components without implying flex layout.
-
-### 4.3 `<Host>` — language-supplied opt-in
-
-The language provides a host protocol (name lean: **`Host`**) whose injected well-known state is exactly the **active host’s resolved params**:
+### 4.2 `<Host>`
 
 ```pdl
-// Prelude (conceptual)
 protocol Host {
   host
-  // Injected state = params of the active `host` profile for this design
+  // Injected = resolved params of the active host profile
 }
-```
 
-```pdl
 component Shell <Host>() layout {
-  direction = .row
-  if sizeClass == .compact {
-    direction = .column
-  }
-  if surface == .watch {
-    // pack enum only
-  }
+  if sizeClass == .compact { direction = .column }
+  if surface == .watch { /* … */ }
 }
 ```
 
-- Opt-in highlights what differs.
-- Without `<Host>`, `sizeClass` / `surface` are unknown (or E030-style).
-- Does **not** expose `view.width` or `studio.platform`.
-
-### 4.4 Optional pack protocol to force shape
-
-If the design system wants an explicit named contract (libraries, multiple packs, stronger errors):
+### 4.3 `theme` vs `catalog`
 
 ```pdl
-protocol AppHost: host {
-  sizeClass: WindowSize
-  surface: AppSurface
-  previewBackground: Color
-}
-
-host Default <AppHost>(
-  sizeClass: WindowSize = .medium,
-  surface: AppSurface = .mobile,
-  previewBackground: Color = color.surface
-) mount { … }
-
-host Test <AppHost>(
-  sizeClass: WindowSize = .compact,
-  surface: AppSurface = .mobile,
-  previewBackground: Color = color.white
-)
-```
-
-- Default rule remains: **all hosts in a design share one shape** even without `<AppHost>`.
-- `<AppHost>` documents and enforces that shape the way API protocols document slot contracts.
-- Spelling of `protocol … : host` vs `protocol … { host … }` TBD; intent is “this protocol is a host param contract,” not a draw component.
-
-Components still opt into language `<Host>` (or, later, `requires Host` / pack alias) to *read* params — they do not each list `AppHost` unless we add that sugar.
-
-### 4.5 Themes bind to host params
-
-```pdl
-theme WatchIcons for Host.surface == .watch {
-  icon.action.favorite = IconRef(file: "icons/watch-heart.svg")
-}
-
-theme CompactSpacing for Host.sizeClass == .compact {
-  space.stack = 8
-}
-
 theme Dark {
   color.surface = color.ink
+  color.text = color.white
+}
+
+theme ReducedMotion {
+  motion.appear = motion.instant
+}
+
+catalog AppleIcons {
+  icon.action.favorite = IconRef(system: .sfSymbols, name: "heart.fill")
+  icon.nav.back = IconRef(system: .sfSymbols, name: "chevron.left")
+}
+
+catalog MaterialIcons {
+  icon.action.favorite = IconRef(system: .materialSymbols, name: "favorite")
+  icon.nav.back = IconRef(system: .materialSymbols, name: "arrow_back")
 }
 ```
 
-### 4.6 Map rich runtime tags privately
+**Merge rules:** identical to today’s theme override (whole-token replace, stack order defined by bake).  
+**Metadata / catalogue:** each bundle carries `role: user | host` (`theme` → user, `catalog` → host).  
+**Selection:**
+
+- User themes: existing bake / Playground theme knob (modifiers as today).
+- Catalogs: only `use catalog Name` in `mount` (error if used as `--theme` or in a user theme picker API).
 
 ```pdl
 host Default(
@@ -226,32 +161,25 @@ host Default(
   surface: AppSurface = .mobile,
   previewBackground: Color = color.surface
 ) mount {
-  var width: Distance = 400
-  var runtimeTag: String = "unknown"
+  if host["studio.platform"] == "ios" || host["runtime.kind"] == "iosNative" {
+    use catalog AppleIcons
+    self.surface = .mobile
+  } else if host["studio.platform"] == "android" {
+    use catalog MaterialIcons
+    self.surface = .mobile
+  } else if host["studio.platform"] == "watchOS" {
+    use catalog AppleIcons
+    self.surface = .watch
+  }
 
-  if let w = hostInput("view.width") as? Distance { width = w }
-  if let w = hostInput("canvas.width") as? Distance { width = w }
-  if let w = hostInput("visionos.realitykit.width") as? Distance { width = w }
-
-  if let t = hostInput("runtime.kind") as? String { runtimeTag = t }
-  if let t = hostInput("react-native.platform") as? String { runtimeTag = t }
-  if let t = hostInput("studio.platform") as? String { runtimeTag = t }
-
-  if width < 600 {
+  if host["view.width"].isNumber && host["view.width"] < 600 {
     self.sizeClass = .compact
-  } else if width < 1024 {
+  } else if host["view.width"].isNumber && host["view.width"] < 1024 {
     self.sizeClass = .medium
-  } else {
+  } else if host["view.width"].isNumber {
     self.sizeClass = .expanded
   }
-
-  if runtimeTag == "watchOS" {
-    self.surface = .watch
-  } else if runtimeTag == "web" || runtimeTag == "react-native-web" {
-    self.surface = .web
-  } else {
-    self.surface = .mobile
-  }
+  // else keep header default .medium
 
   if self.surface == .watch {
     self.previewBackground = color.black
@@ -259,49 +187,52 @@ host Default(
 }
 ```
 
-Language ambient OS enums are **not** auto-injected onto `<Host>`. Packs publish only their param POV.
+Small one-offs may assign tokens directly in `mount` (`icon.action.favorite = …`) without a named catalog.
+
+**Not proposed:** `theme WatchIcons for Host.surface == .watch`.
 
 ---
 
-## 5. Facts bag and optionals
+## 5. Facts bag probes
 
-### 5.1 `hostInput`
+### 5.1 `host["key"]` (lean spelling)
 
-Legal only inside `host … mount { }`:
+Inside `mount` only, subscript reads the opaque bake facts bag.
 
-```pdl
-hostInput("view.width")
-```
+| Expression | Meaning |
+|------------|---------|
+| `host["device"] == "ios"` | Key must exist and be a string; else **fail bake** |
+| `host["width"] < 400` | Key must exist and be a number (→ `Distance` / numeric compare); else **fail** |
+| `host["width"].isNumber` | `true` if present and numeric; does not fail |
+| `host["device"].isString` | `true` if present and string |
+| `host["width"].isNumber && host["width"] < 400` | Soft then compare |
 
-- No per-product `hostInputs` blocks in `.pdl`.
-- Unread keys ignored; missing keys → `as?` / `??` / leave defaults.
+Studio / Playground / RN send whatever keys they have; unread keys are ignored.
 
-### 5.2 `T?`, `as?`, `if let`, `??`
-
-| Form | Meaning |
-|------|---------|
-| `hostInput("k") as? Distance` | Missing or not convertible → none |
-| `hostInput("k") as Distance` | Missing or not convertible → diagnostic |
-| `if let x = … as? T { … }` | Unwrap; `x` non-optional inside |
-| `a ?? b ?? c` | First present wins |
-
-**v1:** only listed APIs return `T?` (`hostInput` + `as?`). Frame-prop **`null`** stays “unset,” not `T?`. No general cast on already-typed expressions. **`guard let`** optional later if early-exit in `mount` is useful.
-
-### 5.3 Coalesce form
+**Alias overlays** (multi-runtime) use soft checks then assign locals or params:
 
 ```pdl
-let width: Distance =
-  hostInput("view.width") as? Distance
-  ?? hostInput("canvas.width") as? Distance
-  ?? hostInput("visionos.realitykit.width") as? Distance
-  ?? 400
+var width: Distance = 400
+if host["view.width"].isNumber {
+  width = host["view.width"]
+} else if host["canvas.width"].isNumber {
+  width = host["canvas.width"]
+} else if host["visionos.realitykit.width"].isNumber {
+  width = host["visionos.realitykit.width"]
+}
 ```
+
+### 5.2 Optionals / `if let`
+
+Not required for v1 host probes if §5.1 covers soft and strict paths. May still add `T?` / `if let` / `??` later for other domains — do not block this proposal on them.
+
+Alternate spelling `hostInput("view.width")` remains acceptable sugar for `host["view.width"]`.
 
 ---
 
-## 6. Worked example (Studio invents watchOS)
+## 6. Worked example (Studio + watchOS)
 
-Studio sends:
+Facts bag:
 
 ```json
 {
@@ -311,22 +242,19 @@ Studio sends:
 }
 ```
 
-Bake selects `host Default`. Defaults apply, then `mount` overlays → `surface = .watch`, `sizeClass = .compact`.  
-`Shell <Host>` only sees those params. Playground omitting `studio.platform` still bakes via defaults / other tags.
+`mount` selects `AppleIcons`, sets `surface = .watch`, `sizeClass = .compact`.  
+User may still pick `theme Dark` in Studio. Dark is a **theme**; AppleIcons is a **catalog** — same merge, different picker.
 
 ---
 
-## 7. Well-known param conventions
+## 7. Well-known conventions
 
-Runtimes match **param name + type** after host resolution (and may also send facts-bag keys):
-
-| Host param | Typical type | Who cares |
-|------------|--------------|-----------|
-| `sizeClass` | Pack variant | Adaptive structure; injected on `<Host>` |
-| `previewBackground` | `Color` | Canvas hosts for chrome; may be chrome-only (Q5) |
-| Pack params (`surface`, …) | Pack variants | Components / `theme … for` |
-
-Migrate top-level `previewBackground color.surface` into a host param (bare decl as temporary sugar if needed).
+| Kind | Name | Role |
+|------|------|------|
+| Host param | `sizeClass` | Pack variant; on `<Host>` |
+| Host param | `previewBackground` | Canvas chrome (migrate bare `previewBackground` decl here) |
+| Facts key | `view.width` / `view.height` | Common measure (documented, not required) |
+| Facts key | `studio.platform` / `runtime.kind` | Example runtime tags |
 
 ---
 
@@ -335,76 +263,54 @@ Migrate top-level `previewBackground color.surface` into a host param (bare decl
 ```text
 bake_component_sources(
   filesJson, entry, component,
-  theme?,
-  kvJson?,           // component params
-  host?,             // profile name; default host if omitted
-  hostFactsJson?     // opaque bag for mount { }
+  theme?,              // user theme (+ modifiers) only — catalogs rejected here
+  kvJson?,
+  host?,
+  hostFactsJson?
 )
 ```
 
-Core:
+Core order:
 
-1. Load / merge / validate — all `host` decls share one param signature (or satisfy the same host protocol).
-2. Instantiate active host: start at defaults; run `mount` with facts bag.
-3. Apply themes + matching `for Host.…`.
-4. Inject resolved host params into `<Host>` effective params.
-5. Resolve / bake component tree.
+1. Validate hosts share param shape.
+2. Start active host at defaults; run `mount` (bag probes, `use catalog`, param assigns).
+3. Build token map: base + **user theme stack** + **catalogs used in mount** (stack order TBD: lean catalogs after user themes so assets win, or before — **Q8**).
+4. Inject host params into `<Host>`; resolve / bake.
 
-Fixtures:
-
-```pdl
-fixtures for Shell {
-  Watch {
-    host = Default
-    hostFacts = {
-      "view.width" = 198
-      "view.height" = 242
-      "studio.platform" = "watchOS"
-    }
-  }
-}
-```
+Fixtures may set `host`, `hostFacts`, and user `theme` separately.
 
 ---
 
 ## 9. Relationship to Adaptive Layout
 
-| Adaptive Layout (2026-08-15) | This proposal |
-|------------------------------|---------------|
-| Prelude `SizeClass { compact, regular }` | Pack variant on **`host` params** |
-| `<AdaptiveLayout>` | `<Host>` (all environment params, including size class) |
-| Host/token cut | `mount` body + `hostInput` |
-| Separate from preview chrome | Same `host` as `previewBackground` |
-
-Keep the product rule: only structural parents opt into `<Host>`; leaves fill the slot.
+Pack `sizeClass` on `host` + `<Host>` replaces prelude-fixed `SizeClass` / `<AdaptiveLayout>`. Product rule unchanged: only structural parents opt in.
 
 ---
 
-## 10. Diagnostics (when accepted)
+## 10. Diagnostics
 
 | Concern | Direction |
 |---------|-----------|
-| Two hosts with different param names/types | Error (unless both conform to same host protocol that explains the shape — still one shape per design) |
-| `hostInput` / `as?` / `if let` outside `mount` | Error |
-| `as Type` conversion failure | Error at bake |
-| Component reads host param without `<Host>` | Unknown name / conformance diagnostic |
-| `theme … for Host.x` when `x` not a host param | Error |
-| Unknown `--host` / fixture host name | Error |
-| Host protocol param missing on conforming `host` | Error (same family as component/protocol params) |
+| Hosts with different param shapes | Error |
+| `host["…"]` / `use catalog` outside `mount` | Error |
+| Strict bag compare, missing/wrong type | Error |
+| `use theme CatalogName` when Name is a catalog (or `--theme` a catalog) | Error — wrong role |
+| `use catalog ThemeName` when Name is a theme | Error — wrong role |
+| Component reads host param without `<Host>` | Error |
+| Unknown host profile name | Error |
 
 ---
 
 ## 11. Suggested slices
 
-| Slice | Deliverable | Done when |
-|-------|-------------|-----------|
-| **H0** | Grammar + docs: `host Name(params) [mount { }]`; prelude `Host` | Draft lock notes; no runtime |
-| **H1** | Evaluate host defaults + inject `<Host>`; multi-host same-shape check | Fixtures flip `sizeClass` without facts bag |
-| **H2** | `mount` + `hostInput` + `T?` / `as?` / `if let` / `??` | Empty bag and rich bag both bake |
-| **H3** | `theme … for Host.…` | Icon / spacing remaps follow host params |
-| **H4** | Optional `protocol AppHost: host`; Playground sends `view.*` | Resize rebakes; shape errors on bad second host |
-| **H5** | Migrate top-level `previewBackground` | One host settings path |
-| **Later** | Nested measure; `guard let`; multi `<P>` on components | As needed |
+| Slice | Deliverable |
+|-------|-------------|
+| **H0** | Grammar: `host`, `catalog`, `use catalog`, `host["k"]`, `.isNumber` / `.isString` |
+| **H1** | Host defaults + `<Host>` inject + same-shape check |
+| **H2** | `mount` + bag probes + fail/soft |
+| **H3** | `catalog` merge + `use catalog` + role metadata (theme picker excludes catalogs) |
+| **H4** | Playground `view.*` facts; migrate `previewBackground` |
+| **Later** | Pack `protocol … : host`; nested measure; general `T?` |
 
 ---
 
@@ -412,17 +318,18 @@ Keep the product rule: only structural parents opt into `<Host>`; leaves fill th
 
 | # | Question | Lean |
 |---|----------|------|
-| **Q1** | Protocol name `Host` vs `HostPlatform` vs `HostEnvironment` | **`Host`** — short header; params are the platform POV |
-| **Q2** | Body keyword `mount` vs `layout` vs bare `{ }` | **`mount`** — avoids implying flex layout |
-| **Q3** | Assign with `self.sizeClass` vs bare `sizeClass` in `mount` | **`self.`** for symmetry with handlers |
-| **Q4** | `var` vs reassignable `let` in `mount` | `var` or host-local reassignment only |
-| **Q5** | Chrome-only params (`previewBackground`) on `<Host>`? | **Inject all host params** by default; optional `chrome` marker later if noisy |
-| **Q6** | Default host when omitted | Name `Default`, else sole host, else error |
-| **Q7** | JSON number → `Distance` | Accept number; reject unit strings in v1 |
-| **Q8** | Can `mount` be empty `mount { }` vs omitted? | Both fine; omit preferred when unused |
+| **Q1** | Protocol name | **`Host`** |
+| **Q2** | Body keyword | **`mount`** |
+| **Q3** | `self.param` vs bare in `mount` | **`self.`** |
+| **Q4** | Bare `"width" < 400` vs `host["width"] < 400` | **`host["…"]`** — less magic |
+| **Q5** | Inject `previewBackground` onto `<Host>`? | Yes by default; chrome marker later if noisy |
+| **Q6** | Default host name | `Default`, else sole host |
+| **Q7** | JSON number → Distance | Accept number |
+| **Q8** | Token stack: theme then catalog, or catalog then theme? | **Theme then catalog** (host assets win on icon keys) |
+| **Q9** | May `mount` `use theme Dark`? | **No** in v1 — user themes stay bake/UI selected |
 
 ---
 
 ## 13. Decision lean (one paragraph)
 
-Unify environment configuration into **`host Name(params = defaults) [mount { … }]`** — the param list *is* the schema components will use via language-supplied **`<Host>`**. An optional **`mount`** body probes an opaque **facts bag** with **`hostInput` + `as?` / `if let` / `??`** and overrides those params; with no body, defaults bake everywhere. All hosts in a design share one param shape (or an explicit pack **`protocol … : host`**). Themes bind with **`for Host.<param>`**. Size class, surface, and preview chrome are ordinary host params with pack-owned variants — not magic ambient molecule state and not a separate `hostSchema` keyword.
+**`host Name(params = defaults) [mount { }]`** is the environment contract; **`<Host>`** exposes those params to opt-in components. **`mount`** probes an opaque facts bag with **`host["key"]`** (fail-fast compares; **`.isNumber` / `.isString`** when soft), sets params, and **`use catalog`** for environment asset remaps. **`theme`** and **`catalog`** share remap merge semantics but different **system roles**: themes are user-toggleable (Studio picker); catalogs are host-applied only. No `hostSchema`, no `theme … for Host.…`, no magic width on molecules.
