@@ -142,3 +142,7 @@ The reference **`pdl manifest`** command emits the **thin** **`designManifest`**
 
 - **`grammar/pdl.ebnf`** `param-decl` shows a required `default-value`; `parameters` in language-objects also shows defaults for all illustrated parameters. Optional parameters without defaults are not implemented.
 - **Theme `theme Name : Base`** optional second identifier is parsed (`baseTheme`) but not used for resolution (spec de-emphasises OO theme inheritance).
+
+## Exploratory — Figma ↔ PDL round-trip
+
+Property-level deltas for a possible Figma import/export bridge (colors, type styles, freeform vs auto-layout frames, sidecar ids). **Not** a language proposal and **not** tooling in-tree. See [`NOTES_FIGMA_PDL_ROUNDTRIP.md`](./NOTES_FIGMA_PDL_ROUNDTRIP.md).
