@@ -335,7 +335,10 @@ Open product calls specifically called out in conversation:
 2. + text styles (core fields; sidecar for units/style name)  
 3. + one **auto-layout** frame of rects + text  
 4. + freeform frame (absolute dump) as stress / fallback  
-5. Named components / variants (catalogue-shaped) later  
+5. Named components / variants (catalogue-shaped)  
+6. Nested instances  
+7. Page / device mock + scroll  
+8. Mock data → `samples` banks (+ fixtures for worlds)  
 
 Acceptance: bake HTML smoke + re-exported Figma compared by structure and bound values; id map must allow second-run **update** without duplicating nodes.
 
@@ -346,4 +349,7 @@ Acceptance: bake HTML smoke + re-exported Figma compared by structure and bound 
 1. Is Figma a **migration on-ramp** and review surface, or a permanent dual SoT? (Manifesto prefers PDL as SoT; export fits better than import-as-SoT.)  
 2. How much Figma-only metadata belongs in-language vs forever sidecar?  
 3. For freeform artboards, do we ever want authored `x`/`y`, or always convert to inset/flex?  
-4. Should `page` / `screen` land before any “whole file” importer?
+4. Should `page` / `screen` land before any “whole file” importer?  
+5. Image adjustments (contrast, exposure, …) — first-class on `MediaLayer`, or bake adjusted assets + sidecar?  
+6. Finish `.glass` (E4) with which fields, and what host fidelity is “good enough”?  
+7. Multi-effect / inner shadow — required for DS packs, or Figma-polish only?
