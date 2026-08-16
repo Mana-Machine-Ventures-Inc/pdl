@@ -1,6 +1,6 @@
 # Proposal: Host environment (unified `host`, facts bag, `<Host>`, `catalog`)
 
-**Status:** proposed (2026-08-16); revised same day — unified `host` params; **`theme` vs `catalog`** (same remap IR, different system roles); fail-fast `host["key"]` probes  
+**Status:** proposed (2026-08-16); revised same day — unified `host` params; **`theme` vs `catalog`**; **`host["k"] as? T ?? …` coalesce** in `mount`  
 **Depends on:** `docs/PROPOSAL_PROTOCOL_CAPABILITIES.md`; bake API / portable core (`docs/PROPOSAL_PORTABLE_CORE.md`); themes (`shared/language-objects.json` `theme`)  
 **Revises:** `docs/PROPOSAL_ADAPTIVE_LAYOUT.md` — size taxonomy / measure→case on `host` params + `mount`, not a language-fixed `SizeClass`  
 **Related:** Playground vs future Studio; `previewBackground`; fixtures / bake knobs  
@@ -32,7 +32,7 @@ Today the bake boundary is already clean JSON (`sources + theme + kv → bake IR
 | **`<Host>` opt-in** | Components read resolved host params only |
 | **Same shape across hosts** | Mismatch → error; optional pack `protocol … : host` |
 | **Host-agnostic packs** | Probe facts bag by key; no Studio-specific input schemas |
-| **Fail-fast bag reads** | `host["width"] < 400` fails if missing/wrong kind; `.isNumber` / `.isString` when soft |
+| **Soft bag reads** | `host["k"] as? T ?? host["alias"] as? T ?? default` — long `??` chains in `mount` |
 | **`theme` vs `catalog`** | Same remap merge; different **roles** for Studio / bake selection |
 | **Pack-owned size taxonomy** | Variant + policy on the host, not the language |
 
@@ -161,28 +161,46 @@ host Default(
   surface: AppSurface = .mobile,
   previewBackground: Color = color.surface
 ) mount {
-  if host["studio.platform"] == "ios" || host["runtime.kind"] == "iosNative" {
+  let width: Distance =
+    host["view.width"] as? Distance
+    ?? host["canvas.width"] as? Distance
+    ?? host["visionos.realitykit.width"] as? Distance
+    ?? 400
+
+  let platformTag: String =
+    host["studio.platform"] as? String
+    ?? host["runtime.kind"] as? String
+    ?? host["react-native.platform"] as? String
+    ?? "unknown"
+
+  if platformTag == "ios" || platformTag == "iosNative" || platformTag == "watchOS" {
     use catalog AppleIcons
-    self.surface = .mobile
-  } else if host["studio.platform"] == "android" {
+  } else if platformTag == "android" {
     use catalog MaterialIcons
-    self.surface = .mobile
-  } else if host["studio.platform"] == "watchOS" {
-    use catalog AppleIcons
-    self.surface = .watch
   }
 
-  if host["view.width"].isNumber && host["view.width"] < 600 {
+  if platformTag == "watchOS" {
+    self.surface = .watch
+  } else if platformTag == "web" || platformTag == "react-native-web" {
+    self.surface = .web
+  } else {
+    self.surface = .mobile
+  }
+
+  if width < 600 {
     self.sizeClass = .compact
-  } else if host["view.width"].isNumber && host["view.width"] < 1024 {
+  } else if width < 1024 {
     self.sizeClass = .medium
-  } else if host["view.width"].isNumber {
+  } else {
     self.sizeClass = .expanded
   }
-  // else keep header default .medium
 
   if self.surface == .watch {
     self.previewBackground = color.black
+  } else if self.surface == .web {
+    self.previewBackground = color.canvasWeb
+  } else {
+    self.previewBackground = color.surface
   }
 }
 ```
@@ -195,38 +213,34 @@ Small one-offs may assign tokens directly in `mount` (`icon.action.favorite = �
 
 ## 5. Facts bag probes
 
-### 5.1 `host["key"]` (lean spelling)
+### 5.1 `host["key"] as? T ?? …` (v1 lean)
 
-Inside `mount` only, subscript reads the opaque bake facts bag.
+Inside `mount` only. Soft read + coalesce is the default style — verbose but clear, fine for now.
 
 | Expression | Meaning |
 |------------|---------|
-| `host["device"] == "ios"` | Key must exist and be a string; else **fail bake** |
-| `host["width"] < 400` | Key must exist and be a number (→ `Distance` / numeric compare); else **fail** |
-| `host["width"].isNumber` | `true` if present and numeric; does not fail |
-| `host["device"].isString` | `true` if present and string |
-| `host["width"].isNumber && host["width"] < 400` | Soft then compare |
-
-Studio / Playground / RN send whatever keys they have; unread keys are ignored.
-
-**Alias overlays** (multi-runtime) use soft checks then assign locals or params:
+| `host["k"] as? Distance` | Missing or not convertible → none |
+| `a ?? b ?? c` | First present non-none wins |
+| `host["k"] as Distance` | Strict — missing/wrong → bake diagnostic (rare; prefer `??` defaults) |
 
 ```pdl
-var width: Distance = 400
-if host["view.width"].isNumber {
-  width = host["view.width"]
-} else if host["canvas.width"].isNumber {
-  width = host["canvas.width"]
-} else if host["visionos.realitykit.width"].isNumber {
-  width = host["visionos.realitykit.width"]
-}
+let width: Distance =
+  host["view.width"] as? Distance
+  ?? host["canvas.width"] as? Distance
+  ?? host["visionos.realitykit.width"] as? Distance
+  ?? 400
+
+let platformTag: String =
+  host["studio.platform"] as? String
+  ?? host["runtime.kind"] as? String
+  ?? "unknown"
 ```
 
-### 5.2 Optionals / `if let`
+Unread keys are ignored. Alternate spelling `hostInput("view.width")` ≡ `host["view.width"]`.
 
-Not required for v1 host probes if §5.1 covers soft and strict paths. May still add `T?` / `if let` / `??` later for other domains — do not block this proposal on them.
+### 5.2 Deferred
 
-Alternate spelling `hostInput("view.width")` remains acceptable sugar for `host["view.width"]`.
+`.isNumber` / `.isString`, fail-fast bare compares, and full `if let` / `guard` — **not** required for v1 if `as?` + `??` covers host mounts. Revisit when another domain needs them.
 
 ---
 
@@ -305,12 +319,12 @@ Pack `sizeClass` on `host` + `<Host>` replaces prelude-fixed `SizeClass` / `<Ada
 
 | Slice | Deliverable |
 |-------|-------------|
-| **H0** | Grammar: `host`, `catalog`, `use catalog`, `host["k"]`, `.isNumber` / `.isString` |
+| **H0** | Grammar: `host`, `catalog`, `use catalog`, `host["k"] as? T`, `??` |
 | **H1** | Host defaults + `<Host>` inject + same-shape check |
-| **H2** | `mount` + bag probes + fail/soft |
+| **H2** | `mount` + soft bag reads + `??` chains |
 | **H3** | `catalog` merge + `use catalog` + role metadata (theme picker excludes catalogs) |
 | **H4** | Playground `view.*` facts; migrate `previewBackground` |
-| **Later** | Pack `protocol … : host`; nested measure; general `T?` |
+| **Later** | Pack `protocol … : host`; nested measure; `.isNumber` / `if let` if needed |
 
 ---
 
@@ -321,7 +335,7 @@ Pack `sizeClass` on `host` + `<Host>` replaces prelude-fixed `SizeClass` / `<Ada
 | **Q1** | Protocol name | **`Host`** |
 | **Q2** | Body keyword | **`mount`** |
 | **Q3** | `self.param` vs bare in `mount` | **`self.`** |
-| **Q4** | Bare `"width" < 400` vs `host["width"] < 400` | **`host["…"]`** — less magic |
+| **Q4** | `host["k"]` vs `hostInput("k")` | Either; examples use **`host["…"]`** |
 | **Q5** | Inject `previewBackground` onto `<Host>`? | Yes by default; chrome marker later if noisy |
 | **Q6** | Default host name | `Default`, else sole host |
 | **Q7** | JSON number → Distance | Accept number |
@@ -332,4 +346,4 @@ Pack `sizeClass` on `host` + `<Host>` replaces prelude-fixed `SizeClass` / `<Ada
 
 ## 13. Decision lean (one paragraph)
 
-**`host Name(params = defaults) [mount { }]`** is the environment contract; **`<Host>`** exposes those params to opt-in components. **`mount`** probes an opaque facts bag with **`host["key"]`** (fail-fast compares; **`.isNumber` / `.isString`** when soft), sets params, and **`use catalog`** for environment asset remaps. **`theme`** and **`catalog`** share remap merge semantics but different **system roles**: themes are user-toggleable (Studio picker); catalogs are host-applied only. No `hostSchema`, no `theme … for Host.…`, no magic width on molecules.
+**`host Name(params = defaults) [mount { }]`** is the environment contract; **`<Host>`** exposes those params to opt-in components. **`mount`** probes an opaque facts bag with **`host["key"] as? T ?? …` coalesce chains**, sets params, and **`use catalog`** for environment asset remaps. **`theme`** and **`catalog`** share remap merge semantics but different **system roles**: themes are user-toggleable (Studio picker); catalogs are host-applied only. No `hostSchema`, no `theme … for Host.…`, no magic width on molecules.
