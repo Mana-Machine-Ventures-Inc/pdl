@@ -40,5 +40,8 @@
     "happy-dom": "^20.11.2",
     "typescript": "^5.8.2",
     "vitest": "^3.1.1"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
   }
 }
