@@ -200,44 +200,132 @@ component AlRow() layout {
 
 ## Cumulative gaps (candidates for sidecar vs language)
 
-Legend: **S** = sidecar/export metadata sufficient · **L?** = possible language / lock-file growth · **N** = intentional non-goal for now
+Legend: **S** = sidecar/export metadata sufficient · **L?** = possible language / lock-file growth · **N** = intentional non-goal for now · **P** = already proposed / partially shipped
+
+Decision columns to fill when prioritizing: **Address?** (ship language / sidecar-only / drop) · **Host cost** (HTML / native) · **Round-trip need** (identity proof vs DS packs).
 
 ### Tokens / themes
 
-| Gap | Tag |
-|-----|-----|
-| Token description | S or L? |
-| Variable scopes (fill vs stroke vs effect) | S or L? |
-| Code syntax (CSS / Swift / Compose) | S |
-| Publish / hidden from library | S |
-| Library remote id + local `figmaId` | S |
-| First-class collections | S or L? |
-| N-mode themes beyond base + named `theme` | L? (multiple themes already; UX/docs) |
+| Gap | Tag | Notes |
+|-----|-----|--------|
+| Token description | S or L? | Figma variable description |
+| Variable scopes (fill vs stroke vs effect) | S or L? | Picker scopes only |
+| Code syntax (CSS / Swift / Compose) | S | Dev Mode handoff |
+| Publish / hidden from library | S | |
+| Library remote id + local `figmaId` | S | Required for update-in-place |
+| First-class collections | S or L? | vs file/prefix convention |
+| N-mode themes beyond base + named `theme` | L? | Multiple themes exist; multi-mode UX |
 
 ### Typography
 
-| Gap | Tag |
-|-----|-----|
-| Font style name / italic / width axes | S or L? |
-| Line/letter spacing unit provenance | S |
-| Paragraph spacing / indent | L? |
-| Text decoration / letter case | L? |
-| OpenType features / lists | N or L? |
-| Color inside text style (Figma omits; PDL allows) | Policy: don’t mirror into Figma styles |
+| Gap | Tag | Notes |
+|-----|-----|--------|
+| Font style name / italic / width axes | S or L? | PDL has numeric `fontWeight` only |
+| Line/letter spacing unit provenance | S | px vs % vs em |
+| Paragraph spacing / indent | L? | |
+| Text decoration / letter case | L? | underline, strikethrough, upper/lower |
+| OpenType features / lists | N or L? | |
+| Rich text runs in one node | L? | Split nodes or ignore |
+| Color inside text style | Policy | Figma omits; PDL allows — don’t export into text styles |
 
 ### Layout / scene
 
-| Gap | Tag |
-|-----|-----|
-| Orphan frames / pages without `component` | L? (`page`/`screen` proposal) |
-| Explicit `x` / `y` (vs inset conversion) | N or L? |
-| Resize constraints | L? or N |
-| Rotation / 2D transforms | N or L? |
-| Vector / ellipse / boolean geometry | N (asset/`Media` fallback) |
-| Blend modes | N or L? |
-| Rich text runs in one node | L? |
-| Stroke-in-layout vs PDL border box | Document / measure |
-| Min/max sizing parity with Figma AL | L? (extend sizing) |
+| Gap | Tag | Notes |
+|-----|-----|--------|
+| Orphan frames / pages without `component` | L? / P | `page`/`screen` proposal |
+| Explicit `x` / `y` | N or L? | Convert via `position`+`inset` |
+| Resize constraints | L? or N | Pin/scale on parent resize |
+| Rotation / standing 2D transforms | N or L? | `Pose.rotate` is motion-only today |
+| Min/max sizing parity with Figma AL | L? | `.flex(min,preferred,max)` partial |
+| Stroke included in layout size | Document | PDL borders do not change layout box |
+| Grid layout (Figma layout grid / CSS grid) | N or L? | Flex subset only |
+| Baseline alignment | N or L? | |
+
+---
+
+## Primitives punch list (Figma visual model ↔ PDL)
+
+Focus: **paint / geometry / effects / media** — what Figma authors expect on layers vs what lock files express today.
+
+### Already in PDL (good enough for many DS packs)
+
+| Capability | PDL today |
+|------------|-----------|
+| Solid color (+ alpha hex / `color @ opacity`) | `Color`, `Opacity` |
+| Linear-ish ramps | `Ramp` + `GradientStop` (directional; not full CSS/Figma gradient UI) |
+| Drop shadow (one) | `shadow = Shadow(x:, y:, blurRadius:, color: [, spread:])` |
+| Layer blur / background blur | `effect = Effect(.blurSelf \| .blurBehind, radius:)` (+ `blur = n` sugar) |
+| Vibrancy knobs on blur | `Vibrancy(saturation:, brightness:)` on Effect/Blur |
+| Corner radius (uniform + per-corner) | `Radius` / `Corner(…)` |
+| Border stroke (simple) | `borderWidth` / `borderColor` / `borderPosition` |
+| Opacity | frame `opacity` |
+| Image/video as media frame or fill | `Media` / `MediaLayer` + `contentMode` |
+| Icons as tintable refs | `Icon` / `IconRef` + catalogs |
+| Stacked fills | `background` / `foreground` layer lists |
+
+### Effects & materials
+
+| # | Gap | Figma | PDL | Tag | Address? |
+|---|-----|-------|-----|-----|----------|
+| E1 | **Glass** (light angle/intensity, refraction, depth, dispersion, frost) | Native Glass effect | `EffectKind.glass` **reserved**, not implemented (E4) | P / L? | |
+| E2 | **Multiple effects per layer** | Up to 8 drop + 8 inner + blur + noise + texture + glass rules | **One** `effect` + **one** `shadow` | L? | |
+| E3 | **Inner shadow** | Native | None (only drop `Shadow`) | L? | |
+| E4 | **Noise** | Native effect | None | N or L? | |
+| E5 | **Texture** | Native effect | None | N or L? | |
+| E6 | Self + behind blur together | Allowed (glass exclusive with bg blur) | One effect slot; behind shared with glass | L? (`effects = […]`) | |
+| E7 | Effect blend mode | Per-effect | None | N or L? | |
+
+### Image / media adjustments
+
+| # | Gap | Figma | PDL | Tag | Address? |
+|---|-----|-------|-----|-----|----------|
+| I1 | **Exposure** | Image fill adjust | None on `Media`/`MediaLayer` | L? or S | |
+| I2 | **Contrast** | Image fill adjust | None | L? or S | |
+| I3 | **Highlights / shadows** (tonal) | Image fill adjust | None | L? or S | |
+| I4 | **Temperature / tint** | Image fill adjust | None | L? or S | |
+| I5 | Saturation (image) | Image fill adjust | Only via `Vibrancy` on blur path, not general media | L? | |
+| I6 | Image fill modes beyond contentMode | Crop/tile/reposition UI | `contentMode` only (`.cover`/`.contain`/`.fill`/`.scaleDown`) | L? or S | |
+| I7 | Image as vector crop / mask | Common | No mask primitive | N or L? | |
+
+*Decision hint:* I1–I5 are strong “Figma mock fidelity” items but weak “design system SoT” items — sidecar or pre-bake adjusted bitmaps may beat first-class language.
+
+### Fills, strokes, geometry
+
+| # | Gap | Figma | PDL | Tag | Address? |
+|---|-----|-------|-----|-----|----------|
+| G1 | Full gradient stops UI (radial, angular, diamond) | Yes | `Ramp` axis subset | L? or N | |
+| G2 | Multi-stop color gradients as first-class | Yes | Via `Ramp`+color stops — verify parity | Document | |
+| G3 | Dashed / dotted strokes | Yes | Solid border only | L? | |
+| G4 | Stroke dash, cap, join, per-side weights | Yes | Uniform `borderWidth` | L? or N | |
+| G5 | Ellipse / polygon / star / boolean ops / pen | Yes | No vector language | N → `Media` | |
+| G6 | Masks / alpha masks | Yes | None | N or L? | |
+| G7 | Layer blend modes (multiply, screen, …) | Yes | None | N or L? | |
+| G8 | Individual stroke vs fill blend | Yes | N/A | N | |
+
+### Transform & spatial (standing, not motion)
+
+| # | Gap | Figma | PDL | Tag | Address? |
+|---|-----|-------|-----|-----|----------|
+| T1 | Standing rotation | Yes | Only `Pose.rotate` in motion | N or L? | |
+| T2 | Standing scale / skew | Yes | Motion pose only / none | N | |
+| T3 | Free `x`/`y` | Yes | `inset` only | N or convert | |
+| T4 | Constraints | Yes | None | N or L? | |
+
+### Variable / style metadata (primitives-adjacent)
+
+Covered above under Tokens / Typography; include in same prioritization pass as E/I/G when scoping a bridge MVP.
+
+### Suggested triage buckets
+
+1. **Ship for DS round-trip MVP** — anything required for buttons/lists/pages with tokens + AL + variants (mostly already present).  
+2. **Language candidates soon** — **E1 glass fields**, **E3 inner shadow**, **E2/E6 multi-effect**, maybe **G3 dashes** if packs need them.  
+3. **Sidecar or asset bake** — **I1–I5 image adjusts**, OpenType, scopes, code syntax, figma ids.  
+4. **Non-goals unless Studio competes with canvas** — vectors (G5), masks (G7), standing transforms (T*), noise/texture (E4–E5).
+
+Open product calls specifically called out in conversation:
+
+- Image contrast (and siblings) — language on `MediaLayer` vs preprocessed assets?  
+- Glass — finish E4 with which Figma-like fields, and HTML/native host fidelity expectations?
 
 ---
 
