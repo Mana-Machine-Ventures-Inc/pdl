@@ -523,7 +523,7 @@ dismiss     → dismissModal
 
 Optional `prototype { … }` structure may declare routes/handlers for a demo—**not** required inside every component. PDL does not own DB lookups or stack discipline.
 
-**Follow-on (2026-08-16):** [`PROPOSAL_ROUTING_PAGES_SCREENS.md`](./PROPOSAL_ROUTING_PAGES_SCREENS.md) proposes `page` / `screen` roles and a **`routing` protocol role** whose unhandled emits **bubble to a Routing-conforming screen** (stack owner), rather than treating Studio as the primary ambient sink.
+**Follow-on (2026-08-16):** [`PROPOSAL_ROUTING_PAGES_SCREENS.md`](./PROPOSAL_ROUTING_PAGES_SCREENS.md) proposes `page` / `screen` roles and **`emits(propagation: .parent | .ancestors)`** — ancestor climb until a screen (or other capturing ancestor) handles nav emits. Not a reserved protocol name; not a Studio singleton sink.
 
 ---
 

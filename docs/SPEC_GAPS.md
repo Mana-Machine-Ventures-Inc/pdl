@@ -73,7 +73,7 @@ Rust B4b/B5 + host-protocol validation + `self.<channel> = { … }` parse landed
 | [`PROPOSAL_MOTION_TEXT_STAGGER.md`](./PROPOSAL_MOTION_TEXT_STAGGER.md) | **Proposed** | `Stagger.unit` / text split. Do not start until M3 is stable. |
 | [`PROPOSAL_ADAPTIVE_LAYOUT.md`](./PROPOSAL_ADAPTIVE_LAYOUT.md) | **Proposed** — revised by Host Environment | Opt-in size-class idea; taxonomy/policy move to pack `hostSchema` / `host` |
 | [`PROPOSAL_HOST_ENVIRONMENT.md`](./PROPOSAL_HOST_ENVIRONMENT.md) | **Proposed** 2026-08-16 | Unified `host(params) [mount]`, `<Host>`, `host["k"] as? T ?? …`; `theme` vs `catalog`. Locked in `shared/language-objects.json` (`host`, `catalog`, prelude `Host`). Plan: [`IMPLEMENTATION_PLAN_HOST_ENVIRONMENT.md`](./IMPLEMENTATION_PLAN_HOST_ENVIRONMENT.md). **H0–H5 shipped** plus Playground variant-param chrome (facts keys that match a host param pin after `mount`). |
-| [`PROPOSAL_ROUTING_PAGES_SCREENS.md`](./PROPOSAL_ROUTING_PAGES_SCREENS.md) | **Proposed** 2026-08-16 | `page` / `screen` roles; `routing` protocol bubble to screen; nav molecules emit, screen handles stack |
+| [`PROPOSAL_ROUTING_PAGES_SCREENS.md`](./PROPOSAL_ROUTING_PAGES_SCREENS.md) | **Proposed** 2026-08-16 | `page` / `screen` roles; `emits(propagation: .parent \| .ancestors)`; screen owns nav stack |
 
 **Follow-up — `children` list spelling (2026-08-12):** Bare `children = tracks` / `Frame.children = Tracks.focus.tracks` reads as **replace** with a list; `children = [Header, tracks, Footer]` reads as **compose** (lists splice). Solo `children = [tracks]` is legal sugar (bare ≡ brackets) but feels like “array-in-array.” Guidance lives in `shared/language-objects.json` `arrayChildren`; later lints may prefer bare for pure replace. Do not ban `[list]` in v1.
 

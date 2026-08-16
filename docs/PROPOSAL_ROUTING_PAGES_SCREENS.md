@@ -1,6 +1,6 @@
-# Proposal: Pages, screens, and routing protocols (emit bubble)
+# Proposal: Pages, screens, and emit propagation
 
-**Status:** proposed (2026-08-16)  
+**Status:** proposed (2026-08-16); revised same day — **`emits(propagation:)`** instead of a `routing` / `bubbles` marker  
 **Depends on:** `docs/PROPOSAL_PROTOCOL_CAPABILITIES.md` (API vs host protocol roles; emits); `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` §8 (local vs prototype emit lanes); `docs/PROPOSAL_HOST_ENVIRONMENT.md` (environment vs navigation)  
 **Related:** Studio prototypes; nav stack / route swapping; fixtures as previewed worlds  
 
@@ -14,9 +14,9 @@ Studio and app hosts need to run **prototypes where a shell swaps destinations**
 
 1. A discoverable split between **reusable parts**, **destinations**, and **device shells**.
 2. A typed way for a deep control to **ask for navigation** without prop-drilling a router or naming Studio.
-3. Clear rules for **who owns the stack** when an emit is not handled by the immediate parent.
+3. Clear rules for **how far an emit travels** when the immediate parent does not handle it.
 
-The slots proposal already sketches “unhandled emit → prototype runtime.” This proposal makes that lane concrete: **routing protocols bubble up the tree until a routing-capable shell handles them**, and that shell (typically a **screen**) pushes the next view.
+Protocols already define `emits` and assume delivery to a parent. That assumption is underspecified: most UI channels must stop at the declaring parent; navigation channels need to **climb the ancestor chain** until a shell handles them.
 
 ---
 
@@ -24,19 +24,19 @@ The slots proposal already sketches “unhandled emit → prototype runtime.” 
 
 | Goal | Meaning |
 |------|---------|
-| **Roles on one machine** | `page` / `screen` are component-like (params, layout, fixtures); Studio can filter destinations vs shells |
-| **Routing protocol role** | Ordinary `emits`, plus **automatic parent-chain delivery** when unhandled |
-| **Not name-magic** | `Routing` is an example name; the **`routing` marker** (spelling TBD) is the special property |
-| **Screen owns the stack** | Capture + `content` / `route` updates live on the shell; atoms stay dumb |
-| **Context awareness is sparse** | Generic `Button` is not routing-aware; rows / pages *emit*; one outer shell *handles* |
-| **Orthogonal to host env** | `<Host>` / catalogs = environment; routing = navigation |
+| **Roles on one machine** | `page` / `screen` are component-like; Studio can filter destinations vs shells |
+| **Explicit propagation** | `emits(propagation: …)` states how far unhandled emits travel — not a magic protocol name |
+| **Default stays local** | `propagation: .parent` (default) — today’s API emit rules |
+| **Nav climbs parents** | `propagation: .ancestors` — pass up until a handler stops the bubble |
+| **Screen owns the stack** | Capture + `content` / `route` updates on the shell; atoms stay dumb |
+| **Orthogonal to host env** | `<Host>` / catalogs = environment; emit propagation = message delivery |
 
 ### Non-goals (v1)
 
 - Full app router DSL, URL parsing, or DB lookups inside PDL.
-- Ambient Studio singleton as the primary sink (tree bubble to screen is the lean).
-- Putting `<Routing>` on every leaf control.
-- Multi-protocol component headers beyond what the language already allows when this lands.
+- Ambient Studio singleton as the primary sink.
+- Putting nav conformance on every leaf control.
+- Broadcast / “all listeners” propagation (no `.all` in v1).
 - CSS / host measure (see Host Environment proposal).
 
 ---
@@ -52,7 +52,7 @@ The slots proposal already sketches “unhandled emit → prototype runtime.” 
 Under the hood all three bake as component trees. `page` / `screen` are **roles** (discoverability + default rules), not a second type system.
 
 ```pdl
-component Button <PointerInput>(label: String = "OK") layout { /* atom — no routing */ }
+component Button <PointerInput>(label: String = "OK") layout { /* atom */ }
 
 page Home() layout { /* destination */ }
 
@@ -66,15 +66,16 @@ screen Phone(
 
 ---
 
-## 4. Protocol roles (add routing)
+## 4. Emit propagation (the shape)
 
-Extend the protocol-role table:
+Protocols define emits and assume they go to a **parent**. Make **how far** an argument of `emits`, defaulting to immediate parent.
 
-| Role | Marker | Emit delivery |
-|------|--------|---------------|
-| **API** | default / `component` | Must be captured by an in-tree parent (existing rules) |
-| **Host** | `host` | Environment → component (inbound); not this proposal |
-| **Routing** | `routing` (lean name; alternatives: `bubbles`, `nav`) | If parent does not capture → **pass to next parent** until a **Routing-conforming ancestor with a handler** handles it |
+### 4.1 Cases
+
+| Propagation | Meaning |
+|-------------|---------|
+| **`.parent`** (default) | Immediate parent must capture — existing API emit rules |
+| **`.ancestors`** | If this parent does not handle it, pass to the **next** parent, until a handler stops it |
 
 ```pdl
 variant Route {
@@ -83,9 +84,24 @@ variant Route {
   case settings
 }
 
-protocol Routing {
-  routing                    // special property — not the identifier "Routing"
+// Local UI — default propagation (.parent)
+protocol SubnavItem: component {
+  selected: Bool
   emits {
+    select(filter: FilterId)
+  }
+}
+
+// Explicit default (same meaning)
+protocol SubnavItem: component {
+  emits(propagation: .parent) {
+    select(filter: FilterId)
+  }
+}
+
+// Navigation — climb the parent chain
+protocol Routing {
+  emits(propagation: .ancestors) {
     push(route: Route)
     pushEpisode(id: EpisodeId)
     back()
@@ -93,75 +109,81 @@ protocol Routing {
   }
 }
 
-// Equally valid — pack-specific name, same role
+// Pack-specific name; same propagation — not name-magic
 protocol AppNav {
-  routing
-  emits {
+  emits(propagation: .ancestors) {
     openSettings()
   }
 }
 ```
 
-**`Routing` is not a reserved keyword.** Prelude may ship a suggested `Routing`; packs may define their own `routing` protocols.
+**Alternate spelling (protocol-wide):**
+
+```pdl
+protocol Routing {
+  propagation = .ancestors
+  emits {
+    push(route: Route)
+    back()
+  }
+}
+```
+
+**Lean for v1:** prefer **`emits(propagation:)`** on the emits block so one protocol could later mix policies per channel if needed. Protocol-wide `propagation =` is sugar.
+
+**`Routing` is not reserved.** Only `propagation: .ancestors` changes delivery.
+
+### 4.2 Per-channel (later)
+
+```pdl
+emits {
+  select(filter: FilterId)                         // .parent
+  dismiss(propagation: .ancestors)
+}
+```
+
+Not required for v1 if the whole `emits` block shares one propagation.
 
 ---
 
-## 5. Bubble semantics
-
-### 5.1 Rule
-
-For an emit channel declared on a protocol marked **`routing`**:
+## 5. Bubble semantics (`.ancestors`)
 
 1. Fire from a conforming instance (`emit pushEpisode(id: …)`).
 2. Walk **ancestors** toward the root.
 3. At each ancestor: if it registers a capture/handler for that channel → **handle and stop**.
-4. Else → **continue** to the next parent (the special ability vs API protocols).
-5. If the root is reached with no handler → **diagnostic** (lean) or optional Studio fallback (open question).
+4. Else → **continue** to the next parent.
+5. If the root is reached with no handler → **diagnostic** (lean).
 
-For **API** protocol emits, unhandled at the declaring parent remains an error / dead letter per existing emit rules — **no** auto-bubble.
+For **`.parent`**, unhandled at the immediate capturing site remains an error / dead letter per existing emit rules — **no** climb.
 
-### 5.2 Who should handle
+### Who should handle
 
-**Lean: the `screen` (nav host)** conforms to the routing protocol and registers handlers that update `route` / `content` (the stack).
+**Lean: the `screen`** conforms to the nav protocol and registers handlers that update `route` / `content`.
 
 Destination `page`s and molecules typically **emit only** and do not capture, so intents climb to the screen.
 
 ```text
 EpisodeRow  emit pushEpisode(id)
-  → Home (page) — no capture → pass up
-  → Phone (screen) <Routing> — handler runs
+  → Home (page) — no capture → pass up   (.ancestors)
+  → Phone (screen) — handler runs
   → content = Episode(episodeId: id), route = .episode
   → rebake
 ```
 
-Nearest capturing Routing ancestor wins (UIKit-style). Do not skip a capturing middle page unless we later add an explicit rethrow.
+Nearest capturing ancestor wins. Do not skip a capturing middle node unless we later add an explicit rethrow.
 
 ---
 
 ## 6. Context awareness (what conforms)
 
-| Layer | `<Routing>`? | Responsibility |
-|-------|--------------|----------------|
+| Layer | Nav protocol? | Responsibility |
+|-------|---------------|----------------|
 | Atoms (`Button`, `Icon`) | **No** | Pointer / presentation only |
 | Nav molecules (`EpisodeRow`, `BackButton`) | **Yes** (usual) | `emit` on press |
-| Destination pages | Optional | Emit for one-off CTAs; prefer not to own the stack |
+| Destination pages | Optional | One-off CTAs; prefer not to own the stack |
 | **Screen** | **Yes** (sink) | Capture + push/replace/pop via params |
 
-**Avoid:**
-
-```pdl
-component Button <Routing, PointerInput>(route: Route? = nil)  // pollutes the DS
-```
-
-**Prefer:**
-
-```pdl
-component EpisodeRow <Routing, PointerInput>(episodeId: EpisodeId = .demo) layout {
-  self.pressEnd = { emit pushEpisode(id: episodeId) }
-}
-```
-
-Or occasional page-level translation of a dumb button’s press into a routing emit.
+**Avoid** routing on generic `Button`. **Prefer** `EpisodeRow <Routing, PointerInput>` (or page-level translation of a dumb button).
 
 ---
 
@@ -169,8 +191,7 @@ Or occasional page-level translation of a dumb button’s press into a routing e
 
 ```pdl
 protocol Routing {
-  routing
-  emits {
+  emits(propagation: .ancestors) {
     push(route: Route)
     pushEpisode(id: EpisodeId)
     back()
@@ -206,7 +227,7 @@ page Home() layout {
   gap = 16
   let row = EpisodeRow(episodeId: .demo)
   children = [row]
-  // no Routing capture — bubble to screen
+  // no capture — .ancestors climbs to screen
 }
 
 page Episode(episodeId: EpisodeId = .demo) layout {
@@ -231,7 +252,7 @@ screen Phone <Routing>(
 
   Routing.push(route: Route) = {
     self.route = route
-    // content resolution: explicit cases, or table/helper — see Q4
+    // content resolution — see Q3
   }
 
   Routing.back() = {
@@ -251,7 +272,7 @@ prototype LibraryDemo {
 }
 ```
 
-Delivery does **not** require the prototype object to capture emits. The **screen handlers** do. Prototype helps Studio list starts and default page instances per route.
+Delivery is **tree propagation**; prototype helps Studio list starts and default page instances.
 
 ---
 
@@ -259,10 +280,10 @@ Delivery does **not** require the prototype object to capture emits. The **scree
 
 | Proposal | Boundary |
 |----------|----------|
-| **Host Environment** | `host` / `<Host>` / catalogs = environment (size, surface, icons). Not navigation. |
-| **Protocol capabilities** | Adds a third protocol role alongside API + host. |
-| **Slots / emits** | Same `emit` / capture spelling; routing role changes **unhandled** behavior (bubble vs error). |
-| **Adaptive layout** | Structure flips on host params; screens may also `<Host>`. |
+| **Host Environment** | Environment params / catalogs — not emit delivery |
+| **Protocol capabilities** | Host vs API unchanged; this adds **propagation** on `emits` |
+| **Slots / emits** | Same `emit` / capture spelling; `.ancestors` changes unhandled climb |
+| **Adaptive layout** | Screens may also `<Host>` for size/surface |
 
 ---
 
@@ -270,11 +291,11 @@ Delivery does **not** require the prototype object to capture emits. The **scree
 
 | Concern | Direction |
 |---------|-----------|
-| `routing` emit with no capturing Routing ancestor through root | Error (lean) |
-| API emit unhandled | Existing rules (no auto-bubble) |
-| Atom recommended patterns with `<Routing>` | Lint / guidance later, not hard error in v1 |
-| Capture of routing channel on non-Routing-conforming component | Error |
-| `page` / `screen` used but role not locked | Proposal-only until grammar lands |
+| `.ancestors` emit with no handler through root | Error (lean) |
+| `.parent` emit unhandled | Existing rules |
+| Unknown `propagation` case | Error |
+| Atom patterns with nav conformance | Lint later |
+| `page` / `screen` before grammar lock | Proposal-only |
 
 ---
 
@@ -282,12 +303,12 @@ Delivery does **not** require the prototype object to capture emits. The **scree
 
 | Slice | Deliverable |
 |-------|-------------|
-| **N0** | Spec: roles `page` / `screen`; protocol marker `routing`; bubble rules |
-| **N1** | Parse + validate `routing` protocols; bubble vs API unhandled diagnostics |
-| **N2** | Screen/page role in catalogue (Studio discovery) |
-| **N3** | Lab: Phone + Home + EpisodeRow emit → screen handler updates content (Playground) |
-| **N4** | Optional `prototype` start/route table as catalogue metadata |
-| **Later** | Real stack (push/pop history), modal layer, `NavHost` sugar |
+| **N0** | Spec: `page` / `screen`; `emits(propagation: .parent \| .ancestors)` |
+| **N1** | Parse + validate propagation; climb vs local unhandled diagnostics |
+| **N2** | Catalogue roles for Studio discovery |
+| **N3** | Lab: Phone + Home + EpisodeRow → screen handler updates content |
+| **N4** | Optional `prototype` metadata |
+| **Later** | Per-channel propagation; real stack history; modal layer |
 
 ---
 
@@ -295,16 +316,16 @@ Delivery does **not** require the prototype object to capture emits. The **scree
 
 | # | Question | Lean |
 |---|----------|------|
-| **Q1** | Marker spelling `routing` vs `bubbles` vs `nav` | **`routing`** |
-| **Q2** | Sink must be `screen`, or any Routing-conforming ancestor? | **Any ancestor with handlers**; **recommend screen** as the stack owner |
-| **Q3** | Keyword `page` / `screen` vs `component Home page` | **`page` / `screen` keywords** for discovery |
-| **Q4** | How screen resolves `push(route:)` → page instance | Explicit `if` / table in handler; prototype route table as data later |
-| **Q5** | Multi-protocol headers (`<Routing, PointerInput>`) | Follow language multi-header rules when available; until then pack patterns / requires |
-| **Q6** | Unhandled at root | **Hard error** in v1 |
-| **Q7** | Does destination `page` auto-conform to `Page` protocol? | **Yes** if `page` keyword lands |
+| **Q1** | `emits(propagation:)` vs protocol-wide `propagation =` | **`emits(propagation:)`** primary; protocol-wide as sugar |
+| **Q2** | Sink must be `screen`, or any capturing ancestor? | **Any capturing ancestor**; **recommend screen** |
+| **Q3** | Keyword `page` / `screen` vs attribute on `component` | **`page` / `screen` keywords** |
+| **Q4** | Resolve `push(route:)` → page instance | Explicit handler / table; prototype as data later |
+| **Q5** | Case names `.ancestors` vs `.parents` vs `.up` | **`.ancestors`** |
+| **Q6** | Unhandled at root for `.ancestors` | **Hard error** |
+| **Q7** | Does `page` auto-conform to `Page` protocol? | **Yes** if keyword lands |
 
 ---
 
 ## 12. Decision lean (one paragraph)
 
-Introduce **`page`** and **`screen`** as component roles for destinations and device shells. Introduce a **`routing` protocol role**: same emits as API protocols, but **unhandled emits automatically pass to the next parent** until a **Routing-conforming ancestor with a handler** stops the bubble — usually the **`screen`**, which owns `route` / `content` and performs the push. The name `Routing` is not reserved; the marker is. Atoms stay non-routing; nav molecules emit; Studio mounts a screen and rebakes when screen params change. Environment stays on **`host`**; navigation stays on **routing bubble → screen**.
+Introduce **`page`** and **`screen`** as component roles. Give protocol **`emits` a `propagation` argument**: default **`.parent`** (immediate parent, today’s API), **`.ancestors`** (climb until a handler stops — usually the **`screen`**, which owns `route` / `content`). Navigation is not a reserved protocol name and not a Studio singleton; it is ordinary emits with ancestor propagation. Atoms stay local; nav molecules emit; the screen handles the stack. Environment stays on **`host`**.
