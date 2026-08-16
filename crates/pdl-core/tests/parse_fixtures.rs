@@ -183,7 +183,7 @@ component UpsellBody <ModalContent>(
     }
     match &m.declarations[1] {
         pdl_core::ast::TopLevelDecl::Component(c) => {
-            assert_eq!(c.conforms_to.as_deref(), Some("ModalContent"));
+            assert_eq!(c.conforms_to.as_slice(), ["ModalContent"]);
             assert_eq!(c.params.len(), 1);
             assert_eq!(c.params[0].name, "cta");
         }
@@ -199,7 +199,7 @@ fn loads_protocol_fixture_with_effective_params() {
     let design = load_design(entry.to_str().unwrap()).expect("load protocols design");
     assert!(design.protocols.contains_key("ModalContent"));
     let upsell = design.components.get("UpsellBody").expect("UpsellBody");
-    assert_eq!(upsell.conforms_to.as_deref(), Some("ModalContent"));
+    assert_eq!(upsell.conforms_to.as_slice(), ["ModalContent"]);
     let params = effective_params(&design, upsell).unwrap();
     let names: Vec<_> = params.iter().map(|p| p.name.as_str()).collect();
     assert_eq!(names, vec!["title", "subtitle", "cta"]);
@@ -1461,6 +1461,568 @@ component Bare() layout {
 }
 
 #[test]
+fn parses_multi_protocol_header() {
+    let src = r#"
+component EditChip <PointerInput, EditableText>() text {
+  content = value
+  self.pressEnd = { beginEditing(value) }
+  self.editingFinished = { finishEditing() }
+}
+"#;
+    let m = parse_module_source(src, "multi.pdl").unwrap();
+    match &m.declarations[0] {
+        pdl_core::ast::TopLevelDecl::Component(c) => {
+            assert_eq!(
+                c.conforms_to.as_slice(),
+                ["PointerInput", "EditableText"]
+            );
+        }
+        other => panic!("expected component, got {other:?}"),
+    }
+}
+
+#[test]
+fn duplicate_protocol_header_is_e043() {
+    let src = r#"
+component Bad <PointerInput, PointerInput>() layout {
+  children = []
+}
+"#;
+    let err = parse_module_source(src, "dup-header.pdl").unwrap_err();
+    assert_eq!(err.code, "PDL-E043");
+    assert!(err.message.contains("PointerInput"), "{}", err.message);
+}
+
+#[test]
+fn multiple_api_protocols_is_e044() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/two-api.pdl".to_string(),
+        r#"
+protocol A: component {
+  title: String = ""
+}
+protocol B: component {
+  subtitle: String = ""
+}
+component Bad <A, B>() layout {
+  children = []
+}
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/two-api.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E044");
+    assert!(err.message.contains("A") && err.message.contains("B"), "{}", err.message);
+}
+
+#[test]
+fn multi_host_header_injects_editable_text_and_pointer() {
+    use pdl_core::design::{effective_host_protocols, effective_params, load_design_from_sources};
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/both.pdl".to_string(),
+        r#"
+component EditChip <PointerInput, EditableText>() text {
+  content = value
+  self.pressEnd = { beginEditing(value) }
+  self.hoverStart = { }
+  self.editingFinished = { finishEditing() }
+}
+"#
+        .to_string(),
+    );
+    let design = load_design_from_sources("/v/both.pdl", &sources).expect("load");
+    let c = design.components.get("EditChip").expect("EditChip");
+    let hosts = effective_host_protocols(&design, c).expect("hosts");
+    assert!(hosts.iter().any(|h| h == "PointerInput"), "{hosts:?}");
+    assert!(hosts.iter().any(|h| h == "EditableText"), "{hosts:?}");
+    let params = effective_params(&design, c).expect("params");
+    let names: Vec<&str> = params.iter().map(|p| p.name.as_str()).collect();
+    assert!(names.contains(&"value"), "{names:?}");
+    assert!(names.contains(&"isEditing"), "{names:?}");
+}
+
+#[test]
+fn loads_h0_multi_protocol_lab() {
+    use pdl_core::design::{effective_host_protocols, effective_params, load_design};
+    let path = repo_root().join("test-fixtures/pdl/lab/host/h0_multi_protocol.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load H0 lab");
+    let c = design.components.get("EditChip").expect("EditChip");
+    assert_eq!(
+        c.conforms_to.as_slice(),
+        ["PointerInput", "EditableText"]
+    );
+    let hosts = effective_host_protocols(&design, c).expect("hosts");
+    assert_eq!(hosts, vec!["PointerInput".to_string(), "EditableText".to_string()]);
+    let names: Vec<_> = effective_params(&design, c)
+        .expect("params")
+        .iter()
+        .map(|p| p.name.as_str().to_string())
+        .collect();
+    assert!(names.iter().any(|n| n == "value"), "{names:?}");
+    assert!(names.iter().any(|n| n == "isEditing"), "{names:?}");
+}
+
+#[test]
+fn parses_host_profile_and_catalog() {
+    let src = r#"
+variant WindowSize {
+  case compact
+  case regular
+}
+catalog AppleIcons { color.surface = #FFFFFF }
+host Default(sizeClass: WindowSize = .regular) mount { self.sizeClass = .compact }
+"#;
+    let m = parse_module_source(src, "host.pdl").unwrap();
+    assert_eq!(m.declarations.len(), 3);
+    match &m.declarations[1] {
+        pdl_core::ast::TopLevelDecl::Catalog(c) => {
+            assert_eq!(c.name, "AppleIcons");
+            assert!(c.overrides.contains_key("color.surface"));
+        }
+        other => panic!("expected catalog, got {other:?}"),
+    }
+    match &m.declarations[2] {
+        pdl_core::ast::TopLevelDecl::Host(h) => {
+            assert_eq!(h.name, "Default");
+            assert_eq!(h.params.len(), 1);
+            assert_eq!(h.params[0].name, "sizeClass");
+            assert!(h.mount.is_some());
+            let items = h.mount.as_ref().unwrap();
+            assert!(matches!(
+                &items[0],
+                pdl_core::ast::MountItem::Assign { param, .. } if param == "sizeClass"
+            ));
+        }
+        other => panic!("expected host, got {other:?}"),
+    }
+}
+
+#[test]
+fn loads_h1_host_catalog_lab() {
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/lab/host/h1_host_catalog.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load H1 lab");
+    assert!(design.protocols.contains_key("Host"));
+    assert!(design.catalogs.contains_key("AppleIcons"));
+    assert_eq!(design.hosts.len(), 2);
+    let default = design.hosts.get("Default").expect("Default");
+    let ci = design.hosts.get("CI").expect("CI");
+    assert_eq!(default.params.len(), ci.params.len());
+    assert!(
+        default.params.iter().any(|p| p.name == "previewBackground"),
+        "Q5 previewBackground host param"
+    );
+    assert!(ci.mount.is_some());
+    assert!(default.mount.is_none());
+    let shell = design.components.get("Shell").expect("Shell");
+    assert_eq!(shell.conforms_to.as_slice(), ["Host"]);
+}
+
+#[test]
+fn host_defaults_inject_into_effective_params() {
+    use pdl_core::design::{effective_params, load_design};
+    let path = repo_root().join("test-fixtures/pdl/lab/host/design.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load H2 lab");
+    let shell = design.components.get("Shell").expect("Shell");
+    let names: Vec<_> = effective_params(&design, shell)
+        .expect("params")
+        .iter()
+        .map(|p| p.name.as_str().to_string())
+        .collect();
+    assert!(names.iter().any(|n| n == "sizeClass"), "{names:?}");
+    assert!(names.iter().any(|n| n == "surface"), "{names:?}");
+    assert!(names.iter().any(|n| n == "previewBackground"), "{names:?}");
+    let card = design.components.get("Card").expect("Card");
+    let card_names: Vec<_> = effective_params(&design, card)
+        .expect("params")
+        .iter()
+        .map(|p| p.name.as_str().to_string())
+        .collect();
+    assert!(!card_names.iter().any(|n| n == "sizeClass"), "{card_names:?}");
+    let click = design.components.get("ClickShell").expect("ClickShell");
+    assert_eq!(click.conforms_to.as_slice(), ["Host", "PointerInput"]);
+    let click_names: Vec<_> = effective_params(&design, click)
+        .expect("params")
+        .iter()
+        .map(|p| p.name.as_str().to_string())
+        .collect();
+    assert!(click_names.iter().any(|n| n == "sizeClass"), "{click_names:?}");
+}
+
+#[test]
+fn host_param_without_conformance_is_e007() {
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/errors/e007-host-param-without-conformance.pdl");
+    let err = load_design(path.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E007");
+    assert!(err.message.contains("sizeClass"), "{}", err.message);
+}
+
+#[test]
+fn unknown_host_profile_is_e046() {
+    use pdl_core::bake::build_baked_design_component_with_host;
+    use pdl_core::design::load_design;
+    use serde_json::Map;
+    let path = repo_root().join("test-fixtures/pdl/errors/e046-unknown-host.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load");
+    let err = build_baked_design_component_with_host(
+        &design,
+        "Shell",
+        None,
+        &Map::new(),
+        Some("Nope"),
+        None,
+        None,
+    )
+    .unwrap_err();
+    assert_eq!(err.code, "PDL-E046");
+    assert!(err.message.contains("Nope"), "{}", err.message);
+}
+
+#[test]
+fn ambiguous_host_without_default_is_e046() {
+    use pdl_core::bake::build_baked_design_component_with_host;
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    use serde_json::Map;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/amb.pdl".to_string(),
+        r#"
+variant WindowSize { case compact case medium }
+host Phone(sizeClass: WindowSize = .compact)
+host Tablet(sizeClass: WindowSize = .medium)
+component Shell <Host>() layout { children = [] }
+"#
+        .to_string(),
+    );
+    let design = load_design_from_sources("/v/amb.pdl", &sources).expect("load");
+    let err = build_baked_design_component_with_host(
+        &design,
+        "Shell",
+        None,
+        &Map::new(),
+        None,
+        None,
+        None,
+    )
+    .unwrap_err();
+    assert_eq!(err.code, "PDL-E046");
+}
+
+#[test]
+fn author_host_param_wins_over_profile_default() {
+    use pdl_core::bake::build_baked_design_component_with_host;
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    use serde_json::Map;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/win.pdl".to_string(),
+        r#"
+variant WindowSize { case compact case medium case expanded }
+host Default(sizeClass: WindowSize = .medium)
+host CI(sizeClass: WindowSize = .compact)
+component Shell <Host>(sizeClass: WindowSize = .expanded) layout { children = [] }
+"#
+        .to_string(),
+    );
+    let design = load_design_from_sources("/v/win.pdl", &sources).expect("load");
+    let doc = build_baked_design_component_with_host(
+        &design,
+        "Shell",
+        None,
+        &Map::new(),
+        Some("CI"),
+        None,
+        Some("1970-01-01T00:00:00.000Z".into()),
+    )
+    .expect("bake");
+    assert_eq!(
+        doc["components"]["Shell"]["bakedParams"]["sizeClass"],
+        "expanded"
+    );
+}
+
+#[test]
+fn bake_theme_rejects_catalog_name() {
+    use pdl_core::bake::build_baked_design_component;
+    use pdl_core::design::load_design;
+    use serde_json::Map;
+    let path = repo_root().join("test-fixtures/pdl/lab/host/design.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load");
+    let err = build_baked_design_component(
+        &design,
+        "Shell",
+        Some("AppleIcons"),
+        &Map::new(),
+        None,
+    )
+    .unwrap_err();
+    assert_eq!(err.code, "PDL-E049");
+    assert!(err.message.contains("catalog") || err.message.contains("AppleIcons"), "{}", err.message);
+}
+
+#[test]
+fn use_catalog_outside_mount_is_e047() {
+    use pdl_core::parser::parse_module_source;
+    let path = repo_root().join("test-fixtures/pdl/errors/e047-use-catalog-outside-mount.pdl");
+    let src = std::fs::read_to_string(&path).expect("read");
+    let err = parse_module_source(&src, path.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E047");
+}
+
+#[test]
+fn fixture_unknown_host_is_e046() {
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/errors/e046-unknown-host-in-fixture.pdl");
+    let err = load_design(path.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E046");
+}
+
+#[test]
+fn fixture_theme_catalog_is_e049() {
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/errors/e049-fixture-theme-is-catalog.pdl");
+    let err = load_design(path.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E049");
+}
+
+#[test]
+fn fixture_invalid_host_facts_is_e050() {
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/errors/e050-invalid-host-facts.pdl");
+    let err = load_design(path.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E050");
+}
+
+#[test]
+fn bake_prefers_host_preview_background() {
+    use pdl_core::bake::build_baked_design_component_with_host;
+    use pdl_core::design::load_design;
+    use serde_json::Map;
+    let path = repo_root().join("test-fixtures/pdl/lab/host/design.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load");
+    let doc = build_baked_design_component_with_host(
+        &design,
+        "Shell",
+        None,
+        &Map::new(),
+        Some("Default"),
+        None,
+        Some("1970-01-01T00:00:00.000Z".into()),
+    )
+    .expect("bake");
+    assert_eq!(doc["previewBackground"], "#F4F4F5");
+    let ci = build_baked_design_component_with_host(
+        &design,
+        "Shell",
+        None,
+        &Map::new(),
+        Some("CI"),
+        None,
+        Some("1970-01-01T00:00:00.000Z".into()),
+    )
+    .expect("bake");
+    assert_eq!(ci["previewBackground"], "#FFFFFF");
+}
+
+#[test]
+fn use_catalog_on_theme_is_e049() {
+    use pdl_core::bake::build_baked_design_component_with_host;
+    use pdl_core::design::load_design;
+    use serde_json::Map;
+    let path = repo_root().join("test-fixtures/pdl/errors/e049-use-catalog-on-theme.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load");
+    let err = build_baked_design_component_with_host(
+        &design,
+        "Shell",
+        None,
+        &Map::new(),
+        None,
+        None,
+        None,
+    )
+    .unwrap_err();
+    assert_eq!(err.code, "PDL-E049");
+}
+
+#[test]
+fn host_probe_outside_mount_is_e047() {
+    use pdl_core::parser::parse_module_source;
+    let path = repo_root().join("test-fixtures/pdl/errors/e047-host-probe-outside-mount.pdl");
+    let src = std::fs::read_to_string(&path).expect("read");
+    let err = parse_module_source(&src, path.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E047");
+}
+
+#[test]
+fn empty_mount_coalesce_is_e048() {
+    use pdl_core::bake::build_baked_design_component_with_host;
+    use pdl_core::design::load_design;
+    use serde_json::Map;
+    let path = repo_root().join("test-fixtures/pdl/errors/e048-empty-coalesce.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load");
+    let err = build_baked_design_component_with_host(
+        &design,
+        "Shell",
+        None,
+        &Map::new(),
+        None,
+        None,
+        None,
+    )
+    .unwrap_err();
+    assert_eq!(err.code, "PDL-E048");
+}
+
+#[test]
+fn host_watch_facts_set_compact_and_watch() {
+    use pdl_core::bake::build_baked_design_component_with_host;
+    use pdl_core::design::load_design;
+    use serde_json::{json, Map};
+    let path = repo_root().join("test-fixtures/pdl/lab/host/design.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load");
+    let facts = json!({
+        "view.width": 198,
+        "view.height": 242,
+        "studio.platform": "watchOS",
+        "extra.ignored": true
+    })
+    .as_object()
+    .cloned()
+    .unwrap();
+    let doc = build_baked_design_component_with_host(
+        &design,
+        "Shell",
+        None,
+        &Map::new(),
+        None,
+        Some(&facts),
+        Some("1970-01-01T00:00:00.000Z".into()),
+    )
+    .expect("bake watch");
+    let params = &doc["components"]["Shell"]["bakedParams"];
+    assert_eq!(params["sizeClass"], "compact");
+    assert_eq!(params["surface"], "watch");
+    assert_eq!(doc["components"]["Shell"]["root"]["props"]["direction"], "column");
+    assert_eq!(doc["components"]["Shell"]["root"]["props"]["gap"], 8);
+    assert_eq!(doc["components"]["Shell"]["root"]["props"]["cornerRadius"], 20);
+}
+
+#[test]
+fn host_param_fact_pins_override_mount() {
+    use pdl_core::bake::build_baked_design_component_with_host;
+    use pdl_core::design::load_design;
+    use serde_json::Map;
+    let path = repo_root().join("test-fixtures/pdl/lab/host/design.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load");
+    let facts = serde_json::json!({
+        "view.width": 198,
+        "studio.platform": "watchOS",
+        "sizeClass": "expanded",
+        "surface": "web"
+    })
+    .as_object()
+    .cloned()
+    .unwrap();
+    let doc = build_baked_design_component_with_host(
+        &design,
+        "Shell",
+        None,
+        &Map::new(),
+        None,
+        Some(&facts),
+        Some("1970-01-01T00:00:00.000Z".into()),
+    )
+    .expect("bake pin");
+    let params = &doc["components"]["Shell"]["bakedParams"];
+    assert_eq!(params["sizeClass"], "expanded");
+    assert_eq!(params["surface"], "web");
+    assert_eq!(doc["components"]["Shell"]["root"]["props"]["direction"], "row");
+    assert_eq!(doc["components"]["Shell"]["root"]["props"]["cornerRadius"], 0);
+}
+
+#[test]
+fn host_lab_catalogue_lists_catalogs_apart_from_themes() {
+    use pdl_core::catalogue::build_component_catalogue;
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/lab/host/design.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load");
+    let cat = build_component_catalogue(&design, None, &[], Some("1970-01-01T00:00:00.000Z".into()))
+        .expect("catalogue");
+    assert!(cat["themes"].get("Dark").is_some(), "themes.Dark");
+    assert!(cat["themes"].get("AppleIcons").is_none());
+    assert_eq!(cat["catalogs"]["AppleIcons"]["role"], "host");
+    assert!(cat["catalogs"].get("Dark").is_none());
+    assert!(cat["catalogs"].get("MaterialIcons").is_some());
+}
+
+#[test]
+fn host_empty_facts_match_omitted_facts() {
+    use pdl_core::bake::build_baked_design_component_with_host;
+    use pdl_core::design::load_design;
+    use serde_json::Map;
+    let path = repo_root().join("test-fixtures/pdl/lab/host/design.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load");
+    let empty = Map::new();
+    let omit = build_baked_design_component_with_host(
+        &design,
+        "Shell",
+        None,
+        &Map::new(),
+        None,
+        None,
+        Some("1970-01-01T00:00:00.000Z".into()),
+    )
+    .expect("omit");
+    let empty_doc = build_baked_design_component_with_host(
+        &design,
+        "Shell",
+        None,
+        &Map::new(),
+        None,
+        Some(&empty),
+        Some("1970-01-01T00:00:00.000Z".into()),
+    )
+    .expect("empty");
+    assert_eq!(omit, empty_doc);
+    let params = &omit["components"]["Shell"]["bakedParams"];
+    assert_eq!(params["sizeClass"], "medium");
+    assert_eq!(params["surface"], "mobile");
+}
+
+#[test]
+fn host_shape_mismatch_is_e045() {
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/errors/e045-host-shape-mismatch.pdl");
+    let err = load_design(path.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E045");
+}
+
+#[test]
+fn theme_and_catalog_same_name_is_e003() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/clash.pdl".to_string(),
+        r#"
+theme Dark { color.surface = #000000 }
+catalog Dark { color.surface = #111111 }
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/clash.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E003");
+}
+
+#[test]
 fn stdlib_host_protocols_file_parses_inbound_and_verbs() {
     use pdl_core::design::load_design;
     let path = repo_root().join("test-fixtures/pdl/stdlib/host_protocols.pdl");
@@ -1485,6 +2047,10 @@ fn stdlib_host_protocols_file_parses_inbound_and_verbs() {
     assert!(edit.verbs.iter().any(|v| v.name == "finishEditing" && v.params.is_empty()));
     assert!(edit.verbs.iter().any(|v| v.name == "cancelEditing" && v.params.is_empty()));
     assert!(edit.verbs.iter().any(|v| v.name == "commitEditing" && v.params.is_empty()));
+    let host = design.protocols.get("Host").expect("Host");
+    assert_eq!(host.role, pdl_core::ast::ProtocolRole::Host);
+    assert!(host.inbound.is_empty());
+    assert!(host.verbs.is_empty());
 }
 
 #[test]
@@ -1711,8 +2277,13 @@ component Chip <PointerInput>() layout {
     let design = load_design_from_sources("/v/ok.pdl", &sources).expect("prelude load");
     assert!(design.protocols.contains_key("PointerInput"));
     assert!(design.protocols.contains_key("EditableText"));
+    assert!(design.protocols.contains_key("Host"));
     assert_eq!(
         design.protocols["PointerInput"].role,
+        pdl_core::ast::ProtocolRole::Host
+    );
+    assert_eq!(
+        design.protocols["Host"].role,
         pdl_core::ast::ProtocolRole::Host
     );
 }

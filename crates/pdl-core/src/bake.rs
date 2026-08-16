@@ -9,11 +9,12 @@ use serde_json::{Map, Value};
 
 use crate::ast::{ComponentDecl, RootKind, ValueExpr};
 use crate::design::DesignDefinition;
+use crate::mount::resolve_host_environment;
 use crate::error::PdlError;
 use crate::evaluate::{build_resolved_token_map, evaluate_value, Eval, Tokens};
 use crate::resolve::{
-    prune_hidden_children_tree, resolve_component_tree, resolve_default_param_values, CatalFrame,
-    RESOLVE_OPTIONS_LITERAL_BAKE,
+    prune_hidden_children_tree, resolve_component_tree_with_host,
+    resolve_default_param_values_with_host, CatalFrame, RESOLVE_OPTIONS_LITERAL_BAKE,
 };
 
 /// Schema version for stable PDL JSON artefacts. Matches the TypeScript oracle
@@ -118,12 +119,26 @@ fn baked_component_json(name: &str, root_kind: &str, baked_params: Value, root: 
     Value::Object(o)
 }
 
-fn resolve_preview_background_css(design: &DesignDefinition, token_map: &Tokens) -> Option<String> {
-    let name = design.preview_background.as_ref()?;
-    match token_map.get(name) {
-        Some(Value::String(s)) if !s.trim().is_empty() => Some(s.trim().to_string()),
+fn css_color_string(v: &Value) -> Option<String> {
+    match v {
+        Value::String(s) if !s.trim().is_empty() => Some(s.trim().to_string()),
         _ => None,
     }
+}
+
+/// Host param `previewBackground` wins; else the bare top-level token decl.
+fn resolve_preview_background_css(
+    design: &DesignDefinition,
+    token_map: &Tokens,
+    host_env: Option<&Map<String, Value>>,
+) -> Option<String> {
+    if let Some(env) = host_env {
+        if let Some(css) = env.get("previewBackground").and_then(css_color_string) {
+            return Some(css);
+        }
+    }
+    let name = design.preview_background.as_ref()?;
+    token_map.get(name).and_then(css_color_string)
 }
 
 fn baked_document(
@@ -178,7 +193,20 @@ pub fn build_baked_design_system(
     theme: Option<&str>,
     generated_at: Option<String>,
 ) -> Result<Value, PdlError> {
+    build_baked_design_system_with_host(design, theme, None, None, generated_at)
+}
+
+/// [`build_baked_design_system`] with an optional `host` profile (Q6 if omitted)
+/// and optional facts bag (`None` / `{}` ≡ run `mount` with no keys).
+pub fn build_baked_design_system_with_host(
+    design: &DesignDefinition,
+    theme: Option<&str>,
+    host: Option<&str>,
+    facts: Option<&Map<String, Value>>,
+    generated_at: Option<String>,
+) -> Result<Value, PdlError> {
     let mut token_map = build_resolved_token_map(design, theme, &[])?;
+    let host_env = resolve_host_environment(design, &mut token_map, host, facts)?;
     let opts = RESOLVE_OPTIONS_LITERAL_BAKE;
 
     let mut sorted: Vec<&ComponentDecl> = design.components.values().collect();
@@ -187,14 +215,22 @@ pub fn build_baked_design_system(
     let mut components = Map::new();
     let empty_overrides = Map::new();
     for c in sorted {
-        let mut baked_params = resolve_default_param_values(design, &mut token_map, c)?;
+        let mut baked_params =
+            resolve_default_param_values_with_host(design, &mut token_map, c, host_env.as_ref())?;
         crate::resolve::sync_editable_text_facts(
             design,
             c,
             &mut baked_params,
             &empty_overrides,
         )?;
-        let raw = resolve_component_tree(design, &c.name, &mut token_map, &Map::new(), opts)?;
+        let raw = resolve_component_tree_with_host(
+            design,
+            &c.name,
+            &mut token_map,
+            &Map::new(),
+            opts,
+            host_env.as_ref(),
+        )?;
         components.insert(
             c.name.clone(),
             baked_component_json(
@@ -206,7 +242,8 @@ pub fn build_baked_design_system(
         );
     }
 
-    let preview_background = resolve_preview_background_css(design, &token_map);
+    let preview_background =
+        resolve_preview_background_css(design, &token_map, host_env.as_ref());
     Ok(baked_document(
         &generated_at.unwrap_or_else(now_iso8601),
         &design.entry_path,
@@ -225,6 +262,28 @@ pub fn build_baked_design_component(
     param_overrides: &Map<String, Value>,
     generated_at: Option<String>,
 ) -> Result<Value, PdlError> {
+    build_baked_design_component_with_host(
+        design,
+        component_name,
+        theme,
+        param_overrides,
+        None,
+        None,
+        generated_at,
+    )
+}
+
+/// [`build_baked_design_component`] with an optional `host` profile (Q6 if omitted)
+/// and optional facts bag (`None` / `{}` ≡ run `mount` with no keys).
+pub fn build_baked_design_component_with_host(
+    design: &DesignDefinition,
+    component_name: &str,
+    theme: Option<&str>,
+    param_overrides: &Map<String, Value>,
+    host: Option<&str>,
+    facts: Option<&Map<String, Value>>,
+    generated_at: Option<String>,
+) -> Result<Value, PdlError> {
     let c = design
         .components
         .get(component_name)
@@ -239,20 +298,23 @@ pub fn build_baked_design_component(
             )
         })?;
     let mut token_map = build_resolved_token_map(design, theme, &[])?;
+    let host_env = resolve_host_environment(design, &mut token_map, host, facts)?;
     let opts = RESOLVE_OPTIONS_LITERAL_BAKE;
-    let defaults = resolve_default_param_values(design, &mut token_map, &c)?;
+    let defaults =
+        resolve_default_param_values_with_host(design, &mut token_map, &c, host_env.as_ref())?;
     let mut baked_params = defaults;
     for (k, v) in param_overrides {
         baked_params.insert(k.clone(), v.clone());
     }
     // Same EditableText fact sync as resolve — HTML session host reads bakedParams.value.
     crate::resolve::sync_editable_text_facts(design, &c, &mut baked_params, param_overrides)?;
-    let raw = resolve_component_tree(
+    let raw = resolve_component_tree_with_host(
         design,
         component_name,
         &mut token_map,
         param_overrides,
         opts,
+        host_env.as_ref(),
     )?;
 
     let mut components = Map::new();
@@ -266,7 +328,8 @@ pub fn build_baked_design_component(
         ),
     );
 
-    let preview_background = resolve_preview_background_css(design, &token_map);
+    let preview_background =
+        resolve_preview_background_css(design, &token_map, host_env.as_ref());
     Ok(baked_document(
         &generated_at.unwrap_or_else(now_iso8601),
         &design.entry_path,

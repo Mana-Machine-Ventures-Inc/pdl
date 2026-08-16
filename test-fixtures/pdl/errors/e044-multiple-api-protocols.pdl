@@ -1,0 +1,12 @@
+// PDL-E044: at most one API protocol in a component header.
+protocol TitleBody: component {
+  title: String = ""
+}
+
+protocol SubtitleBody: component {
+  subtitle: String = ""
+}
+
+component Bad <TitleBody, SubtitleBody>() layout {
+  children = []
+}

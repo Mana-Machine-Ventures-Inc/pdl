@@ -9,7 +9,7 @@ use indexmap::IndexMap;
 use serde_json::{Map, Value};
 
 use crate::ast::*;
-use crate::design::{effective_params, DesignDefinition};
+use crate::design::{component_reads_host, effective_params, DesignDefinition};
 use crate::error::PdlError;
 use crate::evaluate::{evaluate_condition, evaluate_value, Eval, ParamMeta, ParamValues, Tokens};
 use crate::motion::apply_site_default_play;
@@ -139,6 +139,8 @@ struct SlotResolveCtx {
     /// Child param → parent ForEach when this component mounts a forwarded list.
     foreach_forwards: HashMap<String, ForEachForward>,
     pending_let_instances: Vec<PendingLetInstance>,
+    /// Resolved host param bag (H3). Nested `<Host>` instances share one environment.
+    host: Option<Map<String, Value>>,
 }
 
 /// `chips` or `[chips]` used as a list-forward / mount reference in kwargs.
@@ -728,44 +730,65 @@ pub fn resolve_default_param_values(
     tokens: &mut Tokens,
     c: &ComponentDecl,
 ) -> Result<ParamValues, PdlError> {
+    resolve_default_param_values_with_host(design, tokens, c, None)
+}
+
+/// Like [`resolve_default_param_values`], overlaying the resolved host bag
+/// onto injected `<Host>` params (author-declared names keep their own defaults).
+pub fn resolve_default_param_values_with_host(
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+    c: &ComponentDecl,
+    host_env: Option<&Map<String, Value>>,
+) -> Result<ParamValues, PdlError> {
     let mut out = Map::new();
-    let empty_pv: ParamValues = Map::new();
-    let empty_pm: ParamMeta = IndexMap::new();
     let params = effective_params(design, c)?;
     for p in &params {
-        if !p.is_array && design.variants.contains_key(&p.type_name) {
-            match &p.default_value {
-                ValueExpr::DotEnum { value } => {
-                    out.insert(
-                        p.name.clone(),
-                        Value::String(strip_leading_dot(value).to_string()),
-                    );
+        out.insert(p.name.clone(), eval_param_default(design, tokens, p)?);
+    }
+    if component_reads_host(design, c)? {
+        if let Some(env) = host_env {
+            let author: HashSet<&str> = c.params.iter().map(|p| p.name.as_str()).collect();
+            for (k, v) in env {
+                if author.contains(k.as_str()) {
+                    continue;
                 }
-                _ => {
-                    return Err(PdlError::new(
-                        "PDL-E010",
-                        format!("Variant default must be dot-enum for {}", p.name),
-                        None,
-                        None,
-                        None,
-                    ));
-                }
+                out.insert(k.clone(), v.clone());
             }
-        } else {
-            let mut visiting = HashSet::new();
-            let mut ev = Eval {
-                design,
-                tokens,
-                visiting: &mut visiting,
-                param_values: Some(&empty_pv),
-                param_meta: Some(&empty_pm),
-                use_string_placeholders: false,
-            };
-            let v = evaluate_value(&p.default_value, &mut ev)?;
-            out.insert(p.name.clone(), v);
         }
     }
     Ok(out)
+}
+
+fn eval_param_default(
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+    p: &ComponentParam,
+) -> Result<Value, PdlError> {
+    if !p.is_array && design.variants.contains_key(&p.type_name) {
+        return match &p.default_value {
+            ValueExpr::DotEnum { value } => Ok(Value::String(strip_leading_dot(value).to_string())),
+            _ => Err(PdlError::new(
+                "PDL-E010",
+                format!("Variant default must be dot-enum for {}", p.name),
+                None,
+                None,
+                None,
+            )),
+        };
+    }
+    let empty_pv: ParamValues = Map::new();
+    let empty_pm: ParamMeta = IndexMap::new();
+    let mut visiting = HashSet::new();
+    let mut ev = Eval {
+        design,
+        tokens,
+        visiting: &mut visiting,
+        param_values: Some(&empty_pv),
+        param_meta: Some(&empty_pm),
+        use_string_placeholders: false,
+    };
+    evaluate_value(&p.default_value, &mut ev)
 }
 
 fn build_param_meta(design: &DesignDefinition, c: &ComponentDecl) -> Result<ParamMeta, PdlError> {
@@ -1116,6 +1139,25 @@ pub fn resolve_component_tree(
     param_overrides: &Map<String, Value>,
     options: ResolveOptions,
 ) -> Result<CatalFrame, PdlError> {
+    resolve_component_tree_with_host(
+        design,
+        component_name,
+        tokens,
+        param_overrides,
+        options,
+        None,
+    )
+}
+
+/// Like [`resolve_component_tree`], applying the resolved host bag to `<Host>`.
+pub fn resolve_component_tree_with_host(
+    design: &DesignDefinition,
+    component_name: &str,
+    tokens: &mut Tokens,
+    param_overrides: &Map<String, Value>,
+    options: ResolveOptions,
+    host_env: Option<&Map<String, Value>>,
+) -> Result<CatalFrame, PdlError> {
     resolve_component_tree_with_list_forwards(
         design,
         component_name,
@@ -1123,6 +1165,7 @@ pub fn resolve_component_tree(
         param_overrides,
         options,
         &HashMap::new(),
+        host_env,
     )
 }
 
@@ -1135,6 +1178,7 @@ fn resolve_component_tree_with_list_forwards(
     param_overrides: &Map<String, Value>,
     options: ResolveOptions,
     list_forwards: &HashMap<String, ForEachForward>,
+    host_env: Option<&Map<String, Value>>,
 ) -> Result<CatalFrame, PdlError> {
     let c = design
         .components
@@ -1149,7 +1193,12 @@ fn resolve_component_tree_with_list_forwards(
                 None,
             )
         })?;
-    let mut param_values = resolve_default_param_values(design, tokens, &c)?;
+    let mut param_values = resolve_default_param_values_with_host(
+        design,
+        tokens,
+        &c,
+        host_env,
+    )?;
     for (k, v) in param_overrides {
         param_values.insert(k.clone(), v.clone());
     }
@@ -1169,6 +1218,7 @@ fn resolve_component_tree_with_list_forwards(
     );
     let mut slot_ctx = SlotResolveCtx {
         foreach_forwards: list_forwards.clone(),
+        host: host_env.cloned(),
         ..Default::default()
     };
     let mut local_values = Map::new();
@@ -1216,6 +1266,7 @@ fn resolve_component_tree_with_list_forwards(
             &kw_explicit,
             options,
             &child_forwards,
+            host_env,
         )?;
         sub.instance_of = Some(pending.component.clone());
         sub.instance_kwargs = Some(kw_explicit);
@@ -1251,6 +1302,7 @@ fn mount_instance(
     options: ResolveOptions,
     si: &mut usize,
     list_forwards: &HashMap<String, ForEachForward>,
+    host_env: Option<&Map<String, Value>>,
 ) -> Result<CatalFrame, PdlError> {
     let key = format!("{parent_id}>{component}");
     if visiting_inst.contains(&key) {
@@ -1270,6 +1322,7 @@ fn mount_instance(
         &kw_overrides,
         options,
         list_forwards,
+        host_env,
     )?;
     visiting_inst.remove(&key);
     sub.id = format!("{parent_id}_{component}_{si}");
@@ -1387,6 +1440,7 @@ fn expand_slot_items(
             options,
             si,
             &HashMap::new(),
+            slot_ctx.host.as_ref(),
         )?;
         apply_root_frame_overrides(&mut mounted, frame_props);
         // Stamp owning list (local ForEach name, or parent list when forwarded).
@@ -1611,6 +1665,7 @@ fn materialize(
                     options,
                     &mut si,
                     &child_forwards,
+                    slot_ctx.host.as_ref(),
                 )?;
                 if let Some(op) = opacity {
                     let mut visiting = HashSet::new();

@@ -155,6 +155,7 @@ const canvasHint = $("canvasHint");
 const addProperty = $("addProperty");
 const addPropertyKind = $("addPropertyKind");
 const insertTemplate = $("insertTemplate");
+const hostChrome = $("hostChrome");
 const btnOpenPhone = $("btnOpenPhone");
 const phoneDialog = $("phoneDialog");
 const phoneUrls = $("phoneUrls");
@@ -181,6 +182,15 @@ let kvByComponent = {};
 /** Active §11 fixture label per component (null/absent = defaults). */
 /** @type {Record<string, string>} */
 let activeFixtureByComponent = {};
+/** Fixture-pinned bake knobs (`host` / `theme` / `hostFacts`). Live measure when null. */
+/** @type {{ host?: string, theme?: string, hostFacts?: Record<string, unknown> } | null} */
+let pinnedFixtureEnv = null;
+/** Variant host params from the active profile (Playground chrome). */
+/** @type {Array<{ name: string, typeName: string, cases: string[] }>} */
+let hostParamDefs = [];
+/** Explicit host-param pins (`sizeClass`, `surface`, …). Absent key = Auto (mount/facts). */
+/** @type {Record<string, string>} */
+let hostParamPins = {};
 /** @type {boolean} */
 let syncingKnobs = false;
 /**
@@ -271,6 +281,7 @@ function storeControlsFromData(data) {
   fixturesByComponent = data.fixturesByComponent ?? {};
   componentParams = data.componentParams ?? {};
   variantCases = data.variantCases ?? {};
+  syncHostChrome(Array.isArray(data.hostParams) ? data.hostParams : []);
 }
 
 /** Catalogue EditableText defaults — nested bake kwargs omit `activatesOn`. */
@@ -335,7 +346,9 @@ function bakeKv(obj) {
   /** @type {Record<string, unknown>} */
   const out = {};
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return out;
+  const hostNames = new Set(hostParamDefs.map((p) => p.name));
   for (const [k, v] of Object.entries(obj)) {
+    if (hostNames.has(k)) continue;
     if (Array.isArray(v)) {
       out[k] = v;
       continue;
@@ -468,15 +481,113 @@ function syncFixtureBarsInFrame() {
  * @param {string | null} label
  * @param {{ render?: boolean }} [opts]
  */
+const FIXTURE_ENV_KEYS = new Set(["host", "theme", "hostFacts"]);
+
+/**
+ * Split catalogue fixture example into param kv vs bake knobs.
+ * @param {Record<string, unknown>} example
+ */
+function splitFixtureExample(example) {
+  /** @type {Record<string, unknown>} */
+  const kv = {};
+  /** @type {{ host?: string, theme?: string, hostFacts?: Record<string, unknown> }} */
+  const env = {};
+  for (const [k, v] of Object.entries(example ?? {})) {
+    if (k === "host" && typeof v === "string") env.host = v;
+    else if (k === "theme" && typeof v === "string") env.theme = v;
+    else if (k === "hostFacts" && v && typeof v === "object" && !Array.isArray(v)) {
+      env.hostFacts = /** @type {Record<string, unknown>} */ (v);
+    } else if (!FIXTURE_ENV_KEYS.has(k)) kv[k] = v;
+  }
+  return { kv, env };
+}
+
+function liveHostFacts() {
+  const w = frame?.clientWidth ? Math.round(frame.clientWidth) : 0;
+  const h = frame?.clientHeight ? Math.round(frame.clientHeight) : 0;
+  /** @type {Record<string, unknown>} */
+  const facts = { "studio.platform": "web" };
+  if (w > 0) facts["view.width"] = w;
+  if (h > 0) facts["view.height"] = h;
+  return facts;
+}
+
+function currentBakeEnv() {
+  const facts = {
+    ...(pinnedFixtureEnv?.hostFacts ?? liveHostFacts()),
+    ...hostParamPins,
+  };
+  return {
+    host: pinnedFixtureEnv?.host || undefined,
+    theme: pinnedFixtureEnv?.theme || themeInput.value.trim() || undefined,
+    hostFacts: facts,
+  };
+}
+
+/**
+ * @param {Array<{ name: string, typeName: string, cases: string[] }>} params
+ */
+function syncHostChrome(params) {
+  hostParamDefs = params.filter((p) => p && p.name && Array.isArray(p.cases) && p.cases.length);
+  const allowed = new Set(hostParamDefs.map((p) => p.name));
+  for (const k of Object.keys(hostParamPins)) {
+    if (!allowed.has(k)) delete hostParamPins[k];
+  }
+  renderHostChrome();
+}
+
+function renderHostChrome() {
+  if (!hostChrome) return;
+  hostChrome.replaceChildren();
+  if (hostParamDefs.length === 0) {
+    hostChrome.hidden = true;
+    return;
+  }
+  hostChrome.hidden = false;
+  for (const p of hostParamDefs) {
+    const label = document.createElement("label");
+    const caption = document.createElement("span");
+    caption.textContent = p.typeName || p.name;
+    const sel = document.createElement("select");
+    sel.id = `hostParam-${p.name}`;
+    sel.setAttribute("aria-label", p.typeName || p.name);
+    const auto = document.createElement("option");
+    auto.value = "";
+    auto.textContent = "Auto";
+    sel.append(auto);
+    for (const c of p.cases) {
+      const o = document.createElement("option");
+      o.value = c;
+      o.textContent = c;
+      sel.append(o);
+    }
+    sel.value = hostParamPins[p.name] ?? "";
+    sel.addEventListener("change", () => {
+      if (sel.value) hostParamPins[p.name] = sel.value;
+      else delete hostParamPins[p.name];
+      scheduleDraftSave();
+      // Full remount so per-component host knobs stay gone and every <Host> rebakes.
+      scheduleDebouncedRender(0);
+    });
+    label.append(caption, sel);
+    hostChrome.append(label);
+  }
+}
+
 function applyFixtureSelection(componentName, label, opts = {}) {
   const { owner, examples } = fixtureCatalogFor(componentName);
   if (!owner) return;
   if (label && examples[label]) {
     activeFixtureByComponent[owner] = label;
-    setKvForComponent(owner, { ...examples[label] });
+    const { kv, env } = splitFixtureExample(
+      /** @type {Record<string, unknown>} */ (examples[label]),
+    );
+    setKvForComponent(owner, kv);
+    pinnedFixtureEnv = env.host || env.theme || env.hostFacts ? env : null;
   } else {
     delete activeFixtureByComponent[owner];
     setKvForComponent(owner, {});
+    pinnedFixtureEnv = null;
   }
   // Focus left-nav chips on the component whose fixture just changed.
   primaryComponent = owner;
@@ -1440,6 +1551,7 @@ function enterScratchProject(opts = {}) {
   primaryComponent = "";
   kvByComponent = {};
   activeFixtureByComponent = {};
+  pinnedFixtureEnv = null;
   writeKvObject({});
   const paths = sortedFilePaths();
   const pdl = paths.filter((p) => p.endsWith(".pdl"));
@@ -1766,6 +1878,7 @@ async function restoreDraft(draft) {
         ? { ...draft.kvByComponent }
         : {};
     activeFixtureByComponent = {};
+    pinnedFixtureEnv = null;
     writeKvObject({});
     refreshCanvasHint();
     syncKvTextareaFromOwner(overrideOwner(lastCanvas?.componentNames ?? [], lastCanvas?.primaryComponent));
@@ -2437,7 +2550,9 @@ async function publishStage() {
         packId: packSelect.value,
         entry,
         component,
-        theme: themeInput.value.trim(),
+        theme: currentBakeEnv().theme || themeInput.value.trim(),
+        host: currentBakeEnv().host,
+        hostFacts: currentBakeEnv().hostFacts,
         diskRoot: diskRootMode() || undefined,
         files,
         kv: kvByComponent[component] ?? {},
@@ -2595,7 +2710,7 @@ async function bakeChildComponentForResolve(childComponent, childParams) {
   const hit = instanceBakeIrCache.get(cacheKey);
   if (hit?.root) return /** @type {{ root: object, bakedParams?: object }} */ (hit);
 
-  const theme = themeInput.value.trim();
+  const env = currentBakeEnv();
   const entry = bakeEntryPath();
   let bakedComp = null;
 
@@ -2608,8 +2723,10 @@ async function bakeChildComponentForResolve(childComponent, childParams) {
         filesJson,
         virtEntry,
         childComponent,
-        theme || undefined,
+        env.theme,
         JSON.stringify(childParams ?? {}),
+        env.host,
+        JSON.stringify(env.hostFacts ?? {}),
       );
       const bake = JSON.parse(bakeJson);
       bakedComp = bake?.components?.[childComponent] ?? null;
@@ -2624,7 +2741,9 @@ async function bakeChildComponentForResolve(childComponent, childParams) {
         ...getBodyBase(),
         mode: "component",
         component: childComponent,
-        theme: theme || undefined,
+        theme: env.theme,
+        host: env.host,
+        hostFacts: env.hostFacts,
         bakeOnly: true,
         interactiveHost: false,
         componentOverrides: { [childComponent]: childParams ?? {} },
@@ -3075,6 +3194,8 @@ async function loadPack(packId, { fromDisk = false, skipAnalyze = false } = {}) 
     primaryComponent = data.defaultComponent ?? "";
     kvByComponent = {};
     activeFixtureByComponent = {};
+    pinnedFixtureEnv = null;
+    hostParamPins = {};
     writeKvObject({});
     packDesc.textContent = data.pack?.description ?? "";
     activePath = data.entry;
@@ -3276,16 +3397,25 @@ async function runRender({ debounced = false } = {}) {
         names.length > 1 &&
         !!(owner || canvasPrimary);
       const bakeTarget = owner || canvasPrimary;
+      const env = currentBakeEnv();
       const bakeJson =
         names.length === 1 || dirtyOnly
           ? wasm.bake_component_sources(
               filesJson,
               virtEntry,
               bakeTarget,
-              theme || undefined,
+              env.theme,
               JSON.stringify(kv),
+              env.host,
+              JSON.stringify(env.hostFacts ?? {}),
             )
-          : wasm.bake_system_sources(filesJson, virtEntry, theme || undefined);
+          : wasm.bake_system_sources(
+              filesJson,
+              virtEntry,
+              env.theme,
+              env.host,
+              JSON.stringify(env.hostFacts ?? {}),
+            );
       const bakeMs = Math.round(performance.now() - t0);
       const bake = JSON.parse(bakeJson);
       persistDisk = true;
@@ -3367,9 +3497,12 @@ async function runRender({ debounced = false } = {}) {
     }
 
     /** @type {Record<string, unknown>} */
+    const env = currentBakeEnv();
     const body = {
       ...getBodyBase(),
-      theme: theme || undefined,
+      theme: env.theme,
+      host: env.host,
+      hostFacts: env.hostFacts,
       interactiveHost: true,
       kv,
       componentSources: buildComponentSources(names),
@@ -3593,6 +3726,33 @@ window.addEventListener("beforeunload", () => {
 updateModeUi();
 updateWorkspaceUi();
 
+{
+  let lastFrameFacts = { w: 0, h: 0 };
+  let frameFactsSeeded = false;
+  /** @type {ReturnType<typeof setTimeout> | null} */
+  let frameFactsTimer = null;
+  if (typeof ResizeObserver !== "undefined" && frame) {
+    const ro = new ResizeObserver(() => {
+      if (pinnedFixtureEnv?.hostFacts) return;
+      const w = Math.round(frame.clientWidth || 0);
+      const h = Math.round(frame.clientHeight || 0);
+      if (!frameFactsSeeded) {
+        frameFactsSeeded = true;
+        lastFrameFacts = { w, h };
+        return;
+      }
+      if (w === lastFrameFacts.w && h === lastFrameFacts.h) return;
+      lastFrameFacts = { w, h };
+      if (frameFactsTimer) clearTimeout(frameFactsTimer);
+      frameFactsTimer = setTimeout(() => {
+        frameFactsTimer = null;
+        scheduleDebouncedRender(0, { incremental: true });
+      }, 150);
+    });
+    ro.observe(frame);
+  }
+}
+
 themeInput.addEventListener("input", () => {
   scheduleDraftSave();
   // Theme can affect every canvas component — full IR rebake, reconcile deltas.
@@ -3602,7 +3762,10 @@ kvJson.addEventListener("input", () => {
   if (syncingKnobs) return;
   const names = lastCanvas?.componentNames ?? [];
   const owner = overrideOwner(names, lastCanvas?.primaryComponent);
-  if (owner) delete activeFixtureByComponent[owner];
+  if (owner) {
+    delete activeFixtureByComponent[owner];
+    pinnedFixtureEnv = null;
+  }
   try {
     commitKvTextareaToOwner(owner);
   } catch {
@@ -3668,6 +3831,7 @@ window.addEventListener("message", (ev) => {
       component.value = primaryComponent;
     }
     delete activeFixtureByComponent[primaryComponent];
+    pinnedFixtureEnv = null;
     setKvForComponent(primaryComponent, /** @type {Record<string, unknown>} */ (data.kv));
     refreshControlsUi();
     scheduleDebouncedRender(0, { incremental: true, ownerOnly: true });
@@ -3706,7 +3870,10 @@ window.addEventListener("message", (ev) => {
           primaryComponent,
           /** @type {Record<string, unknown>} */ (data.params),
         );
-        if (primaryComponent) delete activeFixtureByComponent[primaryComponent];
+        if (primaryComponent) {
+          delete activeFixtureByComponent[primaryComponent];
+          pinnedFixtureEnv = null;
+        }
         refreshControlsUi();
       }
       if (parentSoTChanged) {

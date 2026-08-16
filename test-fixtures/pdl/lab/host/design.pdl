@@ -1,0 +1,135 @@
+// H4/H5 — use catalog + theme-then-catalog stack; Shell fixtures pin host / hostFacts / theme.
+// Empty / omitted facts ≡ Default defaults (width ?? 800 → medium; platform ?? "unknown"
+// → mobile, no catalog). WindowSize / AppSurface are pack-local. Only Shell / ClickShell /
+// Glyph read host params.
+
+variant WindowSize {
+  case compact
+  case medium
+  case expanded
+}
+
+variant AppSurface {
+  case mobile
+  case watch
+  case web
+}
+
+primitive color.ink: Color = #111111
+primitive color.paper: Color = #FFFFFF
+semantic color.surface: Color = color.paper
+semantic color.text: Color = color.ink
+
+theme Dark {
+  color.surface = #18181B
+  color.text = #FAFAFA
+}
+
+primitive icon.base.heart: Icon = IconRef(system: .sfSymbols, name: "heart")
+semantic icon.action.favorite: Icon = icon.base.heart
+
+catalog AppleIcons {
+  icon.action.favorite = IconRef(system: .sfSymbols, name: "heart.fill")
+}
+
+catalog MaterialIcons {
+  icon.action.favorite = IconRef(system: .materialSymbols, name: "favorite")
+}
+
+host Default(
+  sizeClass: WindowSize = .medium,
+  surface: AppSurface = .mobile,
+  previewBackground: Color = #F4F4F5
+) mount {
+  let width: Distance =
+    host["view.width"] as? Distance
+    ?? host["canvas.width"] as? Distance
+    ?? 800
+  let platformTag: String =
+    host["studio.platform"] as? String
+    ?? host["runtime.kind"] as? String
+    ?? "unknown"
+  if platformTag == "ios" || platformTag == "iosNative" || platformTag == "watchOS" {
+    use catalog AppleIcons
+  } else if platformTag == "android" {
+    use catalog MaterialIcons
+  }
+  if platformTag == "watchOS" {
+    self.surface = .watch
+  } else if platformTag == "web" {
+    self.surface = .web
+  } else {
+    self.surface = .mobile
+  }
+  if width < 600 {
+    self.sizeClass = .compact
+  } else if width < 1024 {
+    self.sizeClass = .medium
+  } else {
+    self.sizeClass = .expanded
+  }
+}
+
+host CI(
+  sizeClass: WindowSize = .compact,
+  surface: AppSurface = .mobile,
+  previewBackground: Color = #FFFFFF
+) mount {
+  self.sizeClass = .compact
+  icon.action.favorite = IconRef(system: .sfSymbols, name: "heart.circle")
+}
+
+component Card(title: String = "Card") layout {
+  let label = Text(content: title)
+  children = [label]
+  padding = 12
+  background = #FFFFFF
+}
+
+component Shell <Host>() layout {
+  let hero = Card(title: "Hello")
+  children = [hero]
+  if sizeClass == .compact {
+    direction = .column
+    gap = 8
+  } else {
+    direction = .row
+    gap = 16
+  }
+  if surface == .watch {
+    cornerRadius = 20
+  } else {
+    cornerRadius = 0
+  }
+}
+
+component ClickShell <Host, PointerInput>() layout {
+  children = []
+  if sizeClass == .compact {
+    direction = .column
+  } else {
+    direction = .row
+  }
+  self.pressEnd = { }
+}
+
+component Glyph <Host>() layout {
+  let mark = Icon(icon: icon.action.favorite, size: 16, color: color.text)
+  children = [mark]
+  background = color.surface
+}
+
+fixtures Shell {
+  example "Watch" {
+    host = "Default"
+    hostFacts = "{\"view.width\":198,\"view.height\":242,\"studio.platform\":\"watchOS\"}"
+  }
+  example "CI" {
+    host = "CI"
+  }
+  example "Dark iOS" {
+    host = "Default"
+    theme = "Dark"
+    hostFacts = "{\"view.width\":390,\"view.height\":844,\"studio.platform\":\"ios\"}"
+  }
+}

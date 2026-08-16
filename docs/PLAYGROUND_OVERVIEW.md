@@ -1,6 +1,6 @@
 # PDL Playground — overview
 
-**Status:** shipped through Phase P5 + incremental apply + per-component fixtures / typed samples (2026-08-12)  
+**Status:** shipped through Phase P5 + incremental apply + per-component fixtures / typed samples + host environment chrome (2026-08-16)  
 **Run:** `npm run playground`  
 **Proposal:** [`PROPOSAL_PDL_PLAYGROUND.md`](./PROPOSAL_PDL_PLAYGROUND.md)  
 **How-to:** [`playground/README.md`](../playground/README.md)  
@@ -63,6 +63,7 @@ Pack (.pdl files)
 | **P6** | Incremental preview apply — param/interaction updates **bake IR → DOM reconcile** (primary); dirty-owner-only on multi-component canvases; HTML morph fallback; cold path still `srcdoc`. **Instance resolve** paints nested pointer/editing chrome (`pdl-resolve-instance` → bake child + IR patch); parent rebake only when parent SoT changes. Dual-bake chrome caches **retired** — single-tree mounts. Status shows `· live apply` / `Instance resolve · …`. See [`PROPOSAL_INCREMENTAL_PREVIEW_APPLY.md`](./PROPOSAL_INCREMENTAL_PREVIEW_APPLY.md). |
 | **Fixtures UI** | §11 scenarios live **on each preview section** (Fixture select above param knobs). Left-rail chips still mirror the **primary** component. No global Preview-panel fixture dropdown. |
 | **Typed samples** | Packs author `samples` banks; Playground only assigns scalars/variants. Playlist Composer mood/search worlds mount `Tracks.*.tracks` at bake — host JS catalogs removed. |
+| **Host chrome** | When the design declares `host` profiles, top-right **WindowSize** / **AppSurface** (variant host params) pin the bag after `mount`. **Auto** follows live `view.width` / `view.height` / `studio.platform` (resize rebake) or fixture `hostFacts`. Theme picker lists user themes only. |
 
 **Device stage:** `/device` on the same LAN — one component, HTML host, WASM bake + local HTML / IR reconcile in Safari. Not a mobile editor. See [`playground/README.md`](../playground/README.md) (Phone / same-network stage).
 
@@ -97,6 +98,7 @@ Pack (.pdl files)
 | `test-fixtures/pdl/systems/playlist-composer-lite/` | Samples + ForEach + EditableText pack |
 | `test-fixtures/pdl/lab/samples-tracks.pdl` | Minimal typed-samples lab |
 | `test-fixtures/pdl/lab/usage-rules/` | Usage notes + red/orange rule warnings |
+| `test-fixtures/pdl/lab/host/` | Host profiles, `mount`, catalogs, fixture env pins (pack **Host environment**) |
 | `src/renderHtml.ts` | Bake JSON → HTML (+ interactive host, per-component fixture bars) |
 
 ---

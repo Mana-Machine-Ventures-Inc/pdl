@@ -5,7 +5,7 @@
 **Revises:** `docs/PROPOSAL_ADAPTIVE_LAYOUT.md` — size taxonomy / measure→case on `host` params + `mount`, not a language-fixed `SizeClass`  
 **Related:** Playground vs future Studio; `previewBackground`; fixtures / bake knobs  
 
-Until this is locked in `shared/*.json` / `grammar/pdl.ebnf`, tooling must not treat the syntax as normative.
+**H0–H5 locked** in `shared/*.json` / `grammar/pdl.ebnf` (`host` / `catalog` / prelude `Host` / multi-protocol headers / `<Host>` inject / `mount` + `as?` + `??` + `hostFactsJson` / `use catalog` + roles / Playground `view.*` facts + fixture env pins + host `previewBackground` chrome).
 
 ---
 
@@ -40,9 +40,14 @@ Today the bake boundary is already clean JSON (`sources + theme + kv → bake IR
 
 - `theme Name for Host.…` auto-binding (host applies catalogs explicitly).
 - Equating frame-prop `null` with missing bag keys.
-- Multi-protocol component headers (`<Host, PointerInput>`).
+- Nested / per-mount measure (environment is read **once at bake**).
 - CSS `@media` in bake / `.pdl`.
 - Requiring every runtime to send every key.
+- Language-fixed size-class cases (`WindowSize` in examples is pack-local).
+
+**In scope:** multi-protocol headers (`<Host, PointerInput>`) — see the implementation plan.
+
+**Implementation plan:** [`IMPLEMENTATION_PLAN_HOST_ENVIRONMENT.md`](./IMPLEMENTATION_PLAN_HOST_ENVIRONMENT.md).
 
 ---
 
@@ -288,8 +293,9 @@ Core order:
 
 1. Validate hosts share param shape.
 2. Start active host at defaults; run `mount` (bag probes, `use catalog`, param assigns).
-3. Build token map: base + **user theme stack** + **catalogs used in mount** (stack order TBD: lean catalogs after user themes so assets win, or before — **Q8**).
-4. Inject host params into `<Host>`; resolve / bake.
+3. Pin: any `hostFactsJson` key that matches a host param name overwrites that param (Playground chrome, fixture pins). Invalid variant case → PDL-E005.
+4. Build token map: base + **user theme stack** + **catalogs used in mount** (catalogs after user themes — **Q8**).
+5. Inject host params into `<Host>`; resolve / bake. Document `previewBackground` prefers the host param, else the bare top-level decl.
 
 Fixtures may set `host`, `hostFacts`, and user `theme` separately.
 
@@ -318,14 +324,17 @@ Pack `sizeClass` on `host` + `<Host>` replaces prelude-fixed `SizeClass` / `<Ada
 
 ## 11. Suggested slices
 
+Canonical slice list, done-when, and locked decisions: [`IMPLEMENTATION_PLAN_HOST_ENVIRONMENT.md`](./IMPLEMENTATION_PLAN_HOST_ENVIRONMENT.md).
+
 | Slice | Deliverable |
 |-------|-------------|
-| **H0** | Grammar: `host`, `catalog`, `use catalog`, `host["k"] as? T`, `??` |
-| **H1** | Host defaults + `<Host>` inject + same-shape check |
-| **H2** | `mount` + soft bag reads + `??` chains |
-| **H3** | `catalog` merge + `use catalog` + role metadata (theme picker excludes catalogs) |
-| **H4** | Playground `view.*` facts; migrate `previewBackground` |
-| **Later** | Pack `protocol … : host`; nested measure; `.isNumber` / `if let` if needed |
+| **H0** | ✅ Multi-protocol headers (`<Host, PointerInput>`) |
+| **H1** | ✅ Grammar: `host`, `catalog`, prelude `Host`; same-shape check |
+| **H2** | ✅ Host defaults + `<Host>` inject |
+| **H3** | ✅ `mount` + `host["k"] as? T` + `??` + facts bag |
+| **H4** | ✅ `catalog` merge + `use catalog` + role metadata |
+| **H5** | ✅ Playground `view.*` facts; fixture `host` / `hostFacts` / `theme`; host `previewBackground` chrome |
+| **Later** | Pack `protocol … : host`; recommended tag conventions; nested measure |
 
 ---
 

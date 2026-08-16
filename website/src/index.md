@@ -28,15 +28,17 @@ Language version: **`1.0.0-beta`** (still allowed to change).
 | **Component** | A reusable UI piece: a name, public parameters, and one root **frame**. |
 | **Frame** | A layout node. Kinds are `layout` (container), `text`, `icon`, and `media`. |
 | **Token** | A named value (`color.surface`, `space.stack`). **Primitives** are the raw palette; **semantics** are the intent names components should use. |
-| **Theme** | A named remap of semantic tokens (for example light / dark). |
+| **Theme** | A named remap of semantic tokens a person flips (light / dark). Not a platform icon set. |
+| **Catalog** | A named remap the environment applies (`use catalog` in `mount`) — SF Symbols vs Material icons. Not listed next to themes. |
 | **Variant** | A design axis with cases (`Tone { case primary; case secondary }`). Written `.primary` at use sites. In v1, `enum` is the same feature. |
 | **Emit** | A named **output** from a child (`emit select(filter)`). The parent captures it. Not a host click like `pressEnd`. |
-| **Protocol** | A shared contract. **API** protocols share params and emits for mixed lists. **Host** protocols name environment events (`pressEnd`) and verbs (`beginEditing`). |
-| **Fixture** | A named **preview scenario** for one component (“Empty search”). It is a bag of parameter values, not data you mount in layout. |
+| **Protocol** | A shared contract. **API** protocols share params and emits for mixed lists. **Host** protocols are either inbound events (`pressEnd`) or the environment opt-in (`<Host>`). |
+| **host profile** | `host Default(sizeClass: …) mount { … }` — pack-owned environment params. Not the HTML preview. |
+| **Fixture** | A named **preview scenario** for one component (“Empty search”). Parameter values, plus optional bake knobs (`host`, `theme`, `hostFacts`). |
 | **Sample** | A typed **data bank** (`Tracks.focus.tracks`) you *can* mount in layout. |
 | **Companion** | A block keyed by component name: `fixtures`, `usage`, `rules`, `extend`. Sample banks are not companions. |
 | **Bake** | Compile to a flattened layout snapshot (JSON, then HTML). That snapshot is what you see. |
-| **Host** | Anything that **draws** bake output and delivers inbound events. The HTML preview is a host. “Host” does not mean web hosting. |
+| **Host (runtime)** | Anything that **draws** bake output and delivers inbound events. The HTML preview is a host. “Host” does not mean web hosting. |
 | **Import** | `import "tokens.pdl"` **merges** that file into the same design. There is no `export`. Names are project-wide after merge. |
 
 **Catalogue** is the typed graph (tokens + component trees) for tools and codegen. You do not need it to preview.
@@ -47,6 +49,7 @@ Language version: **`1.0.0-beta`** (still allowed to change).
 - **Every parameter is public.** There is no `expose` / private props.
 - **`children` is what is on screen.** A `ForEach` block does not create views by itself; it writes onto items you already mount.
 - **`pressEnd` is not an emit.** Host events come from the preview; `emits` is what a child tells its parent.
+- **`<Host>` is not PointerInput.** It reads the active `host` profile’s params (`sizeClass`, …). Molecules should not opt in — structural parents do.
 - **Old syntax you may find in archives is invalid.** Classic `let label: text = { … }` and top-level `interaction` blocks are errors. Use `let text = Text(…)` and handlers on the component body.
 
 To install the Playground and write a first file, see [Getting Started](/getting-started).

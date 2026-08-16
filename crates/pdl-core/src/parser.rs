@@ -108,6 +108,8 @@ impl Parser {
             TokenKind::Primitive => Ok(TopLevelDecl::Primitive(self.parse_primitive()?)),
             TokenKind::Semantic => Ok(TopLevelDecl::Semantic(self.parse_semantic()?)),
             TokenKind::Theme => Ok(TopLevelDecl::Theme(self.parse_theme()?)),
+            TokenKind::Catalog => Ok(TopLevelDecl::Catalog(self.parse_catalog()?)),
+            TokenKind::Host => Ok(TopLevelDecl::Host(self.parse_host_profile()?)),
             TokenKind::TypeStyle => Ok(TopLevelDecl::TypeStyle(self.parse_type_style()?)),
             TokenKind::Variant => Ok(TopLevelDecl::Variant(self.parse_variant()?)),
             TokenKind::Protocol => Ok(TopLevelDecl::Protocol(self.parse_protocol()?)),
@@ -123,6 +125,7 @@ impl Parser {
             TokenKind::Usage => Ok(TopLevelDecl::Usage(self.parse_usage()?)),
             TokenKind::Rules => Ok(TopLevelDecl::Rules(self.parse_rules()?)),
             TokenKind::Extend => Ok(TopLevelDecl::Extend(self.parse_extend()?)),
+            TokenKind::Use => Err(self.err_use_outside_mount()),
             other => Err(self.err(format!("Unexpected token {:?} at top level", other))),
         }
     }
@@ -239,6 +242,270 @@ impl Parser {
             base_theme,
             overrides,
         })
+    }
+
+    fn parse_catalog(&mut self) -> Result<CatalogDecl, PdlError> {
+        self.consume(TokenKind::Catalog)?;
+        let name = self.consume(TokenKind::Ident)?.value;
+        self.consume(TokenKind::LBrace)?;
+        let mut overrides: indexmap::IndexMap<String, ValueExpr> = indexmap::IndexMap::new();
+        while !self.is(TokenKind::RBrace) {
+            let key = self.parse_qualified_name()?;
+            self.consume(TokenKind::Eq)?;
+            let value = self.parse_value_expr()?;
+            overrides.insert(key, value);
+        }
+        self.consume(TokenKind::RBrace)?;
+        Ok(CatalogDecl { name, overrides })
+    }
+
+    fn parse_host_profile(&mut self) -> Result<HostDecl, PdlError> {
+        self.consume(TokenKind::Host)?;
+        let name = self.consume(TokenKind::Ident)?.value;
+        self.consume(TokenKind::LParen)?;
+        let mut params: Vec<ComponentParam> = Vec::new();
+        if !self.is(TokenKind::RParen) {
+            loop {
+                let pname = self.consume_param_name()?;
+                self.consume(TokenKind::Colon)?;
+                let (type_name, is_array) = self.parse_param_type()?;
+                self.consume(TokenKind::Eq)?;
+                let default_value = self.parse_value_expr()?;
+                params.push(ComponentParam {
+                    name: pname,
+                    type_name,
+                    is_array,
+                    default_value,
+                });
+                if self.is(TokenKind::RParen) {
+                    break;
+                }
+                self.consume(TokenKind::Comma)?;
+                if self.is(TokenKind::RParen) {
+                    break;
+                }
+            }
+        }
+        self.consume(TokenKind::RParen)?;
+        let mount = if self.is(TokenKind::Mount) {
+            self.advance();
+            Some(self.parse_mount_body()?)
+        } else {
+            None
+        };
+        Ok(HostDecl {
+            name,
+            params,
+            mount,
+        })
+    }
+
+    fn parse_mount_body(&mut self) -> Result<Vec<MountItem>, PdlError> {
+        self.consume(TokenKind::LBrace)?;
+        let mut items = Vec::new();
+        while !self.is(TokenKind::RBrace) {
+            items.push(self.parse_mount_item()?);
+        }
+        self.consume(TokenKind::RBrace)?;
+        Ok(items)
+    }
+
+    fn parse_mount_item(&mut self) -> Result<MountItem, PdlError> {
+        if self.is(TokenKind::Let) {
+            return self.parse_mount_let();
+        }
+        if self.is(TokenKind::If) {
+            return self.parse_mount_if();
+        }
+        if self.is(TokenKind::SelfKw) {
+            return self.parse_mount_assign();
+        }
+        if self.is(TokenKind::Use) {
+            return self.parse_mount_use_catalog();
+        }
+        if self.is(TokenKind::Ident) && self.peek_ahead_kind(1) == TokenKind::Dot
+            || (self.is(TokenKind::Ident) && self.peek_ahead_kind(1) == TokenKind::Eq)
+        {
+            return self.parse_mount_token_assign();
+        }
+        Err(self.err(
+            "Expected `let`, `self.param =`, `use catalog`, token assign, or `if` in `mount`",
+        ))
+    }
+
+    fn parse_mount_use_catalog(&mut self) -> Result<MountItem, PdlError> {
+        self.consume(TokenKind::Use)?;
+        if !self.is(TokenKind::Catalog) {
+            return Err(self.err_code(
+                "PDL-E049",
+                "`use` in `mount` must be `use catalog Name` (user themes are `--theme`, not `use theme`)",
+            ));
+        }
+        self.advance();
+        let name = self.consume(TokenKind::Ident)?.value;
+        Ok(MountItem::UseCatalog { name })
+    }
+
+    fn parse_mount_token_assign(&mut self) -> Result<MountItem, PdlError> {
+        let name = self.parse_qualified_name()?;
+        self.consume(TokenKind::Eq)?;
+        let value = self.parse_mount_expr()?;
+        Ok(MountItem::TokenAssign { name, value })
+    }
+
+    fn parse_mount_let(&mut self) -> Result<MountItem, PdlError> {
+        self.consume(TokenKind::Let)?;
+        let name = self.consume(TokenKind::Ident)?.value;
+        self.consume(TokenKind::Colon)?;
+        let type_name = self.consume_param_type_name()?;
+        self.consume(TokenKind::Eq)?;
+        let value = self.parse_mount_expr()?;
+        Ok(MountItem::Let {
+            name,
+            type_name,
+            value,
+        })
+    }
+
+    fn parse_mount_assign(&mut self) -> Result<MountItem, PdlError> {
+        self.consume(TokenKind::SelfKw)?;
+        self.consume(TokenKind::Dot)?;
+        let param = self.consume_param_name()?;
+        self.consume(TokenKind::Eq)?;
+        let value = self.parse_mount_expr()?;
+        Ok(MountItem::Assign { param, value })
+    }
+
+    fn parse_mount_if(&mut self) -> Result<MountItem, PdlError> {
+        self.consume(TokenKind::If)?;
+        let condition = self.parse_mount_cond_or()?;
+        let then_items = self.parse_mount_body()?;
+        let mut else_if = Vec::new();
+        let mut else_items = None;
+        while self.is(TokenKind::Else) {
+            self.advance();
+            if self.is(TokenKind::If) {
+                self.advance();
+                let cond = self.parse_mount_cond_or()?;
+                let body = self.parse_mount_body()?;
+                else_if.push((cond, body));
+            } else {
+                else_items = Some(self.parse_mount_body()?);
+                break;
+            }
+        }
+        Ok(MountItem::If {
+            chain: MountIfChain {
+                condition,
+                then_items,
+                else_if,
+                else_items,
+            },
+        })
+    }
+
+    fn parse_mount_expr(&mut self) -> Result<MountExpr, PdlError> {
+        let first = self.parse_mount_arm()?;
+        if !self.is(TokenKind::QuestionQuestion) {
+            return Ok(first);
+        }
+        let mut arms = vec![first];
+        while self.is(TokenKind::QuestionQuestion) {
+            self.advance();
+            arms.push(self.parse_mount_arm()?);
+        }
+        Ok(MountExpr::Coalesce { arms })
+    }
+
+    fn parse_mount_arm(&mut self) -> Result<MountExpr, PdlError> {
+        if self.is(TokenKind::Host) && self.peek_ahead_kind(1) == TokenKind::LBracket {
+            return self.parse_mount_host_probe();
+        }
+        if self.is(TokenKind::QuestionQuestion) {
+            return Err(self.err_code(
+                "PDL-E047",
+                "`??` is only valid in a `mount` coalesce chain",
+            ));
+        }
+        Ok(MountExpr::Value(self.parse_primary_value()?))
+    }
+
+    fn parse_mount_host_probe(&mut self) -> Result<MountExpr, PdlError> {
+        self.consume(TokenKind::Host)?;
+        self.consume(TokenKind::LBracket)?;
+        let key = self.consume(TokenKind::StringLit)?.value;
+        self.consume(TokenKind::RBracket)?;
+        self.consume(TokenKind::As)?;
+        let soft = if self.is(TokenKind::Question) {
+            self.advance();
+            true
+        } else {
+            false
+        };
+        let type_name = self.consume_param_type_name()?;
+        Ok(MountExpr::HostProbe {
+            key,
+            type_name,
+            soft,
+        })
+    }
+
+    fn parse_mount_cond_or(&mut self) -> Result<MountCondition, PdlError> {
+        let first = self.parse_mount_cond_and()?;
+        if !self.is(TokenKind::OrOr) {
+            return Ok(first);
+        }
+        let mut items = vec![first];
+        while self.is(TokenKind::OrOr) {
+            self.advance();
+            items.push(self.parse_mount_cond_and()?);
+        }
+        Ok(MountCondition::Or { items })
+    }
+
+    fn parse_mount_cond_and(&mut self) -> Result<MountCondition, PdlError> {
+        let first = self.parse_mount_cond_cmp()?;
+        if !self.is(TokenKind::AndAnd) {
+            return Ok(first);
+        }
+        let mut items = vec![first];
+        while self.is(TokenKind::AndAnd) {
+            self.advance();
+            items.push(self.parse_mount_cond_cmp()?);
+        }
+        Ok(MountCondition::And { items })
+    }
+
+    fn parse_mount_cond_cmp(&mut self) -> Result<MountCondition, PdlError> {
+        let left = self.parse_mount_expr()?;
+        let op = if self.is(TokenKind::EqEq) {
+            self.advance();
+            Some(MountCmpOp::Eq)
+        } else if self.is(TokenKind::Ne) {
+            self.advance();
+            Some(MountCmpOp::Ne)
+        } else if self.is(TokenKind::Lt) {
+            self.advance();
+            Some(MountCmpOp::Lt)
+        } else if self.is(TokenKind::Le) {
+            self.advance();
+            Some(MountCmpOp::Le)
+        } else if self.is(TokenKind::Gt) {
+            self.advance();
+            Some(MountCmpOp::Gt)
+        } else if self.is(TokenKind::Ge) {
+            self.advance();
+            Some(MountCmpOp::Ge)
+        } else {
+            None
+        };
+        match op {
+            Some(op) => {
+                let right = self.parse_mount_expr()?;
+                Ok(MountCondition::Cmp { left, op, right })
+            }
+            None => Ok(MountCondition::Truthy { expr: left }),
+        }
     }
 
     fn parse_type_style(&mut self) -> Result<TypeStyleDecl, PdlError> {
@@ -513,16 +780,64 @@ impl Parser {
         let label = self.consume(TokenKind::StringLit)?.value;
         self.consume(TokenKind::LBrace)?;
         let mut bindings: Vec<FixtureBinding> = Vec::new();
+        let mut host = None;
+        let mut theme = None;
+        let mut host_facts = None;
         while !self.is(TokenKind::RBrace) {
-            let pname = self.consume(TokenKind::Ident)?.value;
+            let pname = self.consume_fixture_prop_name()?;
             self.consume(TokenKind::Eq)?;
-            bindings.push(FixtureBinding {
-                name: pname,
-                value: self.parse_value_expr()?,
-            });
+            let value = self.parse_value_expr()?;
+            match pname.as_str() {
+                "host" => {
+                    host = Some(self.fixture_string_prop(&value, "host")?);
+                }
+                "theme" => {
+                    theme = Some(self.fixture_string_prop(&value, "theme")?);
+                }
+                "hostFacts" => {
+                    host_facts = Some(self.fixture_string_prop(&value, "hostFacts")?);
+                }
+                _ => bindings.push(FixtureBinding {
+                    name: pname,
+                    value,
+                }),
+            }
         }
         self.consume(TokenKind::RBrace)?;
-        Ok(FixtureExampleDecl { label, bindings })
+        Ok(FixtureExampleDecl {
+            label,
+            bindings,
+            host,
+            theme,
+            host_facts,
+        })
+    }
+
+    fn fixture_string_prop(&self, value: &ValueExpr, key: &str) -> Result<String, PdlError> {
+        match value {
+            ValueExpr::String { value } => Ok(value.clone()),
+            ValueExpr::Ident { name } => Ok(name.clone()),
+            _ => Err(self.err(format!(
+                "Fixture `{key}` must be a string (hostFacts is a JSON object string)"
+            ))),
+        }
+    }
+
+    fn consume_fixture_prop_name(&mut self) -> Result<String, PdlError> {
+        let t = self.peek().clone();
+        if t.kind == TokenKind::Ident {
+            self.advance();
+            return Ok(t.value);
+        }
+        if t.kind == TokenKind::Host {
+            self.advance();
+            return Ok("host".to_string());
+        }
+        if t.kind == TokenKind::Theme {
+            self.advance();
+            return Ok("theme".to_string());
+        }
+        Err(self.err(format!("Expected fixture property name, got {:?}", t.kind)))
     }
 
     /// `samples Tracks { pop_results { tracks: [TrackRow] = […] } … }`
@@ -1184,14 +1499,35 @@ impl Parser {
                 "Component name `{name}` is reserved for the World A frame constructor; rename the component"
             )));
         }
-        // Optional `component Name <Protocol>(…)`
+        // Optional `component Name <P, Q>(…)`
         let conforms_to = if self.is(TokenKind::Lt) {
             self.advance();
-            let proto = self.consume(TokenKind::Ident)?.value;
-            self.consume(TokenKind::Gt)?;
-            Some(proto)
+            let mut protos: Vec<String> = Vec::new();
+            loop {
+                let proto = self.consume(TokenKind::Ident)?.value;
+                if protos.iter().any(|p| p == &proto) {
+                    return Err(self.err_code(
+                        "PDL-E043",
+                        format!(
+                            "Component `{name}` lists protocol `{proto}` more than once"
+                        ),
+                    ));
+                }
+                protos.push(proto);
+                if self.is(TokenKind::Comma) {
+                    self.advance();
+                    if self.is(TokenKind::Gt) {
+                        self.advance();
+                        break;
+                    }
+                    continue;
+                }
+                self.consume(TokenKind::Gt)?;
+                break;
+            }
+            protos
         } else {
-            None
+            Vec::new()
         };
         self.consume(TokenKind::LParen)?;
         let mut params: Vec<ComponentParam> = Vec::new();
@@ -1260,6 +1596,9 @@ impl Parser {
     }
 
     fn parse_frame_body_item(&mut self) -> Result<FrameBodyItem, PdlError> {
+        if self.is(TokenKind::Use) {
+            return Err(self.err_use_outside_mount());
+        }
         if self.is(TokenKind::Let) {
             return self.parse_let();
         }
@@ -2016,6 +2355,12 @@ impl Parser {
             return Ok(ValueExpr::Condition { expr });
         }
         let lhs = self.parse_primary_value()?;
+        if self.is(TokenKind::QuestionQuestion) {
+            return Err(self.err_code(
+                "PDL-E047",
+                "`??` is only valid in a `mount` coalesce chain",
+            ));
+        }
         if self.is(TokenKind::At) {
             self.advance();
             let op = self.parse_primary_value()?;
@@ -2096,6 +2441,18 @@ impl Parser {
     fn parse_primary_value(&mut self) -> Result<ValueExpr, PdlError> {
         let t = self.peek().clone();
         match t.kind {
+            TokenKind::Host if self.peek_ahead_kind(1) == TokenKind::LBracket => {
+                return Err(self.err_code(
+                    "PDL-E047",
+                    "`host[\"…\"]` is only valid inside a `mount` body",
+                ));
+            }
+            TokenKind::QuestionQuestion => {
+                return Err(self.err_code(
+                    "PDL-E047",
+                    "`??` is only valid in a `mount` coalesce chain",
+                ));
+            }
             TokenKind::HexColor => {
                 self.advance();
                 return Ok(ValueExpr::Hex { value: t.value });
@@ -2923,6 +3280,21 @@ impl Parser {
         t
     }
 
+    /// Host / component param names are normally IDENT. `previewBackground` is
+    /// also a top-level keyword (Q5 — host param of the same name).
+    fn consume_param_name(&mut self) -> Result<String, PdlError> {
+        let t = self.peek().clone();
+        if t.kind == TokenKind::Ident {
+            self.advance();
+            return Ok(t.value);
+        }
+        if t.kind == TokenKind::PreviewBackground {
+            self.advance();
+            return Ok("previewBackground".to_string());
+        }
+        Err(self.err(format!("Expected parameter name, got {:?}", t.kind)))
+    }
+
     /// Usage keys are normally IDENT; `description` is also a keyword for
     /// `Rule(..., description: …)`.
     fn consume_usage_prop_key(&mut self) -> Result<String, PdlError> {
@@ -2945,6 +3317,13 @@ impl Parser {
         }
         self.advance();
         Ok(t)
+    }
+
+    fn err_use_outside_mount(&self) -> PdlError {
+        self.err_code(
+            "PDL-E047",
+            "`use catalog` is only valid inside a `mount` body",
+        )
     }
 
     fn err_code(&self, code: &str, msg: impl Into<String>) -> PdlError {

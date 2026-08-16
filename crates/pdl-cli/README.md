@@ -19,14 +19,16 @@ cargo run -q -p pdl-cli -- bakeSystem test-fixtures/pdl/integration/greeting.pdl
 
 | Command | Notes |
 |---------|--------|
-| `bakeSystem` | Full `bakedDesign` |
-| `bakeComponent` | Single-component bake + `key=value` overrides |
+| `bakeSystem` | Full `bakedDesign`; optional `--host` / `--hostFacts` |
+| `bakeComponent` | Single-component bake + `key=value` overrides; optional `--host` / `--hostFacts` |
 | `bakePack` | Injection pack JSON → `bakedDesign` (`bakeProfile: injection-pack`) |
 | `validatePack` | Catalogue-gate a pack; soft-skip warnings in report |
 | `graphSystem` | `componentCatalogue` (no `--theme`) |
 | `graphComponent` | `resolvedComponent` slice |
 | `catalogue` | Same shape as `graphSystem`, allows `--theme` |
 | `resolve` | `resolvedComponent`, or bare tree with `--tree-only` |
+
+`--hostFacts` is a JSON object or a path to one. Missing keys are ignored. A key that matches a `host` param (`sizeClass`, `surface`, …) pins that param after `mount`.
 
 HTML (`renderHtml`, `renderCatalogueHtml`) and `manifest` stay on the TypeScript CLI for now.
 

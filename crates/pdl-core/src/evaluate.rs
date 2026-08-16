@@ -913,35 +913,25 @@ pub fn build_resolved_token_map(
 
     let apply_theme =
         |name: &str, tokens: &mut Tokens, visiting: &mut HashSet<String>| -> Result<(), PdlError> {
-            let overrides: Vec<(String, ValueExpr)> = match design.themes.get(name) {
-                Some(th) => th
-                    .overrides
-                    .iter()
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect(),
-                None => {
+            let Some(th) = design.themes.get(name) else {
+                if design.catalogs.contains_key(name) {
                     return Err(PdlError::new(
-                        "PDL-E005",
-                        format!("Unknown theme {name}"),
+                        "PDL-E049",
+                        format!("`{name}` is a catalog, not a theme; catalogs apply via `use catalog` in `mount`"),
                         Some(design.entry_path.clone()),
                         None,
                         None,
-                    ))
+                    ));
                 }
+                return Err(PdlError::new(
+                    "PDL-E005",
+                    format!("Unknown theme {name}"),
+                    Some(design.entry_path.clone()),
+                    None,
+                    None,
+                ));
             };
-            for (tok, rhs) in overrides {
-                let mut ev = Eval {
-                    design,
-                    tokens,
-                    visiting,
-                    param_values: None,
-                    param_meta: None,
-                    use_string_placeholders: false,
-                };
-                let v = evaluate_value(&rhs, &mut ev)?;
-                tokens.insert(tok, v);
-            }
-            Ok(())
+            apply_token_overrides(design, tokens, visiting, &th.overrides)
         };
 
     if let Some(name) = theme_name {
@@ -952,4 +942,26 @@ pub fn build_resolved_token_map(
     }
 
     Ok(tokens)
+}
+
+/// Evaluate theme / catalog / mount token overrides into the resolved map.
+pub fn apply_token_overrides(
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+    visiting: &mut HashSet<String>,
+    overrides: &indexmap::IndexMap<String, ValueExpr>,
+) -> Result<(), PdlError> {
+    for (tok, rhs) in overrides {
+        let mut ev = Eval {
+            design,
+            tokens,
+            visiting,
+            param_values: None,
+            param_meta: None,
+            use_string_placeholders: false,
+        };
+        let v = evaluate_value(rhs, &mut ev)?;
+        tokens.insert(tok.clone(), v);
+    }
+    Ok(())
 }

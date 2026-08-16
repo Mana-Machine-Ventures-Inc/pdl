@@ -18,6 +18,24 @@
       <span class="sr-only">Component</span>
       <select id="componentSelect" aria-label="Component"></select>
     </label>
+    <label>
+      <span class="sr-only">Platform</span>
+      <select id="platformSelect" aria-label="Platform">
+        <option value="web">web</option>
+        <option value="ios">ios</option>
+        <option value="android">android</option>
+        <option value="watchOS">watchOS</option>
+      </select>
+    </label>
+    <label>
+      <span class="sr-only">Width</span>
+      <select id="widthSelect" aria-label="Width">
+        <option value="auto">auto width</option>
+        <option value="390">390 phone</option>
+        <option value="198">198 watch</option>
+        <option value="800">800 medium</option>
+      </select>
+    </label>
   </header>
   <p class="sr-only" id="status" role="status"></p>
   <p class="dev-error" id="error" hidden></p>

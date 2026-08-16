@@ -1,0 +1,16 @@
+// PDL-E007: reading a host param requires <Host>.
+variant WindowSize {
+  case compact
+  case medium
+}
+
+host Default(
+  sizeClass: WindowSize = .medium
+)
+
+component Card() layout {
+  children = []
+  if sizeClass == .compact {
+    direction = .column
+  }
+}

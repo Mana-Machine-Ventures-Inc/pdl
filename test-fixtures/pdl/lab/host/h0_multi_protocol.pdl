@@ -1,0 +1,24 @@
+// H0 — multi-protocol headers. A field that is both clickable and editable.
+// Do not add `host` / `catalog` here; that is H1+.
+
+component EditChip <PointerInput, EditableText>() text {
+  fontSize = 16
+  padding = EdgeInsets(x: 12, y: 10)
+  cornerRadius = 8
+  background = #F4F4F5
+  width = 320
+  content = value
+
+  if isEditing {
+    background = #FFFFFF
+    borderColor = #2563EB
+    borderWidth = 2
+  } else if isEmpty {
+    content = "Type here…"
+    color = #A1A1AA
+  }
+
+  self.pressEnd = { beginEditing(value) }
+  self.hoverStart = { }
+  self.editingFinished = { finishEditing() }
+}

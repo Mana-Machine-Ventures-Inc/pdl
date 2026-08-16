@@ -31,7 +31,7 @@ Catalog: [`shared/diagnostics.json`](https://github.com/Mana-Machine-Ventures-In
 | **PDL-E019** | `invalid-override-target` | A `children` frame-id ref or `FrameId.prop` / `FrameId.children` assignment names a frame that has not been declared with `let` / `letInstance` earlier in the component body (forward reference). |
 | **PDL-E020** | `invalid-constructor-arg` | Constructor / pack argument error: required kw missing, illegal combination (e.g. **`MediaLayer(…)` already has `opacity:` and also uses postfix `@`**), or pack schema violation. (Wrong *types* on known kwargs are often **PDL-E040**.) |
 | **PDL-E021** | `duplicate-let-frame-id` | Two **`let`** or **`letInstance`** frames in the same component reuse the same **`id`** (names must be unique across the whole component body, including all **`if`** branches and sibling nested frames). |
-| **PDL-E022** | `unknown-protocol` | A `component C <P>` or protocol-typed param references an undeclared protocol `P`. |
+| **PDL-E022** | `unknown-protocol` | A `component C <P>` / `component C <P, Q>` or protocol-typed param references an undeclared protocol. |
 | **PDL-E023** | `unknown-foreach-list` | `ForEach(name)` names a parameter that is not an expandable list/slot in the enclosing component (§4e). |
 | **PDL-E024** | `unknown-emit-channel` | Layout emit capture or `emit` names a channel not in the effective `emits` set for the relevant component/protocol (§4d–§4e). |
 | **PDL-E025** | `invalid-foreach-binding` | A derived bind inside `ForEach` references an unknown parent/item field or fails type rules for the target child param (§4e). |
@@ -52,6 +52,14 @@ Catalog: [`shared/diagnostics.json`](https://github.com/Mana-Machine-Ventures-In
 | **PDL-E040** | `param-type-mismatch` | A parameter default, instance kwarg, or fixture binding is not type-compatible with the declared parameter type (§23.4 / §23.6). |
 | **PDL-E041** | `unknown-sample-path` | A `Bank.entry.field` sample path names an unknown bank, entry, or field; a path is sample-shaped but invalid; or a `samples` bank name collides with a component (§11a). |
 | **PDL-E042** | `duplicate-mount` | The same **`let`** / **`letInstance`** frame is mounted more than once (`children = [button, button]`, or the same id under two parents). A let is one object with one place in the tree; write two lets or a list. |
+| **PDL-E043** | `duplicate-protocol-header` | A component header lists the same protocol more than once (`component C <PointerInput, PointerInput>`). |
+| **PDL-E044** | `multiple-api-protocols` | A component header lists more than one API protocol (`component C <ModalContent, SubnavItem>`). Any number of host protocols is allowed; at most one API protocol in v1. |
+| **PDL-E045** | `host-param-shape-mismatch` | Two `host` profiles in the same design declare different param names or types. Defaults may differ; the `<Host>` contract must be one shape. |
+| **PDL-E046** | `unknown-host-profile` | Bake `--host` / `host` names a profile that is not in the design, or the design has several `host` profiles and none named `Default` and no profile was requested. |
+| **PDL-E047** | `host-probe-outside-mount` | `host["…"]` or `??` appears outside a `mount` body (component body, token RHS, or other value). |
+| **PDL-E048** | `mount-coalesce-empty` | A `mount` let or `self.param =` coalesce produced no value (every `as?` arm missed and there was no literal fallback), or a strict `as` convert failed. |
+| **PDL-E049** | `theme-catalog-role-mismatch` | `use catalog` names a `theme`, or bake `--theme` / the theme argument names a `catalog`. Themes are user-toggleable; catalogs are host-applied in `mount`. |
+| **PDL-E050** | `invalid-host-facts` | A fixture `hostFacts` value is not a JSON object string (invalid JSON, or a JSON array/scalar). |
 
 ## Warnings (PDL-W0xx)
 
@@ -90,7 +98,9 @@ Catalog: [`shared/keywords.json`](https://github.com/Mana-Machine-Ventures-Inc/p
 | `previewBackground` | Preview canvas Color token. |
 | `primitive` | Literal token leaf. |
 | `semantic` | Intent token; may alias other tokens. |
-| `theme` | Named token override bundle. |
+| `theme` | Named token override bundle (user / a11y mode). |
+| `catalog` | Named token override bundle applied by the host (icons, platform assets). |
+| `host` | Environment profile: params + optional mount. Also marks host-role protocol bodies. Prelude `Host` is the opt-in to read those params. |
 | `typeStyle` | Named text-property preset. |
 | `variant` | Closed case set (design-axis combinator). |
 | `enum` | Surface alias of variant (same IR in v1). |
@@ -129,7 +139,9 @@ Catalog: [`shared/keywords.json`](https://github.com/Mana-Machine-Ventures-Inc/p
 | `example` | Fixture scenario label. |
 | `emit` | Fire a declared outbound intent. |
 | `requires` | API protocol requires a host protocol. |
-| `host` | Marks host-role protocol bodies. |
+| `mount` | Optional body on a host profile that reads the facts bag. |
+| `as` | Convert a facts-bag probe in `mount` (`as?` soft, `as` strict). |
+| `use` | `use catalog Name` inside `mount` applies a host-role token remap. |
 
 ### Literals
 

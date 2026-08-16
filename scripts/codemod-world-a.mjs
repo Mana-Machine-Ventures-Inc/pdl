@@ -295,7 +295,7 @@ async function main() {
     if (components.length === 1) {
       const c = components[0];
       const bodyLines = printBodyItems(c.body, 1);
-      const conf = c.conformsTo ? ` <${c.conformsTo}>` : "";
+      const conf = c.conformsTo?.length ? ` <${c.conformsTo.join(", ")}>` : "";
       const params = c.params
         .map((p) => {
           const t = p.isArray ? `[${p.typeName}]` : p.typeName;

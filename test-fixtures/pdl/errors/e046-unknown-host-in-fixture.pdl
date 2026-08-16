@@ -1,0 +1,13 @@
+// PDL-E046: fixture names a host profile that is not in the design.
+
+host Default()
+
+component Shell <Host>() layout {
+  children = []
+}
+
+fixtures Shell {
+  example "Missing" {
+    host = "WatchOnly"
+  }
+}

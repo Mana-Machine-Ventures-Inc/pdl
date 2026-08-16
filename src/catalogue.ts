@@ -916,6 +916,26 @@ export function buildCatalogueComponentRow(
           paramMeta: new Map(),
         });
       }
+      if (ex.host) params.host = ex.host;
+      if (ex.theme) params.theme = ex.theme;
+      if (ex.hostFacts) {
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(ex.hostFacts);
+        } catch (e) {
+          throw new PdlError(
+            "PDL-E050",
+            `hostFacts in fixture "${label}" is not valid JSON: ${e instanceof Error ? e.message : String(e)}`,
+            { path: design.entryPath },
+          );
+        }
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          throw new PdlError("PDL-E050", `hostFacts in fixture "${label}" must be a JSON object`, {
+            path: design.entryPath,
+          });
+        }
+        params.hostFacts = parsed;
+      }
       fixturesOut[label] = params;
     }
   }

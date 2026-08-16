@@ -122,6 +122,7 @@
                 }
               }
             ],
+            "foreachList": "chips",
             "id": "Root_FilterChip_0",
             "instanceKwargs": {
               "filter": "all",
@@ -160,6 +161,7 @@
                 }
               }
             ],
+            "foreachList": "chips",
             "id": "Root_FilterChip_1",
             "instanceKwargs": {
               "filter": "podcasts",
@@ -198,6 +200,7 @@
                 }
               }
             ],
+            "foreachList": "chips",
             "id": "Root_FilterChip_2",
             "instanceKwargs": {
               "filter": "episodes",
@@ -236,6 +239,7 @@
                 }
               }
             ],
+            "foreachList": "chips",
             "id": "Root_FilterChip_3",
             "instanceKwargs": {
               "filter": "hosts",

@@ -19,6 +19,8 @@ import { pathToFileURL } from "node:url";
  * @property {string} [component] Required for mode=component (unless engine fills from pack)
  * @property {string} [pack] Absolute path to injection pack JSON (mode=pack)
  * @property {string} [theme]
+ * @property {string} [host]
+ * @property {Record<string, unknown>} [hostFacts]
  * @property {Record<string, unknown>} [paramOverrides]
  * @property {string} [bakeOutPath] Write bake JSON here (default: <repo>/.tmp/preview.bake.json)
  * @property {string} [title] HTML document title
@@ -95,6 +97,10 @@ function buildRustBakeCommand(req) {
   if (req.mode === "system") {
     args.push("bakeSystem", req.entry);
     if (req.theme) args.push("--theme", req.theme);
+    if (req.host) args.push("--host", req.host);
+    if (req.hostFacts && typeof req.hostFacts === "object" && !Array.isArray(req.hostFacts)) {
+      args.push("--hostFacts", JSON.stringify(req.hostFacts));
+    }
     args.push("--out", outPath);
   } else if (req.mode === "pack") {
     if (!req.pack) throw new Error('mode "pack" requires pack path');
@@ -103,6 +109,10 @@ function buildRustBakeCommand(req) {
     if (!req.component) throw new Error('mode "component" requires component name');
     args.push("bakeComponent", req.entry, req.component);
     if (req.theme) args.push("--theme", req.theme);
+    if (req.host) args.push("--host", req.host);
+    if (req.hostFacts && typeof req.hostFacts === "object" && !Array.isArray(req.hostFacts)) {
+      args.push("--hostFacts", JSON.stringify(req.hostFacts));
+    }
     args.push(...kvArgs(req.paramOverrides ?? {}));
     args.push("--out", outPath);
   }

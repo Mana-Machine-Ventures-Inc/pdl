@@ -18,13 +18,16 @@
           Eng stress: <code>npm run preview</code>.
         </p>
       </div>
-      <div class="badge-stack" aria-label="Build badges">
-        <button type="button" class="btn secondary" id="btnOpenPhone" title="Open the device stage on a phone on this Wi-Fi">
-          Open on phone
-        </button>
-        <span class="badge badge-wasm" id="engineBadge" title="Default bake engine — switch under Bake engine">Rust WASM</span>
-        <span class="badge">HTML host</span>
-        <span class="badge badge-muted">Phase P5</span>
+      <div class="top-right">
+        <div class="host-chrome" id="hostChrome" hidden></div>
+        <div class="badge-stack" aria-label="Build badges">
+          <button type="button" class="btn secondary" id="btnOpenPhone" title="Open the device stage on a phone on this Wi-Fi">
+            Open on phone
+          </button>
+          <span class="badge badge-wasm" id="engineBadge" title="Default bake engine — switch under Bake engine">Rust WASM</span>
+          <span class="badge">HTML host</span>
+          <span class="badge badge-muted">Phase P5</span>
+        </div>
       </div>
     </div>
   </header>

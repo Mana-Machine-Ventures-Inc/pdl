@@ -85,6 +85,13 @@ const PACK_CATALOG = [
     defaultComponent: "EffectLab",
     description: "Frame effect: blur self, blur behind, and appear-to-rest self blur",
   },
+  {
+    id: "host",
+    label: "Host environment",
+    entry: "test-fixtures/pdl/lab/host/design.pdl",
+    defaultComponent: "Shell",
+    description: "Host profiles, mount facts, catalogs, fixture env pins (H0–H5)",
+  },
 ];
 
 function collectPdlFiles(dirAbs, repoRoot, out = {}) {
@@ -210,6 +217,11 @@ function handlePutStage(body) {
     entry,
     component,
     theme: typeof body.theme === "string" ? body.theme : "",
+    host: typeof body.host === "string" && body.host.trim() ? body.host : undefined,
+    hostFacts:
+      body.hostFacts && typeof body.hostFacts === "object" && !Array.isArray(body.hostFacts)
+        ? body.hostFacts
+        : undefined,
     diskRoot: body.diskRoot === true,
     files: body.files && typeof body.files === "object" && !Array.isArray(body.files) ? body.files : {},
     kv: body.kv && typeof body.kv === "object" && !Array.isArray(body.kv) ? body.kv : {},
@@ -779,6 +791,7 @@ function enrichFromRustCatalogue(entryAbs) {
   }
   const cat = JSON.parse(readFileSync(outPath, "utf8"));
   const components = Object.keys(cat.components ?? {}).sort();
+  const themes = Object.keys(cat.themes ?? {}).sort();
   /** @type {Record<string, string[]>} */
   const variantCases = {};
   for (const [name, v] of Object.entries(cat.variantTypes ?? {})) {
@@ -841,7 +854,7 @@ function enrichFromRustCatalogue(entryAbs) {
   return {
     ok: true,
     components,
-    themes: [],
+    themes,
     designSummary: {
       previewBackground: null,
       modulePaths: [entryAbs],
@@ -858,8 +871,28 @@ function enrichFromRustCatalogue(entryAbs) {
     emitCapturesByComponent,
     usageByComponent,
     rulesByComponent,
+    hostParams: hostParamsFromCatalogue(cat),
     loader: "rust-catalogue",
   };
+}
+
+/**
+ * Variant host params from the Default (or first) profile — Playground chrome.
+ * @param {{ hosts?: Record<string, { params?: Array<{ name?: string, type?: unknown, variantTypeName?: string, cases?: string[] }> }> }} cat
+ */
+function hostParamsFromCatalogue(cat) {
+  const hosts = cat.hosts && typeof cat.hosts === "object" ? cat.hosts : {};
+  const names = Object.keys(hosts);
+  const key = hosts.Default ? "Default" : names.sort()[0];
+  if (!key || !hosts[key]) return [];
+  const params = Array.isArray(hosts[key].params) ? hosts[key].params : [];
+  return params
+    .filter((p) => p && typeof p.name === "string")
+    .map((p) => ({
+      name: p.name,
+      typeName: typeof p.variantTypeName === "string" ? p.variantTypeName : String(p.type ?? p.name),
+      cases: Array.isArray(p.cases) ? p.cases.map(String) : [],
+    }));
 }
 
 /**
@@ -932,6 +965,7 @@ async function enrichDesignAt(entryAbs, summaryRoot) {
         ...(tsPayload.componentParams ?? {}),
         ...(rustEnrich.componentParams ?? {}),
       },
+      hostParams: rustEnrich.hostParams ?? [],
       loader: "ts+rust-catalogue",
     };
   } catch (err) {
@@ -1048,8 +1082,10 @@ function buildParamControlsByComponent(enriched, names, kvByComponent) {
         : {};
     /** @type {Array<{ name: string; typeName: string; value: string; cases?: string[] }>} */
     const controls = [];
+    const hostNames = new Set((enriched.hostParams ?? []).map((h) => h.name).filter(Boolean));
     for (const p of params) {
       if (!p?.name || p.name === "interactionState") continue;
+      if (hostNames.has(p.name)) continue;
       const typeName = typeof p.typeName === "string" ? p.typeName : "";
       if (!typeName || typeName === "object") continue;
       const cases =
@@ -1114,6 +1150,8 @@ async function handleRender(body) {
     mode: modeRaw,
     component,
     theme,
+    host,
+    hostFacts,
     kv,
     pack,
     engine: engineRaw,
@@ -1234,6 +1272,11 @@ async function handleRender(body) {
           mode: "component",
           component,
           theme: typeof theme === "string" ? theme : undefined,
+          host: typeof host === "string" && host.trim() ? host : undefined,
+          hostFacts:
+            hostFacts && typeof hostFacts === "object" && !Array.isArray(hostFacts)
+              ? hostFacts
+              : undefined,
           paramOverrides: { ...kvObj, ...combo.kv },
           bakeOutPath: outPath,
           title: "PDL Playground · variants",
@@ -1314,6 +1357,11 @@ async function handleRender(body) {
       component: typeof component === "string" ? component : undefined,
       pack: packAbs,
       theme: typeof theme === "string" ? theme : undefined,
+      host: typeof host === "string" && host.trim() ? host : undefined,
+      hostFacts:
+        hostFacts && typeof hostFacts === "object" && !Array.isArray(hostFacts)
+          ? hostFacts
+          : undefined,
       paramOverrides: componentParamOverrides,
       bakeOutPath,
       title: "PDL Playground preview",

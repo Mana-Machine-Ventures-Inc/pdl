@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use crate::asset_refs::{is_http_url, is_pack_relative_file_path, normalize_icon_system_name};
 use crate::ast::*;
 use crate::conditions::validate_condition_expr;
-use crate::design::{effective_params, DesignDefinition};
+use crate::design::{effective_params, resolve_active_host, DesignDefinition};
 use crate::error::PdlError;
 use crate::frame_props::{validate_frame_props_in_body, validate_type_style_props};
 use crate::motion::is_motion_prop_name;
@@ -1005,6 +1005,50 @@ fn validate_fixtures_for_component(
         return Ok(());
     };
     for ex in fm.values() {
+        if let Some(name) = ex.host.as_deref() {
+            resolve_active_host(design, Some(name))?;
+        }
+        if let Some(name) = ex.theme.as_deref() {
+            if design.catalogs.contains_key(name) {
+                return Err(err(
+                    "PDL-E049",
+                    format!(
+                        "`{name}` is a catalog, not a theme; fixture \"{}\" cannot set theme to a catalog",
+                        ex.label
+                    ),
+                    design,
+                ));
+            }
+            if !design.themes.contains_key(name) {
+                return Err(err(
+                    "PDL-E005",
+                    format!("Unknown theme `{name}` in fixture \"{}\"", ex.label),
+                    design,
+                ));
+            }
+        }
+        if let Some(raw) = ex.host_facts.as_deref() {
+            match serde_json::from_str::<serde_json::Value>(raw) {
+                Ok(serde_json::Value::Object(_)) => {}
+                Ok(_) => {
+                    return Err(err(
+                        "PDL-E050",
+                        format!(
+                            "hostFacts in fixture \"{}\" must be a JSON object",
+                            ex.label
+                        ),
+                        design,
+                    ));
+                }
+                Err(e) => {
+                    return Err(err(
+                        "PDL-E050",
+                        format!("hostFacts in fixture \"{}\" is not valid JSON: {e}", ex.label),
+                        design,
+                    ));
+                }
+            }
+        }
         for b in &ex.bindings {
             let Some(p) = pmap.get(b.name.as_str()) else {
                 return Err(err(
@@ -1714,6 +1758,40 @@ fn validate_host_protocol_not_slot_type(
                     design,
                 ));
             }
+        }
+    }
+    Ok(())
+}
+
+/// Every `host` profile in the design must share param names and types (defaults may differ).
+fn validate_host_profile_shapes(design: &DesignDefinition) -> Result<(), PdlError> {
+    if design.hosts.len() < 2 {
+        return Ok(());
+    }
+    let mut names: Vec<&str> = design.hosts.keys().map(|s| s.as_str()).collect();
+    names.sort();
+    let first_name = names[0];
+    let first = &design.hosts[first_name];
+    let first_shape: HashSet<(String, String, bool)> = first
+        .params
+        .iter()
+        .map(|p| (p.name.clone(), p.type_name.clone(), p.is_array))
+        .collect();
+    for other_name in &names[1..] {
+        let other = &design.hosts[*other_name];
+        let other_shape: HashSet<(String, String, bool)> = other
+            .params
+            .iter()
+            .map(|p| (p.name.clone(), p.type_name.clone(), p.is_array))
+            .collect();
+        if first_shape != other_shape {
+            return Err(err(
+                "PDL-E045",
+                format!(
+                    "Host profiles `{first_name}` and `{other_name}` must share the same param names and types (defaults may differ)"
+                ),
+                design,
+            ));
         }
     }
     Ok(())
@@ -2787,6 +2865,15 @@ fn validate_param_types(design: &DesignDefinition) -> Result<(), PdlError> {
             )?;
         }
     }
+    for h in design.hosts.values() {
+        for p in &h.params {
+            assert_known_param_type(
+                design,
+                &p.type_name,
+                &format!("on host `{}` parameter `{}`", h.name, p.name),
+            )?;
+        }
+    }
     for p in design.protocols.values() {
         for param in &p.params {
             assert_known_param_type(
@@ -2829,6 +2916,7 @@ fn validate_param_types(design: &DesignDefinition) -> Result<(), PdlError> {
 pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError> {
     validate_companion_symbols(design)?;
     validate_host_protocol_prelude(design)?;
+    validate_host_profile_shapes(design)?;
     validate_protocol_requires(design)?;
     validate_token_declarations(design)?;
     validate_type_style_props(design)?;
@@ -2836,8 +2924,9 @@ pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError>
     validate_samples(design)?;
     validate_component_param_defaults(design)?;
     for c in design.components.values() {
-        if let Some(proto) = &c.conforms_to {
-            if !design.protocols.contains_key(proto) {
+        let mut api_protocols: Vec<&str> = Vec::new();
+        for proto in &c.conforms_to {
+            let Some(p) = design.protocols.get(proto) else {
                 return Err(err(
                     "PDL-E022",
                     format!(
@@ -2846,7 +2935,22 @@ pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError>
                     ),
                     design,
                 ));
+            };
+            if p.role == ProtocolRole::Api {
+                api_protocols.push(proto.as_str());
             }
+        }
+        if api_protocols.len() > 1 {
+            return Err(err(
+                "PDL-E044",
+                format!(
+                    "Component `{}` lists more than one API protocol ({}); \
+                     at most one API protocol is allowed (host protocols may be combined)",
+                    c.name,
+                    api_protocols.join(", ")
+                ),
+                design,
+            ));
         }
         validate_host_protocol_not_slot_type(design, c)?;
         let mut all_frame_ids = HashSet::new();

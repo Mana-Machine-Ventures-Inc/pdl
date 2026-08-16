@@ -20,7 +20,7 @@ pub type UsageKeyMap = IndexMap<String, String>;
 
 /// Well-known host protocols always in scope (language prelude — not imported).
 /// Canonical `.pdl` twin: `test-fixtures/pdl/stdlib/host_protocols.pdl` (§4a′).
-pub const HOST_PROTOCOL_PRELUDE: &[&str] = &["PointerInput", "EditableText"];
+pub const HOST_PROTOCOL_PRELUDE: &[&str] = &["PointerInput", "EditableText", "Host"];
 
 /// Whether `name` is a prelude host protocol.
 pub fn is_host_protocol_prelude(name: &str) -> bool {
@@ -47,6 +47,15 @@ fn host_protocol_prelude_decl(name: &str) -> ProtocolDecl {
                 "appear".into(),
                 "dismiss".into(),
             ],
+            verbs: Vec::new(),
+        },
+        "Host" => ProtocolDecl {
+            name: name.to_string(),
+            role: ProtocolRole::Host,
+            requires: Vec::new(),
+            params: Vec::new(),
+            emits: Vec::new(),
+            inbound: Vec::new(),
             verbs: Vec::new(),
         },
         "EditableText" => ProtocolDecl {
@@ -145,6 +154,10 @@ pub struct DesignDefinition {
     pub primitives: IndexMap<String, PrimitiveDecl>,
     pub semantics: IndexMap<String, SemanticDecl>,
     pub themes: IndexMap<String, ThemeDecl>,
+    /// Host-role remaps (`catalog`). Same override shape as themes.
+    pub catalogs: IndexMap<String, CatalogDecl>,
+    /// Environment profiles (`host Name(params) [mount]`).
+    pub hosts: IndexMap<String, HostDecl>,
     pub variants: IndexMap<String, VariantDecl>,
     pub type_styles: IndexMap<String, TypeStyleDecl>,
     pub protocols: IndexMap<String, ProtocolDecl>,
@@ -207,15 +220,18 @@ fn collect_host_protocols(
     Ok(())
 }
 
-/// Effective host protocols for a component (direct `<Host>` or via API `requires`).
+/// Effective host protocols for a component (direct `<P, Q>` or via API `requires`).
 pub fn effective_host_protocols(
     design: &DesignDefinition,
     c: &ComponentDecl,
 ) -> Result<Vec<String>, PdlError> {
-    let Some(proto) = &c.conforms_to else {
-        return Ok(Vec::new());
-    };
-    host_protocols_for_protocol(design, proto)
+    let mut out = Vec::new();
+    let mut visiting = HashSet::new();
+    for proto in &c.conforms_to {
+        collect_host_protocols(design, proto, &mut out, &mut visiting)?;
+        visiting.clear();
+    }
+    Ok(out)
 }
 
 /// Effective emits for a component: protocol emits ∪ component-owned emits
@@ -225,7 +241,7 @@ pub fn effective_emits(
     c: &ComponentDecl,
 ) -> Vec<ProtocolEmitDecl> {
     let mut merged: IndexMap<String, ProtocolEmitDecl> = IndexMap::new();
-    if let Some(proto_name) = &c.conforms_to {
+    for proto_name in &c.conforms_to {
         if let Some(proto) = design.protocols.get(proto_name) {
             for e in &proto.emits {
                 merged.insert(e.name.clone(), e.clone());
@@ -289,7 +305,7 @@ pub fn effective_params(
     c: &ComponentDecl,
 ) -> Result<Vec<ComponentParam>, PdlError> {
     let mut merged: IndexMap<String, ComponentParam> = IndexMap::new();
-    if let Some(proto_name) = &c.conforms_to {
+    for proto_name in &c.conforms_to {
         let proto = design.protocols.get(proto_name).ok_or_else(|| {
             PdlError::new(
                 "PDL-E022",
@@ -319,7 +335,81 @@ pub fn effective_params(
             merged.entry(p.name.clone()).or_insert(p);
         }
     }
+    // `<Host>` reads the active environment profile’s params (H2). Shape comes
+    // from Default / first host; bake overlays the requested profile’s defaults.
+    if effective_host_protocols(design, c)?
+        .iter()
+        .any(|h| h == "Host")
+    {
+        if let Some(profile) = host_profile_for_shape(design) {
+            for p in &profile.params {
+                merged.entry(p.name.clone()).or_insert_with(|| p.clone());
+            }
+        }
+    }
     Ok(merged.into_values().collect())
+}
+
+/// Host used for inject *names/types* (and catalogue / no-`--host` defaults).
+/// `Default` if present, else the first declared host. Never errors.
+pub fn host_profile_for_shape(design: &DesignDefinition) -> Option<&HostDecl> {
+    if design.hosts.is_empty() {
+        return None;
+    }
+    if let Some(h) = design.hosts.get("Default") {
+        return Some(h);
+    }
+    design.hosts.values().next()
+}
+
+/// Bake-time host pick (Q6): requested name, else `Default`, else the sole host.
+/// Unknown name or several hosts with no `Default` → **PDL-E046**.
+pub fn resolve_active_host<'a>(
+    design: &'a DesignDefinition,
+    requested: Option<&str>,
+) -> Result<Option<&'a HostDecl>, PdlError> {
+    if let Some(name) = requested.map(str::trim).filter(|s| !s.is_empty()) {
+        return design.hosts.get(name).map(Some).ok_or_else(|| {
+            PdlError::new(
+                "PDL-E046",
+                format!("Unknown host profile `{name}`"),
+                Some(design.entry_path.clone()),
+                None,
+                None,
+            )
+        });
+    }
+    if design.hosts.is_empty() {
+        return Ok(None);
+    }
+    if let Some(h) = design.hosts.get("Default") {
+        return Ok(Some(h));
+    }
+    if design.hosts.len() == 1 {
+        return Ok(design.hosts.values().next());
+    }
+    let mut names: Vec<&str> = design.hosts.keys().map(|s| s.as_str()).collect();
+    names.sort_unstable();
+    Err(PdlError::new(
+        "PDL-E046",
+        format!(
+            "Multiple host profiles ({}) and none named Default; pass --host or name one Default",
+            names.join(", ")
+        ),
+        Some(design.entry_path.clone()),
+        None,
+        None,
+    ))
+}
+
+/// Whether `c` effectively conforms to prelude `Host`.
+pub fn component_reads_host(
+    design: &DesignDefinition,
+    c: &ComponentDecl,
+) -> Result<bool, PdlError> {
+    Ok(effective_host_protocols(design, c)?
+        .iter()
+        .any(|h| h == "Host"))
 }
 
 /// Lexically normalize a path to absolute (mirrors Node `path.resolve` — no symlink resolution).
@@ -575,6 +665,8 @@ fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefin
     let mut primitives = IndexMap::new();
     let mut semantics = IndexMap::new();
     let mut themes = IndexMap::new();
+    let mut catalogs = IndexMap::new();
+    let mut hosts = IndexMap::new();
     let mut variants = IndexMap::new();
     let mut type_styles = IndexMap::new();
     let mut protocols = IndexMap::new();
@@ -606,7 +698,37 @@ fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefin
                     semantics.insert(s.name.clone(), s.clone());
                 }
                 TopLevelDecl::Theme(t) => {
+                    if catalogs.contains_key(&t.name) {
+                        return Err(PdlError::new(
+                            "PDL-E003",
+                            format!(
+                                "Invalid redeclaration of `{name}` as theme (already a catalog)",
+                                name = t.name
+                            ),
+                            Some(module.path.clone()),
+                            None,
+                            None,
+                        ));
+                    }
                     themes.insert(t.name.clone(), t.clone());
+                }
+                TopLevelDecl::Catalog(c) => {
+                    if themes.contains_key(&c.name) {
+                        return Err(PdlError::new(
+                            "PDL-E003",
+                            format!(
+                                "Invalid redeclaration of `{name}` as catalog (already a theme)",
+                                name = c.name
+                            ),
+                            Some(module.path.clone()),
+                            None,
+                            None,
+                        ));
+                    }
+                    catalogs.insert(c.name.clone(), c.clone());
+                }
+                TopLevelDecl::Host(h) => {
+                    hosts.insert(h.name.clone(), h.clone());
                 }
                 TopLevelDecl::Variant(v) => {
                     variants.insert(v.name.clone(), v.clone());
@@ -667,6 +789,8 @@ fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefin
         primitives,
         semantics,
         themes,
+        catalogs,
+        hosts,
         variants,
         type_styles,
         protocols,

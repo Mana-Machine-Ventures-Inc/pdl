@@ -22,6 +22,16 @@
       "type": "object",
       "additionalProperties": { "$ref": "#/$defs/themeEntry" }
     },
+    "catalogs": {
+      "type": "object",
+      "description": "Host-role remaps (`catalog`). Omitted when the design has none. Not listed in the user theme picker.",
+      "additionalProperties": { "$ref": "#/$defs/catalogEntry" }
+    },
+    "hosts": {
+      "type": "object",
+      "description": "Host profiles (`host Name(params)`). Omitted when the design has none. Playground chrome lists variant params.",
+      "additionalProperties": { "$ref": "#/$defs/hostProfileEntry" }
+    },
     "typeStyles": {
       "type": "object",
       "additionalProperties": { "$ref": "#/$defs/typeStyleEntry" }
@@ -56,6 +66,33 @@
       "properties": {
         "baseTheme": { "type": ["string", "null"] },
         "overrides": { "type": "object" }
+      }
+    },
+    "catalogEntry": {
+      "type": "object",
+      "required": ["role", "overrides"],
+      "properties": {
+        "role": { "const": "host" },
+        "overrides": { "type": "object" }
+      }
+    },
+    "hostProfileEntry": {
+      "type": "object",
+      "required": ["params"],
+      "properties": {
+        "params": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "type"],
+            "properties": {
+              "name": { "type": "string" },
+              "type": {},
+              "variantTypeName": { "type": "string" },
+              "cases": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
       }
     },
     "typeStyleEntry": {
@@ -161,6 +198,16 @@
       "required": ["name", "root"],
       "properties": {
         "name": { "type": "string" },
+        "conformsTo": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Protocol names from `component C <P, Q>`. Omitted when empty."
+        },
+        "hostProtocols": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Effective host protocols (header names plus API `requires`)."
+        },
         "params": {
           "type": "array",
           "items": { "$ref": "#/$defs/catalogueParam" }

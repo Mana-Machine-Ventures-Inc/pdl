@@ -75,3 +75,14 @@ protocol EditableText {
   // Migration alias for finishEditing
   commitEditing()
 }
+
+// ── Host environment (injected params come from the active `host` profile)
+//
+// No inbound channels. No verbs. Opt in with `component C <Host>`.
+// The param names are pack-owned (`host Default(sizeClass: …)`), not listed here.
+// Bake: defaults → mount(facts) → facts keys that match a param pin the bag.
+// See shared/language-objects.json `host` / prelude `Host`.
+
+protocol Host {
+  host
+}

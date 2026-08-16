@@ -11,6 +11,8 @@ import type {
   RulesStatement,
   SamplesDecl,
   SemanticDecl,
+  CatalogDecl,
+  HostDecl,
   ThemeDecl,
   TopLevelDecl,
   TypeStyleDecl,
@@ -161,6 +163,8 @@ function mergeDesign(entryPath: string, ordered: ModuleAst[]): DesignDefinition 
   const primitives = new Map<string, PrimitiveDecl>();
   const semantics = new Map<string, SemanticDecl>();
   const themes = new Map<string, ThemeDecl>();
+  const catalogs = new Map<string, CatalogDecl>();
+  const hosts = new Map<string, HostDecl>();
   const variants = new Map<string, VariantDecl>();
   const typeStyles = new Map<string, TypeStyleDecl>();
   const components = new Map<string, ComponentDecl>();
@@ -191,6 +195,12 @@ function mergeDesign(entryPath: string, ordered: ModuleAst[]): DesignDefinition 
           break;
         case "theme":
           themes.set(decl.name, decl);
+          break;
+        case "catalog":
+          catalogs.set(decl.name, decl);
+          break;
+        case "host":
+          hosts.set(decl.name, decl);
           break;
         case "variant":
           variants.set(decl.name, decl);
@@ -241,6 +251,8 @@ function mergeDesign(entryPath: string, ordered: ModuleAst[]): DesignDefinition 
     primitives,
     semantics,
     themes,
+    catalogs,
+    hosts,
     variants,
     typeStyles,
     components,

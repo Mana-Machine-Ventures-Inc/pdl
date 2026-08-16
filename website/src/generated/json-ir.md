@@ -39,6 +39,8 @@ Language `schemaVersion` is **`1.0.0-beta`**. Regenerated with `npm run docs:gen
 | `primitives` | no | object · map |
 | `semantics` | no | object · map |
 | `themes` | no | object · map |
+| `catalogs` | no | object · Host-role remaps (`catalog`). Omitted when the design has none. Not listed in the user theme picker. · map |
+| `hosts` | no | object · Host profiles (`host Name(params)`). Omitted when the design has none. Playground chrome lists variant params. · map |
 | `typeStyles` | no | object · map |
 | `variantTypes` | no | object · map |
 | `samples` | no | object · Optional. Bank → entry → field → evaluated value. Empty arrays preserved. · map |

@@ -8,7 +8,9 @@ use std::fs;
 use std::path::PathBuf;
 use std::process;
 
-use pdl_core::bake::{build_baked_design_component, build_baked_design_system};
+use pdl_core::bake::{
+    build_baked_design_component_with_host, build_baked_design_system_with_host,
+};
 use pdl_core::catalogue::build_component_catalogue;
 use pdl_core::design::load_design;
 use pdl_core::evaluate::build_resolved_token_map;
@@ -27,8 +29,8 @@ fn usage() -> ! {
 Usage:
   pdl graphSystem <entry.pdl> [--out <file.json>]
   pdl graphComponent <entry.pdl> <ComponentName> [--theme <ThemeName>] [--out <file.json>] [key=value ...]
-  pdl bakeSystem <entry.pdl> [--theme <ThemeName>] [--out <file.json>]
-  pdl bakeComponent <entry.pdl> <ComponentName> [--theme <ThemeName>] [--out <file.json>] [key=value ...]
+  pdl bakeSystem <entry.pdl> [--theme <ThemeName>] [--host <HostName>] [--hostFacts <json-or-path>] [--out <file.json>]
+  pdl bakeComponent <entry.pdl> <ComponentName> [--theme <ThemeName>] [--host <HostName>] [--hostFacts <json-or-path>] [--out <file.json>] [key=value ...]
   pdl bakePack <entry.pdl> <pack.json> [--out <file.json>]
   pdl validatePack <entry.pdl> <pack.json> [--out <file.json>]
   pdl catalogue <entry.pdl> [--theme <ThemeName>] [--out <file.json>]
@@ -37,7 +39,10 @@ Usage:
 HTML (renderHtml / renderCatalogueHtml) and manifest remain on the TypeScript CLI.
 
 Options:
-  --theme <name>   Primary theme for token resolution
+  --theme <name>   Primary theme for token resolution (user themes only)
+  --host <name>    Host profile (Default / sole if omitted)
+  --hostFacts <json-or-path>
+                   Opaque facts bag for `mount` (`{{}}` or omit ≡ no keys)
   --out <path>     Write JSON to file instead of stdout
 "
     );
@@ -118,13 +123,30 @@ fn looks_like_number(v: &str) -> bool {
 
 struct ThemeOutKv {
     theme: Option<String>,
+    host: Option<String>,
+    host_facts: Option<Map<String, Value>>,
     out_path: Option<String>,
     kv_parts: Vec<String>,
+}
+
+fn parse_host_facts_arg(raw: &str) -> Result<Map<String, Value>, String> {
+    let text = if raw.trim_start().starts_with('{') {
+        raw.to_string()
+    } else {
+        fs::read_to_string(raw).map_err(|e| format!("--hostFacts {raw}: {e}"))?
+    };
+    let v: Value = serde_json::from_str(&text).map_err(|e| format!("--hostFacts JSON: {e}"))?;
+    match v {
+        Value::Object(m) => Ok(m),
+        _ => Err("--hostFacts must be a JSON object".to_string()),
+    }
 }
 
 fn parse_theme_out_and_kv(rest: &[String]) -> ThemeOutKv {
     let mut kv_parts = Vec::new();
     let mut theme = None;
+    let mut host = None;
+    let mut host_facts = None;
     let mut out_path = None;
     let mut i = 0;
     while i < rest.len() {
@@ -136,6 +158,20 @@ fn parse_theme_out_and_kv(rest: &[String]) -> ThemeOutKv {
                 usage();
             };
             theme = Some(t.clone());
+        } else if a == "--host" {
+            i += 1;
+            let t = rest.get(i).filter(|s| !s.starts_with('-'));
+            let Some(t) = t else {
+                usage();
+            };
+            host = Some(t.clone());
+        } else if a == "--hostFacts" {
+            i += 1;
+            let t = rest.get(i).filter(|s| !s.starts_with('-'));
+            let Some(t) = t else {
+                usage();
+            };
+            host_facts = Some(parse_host_facts_arg(t).unwrap_or_else(|e| die(e)));
         } else if a == "--out" {
             i += 1;
             let p = rest.get(i).filter(|s| !s.starts_with('-'));
@@ -150,6 +186,8 @@ fn parse_theme_out_and_kv(rest: &[String]) -> ThemeOutKv {
     }
     ThemeOutKv {
         theme,
+        host,
+        host_facts,
         out_path,
         kv_parts,
     }
@@ -219,6 +257,8 @@ fn run(cmd: &str, entry: &str, argv: &[String]) -> Result<(), String> {
             let comp = argv.get(2).cloned().unwrap_or_else(|| usage());
             let ThemeOutKv {
                 theme,
+                host: _,
+                host_facts: _,
                 out_path,
                 kv_parts,
             } = parse_theme_out_and_kv(&argv[3..]);
@@ -240,6 +280,8 @@ fn run(cmd: &str, entry: &str, argv: &[String]) -> Result<(), String> {
         "bakeSystem" => {
             let ThemeOutKv {
                 theme,
+                host,
+                host_facts,
                 out_path,
                 kv_parts,
             } = parse_theme_out_and_kv(&argv[2..]);
@@ -247,8 +289,14 @@ fn run(cmd: &str, entry: &str, argv: &[String]) -> Result<(), String> {
                 usage();
             }
             let design = load_design(entry).map_err(|e| e.format())?;
-            let baked =
-                build_baked_design_system(&design, theme.as_deref(), None).map_err(|e| e.format())?;
+            let baked = build_baked_design_system_with_host(
+                &design,
+                theme.as_deref(),
+                host.as_deref(),
+                host_facts.as_ref(),
+                None,
+            )
+            .map_err(|e| e.format())?;
             let s = stable_stringify(&baked, omit_empty());
             write_json(out_path.as_deref(), &s).map_err(|e| e.to_string())?;
             Ok(())
@@ -257,16 +305,20 @@ fn run(cmd: &str, entry: &str, argv: &[String]) -> Result<(), String> {
             let comp = argv.get(2).cloned().unwrap_or_else(|| usage());
             let ThemeOutKv {
                 theme,
+                host,
+                host_facts,
                 out_path,
                 kv_parts,
             } = parse_theme_out_and_kv(&argv[3..]);
             let kv = parse_key_values(&kv_parts)?;
             let design = load_design(entry).map_err(|e| e.format())?;
-            let baked = build_baked_design_component(
+            let baked = build_baked_design_component_with_host(
                 &design,
                 &comp,
                 theme.as_deref(),
                 &kv,
+                host.as_deref(),
+                host_facts.as_ref(),
                 None,
             )
             .map_err(|e| e.format())?;
@@ -278,10 +330,16 @@ fn run(cmd: &str, entry: &str, argv: &[String]) -> Result<(), String> {
             let pack_path = argv.get(2).cloned().unwrap_or_else(|| usage());
             let ThemeOutKv {
                 theme: unexpected_theme,
+                host: unexpected_host,
+                host_facts: unexpected_facts,
                 out_path,
                 kv_parts,
             } = parse_theme_out_and_kv(&argv[3..]);
-            if unexpected_theme.is_some() || !kv_parts.is_empty() {
+            if unexpected_theme.is_some()
+                || unexpected_host.is_some()
+                || unexpected_facts.is_some()
+                || !kv_parts.is_empty()
+            {
                 usage();
             }
             let design = load_design(entry).map_err(|e| e.format())?;
@@ -326,6 +384,8 @@ fn run(cmd: &str, entry: &str, argv: &[String]) -> Result<(), String> {
         "catalogue" => {
             let ThemeOutKv {
                 theme,
+                host: _,
+                host_facts: _,
                 out_path,
                 kv_parts,
             } = parse_theme_out_and_kv(&argv[2..]);

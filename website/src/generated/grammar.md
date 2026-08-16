@@ -31,6 +31,8 @@ top-level-decl
     | primitive-decl
     | semantic-decl
     | theme-decl
+    | catalog-decl
+    | host-decl
     | type-style-decl
     | variant-decl
     | protocol-decl
@@ -71,6 +73,57 @@ theme-decl
 
 theme-override
   ::= IDENT '=' value-expr ;
+
+catalog-decl
+  ::= 'catalog' IDENT '{' { theme-override } '}' ;
+
+host-decl
+  ::= 'host' IDENT '(' [ param-list ] ')' [ 'mount' '{' { mount-item } '}' ] ;
+
+(* H3–H4: bag probes / `??` / `self.param =` / `use catalog` / token assign. *)
+mount-item
+  ::= mount-let
+    | mount-assign
+    | mount-if
+    | mount-use-catalog
+    | mount-token-assign
+    ;
+
+mount-use-catalog
+  ::= 'use' 'catalog' IDENT ;
+
+mount-token-assign
+  ::= IDENT { '.' IDENT } '=' mount-expr ;
+
+mount-let
+  ::= 'let' IDENT ':' type-name '=' mount-expr ;
+
+mount-assign
+  ::= 'self' '.' IDENT '=' mount-expr ;
+
+mount-if
+  ::= 'if' mount-cond '{' { mount-item } '}'
+      { 'else' 'if' mount-cond '{' { mount-item } '}' }
+      [ 'else' '{' { mount-item } '}' ] ;
+
+mount-expr
+  ::= mount-arm { '??' mount-arm } ;
+
+mount-arm
+  ::= 'host' '[' STRING ']' ( 'as?' | 'as' ) type-name
+    | value-expr
+    ;
+
+mount-cond
+  ::= mount-and { '||' mount-and } ;
+
+mount-and
+  ::= mount-cmp { '&&' mount-cmp } ;
+
+mount-cmp
+  ::= mount-expr ( '==' | '!=' | '<' | '<=' | '>' | '>=' ) mount-expr
+    | mount-expr
+    ;
 
 type-style-decl
   ::= 'typeStyle' IDENT '{' { type-style-prop } '}' ;
@@ -115,9 +168,13 @@ emits-decl
   ::= 'emits' IDENT '{' { emit-sig } '}' ;
 
 component-decl
-  ::= 'component' IDENT [ '<' IDENT '>' ] '(' [ param-list ] ')' frame-kind
+  ::= 'component' IDENT [ '<' protocol-header-list '>' ] '(' [ param-list ] ')' frame-kind
       '{' { component-body-item } '}'
       [ 'emits' '{' { emit-sig } '}' ]
+    ;
+
+protocol-header-list
+  ::= IDENT { ',' IDENT } [ ',' ]
     ;
 
 frame-kind
@@ -318,7 +375,11 @@ example-decl
   ::= 'example' STRING '{' { fixture-prop } '}' ;
 
 fixture-prop
-  ::= IDENT '=' value-expr ;
+  ::= fixture-prop-name '=' value-expr ;
+
+(* `host` / `theme` are keywords; `hostFacts` is an ordinary IDENT. *)
+fixture-prop-name
+  ::= IDENT | 'host' | 'theme' ;
 
 (* Typed sample banks — design-global, not keyed by component (§11a) *)
 samples-decl

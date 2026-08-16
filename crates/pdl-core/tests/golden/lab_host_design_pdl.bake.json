@@ -1,0 +1,59 @@
+{
+  "components": {
+    "Shell": {
+      "bakedParams": {
+        "previewBackground": "#F4F4F5",
+        "sizeClass": "medium",
+        "surface": "mobile"
+      },
+      "name": "Shell",
+      "root": {
+        "children": [
+          {
+            "children": [
+              {
+                "id": "hero__label",
+                "kind": "text",
+                "props": {
+                  "content": "Hello"
+                }
+              }
+            ],
+            "id": "hero",
+            "instanceKwargs": {
+              "title": "Hello"
+            },
+            "instanceOf": "Card",
+            "kind": "layout",
+            "props": {
+              "background": "#FFFFFF",
+              "padding": {
+                "bottom": 12,
+                "left": 12,
+                "right": 12,
+                "top": 12
+              }
+            }
+          }
+        ],
+        "id": "Root",
+        "kind": "layout",
+        "props": {
+          "cornerRadius": 0,
+          "direction": "row",
+          "gap": 16
+        }
+      },
+      "rootKind": "layout"
+    }
+  },
+  "generatedAt": "1970-01-01T00:00:00.000Z",
+  "previewBackground": "#F4F4F5",
+  "provenance": {
+    "bakeProfile": "component-explicit",
+    "bakedTheme": null,
+    "entryPath": "test-fixtures/pdl/lab/host/design.pdl"
+  },
+  "schemaKind": "bakedDesign",
+  "schemaVersion": "1.0.0-beta"
+}

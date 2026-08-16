@@ -1,0 +1,6 @@
+// PDL-E047: host["…"] / ?? are only valid inside a `mount` body.
+
+component Card(title: String = "Card") layout {
+  let width = host["view.width"] as? Distance ?? 800
+  children = []
+}

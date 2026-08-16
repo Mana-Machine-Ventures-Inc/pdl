@@ -20,7 +20,7 @@ Rebuild whenever `pdl-core` language surface changes (e.g. new keywords like `en
 | Export | Role |
 |--------|------|
 | `analyze_sources(filesJson, entry)` | Component / theme names |
-| `bake_component_sources(filesJson, entry, component, theme?, kvJson?)` | Bake JSON |
-| `bake_system_sources(filesJson, entry, theme?)` | Full system bake JSON |
+| `bake_component_sources(filesJson, entry, component, theme?, kvJson?, host?, hostFactsJson?)` | Bake JSON |
+| `bake_system_sources(filesJson, entry, theme?, host?, hostFactsJson?)` | Full system bake JSON |
 
 `filesJson` is `{ "/virtual/or/abs/path.pdl": "source…", … }`. HTML still comes from the Playground `/api/render-from-bake` host renderer.

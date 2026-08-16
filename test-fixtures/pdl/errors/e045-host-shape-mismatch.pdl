@@ -1,0 +1,13 @@
+// PDL-E045: every host profile must share param names and types.
+variant WindowSize {
+  case compact
+  case regular
+}
+
+host Default(
+  sizeClass: WindowSize = .compact
+)
+
+host CI(
+  width: Distance = 400
+)

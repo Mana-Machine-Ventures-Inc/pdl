@@ -1,0 +1,4 @@
+// PDL-E043: the same protocol cannot appear twice in a component header.
+component Bad <PointerInput, PointerInput>() layout {
+  children = []
+}

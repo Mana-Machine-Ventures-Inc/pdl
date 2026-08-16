@@ -1,7 +1,10 @@
 //! Bake parity against the TypeScript oracle goldens (generated with
 //! `npm run bakeSystem -- <fixture> --out tests/golden/<name>.bake.json`).
 
-use pdl_core::bake::{build_baked_design_component, build_baked_design_system};
+use pdl_core::bake::{
+    build_baked_design_component, build_baked_design_component_with_host,
+    build_baked_design_system,
+};
 use pdl_core::stable_json::{stable_stringify, StableStringifyOptions};
 use pdl_core::{load_design, DesignDefinition};
 use serde_json::{Map, Value};
@@ -138,4 +141,109 @@ fn protocols_design_bake_golden() {
         return;
     }
     assert_eq!(out, golden_text, "protocols bake golden mismatch");
+}
+
+fn bake_host_lab_golden(
+    host: Option<&str>,
+    facts: Option<&Map<String, Value>>,
+    golden_file: &str,
+) {
+    bake_host_lab_component_golden("Shell", None, host, facts, golden_file);
+}
+
+fn bake_host_lab_component_golden(
+    component: &str,
+    theme: Option<&str>,
+    host: Option<&str>,
+    facts: Option<&Map<String, Value>>,
+    golden_file: &str,
+) {
+    let golden_path = golden_dir().join(golden_file);
+    let golden_text = fs::read_to_string(&golden_path).unwrap_or_default();
+    let (generated_at, entry_path) = if golden_text.is_empty() {
+        (
+            "1970-01-01T00:00:00.000Z".to_string(),
+            "test-fixtures/pdl/lab/host/design.pdl".to_string(),
+        )
+    } else {
+        let golden: Value = serde_json::from_str(&golden_text).unwrap();
+        golden_volatiles(&golden)
+    };
+    let design = load_pinned("test-fixtures/pdl/lab/host/design.pdl", &entry_path);
+    let doc = build_baked_design_component_with_host(
+        &design,
+        component,
+        theme,
+        &Map::new(),
+        host,
+        facts,
+        Some(generated_at),
+    )
+    .unwrap_or_else(|e| panic!("bake {component} theme={theme:?} host={host:?}: {}", e.format()));
+    let out = stable_stringify(&doc, StableStringifyOptions { omit_empty: true });
+    if std::env::var("UPDATE_GOLDENS").ok().as_deref() == Some("1") {
+        fs::write(&golden_path, &out).unwrap();
+        return;
+    }
+    assert!(
+        !golden_text.is_empty(),
+        "missing {golden_file}; run with UPDATE_GOLDENS=1"
+    );
+    assert_eq!(out, golden_text, "{golden_file} mismatch");
+}
+
+/// Rust-only H3 goldens (mount + facts; empty bag ≡ Default defaults).
+#[test]
+fn lab_host_default_bake_golden() {
+    bake_host_lab_golden(None, None, "lab_host_design_pdl.bake.json");
+}
+
+#[test]
+fn lab_host_ci_bake_golden() {
+    bake_host_lab_golden(Some("CI"), None, "lab_host_design_pdl.host_CI.bake.json");
+}
+
+#[test]
+fn lab_host_watch_facts_bake_golden() {
+    let facts = serde_json::json!({
+        "view.width": 198,
+        "view.height": 242,
+        "studio.platform": "watchOS"
+    })
+    .as_object()
+    .cloned()
+    .unwrap();
+    bake_host_lab_golden(
+        None,
+        Some(&facts),
+        "lab_host_design_pdl.host_Default.watch.bake.json",
+    );
+}
+
+#[test]
+fn lab_host_glyph_dark_ios_bake_golden() {
+    let facts = serde_json::json!({
+        "studio.platform": "ios"
+    })
+    .as_object()
+    .cloned()
+    .unwrap();
+    bake_host_lab_component_golden(
+        "Glyph",
+        Some("Dark"),
+        None,
+        Some(&facts),
+        "lab_host_design_pdl.theme_Dark.host_Default.ios.bake.json",
+    );
+}
+
+#[test]
+fn lab_host_glyph_ci_direct_assign_bake_golden() {
+    bake_host_lab_component_golden(
+        "Glyph",
+        None,
+        Some("CI"),
+        None,
+        "lab_host_design_pdl.host_CI.glyph.bake.json",
+    );
 }

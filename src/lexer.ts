@@ -14,6 +14,10 @@ export type TokenKind =
   | "protocol"
   | "requires"
   | "host"
+  | "catalog"
+  | "mount"
+  | "as"
+  | "use"
   | "emits"
   | "emit"
   | "component"
@@ -97,6 +101,8 @@ export type TokenKind =
   | ">="
   | "<"
   | "<="
+  | "?"
+  | "??"
   | "."
   | "EOF";
 
@@ -120,6 +126,10 @@ const KEYWORDS = new Map<string, TokenKind>([
   ["protocol", "protocol"],
   ["requires", "requires"],
   ["host", "host"],
+  ["catalog", "catalog"],
+  ["mount", "mount"],
+  ["as", "as"],
+  ["use", "use"],
   ["emits", "emits"],
   ["emit", "emit"],
   ["component", "component"],
@@ -462,6 +472,11 @@ export function tokenize(source: string, filePath = "<input>"): Token[] {
       bump(2);
       continue;
     }
+    if (two === "??") {
+      push("??", "??", startLine, startCol);
+      bump(2);
+      continue;
+    }
 
     const singleMap: Record<string, TokenKind> = {
       "{": "{",
@@ -476,6 +491,7 @@ export function tokenize(source: string, filePath = "<input>"): Token[] {
       "@": "@",
       ">": ">",
       "<": "<",
+      "?": "?",
     };
     const sk = singleMap[c];
     if (sk) {

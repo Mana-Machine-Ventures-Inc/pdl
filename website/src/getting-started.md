@@ -20,6 +20,7 @@ That is the **Playground**: a pack of `.pdl` files on the left, an editor in the
 - Edit the source and wait for the preview to refresh.
 - Under each component preview, **Fixture** switches canned scenarios (empty state, a mood, …).
 - Clicking a control in the preview assigns a parameter and compiles again. PDL is not running in the page like JavaScript.
+- Pack **Host environment** shows top-right **WindowSize** / **AppSurface** when the design declares `host` profiles. **Auto** follows the preview size; a named case pins every `<Host>` component.
 
 If the Playground bake path asks for a WASM rebuild, install **Rust** (stable) and retry. The command-line tools below also need Rust.
 

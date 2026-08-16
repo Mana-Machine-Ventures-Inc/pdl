@@ -394,8 +394,10 @@ pub enum RootKind {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComponentDecl {
     pub name: String,
-    /// Optional protocol this component conforms to (`component Name <Protocol>(…)`).
-    pub conforms_to: Option<String>,
+    /// Protocols this component conforms to (`component Name <P, Q>(…)`).
+    /// Empty means no header. Host protocols may be listed together; at most
+    /// one API protocol is allowed (validated after merge).
+    pub conforms_to: Vec<String>,
     /// Params declared on the component itself (protocol params are merged via
     /// [`crate::design::effective_params`]).
     pub params: Vec<ComponentParam>,
@@ -470,6 +472,96 @@ pub struct ThemeDecl {
     pub overrides: IndexMap<String, ValueExpr>,
 }
 
+/// Host-role token remap (`catalog AppleIcons { … }`). Same override IR as `theme`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CatalogDecl {
+    pub name: String,
+    pub overrides: IndexMap<String, ValueExpr>,
+}
+
+/// Comparison used only in `mount` conditions (`width < 600`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MountCmpOp {
+    Eq,
+    Ne,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+}
+
+/// Value in a `mount` body: bag probe, coalesce, literal, local, or `self.param`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum MountExpr {
+    HostProbe {
+        key: String,
+        type_name: String,
+        /// `as?` (soft) vs `as` (strict).
+        soft: bool,
+    },
+    Coalesce {
+        arms: Vec<MountExpr>,
+    },
+    Value(ValueExpr),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum MountCondition {
+    Cmp {
+        left: MountExpr,
+        op: MountCmpOp,
+        right: MountExpr,
+    },
+    Truthy {
+        expr: MountExpr,
+    },
+    And {
+        items: Vec<MountCondition>,
+    },
+    Or {
+        items: Vec<MountCondition>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MountIfChain {
+    pub condition: MountCondition,
+    pub then_items: Vec<MountItem>,
+    pub else_if: Vec<(MountCondition, Vec<MountItem>)>,
+    pub else_items: Option<Vec<MountItem>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum MountItem {
+    Let {
+        name: String,
+        type_name: String,
+        value: MountExpr,
+    },
+    Assign {
+        param: String,
+        value: MountExpr,
+    },
+    If {
+        chain: MountIfChain,
+    },
+    UseCatalog {
+        name: String,
+    },
+    TokenAssign {
+        name: String,
+        value: MountExpr,
+    },
+}
+
+/// `host Name(params) [mount { … }]`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct HostDecl {
+    pub name: String,
+    pub params: Vec<ComponentParam>,
+    pub mount: Option<Vec<MountItem>>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeStyleDecl {
     pub name: String,
@@ -530,6 +622,11 @@ pub struct FixtureBinding {
 pub struct FixtureExampleDecl {
     pub label: String,
     pub bindings: Vec<FixtureBinding>,
+    /// Optional bake knobs (H5). Not component params.
+    pub host: Option<String>,
+    pub theme: Option<String>,
+    /// JSON object text for `hostFactsJson`.
+    pub host_facts: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -758,6 +855,8 @@ pub enum TopLevelDecl {
     Primitive(PrimitiveDecl),
     Semantic(SemanticDecl),
     Theme(ThemeDecl),
+    Catalog(CatalogDecl),
+    Host(HostDecl),
     TypeStyle(TypeStyleDecl),
     Variant(VariantDecl),
     Protocol(ProtocolDecl),

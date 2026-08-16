@@ -15,6 +15,8 @@ const FOLLOW_POLL_MS = 750;
 
 const packSelect = document.getElementById("packSelect");
 const componentSelect = document.getElementById("componentSelect");
+const platformSelect = document.getElementById("platformSelect");
+const widthSelect = document.getElementById("widthSelect");
 const statusEl = document.getElementById("status");
 const errorEl = document.getElementById("error");
 const frame = document.getElementById("frame");
@@ -27,6 +29,14 @@ let entry = "";
 let packId = "";
 let diskRoot = false;
 let theme = "";
+/** @type {string | undefined} */
+let stagedHost;
+/** @type {Record<string, unknown> | null} */
+let stagedHostFacts = null;
+let platformTag = "web";
+/** @type {number | null} */
+let widthOverride = null;
+let localEnvOverride = false;
 /** @type {string[]} */
 let components = [];
 /** @type {Record<string, Record<string, Record<string, unknown>>>} */
@@ -214,18 +224,63 @@ async function ensureEnrich() {
  * @param {string} componentName
  * @param {Record<string, unknown>} [paramBag]
  */
+function deviceHostFacts() {
+  if (!localEnvOverride && stagedHostFacts) return stagedHostFacts;
+  const w = widthOverride ?? (frame?.clientWidth ? Math.round(frame.clientWidth) : 0);
+  const h = frame?.clientHeight ? Math.round(frame.clientHeight) : 0;
+  /** @type {Record<string, unknown>} */
+  const facts = { "studio.platform": platformTag || "web" };
+  if (w > 0) facts["view.width"] = w;
+  if (h > 0) facts["view.height"] = h;
+  return facts;
+}
+
+function deviceHost() {
+  if (!localEnvOverride && stagedHost) return stagedHost;
+  return undefined;
+}
+
+function applyFrameWidth() {
+  if (!frame) return;
+  if (widthOverride) {
+    frame.style.width = `${widthOverride}px`;
+    frame.style.margin = "0 auto";
+  } else {
+    frame.style.width = "100%";
+    frame.style.margin = "";
+  }
+}
+
+function splitFixtureExample(example) {
+  /** @type {Record<string, unknown>} */
+  const kv = {};
+  /** @type {{ host?: string, theme?: string, hostFacts?: Record<string, unknown> }} */
+  const env = {};
+  for (const [k, v] of Object.entries(example ?? {})) {
+    if (k === "host" && typeof v === "string") env.host = v;
+    else if (k === "theme" && typeof v === "string") env.theme = v;
+    else if (k === "hostFacts" && v && typeof v === "object" && !Array.isArray(v)) {
+      env.hostFacts = /** @type {Record<string, unknown>} */ (v);
+    } else if (k !== "host" && k !== "theme" && k !== "hostFacts") kv[k] = v;
+  }
+  return { kv, env };
+}
+
 async function bakeComponentWasm(componentName, paramBag) {
   await ensureSources();
   if (!entry || !files || Object.keys(files).length === 0) return null;
   const wasm = await loadWasmBake();
   if (!wasm) return null;
   const { filesJson, entry: virtEntry } = virtualizeSources(files, entry);
+  const facts = deviceHostFacts();
   const bakeJson = wasm.bake_component_sources(
     filesJson,
     virtEntry,
     componentName,
     theme || undefined,
     JSON.stringify(paramBag ?? {}),
+    deviceHost(),
+    JSON.stringify(facts ?? {}),
   );
   return JSON.parse(bakeJson);
 }
@@ -240,6 +295,8 @@ function renderBody() {
     mode: "component",
     component,
     theme: theme || undefined,
+    host: deviceHost(),
+    hostFacts: deviceHostFacts(),
     interactiveHost: true,
     hostChrome: "device",
     engine: "rust",
@@ -509,6 +566,8 @@ async function bakeChild(childComponent, childParams) {
       mode: "component",
       component: childComponent,
       theme: theme || undefined,
+      host: deviceHost(),
+      hostFacts: deviceHostFacts(),
       bakeOnly: true,
       interactiveHost: false,
       engine: "rust",
@@ -619,7 +678,16 @@ function applyFixture(component, label) {
   const examples = fixturesByComponent[component];
   activeFixture = label;
   if (label && examples && typeof examples === "object" && examples[label]) {
-    kv = { ...examples[label] };
+    const { kv: nextKv, env } = splitFixtureExample(
+      /** @type {Record<string, unknown>} */ (examples[label]),
+    );
+    kv = nextKv;
+    if (env.host) stagedHost = env.host;
+    if (env.theme) theme = env.theme;
+    if (env.hostFacts) {
+      stagedHostFacts = env.hostFacts;
+      localEnvOverride = false;
+    }
   } else if (!label) {
     kv = {};
   }
@@ -652,6 +720,12 @@ async function applyStage(stage) {
     await ensureSources();
     await ensureEnrich();
     if (typeof stage.theme === "string") theme = stage.theme;
+    stagedHost = typeof stage.host === "string" && stage.host.trim() ? stage.host : undefined;
+    stagedHostFacts =
+      stage.hostFacts && typeof stage.hostFacts === "object" && !Array.isArray(stage.hostFacts)
+        ? /** @type {Record<string, unknown>} */ (stage.hostFacts)
+        : null;
+    localEnvOverride = false;
     if (Array.isArray(stage.components) && stage.components.length) {
       components = stage.components.map(String);
     }
@@ -738,6 +812,23 @@ componentSelect?.addEventListener("change", () => {
   activeFixture = null;
   void runRender({ remount: true });
 });
+platformSelect?.addEventListener("change", () => {
+  if (applyingRemote) return;
+  leaveFollow("Local · platform");
+  platformTag = platformSelect.value || "web";
+  localEnvOverride = true;
+  void runRender();
+});
+widthSelect?.addEventListener("change", () => {
+  if (applyingRemote) return;
+  leaveFollow("Local · width");
+  const raw = widthSelect.value;
+  const n = Number(raw);
+  widthOverride = raw !== "auto" && Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+  localEnvOverride = true;
+  applyFrameWidth();
+  void runRender({ remount: true });
+});
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && follow) void pollStage();
 });
@@ -745,6 +836,49 @@ document.addEventListener("visibilitychange", () => {
 void (async () => {
   try {
     const params = new URLSearchParams(location.search);
+    const qPlatform = params.get("platform");
+    const qWidth = params.get("width");
+    if (qPlatform) {
+      platformTag = qPlatform;
+      localEnvOverride = true;
+      if (platformSelect) platformSelect.value = qPlatform;
+    }
+    if (qWidth && qWidth !== "auto") {
+      const n = Number(qWidth);
+      if (Number.isFinite(n) && n > 0) {
+        widthOverride = Math.round(n);
+        localEnvOverride = true;
+        if (widthSelect) {
+          const opt = [...widthSelect.options].some((o) => o.value === String(widthOverride));
+          widthSelect.value = opt ? String(widthOverride) : "auto";
+        }
+      }
+    }
+    applyFrameWidth();
+    if (typeof ResizeObserver !== "undefined" && frame) {
+      let seeded = false;
+      let last = { w: 0, h: 0 };
+      /** @type {ReturnType<typeof setTimeout> | null} */
+      let timer = null;
+      const ro = new ResizeObserver(() => {
+        if (!localEnvOverride && stagedHostFacts) return;
+        const w = Math.round(frame.clientWidth || 0);
+        const h = Math.round(frame.clientHeight || 0);
+        if (!seeded) {
+          seeded = true;
+          last = { w, h };
+          return;
+        }
+        if (w === last.w && h === last.h) return;
+        last = { w, h };
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          timer = null;
+          void runRender();
+        }, 150);
+      });
+      ro.observe(frame);
+    }
     if (params.get("follow") === "0") follow = false;
     syncFollowButton();
     setStatus("Connecting to Mac…");

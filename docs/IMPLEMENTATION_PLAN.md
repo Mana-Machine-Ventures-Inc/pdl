@@ -77,6 +77,23 @@ Implement **after A2** unless a spike is explicitly throwaway.
 
 ---
 
+## Track H — Host environment
+
+**Proposal:** `docs/PROPOSAL_HOST_ENVIRONMENT.md` (proposed). **Plan:** [`IMPLEMENTATION_PLAN_HOST_ENVIRONMENT.md`](./IMPLEMENTATION_PLAN_HOST_ENVIRONMENT.md).
+
+Unified `host Name(params) [mount]`, `<Host>` inject, opaque facts bag, `theme` vs `catalog`. Bake-time only (no nested measure). Multi-protocol headers (`<Host, PointerInput>`) are H0.
+
+| Step | Deliverable |
+|------|-------------|
+| **H0** | ✅ Multi-protocol component headers |
+| **H1** | ✅ Parse `host` / `catalog` / prelude `Host`; same-shape check |
+| **H2** | ✅ Host defaults + `<Host>` inject |
+| **H3** | ✅ `mount` + `host["k"] as? T` + `??` + `hostFactsJson` |
+| **H4** | ✅ `use catalog` + role metadata |
+| **H5** | ✅ Playground `view.*` facts; fixture env pins; host `previewBackground` chrome |
+
+---
+
 ## Track M — Motion play, keys, frame `animate`
 
 **Proposal:** `docs/PROPOSAL_MOTION_PLAY.md` (accepted — **P** + **M0–M3** shipped; **M4** open).  
@@ -150,5 +167,6 @@ None from the A0 question set. Further grammar nits can be decided when updating
 - [ ] Align published `schemaVersion` string to plain **`1.0.0`** when touching normative version prose (drop `-beta` framing; still unreleased)
 - [ ] Track M — **P** + **M0** + **M1** + **M2** + **M3** shipped (keys WAAPI + standing); next **M4** tokens + teaching (`docs/PROPOSAL_MOTION_PLAY.md`)
 - [ ] Track E — **E0** + **E2** + E3 lab / `effect.frost` shipped (frame `effect` / `blur =` sugar, HTML filter + backdrop-filter, Pose rest = baked self blur); **E1** `Blur()` alias window still open; leftover E3 is `material.sheet` as fill + `effect`; **E4** `.glass` reserved (`docs/PROPOSAL_FRAME_BLUR.md`)
+- [x] Track H — Host environment **proposed** — **H0–H5 shipped** (`docs/IMPLEMENTATION_PLAN_HOST_ENVIRONMENT.md`)
 
 Progress and intentional gaps also tracked in **`docs/SPEC_GAPS.md`**.

@@ -23,7 +23,9 @@
           }
         }
       },
-      "conformsTo": "ModalContent",
+      "conformsTo": [
+        "ModalContent"
+      ],
       "defaultParams": {
         "subtitle": "Subtitle",
         "title": "Modal Title"
@@ -70,7 +72,9 @@
           }
         }
       },
-      "conformsTo": "SubnavItem",
+      "conformsTo": [
+        "SubnavItem"
+      ],
       "defaultParams": {
         "filter": "all",
         "interactionState": "rest",
@@ -410,6 +414,7 @@
           }
         },
         "Root_FilterChip_0": {
+          "foreachList": "chips",
           "id": "Root_FilterChip_0",
           "instanceKwargs": {
             "filter": "all",
@@ -436,6 +441,7 @@
           }
         },
         "Root_FilterChip_1": {
+          "foreachList": "chips",
           "id": "Root_FilterChip_1",
           "instanceKwargs": {
             "filter": "podcasts",
@@ -462,6 +468,7 @@
           }
         },
         "Root_FilterChip_2": {
+          "foreachList": "chips",
           "id": "Root_FilterChip_2",
           "instanceKwargs": {
             "filter": "episodes",
@@ -488,6 +495,7 @@
           }
         },
         "Root_FilterChip_3": {
+          "foreachList": "chips",
           "id": "Root_FilterChip_3",
           "instanceKwargs": {
             "filter": "hosts",
@@ -934,7 +942,9 @@
       }
     },
     "SearchField": {
-      "conformsTo": "FormField",
+      "conformsTo": [
+        "FormField"
+      ],
       "defaultParams": {
         "activatesOn": "focus",
         "isEditing": "false",
@@ -1107,7 +1117,9 @@
           }
         }
       },
-      "conformsTo": "ModalContent",
+      "conformsTo": [
+        "ModalContent"
+      ],
       "defaultParams": {
         "cta": "Upgrade",
         "subtitle": "Subtitle",

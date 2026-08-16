@@ -1,0 +1,13 @@
+// PDL-E046: bake --host names a profile that is not in the design.
+variant WindowSize {
+  case compact
+  case medium
+}
+
+host Default(
+  sizeClass: WindowSize = .medium
+)
+
+component Shell <Host>() layout {
+  children = []
+}

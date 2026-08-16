@@ -57,6 +57,7 @@ WASM only sees an in-memory map, so in disk mode the Playground calls **`POST /a
 ## Canvas model (P3)
 
 - The **active file tab** fills the preview.
+- When the design declares `host` profiles, top-right chrome lists variant host params (WindowSize / AppSurface in the host lab). **Auto** follows iframe measure; a case pins every `<Host>` component.
 - Components declared in that file are baked (gallery).
 - Import-only files (e.g. `design.pdl`) expand imports and show those components.
 - Token-only files show a token list preview.

@@ -387,6 +387,47 @@ function validateFixturesForComponent(design: DesignDefinition, componentName: s
   if (!fm) return;
   const callerParams = new Map(c.params.map((p) => [p.name, p.typeName]));
   for (const ex of fm.values()) {
+    if (ex.host) {
+      const hosts = design.hosts;
+      if (!hosts?.has(ex.host)) {
+        throw new PdlError("PDL-E046", `Unknown host profile \`${ex.host}\``, {
+          path: design.entryPath,
+        });
+      }
+    }
+    if (ex.theme) {
+      if (design.catalogs?.has(ex.theme)) {
+        throw new PdlError(
+          "PDL-E049",
+          `\`${ex.theme}\` is a catalog, not a theme; fixture "${ex.label}" cannot set theme to a catalog`,
+          { path: design.entryPath },
+        );
+      }
+      if (!design.themes.has(ex.theme)) {
+        throw new PdlError("PDL-E005", `Unknown theme \`${ex.theme}\` in fixture "${ex.label}"`, {
+          path: design.entryPath,
+        });
+      }
+    }
+    if (ex.hostFacts) {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(ex.hostFacts);
+      } catch (e) {
+        throw new PdlError(
+          "PDL-E050",
+          `hostFacts in fixture "${ex.label}" is not valid JSON: ${e instanceof Error ? e.message : String(e)}`,
+          { path: design.entryPath },
+        );
+      }
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new PdlError(
+          "PDL-E050",
+          `hostFacts in fixture "${ex.label}" must be a JSON object`,
+          { path: design.entryPath },
+        );
+      }
+    }
     for (const b of ex.bindings) {
       const p = pmap.get(b.name);
       if (!p) {

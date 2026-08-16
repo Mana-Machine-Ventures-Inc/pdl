@@ -79,7 +79,7 @@ pub fn component_satisfies_bound(
     let Some(c) = design.components.get(component) else {
         return false;
     };
-    c.conforms_to.as_deref() == Some(bound)
+    c.conforms_to.iter().any(|p| p == bound)
 }
 
 fn parse_pack_object(raw: &Value, design: &DesignDefinition) -> Result<InjectionPack, PdlError> {

@@ -17,6 +17,8 @@
     "null": "Clear a frame or typeStyle property so the default applies. Not a token value.",
     "tokenTypes": "Named values you declare once and reuse. Write `primitive` for the raw palette and `semantic` for the names components should use (`color.surface`). Pick a type when a property needs a color, a gap, a shadow, and so on. Duration, Easing, Transition, Pose, Stagger, and Motion are the motion types — they exist for handler `animate =` and for frame `animate`. Effect is paint: `.blurSelf` softens the node, `.blurBehind` samples what is behind.",
     "theme": "A named remap of tokens you already declared. Use a theme for light/dark, brand, or reduced motion. Components keep using semantic names; the theme changes what those names resolve to.",
+    "catalog": "A named remap the environment applies — platform icon sets, not light/dark. Same override lines as a theme. Only `use catalog Name` inside `mount` applies it. The theme picker must not list catalogs.",
+    "host": "An environment profile: `host Name(params) [mount { … }]`. Components opt in with `<Host>` to read those params. Width-class and surface taxonomies are pack-local variants, not language types. Bake runs `mount` once against an opaque facts bag, then any fact whose key matches a host param pins that param for every `<Host>` component.",
     "typeStyle": "A named bundle of text-frame properties. A text frame sets `style = Name`. Body lines are the same properties as a text frame.",
     "values": "Structured values you pass to properties — insets, shadows, corners, gradient stops.",
     "layers": "Fills stacked in `background` and `foreground`. A hex Color is usually enough; use these constructors for a gradient or a `MediaLayer`. `Blur()` in a fill list is the alias window for a behind pane — prefer `effect = Effect(.blurBehind, …)` on the frame.",
@@ -25,10 +27,10 @@
     "eventDirections": "A component hears its parameters. That is enough for a fixture, and for a parent that already knows the state. It is not enough when the user clicks a chip, or when a field should start editing. PDL does not run like a script in the page. The host — the preview, or the app that embeds the design — delivers pointer and text events onto a component that opted in (`<PointerInput>`, `<EditableText>`). The component can then emit a typed channel to its parent (`select`, `change`). The parent assigns on that channel and its own parameters update, so the row can show which chip is selected. A component can also ask the host to do something, such as begin editing. Those are three different paths. A `pressEnd` is not an emit.",
     "emits": "How a child tells its parent something happened — a chip was selected, a field changed. Declare the channel, fire it from a click, and listen on the parent.",
     "protocols": "A shared contract so several components can sit in the same list and speak the same language. Use an API protocol when different chip types all `select`. Use a host protocol when the preview must deliver clicks or typing.",
-    "hostPrelude": "A host protocol lets the preview (or app) trigger component changes: hover color, a click, focus, typing. Use `PointerInput` for buttons and chips; use `EditableText` for a field the user types into. Opt in with `component C <PointerInput>`. These names are built in — you do not import them.",
+    "hostPrelude": "A host protocol lets the preview (or app) trigger component changes: hover color, a click, focus, typing — or, with `Host`, read the active environment profile. Use `PointerInput` for buttons and chips; use `EditableText` for a field the user types into; use `Host` on a structural parent. Opt in with `component C <PointerInput>`. List more than one when needed: `component C <Host, PointerInput>`. These names are built in — you do not import them.",
     "motion": "One `animate =` assignment on a host handler, or a standing `animate` on any frame. Its type is Motion: a Transition, an optional play mode, Pose or keys, Stagger, and finite repeat. A bare Transition is sugar for Motion(transition: …). Bake stays at rest; the HTML host plays a CSS overlay.",
     "samples": "Reusable catalogs of instances you mount in layout so a prototype can stay interactive — a library of tracks, a set of chips, an empty list you can switch to. Write the catalog once and point at `Tracks.library.tracks` from a parameter default or from `children`. Isolated component examples, the kind you would put in design-system documentation, belong in fixtures.",
-    "fixtures": "A fixture is a named bag of parameter values for one component. The Playground Fixture menu shows the labels. Each `example` is concrete values only — not other parameters, not layout. Flip through them to preview states without editing the component. Use fixtures for the examples you would put in design-system documentation — primary vs secondary, large vs small. Use them also for a whole view: empty search, a night playlist, mid-rename. Samples are the catalogs you mount; a fixture chooses which world the preview is in.",
+    "fixtures": "A fixture is a named bag of parameter values for one component, plus optional bake knobs (`host`, `theme`, `hostFacts`). The Playground Fixture menu shows the labels. Each `example` is concrete values only — not other parameters, not layout. Flip through them to preview states without editing the component. Use fixtures for the examples you would put in design-system documentation — primary vs secondary, large vs small. Use them also for a whole view: empty search, a night playlist, mid-rename. Samples are the catalogs you mount; a fixture chooses which world the preview is in.",
     "usage": "A written note on a component for authors and tools. In v1 the only key is `description`.",
     "extend": "Add fixtures, usage, or rules to a component you imported — without copying its layout.",
     "rule": "A design check the preview or CI can flag. It does not change how anything looks. Tag instances in a `rules` block, then write a query from this instance — siblings, children, parent — and a strength (`.must` fails the build; `.should` warns)."
@@ -1473,7 +1475,17 @@
     {
       "name": "theme",
       "form": "theme Name { token = value … }",
-      "meaning": "A named remap of tokens — light, dark, reduced motion. Body lines assign existing token names. Themes do not inherit from each other."
+      "meaning": "A named remap of tokens a person flips — light, dark, reduced motion. Body lines assign existing token names. Themes do not inherit from each other. Not for platform icon sets; those are `catalog`. Studio lists themes in the theme picker. Bake `--theme` accepts only themes. See Theme."
+    },
+    {
+      "name": "catalog",
+      "form": "catalog Name { token = value … }",
+      "meaning": "A named remap the environment applies — SF Symbols vs Material icons. Same override shape as a theme. Apply with `use catalog Name` inside `mount` only. Studio must not list catalogs in the theme picker. Token stack is base, then user theme(s), then catalogs (catalog wins on shared keys). See Catalog."
+    },
+    {
+      "name": "host",
+      "form": "host Name(params = defaults) [mount { … }]",
+      "meaning": "An environment profile. Params are what `<Host>` components read. Optional `mount` maps a facts bag onto those params. Every host in the design must share the same param names and types. See Host environment."
     },
     {
       "name": "typeStyle",
@@ -1562,6 +1574,70 @@
       }
     ],
     "example": "primitive color.white: Color = #FFFFFF\nprimitive color.ink: Color = #111827\nsemantic color.surface: Color = color.white\nsemantic color.text: Color = color.ink\n\ntheme Dark {\n  color.surface = color.ink\n  color.text = color.white\n}"
+  },
+  "catalog": {
+    "meaning": "A host-applied token remap. Write the same `token = value` lines as a theme. Do not put catalogs in the theme picker or pass them to bake `--theme` (PDL-E049). Apply them only with `use catalog Name` inside `mount`, so a platform tag can choose Apple icons vs Material icons. After user themes, a catalog wins on shared keys.",
+    "accept": [
+      {
+        "form": "catalog AppleIcons { icon.action.favorite = IconRef(…) }",
+        "meaning": "Declare a named host remap. The name must not collide with a theme (PDL-E003)."
+      },
+      {
+        "form": "use catalog AppleIcons",
+        "meaning": "Inside `mount` only. Applies immediately so later `if` arms see the new tokens."
+      }
+    ],
+    "reject": [
+      {
+        "form": "use catalog Dark",
+        "meaning": "`Dark` is a theme. Catalogs and themes are different roles (PDL-E049)."
+      },
+      {
+        "form": "component C() layout { use catalog AppleIcons }",
+        "meaning": "`use catalog` outside `mount` is PDL-E047."
+      }
+    ],
+    "example": "primitive icon.base.heart: Icon = IconRef(system: .sfSymbols, name: \"heart\")\nsemantic icon.action.favorite: Icon = icon.base.heart\n\ncatalog AppleIcons {\n  icon.action.favorite = IconRef(system: .sfSymbols, name: \"heart.fill\")\n}\n\nhost Default() mount {\n  if host[\"studio.platform\"] as? String ?? \"unknown\" == \"ios\" {\n    use catalog AppleIcons\n  }\n}"
+  },
+  "host": {
+    "meaning": "A `host` profile is the pack’s environment contract: named params with defaults, plus an optional `mount` that reads an opaque facts bag and writes those params. Components opt in with `<Host>` (prelude `protocol Host { host }` — no inbound channels). Bake picks a profile (requested name, else `Default`, else the sole host), starts at defaults, runs `mount` once, then any fact whose key equals a host param name pins that param. Every `<Host>` component in that bake sees the same bag. Author-declared params of the same name still win. `WindowSize` / `AppSurface` in labs are pack variants, not language types. Recommended fact keys (not required): `view.width`, `view.height`, `studio.platform`. Playground chrome and fixture `hostFacts` may send those keys, or pin `sizeClass` / `surface` directly.",
+    "accept": [
+      {
+        "form": "host Default(sizeClass: WindowSize = .medium) mount { … }",
+        "meaning": "Profile + defaults + `mount`. Name one `Default` when several profiles exist."
+      },
+      {
+        "form": "host[\"view.width\"] as? Distance ?? 800",
+        "meaning": "Soft probe. A miss is none; `??` takes the next arm. Only inside `mount`."
+      },
+      {
+        "form": "self.sizeClass = .compact",
+        "meaning": "Write the host param bag. `<Host>` injection reads this after `mount`."
+      },
+      {
+        "form": "component Shell <Host>()",
+        "meaning": "Opt in. `if sizeClass == .compact` is legal. Without `<Host>` that read is PDL-E007."
+      },
+      {
+        "form": "hostFacts = \"{\\\"sizeClass\\\":\\\"compact\\\"}\"",
+        "meaning": "A fact key that matches a host param pins the bag after `mount`. Playground WindowSize / AppSurface chrome uses this."
+      }
+    ],
+    "reject": [
+      {
+        "form": "host Phone(width: Distance = 390)  +  host Tablet(sizeClass: WindowSize = .medium)",
+        "meaning": "Every host in the design must share param names and types (PDL-E045). Defaults may differ."
+      },
+      {
+        "form": "host[\"view.width\"] as? Distance",
+        "meaning": "Not in a component body or token RHS (PDL-E047)."
+      },
+      {
+        "form": "component Card() layout { if sizeClass == .compact { … } }",
+        "meaning": "Molecules do not read the environment. Put `<Host>` on a structural parent."
+      }
+    ],
+    "example": "variant WindowSize {\n  case compact\n  case medium\n  case expanded\n}\n\nvariant AppSurface {\n  case mobile\n  case watch\n  case web\n}\n\nhost Default(\n  sizeClass: WindowSize = .medium,\n  surface: AppSurface = .mobile,\n  previewBackground: Color = #F4F4F5\n) mount {\n  let width: Distance =\n    host[\"view.width\"] as? Distance\n    ?? 800\n  if width < 600 {\n    self.sizeClass = .compact\n  }\n}\n\ncomponent Shell <Host>() layout {\n  if sizeClass == .compact {\n    direction = .column\n  } else {\n    direction = .row\n  }\n  children = []\n}"
   },
   "lets": {
     "meaning": "A `let` names something inside a component. Prefer a lowercase id so it does not look like the type: `let title = Text(…)` is a nested frame you mount in `children`. `let save = Button(label: \"Save\")` is a component you declared — instantiate it in a layout the same way. `let ramp: Ramp = Ramp(…)` is a typed value you reuse in props or layers — it is not a view and must not appear in `children`. The id must be unique in the component. Write the `let` before any `children = [id]` or `id.prop` that names it (PDL-E019). A frame let mounts at most once (PDL-E042).",
@@ -2013,8 +2089,12 @@
       "meaning": "A contract with the preview — clicks, editing. Not something you put in a list."
     },
     {
-      "form": "component C <P>(…) kind { … }",
-      "meaning": "This component follows protocol P. It gets P’s parameters and may use P’s host events."
+      "form": "component C <P, Q>(…) kind { … }",
+      "meaning": "This component follows the listed protocols. It gets an API protocol’s parameters and may use those host events. Any number of host protocols; at most one API protocol."
+    },
+    {
+      "form": "component C <Host>()",
+      "meaning": "Read the active `host` profile’s params. No clicks or typing — that is PointerInput / EditableText. See Host environment."
     },
     {
       "form": "requires PointerInput",
@@ -2151,6 +2231,12 @@
         }
       ],
       "example": "component SearchField <EditableText>(\n  placeholder: String = \"Search\"\n) text {\n  content = placeholder\n  if isEditing {\n    content = self.value\n  } else if !isEmpty {\n    content = self.value\n  }\n  self.editingFinished = {\n    finishEditing()\n    emit change(value)\n  }\n} emits {\n  change(value: String)\n}"
+    },
+    {
+      "name": "Host",
+      "meaning": "Opt in to read the active host profile’s params (`sizeClass`, `previewBackground`, or whatever the pack declared). No inbound channels and no verbs. Use on structural parents only: `component Shell <Host>()` or `component Shell <Host, PointerInput>()`. Bake injects one bag for the whole design: host defaults, then `mount` against `hostFactsJson`, then any fact whose key matches a host param (Playground WindowSize / AppSurface chrome, or a fixture pin). Author params of the same name still win. Reading a host param without `<Host>` is PDL-E007.",
+      "inbound": [],
+      "example": "component Shell <Host>() layout {\n  if sizeClass == .compact {\n    direction = .column\n  }\n}"
     }
   ],
   "preludeEnums": [
@@ -2220,7 +2306,7 @@
   ],
   "sampleExample": "samples Tracks {\n  library {\n    tracks: [TrackRow] = [\n      TrackRow(title: \"Neon\", trackId: \"neon\"),\n      TrackRow(title: \"Desk\", trackId: \"desk\")\n    ]\n  }\n  empty {\n    tracks: [TrackRow] = []\n  }\n}\n\ncomponent SampleShelf(\n  mood: MoodId = .all,\n  tracks: [TrackRow] = Tracks.library.tracks\n) layout {\n  let list = Layout(direction: .column, children: [tracks])\n  if mood == .focus {\n    list.children = Tracks.empty.tracks\n  }\n  children = [list]\n}",
   "fixtures": {
-    "meaning": "Write `fixtures Component { … }` next to the component (or inside `extend`). Each `example \"Label\" { … }` is one row in the Fixture menu. The body assigns that component’s parameters to concrete values — a string, a `.case`, a sample path. It does not write layout, and it does not read other parameters.",
+    "meaning": "Write `fixtures Component { … }` next to the component (or inside `extend`). Each `example \"Label\" { … }` is one row in the Fixture menu. The body assigns that component’s parameters to concrete values — a string, a `.case`, a sample path. It may also pin bake knobs: `host`, `theme`, and `hostFacts` (a JSON object string). Those are not component params. It does not write layout, and it does not read other parameters.",
     "accept": [
       {
         "form": "fixtures Button { example \"Primary\" { … } }",
@@ -2229,6 +2315,10 @@
       {
         "form": "example \"Secondary\" { label = \"Cancel\" emphasis = .secondary }",
         "meaning": "One scenario. Every assignment is a concrete value."
+      },
+      {
+        "form": "example \"Watch\" { host = \"Default\" hostFacts = \"{\\\"view.width\\\":198}\" }",
+        "meaning": "Pin the host profile and facts bag so review SoT does not depend on Playground resize. A fact key that matches a host param (`sizeClass`, `surface`) pins that param after `mount`."
       },
       {
         "form": "tracks = Tracks.empty.tracks",

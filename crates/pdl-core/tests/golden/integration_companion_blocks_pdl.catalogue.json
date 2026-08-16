@@ -16,7 +16,9 @@
           }
         }
       },
-      "conformsTo": "PointerInput",
+      "conformsTo": [
+        "PointerInput"
+      ],
       "defaultParams": {
         "tone": "neutral"
       },

@@ -1,0 +1,10 @@
+// PDL-E047: use catalog is only valid inside a `mount` body.
+
+catalog AppleIcons {
+  color.surface = #FFFFFF
+}
+
+component Card() layout {
+  use catalog AppleIcons
+  children = []
+}

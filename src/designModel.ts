@@ -6,6 +6,8 @@ import type {
   RulesStatement,
   SamplesDecl,
   SemanticDecl,
+  CatalogDecl,
+  HostDecl,
   ThemeDecl,
   TypeStyleDecl,
   VariantDecl,
@@ -23,6 +25,8 @@ export type DesignDefinition = {
   primitives: Map<string, PrimitiveDecl>;
   semantics: Map<string, SemanticDecl>;
   themes: Map<string, ThemeDecl>;
+  catalogs?: Map<string, CatalogDecl>;
+  hosts?: Map<string, HostDecl>;
   variants: Map<string, VariantDecl>;
   typeStyles: Map<string, TypeStyleDecl>;
   components: Map<string, ComponentDecl>;

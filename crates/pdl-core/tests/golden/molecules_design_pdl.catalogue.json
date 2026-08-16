@@ -293,7 +293,9 @@
           }
         }
       },
-      "conformsTo": "PointerInput",
+      "conformsTo": [
+        "PointerInput"
+      ],
       "defaultParams": {
         "layoutMode": "withHero",
         "subtitle": "Supporting line",
@@ -934,7 +936,9 @@
           }
         }
       },
-      "conformsTo": "PointerInput",
+      "conformsTo": [
+        "PointerInput"
+      ],
       "defaultParams": {
         "helper": "We never share your address.",
         "label": "Email",
@@ -3706,7 +3710,9 @@
           }
         }
       },
-      "conformsTo": "PointerInput",
+      "conformsTo": [
+        "PointerInput"
+      ],
       "defaultParams": {
         "label": "Button",
         "size": "sm",

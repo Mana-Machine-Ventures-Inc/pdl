@@ -1,0 +1,13 @@
+// PDL-E050: fixture hostFacts is not a JSON object.
+
+host Default()
+
+component Shell <Host>() layout {
+  children = []
+}
+
+fixtures Shell {
+  example "Bad" {
+    hostFacts = "not-json"
+  }
+}

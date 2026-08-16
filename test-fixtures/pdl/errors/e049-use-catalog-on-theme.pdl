@@ -1,0 +1,16 @@
+// PDL-E049: use catalog names a theme.
+
+primitive color.paper: Color = #FFFFFF
+semantic color.surface: Color = color.paper
+
+theme Dark {
+  color.surface = #18181B
+}
+
+host Default() mount {
+  use catalog Dark
+}
+
+component Shell <Host>() layout {
+  children = []
+}

@@ -6,7 +6,7 @@ Oracle `.pdl` files under [`test-fixtures/pdl/errors/`](https://github.com/Mana-
 
 A conforming compiler **MUST** emit the code encoded in the filename (`e007-…` → **PDL-E007**), except where a test documents a different code (language evolution — see [Filename vs observed](#filename-vs-observed)). Diagnostic meanings: [Diagnostics](./diagnostics.md).
 
-**96** current oracles · **2** support files · **5** legacy · **1** valid controls.
+**108** current oracles · **2** support files · **5** legacy · **1** valid controls.
 
 ## Coverage by catalog code
 
@@ -20,7 +20,7 @@ Active `PDL-E` codes from `shared/diagnostics.json`. **Current** counts ignore `
 | **PDL-E004** | `unknown-token-type` | 1 | 0 | covered |
 | **PDL-E005** | `token-type-mismatch` | 32 | 0 | covered |
 | **PDL-E006** | `frame-prop-type-mismatch` | 13 | 0 | covered |
-| **PDL-E007** | `unresolved-reference` | 5 | 1 | covered |
+| **PDL-E007** | `unresolved-reference` | 6 | 1 | covered |
 | **PDL-E008** | `unresolved-type-style` | 0 | 0 | **gap** |
 | **PDL-E010** | `invalid-condition-operand` | 1 | 2 | covered |
 | **PDL-E011** | `unknown-frame-property` | 2 | 0 | covered |
@@ -54,6 +54,14 @@ Active `PDL-E` codes from `shared/diagnostics.json`. **Current** counts ignore `
 | **PDL-E040** | `param-type-mismatch` | 4 | 0 | covered |
 | **PDL-E041** | `unknown-sample-path` | 1 | 0 | covered |
 | **PDL-E042** | `duplicate-mount` | 2 | 0 | covered |
+| **PDL-E043** | `duplicate-protocol-header` | 1 | 0 | covered |
+| **PDL-E044** | `multiple-api-protocols` | 1 | 0 | covered |
+| **PDL-E045** | `host-param-shape-mismatch` | 1 | 0 | covered |
+| **PDL-E046** | `unknown-host-profile` | 2 | 0 | covered |
+| **PDL-E047** | `host-probe-outside-mount` | 2 | 0 | covered |
+| **PDL-E048** | `mount-coalesce-empty` | 1 | 0 | covered |
+| **PDL-E049** | `theme-catalog-role-mismatch` | 2 | 0 | covered |
+| **PDL-E050** | `invalid-host-facts` | 1 | 0 | covered |
 
 ## Codes without an oracle
 
@@ -64,7 +72,7 @@ These codes are in the diagnostic catalog but have no `eNNN-*.pdl` under `errors
 - **PDL-E014** — `duplicate-fixture-label` — Two `example` blocks within the same `fixtures ComponentName { … }` have identical labels.
 - **PDL-E017** — `quoted-hex-color` — A string literal is used where a `Color` value is expected and the string content matches the hex color pattern — hex colors must be unquoted.
 - **PDL-E018** — `reserved-word-as-identifier` — A reserved word (§20.4) is used as a user-defined identifier.
-- **PDL-E022** — `unknown-protocol` — A `component C <P>` or protocol-typed param references an undeclared protocol `P`.
+- **PDL-E022** — `unknown-protocol` — A `component C <P>` / `component C <P, Q>` or protocol-typed param references an undeclared protocol.
 - **PDL-E023** — `unknown-foreach-list` — `ForEach(name)` names a parameter that is not an expandable list/slot in the enclosing component (§4e).
 - **PDL-E024** — `unknown-emit-channel` — Layout emit capture or `emit` names a channel not in the effective `emits` set for the relevant component/protocol (§4d–§4e).
 - **PDL-E025** — `invalid-foreach-binding` — A derived bind inside `ForEach` references an unknown parent/item field or fails type rules for the target child param (§4e).
@@ -162,6 +170,7 @@ The filename still records the original intent. TypeScript tests assert a **diff
 | [`e006-overflow-hidden.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e006-overflow-hidden.pdl) | **PDL-E006** | **PDL-E006** | `frame-prop-type-mismatch` | load | PDL-E006: overflow no longer accepts .hidden — use .clip |
 | [`e006-text-justify-stretch.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e006-text-justify-stretch.pdl) | **PDL-E006** | **PDL-E006** | `frame-prop-type-mismatch` | load | text justify stretch |
 | [`e007-fixture-unknown-param.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e007-fixture-unknown-param.pdl) | **PDL-E007** | **PDL-E007** | `unresolved-reference` | load | fixture unknown param |
+| [`e007-host-param-without-conformance.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e007-host-param-without-conformance.pdl) | **PDL-E007** | **PDL-E007** | `unresolved-reference` | load | PDL-E007: reading a host param requires <Host>. |
 | [`e007-interaction-unknown-param.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e007-interaction-unknown-param.pdl) | **PDL-E007** | **PDL-E007** | `unresolved-reference` | load | interaction unknown param |
 | [`e007-rules-if-unknown-param.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e007-rules-if-unknown-param.pdl) | **PDL-E007** | **PDL-E007** | `unresolved-reference` | load | rules if unknown param |
 | [`e007-unresolved-token-in-layout.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e007-unresolved-token-in-layout.pdl) | **PDL-E007** | **PDL-E007** | `unresolved-reference` | catalogue | unresolved token in layout |
@@ -191,6 +200,17 @@ The filename still records the original intent. TypeScript tests assert a **diff
 | [`e041-unknown-sample-path.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e041-unknown-sample-path.pdl) | **PDL-E041** | **PDL-E041** | `unknown-sample-path` | load | unknown sample path |
 | [`e042-duplicate-mount-nested.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e042-duplicate-mount-nested.pdl) | **PDL-E042** | **PDL-E042** | `duplicate-mount` | load | PDL-E042: the same let cannot be a child of two parents. |
 | [`e042-duplicate-mount.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e042-duplicate-mount.pdl) | **PDL-E042** | **PDL-E042** | `duplicate-mount` | load | PDL-E042: the same let cannot appear twice in children. |
+| [`e043-duplicate-protocol-header.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e043-duplicate-protocol-header.pdl) | **PDL-E043** | **PDL-E043** | `duplicate-protocol-header` | load | PDL-E043: the same protocol cannot appear twice in a component header. |
+| [`e044-multiple-api-protocols.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e044-multiple-api-protocols.pdl) | **PDL-E044** | **PDL-E044** | `multiple-api-protocols` | load | PDL-E044: at most one API protocol in a component header. |
+| [`e045-host-shape-mismatch.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e045-host-shape-mismatch.pdl) | **PDL-E045** | **PDL-E045** | `host-param-shape-mismatch` | load | PDL-E045: every host profile must share param names and types. |
+| [`e046-unknown-host-in-fixture.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e046-unknown-host-in-fixture.pdl) | **PDL-E046** | **PDL-E046** | `unknown-host-profile` | load | PDL-E046: fixture names a host profile that is not in the design. |
+| [`e046-unknown-host.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e046-unknown-host.pdl) | **PDL-E046** | **PDL-E046** | `unknown-host-profile` | load | PDL-E046: bake --host names a profile that is not in the design. |
+| [`e047-host-probe-outside-mount.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e047-host-probe-outside-mount.pdl) | **PDL-E047** | **PDL-E047** | `host-probe-outside-mount` | load | PDL-E047: host["…"] / ?? are only valid inside a `mount` body. |
+| [`e047-use-catalog-outside-mount.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e047-use-catalog-outside-mount.pdl) | **PDL-E047** | **PDL-E047** | `host-probe-outside-mount` | load | PDL-E047: use catalog is only valid inside a `mount` body. |
+| [`e048-empty-coalesce.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e048-empty-coalesce.pdl) | **PDL-E048** | **PDL-E048** | `mount-coalesce-empty` | load | PDL-E048: a mount let/assign coalesce with no fallback produced no value. |
+| [`e049-fixture-theme-is-catalog.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e049-fixture-theme-is-catalog.pdl) | **PDL-E049** | **PDL-E049** | `theme-catalog-role-mismatch` | load | PDL-E049: fixture theme names a catalog. |
+| [`e049-use-catalog-on-theme.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e049-use-catalog-on-theme.pdl) | **PDL-E049** | **PDL-E049** | `theme-catalog-role-mismatch` | load | PDL-E049: use catalog names a theme. |
+| [`e050-invalid-host-facts.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e050-invalid-host-facts.pdl) | **PDL-E050** | **PDL-E050** | `invalid-host-facts` | load | PDL-E050: fixture hostFacts is not a JSON object. |
 
 ## Support files
 

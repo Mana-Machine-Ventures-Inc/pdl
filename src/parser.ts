@@ -28,6 +28,8 @@ import type {
   SampleFieldDecl,
   SamplesDecl,
   SemanticDecl,
+  CatalogDecl,
+  HostDecl,
   ThemeDecl,
   TopLevelDecl,
   TypeStyleDecl,
@@ -106,6 +108,10 @@ export class Parser {
         return this.parseSemantic();
       case "theme":
         return this.parseTheme();
+      case "catalog":
+        return this.parseCatalog();
+      case "host":
+        return this.parseHostProfile();
       case "typeStyle":
         return this.parseTypeStyle();
       case "variant":
@@ -281,6 +287,71 @@ export class Parser {
     }
     this.consume("}");
     return { kind: "theme", name, baseTheme, overrides };
+  }
+
+  private parseCatalog(): CatalogDecl {
+    this.consume("catalog");
+    const name = this.consume("IDENT").value;
+    this.consume("{");
+    const overrides: Record<string, ValueExpr> = {};
+    while (!this.is("}")) {
+      const key = this.parseQualifiedName();
+      this.consume("=");
+      overrides[key] = this.parseValueExpr();
+    }
+    this.consume("}");
+    return { kind: "catalog", name, overrides };
+  }
+
+  private parseHostProfile(): HostDecl {
+    this.consume("host");
+    const name = this.consume("IDENT").value;
+    this.consume("(");
+    const params: ComponentParam[] = [];
+    if (!this.is(")")) {
+      while (true) {
+        const pname = this.consumeParamName();
+        this.consume(":");
+        let isArray = false;
+        let typeName: string;
+        if (this.is("[")) {
+          this.advance();
+          typeName = this.consumeParamTypeName();
+          this.consume("]");
+          isArray = true;
+        } else {
+          typeName = this.consumeParamTypeName();
+        }
+        this.consume("=");
+        const defaultValue = this.parseValueExpr();
+        params.push({
+          name: pname,
+          typeName,
+          ...(isArray ? { isArray: true } : {}),
+          defaultValue,
+        });
+        if (this.is(")")) break;
+        this.consume(",");
+        if (this.is(")")) break;
+      }
+    }
+    this.consume(")");
+    let hasMount = false;
+    if (this.is("mount")) {
+      this.advance();
+      this.consume("{");
+      let depth = 1;
+      while (depth > 0) {
+        if (this.is("EOF")) {
+          throw this.err("Unclosed `mount` block");
+        }
+        if (this.is("{")) depth += 1;
+        else if (this.is("}")) depth -= 1;
+        this.advance();
+      }
+      hasMount = true;
+    }
+    return { kind: "host", name, params, ...(hasMount ? { hasMount: true } : {}) };
   }
 
   private parseTypeStyle(): TypeStyleDecl {
@@ -465,23 +536,53 @@ export class Parser {
     return { branches };
   }
 
+  private parseFixtureExample(): FixtureExampleDecl {
+    this.consume("example");
+    const label = this.consume("STRING").value;
+    this.consume("{");
+    const bindings: FixtureBinding[] = [];
+    let host: string | undefined;
+    let theme: string | undefined;
+    let hostFacts: string | undefined;
+    while (!this.is("}")) {
+      const pname = this.consumeFixturePropName();
+      this.consume("=");
+      const value = this.parseValueExpr();
+      if (pname === "host") host = this.fixtureStringProp(value, "host");
+      else if (pname === "theme") theme = this.fixtureStringProp(value, "theme");
+      else if (pname === "hostFacts") hostFacts = this.fixtureStringProp(value, "hostFacts");
+      else bindings.push({ name: pname, value });
+    }
+    this.consume("}");
+    return { label, bindings, host, theme, hostFacts };
+  }
+
+  private consumeFixturePropName(): string {
+    const t = this.peek();
+    if (t.kind === "IDENT") {
+      this.advance();
+      return t.value;
+    }
+    if (t.kind === "host" || t.kind === "theme") {
+      this.advance();
+      return t.kind;
+    }
+    throw this.err(`Expected fixture property name, got ${t.kind}`);
+  }
+
+  private fixtureStringProp(value: ValueExpr, key: string): string {
+    if (value.kind === "string") return value.value;
+    if (value.kind === "ident") return value.name;
+    throw this.err(`Fixture \`${key}\` must be a string (hostFacts is a JSON object string)`);
+  }
+
   private parseFixtures(): FixturesDecl {
     this.consume("fixtures");
     const component = this.consume("IDENT").value;
     this.consume("{");
     const examples: FixtureExampleDecl[] = [];
     while (!this.is("}")) {
-      this.consume("example");
-      const label = this.consume("STRING").value;
-      this.consume("{");
-      const bindings: FixtureBinding[] = [];
-      while (!this.is("}")) {
-        const pname = this.consume("IDENT").value;
-        this.consume("=");
-        bindings.push({ name: pname, value: this.parseValueExpr() });
-      }
-      this.consume("}");
-      examples.push({ label, bindings });
+      examples.push(this.parseFixtureExample());
     }
     this.consume("}");
     return { kind: "fixtures", component, examples };
@@ -826,17 +927,7 @@ export class Parser {
         this.consume("{");
         const examples: FixtureExampleDecl[] = [];
         while (!this.is("}")) {
-          this.consume("example");
-          const label = this.consume("STRING").value;
-          this.consume("{");
-          const bindings: FixtureBinding[] = [];
-          while (!this.is("}")) {
-            const pname = this.consume("IDENT").value;
-            this.consume("=");
-            bindings.push({ name: pname, value: this.parseValueExpr() });
-          }
-          this.consume("}");
-          examples.push({ label, bindings });
+          examples.push(this.parseFixtureExample());
         }
         this.consume("}");
         sections.push({ kind: "fixtures", examples });
@@ -989,11 +1080,31 @@ export class Parser {
         `Component name \`${name}\` is reserved for the World A frame constructor; rename the component`,
       );
     }
-    let conformsTo: string | undefined;
+    const conformsTo: string[] = [];
     if (this.is("<")) {
       this.advance();
-      conformsTo = this.consume("IDENT").value;
-      this.consume(">");
+      while (true) {
+        const proto = this.consume("IDENT").value;
+        if (conformsTo.includes(proto)) {
+          const t = this.peek();
+          throw new PdlError(
+            "PDL-E043",
+            `Component \`${name}\` lists protocol \`${proto}\` more than once`,
+            { path: this.filePath, line: t.line, column: t.column },
+          );
+        }
+        conformsTo.push(proto);
+        if (this.is(",")) {
+          this.advance();
+          if (this.is(">")) {
+            this.advance();
+            break;
+          }
+          continue;
+        }
+        this.consume(">");
+        break;
+      }
     }
     this.consume("(");
     const params: ComponentParam[] = [];
@@ -1036,7 +1147,7 @@ export class Parser {
     return {
       kind: "component",
       name,
-      ...(conformsTo ? { conformsTo } : {}),
+      ...(conformsTo.length ? { conformsTo } : {}),
       params,
       rootKind,
       body,
@@ -2305,6 +2416,20 @@ export class Parser {
     const t = this.peek();
     if (t.kind !== "EOF") this.index++;
     return t;
+  }
+
+  /** Host param names are normally IDENT. `previewBackground` is also a top-level keyword. */
+  private consumeParamName(): string {
+    const t = this.peek();
+    if (t.kind === "IDENT") {
+      this.advance();
+      return t.value;
+    }
+    if (t.kind === "previewBackground") {
+      this.advance();
+      return "previewBackground";
+    }
+    throw this.err(`Expected parameter name, got ${t.kind}`);
   }
 
   /** Usage keys are normally IDENT; `description` is also a keyword for `Rule(..., description: …)`. */

@@ -293,7 +293,9 @@
           }
         }
       },
-      "conformsTo": "PointerInput",
+      "conformsTo": [
+        "PointerInput"
+      ],
       "defaultParams": {
         "layoutMode": "withHero",
         "subtitle": "Supporting line",
@@ -1172,7 +1174,9 @@
           }
         }
       },
-      "conformsTo": "PointerInput",
+      "conformsTo": [
+        "PointerInput"
+      ],
       "defaultParams": {
         "label": "Button",
         "size": "sm",

@@ -11,7 +11,9 @@
         { "word": "previewBackground", "note": "Preview canvas Color token." },
         { "word": "primitive", "note": "Literal token leaf." },
         { "word": "semantic", "note": "Intent token; may alias other tokens." },
-        { "word": "theme", "note": "Named token override bundle." },
+        { "word": "theme", "note": "Named token override bundle (user / a11y mode)." },
+        { "word": "catalog", "note": "Named token override bundle applied by the host (icons, platform assets)." },
+        { "word": "host", "note": "Environment profile: params + optional mount. Also marks host-role protocol bodies. Prelude `Host` is the opt-in to read those params." },
         { "word": "typeStyle", "note": "Named text-property preset." },
         { "word": "variant", "note": "Closed case set (design-axis combinator)." },
         { "word": "enum", "note": "Surface alias of variant (same IR in v1)." },
@@ -52,7 +54,9 @@
         { "word": "example", "note": "Fixture scenario label." },
         { "word": "emit", "note": "Fire a declared outbound intent." },
         { "word": "requires", "note": "API protocol requires a host protocol." },
-        { "word": "host", "note": "Marks host-role protocol bodies." }
+        { "word": "mount", "note": "Optional body on a host profile that reads the facts bag." },
+        { "word": "as", "note": "Convert a facts-bag probe in `mount` (`as?` soft, `as` strict)." },
+        { "word": "use", "note": "`use catalog Name` inside `mount` applies a host-role token remap." }
       ]
     },
     {

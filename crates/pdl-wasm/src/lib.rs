@@ -3,7 +3,9 @@
 //! Sources are passed as a JSON object of absolute/virtual paths → UTF-8 PDL.
 //! HTML rendering stays on the TypeScript host (`/api/render-from-bake`).
 
-use pdl_core::bake::{build_baked_design_component, build_baked_design_system};
+use pdl_core::bake::{
+    build_baked_design_component_with_host, build_baked_design_system_with_host,
+};
 use pdl_core::{load_design_from_sources, SourceMap};
 use serde_json::{Map, Value};
 use wasm_bindgen::prelude::*;
@@ -72,16 +74,23 @@ pub fn bake_component_sources(
     component: &str,
     theme: Option<String>,
     kv_json: Option<String>,
+    host: Option<String>,
+    host_facts_json: Option<String>,
 ) -> Result<String, JsValue> {
     let sources = parse_sources(files_json)?;
     let design = load_design_from_sources(entry, &sources).map_err(|e| err_js(e.format()))?;
     let kv = parse_kv(kv_json)?;
+    let facts = parse_kv(host_facts_json)?;
     let theme_ref = theme.as_deref().filter(|t| !t.is_empty());
-    let doc = build_baked_design_component(
+    let host_ref = host.as_deref().filter(|t| !t.is_empty());
+    let facts_ref = if facts.is_empty() { None } else { Some(&facts) };
+    let doc = build_baked_design_component_with_host(
         &design,
         component,
         theme_ref,
         &kv,
+        host_ref,
+        facts_ref,
         Some(FIXED_AT.to_string()),
     )
     .map_err(|e| err_js(e.format()))?;
@@ -94,11 +103,22 @@ pub fn bake_system_sources(
     files_json: &str,
     entry: &str,
     theme: Option<String>,
+    host: Option<String>,
+    host_facts_json: Option<String>,
 ) -> Result<String, JsValue> {
     let sources = parse_sources(files_json)?;
     let design = load_design_from_sources(entry, &sources).map_err(|e| err_js(e.format()))?;
+    let facts = parse_kv(host_facts_json)?;
     let theme_ref = theme.as_deref().filter(|t| !t.is_empty());
-    let doc = build_baked_design_system(&design, theme_ref, Some(FIXED_AT.to_string()))
-        .map_err(|e| err_js(e.format()))?;
+    let host_ref = host.as_deref().filter(|t| !t.is_empty());
+    let facts_ref = if facts.is_empty() { None } else { Some(&facts) };
+    let doc = build_baked_design_system_with_host(
+        &design,
+        theme_ref,
+        host_ref,
+        facts_ref,
+        Some(FIXED_AT.to_string()),
+    )
+    .map_err(|e| err_js(e.format()))?;
     Ok(doc.to_string())
 }

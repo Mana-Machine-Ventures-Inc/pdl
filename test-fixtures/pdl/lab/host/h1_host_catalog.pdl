@@ -1,0 +1,28 @@
+// H1 — parse `host` / `catalog` / prelude `Host`. Do not evaluate `mount`.
+// WindowSize is pack-local (not stdlib).
+
+variant WindowSize {
+  case compact
+  case medium
+  case expanded
+}
+
+catalog AppleIcons {
+  color.surface = #FFFFFF
+}
+
+host Default(
+  sizeClass: WindowSize = .medium,
+  previewBackground: Color = #F4F4F5
+)
+
+host CI(
+  sizeClass: WindowSize = .medium,
+  previewBackground: Color = #FFFFFF
+) mount {
+  self.sizeClass = .compact
+}
+
+component Shell <Host>() layout {
+  children = []
+}

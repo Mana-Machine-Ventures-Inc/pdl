@@ -144,8 +144,8 @@ export type IfChain = {
 export type ComponentDecl = {
   kind: "component";
   name: string;
-  /** Optional protocol conformance (`component C <P>`). Rust validates host roles. */
-  conformsTo?: string;
+  /** Protocol names from `component C <P, Q>`. Rust validates host vs API roles. */
+  conformsTo?: string[];
   params: ComponentParam[];
   rootKind: "layout" | "text" | "icon" | "media";
   body: FrameBodyItem[];
@@ -184,6 +184,20 @@ export type ThemeDecl = {
   overrides: Record<string, ValueExpr>;
 };
 
+export type CatalogDecl = {
+  kind: "catalog";
+  name: string;
+  overrides: Record<string, ValueExpr>;
+};
+
+export type HostDecl = {
+  kind: "host";
+  name: string;
+  params: ComponentParam[];
+  /** Mount body present. Rust evaluates it at bake; TS stores the flag only. */
+  hasMount?: boolean;
+};
+
 export type TypeStyleDecl = {
   kind: "typeStyle";
   name: string;
@@ -206,7 +220,13 @@ export type UsageProp = { key: string; op: "=" | "+="; value: string };
 export type UsageDecl = { kind: "usage"; component: string; props: UsageProp[] };
 
 export type FixtureBinding = { name: string; value: ValueExpr };
-export type FixtureExampleDecl = { label: string; bindings: FixtureBinding[] };
+export type FixtureExampleDecl = {
+  label: string;
+  bindings: FixtureBinding[];
+  host?: string;
+  theme?: string;
+  hostFacts?: string;
+};
 export type FixturesDecl = { kind: "fixtures"; component: string; examples: FixtureExampleDecl[] };
 
 export type SampleFieldDecl = {
@@ -305,6 +325,8 @@ export type TopLevelDecl =
   | PrimitiveDecl
   | SemanticDecl
   | ThemeDecl
+  | CatalogDecl
+  | HostDecl
   | TypeStyleDecl
   | VariantDecl
   | ProtocolDecl

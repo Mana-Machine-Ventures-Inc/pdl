@@ -165,7 +165,9 @@
           }
         }
       },
-      "conformsTo": "PointerInput",
+      "conformsTo": [
+        "PointerInput"
+      ],
       "defaultParams": {
         "label": "Button",
         "size": "sm",

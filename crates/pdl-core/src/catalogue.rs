@@ -26,6 +26,41 @@ use crate::resolve::{
 };
 use crate::rules_json::rule_line_to_def;
 
+fn catalogue_hosts(design: &DesignDefinition) -> Option<Value> {
+    if design.hosts.is_empty() {
+        return None;
+    }
+    let mut names: Vec<&String> = design.hosts.keys().collect();
+    names.sort();
+    let mut o = Map::new();
+    for name in names {
+        let h = &design.hosts[name];
+        let params: Vec<Value> = h
+            .params
+            .iter()
+            .map(|p| {
+                let mut entries = vec![("name", Value::String(p.name.clone()))];
+                if let Some(var) = design.variants.get(&p.type_name) {
+                    entries.push(("type", Value::String("variant".to_string())));
+                    entries.push(("variantTypeName", Value::String(p.type_name.clone())));
+                    entries.push((
+                        "cases",
+                        Value::Array(var.cases.iter().cloned().map(Value::String).collect()),
+                    ));
+                } else {
+                    entries.push(("type", Value::String(p.type_name.clone())));
+                }
+                obj(entries)
+            })
+            .collect();
+        o.insert(
+            name.clone(),
+            obj(vec![("params", Value::Array(params))]),
+        );
+    }
+    Some(Value::Object(o))
+}
+
 fn json_compact(v: &Value) -> String {
     serde_json::to_string(v).unwrap_or_default()
 }
@@ -878,6 +913,7 @@ struct TokenLayers {
     semantics: Value,
     themes: Value,
     type_styles: Value,
+    catalogs: Value,
 }
 
 fn build_catalogue_token_layers(design: &DesignDefinition) -> TokenLayers {
@@ -943,11 +979,26 @@ fn build_catalogue_token_layers(design: &DesignDefinition) -> TokenLayers {
             ]),
         );
     }
+    let mut catalogs = Map::new();
+    for c in design.catalogs.values() {
+        let mut overrides = Map::new();
+        for (k, expr) in &c.overrides {
+            overrides.insert(k.clone(), serialise_value_expr_with_token_refs(expr, design));
+        }
+        catalogs.insert(
+            c.name.clone(),
+            obj(vec![
+                ("role", Value::String("host".to_string())),
+                ("overrides", Value::Object(overrides)),
+            ]),
+        );
+    }
     TokenLayers {
         primitives: Value::Object(primitives),
         semantics: Value::Object(semantics),
         themes: Value::Object(themes),
         type_styles: Value::Object(type_styles),
+        catalogs: Value::Object(catalogs),
     }
 }
 
@@ -1149,6 +1200,37 @@ pub fn build_catalogue_component_row(
                     };
                     params.insert(b.name.clone(), evaluate_value(&b.value, &mut ev)?);
                 }
+                if let Some(h) = &ex.host {
+                    params.insert("host".to_string(), Value::String(h.clone()));
+                }
+                if let Some(t) = &ex.theme {
+                    params.insert("theme".to_string(), Value::String(t.clone()));
+                }
+                if let Some(raw) = &ex.host_facts {
+                    match serde_json::from_str::<Value>(raw) {
+                        Ok(Value::Object(m)) => {
+                            params.insert("hostFacts".to_string(), Value::Object(m));
+                        }
+                        Ok(_) => {
+                            return Err(PdlError::new(
+                                "PDL-E050",
+                                format!("hostFacts in fixture \"{label}\" must be a JSON object"),
+                                Some(design.entry_path.clone()),
+                                None,
+                                None,
+                            ));
+                        }
+                        Err(e) => {
+                            return Err(PdlError::new(
+                                "PDL-E050",
+                                format!("hostFacts in fixture \"{label}\" is not valid JSON: {e}"),
+                                Some(design.entry_path.clone()),
+                                None,
+                                None,
+                            ));
+                        }
+                    }
+                }
                 o.insert(label.clone(), Value::Object(params));
             }
             Some(Value::Object(o))
@@ -1262,8 +1344,17 @@ pub fn build_catalogue_component_row(
 
     let mut out = Map::new();
     out.insert("name".to_string(), Value::String(c.name.clone()));
-    if let Some(proto) = &c.conforms_to {
-        out.insert("conformsTo".to_string(), Value::String(proto.clone()));
+    if !c.conforms_to.is_empty() {
+        out.insert(
+            "conformsTo".to_string(),
+            Value::Array(
+                c.conforms_to
+                    .iter()
+                    .cloned()
+                    .map(Value::String)
+                    .collect(),
+            ),
+        );
     }
     let host_protos = crate::design::effective_host_protocols(design, c).unwrap_or_default();
     if !host_protos.is_empty() {
@@ -1365,7 +1456,17 @@ pub fn build_component_catalogue(
     }
 
     let mut variant_types = Map::new();
+    // Prelude `TextFieldActivation` is always in the design map; only catalogue it
+    // when some component effectively has EditableText (same idea as host prelude).
+    let editable_text_in_use = design.components.values().any(|c| {
+        crate::design::effective_host_protocols(design, c)
+            .map(|hosts| hosts.iter().any(|h| h == "EditableText"))
+            .unwrap_or(false)
+    });
     for v in design.variants.values() {
+        if v.name == crate::design::TEXT_FIELD_ACTIVATION_VARIANT && !editable_text_in_use {
+            continue;
+        }
         variant_types.insert(
             v.name.clone(),
             obj(vec![
@@ -1397,6 +1498,13 @@ pub fn build_component_catalogue(
     doc.insert("primitives".to_string(), layers.primitives);
     doc.insert("semantics".to_string(), layers.semantics);
     doc.insert("themes".to_string(), layers.themes);
+    let catalogs = layers.catalogs;
+    if !matches!(&catalogs, Value::Object(c) if c.is_empty()) {
+        doc.insert("catalogs".to_string(), catalogs);
+    }
+    if let Some(hosts) = catalogue_hosts(design) {
+        doc.insert("hosts".to_string(), hosts);
+    }
     doc.insert("typeStyles".to_string(), layers.type_styles);
     doc.insert("variantTypes".to_string(), Value::Object(variant_types));
     // Prelude host protocols are always in the design map for validation, but only
@@ -1411,7 +1519,7 @@ pub fn build_component_catalogue(
             let referenced = design
                 .components
                 .values()
-                .any(|c| c.conforms_to.as_deref() == Some(p.name.as_str()))
+                .any(|c| c.conforms_to.iter().any(|n| n == &p.name))
                 || design.protocols.values().any(|other| {
                     other.requires.iter().any(|r| r == &p.name)
                 });

@@ -1,0 +1,20 @@
+// PDL-E049: fixture theme names a catalog.
+
+primitive color.paper: Color = #FFFFFF
+semantic color.surface: Color = color.paper
+
+catalog AppleIcons {
+  color.surface = #000000
+}
+
+host Default()
+
+component Shell <Host>() layout {
+  children = []
+}
+
+fixtures Shell {
+  example "Bad" {
+    theme = "AppleIcons"
+  }
+}

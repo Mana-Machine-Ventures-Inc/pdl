@@ -889,6 +889,8 @@ function assertSectionIntros(objects) {
     "null",
     "tokenTypes",
     "theme",
+    "catalog",
+    "host",
     "typeStyle",
     "values",
     "layers",
@@ -1156,6 +1158,8 @@ ${linkProse(intro.declarations ?? "", catalog)}
   }
 
   body += renderLockedDetail("Theme", "theme", intro.theme, sot.theme, catalog);
+  body += renderLockedDetail("Catalog", "catalog", intro.catalog, sot.catalog, catalog);
+  body += renderLockedDetail("Host environment", "host-environment", intro.host, sot.host, catalog);
   body += renderLockedDetail("typeStyle", "typestyle", intro.typeStyle, sot.typeStyle, catalog);
 
   body += renderCtorGroup(sot, catalog, "value", "Values", "values", new Set(["Corner"]));

@@ -14,8 +14,16 @@ pub enum TokenKind {
     Protocol,
     /// `requires PointerInput` inside a protocol body.
     Requires,
-    /// Bare `host` marker inside a protocol body (`protocol PointerInput { host }`).
+    /// Bare `host` marker inside a protocol body, or top-level `host Name(…)`.
     Host,
+    /// Top-level `catalog Name { … }` (host-role token remap).
+    Catalog,
+    /// Optional body on a host profile (`host Default(…) mount { … }`).
+    Mount,
+    /// Soft/strict convert in `mount` (`as?` / `as`).
+    As,
+    /// `use catalog Name` inside `mount`.
+    Use,
     Component,
     Interaction,
     Expose,
@@ -100,11 +108,15 @@ pub enum TokenKind {
     Ge,
     Lt,
     Le,
+    /// `?` after `as` (`as?`).
+    Question,
+    /// Coalesce in `mount` (`??`).
+    QuestionQuestion,
     Dot,
     Eof,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub kind: TokenKind,
     pub value: String,
@@ -125,6 +137,10 @@ fn keyword(raw: &str) -> Option<TokenKind> {
         "protocol" => TokenKind::Protocol,
         "requires" => TokenKind::Requires,
         "host" => TokenKind::Host,
+        "catalog" => TokenKind::Catalog,
+        "mount" => TokenKind::Mount,
+        "as" => TokenKind::As,
+        "use" => TokenKind::Use,
         "component" => TokenKind::Component,
         "interaction" => TokenKind::Interaction,
         "expose" => TokenKind::Expose,
@@ -541,6 +557,17 @@ pub fn tokenize(source: &str, file_path: &str) -> Result<Vec<Token>, PdlError> {
                 bump(2, &mut i, &mut line, &mut column, &chars);
                 continue;
             }
+            "??" => {
+                push(
+                    &mut tokens,
+                    TokenKind::QuestionQuestion,
+                    "??".into(),
+                    start_line,
+                    start_col,
+                );
+                bump(2, &mut i, &mut line, &mut column, &chars);
+                continue;
+            }
             _ => {}
         }
 
@@ -557,6 +584,7 @@ pub fn tokenize(source: &str, file_path: &str) -> Result<Vec<Token>, PdlError> {
             '@' => (TokenKind::At, "@"),
             '>' => (TokenKind::Gt, ">"),
             '<' => (TokenKind::Lt, "<"),
+            '?' => (TokenKind::Question, "?"),
             _ => {
                 return Err(err(
                     "PDL-E001",

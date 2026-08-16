@@ -9,20 +9,20 @@ export function analyze_sources(files_json: string, entry: string): string;
 /**
  * Bake one component; returns bake-document JSON string.
  */
-export function bake_component_sources(files_json: string, entry: string, component: string, theme?: string | null, kv_json?: string | null): string;
+export function bake_component_sources(files_json: string, entry: string, component: string, theme?: string | null, kv_json?: string | null, host?: string | null, host_facts_json?: string | null): string;
 
 /**
  * Bake all components (system defaults).
  */
-export function bake_system_sources(files_json: string, entry: string, theme?: string | null): string;
+export function bake_system_sources(files_json: string, entry: string, theme?: string | null, host?: string | null, host_facts_json?: string | null): string;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly analyze_sources: (a: number, b: number, c: number, d: number) => [number, number, number, number];
-    readonly bake_component_sources: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
-    readonly bake_system_sources: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+    readonly bake_component_sources: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number) => [number, number, number, number];
+    readonly bake_system_sources: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

@@ -113,7 +113,7 @@
     {
       "code": "PDL-E022",
       "name": "unknown-protocol",
-      "trigger": "A `component C <P>` or protocol-typed param references an undeclared protocol `P`."
+      "trigger": "A `component C <P>` / `component C <P, Q>` or protocol-typed param references an undeclared protocol."
     },
     {
       "code": "PDL-E023",
@@ -214,6 +214,46 @@
       "code": "PDL-E042",
       "name": "duplicate-mount",
       "trigger": "The same **`let`** / **`letInstance`** frame is mounted more than once (`children = [button, button]`, or the same id under two parents). A let is one object with one place in the tree; write two lets or a list."
+    },
+    {
+      "code": "PDL-E043",
+      "name": "duplicate-protocol-header",
+      "trigger": "A component header lists the same protocol more than once (`component C <PointerInput, PointerInput>`)."
+    },
+    {
+      "code": "PDL-E044",
+      "name": "multiple-api-protocols",
+      "trigger": "A component header lists more than one API protocol (`component C <ModalContent, SubnavItem>`). Any number of host protocols is allowed; at most one API protocol in v1."
+    },
+    {
+      "code": "PDL-E045",
+      "name": "host-param-shape-mismatch",
+      "trigger": "Two `host` profiles in the same design declare different param names or types. Defaults may differ; the `<Host>` contract must be one shape."
+    },
+    {
+      "code": "PDL-E046",
+      "name": "unknown-host-profile",
+      "trigger": "Bake `--host` / `host` names a profile that is not in the design, or the design has several `host` profiles and none named `Default` and no profile was requested."
+    },
+    {
+      "code": "PDL-E047",
+      "name": "host-probe-outside-mount",
+      "trigger": "`host[\"…\"]` or `??` appears outside a `mount` body (component body, token RHS, or other value)."
+    },
+    {
+      "code": "PDL-E048",
+      "name": "mount-coalesce-empty",
+      "trigger": "A `mount` let or `self.param =` coalesce produced no value (every `as?` arm missed and there was no literal fallback), or a strict `as` convert failed."
+    },
+    {
+      "code": "PDL-E049",
+      "name": "theme-catalog-role-mismatch",
+      "trigger": "`use catalog` names a `theme`, or bake `--theme` / the theme argument names a `catalog`. Themes are user-toggleable; catalogs are host-applied in `mount`."
+    },
+    {
+      "code": "PDL-E050",
+      "name": "invalid-host-facts",
+      "trigger": "A fixture `hostFacts` value is not a JSON object string (invalid JSON, or a JSON array/scalar)."
     }
   ],
   "warnings": [
