@@ -72,7 +72,7 @@ Rust B4b/B5 + host-protocol validation + `self.<channel> = { … }` parse landed
 | [`PROPOSAL_FRAME_BLUR.md`](./PROPOSAL_FRAME_BLUR.md) | **Accepted** — **E0** + **E2** + E3 lab shipped | Frame `effect` / `blur =`. **E1** `Blur()` alias window; leftover E3 `material.sheet`; **E4** `.glass` reserved. |
 | [`PROPOSAL_MOTION_TEXT_STAGGER.md`](./PROPOSAL_MOTION_TEXT_STAGGER.md) | **Proposed** | `Stagger.unit` / text split. Do not start until M3 is stable. |
 | [`PROPOSAL_ADAPTIVE_LAYOUT.md`](./PROPOSAL_ADAPTIVE_LAYOUT.md) | **Proposed** — revised by Host Environment | Opt-in size-class idea; taxonomy/policy move to pack `hostSchema` / `host` |
-| [`PROPOSAL_HOST_ENVIRONMENT.md`](./PROPOSAL_HOST_ENVIRONMENT.md) | **Proposed** 2026-08-16 | `hostSchema`, named `host`, facts bag / `hostInput`, `<HostPlatform>`, `T?` / `if let` / `??` at bag boundary; revises Adaptive Layout |
+| [`PROPOSAL_HOST_ENVIRONMENT.md`](./PROPOSAL_HOST_ENVIRONMENT.md) | **Proposed** 2026-08-16 | Unified `host Name(params) [mount]`, facts bag / `hostInput`, `<Host>`, `T?` / `if let` / `??`; revises Adaptive Layout |
 
 **Follow-up — `children` list spelling (2026-08-12):** Bare `children = tracks` / `Frame.children = Tracks.focus.tracks` reads as **replace** with a list; `children = [Header, tracks, Footer]` reads as **compose** (lists splice). Solo `children = [tracks]` is legal sugar (bare ≡ brackets) but feels like “array-in-array.” Guidance lives in `shared/language-objects.json` `arrayChildren`; later lints may prefer bare for pure replace. Do not ban `[list]` in v1.
 

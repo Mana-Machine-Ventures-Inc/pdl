@@ -1,6 +1,6 @@
 # Proposal: Adaptive layout (`sizeClass` host protocol)
 
-**Status:** proposed (2026-08-15) — **size taxonomy / host policy revised by** [`PROPOSAL_HOST_ENVIRONMENT.md`](./PROPOSAL_HOST_ENVIRONMENT.md) (2026-08-16). Prefer pack `hostSchema` + `host` + `<HostPlatform>` over a language-fixed `SizeClass` prelude. This doc remains useful for product rules (opt-in structure flips, no CSS in bake, measure the mount).  
+**Status:** proposed (2026-08-15) — **size taxonomy / host policy revised by** [`PROPOSAL_HOST_ENVIRONMENT.md`](./PROPOSAL_HOST_ENVIRONMENT.md) (2026-08-16). Prefer pack `host Name(params) [mount]` + `<Host>` over a language-fixed `SizeClass` prelude. This doc remains useful for product rules (opt-in structure flips, no CSS in bake, measure the mount).  
 **Depends on:** `docs/PROPOSAL_PROTOCOL_CAPABILITIES.md`; EditableText injected state (`crates/pdl-core/src/design.rs` `editable_text_injected_params`); `test-fixtures/pdl/stdlib/host_protocols.pdl`; bake-as-snapshot (`website/src/index.md`)  
 **Not CSS.** Do not put `@media` / container queries in bake JSON or in `.pdl`.  
 **Related:** Playground param knobs / fixtures; `/device`; future SwiftUI host (C2); **Host Environment** proposal
