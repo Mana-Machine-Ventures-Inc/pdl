@@ -307,7 +307,8 @@ Pack `sizeClass` on `host` + `<Host>` replaces prelude-fixed `SizeClass` / `<Ada
 |---------|-----------|
 | Hosts with different param shapes | Error |
 | `host["…"]` / `use catalog` outside `mount` | Error |
-| Strict bag compare, missing/wrong type | Error |
+| Strict `as Type` conversion failure | Error at bake |
+| Soft `as?` miss | Falls through `??` — not an error |
 | `use theme CatalogName` when Name is a catalog (or `--theme` a catalog) | Error — wrong role |
 | `use catalog ThemeName` when Name is a theme | Error — wrong role |
 | Component reads host param without `<Host>` | Error |
