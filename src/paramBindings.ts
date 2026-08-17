@@ -55,8 +55,8 @@ function valueKindLabel(value: ValueExpr): string {
       return "Corner(…)";
     case "gradientStop":
       return "GradientStop(…)";
-    case "transition":
-      return "transition";
+    case "timing":
+      return "timing";
     default:
       return value.kind;
   }
@@ -233,12 +233,12 @@ export function assertParamValueCompatible(
     if (value.kind === "gradientStop") return;
     mismatch();
   }
-  if (expected === "Easing") {
+  if (expected === "Ease") {
     if (value.kind === "string" || value.kind === "dotEnum") return;
     mismatch();
   }
-  if (expected === "Transition") {
-    if (value.kind === "transition") return;
+  if (expected === "Timing") {
+    if (value.kind === "timing") return;
     mismatch();
   }
   if (expected === "Pose") {
@@ -250,7 +250,7 @@ export function assertParamValueCompatible(
     mismatch();
   }
   if (expected === "Motion") {
-    if (value.kind === "motion" || value.kind === "transition") return;
+    if (value.kind === "motion" || value.kind === "timing") return;
     mismatch();
   }
   if (expected === "Effect") {

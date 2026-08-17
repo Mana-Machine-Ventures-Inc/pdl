@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use crate::asset_refs::{is_http_url, is_pack_relative_file_path, normalize_icon_system_name};
 use crate::ast::*;
 use crate::conditions::validate_condition_expr;
-use crate::design::{effective_params, resolve_active_host, DesignDefinition};
+use crate::design::{effective_emits, effective_params, resolve_active_host, DesignDefinition};
 use crate::error::PdlError;
 use crate::frame_props::{validate_frame_props_in_body, validate_type_style_props};
 use crate::motion::is_motion_prop_name;
@@ -223,12 +223,9 @@ fn ambient_event(name: &str) -> bool {
 /// Host protocol that must cover this ambient event (PointerInput / EditableText).
 fn host_protocol_for_ambient(event: &str) -> Option<&'static str> {
     match event {
-        "hoverStart" | "hoverEnd" | "pressStart" | "pressEnd" | "pressCancel"
-        | "focusStart" | "focusEnd" | "activate" | "appear" | "dismiss" => Some("PointerInput"),
-        "editingBegan"
-        | "editingFinished"
-        | "editingCancelled"
-        | "keyboardDismissed"
+        "hoverStart" | "hoverEnd" | "pressStart" | "pressEnd" | "pressCancel" | "focusStart"
+        | "focusEnd" | "activate" | "appear" | "dismiss" => Some("PointerInput"),
+        "editingBegan" | "editingFinished" | "editingCancelled" | "keyboardDismissed"
         | "keyboardCancelled" => Some("EditableText"),
         _ => None,
     }
@@ -249,6 +246,8 @@ fn validate_layout_on_handler(
     param_by_name: &HashMap<String, String>,
     array_params: &HashSet<String>,
     component_name: &str,
+    // ForEach binder captures store `qualifier: None` (catalogue uses the list name).
+    foreach_binder: bool,
 ) -> Result<(), PdlError> {
     if ambient_event(&handler.channel) {
         return Err(err(
@@ -261,6 +260,28 @@ fn validate_layout_on_handler(
         ));
     }
     if let Some(q) = &handler.qualifier {
+        if design.protocols.contains_key(q) {
+            return Err(err(
+                "PDL-E052",
+                format!(
+                    "Ancestor capture is a bare channel (`{}(…) = {{ … }}`); \
+                     `{q}.{}` treats protocol `{q}` like a child let (component {component_name})",
+                    handler.channel, handler.channel
+                ),
+                design,
+            ));
+        }
+        if q == "presenter" || q == "Presenter" {
+            return Err(err(
+                "PDL-E052",
+                format!(
+                    "`{q}.{}` is not ancestor capture (component {component_name}); \
+                     the presenter is a hole. Write `{}(…) = {{ … }}` on the ancestor",
+                    handler.channel, handler.channel
+                ),
+                design,
+            ));
+        }
         if array_params.contains(q) {
             return Err(err(
                 "PDL-E036",
@@ -268,6 +289,47 @@ fn validate_layout_on_handler(
                     "Cannot capture list emits as `{q}.{}(…) = {{ … }}` (component {component_name}); \
                      use `ForEach({q}) {{ item in item.{}(…) = {{ … }} }}` (§4e)",
                     handler.channel, handler.channel
+                ),
+                design,
+            ));
+        }
+    } else if !foreach_binder {
+        let Some(sig) = ancestors_emit_sig(design, &handler.channel) else {
+            return Err(err(
+                "PDL-E024",
+                format!(
+                    "Bare `{}(…) =` is ancestor capture; `{}` is not an `.ancestors` emit \
+                     (component {component_name})",
+                    handler.channel, handler.channel
+                ),
+                design,
+            ));
+        };
+        if let Some(proto) = ancestors_emit_protocol(design, &handler.channel) {
+            let listed = design
+                .components
+                .get(component_name)
+                .map(|c| c.conforms_to.iter().any(|p| p == proto))
+                .unwrap_or(false);
+            if !listed {
+                return Err(err(
+                    "PDL-E024",
+                    format!(
+                        "Bare `{}(…) =` requires `<{proto}>` on `{component_name}` \
+                         (receive / ancestor sink)",
+                        handler.channel
+                    ),
+                    design,
+                ));
+            }
+        }
+        if !emit_payloads_match_by_position(&handler.payload, &sig.args) {
+            return Err(err(
+                "PDL-E027",
+                format!(
+                    "Ancestor capture `{}(…)` payload does not match the `.ancestors` signature \
+                     (component {component_name})",
+                    handler.channel
                 ),
                 design,
             ));
@@ -299,6 +361,25 @@ fn validate_layout_on_handler(
                     name,
                     args,
                     param_by_name,
+                )?;
+            }
+            crate::ast::LayoutOnBodyItem::PresenterVerb {
+                qualifier,
+                verb,
+                page,
+                style,
+                move_spec,
+                dismiss_move,
+            } => {
+                validate_presenter_verb(
+                    design,
+                    component_name,
+                    qualifier,
+                    *verb,
+                    page.as_ref(),
+                    style.as_deref(),
+                    move_spec.as_ref(),
+                    dismiss_move.as_ref(),
                 )?;
             }
         }
@@ -480,6 +561,7 @@ fn validate_if_conditions_in_body(
                         param_by_name,
                         array_params,
                         component_name,
+                        true,
                     )?;
                 }
             }
@@ -490,6 +572,7 @@ fn validate_if_conditions_in_body(
                     param_by_name,
                     array_params,
                     component_name,
+                    false,
                 )?;
             }
             _ => {}
@@ -575,10 +658,7 @@ fn validate_samples(design: &DesignDefinition) -> Result<(), PdlError> {
                     &f.type_name,
                     &f.value,
                     &field_caller,
-                    &format!(
-                        "for sample field `{}.{}.{}`",
-                        bank.name, entry.name, f.name
-                    ),
+                    &format!("for sample field `{}.{}.{}`", bank.name, entry.name, f.name),
                 )?;
             }
         }
@@ -635,11 +715,7 @@ fn collect_foreach_and_children_mounts(
     }
 }
 
-fn duplicate_mount_error(
-    design: &DesignDefinition,
-    id: &str,
-    component_name: &str,
-) -> PdlError {
+fn duplicate_mount_error(design: &DesignDefinition, id: &str, component_name: &str) -> PdlError {
     err(
         "PDL-E042",
         format!(
@@ -703,10 +779,7 @@ fn validate_unique_frame_mounts(
     validate_unique_frame_mounts_in_body(design, &c.body, frame_lets, &c.name)
 }
 
-fn validate_foreach_mounts(
-    design: &DesignDefinition,
-    c: &ComponentDecl,
-) -> Result<(), PdlError> {
+fn validate_foreach_mounts(design: &DesignDefinition, c: &ComponentDecl) -> Result<(), PdlError> {
     let mut foreach_lists = HashSet::new();
     let mut children_refs = HashSet::new();
     collect_foreach_and_children_mounts(&c.body, &mut foreach_lists, &mut children_refs);
@@ -1043,13 +1116,45 @@ fn validate_fixtures_for_component(
                 Err(e) => {
                     return Err(err(
                         "PDL-E050",
-                        format!("hostFacts in fixture \"{}\" is not valid JSON: {e}", ex.label),
+                        format!(
+                            "hostFacts in fixture \"{}\" is not valid JSON: {e}",
+                            ex.label
+                        ),
                         design,
                     ));
                 }
             }
         }
+        let mut presenters = HashSet::new();
+        presenter_lets_in_body(&c.body, &mut presenters);
         for b in &ex.bindings {
+            if let Some((let_id, field)) = b.name.split_once('.') {
+                if presenters.contains(let_id) {
+                    if field == "cover" {
+                        validate_presenter_cover_pin(
+                            design,
+                            component_name,
+                            &ex.label,
+                            let_id,
+                            &b.value,
+                        )?;
+                        continue;
+                    }
+                    return Err(err(
+                        "PDL-E055",
+                        format!(
+                            "Fixture \"{}\" unknown presenter field `{field}` \
+                             (use `{let_id}` for the stack or `{let_id}.cover`)",
+                            ex.label
+                        ),
+                        design,
+                    ));
+                }
+            }
+            if presenters.contains(&b.name) {
+                validate_presenter_stack_pin(design, component_name, &ex.label, &b.name, &b.value)?;
+                continue;
+            }
             let Some(p) = pmap.get(b.name.as_str()) else {
                 return Err(err(
                     "PDL-E007",
@@ -1082,29 +1187,118 @@ fn play_name(value: &ValueExpr) -> Option<&str> {
     }
 }
 
+fn presentation_motion_ident_name(name: &str) -> &str {
+    name.strip_suffix(".reversed").unwrap_or(name)
+}
+
+fn validate_presentation_motion_value(
+    design: &DesignDefinition,
+    value: &ValueExpr,
+    where_: &str,
+    component_name: &str,
+) -> Result<(), PdlError> {
+    match value {
+        ValueExpr::PresentationMotion { .. } => Ok(()),
+        ValueExpr::Ident { name } => {
+            let base = presentation_motion_ident_name(name);
+            match token_type_of(design, base).as_deref() {
+                Some("PresentationMotion") => Ok(()),
+                Some(t) => Err(err(
+                    "PDL-E005",
+                    format!("{where_} must be a PresentationMotion (got {t}) in {component_name}"),
+                    design,
+                )),
+                None => Err(err(
+                    "PDL-E005",
+                    format!(
+                        "{where_} must be a PresentationMotion (unknown `{base}`) in {component_name}"
+                    ),
+                    design,
+                )),
+            }
+        }
+        _ => Err(err(
+            "PDL-E005",
+            format!("{where_} must be a PresentationMotion in {component_name}"),
+            design,
+        )),
+    }
+}
+
+fn validate_ease_value(
+    design: &DesignDefinition,
+    value: &ValueExpr,
+    where_: &str,
+) -> Result<(), PdlError> {
+    match value {
+        ValueExpr::EaseBezier { .. } => Ok(()),
+        ValueExpr::DotEnum { value } => {
+            let raw = value.trim_start_matches('.');
+            if raw == "linear" || raw == "in" || raw == "out" {
+                Ok(())
+            } else {
+                Err(err(
+                    "PDL-E005",
+                    format!(
+                        "{where_} must be `.linear`, `.in`, `.out`, or `Ease.bezier(x1, y1, x2, y2)`"
+                    ),
+                    design,
+                ))
+            }
+        }
+        ValueExpr::Ident { name } => match token_type_of(design, name).as_deref() {
+            Some("Ease") => Ok(()),
+            Some(t) => Err(err(
+                "PDL-E005",
+                format!("{where_} must be an Ease (got {t})"),
+                design,
+            )),
+            None => Err(err(
+                "PDL-E005",
+                format!("{where_} must be an Ease (unknown `{name}`)"),
+                design,
+            )),
+        },
+        ValueExpr::String { .. } => Err(err(
+            "PDL-E005",
+            format!(
+                "{where_} must be `.linear`, `.in`, `.out`, or `Ease.bezier(x1, y1, x2, y2)` — not a CSS string"
+            ),
+            design,
+        )),
+        _ => Err(err(
+            "PDL-E005",
+            format!(
+                "{where_} must be `.linear`, `.in`, `.out`, or `Ease.bezier(x1, y1, x2, y2)`"
+            ),
+            design,
+        )),
+    }
+}
+
 fn validate_transition_value(
     design: &DesignDefinition,
     value: &ValueExpr,
     where_: &str,
 ) -> Result<(), PdlError> {
     match value {
-        ValueExpr::Transition { .. } => Ok(()),
+        ValueExpr::Timing { ease, .. } => validate_ease_value(design, ease, where_),
         ValueExpr::Ident { name } => match token_type_of(design, name).as_deref() {
-            Some("Transition") => Ok(()),
+            Some("Timing") => Ok(()),
             Some(t) => Err(err(
                 "PDL-E005",
-                format!("{where_} must be a Transition (got {t})"),
+                format!("{where_} must be a Timing (got {t})"),
                 design,
             )),
             None => Err(err(
                 "PDL-E005",
-                format!("{where_} must be a Transition token or tuple (unknown `{name}`)"),
+                format!("{where_} must be a Timing token or `Timing(…)` (unknown `{name}`)"),
                 design,
             )),
         },
         _ => Err(err(
             "PDL-E005",
-            format!("{where_} must be a Transition token or tuple `(duration: …, easing: …)`"),
+            format!("{where_} must be a Timing token or `Timing(duration:, ease: [, delay:])`"),
             design,
         )),
     }
@@ -1212,7 +1406,9 @@ fn validate_stagger_value(
         },
         _ => Err(err(
             "PDL-E005",
-            format!("Motion `stagger:` must be `Stagger(…)` or a Stagger token in {component_name}"),
+            format!(
+                "Motion `stagger:` must be `Stagger(…)` or a Stagger token in {component_name}"
+            ),
             design,
         )),
     }
@@ -1392,25 +1588,27 @@ fn validate_animate_motion(
     _event: &str,
 ) -> Result<(), PdlError> {
     match value {
-        ValueExpr::Transition { .. } => Ok(()),
+        ValueExpr::Timing { ease, .. } => {
+            validate_ease_value(design, ease, &format!("`animate =` Timing in {component_name}"))
+        }
         ValueExpr::Ident { name } => match token_type_of(design, name).as_deref() {
-            Some("Transition") | Some("Motion") => Ok(()),
+            Some("Timing") | Some("Motion") => Ok(()),
             Some(t) => Err(err(
                 "PDL-E005",
-                format!("`animate =` must be a Motion or Transition (got {t}) in {component_name}"),
+                format!("`animate =` must be a Motion or Timing (got {t}) in {component_name}"),
                 design,
             )),
             None => Err(err(
                 "PDL-E005",
                 format!(
-                    "`animate =` must be a Motion or Transition in {component_name} (unknown `{name}`)"
+                    "`animate =` must be a Motion or Timing in {component_name} (unknown `{name}`)"
                 ),
                 design,
             )),
         },
         ValueExpr::Motion {
             base,
-            transition,
+            timing,
             pose,
             keys,
             play,
@@ -1420,16 +1618,16 @@ fn validate_animate_motion(
             if let Some(b) = base {
                 validate_motion_base(design, b, component_name)?;
             }
-            if let Some(t) = transition {
+            if let Some(t) = timing {
                 validate_transition_value(
                     design,
                     t,
-                    &format!("Motion `transition:` in {component_name}"),
+                    &format!("Motion `timing:` in {component_name}"),
                 )?;
             } else if base.is_none() {
                 return Err(err(
                     "PDL-E005",
-                    format!("Motion requires `transition:` in {component_name}"),
+                    format!("Motion requires `timing:` in {component_name}"),
                     design,
                 ));
             }
@@ -1673,9 +1871,7 @@ fn collect_needed_host_protocols_from_body(
     for it in items {
         match it {
             InteractionHandlerItem::HostVerb {
-                qualifier,
-                name,
-                ..
+                qualifier, name, ..
             } => {
                 // Bare verbs require this component's host protocol; let-qualified
                 // verbs are validated against the target let (see validate_host_verb_call).
@@ -1822,6 +2018,23 @@ fn validate_host_protocol_prelude(design: &DesignDefinition) -> Result<(), PdlEr
     Ok(())
 }
 
+/// Prelude `Page` is an API protocol. Restate as `protocol Page: component { }`; not `{ host }`.
+fn validate_page_protocol_prelude(design: &DesignDefinition) -> Result<(), PdlError> {
+    let Some(p) = design.protocols.get(crate::design::PAGE_PROTOCOL_PRELUDE) else {
+        return Ok(());
+    };
+    if p.role != crate::ast::ProtocolRole::Api {
+        return Err(err(
+            "PDL-E032",
+            "Prelude `Page` cannot be redefined as a host protocol \
+             (keep `protocol Page: component { }` / stdlib `page_protocols.pdl`, or omit — it is always in scope)"
+                .into(),
+            design,
+        ));
+    }
+    Ok(())
+}
+
 fn validate_protocol_requires(design: &DesignDefinition) -> Result<(), PdlError> {
     for p in design.protocols.values() {
         if p.role == crate::ast::ProtocolRole::Host && !p.requires.is_empty() {
@@ -1838,10 +2051,7 @@ fn validate_protocol_requires(design: &DesignDefinition) -> Result<(), PdlError>
             let Some(target) = design.protocols.get(dep) else {
                 return Err(err(
                     "PDL-E022",
-                    format!(
-                        "Protocol `{}` requires unknown protocol `{dep}`",
-                        p.name
-                    ),
+                    format!("Protocol `{}` requires unknown protocol `{dep}`", p.name),
                     design,
                 ));
             };
@@ -2016,13 +2226,13 @@ fn validate_opacity_sides(design: &DesignDefinition, expr: &ValueExpr) -> Result
             }
             Ok(())
         }
-        ValueExpr::Transition {
+        ValueExpr::Timing {
             duration,
-            easing,
+            ease,
             delay,
         } => {
             validate_opacity_sides(design, duration)?;
-            validate_opacity_sides(design, easing)?;
+            validate_opacity_sides(design, ease)?;
             if let Some(d) = delay {
                 validate_opacity_sides(design, d)?;
             }
@@ -2041,17 +2251,17 @@ fn validate_opacity_sides(design: &DesignDefinition, expr: &ValueExpr) -> Result
             }
             Ok(())
         }
-        ValueExpr::Key { pose, at, easing } => {
+        ValueExpr::Key { pose, at, ease } => {
             validate_opacity_sides(design, pose)?;
             validate_opacity_sides(design, at)?;
-            if let Some(e) = easing {
+            if let Some(e) = ease {
                 validate_opacity_sides(design, e)?;
             }
             Ok(())
         }
         ValueExpr::Motion {
             base,
-            transition,
+            timing,
             pose,
             keys,
             play,
@@ -2061,7 +2271,7 @@ fn validate_opacity_sides(design: &DesignDefinition, expr: &ValueExpr) -> Result
             if let Some(b) = base {
                 validate_opacity_sides(design, b)?;
             }
-            if let Some(t) = transition {
+            if let Some(t) = timing {
                 validate_opacity_sides(design, t)?;
             }
             if let Some(p) = pose {
@@ -2131,18 +2341,22 @@ fn token_rhs_expectation(token_type: &str) -> &'static str {
         "Blur" => {
             "`Blur(radius: … [, style:] [, vibrancy:])` (radius is a Radius / number — not a bare number token)"
         }
-        "FontFamily" | "Easing" => "a string",
+        "FontFamily" => "a string",
+        "Ease" => "`.linear`, `.in`, `.out`, or `Ease.bezier(x1, y1, x2, y2)`",
         "Icon" => {
             "`IconRef(file: \"…\")`, `IconRef(system: .sfSymbols|.materialSymbols, name: \"…\")`, or a pack-relative path string"
         }
         "MediaSource" => {
             "`MediaSource(file: \"…\" [, kind:, format:])`, `MediaSource(url: \"…\" [, kind:, format:])`, an http(s) URL, or a pack-relative path string"
         }
-        "Transition" => "a transition tuple `(duration: …, easing: …)`",
+        "Timing" => "`Timing(duration:, ease: [, delay:])`",
         "Pose" => "`Pose(opacity:, scale:, …)`",
         "Stagger" => "`Stagger(step: … [, from: .first|.last])`",
         "Motion" => {
-            "`Motion(transition: … [, play:] [, pose:] [, keys:] [, stagger:] [, repeat:])`, `Motion(token, field:)`, or a Transition"
+            "`Motion(timing: … [, play:] [, pose:] [, keys:] [, stagger:] [, repeat:])`, `Motion(token, field:)`, or a Timing"
+        }
+        "PresentationMotion" => {
+            "`PresentationMotion(incoming:, outgoing: [, duration:] [, ease:] [, delay:] [, front:] [, promoteAt:])`"
         }
         "Effect" => {
             "`Effect(.blurSelf | .blurBehind, radius: [, vibrancy:])` (`.glass` is not implemented yet)"
@@ -2182,7 +2396,7 @@ fn value_expr_kind_name(value: &ValueExpr) -> &'static str {
         ValueExpr::MediaSourceFile { .. } | ValueExpr::MediaSourceUrl { .. } => "mediaSourceRef",
         ValueExpr::Array { .. } => "array",
         ValueExpr::Instance { .. } => "instance",
-        ValueExpr::Transition { .. } => "transition",
+        ValueExpr::Timing { .. } => "timing",
         ValueExpr::Pose { .. } => "pose",
         ValueExpr::Stagger { .. } => "stagger",
         ValueExpr::Key { .. } => "key",
@@ -2193,6 +2407,8 @@ fn value_expr_kind_name(value: &ValueExpr) -> &'static str {
         ValueExpr::Sizing { .. } => "sizing",
         ValueExpr::Call { .. } => "call",
         ValueExpr::GradientStop { .. } => "gradientStop",
+        ValueExpr::EaseBezier { .. } => "easeBezier",
+        ValueExpr::PresentationMotion { .. } => "presentationMotion",
     }
 }
 
@@ -2234,9 +2450,7 @@ fn assert_shadow_axis_field(
             if non_negative && *n < 0.0 {
                 return Err(err(
                     "PDL-E005",
-                    format!(
-                        "Shadow `{token_name}` field `{field}` must be a non-negative number"
-                    ),
+                    format!("Shadow `{token_name}` field `{field}` must be a non-negative number"),
                     design,
                 ));
             }
@@ -2555,7 +2769,14 @@ fn assert_token_rhs_compatible(
             }
         ),
         "FontFamily" => matches!(value, ValueExpr::String { .. }),
-        "Easing" => matches!(value, ValueExpr::String { .. } | ValueExpr::DotEnum { .. }),
+        "Ease" => match value {
+            ValueExpr::EaseBezier { .. } => true,
+            ValueExpr::DotEnum { value } => {
+                let raw = value.trim_start_matches('.');
+                raw == "linear" || raw == "in" || raw == "out"
+            }
+            _ => false,
+        },
         "Icon" => match value {
             ValueExpr::IconFile { .. } | ValueExpr::IconSystem { .. } => true,
             ValueExpr::String { value: s } => is_pack_relative_file_path(s),
@@ -2566,13 +2787,14 @@ fn assert_token_rhs_compatible(
             ValueExpr::String { value: s } => is_http_url(s) || is_pack_relative_file_path(s),
             _ => false,
         },
-        "Transition" => matches!(value, ValueExpr::Transition { .. }),
+        "Timing" => matches!(value, ValueExpr::Timing { .. }),
         "Pose" => matches!(value, ValueExpr::Pose { .. }),
         "Stagger" => matches!(value, ValueExpr::Stagger { .. }),
         "Motion" => matches!(
             value,
-            ValueExpr::Motion { .. } | ValueExpr::Transition { .. }
+            ValueExpr::Motion { .. } | ValueExpr::Timing { .. }
         ),
+        "PresentationMotion" => matches!(value, ValueExpr::PresentationMotion { .. }),
         "Effect" => matches!(
             value,
             ValueExpr::Effect { .. }
@@ -2677,6 +2899,22 @@ fn assert_token_rhs_compatible(
         if let ValueExpr::Motion { .. } = value {
             validate_animate_motion(design, value, name, "")?;
         }
+        if let ValueExpr::Timing { ease, .. } = value {
+            validate_ease_value(design, ease, &format!("Token `{name}`"))?;
+        }
+    }
+    if token_type == "Timing" {
+        if let ValueExpr::Timing { ease, .. } = value {
+            validate_ease_value(design, ease, &format!("Token `{name}`"))?;
+        }
+    }
+    if token_type == "PresentationMotion" {
+        if let ValueExpr::PresentationMotion {
+            ease: Some(e), ..
+        } = value
+        {
+            validate_ease_value(design, e, &format!("Token `{name}` ease"))?;
+        }
     }
     if token_type == "Effect" {
         if let ValueExpr::Effect { .. } = value {
@@ -2694,9 +2932,11 @@ fn assert_token_rhs_compatible(
             args,
         } = value
         {
-            if let Err(e) =
-                crate::frame_props::assert_blur_call_compatible(design, args, &format!("Token `{name}`"))
-            {
+            if let Err(e) = crate::frame_props::assert_blur_call_compatible(
+                design,
+                args,
+                &format!("Token `{name}`"),
+            ) {
                 if e.code == "PDL-E040" || e.code == "PDL-E020" {
                     return Err(err("PDL-E005", e.message, design));
                 }
@@ -2710,9 +2950,11 @@ fn assert_token_rhs_compatible(
             args,
         } = value
         {
-            if let Err(e) =
-                crate::frame_props::assert_blur_call_compatible(design, args, &format!("Token `{name}`"))
-            {
+            if let Err(e) = crate::frame_props::assert_blur_call_compatible(
+                design,
+                args,
+                &format!("Token `{name}`"),
+            ) {
                 if e.code == "PDL-E040" || e.code == "PDL-E020" {
                     return Err(err("PDL-E005", e.message, design));
                 }
@@ -2748,7 +2990,10 @@ fn assert_token_rhs_compatible(
         }
     }
     if token_type == "Icon"
-        && matches!(value, ValueExpr::IconFile { .. } | ValueExpr::IconSystem { .. })
+        && matches!(
+            value,
+            ValueExpr::IconFile { .. } | ValueExpr::IconSystem { .. }
+        )
     {
         assert_icon_ref_fields(design, name, value)?;
     }
@@ -2761,11 +3006,9 @@ fn assert_token_rhs_compatible(
         assert_media_source_ref_fields(design, name, value)?;
     }
     if ok && (token_type == "Background" || token_type == "Foreground") {
-        if let Err(e) = crate::frame_props::assert_layer_stack_value(
-            design,
-            value,
-            &format!("Token `{name}`"),
-        ) {
+        if let Err(e) =
+            crate::frame_props::assert_layer_stack_value(design, value, &format!("Token `{name}`"))
+        {
             // Frame props use E006; token RHS stays E005.
             if e.code == "PDL-E006" {
                 return Err(err("PDL-E005", e.message, design));
@@ -2912,10 +3155,810 @@ fn validate_param_types(design: &DesignDefinition) -> Result<(), PdlError> {
     Ok(())
 }
 
+fn presenter_lets_in_body(body: &[FrameBodyItem], out: &mut HashSet<String>) {
+    for item in body {
+        match item {
+            FrameBodyItem::Let {
+                id,
+                frame_kind,
+                body,
+                ..
+            } => {
+                if frame_kind == "presenter" {
+                    out.insert(id.clone());
+                }
+                presenter_lets_in_body(body, out);
+            }
+            FrameBodyItem::If { chain } => {
+                for br in &chain.branches {
+                    presenter_lets_in_body(&br.body, out);
+                }
+                if let Some(else_body) = &chain.else_body {
+                    presenter_lets_in_body(else_body, out);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+fn child_entry_must_be_page(
+    design: &DesignDefinition,
+    owner: &str,
+    entry: &ChildEntry,
+    where_: &str,
+) -> Result<(), PdlError> {
+    let component = match entry {
+        ChildEntry::FrameRef { id, .. } => {
+            if let Some(c) = let_instance_component(design, owner, id) {
+                c.to_string()
+            } else if let Some(c) = design.components.get(owner) {
+                let params = effective_params(design, c).unwrap_or_default();
+                if let Some(p) = params.iter().find(|p| p.name == *id) {
+                    if p.type_name == crate::design::PAGE_PROTOCOL_PRELUDE
+                        || crate::pack::component_satisfies_bound(design, &p.type_name, "Page")
+                    {
+                        return Ok(());
+                    }
+                    return Err(err(
+                        "PDL-E040",
+                        format!(
+                            "Presenter `root` {where_} (`{id}`) is `{ty}`, expected `Page`",
+                            ty = p.type_name
+                        ),
+                        design,
+                    ));
+                } else {
+                    return Err(err(
+                        "PDL-E054",
+                        format!(
+                            "Presenter `root` {where_} names unknown let or param `{id}` (component {owner})"
+                        ),
+                        design,
+                    ));
+                }
+            } else {
+                return Err(err(
+                    "PDL-E054",
+                    format!("Presenter `root` {where_} names unknown let `{id}`"),
+                    design,
+                ));
+            }
+        }
+        ChildEntry::Instance { component, .. } => component.clone(),
+        _ => {
+            return Err(err(
+                "PDL-E054",
+                format!("Presenter `root` {where_} must be a page let or page instance"),
+                design,
+            ));
+        }
+    };
+    if crate::pack::component_satisfies_bound(design, &component, "Page") {
+        Ok(())
+    } else {
+        Err(err(
+            "PDL-E040",
+            format!("Presenter `root` {where_} is `{component}`, which does not satisfy `Page`"),
+            design,
+        ))
+    }
+}
+
+fn validate_presenter_lets(design: &DesignDefinition, c: &ComponentDecl) -> Result<(), PdlError> {
+    fn walk(
+        design: &DesignDefinition,
+        owner: &str,
+        body: &[FrameBodyItem],
+    ) -> Result<(), PdlError> {
+        for item in body {
+            match item {
+                FrameBodyItem::Let {
+                    id,
+                    frame_kind,
+                    body,
+                } if frame_kind == "presenter" => {
+                    let entries: Vec<&ChildEntry> = body
+                        .iter()
+                        .filter_map(|i| match i {
+                            FrameBodyItem::Children { entries, .. } => Some(entries),
+                            _ => None,
+                        })
+                        .flatten()
+                        .collect();
+                    if entries.is_empty() {
+                        return Err(err(
+                            "PDL-E054",
+                            format!(
+                                "`Presenter()` requires `root:` (component {owner}, let `{id}`)"
+                            ),
+                            design,
+                        ));
+                    }
+                    if entries.len() > 1 {
+                        return Err(err(
+                            "PDL-E054",
+                            format!("Presenter `{id}` paints one child (component {owner})"),
+                            design,
+                        ));
+                    }
+                    child_entry_must_be_page(design, owner, entries[0], &format!("on `{id}`"))?;
+                    walk(design, owner, body)?;
+                }
+                FrameBodyItem::Let { body, .. } => walk(design, owner, body)?,
+                FrameBodyItem::If { chain } => {
+                    for br in &chain.branches {
+                        walk(design, owner, &br.body)?;
+                    }
+                    if let Some(else_body) = &chain.else_body {
+                        walk(design, owner, else_body)?;
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+    walk(design, &c.name, &c.body)
+}
+
+fn validate_presenter_stack_pin(
+    design: &DesignDefinition,
+    component_name: &str,
+    label: &str,
+    let_id: &str,
+    value: &ValueExpr,
+) -> Result<(), PdlError> {
+    let items: Vec<&ValueExpr> = match value {
+        ValueExpr::Array { items } if !items.is_empty() => items.iter().collect(),
+        ValueExpr::Instance { .. } | ValueExpr::Ident { .. } => vec![value],
+        _ => {
+            return Err(err(
+                "PDL-E054",
+                format!(
+                    "Fixture \"{label}\" `{let_id}` must be a page stack \
+                     (`{let_id} = [Home(), Episode()]`) (component {component_name})"
+                ),
+                design,
+            ));
+        }
+    };
+    for it in items {
+        match it {
+            ValueExpr::Instance { component, .. } => {
+                if !crate::pack::component_satisfies_bound(design, component, "Page") {
+                    return Err(err(
+                        "PDL-E040",
+                        format!(
+                            "Fixture \"{label}\" `{let_id}` stack entry `{component}` \
+                             does not satisfy `Page`"
+                        ),
+                        design,
+                    ));
+                }
+            }
+            ValueExpr::Ident { name } => {
+                if let Some(comp) = let_instance_component(design, component_name, name) {
+                    if !crate::pack::component_satisfies_bound(design, comp, "Page") {
+                        return Err(err(
+                            "PDL-E040",
+                            format!(
+                                "Fixture \"{label}\" `{let_id}` stack entry `{name}` \
+                                 is `{comp}`, which does not satisfy `Page`"
+                            ),
+                            design,
+                        ));
+                    }
+                } else {
+                    return Err(err(
+                        "PDL-E054",
+                        format!(
+                            "Fixture \"{label}\" `{let_id}` stack entry `{name}` \
+                             is not a page let (component {component_name})"
+                        ),
+                        design,
+                    ));
+                }
+            }
+            _ => {
+                return Err(err(
+                    "PDL-E054",
+                    format!("Fixture \"{label}\" `{let_id}` stack entries must be page instances"),
+                    design,
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_presenter_cover_pin(
+    design: &DesignDefinition,
+    component_name: &str,
+    label: &str,
+    let_id: &str,
+    value: &ValueExpr,
+) -> Result<(), PdlError> {
+    match value {
+        ValueExpr::Instance { component, .. } => {
+            if crate::pack::component_satisfies_bound(design, component, "Page") {
+                Ok(())
+            } else {
+                Err(err(
+                    "PDL-E040",
+                    format!(
+                        "Fixture \"{label}\" `{let_id}.cover` is `{component}`, \
+                         which does not satisfy `Page`"
+                    ),
+                    design,
+                ))
+            }
+        }
+        ValueExpr::Ident { name } => {
+            if let Some(comp) = let_instance_component(design, component_name, name) {
+                if crate::pack::component_satisfies_bound(design, comp, "Page") {
+                    Ok(())
+                } else {
+                    Err(err(
+                        "PDL-E040",
+                        format!(
+                            "Fixture \"{label}\" `{let_id}.cover` `{name}` is `{comp}`, \
+                             which does not satisfy `Page`"
+                        ),
+                        design,
+                    ))
+                }
+            } else {
+                Err(err(
+                    "PDL-E054",
+                    format!(
+                        "Fixture \"{label}\" `{let_id}.cover` `{name}` is not a page let \
+                         (component {component_name})"
+                    ),
+                    design,
+                ))
+            }
+        }
+        _ => Err(err(
+            "PDL-E054",
+            format!(
+                "Fixture \"{label}\" `{let_id}.cover` must be a page instance \
+                 (component {component_name})"
+            ),
+            design,
+        )),
+    }
+}
+
+fn validate_presenter_verb(
+    design: &DesignDefinition,
+    component_name: &str,
+    qualifier: &str,
+    verb: PresenterVerb,
+    page: Option<&ValueExpr>,
+    style: Option<&str>,
+    move_spec: Option<&ValueExpr>,
+    dismiss_move: Option<&ValueExpr>,
+) -> Result<(), PdlError> {
+    let Some(c) = design.components.get(component_name) else {
+        return Ok(());
+    };
+    let mut presenters = HashSet::new();
+    presenter_lets_in_body(&c.body, &mut presenters);
+    if !presenters.contains(qualifier) {
+        return Err(err(
+            "PDL-E055",
+            format!(
+                "`{qualifier}.{}` needs a `let {qualifier} = Presenter(root: …)` \
+                 (component {component_name})",
+                verb.as_str()
+            ),
+            design,
+        ));
+    }
+    if !matches!(verb, PresenterVerb::Present) && style.is_some() {
+        return Err(err(
+            "PDL-E055",
+            format!(
+                "`{qualifier}.{}` does not take `style:` (component {component_name})",
+                verb.as_str()
+            ),
+            design,
+        ));
+    }
+    if matches!(verb, PresenterVerb::Replace | PresenterVerb::Pop | PresenterVerb::Dismiss)
+        && (move_spec.is_some() || dismiss_move.is_some())
+    {
+        return Err(err(
+            "PDL-E055",
+            format!(
+                "`{qualifier}.{}` does not take `move:` / `dismissMove:` (component {component_name})",
+                verb.as_str()
+            ),
+            design,
+        ));
+    }
+    if let Some(m) = move_spec {
+        validate_presentation_motion_value(
+            design,
+            m,
+            &format!("`{qualifier}.{}` `move:`", verb.as_str()),
+            component_name,
+        )?;
+    }
+    if let Some(m) = dismiss_move {
+        validate_presentation_motion_value(
+            design,
+            m,
+            &format!("`{qualifier}.{}` `dismissMove:`", verb.as_str()),
+            component_name,
+        )?;
+    }
+    match verb {
+        PresenterVerb::Dismiss => {
+            if page.is_some() {
+                return Err(err(
+                    "PDL-E055",
+                    format!("`{qualifier}.dismiss` takes no page (component {component_name})"),
+                    design,
+                ));
+            }
+            return Ok(());
+        }
+        PresenterVerb::Pop => {
+            if page.is_some() {
+                return Err(err(
+                    "PDL-E055",
+                    format!("`{qualifier}.pop` takes no page (component {component_name})"),
+                    design,
+                ));
+            }
+            return Ok(());
+        }
+        PresenterVerb::Present => match style {
+            Some("cover") => {}
+            Some(other) => {
+                return Err(err(
+                    "PDL-E055",
+                    format!(
+                        "`{qualifier}.present` style `.{other}` is not legal yet; use `.cover` \
+                         (component {component_name})"
+                    ),
+                    design,
+                ));
+            }
+            None => {
+                return Err(err(
+                    "PDL-E055",
+                    format!(
+                        "`{qualifier}.present` needs `style: .cover` (component {component_name})"
+                    ),
+                    design,
+                ));
+            }
+        },
+        PresenterVerb::Replace | PresenterVerb::Push => {}
+    }
+    let Some(page) = page else {
+        return Err(err(
+            "PDL-E055",
+            format!(
+                "`{qualifier}.{}` needs a page instance (component {component_name})",
+                verb.as_str()
+            ),
+            design,
+        ));
+    };
+    match page {
+        ValueExpr::Instance { component, .. } => {
+            if crate::pack::component_satisfies_bound(design, component, "Page") {
+                Ok(())
+            } else {
+                Err(err(
+                    "PDL-E040",
+                    format!(
+                        "`{qualifier}.{}({component}(…))` does not satisfy `Page` \
+                         (component {component_name})",
+                        verb.as_str()
+                    ),
+                    design,
+                ))
+            }
+        }
+        ValueExpr::Ident { name } => {
+            if let Some(comp) = let_instance_component(design, component_name, name) {
+                if crate::pack::component_satisfies_bound(design, comp, "Page") {
+                    Ok(())
+                } else {
+                    Err(err(
+                        "PDL-E040",
+                        format!(
+                            "`{qualifier}.{}({name})` is `{comp}`, which does not satisfy `Page`",
+                            verb.as_str()
+                        ),
+                        design,
+                    ))
+                }
+            } else {
+                Err(err(
+                    "PDL-E055",
+                    format!(
+                        "`{qualifier}.{}({name})` names an unknown let (component {component_name})",
+                        verb.as_str()
+                    ),
+                    design,
+                ))
+            }
+        }
+        _ => Err(err(
+            "PDL-E055",
+            format!(
+                "`{qualifier}.{}` needs a page instance (component {component_name})",
+                verb.as_str()
+            ),
+            design,
+        )),
+    }
+}
+
+fn emit_payloads_match_by_position(got: &[EmitArgDecl], expected: &[EmitArgDecl]) -> bool {
+    got.len() == expected.len()
+        && got
+            .iter()
+            .zip(expected)
+            .all(|(g, e)| g.type_name == e.type_name)
+}
+
+/// Protocol that declares this `.ancestors` channel, if any.
+fn ancestors_emit_protocol<'a>(design: &'a DesignDefinition, channel: &str) -> Option<&'a str> {
+    for p in design.protocols.values() {
+        if p.emits
+            .iter()
+            .any(|e| e.name == channel && e.propagation == EmitPropagation::Ancestors)
+        {
+            return Some(p.name.as_str());
+        }
+    }
+    None
+}
+
+/// `.ancestors` emit signature by channel name (protocol block or component-owned emits).
+fn ancestors_emit_sig<'a>(
+    design: &'a DesignDefinition,
+    channel: &str,
+) -> Option<&'a ProtocolEmitDecl> {
+    for p in design.protocols.values() {
+        if let Some(e) = p
+            .emits
+            .iter()
+            .find(|e| e.name == channel && e.propagation == EmitPropagation::Ancestors)
+        {
+            return Some(e);
+        }
+    }
+    for owns in design.emits.values() {
+        if let Some(e) = owns
+            .iter()
+            .find(|e| e.name == channel && e.propagation == EmitPropagation::Ancestors)
+        {
+            return Some(e);
+        }
+    }
+    None
+}
+
+fn collect_instances_from_value(value: &ValueExpr, out: &mut HashSet<String>) {
+    match value {
+        ValueExpr::Instance { component, kwargs } => {
+            out.insert(component.clone());
+            for v in kwargs.values() {
+                collect_instances_from_value(v, out);
+            }
+        }
+        ValueExpr::Array { items } => {
+            for v in items {
+                collect_instances_from_value(v, out);
+            }
+        }
+        ValueExpr::Call { args, .. } => {
+            for v in args.values() {
+                collect_instances_from_value(v, out);
+            }
+        }
+        ValueExpr::OpacityOf { base, opacity } => {
+            collect_instances_from_value(base, out);
+            collect_instances_from_value(opacity, out);
+        }
+        _ => {}
+    }
+}
+
+fn collect_instances_from_child_entry(entry: &ChildEntry, out: &mut HashSet<String>) {
+    match entry {
+        ChildEntry::Instance {
+            component, kwargs, ..
+        } => {
+            out.insert(component.clone());
+            for v in kwargs.values() {
+                collect_instances_from_value(v, out);
+            }
+        }
+        ChildEntry::FrameCtor { child_entries, .. } => {
+            if let Some(cs) = child_entries {
+                for c in cs {
+                    collect_instances_from_child_entry(c, out);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn collect_mounted_component_types(body: &[FrameBodyItem], out: &mut HashSet<String>) {
+    for item in body {
+        match item {
+            FrameBodyItem::LetInstance {
+                component, kwargs, ..
+            } => {
+                out.insert(component.clone());
+                for v in kwargs.values() {
+                    collect_instances_from_value(v, out);
+                }
+            }
+            FrameBodyItem::Children { entries, .. } => {
+                for e in entries {
+                    collect_instances_from_child_entry(e, out);
+                }
+            }
+            FrameBodyItem::Let { body, .. } | FrameBodyItem::ForEach { body, .. } => {
+                collect_mounted_component_types(body, out);
+            }
+            FrameBodyItem::If { chain } => {
+                for br in &chain.branches {
+                    collect_mounted_component_types(&br.body, out);
+                }
+                if let Some(else_body) = &chain.else_body {
+                    collect_mounted_component_types(else_body, out);
+                }
+            }
+            FrameBodyItem::Prop { value, .. }
+            | FrameBodyItem::FrameProp { value, .. }
+            | FrameBodyItem::LetValue { value, .. } => {
+                collect_instances_from_value(value, out);
+            }
+            FrameBodyItem::LayoutOn { handler } => {
+                for item in &handler.body {
+                    if let LayoutOnBodyItem::PresenterVerb {
+                        page: Some(value), ..
+                    } = item
+                    {
+                        collect_instances_from_value(value, out);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+fn collect_bare_ancestor_channels(body: &[FrameBodyItem], out: &mut HashSet<String>) {
+    for item in body {
+        match item {
+            FrameBodyItem::LayoutOn { handler } if handler.qualifier.is_none() => {
+                out.insert(handler.channel.clone());
+            }
+            FrameBodyItem::Let { body, .. } => collect_bare_ancestor_channels(body, out),
+            FrameBodyItem::If { chain } => {
+                for br in &chain.branches {
+                    collect_bare_ancestor_channels(&br.body, out);
+                }
+                if let Some(else_body) = &chain.else_body {
+                    collect_bare_ancestor_channels(else_body, out);
+                }
+            }
+            // ForEach binder captures are not ancestor captures.
+            _ => {}
+        }
+    }
+}
+
+/// Immediate parents that mount `child` (let instance, children instance, or param default).
+fn mount_parents<'a>(design: &'a DesignDefinition) -> HashMap<String, Vec<&'a str>> {
+    let mut parents: HashMap<String, Vec<&str>> = HashMap::new();
+    for c in design.components.values() {
+        let mut mounted = HashSet::new();
+        collect_mounted_component_types(&c.body, &mut mounted);
+        if let Ok(params) = effective_params(design, c) {
+            for p in params {
+                collect_instances_from_value(&p.default_value, &mut mounted);
+            }
+        }
+        for child in mounted {
+            parents.entry(child).or_default().push(c.name.as_str());
+        }
+    }
+    parents
+}
+
+fn ancestor_path_handles(
+    design: &DesignDefinition,
+    start: &str,
+    channel: &str,
+    proto_name: Option<&str>,
+    parents: &HashMap<String, Vec<&str>>,
+    visiting: &HashSet<String>,
+) -> bool {
+    if visiting.contains(start) {
+        return true;
+    }
+    let Some(c) = design.components.get(start) else {
+        return false;
+    };
+    let mut bare = HashSet::new();
+    collect_bare_ancestor_channels(&c.body, &mut bare);
+    let opted_in = match proto_name {
+        Some(p) => c.conforms_to.iter().any(|n| n == p),
+        None => true,
+    };
+    if opted_in && bare.contains(channel) {
+        return true;
+    }
+    match parents.get(start) {
+        Some(list) if !list.is_empty() => {
+            let mut next = visiting.clone();
+            next.insert(start.to_string());
+            list.iter()
+                .all(|p| ancestor_path_handles(design, p, channel, proto_name, parents, &next))
+        }
+        _ => false,
+    }
+}
+
+/// Mounted `.ancestors` emits must hit a bare `channel(…) =` before a root.
+fn validate_ancestors_emit_delivery(design: &DesignDefinition) -> Result<(), PdlError> {
+    let parents = mount_parents(design);
+    for c in design.components.values() {
+        let mut mounted = HashSet::new();
+        collect_mounted_component_types(&c.body, &mut mounted);
+        if let Ok(params) = effective_params(design, c) {
+            for p in params {
+                collect_instances_from_value(&p.default_value, &mut mounted);
+            }
+        }
+        for child_name in mounted {
+            let Some(child) = design.components.get(&child_name) else {
+                continue;
+            };
+            for e in effective_emits(design, child) {
+                if e.propagation != EmitPropagation::Ancestors {
+                    continue;
+                }
+                let proto = ancestors_emit_protocol(design, &e.name);
+                if !ancestor_path_handles(
+                    design,
+                    &c.name,
+                    &e.name,
+                    proto,
+                    &parents,
+                    &HashSet::new(),
+                ) {
+                    let hint = match proto {
+                        Some(p) => format!(
+                            "no ancestor both lists `<{p}>` and writes `{}(…) =`",
+                            e.name
+                        ),
+                        None => format!("no bare `{}(…) =` on an ancestor", e.name),
+                    };
+                    return Err(err(
+                        "PDL-E053",
+                        format!(
+                            "`.ancestors` emit `{}` from `{child_name}` is unhandled through `{}` \
+                             ({hint})",
+                            e.name, c.name
+                        ),
+                        design,
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// `<>` receives host inbound and ancestor-sink APIs. `emits <P>` sends.
+fn validate_protocol_stance(design: &DesignDefinition, c: &ComponentDecl) -> Result<(), PdlError> {
+    for proto in &c.conforms_to {
+        let Some(p) = design.protocols.get(proto) else {
+            return Err(err(
+                "PDL-E022",
+                format!(
+                    "Component `{}` conforms to unknown protocol `{}`",
+                    c.name, proto
+                ),
+                design,
+            ));
+        };
+        if c.emits_protocols.iter().any(|e| e == proto) {
+            return Err(err(
+                "PDL-E044",
+                format!(
+                    "Protocol `{proto}` cannot be both received (`<>`) and sent (`emits <>`) \
+                     on `{}`",
+                    c.name
+                ),
+                design,
+            ));
+        }
+        if p.role == ProtocolRole::Api && !crate::design::protocol_has_ancestors_emit(p) {
+            return Err(err(
+                "PDL-E044",
+                format!(
+                    "Protocol `{proto}` on `{}` is a send/slot contract — write \
+                     `emits <{proto}>`. `<>` receives host inbound or ancestor-sink protocols",
+                    c.name
+                ),
+                design,
+            ));
+        }
+    }
+    for proto in &c.emits_protocols {
+        let Some(p) = design.protocols.get(proto) else {
+            return Err(err(
+                "PDL-E022",
+                format!("Component `{}` emits unknown protocol `{}`", c.name, proto),
+                design,
+            ));
+        };
+        if p.role == ProtocolRole::Host {
+            return Err(err(
+                "PDL-E044",
+                format!(
+                    "Host protocol `{proto}` on `{}` is received with `<{proto}>`, \
+                     not `emits <{proto}>`",
+                    c.name
+                ),
+                design,
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// A receive ancestor-sink protocol must have a bare handler for each of its channels.
+fn validate_sink_handlers(design: &DesignDefinition, c: &ComponentDecl) -> Result<(), PdlError> {
+    let mut bare = HashSet::new();
+    collect_bare_ancestor_channels(&c.body, &mut bare);
+    for proto in &c.conforms_to {
+        let Some(p) = design.protocols.get(proto) else {
+            continue;
+        };
+        if p.role != ProtocolRole::Api || !crate::design::protocol_has_ancestors_emit(p) {
+            continue;
+        }
+        for e in &p.emits {
+            if e.propagation != EmitPropagation::Ancestors {
+                continue;
+            }
+            if !bare.contains(&e.name) {
+                return Err(err(
+                    "PDL-E056",
+                    format!(
+                        "Component `{}` lists `<{proto}>` but has no bare `{}(…) =` handler",
+                        c.name, e.name
+                    ),
+                    design,
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Semantic checks on the merged design (after parse + import merge).
 pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError> {
     validate_companion_symbols(design)?;
     validate_host_protocol_prelude(design)?;
+    validate_page_protocol_prelude(design)?;
     validate_host_profile_shapes(design)?;
     validate_protocol_requires(design)?;
     validate_token_declarations(design)?;
@@ -2924,34 +3967,8 @@ pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError>
     validate_samples(design)?;
     validate_component_param_defaults(design)?;
     for c in design.components.values() {
-        let mut api_protocols: Vec<&str> = Vec::new();
-        for proto in &c.conforms_to {
-            let Some(p) = design.protocols.get(proto) else {
-                return Err(err(
-                    "PDL-E022",
-                    format!(
-                        "Component `{}` conforms to unknown protocol `{}`",
-                        c.name, proto
-                    ),
-                    design,
-                ));
-            };
-            if p.role == ProtocolRole::Api {
-                api_protocols.push(proto.as_str());
-            }
-        }
-        if api_protocols.len() > 1 {
-            return Err(err(
-                "PDL-E044",
-                format!(
-                    "Component `{}` lists more than one API protocol ({}); \
-                     at most one API protocol is allowed (host protocols may be combined)",
-                    c.name,
-                    api_protocols.join(", ")
-                ),
-                design,
-            ));
-        }
+        validate_protocol_stance(design, c)?;
+        validate_sink_handlers(design, c)?;
         validate_host_protocol_not_slot_type(design, c)?;
         let mut all_frame_ids = HashSet::new();
         collect_unique_frame_ids_from_body(&c.body, &mut all_frame_ids, &c.name, design)?;
@@ -2987,13 +4004,7 @@ pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError>
             .filter(|p| p.is_array)
             .map(|p| p.name)
             .collect();
-        validate_if_conditions_in_body(
-            design,
-            &c.body,
-            &param_by_name,
-            &array_params,
-            &c.name,
-        )?;
+        validate_if_conditions_in_body(design, &c.body, &param_by_name, &array_params, &c.name)?;
         validate_foreach_mounts(design, c)?;
         validate_unique_frame_mounts(design, c, &all_frame_ids)?;
         let let_kinds = collect_let_frame_kinds(&c.body);
@@ -3022,6 +4033,8 @@ pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError>
         validate_fixtures_for_component(design, &c.name)?;
         validate_interactions_for_component(design, &c.name)?;
         validate_rules_for_component(design, &c.name)?;
+        validate_presenter_lets(design, c)?;
     }
+    validate_ancestors_emit_delivery(design)?;
     Ok(())
 }

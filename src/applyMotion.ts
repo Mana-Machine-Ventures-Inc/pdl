@@ -1,5 +1,6 @@
 import type { InteractionHandlerItem, ValueExpr } from "./ast.js";
 import {
+  easeToWaapi,
   implicitTransitionCss,
   isMotionPropName,
   MOTION_IDENTITY,
@@ -48,8 +49,8 @@ function specFromEvaluated(raw: unknown): MotionSpec {
   if (raw == null || typeof raw !== "object") return {};
   const o = raw as Record<string, unknown>;
   const spec: MotionSpec = {};
-  if (o.kind === "motion" || o.transition != null || o.pose != null) {
-    const t = normalizeTransition(o.transition ?? o);
+  if (o.kind === "motion" || o.timing != null || o.transition != null || o.pose != null) {
+    const t = normalizeTransition(o.timing ?? o.transition ?? o);
     if (t) spec.transition = t;
     const poseRaw = o.pose;
     if (poseRaw && typeof poseRaw === "object") {
@@ -99,20 +100,57 @@ function keyFromUnknown(raw: unknown): import("./motionProps.js").MotionKey | un
     if (!snap) return undefined;
     pose = snap;
   }
-  const easing = typeof o.easing === "string" && o.easing.trim() ? o.easing.trim() : undefined;
+  const easing = o.ease != null || o.easing != null ? easeToWaapi(o.ease ?? o.easing) : undefined;
   return { pose, at, ...(easing ? { easing } : {}) };
 }
 
 function snapshotFromUnknown(raw: unknown): MotionSnapshot | undefined {
   if (raw == null || typeof raw !== "object") return undefined;
   const o = raw as Record<string, unknown>;
+  const src =
+    o.props && typeof o.props === "object" && !Array.isArray(o.props)
+      ? (o.props as Record<string, unknown>)
+      : o;
   const snap: MotionSnapshot = {};
-  for (const key of Object.keys(o)) {
+  for (const key of Object.keys(src)) {
     if (!isMotionPropName(key)) continue;
-    const n = Number(o[key]);
+    const n = Number(src[key]);
     if (Number.isFinite(n)) snap[key] = n;
   }
   return Object.keys(snap).length ? snap : undefined;
+}
+
+function coerceNumber(raw: unknown): number | undefined {
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (raw && typeof raw === "object" && !Array.isArray(raw) && "value" in raw) {
+    const n = Number((raw as { value: unknown }).value);
+    if (Number.isFinite(n)) return n;
+  }
+  if (typeof raw === "string" && raw.trim()) {
+    const n = Number(raw);
+    if (Number.isFinite(n)) return n;
+  }
+  return undefined;
+}
+
+function coerceEase(raw: unknown): unknown {
+  if (raw == null) return undefined;
+  if (typeof raw === "string" || (raw && typeof raw === "object" && (raw as { kind?: string }).kind === "easeBezier")) {
+    return raw;
+  }
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const o = raw as Record<string, unknown>;
+    if (typeof o.value === "string") return o.value;
+  }
+  return raw;
+}
+
+function pairClock(pair: PresentationMotionEval): { duration: number; ease: unknown; delay: number } {
+  return {
+    duration: coerceNumber(pair.duration) ?? 300,
+    ease: coerceEase(pair.ease) ?? "out",
+    delay: coerceNumber(pair.delay) ?? 0,
+  };
 }
 
 function specFromAnimateExpr(
@@ -123,8 +161,8 @@ function specFromAnimateExpr(
   if (expr.kind === "motion") {
     const spec: MotionSpec = {};
     if (expr.base) Object.assign(spec, specFromEvaluated(evalValue(expr.base)));
-    if (expr.transition) {
-      const t = normalizeTransition(evalValue(expr.transition));
+    if (expr.timing) {
+      const t = normalizeTransition(evalValue(expr.timing));
       if (t) spec.transition = t;
     }
     if (expr.pose) {
@@ -154,7 +192,7 @@ function specFromAnimateExpr(
     }
     return spec;
   }
-  if (expr.kind === "transition") {
+  if (expr.kind === "timing") {
     const t = normalizeTransition(evalValue(expr));
     return t ? { transition: t } : {};
   }
@@ -165,19 +203,41 @@ export function collectMotionFromHandlerItems(
   items: InteractionHandlerItem[],
   evalNumber: (expr: ValueExpr) => number | undefined = numberFromValueExpr,
   evalTransition: (expr: ValueExpr) => MotionTransition | undefined = (expr) => {
-    if (expr.kind === "transition") {
+    if (expr.kind === "timing") {
       const duration = expr.duration.kind === "number" ? expr.duration.value : undefined;
-      const easing = expr.easing.kind === "string" ? expr.easing.value : undefined;
+      const ease =
+        expr.ease.kind === "string"
+          ? expr.ease.value
+          : expr.ease.kind === "dotEnum"
+            ? expr.ease.value.replace(/^\./, "")
+            : expr.ease.kind === "easeBezier"
+              ? {
+                  kind: "easeBezier",
+                  x1: expr.ease.x1.kind === "number" ? expr.ease.x1.value : undefined,
+                  y1: expr.ease.y1.kind === "number" ? expr.ease.y1.value : undefined,
+                  x2: expr.ease.x2.kind === "number" ? expr.ease.x2.value : undefined,
+                  y2: expr.ease.y2.kind === "number" ? expr.ease.y2.value : undefined,
+                }
+              : undefined;
       const delay = expr.delay?.kind === "number" ? expr.delay.value : undefined;
-      return normalizeTransition({ duration, easing, delay });
+      return normalizeTransition({ duration, ease, delay });
     }
     return undefined;
   },
   evalValue: (expr: ValueExpr) => unknown = (expr) => {
-    if (expr.kind === "transition") return evalTransition(expr);
+    if (expr.kind === "timing") return evalTransition(expr);
     if (expr.kind === "number") return expr.value;
     if (expr.kind === "string") return expr.value;
     if (expr.kind === "dotEnum") return expr.value.replace(/^\./, "");
+    if (expr.kind === "easeBezier") {
+      return {
+        kind: "easeBezier",
+        x1: evalNumber(expr.x1),
+        y1: evalNumber(expr.y1),
+        x2: evalNumber(expr.x2),
+        y2: evalNumber(expr.y2),
+      };
+    }
     if (expr.kind === "pose") return { kind: "pose", ...evalSnapshot(expr.props, evalNumber) };
     if (expr.kind === "stagger") {
       return {
@@ -191,7 +251,7 @@ export function collectMotionFromHandlerItems(
         kind: "key",
         pose: evalValue(expr.pose),
         at: evalValue(expr.at),
-        ...(expr.easing ? { easing: evalValue(expr.easing) } : {}),
+        ...(expr.ease ? { ease: evalValue(expr.ease) } : {}),
       };
     }
     if (expr.kind === "motion") {
@@ -202,7 +262,7 @@ export function collectMotionFromHandlerItems(
           Object.assign(out, base, { kind: "motion" });
         }
       }
-      if (expr.transition) out.transition = evalValue(expr.transition);
+      if (expr.timing) out.timing = evalValue(expr.timing);
       if (expr.play) out.play = evalValue(expr.play);
       if (expr.pose) out.pose = evalValue(expr.pose);
       if (expr.keys) out.keys = evalValue(expr.keys);
@@ -423,4 +483,135 @@ export function playMotionOnElement(
   if (!frames.length) return undefined;
   const timing = waapiEffectTiming(spec, reduced);
   return el.animate(frames, { ...timing, delay: (timing.delay ?? 0) + (delay - t.delay) });
+}
+
+export type PresentationMotionEval = {
+  kind?: string;
+  incoming?: unknown;
+  outgoing?: unknown;
+  duration?: unknown;
+  ease?: unknown;
+  delay?: unknown;
+  front?: unknown;
+  promoteAt?: unknown;
+};
+
+function slotMotionSpec(slot: unknown, pair: PresentationMotionEval): MotionSpec {
+  const clock = pairClock(pair);
+  const inherited = normalizeTransition(clock);
+  if (slot && typeof slot === "object") {
+    const o = slot as Record<string, unknown>;
+    const isMotion =
+      o.kind === "motion" ||
+      o.timing != null ||
+      o.keys != null ||
+      (o.pose != null && o.kind !== "pose");
+    if (isMotion) {
+      const spec = specFromEvaluated(o);
+      if (!spec.transition && inherited) spec.transition = inherited;
+      return spec;
+    }
+  }
+  const pose = snapshotFromUnknown(slot);
+  return {
+    ...(inherited ? { transition: inherited } : {}),
+    ...(pose ? { pose } : {}),
+  };
+}
+
+function applyPresenterLaneFront(el: Element, front: boolean) {
+  el.classList.toggle("pdl-presenter__lane--front", front);
+  el.classList.toggle("pdl-presenter__lane--back", !front);
+  if ("style" in el) (el as HTMLElement).style.zIndex = front ? "4" : "1";
+}
+
+function clearPresenterLane(el: Element) {
+  el.classList.remove(
+    "pdl-presenter__lane",
+    "pdl-presenter__lane--front",
+    "pdl-presenter__lane--back",
+  );
+  if ("style" in el) (el as HTMLElement).style.zIndex = "";
+}
+
+/**
+ * Play a Presenter pair clip. Incoming mounts at pose and eases to rest;
+ * outgoing eases to its pose. `front` / `promoteAt` set z-order.
+ */
+export function playPresentationMotion(
+  incomingEl: Element,
+  outgoingEl: Element,
+  raw: PresentationMotionEval,
+  opts?: { reduced?: boolean; onDone?: () => void },
+): { cancel: () => void } {
+  const reduced = Boolean(opts?.reduced);
+  const incomingSpec = slotMotionSpec(raw.incoming, raw);
+  const outgoingSpec = slotMotionSpec(raw.outgoing, raw);
+  const incomingAnim = playMotionOnElement(incomingEl, incomingSpec, "appear", { reduced });
+  const outgoingAnim = playMotionOnElement(outgoingEl, outgoingSpec, "dismiss", { reduced });
+  const anims = [incomingAnim, outgoingAnim].filter((a): a is Animation => a != null);
+  const frontRaw = coerceEase(raw.front);
+  const front = String(frontRaw ?? raw.front ?? "incoming").replace(/^\./, "");
+  const incomingFront = front !== "outgoing";
+  incomingEl.classList.add("pdl-presenter__lane");
+  outgoingEl.classList.add("pdl-presenter__lane");
+  applyPresenterLaneFront(incomingEl, incomingFront);
+  applyPresenterLaneFront(outgoingEl, !incomingFront);
+  const promoteAt = Number(raw.promoteAt);
+  const clock = pairClock(raw);
+  const pairMs = Math.max(
+    incomingSpec.transition?.duration ?? 0,
+    outgoingSpec.transition?.duration ?? 0,
+    clock.duration,
+  );
+  const pairDelay = Math.max(
+    incomingSpec.transition?.delay ?? 0,
+    outgoingSpec.transition?.delay ?? 0,
+    clock.delay,
+  );
+  let promoteTimer: ReturnType<typeof setTimeout> | undefined;
+  if (Number.isFinite(promoteAt) && promoteAt >= 0 && promoteAt <= 1) {
+    promoteTimer = setTimeout(() => {
+      applyPresenterLaneFront(incomingEl, !incomingFront);
+      applyPresenterLaneFront(outgoingEl, incomingFront);
+    }, Math.max(0, pairMs * promoteAt));
+  }
+  let done = false;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    if (timeout != null) clearTimeout(timeout);
+    if (promoteTimer != null) clearTimeout(promoteTimer);
+    clearPresenterLane(incomingEl);
+    opts?.onDone?.();
+  };
+  if (!anims.length) {
+    finish();
+    return { cancel: finish };
+  }
+  let remaining = anims.length;
+  const onOne = () => {
+    remaining -= 1;
+    if (remaining <= 0) finish();
+  };
+  for (const a of anims) {
+    a.addEventListener("finish", onOne);
+    a.addEventListener("cancel", onOne);
+  }
+  timeout = setTimeout(finish, pairMs + pairDelay + 100);
+  return {
+    cancel: () => {
+      if (timeout != null) clearTimeout(timeout);
+      if (promoteTimer != null) clearTimeout(promoteTimer);
+      for (const a of anims) {
+        try {
+          a.cancel();
+        } catch {
+          /* ignore */
+        }
+      }
+      finish();
+    },
+  };
 }

@@ -14,9 +14,9 @@ Until M5 locks `shared/*.json` / `grammar/pdl.ebnf`, tooling must not treat `Tim
 
 | Old (shipped) | New |
 |---------------|-----|
-| `Easing` | **`Ease`** — `.linear` / `.in` / `.out` / `.inOut` / `Ease.cubic(…)` |
+| `Easing` | **`Ease`** — `.linear` / `.in` / `.out` / `Ease.bezier(x1, y1, x2, y2)` |
 | `easing:` | **`ease:`** |
-| `Transition` tuple / token | **`Timing`** — `(duration:, ease: [, delay:])` |
+| `Transition` tuple / token | **`Timing(duration:, ease: [, delay:])`** |
 | `Motion(transition: …)` | **`Motion(timing: …)`** or flattened `duration:` / `ease:` / `delay:` |
 | `Key(…, easing:)` | **`Key(…, ease:)`** |
 | Bare Transition as `animate =` | Bare **`Timing`** as `animate =` (tree tween, unchanged machine) |
@@ -30,15 +30,15 @@ Do not add an `Animation` type. CSS `transition:` on HTML nodes is host paint, n
 
 ```pdl
 primitive motion.duration.standard: Duration = 250
-primitive motion.ease.standard: Ease = Ease.cubic(0.2, 0, 0, 1)
+primitive motion.ease.standard: Ease = Ease.bezier(0.2, 0, 0, 1)
 
-semantic motion.appear: Timing = (duration: motion.duration.standard, ease: motion.ease.standard)
-semantic motion.instant: Timing = (duration: 0, ease: Ease.linear)
+semantic motion.appear: Timing = Timing(duration: motion.duration.standard, ease: motion.ease.standard)
+semantic motion.instant: Timing = Timing(duration: 0, ease: .linear)
 
 self.appear = {
   animate = Motion(timing: motion.appear, pose: Pose(opacity: 0, translateY: 8))
   // or flattened:
-  // animate = Motion(duration: 250, ease: Ease.out, pose: Pose(opacity: 0))
+  // animate = Motion(duration: 250, ease: .out, pose: Pose(opacity: 0))
 }
 
 hoverStart = {
@@ -46,7 +46,7 @@ hoverStart = {
 }
 ```
 
-**Ease spelling (lock in M5a if the constructor form is awkward):** named cases plus `Ease.cubic(x1, y1, x2, y2)`. Quoted CSS (`"ease-out"`, `"cubic-bezier(…)"`) remains **sugar that types as `Ease`**, so labs can be rewritten mechanically. Reject the type name `Easing`.
+**Ease:** `.linear` / `.in` / `.out` / `Ease.bezier(x1, y1, x2, y2)`. Quoted CSS is an error. Reject the type name `Easing`.
 
 **Motion fields:** `timing:` **or** flattened `duration:` / `ease:` / `delay:` — not both for the same clock (E005). `pose:` / `keys:` / `play:` / `stagger:` / `repeat:` unchanged. Copy-override stays `Motion(token, field:)`.
 
@@ -59,7 +59,7 @@ hoverStart = {
 | Done when | Evidence |
 |-----------|----------|
 | Keywords `Timing` / `Ease`; drop `Transition` / `Easing` | `shared/keywords.json`; `grammar/pdl.ebnf`; `lexer.rs` / `src/lexer.ts` |
-| `Timing` tuple `(duration:, ease: [, delay:])` | ebnf `timing-literal` (was `transition-literal`) |
+| `Timing(duration:, ease: [, delay:])` | ebnf `timing-literal` (was `transition-literal`) |
 | `Motion` args: `timing:` / `duration:` / `ease:` / `delay:` — no `transition:` | ebnf `motion-arg` |
 | `Key` arg `ease:` — no `easing:` | ebnf `key-literal` |
 | Language objects + frame-props `tokenTypes` | `shared/language-objects.json`; `shared/frame-props.json` (`animate` → Motion, Timing) |

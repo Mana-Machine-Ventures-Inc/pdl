@@ -14,17 +14,19 @@ use crate::ast::*;
 use crate::bake::{now_iso8601, PDL_JSON_SCHEMA_VERSION};
 use crate::design::{effective_emits, effective_params, DesignDefinition};
 use crate::error::PdlError;
-use crate::evaluate::{build_resolved_token_map, evaluate_value, Eval, ParamMeta, ParamValues, Tokens};
+use crate::evaluate::{
+    build_resolved_token_map, evaluate_value, Eval, ParamMeta, ParamValues, Tokens,
+};
 use crate::graph_serialize::{
     serialise_condition_expr, serialise_value_expr, serialise_value_expr_with_token_refs,
 };
 use crate::motion::{apply_site_default_play, is_motion_prop_name};
-use crate::stable_json::number_value;
 use crate::resolve::{
     is_hidden_frame, resolve_component_tree, resolve_default_param_values, CatalFrame,
     RESOLVE_OPTIONS_GRAPH_CATALOGUE,
 };
 use crate::rules_json::rule_line_to_def;
+use crate::stable_json::number_value;
 
 fn catalogue_hosts(design: &DesignDefinition) -> Option<Value> {
     if design.hosts.is_empty() {
@@ -53,10 +55,7 @@ fn catalogue_hosts(design: &DesignDefinition) -> Option<Value> {
                 obj(entries)
             })
             .collect();
-        o.insert(
-            name.clone(),
-            obj(vec![("params", Value::Array(params))]),
-        );
+        o.insert(name.clone(), obj(vec![("params", Value::Array(params))]));
     }
     Some(Value::Object(o))
 }
@@ -71,6 +70,33 @@ fn obj(entries: Vec<(&str, Value)>) -> Value {
         m.insert(k.to_string(), v);
     }
     Value::Object(m)
+}
+
+fn catalogue_emit_channel(e: &ProtocolEmitDecl) -> Value {
+    let mut entries = vec![
+        ("name", Value::String(e.name.clone())),
+        (
+            "args",
+            Value::Array(
+                e.args
+                    .iter()
+                    .map(|a| {
+                        obj(vec![
+                            ("name", Value::String(a.name.clone())),
+                            ("type", Value::String(a.type_name.clone())),
+                        ])
+                    })
+                    .collect(),
+            ),
+        ),
+    ];
+    if e.propagation != EmitPropagation::Parent {
+        entries.push((
+            "propagation",
+            Value::String(e.propagation.as_str().to_string()),
+        ));
+    }
+    obj(entries)
 }
 
 fn strip_dot(s: &str) -> &str {
@@ -93,7 +119,10 @@ fn negate_condition(c: &ConditionExpr) -> ConditionExpr {
     }
 }
 
-fn conjoin_when(outer: Option<ConditionExpr>, inner: Option<ConditionExpr>) -> Option<ConditionExpr> {
+fn conjoin_when(
+    outer: Option<ConditionExpr>,
+    inner: Option<ConditionExpr>,
+) -> Option<ConditionExpr> {
     match (outer, inner) {
         (None, inner) => inner,
         (outer, None) => outer,
@@ -234,7 +263,12 @@ fn serialise_interaction_if_chain(chain: &InteractionIfChain) -> Value {
                 ("condition", serialise_condition_expr(&br.condition)),
                 (
                     "body",
-                    Value::Array(br.body.iter().map(serialise_interaction_handler_item).collect()),
+                    Value::Array(
+                        br.body
+                            .iter()
+                            .map(serialise_interaction_handler_item)
+                            .collect(),
+                    ),
                 ),
             ])
         })
@@ -280,19 +314,27 @@ fn json_as_f64(v: &Value) -> Option<f64> {
     }
 }
 
-fn transition_from_json(raw: &Value) -> Option<Value> {
+fn ease_from_json(v: &Value) -> Value {
+    match v {
+        Value::String(s) => Value::String(s.trim().trim_start_matches('.').to_string()),
+        Value::Object(o) if o.get("kind").and_then(|k| k.as_str()) == Some("easeBezier") => {
+            v.clone()
+        }
+        _ => Value::String("linear".to_string()),
+    }
+}
+
+fn timing_from_json(raw: &Value) -> Option<Value> {
     let o = raw.as_object()?;
     let duration = o.get("duration").and_then(json_as_f64)?;
     if !duration.is_finite() || duration < 0.0 {
         return None;
     }
-    let easing = o
-        .get("easing")
-        .and_then(|v| v.as_str())
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .unwrap_or("linear")
-        .to_string();
+    let ease = o
+        .get("ease")
+        .or_else(|| o.get("easing"))
+        .map(ease_from_json)
+        .unwrap_or_else(|| Value::String("linear".to_string()));
     let delay = o.get("delay").and_then(json_as_f64).unwrap_or(0.0);
     let delay = if delay.is_finite() && delay > 0.0 {
         delay
@@ -301,7 +343,7 @@ fn transition_from_json(raw: &Value) -> Option<Value> {
     };
     Some(obj(vec![
         ("duration", number_value(duration)),
-        ("easing", Value::String(easing)),
+        ("ease", ease),
         ("delay", number_value(delay)),
     ]))
 }
@@ -328,9 +370,15 @@ fn pose_from_json(raw: &Value) -> Option<Value> {
 
 fn stagger_from_json(raw: &Value) -> (Option<f64>, Option<String>) {
     let Some(o) = raw.as_object() else {
-        return (json_as_f64(raw).filter(|n| n.is_finite() && *n >= 0.0), None);
+        return (
+            json_as_f64(raw).filter(|n| n.is_finite() && *n >= 0.0),
+            None,
+        );
     };
-    let step = o.get("step").and_then(json_as_f64).filter(|n| n.is_finite() && *n >= 0.0);
+    let step = o
+        .get("step")
+        .and_then(json_as_f64)
+        .filter(|n| n.is_finite() && *n >= 0.0);
     let from = o
         .get("from")
         .and_then(|v| v.as_str())
@@ -343,13 +391,13 @@ fn motion_spec_from_eval(raw: &Value) -> Option<Value> {
     let o = raw.as_object()?;
     let mut entries: Vec<(&str, Value)> = Vec::new();
     let is_motion = o.get("kind").and_then(|v| v.as_str()) == Some("motion")
-        || o.contains_key("transition")
+        || o.contains_key("timing")
         || o.contains_key("pose")
         || o.contains_key("keys");
     if is_motion {
-        let t_src = o.get("transition").unwrap_or(raw);
-        if let Some(t) = transition_from_json(t_src) {
-            entries.push(("transition", t));
+        let t_src = o.get("timing").unwrap_or(raw);
+        if let Some(t) = timing_from_json(t_src) {
+            entries.push(("timing", t));
         }
         if let Some(play) = o.get("play").and_then(|v| v.as_str()) {
             entries.push((
@@ -386,8 +434,8 @@ fn motion_spec_from_eval(raw: &Value) -> Option<Value> {
             entries.retain(|(k, _)| *k != "staggerFrom");
             entries.push(("staggerFrom", Value::String(from)));
         }
-    } else if let Some(t) = transition_from_json(raw) {
-        entries.push(("transition", t));
+    } else if let Some(t) = timing_from_json(raw) {
+        entries.push(("timing", t));
     }
     if entries.is_empty() {
         None
@@ -427,7 +475,12 @@ fn serialise_interaction_decl(
                 ("event", Value::String(h.event.clone())),
                 (
                     "body",
-                    Value::Array(h.body.iter().map(serialise_interaction_handler_item).collect()),
+                    Value::Array(
+                        h.body
+                            .iter()
+                            .map(serialise_interaction_handler_item)
+                            .collect(),
+                    ),
                 ),
             ];
             if let Some(motion) = evaluate_handler_motion(&h.body, design, tokens) {
@@ -443,7 +496,12 @@ fn serialise_interaction_decl(
     ])
 }
 
-fn serialise_layout_on_handler(handler: &LayoutOnHandler, default_qualifier: Option<&str>) -> Value {
+fn serialise_layout_on_handler(
+    handler: &LayoutOnHandler,
+    default_qualifier: Option<&str>,
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+) -> Value {
     let payload: Vec<Value> = handler
         .payload
         .iter()
@@ -463,6 +521,40 @@ fn serialise_layout_on_handler(handler: &LayoutOnHandler, default_qualifier: Opt
                 ("param", Value::String(a.param.clone())),
                 ("value", serialise_value_expr(&a.value)),
             ]),
+            crate::ast::LayoutOnBodyItem::PresenterVerb {
+                qualifier,
+                verb,
+                page,
+                style,
+                move_spec,
+                dismiss_move,
+            } => {
+                let mut entries = vec![
+                    ("kind", Value::String("presenterVerb".to_string())),
+                    ("qualifier", Value::String(qualifier.clone())),
+                    ("name", Value::String(verb.as_str().to_string())),
+                ];
+                if let Some(p) = page {
+                    entries.push(("page", serialise_value_expr(p)));
+                }
+                if let Some(s) = style {
+                    entries.push(("style", Value::String(s.clone())));
+                }
+                if let Some(m) = move_spec {
+                    entries.push((
+                        "move",
+                        try_eval_value(m, design, tokens).unwrap_or_else(|| serialise_value_expr(m)),
+                    ));
+                }
+                if let Some(m) = dismiss_move {
+                    entries.push((
+                        "dismissMove",
+                        try_eval_value(m, design, tokens)
+                            .unwrap_or_else(|| serialise_value_expr(m)),
+                    ));
+                }
+                obj(entries)
+            }
             crate::ast::LayoutOnBodyItem::HostVerb {
                 qualifier,
                 name,
@@ -494,28 +586,42 @@ fn serialise_layout_on_handler(handler: &LayoutOnHandler, default_qualifier: Opt
     ];
     if let Some(q) = qualifier {
         entries.insert(0, ("qualifier", Value::String(q)));
+    } else {
+        entries.push(("capture", Value::String("ancestor".to_string())));
     }
     obj(entries)
 }
 
-fn collect_emit_captures_from_body(items: &[FrameBodyItem], out: &mut Vec<Value>) {
+fn collect_emit_captures_from_body(
+    items: &[FrameBodyItem],
+    out: &mut Vec<Value>,
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+) {
     for item in items {
         match item {
             FrameBodyItem::ForEach { list, body, .. } => {
                 for h in crate::ast::foreach_layout_handlers(body) {
-                    out.push(serialise_layout_on_handler(h, Some(list.as_str())));
+                    out.push(serialise_layout_on_handler(
+                        h,
+                        Some(list.as_str()),
+                        design,
+                        tokens,
+                    ));
                 }
             }
             FrameBodyItem::LayoutOn { handler } => {
-                out.push(serialise_layout_on_handler(handler, None));
+                out.push(serialise_layout_on_handler(handler, None, design, tokens));
             }
-            FrameBodyItem::Let { body, .. } => collect_emit_captures_from_body(body, out),
+            FrameBodyItem::Let { body, .. } => {
+                collect_emit_captures_from_body(body, out, design, tokens)
+            }
             FrameBodyItem::If { chain } => {
                 for br in &chain.branches {
-                    collect_emit_captures_from_body(&br.body, out);
+                    collect_emit_captures_from_body(&br.body, out, design, tokens);
                 }
                 if let Some(else_body) = &chain.else_body {
-                    collect_emit_captures_from_body(else_body, out);
+                    collect_emit_captures_from_body(else_body, out, design, tokens);
                 }
             }
             _ => {}
@@ -949,7 +1055,10 @@ fn build_catalogue_token_layers(design: &DesignDefinition) -> TokenLayers {
     for t in design.themes.values() {
         let mut overrides = Map::new();
         for (k, expr) in &t.overrides {
-            overrides.insert(k.clone(), serialise_value_expr_with_token_refs(expr, design));
+            overrides.insert(
+                k.clone(),
+                serialise_value_expr_with_token_refs(expr, design),
+            );
         }
         themes.insert(
             t.name.clone(),
@@ -983,7 +1092,10 @@ fn build_catalogue_token_layers(design: &DesignDefinition) -> TokenLayers {
     for c in design.catalogs.values() {
         let mut overrides = Map::new();
         for (k, expr) in &c.overrides {
-            overrides.insert(k.clone(), serialise_value_expr_with_token_refs(expr, design));
+            overrides.insert(
+                k.clone(),
+                serialise_value_expr_with_token_refs(expr, design),
+            );
         }
         catalogs.insert(
             c.name.clone(),
@@ -1103,7 +1215,13 @@ pub fn build_catalogue_component_row(
         if trees_by_assign_key.contains_key(&k) {
             continue;
         }
-        let t = resolve_component_tree(design, &c.name, tokens, &assignment_to_overrides(&assign), opts)?;
+        let t = resolve_component_tree(
+            design,
+            &c.name,
+            tokens,
+            &assignment_to_overrides(&assign),
+            opts,
+        )?;
         trees_by_assign_key.insert(k, t.clone());
         scan_trees.push(t);
     }
@@ -1145,8 +1263,11 @@ pub fn build_catalogue_component_row(
         }
 
         let structural = variant_hierarchy_out.is_some();
-        let affected =
-            collect_affected_frames_for_variant(&changes, &hierarchy_default, variant_hierarchy_out.as_ref());
+        let affected = collect_affected_frames_for_variant(
+            &changes,
+            &hierarchy_default,
+            variant_hierarchy_out.as_ref(),
+        );
         variants.push(VariantEntry {
             params: assign,
             affected_frames: affected,
@@ -1344,11 +1465,23 @@ pub fn build_catalogue_component_row(
 
     let mut out = Map::new();
     out.insert("name".to_string(), Value::String(c.name.clone()));
+    if c.role != crate::ast::ComponentRole::Component {
+        out.insert(
+            "role".to_string(),
+            Value::String(c.role.as_str().to_string()),
+        );
+    }
     if !c.conforms_to.is_empty() {
         out.insert(
             "conformsTo".to_string(),
+            Value::Array(c.conforms_to.iter().cloned().map(Value::String).collect()),
+        );
+    }
+    if !c.emits_protocols.is_empty() {
+        out.insert(
+            "emitsProtocols".to_string(),
             Value::Array(
-                c.conforms_to
+                c.emits_protocols
                     .iter()
                     .cloned()
                     .map(Value::String)
@@ -1379,7 +1512,7 @@ pub fn build_catalogue_component_row(
         out.insert("interactions".to_string(), i);
     }
     let mut emit_captures: Vec<Value> = Vec::new();
-    collect_emit_captures_from_body(&c.body, &mut emit_captures);
+    collect_emit_captures_from_body(&c.body, &mut emit_captures, design, tokens);
     if !emit_captures.is_empty() {
         out.insert("emitCaptures".to_string(), Value::Array(emit_captures));
     }
@@ -1387,30 +1520,7 @@ pub fn build_catalogue_component_row(
     if !emits.is_empty() {
         out.insert(
             "emits".to_string(),
-            Value::Array(
-                emits
-                    .into_iter()
-                    .map(|e| {
-                        obj(vec![
-                            ("name", Value::String(e.name)),
-                            (
-                                "args",
-                                Value::Array(
-                                    e.args
-                                        .into_iter()
-                                        .map(|a| {
-                                            obj(vec![
-                                                ("name", Value::String(a.name)),
-                                                ("type", Value::String(a.type_name)),
-                                            ])
-                                        })
-                                        .collect(),
-                                ),
-                            ),
-                        ])
-                    })
-                    .collect(),
-            ),
+            Value::Array(emits.iter().map(catalogue_emit_channel).collect()),
         );
     }
     out.insert("root".to_string(), root);
@@ -1426,12 +1536,7 @@ pub fn build_catalogue_component_row(
     if !required_components.is_empty() {
         out.insert(
             "requiredComponents".to_string(),
-            Value::Array(
-                required_components
-                    .into_iter()
-                    .map(Value::String)
-                    .collect(),
-            ),
+            Value::Array(required_components.into_iter().map(Value::String).collect()),
         );
     }
     out.insert("variants".to_string(), Value::Array(variants_v));
@@ -1508,21 +1613,28 @@ pub fn build_component_catalogue(
     doc.insert("typeStyles".to_string(), layers.type_styles);
     doc.insert("variantTypes".to_string(), Value::Object(variant_types));
     // Prelude host protocols are always in the design map for validation, but only
-    // appear in the catalogue when referenced (conformsTo / requires).
+    // appear in the catalogue when referenced (conformsTo / emitsProtocols / requires).
     let protocols_for_catalogue: Vec<&crate::ast::ProtocolDecl> = design
         .protocols
         .values()
         .filter(|p| {
-            if !crate::design::is_host_protocol_prelude(&p.name) {
+            let is_page_prelude = p.name == crate::design::PAGE_PROTOCOL_PRELUDE;
+            if !crate::design::is_host_protocol_prelude(&p.name) && !is_page_prelude {
                 return true;
             }
-            let referenced = design
-                .components
+            let referenced = design.components.values().any(|c| {
+                c.conforms_to.iter().any(|n| n == &p.name)
+                    || c.emits_protocols.iter().any(|n| n == &p.name)
+                    || (is_page_prelude && c.role == crate::ast::ComponentRole::Page)
+                    || crate::design::effective_params(design, c).is_ok_and(|params| {
+                        params.iter().any(|param| {
+                            crate::param_types::unwrap_param_type_name(&param.type_name) == p.name
+                        })
+                    })
+            }) || design
+                .protocols
                 .values()
-                .any(|c| c.conforms_to.iter().any(|n| n == &p.name))
-                || design.protocols.values().any(|other| {
-                    other.requires.iter().any(|r| r == &p.name)
-                });
+                .any(|other| other.requires.iter().any(|r| r == &p.name));
             referenced
         })
         .collect();
@@ -1542,23 +1654,14 @@ pub fn build_component_catalogue(
                                 ("element", Value::String(param.type_name.clone())),
                             ]),
                         ));
-                        entries.push((
-                            "default",
-                            serialise_value_expr(&param.default_value),
-                        ));
+                        entries.push(("default", serialise_value_expr(&param.default_value)));
                     } else if design.variants.contains_key(&param.type_name) {
                         entries.push(("type", Value::String("variant".to_string())));
-                        entries.push((
-                            "default",
-                            serialise_value_expr(&param.default_value),
-                        ));
+                        entries.push(("default", serialise_value_expr(&param.default_value)));
                         entries.push(("variantTypeName", Value::String(param.type_name.clone())));
                     } else {
                         entries.push(("type", Value::String(param.type_name.clone())));
-                        entries.push((
-                            "default",
-                            serialise_value_expr(&param.default_value),
-                        ));
+                        entries.push(("default", serialise_value_expr(&param.default_value)));
                     }
                     obj(entries)
                 })
@@ -1583,29 +1686,7 @@ pub fn build_component_catalogue(
             }
             row.insert("params".to_string(), Value::Array(params));
             if !p.emits.is_empty() {
-                let emits: Vec<Value> = p
-                    .emits
-                    .iter()
-                    .map(|e| {
-                        obj(vec![
-                            ("name", Value::String(e.name.clone())),
-                            (
-                                "args",
-                                Value::Array(
-                                    e.args
-                                        .iter()
-                                        .map(|a| {
-                                            obj(vec![
-                                                ("name", Value::String(a.name.clone())),
-                                                ("type", Value::String(a.type_name.clone())),
-                                            ])
-                                        })
-                                        .collect(),
-                                ),
-                            ),
-                        ])
-                    })
-                    .collect();
+                let emits: Vec<Value> = p.emits.iter().map(catalogue_emit_channel).collect();
                 row.insert("emits".to_string(), Value::Array(emits));
             }
             protocols.insert(p.name.clone(), Value::Object(row));

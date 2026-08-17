@@ -34,6 +34,8 @@ import { pathToFileURL } from "node:url";
  * @property {Record<string, Record<string, unknown>>} [stateTrees] Extra state bakes per component
  * @property {Record<string, unknown>} [paramControlsByComponent]
  * @property {Record<string, Record<string, unknown>>} [componentOverrides] Per-component bake param overrides
+ * @property {Record<string, unknown>} [presenterPins] Pin bag for mode=component
+ * @property {Record<string, Record<string, unknown>>} [presenterPinsByComponent] Per-component pin bags
  * @property {boolean} [bakeOnly] Skip HTML serialization (hot-path IR reconcile)
  */
 
@@ -112,6 +114,10 @@ function buildRustBakeCommand(req) {
     if (req.host) args.push("--host", req.host);
     if (req.hostFacts && typeof req.hostFacts === "object" && !Array.isArray(req.hostFacts)) {
       args.push("--hostFacts", JSON.stringify(req.hostFacts));
+    }
+    const pins = req.presenterPins;
+    if (pins && typeof pins === "object" && !Array.isArray(pins) && Object.keys(pins).length > 0) {
+      args.push("--presenterPins", JSON.stringify(pins));
     }
     args.push(...kvArgs(req.paramOverrides ?? {}));
     args.push("--out", outPath);
@@ -256,8 +262,53 @@ export async function bakeAndRender(req) {
           component: compName,
           theme: req.theme,
           paramOverrides: /** @type {Record<string, unknown>} */ (ov),
+          presenterPins: req.presenterPinsByComponent?.[compName],
           bakeOutPath: outPath,
           title: "override",
+          singleComponent: compName,
+          interactiveHost: false,
+        });
+        if (one.ok && one.baked) {
+          const tree =
+            /** @type {{ components?: Record<string, unknown> }} */ (one.baked).components?.[
+              compName
+            ];
+          if (tree) {
+            doc.components = { ...doc.components, [compName]: tree };
+          }
+        }
+      }
+      bakedDoc = doc;
+    }
+
+    const pinBags = req.presenterPinsByComponent;
+    if (
+      pinBags &&
+      typeof pinBags === "object" &&
+      bakedDoc &&
+      typeof bakedDoc === "object"
+    ) {
+      const doc = /** @type {{ components: Record<string, unknown> }} */ (bakedDoc);
+      for (const [compName, pins] of Object.entries(pinBags)) {
+        if (!pins || typeof pins !== "object" || Object.keys(pins).length === 0) continue;
+        if (overrides?.[compName] && Object.keys(overrides[compName] ?? {}).length) continue;
+        const outPath = join(
+          dirname(bakePath),
+          `pins-${compName.replace(/[^\w.-]+/g, "_")}.bake.json`,
+        );
+        const one = await bakeAndRender({
+          repoRoot: req.repoRoot,
+          entry: req.entry,
+          engine,
+          mode: "component",
+          component: compName,
+          theme: req.theme,
+          host: req.host,
+          hostFacts: req.hostFacts,
+          paramOverrides: req.componentOverrides?.[compName] ?? {},
+          presenterPins: pins,
+          bakeOutPath: outPath,
+          title: "pins",
           singleComponent: compName,
           interactiveHost: false,
         });

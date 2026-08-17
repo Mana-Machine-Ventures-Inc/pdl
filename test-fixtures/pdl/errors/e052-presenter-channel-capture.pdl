@@ -1,0 +1,14 @@
+// PDL-E052: presenter.channel is not ancestor capture.
+
+variant EpisodeId { case demo }
+
+protocol ShowEpisode: component {
+  emits(propagation: .ancestors) {
+    showEpisode(id: EpisodeId)
+  }
+}
+
+screen Phone() layout {
+  children = []
+  presenter.showEpisode(id: EpisodeId) = { }
+}

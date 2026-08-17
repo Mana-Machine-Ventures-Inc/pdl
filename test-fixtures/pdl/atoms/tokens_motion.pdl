@@ -1,12 +1,12 @@
-// Duration, Easing, Transition
+// Duration, Ease, Timing
 
 primitive atoms.motion.fast: Duration = 120
 primitive atoms.motion.slow: Duration = 320
-primitive atoms.motion.ease.linear: Easing = "linear"
-primitive atoms.motion.ease.standard: Easing = "cubic-bezier(0.2, 0, 0, 1)"
-semantic atoms.motion.transition.quick: Transition = (duration: atoms.motion.fast, easing: atoms.motion.ease.linear)
-semantic atoms.motion.transition.smooth: Transition = (
+primitive atoms.motion.ease.linear: Ease = .linear
+primitive atoms.motion.ease.standard: Ease = Ease.bezier(0.2, 0, 0, 1)
+semantic atoms.motion.transition.quick: Timing = Timing(duration: atoms.motion.fast, ease: atoms.motion.ease.linear)
+semantic atoms.motion.transition.smooth: Timing = Timing(
   duration: atoms.motion.slow,
-  easing: atoms.motion.ease.standard,
+  ease: atoms.motion.ease.standard,
   delay: atoms.motion.fast
 )

@@ -1,0 +1,9 @@
+// PDL-E044: API send/slot protocols go in `emits <>`, not receive `<>`.
+
+protocol TitleBody: component {
+  title: String = ""
+}
+
+component Bad <TitleBody>() layout {
+  children = []
+}

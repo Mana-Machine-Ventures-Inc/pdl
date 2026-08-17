@@ -63,10 +63,7 @@ fn assert_unique_frame_ids(root: &Value, context: &str) {
 
 fn nested_text_contents(frame: &Value, out: &mut Vec<String>) {
     if frame.get("kind").and_then(|v| v.as_str()) == Some("text") {
-        if let Some(c) = frame
-            .pointer("/props/content")
-            .and_then(|v| v.as_str())
-        {
+        if let Some(c) = frame.pointer("/props/content").and_then(|v| v.as_str()) {
             out.push(c.to_string());
         }
     }
@@ -208,9 +205,7 @@ fn nested_let_instances_keep_scoped_ids_and_titles() {
         .as_array()
         .unwrap()
         .iter()
-        .find(|c| {
-            c["id"] == "C1__Primary" || c["id"] == "C1__Actions__Primary"
-        })
+        .find(|c| c["id"] == "C1__Primary" || c["id"] == "C1__Actions__Primary")
         .expect("C1__Primary");
     let c2_primary = c2["children"]
         .as_array()
@@ -221,9 +216,7 @@ fn nested_let_instances_keep_scoped_ids_and_titles() {
         .as_array()
         .unwrap()
         .iter()
-        .find(|c| {
-            c["id"] == "C2__Primary" || c["id"] == "C2__Actions__Primary"
-        })
+        .find(|c| c["id"] == "C2__Primary" || c["id"] == "C2__Actions__Primary")
         .expect("C2__Primary");
     let c1_label = c1_primary["children"][0]["id"].as_str().unwrap();
     let c2_label = c2_primary["children"][0]["id"].as_str().unwrap();
@@ -242,8 +235,9 @@ fn nested_let_instances_keep_scoped_ids_and_titles() {
 #[test]
 fn catalogue_registry_keeps_scoped_ids_for_sibling_instances() {
     let design = load_fixture("test-fixtures/pdl/molecules/m_10_form_group.pdl");
-    let cat = build_component_catalogue(&design, None, &[], Some("1970-01-01T00:00:00.000Z".into()))
-        .expect("catalogue");
+    let cat =
+        build_component_catalogue(&design, None, &[], Some("1970-01-01T00:00:00.000Z".into()))
+            .expect("catalogue");
     let row = &cat["components"]["MoleculeFormColumnDemo"];
     let nodes = row["childNodes"].as_object().expect("childNodes");
 
@@ -299,15 +293,22 @@ fn airbnb_lite_form_actions_keep_distinct_labels() {
     assert_unique_frame_ids(root, "AbnFormActionsDemo");
     assert_instance_labels_reach_nested_text(root, "AbnFormActionsDemo");
     let actions = child_by_id(root, "Actions");
-    assert_eq!(child_by_id(actions, "Cancel")["children"][0]["props"]["content"], "Cancel");
-    assert_eq!(child_by_id(actions, "Save")["children"][0]["props"]["content"], "Save");
+    assert_eq!(
+        child_by_id(actions, "Cancel")["children"][0]["props"]["content"],
+        "Cancel"
+    );
+    assert_eq!(
+        child_by_id(actions, "Save")["children"][0]["props"]["content"],
+        "Save"
+    );
 }
 
 #[test]
 fn catalogue_button_row_scopes_nested_label_frames() {
     let design = load_fixture("test-fixtures/pdl/molecules/m_02_buttons_basic.pdl");
-    let cat = build_component_catalogue(&design, None, &[], Some("1970-01-01T00:00:00.000Z".into()))
-        .expect("catalogue");
+    let cat =
+        build_component_catalogue(&design, None, &[], Some("1970-01-01T00:00:00.000Z".into()))
+            .expect("catalogue");
     let nodes = cat["components"]["MoleculeButtonRowDemo"]["childNodes"]
         .as_object()
         .expect("childNodes");

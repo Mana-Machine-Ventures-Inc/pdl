@@ -72,8 +72,8 @@ pub enum TokenKind {
     LetterSpacing,
     Sizing,
     Duration,
-    Easing,
-    Transition,
+    Ease,
+    Timing,
     Pose,
     Stagger,
     Motion,
@@ -188,8 +188,9 @@ fn keyword(raw: &str) -> Option<TokenKind> {
         "LetterSpacing" => TokenKind::LetterSpacing,
         "Sizing" => TokenKind::Sizing,
         "Duration" => TokenKind::Duration,
-        "Easing" => TokenKind::Easing,
-        "Transition" => TokenKind::Transition,
+        "Ease" => TokenKind::Ease,
+        "Timing" => TokenKind::Timing,
+        "PresentationMotion" => TokenKind::Ident,
         "Pose" => TokenKind::Pose,
         "Stagger" => TokenKind::Stagger,
         "Motion" => TokenKind::Motion,
@@ -224,11 +225,7 @@ pub fn tokenize(source: &str, file_path: &str) -> Result<Vec<Token>, PdlError> {
     let mut column: u32 = 1;
     let mut tokens: Vec<Token> = Vec::new();
 
-    let bump = |n: usize,
-                i: &mut usize,
-                line: &mut u32,
-                column: &mut u32,
-                chars: &[char]| {
+    let bump = |n: usize, i: &mut usize, line: &mut u32, column: &mut u32, chars: &[char]| {
         for k in 0..n {
             let ch = chars.get(*i + k).copied().unwrap_or('\0');
             if ch == '\n' {
@@ -250,7 +247,11 @@ pub fn tokenize(source: &str, file_path: &str) -> Result<Vec<Token>, PdlError> {
         bump(1, &mut i, &mut line, &mut column, &chars);
     }
 
-    let push = |tokens: &mut Vec<Token>, kind: TokenKind, value: String, start_line: u32, start_col: u32| {
+    let push = |tokens: &mut Vec<Token>,
+                kind: TokenKind,
+                value: String,
+                start_line: u32,
+                start_col: u32| {
         tokens.push(Token {
             kind,
             value,
@@ -260,7 +261,13 @@ pub fn tokenize(source: &str, file_path: &str) -> Result<Vec<Token>, PdlError> {
     };
 
     let err = |code: &str, message: String, path: &str, line: u32, column: u32| -> PdlError {
-        PdlError::new(code, message, Some(path.to_string()), Some(line), Some(column))
+        PdlError::new(
+            code,
+            message,
+            Some(path.to_string()),
+            Some(line),
+            Some(column),
+        )
     };
 
     while i < chars.len() {
@@ -414,7 +421,13 @@ pub fn tokenize(source: &str, file_path: &str) -> Result<Vec<Token>, PdlError> {
                     start_col,
                 ));
             }
-            push(&mut tokens, TokenKind::StringLit, out, start_line, start_col);
+            push(
+                &mut tokens,
+                TokenKind::StringLit,
+                out,
+                start_line,
+                start_col,
+            );
             bump(j - i + 1, &mut i, &mut line, &mut column, &chars);
             continue;
         }
@@ -423,7 +436,10 @@ pub fn tokenize(source: &str, file_path: &str) -> Result<Vec<Token>, PdlError> {
             let prev = if i == 0 { ' ' } else { chars[i - 1] };
             let after_ident_or_number = prev.is_ascii_alphanumeric() || prev == '_';
             let next = chars.get(i + 1).copied().unwrap_or('\0');
-            if !after_ident_or_number && next != '\0' && !next.is_ascii_digit() && is_ident_start(next)
+            if !after_ident_or_number
+                && next != '\0'
+                && !next.is_ascii_digit()
+                && is_ident_start(next)
             {
                 let mut j = i + 1;
                 while j < chars.len() && is_ident_continue(chars[j]) {
@@ -434,7 +450,13 @@ pub fn tokenize(source: &str, file_path: &str) -> Result<Vec<Token>, PdlError> {
                 bump(j - i, &mut i, &mut line, &mut column, &chars);
                 continue;
             }
-            push(&mut tokens, TokenKind::Dot, ".".into(), start_line, start_col);
+            push(
+                &mut tokens,
+                TokenKind::Dot,
+                ".".into(),
+                start_line,
+                start_col,
+            );
             bump(1, &mut i, &mut line, &mut column, &chars);
             continue;
         }
@@ -442,9 +464,7 @@ pub fn tokenize(source: &str, file_path: &str) -> Result<Vec<Token>, PdlError> {
         if c == '-' || c.is_ascii_digit() {
             let neg = c == '-';
             let mut j = i + if neg { 1 } else { 0 };
-            if neg
-                && (j >= chars.len() || !chars[j].is_ascii_digit())
-            {
+            if neg && (j >= chars.len() || !chars[j].is_ascii_digit()) {
                 return Err(err(
                     "PDL-E001",
                     "Invalid number: lone minus".into(),
@@ -523,37 +543,79 @@ pub fn tokenize(source: &str, file_path: &str) -> Result<Vec<Token>, PdlError> {
 
         match two.as_str() {
             "==" => {
-                push(&mut tokens, TokenKind::EqEq, "==".into(), start_line, start_col);
+                push(
+                    &mut tokens,
+                    TokenKind::EqEq,
+                    "==".into(),
+                    start_line,
+                    start_col,
+                );
                 bump(2, &mut i, &mut line, &mut column, &chars);
                 continue;
             }
             "!=" => {
-                push(&mut tokens, TokenKind::Ne, "!=".into(), start_line, start_col);
+                push(
+                    &mut tokens,
+                    TokenKind::Ne,
+                    "!=".into(),
+                    start_line,
+                    start_col,
+                );
                 bump(2, &mut i, &mut line, &mut column, &chars);
                 continue;
             }
             "+=" => {
-                push(&mut tokens, TokenKind::PlusEq, "+=".into(), start_line, start_col);
+                push(
+                    &mut tokens,
+                    TokenKind::PlusEq,
+                    "+=".into(),
+                    start_line,
+                    start_col,
+                );
                 bump(2, &mut i, &mut line, &mut column, &chars);
                 continue;
             }
             "&&" => {
-                push(&mut tokens, TokenKind::AndAnd, "&&".into(), start_line, start_col);
+                push(
+                    &mut tokens,
+                    TokenKind::AndAnd,
+                    "&&".into(),
+                    start_line,
+                    start_col,
+                );
                 bump(2, &mut i, &mut line, &mut column, &chars);
                 continue;
             }
             "||" => {
-                push(&mut tokens, TokenKind::OrOr, "||".into(), start_line, start_col);
+                push(
+                    &mut tokens,
+                    TokenKind::OrOr,
+                    "||".into(),
+                    start_line,
+                    start_col,
+                );
                 bump(2, &mut i, &mut line, &mut column, &chars);
                 continue;
             }
             ">=" => {
-                push(&mut tokens, TokenKind::Ge, ">=".into(), start_line, start_col);
+                push(
+                    &mut tokens,
+                    TokenKind::Ge,
+                    ">=".into(),
+                    start_line,
+                    start_col,
+                );
                 bump(2, &mut i, &mut line, &mut column, &chars);
                 continue;
             }
             "<=" => {
-                push(&mut tokens, TokenKind::Le, "<=".into(), start_line, start_col);
+                push(
+                    &mut tokens,
+                    TokenKind::Le,
+                    "<=".into(),
+                    start_line,
+                    start_col,
+                );
                 bump(2, &mut i, &mut line, &mut column, &chars);
                 continue;
             }
@@ -622,7 +684,9 @@ primitive color.black: Color = #000000
         )
         .unwrap();
         assert_eq!(toks[0].kind, TokenKind::Primitive);
-        assert!(!toks.iter().any(|t| t.value == "ForEach" || t.value == "chip"));
+        assert!(!toks
+            .iter()
+            .any(|t| t.value == "ForEach" || t.value == "chip"));
     }
 
     #[test]
@@ -634,11 +698,7 @@ primitive color.black: Color = #000000
 
     #[test]
     fn tokenizes_primitive_line() {
-        let toks = tokenize(
-            r#"primitive color.black: Color = #000000"#,
-            "t.pdl",
-        )
-        .unwrap();
+        let toks = tokenize(r#"primitive color.black: Color = #000000"#, "t.pdl").unwrap();
         assert_eq!(toks[0].kind, TokenKind::Primitive);
         assert_eq!(toks[1].kind, TokenKind::Ident);
         assert_eq!(toks[1].value, "color");
@@ -655,7 +715,9 @@ primitive color.black: Color = #000000
     #[test]
     fn dot_enum_vs_member() {
         let toks = tokenize("tone = .primary\nFoo.children = []", "t.pdl").unwrap();
-        assert!(toks.iter().any(|t| t.kind == TokenKind::DotEnum && t.value == ".primary"));
+        assert!(toks
+            .iter()
+            .any(|t| t.kind == TokenKind::DotEnum && t.value == ".primary"));
         // Foo . children — Dot between idents
         let kinds: Vec<_> = toks.iter().map(|t| t.kind).collect();
         assert!(kinds.contains(&TokenKind::Dot));

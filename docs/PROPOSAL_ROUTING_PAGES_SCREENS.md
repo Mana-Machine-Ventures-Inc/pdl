@@ -599,7 +599,7 @@ A **Pose** in a slot inherits the pair’s `duration` / `ease` / `delay`. A **Mo
 ```pdl
 semantic motion.navPush: PresentationMotion = PresentationMotion(
   duration: 350,
-  ease: Ease.cubic(0.2, 0, 0, 1),
+  ease: Ease.bezier(0.2, 0, 0, 1),
   incoming: Pose(translateX: 390),
   outgoing: Pose(translateX: -120, opacity: 0.55),
   front: .incoming
@@ -614,8 +614,8 @@ semantic motion.deck: PresentationMotion = PresentationMotion(
 )
 
 semantic motion.crossFade: PresentationMotion = PresentationMotion(
-  incoming: Motion(duration: 280, ease: Ease.inOut, pose: Pose(opacity: 0)),
-  outgoing: Motion(duration: 280, ease: Ease.inOut, pose: Pose(opacity: 0)),
+  incoming: Motion(duration: 280, ease: Ease.bezier(0.42, 0, 0.58, 1), pose: Pose(opacity: 0)),
+  outgoing: Motion(duration: 280, ease: Ease.bezier(0.42, 0, 0.58, 1), pose: Pose(opacity: 0)),
   front: .outgoing,
   promoteAt: 0.5
 )
@@ -711,7 +711,7 @@ screen Phone <ShowEpisode, AppNav>(
 |------|------------|
 | **`Pose`** | Overlay state (opacity, translate, scale, rotate, blur, origin). Not Z. |
 | **`Duration`** | Span in ms. Delay is the same type, used as an offset. |
-| **`Ease`** | How time is shaped (`Ease.out`, `Ease.cubic(…)`). Quoted CSS is sugar that types as `Ease`. |
+| **`Ease`** | How time is shaped (`.linear`, `.in`, `.out`, `Ease.bezier(…)`). Not a CSS string. |
 | **`Timing`** | Reusable clock (duration + ease + delay). Not a crossing. Bare Timing is tree-tween `animate =`. |
 | **`Key`** | A pose at `at: 0…1` of the duration. |
 | **`Motion`** | One node, one playhead — the value of `animate =`. |

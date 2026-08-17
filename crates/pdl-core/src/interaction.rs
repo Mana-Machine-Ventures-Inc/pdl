@@ -193,7 +193,10 @@ pub fn apply_emit_capture(
 ) -> ApplyInteractionResult {
     let mut scope = parent_params.clone();
     for (i, payload) in handler.payload.iter().enumerate() {
-        let src = emit_arg_names.get(i).map(|s| s.as_str()).unwrap_or(payload.name.as_str());
+        let src = emit_arg_names
+            .get(i)
+            .map(|s| s.as_str())
+            .unwrap_or(payload.name.as_str());
         if let Some(v) = child_params.get(src) {
             scope.insert(payload.name.clone(), v.clone());
         } else if let Some(v) = child_params.get(&payload.name) {
@@ -221,6 +224,10 @@ pub fn apply_emit_capture(
             }
             crate::ast::LayoutOnBodyItem::HostVerb { .. } => {
                 // Executed by the HTML/preview host against the nested let session bag.
+                changed = true;
+            }
+            crate::ast::LayoutOnBodyItem::PresenterVerb { .. } => {
+                // Presenter hole — bake snapshot uses `root` until live dispatch (B7).
                 changed = true;
             }
         }
@@ -354,12 +361,7 @@ mod tests {
         let mut child = ParamValues::new();
         child.insert("filter".into(), Value::String("podcasts".into()));
         child.insert("title".into(), Value::String("Podcasts".into()));
-        let r = apply_emit_capture(
-            &parent,
-            &handler,
-            &["filter".into()],
-            &child,
-        );
+        let r = apply_emit_capture(&parent, &handler, &["filter".into()], &child);
         assert!(r.handled && r.changed);
         assert_eq!(
             r.params.get("currentFilter"),
@@ -372,7 +374,10 @@ mod tests {
         let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
         let entry = root.join("test-fixtures/pdl/protocols/design.pdl");
         let design = crate::design::load_design(entry.to_str().unwrap()).expect("load");
-        let c = design.components.get("LibrarySubnav").expect("LibrarySubnav");
+        let c = design
+            .components
+            .get("LibrarySubnav")
+            .expect("LibrarySubnav");
         let mut n = 0usize;
         for item in &c.body {
             if let crate::ast::FrameBodyItem::ForEach { body, .. } = item {

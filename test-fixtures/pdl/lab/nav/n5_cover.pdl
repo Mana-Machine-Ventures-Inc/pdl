@@ -1,0 +1,211 @@
+// N5 — Presenter cover: present(.cover) / dismiss + fixture pin.
+// Cover is centered over the stack top; the prior page stays visible around it.
+// Vacant cover is omitted. Screen receives <ShowEpisode, AppNav>.
+// Not on the TS oracle manifest.
+
+variant EpisodeId { case demo case late }
+
+protocol ShowEpisode: component {
+  emits(propagation: .ancestors) {
+    showEpisode(id: EpisodeId)
+  }
+}
+
+protocol AppNav: component {
+  emits(propagation: .ancestors) {
+    back()
+    showSettings()
+    closeSettings()
+  }
+}
+
+component TabItem(
+  title: String = "Tab",
+  selected: Bool = false
+) layout {
+  direction = .column
+  align = .center
+  justify = .center
+  gap = 2
+  width = .fill
+  height = .hug
+  padding = EdgeInsets(x: 4, y: 2)
+
+  let label = Text(content: title, color: #94A3B8, fontSize: 11, fontWeight: 600)
+  if selected {
+    label.color = #93C5FD
+    label.fontWeight = 700
+  }
+  children = [label]
+}
+
+component TabBar() layout {
+  direction = .row
+  align = .center
+  justify = .spaceAround
+  width = .fill
+  height = .hug
+  padding = EdgeInsets(x: 8, y: 10)
+  background = #1E293B
+  cornerRadius = 14
+
+  let library = TabItem(title: "Library", selected: true)
+  let search = TabItem(title: "Search")
+  let you = TabItem(title: "You")
+  children = [library, search, you]
+}
+
+component EpisodeRow <PointerInput> emits <ShowEpisode>(
+  episodeId: EpisodeId = .demo,
+  title: String = "Morning Cup",
+  subtitle: String = "12 min"
+) layout {
+  direction = .column
+  gap = 4
+  padding = EdgeInsets(x: 16, y: 14)
+  background = #FFFFFF
+  cornerRadius = 12
+  width = .fill
+
+  let name = Text(content: title, color: #0F172A, fontSize: 16, fontWeight: 600)
+  let meta = Text(content: subtitle, color: #64748B, fontSize: 13)
+  children = [name, meta]
+  self.pressEnd = { emit showEpisode(episodeId) }
+}
+
+component BackButton <PointerInput> emits <AppNav>(
+  label: String = "Back"
+) layout {
+  direction = .row
+  align = .center
+  padding = EdgeInsets(x: 12, y: 8)
+  background = #E2E8F0
+  cornerRadius = 8
+  width = .hug
+  height = .hug
+
+  let text = Text(content: label, color: #0F172A, fontSize: 14, fontWeight: 600)
+  children = [text]
+  self.pressEnd = { emit back() }
+}
+
+component SettingsButton <PointerInput> emits <AppNav>(
+  label: String = "Settings"
+) layout {
+  direction = .row
+  align = .center
+  padding = EdgeInsets(x: 12, y: 8)
+  background = #0F172A
+  cornerRadius = 8
+  width = .hug
+  height = .hug
+
+  let text = Text(content: label, color: #FFFFFF, fontSize: 14, fontWeight: 600)
+  children = [text]
+  self.pressEnd = { emit showSettings() }
+}
+
+component CloseButton <PointerInput> emits <AppNav>(
+  label: String = "Close"
+) layout {
+  direction = .row
+  align = .center
+  padding = EdgeInsets(x: 16, y: 10)
+  background = #FFFFFF
+  cornerRadius = 10
+  width = .hug
+  height = .hug
+
+  let text = Text(content: label, color: #0F172A, fontSize: 15, fontWeight: 600)
+  children = [text]
+  self.pressEnd = { emit closeSettings() }
+}
+
+page Home() layout {
+  direction = .column
+  gap = 12
+  padding = 20
+  width = .fill
+  height = .fill
+  background = #F8FAFC
+
+  let kicker = Text(content: "N5 — cover", color: #64748B, fontSize: 13, fontWeight: 600)
+  let title = Text(content: "Home", color: #0F172A, fontSize: 28, fontWeight: 700)
+  let hint = Text(content: "Row pushes Episode. Settings is a card over that page — you should still see Episode around it. The tab bar stays.", color: #475569, fontSize: 14)
+  let row = EpisodeRow(episodeId: .demo, title: "Morning Cup", subtitle: "12 min")
+  let row2 = EpisodeRow(episodeId: .late, title: "Late Night", subtitle: "48 min")
+  children = [kicker, title, hint, row, row2]
+}
+
+page Episode(episodeId: EpisodeId = .demo) layout {
+  direction = .column
+  gap = 12
+  padding = 20
+  width = .fill
+  height = .fill
+  background = #EFF6FF
+
+  let back = BackButton()
+  let kicker = Text(content: "Episode", color: #2563EB, fontSize: 13, fontWeight: 600)
+  let title = Text(content: "Morning Cup", color: #0F172A, fontSize: 28, fontWeight: 700)
+  if episodeId == .late {
+    title.content = "Late Night"
+  }
+  let body = Text(content: "On the stack. Settings presents a card over this page; Back pops to Home.", color: #475569, fontSize: 15)
+  let settings = SettingsButton()
+  children = [back, kicker, title, body, settings]
+}
+
+page Settings() layout {
+  direction = .column
+  gap = 12
+  padding = 20
+  width = 300
+  height = .hug
+  background = #1E293B
+  cornerRadius = 16
+
+  let kicker = Text(content: "Cover", color: #94A3B8, fontSize: 13, fontWeight: 600)
+  let title = Text(content: "Settings", color: #F8FAFC, fontSize: 28, fontWeight: 700)
+  let body = Text(content: "Centered over Episode. You should still see that page around this card. Dismiss returns to Episode.", color: #CBD5E1, fontSize: 15)
+  let close = CloseButton()
+  children = [kicker, title, body, close]
+}
+
+screen Phone <ShowEpisode, AppNav>() layout {
+  direction = .column
+  gap = 8
+  width = 390
+  height = 760
+  background = #0F172A
+  padding = 12
+  cornerRadius = 28
+
+  let home = Home()
+  let presenter = Presenter(root: home)
+  let tabBar = TabBar()
+  children = [presenter, tabBar]
+  showEpisode(id: EpisodeId) = {
+    presenter.push(Episode(episodeId: id))
+  }
+  back() = {
+    presenter.pop()
+  }
+  showSettings() = {
+    presenter.present(Settings(), style: .cover)
+  }
+  closeSettings() = {
+    presenter.dismiss()
+  }
+}
+
+fixtures Phone {
+  example "Home" { }
+  example "Episode" {
+    presenter = [Home(), Episode(episodeId: .demo)]
+  }
+  example "Settings" {
+    presenter = [Home(), Episode(episodeId: .demo)]
+    presenter.cover = Settings()
+  }
+}

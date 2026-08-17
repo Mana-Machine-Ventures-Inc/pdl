@@ -1,6 +1,7 @@
 # Proposal: Protocols, Slots, Expandable Lists, Emits & Dual Fixtures
 
 **Status:** accepted (2026-08-05) — **B1–B5** shipped in Rust; **B6** chrome deferred; **B7** host dispatch open. **Superseded as binding spec** by `shared/language-objects.json` + `grammar/pdl.ebnf`.  
+**Stance (2026-08-16):** `component C <SubnavItem>` / `<ModalContent>` in examples below is now `emits <SubnavItem>` / `emits <ModalContent>`. `<>` receives host inbound and ancestor sinks only.  
 **Depends on:** `docs/PROPOSAL_PORTABLE_CORE.md` (portable core, bake → native views)  
 **Related:** language-objects (`protocols`, `forEach`, `emits`, `arrayChildren`, `samples`) · `shared/schema/injection-pack.json`  
 **See also:** `docs/PROPOSAL_TYPED_SAMPLES.md` (accepted; folded into `samples`)  

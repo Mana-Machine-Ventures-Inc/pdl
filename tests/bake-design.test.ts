@@ -51,7 +51,7 @@ describe("bakedDesign", () => {
       kind: "motion",
       play: "loop",
       pose: { rotate: 360 },
-      transition: { duration: 800, easing: "linear" },
+      timing: { duration: 800, ease: "linear" },
     });
     const off = buildBakedDesignComponent(design, {
       componentName: "MotionStandingSpin",

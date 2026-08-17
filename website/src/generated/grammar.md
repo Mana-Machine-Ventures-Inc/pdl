@@ -37,6 +37,8 @@ top-level-decl
     | variant-decl
     | protocol-decl
     | component-decl
+    | page-decl
+    | screen-decl
     | emits-decl
     | fixtures-decl
     | samples-decl
@@ -63,7 +65,7 @@ token-type-name
   ::= 'Color' | 'Opacity' | 'Distance' | 'Radius' | 'Shadow'
     | 'Icon' | 'MediaSource' | 'Ratio' | 'FontFamily' | 'Size'
     | 'Weight' | 'LineHeight' | 'LetterSpacing' | 'Sizing' | 'Duration'
-    | 'Easing' | 'Transition' | 'Pose' | 'Stagger' | 'Motion' | 'Effect'
+    | 'Ease' | 'Timing' | 'Pose' | 'Stagger' | 'Motion' | 'PresentationMotion' | 'Effect'
     | 'Blur' | 'Vibrancy' | 'Ramp' | 'Background' | 'Foreground'
     ;
 
@@ -153,8 +155,11 @@ protocol-param
     | IDENT ':' type-name '=' default-value
     ;
 
+emits-propagation
+  ::= '(' 'propagation' ':' ( '.parent' | '.ancestors' ) ')' ;
+
 protocol-emits-block
-  ::= 'emits' '{' { emit-sig } '}' ;
+  ::= 'emits' [ emits-propagation ] '{' { emit-sig } '}' ;
 
 emit-sig
   ::= IDENT [ '(' [ emit-arg { ',' emit-arg } [ ',' ] ] ')' ]
@@ -165,12 +170,36 @@ emit-arg
     ;
 
 emits-decl
-  ::= 'emits' IDENT '{' { emit-sig } '}' ;
+  ::= 'emits' [ emits-propagation ] IDENT '{' { emit-sig } '}' ;
+
+(* `<>` = receive (host inbound + ancestor sinks). `emits <P>` = send. *)
+trailing-emits
+  ::= 'emits' [ '<' protocol-header-list '>' ] [ emits-propagation ] [ '{' { emit-sig } '}' ]
+    ;
 
 component-decl
-  ::= 'component' IDENT [ '<' protocol-header-list '>' ] '(' [ param-list ] ')' frame-kind
+  ::= 'component' IDENT [ '<' protocol-header-list '>' ]
+      [ 'emits' '<' protocol-header-list '>' ]
+      '(' [ param-list ] ')' frame-kind
       '{' { component-body-item } '}'
-      [ 'emits' '{' { emit-sig } '}' ]
+      [ trailing-emits ]
+    ;
+
+(* N0: same body machine as component. `page` auto-satisfies prelude `Page`. *)
+page-decl
+  ::= 'page' IDENT [ '<' protocol-header-list '>' ]
+      [ 'emits' '<' protocol-header-list '>' ]
+      '(' [ param-list ] ')' frame-kind
+      '{' { component-body-item } '}'
+      [ trailing-emits ]
+    ;
+
+screen-decl
+  ::= 'screen' IDENT [ '<' protocol-header-list '>' ]
+      [ 'emits' '<' protocol-header-list '>' ]
+      '(' [ param-list ] ')' frame-kind
+      '{' { component-body-item } '}'
+      [ trailing-emits ]
     ;
 
 protocol-header-list
@@ -225,8 +254,10 @@ let-decl
     (* Classic `let IDENT ':' frame-kind '=' '{' … '}'` is removed — PDL-E001 *)
 
 frame-ctor
-  ::= ('Text' | 'Layout' | 'Icon' | 'Media') '(' [ kwarg-list ] ')'
+  ::= ('Text' | 'Layout' | 'Icon' | 'Media' | 'Presenter') '(' [ kwarg-list ] ')'
     ;
+    (* Presenter is a stack hole: `Presenter(root: home, width: .fill)`. `root` is required.
+       Box props (width/height/padding/align/…) are legal; `children:` is not. Bake paints the top. *)
 
 host-handler-assignment
   ::= [ 'self' '.' ] IDENT '=' '{' { handler-statement } '}' ;
@@ -261,9 +292,20 @@ foreach-chrome
     | 'after' '{' { component-body-item } '}'
     ;
 
-(* Declared emit capture — handler assignment; not keyword `on` *)
+(* Declared emit capture — handler assignment; not keyword `on`.
+   Bare IDENT is ancestor capture (N2). IDENT.IDENT is child-let / ForEach binder.
+   Not `Protocol.channel` and not `presenter.channel`.
+   Capture body may include `presenter.replace/push/present(Page(…))` and `pop` / `dismiss` (N5). *)
 emit-capture-handler
-  ::= emit-channel [ '(' [ emit-arg { ',' emit-arg } [ ',' ] ] ')' ] '=' '{' { handler-statement } '}' ;
+  ::= emit-channel [ '(' [ emit-arg { ',' emit-arg } [ ',' ] ] ')' ] '=' '{' { handler-statement | presenter-verb } '}' ;
+
+presenter-verb
+  ::= IDENT '.' 'replace' '(' component-instance ')'
+    | IDENT '.' 'push' '(' component-instance ')'
+    | IDENT '.' 'pop' '(' ')'
+    | IDENT '.' 'present' '(' component-instance ',' 'style' ':' '.cover' ')'
+    | IDENT '.' 'dismiss' '(' ')'
+    ;
     (* payload list reuses emit-arg — same shape as emit-sig; names are handler locals *)
 
 emit-channel
@@ -351,7 +393,7 @@ event-name
 handler-statement
   ::= param-assignment          (* component params only — not FrameId.prop *)
     | emit-statement
-    | animate-statement         (* value-expr is Motion, or Transition sugar *)
+    | animate-statement         (* value-expr is Motion, or Timing sugar *)
     | if-chain                  (* conditions over params; still param assigns only *)
     ;
 
@@ -365,7 +407,7 @@ param-assignment
     ;
 
 animate-statement
-  ::= 'animate' '=' value-expr ;   (* Motion(…) or Transition token/tuple *)
+  ::= 'animate' '=' value-expr ;   (* Motion(…) or Timing token/tuple *)
 
 (* 21.8 Companion blocks and typed samples *)
 fixtures-decl
@@ -471,11 +513,13 @@ value-expr
     | edge-insets-literal
     | corner-literal
     | shadow-literal
-    | transition-literal
+    | timing-literal
+    | ease-literal
     | pose-literal
     | stagger-literal
     | key-literal
     | motion-literal
+    | presentation-motion-literal
     | effect-literal
     | vibrancy-literal
     | ramp-literal
@@ -546,9 +590,14 @@ color-value
 number-or-token
   ::= NUMBER | IDENT ;
 
-transition-literal
-  ::= '(' 'duration' ':' value-expr ',' 'easing' ':' value-expr
+timing-literal
+  ::= 'Timing' '(' 'duration' ':' value-expr ',' 'ease' ':' value-expr
       [ ',' 'delay' ':' value-expr ] ')' ;
+
+ease-literal
+  ::= '.' ( 'linear' | 'in' | 'out' )
+    | 'Ease' '.' ( 'linear' | 'in' | 'out' )
+    | 'Ease' '.' 'bezier' '(' value-expr ',' value-expr ',' value-expr ',' value-expr ')' ;
 
 pose-literal
   ::= 'Pose' '(' pose-arg { ',' pose-arg } ')' ;
@@ -563,7 +612,7 @@ stagger-literal
 
 key-literal
   ::= 'Key' '(' 'pose' ':' value-expr ',' 'at' ':' value-expr
-      [ ',' 'easing' ':' value-expr ] ')' ;
+      [ ',' 'ease' ':' value-expr ] ')' ;
 
 motion-literal
   ::= 'Motion' '(' motion-args ')' ;
@@ -576,12 +625,27 @@ motion-base
   ::= IDENT { '.' IDENT } ;
 
 motion-arg
-  ::= 'transition' ':' value-expr
+  ::= 'timing' ':' value-expr
+    | 'duration' ':' value-expr
+    | 'ease' ':' value-expr
+    | 'delay' ':' value-expr
     | 'play' ':' value-expr
     | 'pose' ':' value-expr
     | 'keys' ':' value-expr
     | 'stagger' ':' value-expr
     | 'repeat' ':' value-expr ;
+
+presentation-motion-literal
+  ::= 'PresentationMotion' '(' presentation-motion-arg { ',' presentation-motion-arg } ')' ;
+
+presentation-motion-arg
+  ::= 'incoming' ':' value-expr
+    | 'outgoing' ':' value-expr
+    | 'duration' ':' value-expr
+    | 'ease' ':' value-expr
+    | 'delay' ':' value-expr
+    | 'front' ':' value-expr
+    | 'promoteAt' ':' value-expr ;
 
 effect-literal
   ::= 'Effect' '(' effect-kind [ ',' effect-arg { ',' effect-arg } ] ')' ;

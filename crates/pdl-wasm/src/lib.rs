@@ -4,8 +4,10 @@
 //! HTML rendering stays on the TypeScript host (`/api/render-from-bake`).
 
 use pdl_core::bake::{
-    build_baked_design_component_with_host, build_baked_design_system_with_host,
+    build_baked_design_component_with_host, build_baked_design_component_with_presenter_pins,
+    build_baked_design_system_with_host,
 };
+use pdl_core::presenter::{apply_presenter_ops_json, pins_from_json};
 use pdl_core::{load_design_from_sources, SourceMap};
 use serde_json::{Map, Value};
 use wasm_bindgen::prelude::*;
@@ -66,6 +68,17 @@ pub fn analyze_sources(files_json: &str, entry: &str) -> Result<String, JsValue>
     Ok(out.to_string())
 }
 
+fn parse_pins(pins_json: Option<String>) -> Result<std::collections::HashMap<String, pdl_core::presenter::PresenterPin>, JsValue> {
+    match pins_json {
+        None => Ok(std::collections::HashMap::new()),
+        Some(s) if s.trim().is_empty() => Ok(std::collections::HashMap::new()),
+        Some(s) => {
+            let v: Value = serde_json::from_str(&s).map_err(|e| err_js(format!("pins JSON: {e}")))?;
+            Ok(pins_from_json(&v))
+        }
+    }
+}
+
 /// Bake one component; returns bake-document JSON string.
 #[wasm_bindgen]
 pub fn bake_component_sources(
@@ -76,25 +89,49 @@ pub fn bake_component_sources(
     kv_json: Option<String>,
     host: Option<String>,
     host_facts_json: Option<String>,
+    pins_json: Option<String>,
 ) -> Result<String, JsValue> {
     let sources = parse_sources(files_json)?;
     let design = load_design_from_sources(entry, &sources).map_err(|e| err_js(e.format()))?;
     let kv = parse_kv(kv_json)?;
     let facts = parse_kv(host_facts_json)?;
+    let pins = parse_pins(pins_json)?;
     let theme_ref = theme.as_deref().filter(|t| !t.is_empty());
     let host_ref = host.as_deref().filter(|t| !t.is_empty());
     let facts_ref = if facts.is_empty() { None } else { Some(&facts) };
-    let doc = build_baked_design_component_with_host(
-        &design,
-        component,
-        theme_ref,
-        &kv,
-        host_ref,
-        facts_ref,
-        Some(FIXED_AT.to_string()),
-    )
+    let doc = if pins.is_empty() {
+        build_baked_design_component_with_host(
+            &design,
+            component,
+            theme_ref,
+            &kv,
+            host_ref,
+            facts_ref,
+            Some(FIXED_AT.to_string()),
+        )
+    } else {
+        build_baked_design_component_with_presenter_pins(
+            &design,
+            component,
+            theme_ref,
+            &kv,
+            host_ref,
+            facts_ref,
+            Some(FIXED_AT.to_string()),
+            pins,
+        )
+    }
     .map_err(|e| err_js(e.format()))?;
     Ok(doc.to_string())
+}
+
+/// Apply presenter verbs to a pin bag. `pinsJson` / `opsJson` → next `pinsJson`.
+#[wasm_bindgen]
+pub fn apply_presenter_pins(pins_json: &str, ops_json: &str) -> Result<String, JsValue> {
+    let pins: Value =
+        serde_json::from_str(pins_json).map_err(|e| err_js(format!("pins JSON: {e}")))?;
+    let ops: Value = serde_json::from_str(ops_json).map_err(|e| err_js(format!("ops JSON: {e}")))?;
+    Ok(apply_presenter_ops_json(&pins, &ops).to_string())
 }
 
 /// Bake all components (system defaults).

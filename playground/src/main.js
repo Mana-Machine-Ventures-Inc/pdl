@@ -10,6 +10,9 @@ import {
 } from "./add-property.js";
 import {
   augmentUnknownComponentMessage,
+  collectImportClosure,
+  extractComponentNames,
+  extractComponentRoles,
   formatUnreachableModuleWarning,
   resolveCanvasTarget,
   sourceDeclaresComponent,
@@ -17,6 +20,8 @@ import {
 } from "./file-canvas.js";
 import { pdlCompletionSource as buildPdlCompletionSource } from "./pdl-completions.js";
 import { formatTemplateInsert, PDL_TEMPLATES } from "./pdl-templates.js";
+import { applyPresenterOps, resolvePairMove } from "./presenter-pins.js";
+import { snapshotPresenterOutgoing, startPresenterPairClip } from "./presenter-clip.js";
 import { loadWasmBake, virtualizeSources } from "./wasm-bake.js";
 import {
   applyPreviewHtml,
@@ -176,9 +181,15 @@ let fixturesByComponent = {};
 let componentParams = {};
 /** @type {Record<string, string[]>} */
 let variantCases = {};
+/** Catalogue `page` / `screen` roles keyed by component name. */
+/** @type {Record<string, string>} */
+let componentRoles = {};
 /** Per-component scalar param overrides (never shared across gallery sections). */
 /** @type {Record<string, Record<string, unknown>>} */
 let kvByComponent = {};
+/** Presenter pin bags keyed by owner component (`{ letId: { stack, cover? } }`). */
+/** @type {Record<string, Record<string, unknown>>} */
+let presenterPinsByComponent = {};
 /** Active §11 fixture label per component (null/absent = defaults). */
 /** @type {Record<string, string>} */
 let activeFixtureByComponent = {};
@@ -281,6 +292,9 @@ function storeControlsFromData(data) {
   fixturesByComponent = data.fixturesByComponent ?? {};
   componentParams = data.componentParams ?? {};
   variantCases = data.variantCases ?? {};
+  if (data.componentRoles && typeof data.componentRoles === "object") {
+    componentRoles = data.componentRoles;
+  }
   syncHostChrome(Array.isArray(data.hostParams) ? data.hostParams : []);
 }
 
@@ -446,6 +460,59 @@ function buildComponentOverrides(names) {
   return out;
 }
 
+/** @param {string} name */
+function isScreenComponent(name) {
+  if (!name) return false;
+  if (componentRoles[name] === "screen") return true;
+  const src = files[activePath] ?? "";
+  return extractComponentRoles(src)[name] === "screen";
+}
+
+/**
+ * Instance types nested under a baked component (for clearing child presenter pins).
+ * @param {object | null | undefined} bakedComp
+ * @returns {Set<string>}
+ */
+function collectNestedInstanceTypes(bakedComp) {
+  const names = new Set();
+  function walk(n) {
+    if (!n || typeof n !== "object") return;
+    const rec = /** @type {Record<string, unknown>} */ (n);
+    if (typeof rec.instanceOf === "string" && rec.instanceOf) names.add(rec.instanceOf);
+    const kids = Array.isArray(rec.children) ? rec.children : [];
+    for (const ch of kids) walk(ch);
+  }
+  walk(bakedComp?.root);
+  return names;
+}
+
+/**
+ * Restore a screen to its declared start: fixtures, param kv, presenter pins.
+ * @param {string} componentName
+ * @param {{ render?: boolean }} [opts]
+ */
+function resetScreenSession(componentName, opts = {}) {
+  const owner = componentName || primaryComponent || component.value || "";
+  if (!owner) return;
+  delete activeFixtureByComponent[owner];
+  setKvForComponent(owner, {});
+  delete presenterPinsByComponent[owner];
+  for (const name of collectNestedInstanceTypes(lastBakedDesign?.components?.[owner])) {
+    delete presenterPinsByComponent[name];
+  }
+  pinnedFixtureEnv = null;
+  primaryComponent = owner;
+  preferredComponent = owner;
+  if ([...component.options].some((o) => o.value === owner)) {
+    component.value = owner;
+  }
+  renderFixtureControls();
+  scheduleDraftSave();
+  if (opts.render !== false) {
+    scheduleDebouncedRender(0, { incremental: true, ownerOnly: true });
+  }
+}
+
 /**
  * §11 fixtures for a component (scenario param bags).
  * @param {string} [componentName]
@@ -483,6 +550,23 @@ function syncFixtureBarsInFrame() {
  */
 const FIXTURE_ENV_KEYS = new Set(["host", "theme", "hostFacts"]);
 
+function isPresenterPinKey(k) {
+  return k === "presenter" || k.endsWith(".cover");
+}
+
+/**
+ * Catalogue fixture keys `presenter` / `presenter.cover` → pin bag (not Phone params).
+ * @param {Record<string, unknown>} example
+ */
+function pinsFromFixtureExample(example) {
+  /** @type {Record<string, unknown>} */
+  const pins = {};
+  for (const [k, v] of Object.entries(example ?? {})) {
+    if (isPresenterPinKey(k)) pins[k] = v;
+  }
+  return pins;
+}
+
 /**
  * Split catalogue fixture example into param kv vs bake knobs.
  * @param {Record<string, unknown>} example
@@ -497,14 +581,89 @@ function splitFixtureExample(example) {
     else if (k === "theme" && typeof v === "string") env.theme = v;
     else if (k === "hostFacts" && v && typeof v === "object" && !Array.isArray(v)) {
       env.hostFacts = /** @type {Record<string, unknown>} */ (v);
-    } else if (!FIXTURE_ENV_KEYS.has(k)) kv[k] = v;
+    } else if (!FIXTURE_ENV_KEYS.has(k) && !isPresenterPinKey(k)) kv[k] = v;
   }
   return { kv, env };
 }
 
+/**
+ * @param {object | null | undefined} bakedComp
+ * @returns {Record<string, unknown> | null}
+ */
+function extractPresenterPins(bakedComp) {
+  /** @type {Record<string, unknown>} */
+  const acc = {};
+  function walk(n) {
+    if (!n || typeof n !== "object") return;
+    const rec = /** @type {Record<string, unknown>} */ (n);
+    if (rec.kind === "presenter" && typeof rec.id === "string" && rec.id) {
+      const props = rec.props && typeof rec.props === "object" ? /** @type {Record<string, unknown>} */ (rec.props) : {};
+      const names = Array.isArray(props.stack) ? props.stack.map(String) : [];
+      /** @type {{ stack: Array<{ component: string, params: Record<string, unknown> }>, cover?: { component: string, params: Record<string, unknown> } }} */
+      const pin = {
+        stack: names.map((c) => ({ component: c, params: {} })),
+      };
+      if (typeof props.cover === "string" && props.cover) {
+        pin.cover = { component: props.cover, params: {} };
+      }
+      acc[rec.id] = pin;
+    }
+    const kids = Array.isArray(rec.children) ? rec.children : [];
+    for (const ch of kids) walk(ch);
+  }
+  walk(bakedComp?.root);
+  return Object.keys(acc).length ? acc : null;
+}
+
+/**
+ * @param {string} owner
+ * @param {object | null | undefined} bakedComp
+ */
+function seedPinsFromBake(owner, bakedComp) {
+  if (!owner || !bakedComp) return;
+  const seeded = extractPresenterPins(bakedComp);
+  if (!seeded) return;
+  const cur = presenterPinsByComponent[owner];
+  if (!cur || !Object.keys(cur).length) {
+    presenterPinsByComponent[owner] = seeded;
+    return;
+  }
+  for (const [letId, pin] of Object.entries(seeded)) {
+    const existing = cur[letId];
+    const stack = existing && typeof existing === "object" ? /** @type {{ stack?: unknown }} */ (existing).stack : null;
+    if (!Array.isArray(stack) || stack.length === 0) {
+      cur[letId] = pin;
+    }
+  }
+}
+
+/** @param {string} owner */
+function pinsJsonFor(owner) {
+  const pins = owner ? presenterPinsByComponent[owner] : null;
+  if (!pins || typeof pins !== "object" || !Object.keys(pins).length) return undefined;
+  return JSON.stringify(pins);
+}
+
+/**
+ * Apply section-owned presenter verbs. Mid-page captures (B7c) are skipped.
+ * @param {string} owner
+ * @param {Array<{ qualifier?: string, name?: string, page?: unknown, style?: string, owner?: string }>} ops
+ */
+function applyPresenterOpsForOwner(owner, ops) {
+  if (!owner || !Array.isArray(ops) || !ops.length) return false;
+  const sectionOps = ops.filter((op) => !op.owner || op.owner === "section" || op.owner === owner);
+  if (!sectionOps.length) return false;
+  const current = presenterPinsByComponent[owner] ?? {};
+  presenterPinsByComponent[owner] = applyPresenterOps(current, sectionOps);
+  return true;
+}
+
 function liveHostFacts() {
-  const w = frame?.clientWidth ? Math.round(frame.clientWidth) : 0;
-  const h = frame?.clientHeight ? Math.round(frame.clientHeight) : 0;
+  const pane = document.getElementById("outputPanelHtml");
+  const w = Math.round(frame?.clientWidth || pane?.clientWidth || 0);
+  // Pane slot, not the auto-sized iframe — iframe height follows content and
+  // must not feed back into view.height (that rebakes in a loop).
+  const h = Math.round(pane?.clientHeight || 0);
   /** @type {Record<string, unknown>} */
   const facts = { "studio.platform": "web" };
   if (w > 0) facts["view.width"] = w;
@@ -579,14 +738,17 @@ function applyFixtureSelection(componentName, label, opts = {}) {
   if (!owner) return;
   if (label && examples[label]) {
     activeFixtureByComponent[owner] = label;
-    const { kv, env } = splitFixtureExample(
-      /** @type {Record<string, unknown>} */ (examples[label]),
-    );
+    const example = /** @type {Record<string, unknown>} */ (examples[label]);
+    const { kv, env } = splitFixtureExample(example);
     setKvForComponent(owner, kv);
+    const pins = pinsFromFixtureExample(example);
+    if (Object.keys(pins).length) presenterPinsByComponent[owner] = pins;
+    else delete presenterPinsByComponent[owner];
     pinnedFixtureEnv = env.host || env.theme || env.hostFacts ? env : null;
   } else {
     delete activeFixtureByComponent[owner];
     setKvForComponent(owner, {});
+    delete presenterPinsByComponent[owner];
     pinnedFixtureEnv = null;
   }
   // Focus left-nav chips on the component whose fixture just changed.
@@ -615,6 +777,7 @@ function renderFixtureControls() {
         ? `No fixtures for ${owner}. Per-component Fixture controls appear on each preview when declared.`
         : "Open a file that declares a component with fixtures.";
     }
+    if (isScreenComponent(owner)) appendScreenResetChip(owner);
     syncFixtureBarsInFrame();
     return;
   }
@@ -646,7 +809,21 @@ function renderFixtureControls() {
     fixtureChips.append(b);
   }
 
+  if (isScreenComponent(owner)) appendScreenResetChip(owner);
+
   syncFixtureBarsInFrame();
+}
+
+/** @param {string} owner */
+function appendScreenResetChip(owner) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "chip";
+  b.textContent = "Reset";
+  b.title = "Restore this screen to its declared start (presenter, params, fixture)";
+  b.setAttribute("role", "listitem");
+  b.addEventListener("click", () => resetScreenSession(owner));
+  fixtureChips.append(b);
 }
 
 function refreshControlsUi() {
@@ -1474,12 +1651,27 @@ function renderTabs() {
     if (p === activePath) b.classList.add("active");
     b.addEventListener("click", () => {
       syncEditorToFiles();
+      const prevPath = activePath;
       activePath = p;
       primaryComponent = "";
       setEditorText(files[activePath] ?? "");
       renderTabs();
       refreshCanvasHint();
       scheduleDraftSave();
+      const prevClosure = collectImportClosure(prevPath, files);
+      const key = p.replace(/\\/g, "/");
+      const standaloneLab =
+        !prevClosure.has(key) && extractComponentNames(files[p] ?? "").length > 0;
+      if (standaloneLab) {
+        entryPath.value = p;
+        presenterPinsByComponent = {};
+        activeFixtureByComponent = {};
+        pinnedFixtureEnv = null;
+        void runAnalyze().then((ok) => {
+          if (ok) scheduleDebouncedRender(0);
+        });
+        return;
+      }
       scheduleDebouncedRender(0);
     });
     fileTabs.append(b);
@@ -1550,6 +1742,7 @@ function enterScratchProject(opts = {}) {
   preferredComponent = null;
   primaryComponent = "";
   kvByComponent = {};
+  presenterPinsByComponent = {};
   activeFixtureByComponent = {};
   pinnedFixtureEnv = null;
   writeKvObject({});
@@ -1767,6 +1960,7 @@ function saveDraftNow() {
       preferredComponent,
       primaryComponent,
       kvByComponent: { ...kvByComponent },
+      presenterPinsByComponent: { ...presenterPinsByComponent },
       theme: themeInput.value || "",
       variantView: selectedVariantView(),
       lastDiskPackId,
@@ -1843,6 +2037,12 @@ async function restoreDraft(draft) {
         draft.kvByComponent && typeof draft.kvByComponent === "object" && !Array.isArray(draft.kvByComponent)
           ? { ...draft.kvByComponent }
           : {};
+      presenterPinsByComponent =
+        draft.presenterPinsByComponent &&
+        typeof draft.presenterPinsByComponent === "object" &&
+        !Array.isArray(draft.presenterPinsByComponent)
+          ? { ...draft.presenterPinsByComponent }
+          : {};
       setEditorText(files[activePath] ?? "");
       renderTabs();
       refreshCanvasHint();
@@ -1876,6 +2076,12 @@ async function restoreDraft(draft) {
     kvByComponent =
       draft.kvByComponent && typeof draft.kvByComponent === "object" && !Array.isArray(draft.kvByComponent)
         ? { ...draft.kvByComponent }
+        : {};
+    presenterPinsByComponent =
+      draft.presenterPinsByComponent &&
+      typeof draft.presenterPinsByComponent === "object" &&
+      !Array.isArray(draft.presenterPinsByComponent)
+        ? { ...draft.presenterPinsByComponent }
         : {};
     activeFixtureByComponent = {};
     pinnedFixtureEnv = null;
@@ -2327,11 +2533,7 @@ function tokensPreviewHtml(tokens, summary = null) {
   (function(){
     function postHeight(){
       try {
-        var h = Math.max(
-          document.documentElement.scrollHeight,
-          document.body.scrollHeight,
-          document.body.offsetHeight
-        );
+        var h = Math.max(document.body.scrollHeight, document.body.offsetHeight);
         parent.postMessage({ type: 'pdl-resize', height: h }, '*');
       } catch (e) {}
     }
@@ -2556,6 +2758,7 @@ async function publishStage() {
         diskRoot: diskRootMode() || undefined,
         files,
         kv: kvByComponent[component] ?? {},
+        presenterPins: presenterPinsByComponent[component] ?? {},
         activeFixture: activeFixtureByComponent[component] ?? null,
         components: lastCanvas?.componentNames ?? [],
       }),
@@ -2586,7 +2789,15 @@ async function openPhoneDialog() {
     } else {
       lastCopiedPhoneUrl = urls[0];
       phoneUrlBig.textContent = lastCopiedPhoneUrl;
-      phoneQr.src = `/api/qr?u=${encodeURIComponent(lastCopiedPhoneUrl)}`;
+      const dataUrl =
+        typeof info.device?.qrDataUrl === "string" && info.device.qrDataUrl.startsWith("data:image/")
+          ? info.device.qrDataUrl
+          : `/api/qr?u=${encodeURIComponent(lastCopiedPhoneUrl)}`;
+      phoneQr.onerror = () => {
+        phoneQr.hidden = true;
+        phoneQr.removeAttribute("src");
+      };
+      phoneQr.src = dataUrl;
       phoneQr.hidden = false;
       for (const url of urls) {
         const li = document.createElement("li");
@@ -2624,6 +2835,8 @@ const instanceResolveToken = new Map();
 const instanceResolveTail = new Map();
 /** When true, next runRender tries identity apply instead of srcdoc remount. */
 let nextRenderIncremental = false;
+/** @type {{ cancel: () => void } | null} */
+let activePairClip = null;
 /**
  * When true with incremental: bake only the param owner (knobs/emits/fixtures).
  * Source/theme ticks use incremental without ownerOnly → rebake whole canvas IR,
@@ -2727,6 +2940,7 @@ async function bakeChildComponentForResolve(childComponent, childParams) {
         JSON.stringify(childParams ?? {}),
         env.host,
         JSON.stringify(env.hostFacts ?? {}),
+        pinsJsonFor(childComponent),
       );
       const bake = JSON.parse(bakeJson);
       bakedComp = bake?.components?.[childComponent] ?? null;
@@ -2919,6 +3133,11 @@ function queueInstanceResolve(data) {
 function applyPreviewUpdate(data, opts) {
   const html = typeof data.html === "string" ? data.html : "";
   const nextBaked = data.baked && typeof data.baked === "object" ? data.baked : null;
+  if (nextBaked?.components) {
+    for (const [n, comp] of Object.entries(nextBaked.components)) {
+      seedPinsFromBake(n, comp);
+    }
+  }
   const doc = frame.contentDocument;
   const wantIncremental =
     opts.incremental &&
@@ -2933,8 +3152,16 @@ function applyPreviewUpdate(data, opts) {
     // Ideal path: bake IR → reconcile DOM (no HTML required).
     // nextBaked may be a dirty-only patch (one component); merge into lastBakedDesign.
     if (nextBaked?.components && lastBakedDesign?.components) {
-      applied = tryIncrementalBakeReconcile(doc, lastBakedDesign, nextBaked);
-      if (applied) applyKind = "ir";
+      const recon = tryIncrementalBakeReconcile(doc, lastBakedDesign, nextBaked);
+      if (recon.ok && !recon.changed) {
+        if (nextBaked) lastBakedDesign = mergeBakedDesign(lastBakedDesign, nextBaked);
+        void publishStage();
+        return "incremental";
+      }
+      if (recon.ok && recon.changed) {
+        applied = true;
+        applyKind = "ir";
+      }
     }
     // Bridge: identity morph of rebaked HTML when IR cannot apply.
     if (!applied && html.length > 0) {
@@ -2985,7 +3212,8 @@ function applyPreviewUpdate(data, opts) {
 function tryIncrementalBakeReconcile(doc, prevBake, nextBake) {
   try {
     const names = Object.keys(nextBake.components || {});
-    if (names.length === 0) return false;
+    if (names.length === 0) return { ok: false, changed: false };
+    let changed = false;
     // Defaults from full live design + dirty patch (includes nested instanceOf types
     // like NoteField inside NoteEditor — parent-only bake omits them from components).
     const defaultsSource = mergeBakedDesign(prevBake, nextBake);
@@ -3015,19 +3243,19 @@ function tryIncrementalBakeReconcile(doc, prevBake, nextBake) {
       );
       if (!section) {
         // Dirty patch may omit siblings; only require sections for names we intend to patch.
-        if (names.includes(name)) return false;
+        if (names.includes(name)) return { ok: false, changed: false };
         continue;
       }
       const canvas =
         section.querySelector(".pdl-state:not([hidden]) .pdl-canvas") ||
         section.querySelector(".pdl-canvas");
       if (!canvas) {
-        if (names.includes(name)) return false;
+        if (names.includes(name)) return { ok: false, changed: false };
         continue;
       }
       const prevComp = prevBake.components?.[name];
       const nextComp = defaultsSource.components?.[name] || nextBake.components?.[name];
-      if (!nextComp?.root) return false;
+      if (!nextComp?.root) return { ok: false, changed: false };
       const nestsChangedDefaults =
         changedEditableTypes.size > 0 &&
         frameTreeNestsInstanceTypes(nextComp.root, changedEditableTypes);
@@ -3051,7 +3279,8 @@ function tryIncrementalBakeReconcile(doc, prevBake, nextBake) {
           editableSessionDefaults: prevEditableDefaults,
         },
       });
-      if (!ok) return false;
+      if (!ok) return { ok: false, changed: false };
+      changed = true;
       const paramsEl = section.querySelector(".pdl-preview-params");
       if (paramsEl && nextComp.bakedParams) {
         const compact = JSON.stringify(nextComp.bakedParams);
@@ -3064,9 +3293,9 @@ function tryIncrementalBakeReconcile(doc, prevBake, nextBake) {
         if (!line && !full) paramsEl.textContent = compact;
       }
     }
-    return true;
+    return { ok: true, changed };
   } catch {
-    return false;
+    return { ok: false, changed: false };
   }
 }
 
@@ -3193,6 +3422,7 @@ async function loadPack(packId, { fromDisk = false, skipAnalyze = false } = {}) 
     preferredComponent = data.defaultComponent ?? null;
     primaryComponent = data.defaultComponent ?? "";
     kvByComponent = {};
+    presenterPinsByComponent = {};
     activeFixtureByComponent = {};
     pinnedFixtureEnv = null;
     hostParamPins = {};
@@ -3361,7 +3591,7 @@ async function runRender({ debounced = false } = {}) {
     if (canvas.kind === "empty" || canvas.componentNames.length === 0) {
       if (id !== latestRenderId) return;
       frame.srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{margin:0;height:auto}</style></head><body style="font:14px system-ui;padding:24px;color:#556">Nothing to preview in <code>${escapeHtml(activePath)}</code>.
-<script>(function(){function p(){try{parent.postMessage({type:'pdl-resize',height:Math.max(document.documentElement.scrollHeight,document.body.scrollHeight)},'*')}catch(e){}}p();requestAnimationFrame(p)})()</script></body></html>`;
+<script>(function(){function p(){try{parent.postMessage({type:'pdl-resize',height:document.body.scrollHeight},'*')}catch(e){}}p();requestAnimationFrame(p)})()</script></body></html>`;
       setStatus("Empty canvas");
       return;
     }
@@ -3408,6 +3638,7 @@ async function runRender({ debounced = false } = {}) {
               JSON.stringify(kv),
               env.host,
               JSON.stringify(env.hostFacts ?? {}),
+              pinsJsonFor(bakeTarget),
             )
           : wasm.bake_system_sources(
               filesJson,
@@ -3425,6 +3656,29 @@ async function runRender({ debounced = false } = {}) {
           if (bake.components[n]) filtered[n] = bake.components[n];
         }
         bake.components = filtered;
+        for (const n of names) {
+          const extraPins = pinsJsonFor(n);
+          const ov = componentOverrides[n] ?? {};
+          // System bake is defaults-only. Re-bake any canvas name that has
+          // live kv (n2 `current`) or presenter pins — otherwise a resize
+          // rebake snaps Phone back to declaration defaults.
+          if (!extraPins && !Object.keys(ov).length) continue;
+          const oneJson = wasm.bake_component_sources(
+            filesJson,
+            virtEntry,
+            n,
+            env.theme,
+            JSON.stringify(ov),
+            env.host,
+            JSON.stringify(env.hostFacts ?? {}),
+            extraPins,
+          );
+          const one = JSON.parse(oneJson);
+          if (one?.components?.[n]) bake.components[n] = one.components[n];
+        }
+      }
+      for (const n of names) {
+        if (bake.components?.[n]) seedPinsFromBake(n, bake.components[n]);
       }
       // Hot path: bake IR in-browser → reconcile (skip HTML round-trip).
       // Nested chrome edits apply on next instance-resolve interaction.
@@ -3464,6 +3718,7 @@ async function runRender({ debounced = false } = {}) {
           componentOverrides,
           kv,
           activeFixturesByComponent: { ...activeFixtureByComponent },
+          componentRolesByComponent: { ...componentRoles },
           ...getBodyBase(),
         }),
       });
@@ -3507,6 +3762,7 @@ async function runRender({ debounced = false } = {}) {
       kv,
       componentSources: buildComponentSources(names),
       activeFixturesByComponent: { ...activeFixtureByComponent },
+      presenterPinsByComponent: { ...presenterPinsByComponent },
       bakeOnly: incremental && previewDocumentLive,
     };
 
@@ -3731,11 +3987,12 @@ updateWorkspaceUi();
   let frameFactsSeeded = false;
   /** @type {ReturnType<typeof setTimeout> | null} */
   let frameFactsTimer = null;
-  if (typeof ResizeObserver !== "undefined" && frame) {
+  const factsPane = document.getElementById("outputPanelHtml") || frame;
+  if (typeof ResizeObserver !== "undefined" && factsPane) {
     const ro = new ResizeObserver(() => {
       if (pinnedFixtureEnv?.hostFacts) return;
-      const w = Math.round(frame.clientWidth || 0);
-      const h = Math.round(frame.clientHeight || 0);
+      const w = Math.round(frame?.clientWidth || factsPane.clientWidth || 0);
+      const h = Math.round(factsPane.clientHeight || 0);
       if (!frameFactsSeeded) {
         frameFactsSeeded = true;
         lastFrameFacts = { w, h };
@@ -3749,7 +4006,7 @@ updateWorkspaceUi();
         scheduleDebouncedRender(0, { incremental: true });
       }, 150);
     });
-    ro.observe(frame);
+    ro.observe(factsPane);
   }
 }
 
@@ -3811,7 +4068,8 @@ window.addEventListener("message", (ev) => {
   if (!data || typeof data !== "object") return;
   if (data.type === "pdl-resize" && typeof data.height === "number") {
     const h = Math.max(120, Math.min(Math.ceil(data.height) + 4, 12000));
-    frame.style.height = `${h}px`;
+    const next = `${h}px`;
+    if (frame.style.height !== next) frame.style.height = next;
     return;
   }
   if (data.type === "pdl-open-source" && typeof data.component === "string" && data.component) {
@@ -3822,6 +4080,10 @@ window.addEventListener("message", (ev) => {
     const label =
       typeof data.label === "string" && data.label.trim() ? String(data.label) : null;
     applyFixtureSelection(data.component, label);
+    return;
+  }
+  if (data.type === "pdl-screen-reset" && typeof data.component === "string" && data.component) {
+    resetScreenSession(data.component);
     return;
   }
   if (data.type === "pdl-param" && data.component && data.kv && typeof data.kv === "object") {
@@ -3850,7 +4112,9 @@ window.addEventListener("message", (ev) => {
       evName === "pressStart" ||
       evName === "pressEnd" ||
       evName === "pressCancel";
-    if (evName) {
+    if (data.unhandledAncestors) {
+      setStatus(`Interaction · ${comp} · unhandled ancestors (no-op)`);
+    } else if (evName) {
       const emitBit =
         Array.isArray(data.emits) && data.emits.length
           ? ` · emit ${data.emits.map((e) => e?.name).filter(Boolean).join(",")}`
@@ -3858,28 +4122,56 @@ window.addEventListener("message", (ev) => {
       const childBit = data.childComponent ? ` ← ${data.childComponent}` : "";
       setStatus(`Interaction · ${comp}${childBit} · ${evName}${emitBit}`);
     }
-    if (data.params && typeof data.params === "object" && !Array.isArray(data.params)) {
-      // Pointer chrome is per mount (previewHandled). pressEnd + emit updates
-      // parent SoT (currentMood / selectedTrack) and must rebake even though
-      // the event name is a pointer channel.
-      const parentSoTChanged = data.previewHandled !== true && data.changed;
-      if (!chromeEvent || parentSoTChanged) {
-        primaryComponent = comp || primaryComponent;
-        preferredComponent = primaryComponent;
-        setKvForComponent(
-          primaryComponent,
-          /** @type {Record<string, unknown>} */ (data.params),
-        );
-        if (primaryComponent) {
-          delete activeFixtureByComponent[primaryComponent];
-          pinnedFixtureEnv = null;
+    const ops = Array.isArray(data.presenterOps) ? data.presenterOps : [];
+    void (async () => {
+      const owner = comp || primaryComponent;
+      const sectionOps = ops.filter(
+        (op) => !op.owner || op.owner === "section" || op.owner === owner,
+      );
+      const pinsBefore = presenterPinsByComponent[owner] ?? {};
+      const pairMove = resolvePairMove(sectionOps, pinsBefore);
+      const outgoingSnap = pairMove
+        ? snapshotPresenterOutgoing(frame.contentDocument, owner)
+        : null;
+      if (activePairClip) {
+        activePairClip.cancel();
+        activePairClip = null;
+      }
+      const pinsChanged = applyPresenterOpsForOwner(owner, ops);
+      const assignChanged = Boolean(data.changed) && ops.length === 0;
+      const parentSoTChanged =
+        (data.previewHandled !== true && (pinsChanged || assignChanged)) ||
+        (Boolean(pairMove) && pinsChanged);
+      if (data.params && typeof data.params === "object" && !Array.isArray(data.params)) {
+        if (!chromeEvent || parentSoTChanged) {
+          primaryComponent = owner;
+          preferredComponent = primaryComponent;
+          setKvForComponent(primaryComponent, /** @type {Record<string, unknown>} */ (data.params));
+          if (primaryComponent && parentSoTChanged) {
+            delete activeFixtureByComponent[primaryComponent];
+            pinnedFixtureEnv = null;
+          }
+          refreshControlsUi();
         }
-        refreshControlsUi();
       }
       if (parentSoTChanged) {
-        scheduleDebouncedRender(0, { incremental: true, ownerOnly: true });
+        if (owner) {
+          delete activeFixtureByComponent[owner];
+          pinnedFixtureEnv = null;
+        }
+        nextRenderIncremental = true;
+        nextRenderOwnerOnly = true;
+        await runRender({ debounced: false });
+        if (pairMove && outgoingSnap) {
+          activePairClip = startPresenterPairClip(
+            frame.contentDocument,
+            outgoingSnap,
+            pairMove,
+            owner,
+          );
+        }
       }
-    }
+    })();
   }
 });
 

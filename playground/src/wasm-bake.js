@@ -2,7 +2,7 @@
  * Optional WASM bake (pdl-wasm). Loads lazily; returns null if artifacts missing.
  */
 
-/** @type {Promise<{ analyze_sources: Function; bake_component_sources: Function; bake_system_sources: Function } | null> | null} */
+/** @type {Promise<{ analyze_sources: Function; bake_component_sources: Function; bake_system_sources: Function; apply_presenter_pins: Function } | null> | null} */
 let wasmPromise = null;
 
 export function virtualizeSources(files, entry) {
@@ -28,6 +28,7 @@ export function loadWasmBake() {
           analyze_sources: mod.analyze_sources,
           bake_component_sources: mod.bake_component_sources,
           bake_system_sources: mod.bake_system_sources,
+          apply_presenter_pins: mod.apply_presenter_pins,
         };
       } catch (e) {
         console.warn("WASM bake unavailable:", e);

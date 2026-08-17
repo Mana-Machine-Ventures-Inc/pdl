@@ -4,7 +4,7 @@
 primitive effect.frost: Effect = Effect(.blurBehind, radius: 20)
 
 semantic motion.unblur: Motion = Motion(
-  transition: (duration: 400, easing: "ease-out"),
+  duration: 400, ease: .out,
   pose: Pose(blur: 18)
 )
 

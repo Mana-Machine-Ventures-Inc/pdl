@@ -428,7 +428,21 @@ function validateFixturesForComponent(design: DesignDefinition, componentName: s
         );
       }
     }
+    const letKinds = collectLetFrameKinds(c.body);
     for (const b of ex.bindings) {
+      const dot = b.name.indexOf(".");
+      const letId = dot === -1 ? b.name : b.name.slice(0, dot);
+      const field = dot === -1 ? undefined : b.name.slice(dot + 1);
+      if (letKinds.get(letId) === "presenter") {
+        if (field && field !== "cover") {
+          throw new PdlError(
+            "PDL-E055",
+            `Fixture "${ex.label}" unknown presenter field \`${field}\` (use \`${letId}\` for the stack or \`${letId}.cover\`)`,
+            { path: design.entryPath },
+          );
+        }
+        continue;
+      }
       const p = pmap.get(b.name);
       if (!p) {
         throw new PdlError(
@@ -448,26 +462,67 @@ function validateFixturesForComponent(design: DesignDefinition, componentName: s
   }
 }
 
-function validateTransitionValue(
+function validateEaseValue(
   design: DesignDefinition,
   value: ValueExpr,
   where: string,
 ): void {
-  if (value.kind === "transition") return;
-  if (value.kind === "ident") {
-    const t = tokenTypeOf(design, value.name);
-    if (t === "Transition") return;
+  if (value.kind === "easeBezier") return;
+  if (value.kind === "dotEnum") {
+    const raw = value.value.replace(/^\./, "");
+    if (raw === "linear" || raw === "in" || raw === "out") return;
     throw new PdlError(
       "PDL-E005",
-      t
-        ? `${where} must be a Transition (got ${t})`
-        : `${where} must be a Transition token or tuple (unknown \`${value.name}\`)`,
+      `${where} must be \`.linear\`, \`.in\`, \`.out\`, or \`Ease.bezier(x1, y1, x2, y2)\``,
+      { path: design.entryPath },
+    );
+  }
+  if (value.kind === "ident") {
+    const t = tokenTypeOf(design, value.name);
+    if (t === "Ease") return;
+    throw new PdlError(
+      "PDL-E005",
+      t ? `${where} must be an Ease (got ${t})` : `${where} must be an Ease (unknown \`${value.name}\`)`,
+      { path: design.entryPath },
+    );
+  }
+  if (value.kind === "string") {
+    throw new PdlError(
+      "PDL-E005",
+      `${where} must be \`.linear\`, \`.in\`, \`.out\`, or \`Ease.bezier(x1, y1, x2, y2)\` — not a CSS string`,
       { path: design.entryPath },
     );
   }
   throw new PdlError(
     "PDL-E005",
-    `${where} must be a Transition token or tuple \`(duration: …, easing: …)\``,
+    `${where} must be \`.linear\`, \`.in\`, \`.out\`, or \`Ease.bezier(x1, y1, x2, y2)\``,
+    { path: design.entryPath },
+  );
+}
+
+function validateTransitionValue(
+  design: DesignDefinition,
+  value: ValueExpr,
+  where: string,
+): void {
+  if (value.kind === "timing") {
+    validateEaseValue(design, value.ease, where);
+    return;
+  }
+  if (value.kind === "ident") {
+    const t = tokenTypeOf(design, value.name);
+    if (t === "Timing") return;
+    throw new PdlError(
+      "PDL-E005",
+      t
+        ? `${where} must be a Timing (got ${t})`
+        : `${where} must be a Timing token or \`Timing(…)\` (unknown \`${value.name}\`)`,
+      { path: design.entryPath },
+    );
+  }
+  throw new PdlError(
+    "PDL-E005",
+    `${where} must be a Timing token or \`Timing(duration:, ease: [, delay:])\``,
     { path: design.entryPath },
   );
 }
@@ -647,7 +702,7 @@ function motionHasStagger(design: DesignDefinition, value: ValueExpr): boolean {
 }
 
 type MotionFields = {
-  transition?: ValueExpr;
+  timing?: ValueExpr;
   pose?: ValueExpr;
   keys?: ValueExpr;
   play?: ValueExpr;
@@ -672,7 +727,7 @@ function flattenMotionFields(
   if (value.kind !== "motion") return {};
   const base = value.base ? flattenMotionFields(design, value.base, depth + 1) : {};
   return {
-    transition: value.transition ?? base.transition,
+    timing: value.timing ?? base.timing,
     pose: value.pose ?? base.pose,
     keys: value.keys ?? base.keys,
     play: value.play ?? base.play,
@@ -710,36 +765,39 @@ function validateAnimateMotion(
   componentName: string,
   _event: string,
 ): void {
-  if (value.kind === "transition") return;
+  if (value.kind === "timing") {
+    validateEaseValue(design, value.ease, `\`animate =\` Timing in ${componentName}`);
+    return;
+  }
   if (value.kind === "ident") {
     const t = tokenTypeOf(design, value.name);
-    if (t === "Transition" || t === "Motion") return;
+    if (t === "Timing" || t === "Motion") return;
     throw new PdlError(
       "PDL-E005",
       t
-        ? `\`animate =\` must be a Motion or Transition (got ${t}) in ${componentName}`
-        : `\`animate =\` must be a Motion or Transition in ${componentName} (unknown \`${value.name}\`)`,
+        ? `\`animate =\` must be a Motion or Timing (got ${t}) in ${componentName}`
+        : `\`animate =\` must be a Motion or Timing in ${componentName} (unknown \`${value.name}\`)`,
       { path: design.entryPath },
     );
   }
   if (value.kind !== "motion") {
     throw new PdlError(
       "PDL-E005",
-      `\`animate =\` must be \`Motion(…)\` or a Transition token/tuple in ${componentName}`,
+      `\`animate =\` must be \`Motion(…)\` or a Timing token/\`Timing(…)\` in ${componentName}`,
       { path: design.entryPath },
     );
   }
   if (value.base) validateMotionBase(design, value.base, componentName);
-  if (value.transition) {
+  if (value.timing) {
     validateTransitionValue(
       design,
-      value.transition,
-      `Motion \`transition:\` in ${componentName}`,
+      value.timing,
+      `Motion \`timing:\` in ${componentName}`,
     );
   } else if (!value.base) {
     throw new PdlError(
       "PDL-E005",
-      `Motion requires \`transition:\` in ${componentName}`,
+      `Motion requires \`timing:\` in ${componentName}`,
       { path: design.entryPath },
     );
   }
@@ -964,9 +1022,9 @@ function validateOpacitySides(design: DesignDefinition, expr: ValueExpr): void {
     case "edgeInsets":
       for (const v of Object.values(expr.fields)) validateOpacitySides(design, v);
       return;
-    case "transition":
+    case "timing":
       validateOpacitySides(design, expr.duration);
-      validateOpacitySides(design, expr.easing);
+      validateOpacitySides(design, expr.ease);
       if (expr.delay) validateOpacitySides(design, expr.delay);
       return;
     case "call":
@@ -1014,20 +1072,21 @@ function tokenRhsExpectation(tokenType: string): string {
     case "Blur":
       return "`Blur(radius: … [, style:] [, vibrancy:])` (radius is a Radius / number — not a bare number token)";
     case "FontFamily":
-    case "Easing":
       return "a string";
+    case "Ease":
+      return "`.linear`, `.in`, `.out`, or `Ease.bezier(x1, y1, x2, y2)`";
     case "Icon":
       return '`IconRef(file: "…")`, `IconRef(system: .sfSymbols|.materialSymbols, name: "…")`, or a pack-relative path string';
     case "MediaSource":
       return '`MediaSource(file: "…" [, kind:, format:])`, `MediaSource(url: "…" [, kind:, format:])`, an http(s) URL, or a pack-relative path string';
-    case "Transition":
-      return "a transition tuple `(duration: …, easing: …)`";
+    case "Timing":
+      return "`Timing(duration:, ease: [, delay:])`";
     case "Pose":
       return "`Pose(opacity:, scale:, …)`";
     case "Stagger":
       return "`Stagger(step: … [, from: .first|.last])`";
       case "Motion":
-        return "`Motion(transition: … [, play:] [, pose:] [, keys:] [, stagger:] [, repeat:])`, `Motion(token, field:)`, or a Transition";
+        return "`Motion(timing: … [, play:] [, pose:] [, keys:] [, stagger:] [, repeat:])`, `Motion(token, field:)`, or a Timing";
       case "Effect":
         return "`Effect(.blurSelf | .blurBehind, radius: [, vibrancy:])` (`.glass` is not implemented yet)";
     case "Vibrancy":
@@ -1333,8 +1392,13 @@ function assertTokenRhsCompatible(
       case "Blur":
         return value.kind === "call" && value.callee === "Blur";
       case "FontFamily":
-      case "Easing":
-        return value.kind === "string" || value.kind === "dotEnum";
+        return value.kind === "string";
+      case "Ease":
+        return (
+          value.kind === "easeBezier" ||
+          (value.kind === "dotEnum" &&
+            ["linear", "in", "out"].includes(value.value.replace(/^\./, "")))
+        );
       case "Icon":
         if (value.kind === "iconRef") return true;
         return value.kind === "string" && isPackRelativeFilePath(value.value);
@@ -1344,14 +1408,16 @@ function assertTokenRhsCompatible(
           value.kind === "string" &&
           (isHttpUrl(value.value) || isPackRelativeFilePath(value.value))
         );
-      case "Transition":
-        return value.kind === "transition";
+      case "Timing":
+        return value.kind === "timing";
       case "Pose":
         return value.kind === "pose";
       case "Stagger":
         return value.kind === "stagger";
       case "Motion":
-        return value.kind === "motion" || value.kind === "transition";
+        return value.kind === "motion" || value.kind === "timing";
+      case "PresentationMotion":
+        return value.kind === "presentationMotion";
       case "Effect":
         return (
           value.kind === "effect" ||
@@ -1444,6 +1510,12 @@ function assertTokenRhsCompatible(
   }
   if (tokenType === "Motion" && value.kind === "motion") {
     validateAnimateMotion(design, value, name, "");
+  }
+  if ((tokenType === "Timing" || tokenType === "Motion") && value.kind === "timing") {
+    validateEaseValue(design, value.ease, `Token \`${name}\``);
+  }
+  if (tokenType === "PresentationMotion" && value.kind === "presentationMotion" && value.ease) {
+    validateEaseValue(design, value.ease, `Token \`${name}\` ease`);
   }
   if (tokenType === "Effect" && value.kind === "effect") {
     try {

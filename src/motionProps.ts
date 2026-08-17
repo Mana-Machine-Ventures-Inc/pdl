@@ -97,13 +97,36 @@ export const MOTION_IDENTITY: MotionSnapshot = {
   rotate: 0,
 };
 
+/** Map a language Ease (enum or bezier object) to a WAAPI/CSS easing string. */
+export function easeToWaapi(raw: unknown): string {
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const o = raw as Record<string, unknown>;
+    if (o.kind === "easeBezier") {
+      const x1 = Number(o.x1);
+      const y1 = Number(o.y1);
+      const x2 = Number(o.x2);
+      const y2 = Number(o.y2);
+      if ([x1, y1, x2, y2].every(Number.isFinite)) {
+        return `cubic-bezier(${x1}, ${y1}, ${x2}, ${y2})`;
+      }
+    }
+  }
+  if (typeof raw !== "string") return "linear";
+  const s = raw.trim().replace(/^\./, "");
+  if (s === "in" || s === "ease-in") return "ease-in";
+  if (s === "out" || s === "ease-out") return "ease-out";
+  if (s === "linear") return "linear";
+  if (s.startsWith("cubic-bezier")) return s;
+  return "linear";
+}
+
 export function normalizeTransition(raw: unknown): MotionTransition | undefined {
   if (raw == null) return undefined;
   if (typeof raw !== "object") return undefined;
   const o = raw as Record<string, unknown>;
   const duration = Number(o.duration);
   if (!Number.isFinite(duration) || duration < 0) return undefined;
-  const easing = typeof o.easing === "string" && o.easing.trim() ? o.easing.trim() : "linear";
+  const easing = easeToWaapi(o.ease ?? o.easing);
   const delay = Number(o.delay);
   return {
     duration,

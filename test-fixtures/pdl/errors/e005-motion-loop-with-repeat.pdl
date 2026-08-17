@@ -2,7 +2,7 @@ component BadLoopRepeat <PointerInput>() layout {
   children = []
   self.appear = {
     animate = Motion(
-      transition: (duration: 200, easing: "linear"),
+      duration: 200, ease: .linear,
       play: .loop,
       pose: Pose(rotate: 360),
       repeat: 3

@@ -2,7 +2,7 @@ component BadRepeat <PointerInput>() layout {
   children = []
   self.hoverStart = {
     animate = Motion(
-      transition: (duration: 200, easing: "ease-out"),
+      duration: 200, ease: .out,
       repeat: 3
     )
   }

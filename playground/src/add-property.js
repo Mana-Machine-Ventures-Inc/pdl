@@ -2,7 +2,7 @@
  * Teaching helper: insert common frame properties into PDL at the cursor.
  */
 
-/** @typedef {'layout' | 'text' | 'icon' | 'media' | 'unknown'} FrameKind */
+/** @typedef {'layout' | 'text' | 'icon' | 'media' | 'presenter' | 'unknown'} FrameKind */
 
 /** @type {Record<FrameKind, Array<{ id: string, label: string, snippet: string }>>} */
 export const PROPERTIES_BY_KIND = {
@@ -38,6 +38,16 @@ export const PROPERTIES_BY_KIND = {
     { id: "width", label: "width", snippet: "width = .fill" },
     { id: "height", label: "height", snippet: "height = 120" },
   ],
+  presenter: [
+    { id: "width", label: "width", snippet: "width = .fill" },
+    { id: "height", label: "height", snippet: "height = .fill" },
+    { id: "padding", label: "padding", snippet: "padding = EdgeInsets(x: 12, y: 8)" },
+    { id: "align", label: "align", snippet: "align = .center" },
+    { id: "justify", label: "justify", snippet: "justify = .start" },
+    { id: "overflow", label: "overflow", snippet: "overflow = .hidden" },
+    { id: "background", label: "background", snippet: "background = #EEEEEE" },
+    { id: "cornerRadius", label: "cornerRadius", snippet: "cornerRadius = 8" },
+  ],
   unknown: [
     { id: "direction", label: "direction (layout)", snippet: "direction = .column" },
     { id: "content", label: "content (text)", snippet: 'content = ""' },
@@ -69,12 +79,14 @@ export function inferFrameKindAt(doc, pos) {
   );
   const iconIdx = Math.max(before.lastIndexOf(": icon = {"), before.lastIndexOf(") icon {"));
   const mediaIdx = Math.max(before.lastIndexOf(": media = {"), before.lastIndexOf(") media {"));
+  const presenterIdx = before.lastIndexOf("Presenter(");
 
   // Prefer explicit kind markers closest to cursor
   const candidates = [
     { kind: /** @type {FrameKind} */ ("layout"), i: layoutIdx },
     { kind: /** @type {FrameKind} */ ("icon"), i: iconIdx },
     { kind: /** @type {FrameKind} */ ("media"), i: mediaIdx },
+    { kind: /** @type {FrameKind} */ ("presenter"), i: presenterIdx },
   ];
   // text: check `let Name: text = {` near cursor
   const textLet = /let\s+\w+\s*:\s*text\s*=\s*\{[^}]*$/s.test(before.slice(-200));

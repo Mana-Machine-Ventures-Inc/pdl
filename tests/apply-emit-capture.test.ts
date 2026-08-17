@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyEmitCapture } from "../src/applyEmitCapture.js";
+import { applyEmitCapture, resolveEmitCapture } from "../src/applyEmitCapture.js";
 
 describe("applyEmitCapture", () => {
   it("rebinds parent currentFilter from child emit select(filter)", () => {
@@ -315,5 +315,69 @@ describe("applyEmitCapture", () => {
     );
     expect(cancel.params.editing).toBe(false);
     expect(cancel.params.status).toBe("Cancelled");
+  });
+
+  it("presenterVerb evals page kwargs and does not invent parent params", () => {
+    const captures = [
+      {
+        capture: "ancestor",
+        channel: "showEpisode",
+        payload: [{ name: "id", type: "EpisodeId" }],
+        body: [
+          {
+            kind: "presenterVerb",
+            qualifier: "presenter",
+            name: "push",
+            page: {
+              kind: "instance",
+              component: "Episode",
+              kwargs: { episodeId: { kind: "ident", name: "id" } },
+            },
+          },
+        ],
+      },
+    ];
+    const r = applyEmitCapture({}, captures, "showEpisode", ["episodeId"], { episodeId: "demo" });
+    expect(r.handled).toBe(true);
+    expect(r.changed).toBe(true);
+    expect(r.params).toEqual({});
+    expect(r.presenterOps).toEqual([
+      {
+        qualifier: "presenter",
+        name: "push",
+        page: { component: "Episode", params: { episodeId: "demo" } },
+        style: null,
+      },
+    ]);
+  });
+
+  it("nearest ancestor bare capture wins over the section", () => {
+    const phone = [
+      {
+        capture: "ancestor",
+        channel: "showEpisode",
+        payload: [{ name: "id", type: "EpisodeId" }],
+        body: [{ kind: "presenterVerb", qualifier: "presenter", name: "push" }],
+      },
+    ];
+    const nested = [
+      {
+        capture: "ancestor",
+        channel: "showEpisode",
+        payload: [{ name: "id", type: "EpisodeId" }],
+        body: [{ kind: "presenterVerb", qualifier: "presenter", name: "push" }],
+      },
+    ];
+    const hit = resolveEmitCapture({
+      channel: "showEpisode",
+      qualifier: "row",
+      sectionCaptures: phone,
+      ancestorCaptures: [
+        { type: "EpisodeRow", captures: [] },
+        { type: "NestedShell", captures: nested },
+      ],
+    });
+    expect(hit?.owner).toBe("NestedShell");
+    expect(hit?.capture).toBe(nested[0]);
   });
 });

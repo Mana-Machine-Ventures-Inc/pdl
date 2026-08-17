@@ -13,7 +13,7 @@ import type { DesignDefinition } from "./designModel.js";
 import { PdlError } from "./errors.js";
 import { hostEnumCases } from "./paramTypes.js";
 
-export type FrameKindName = "layout" | "text" | "icon" | "media";
+export type FrameKindName = "layout" | "text" | "icon" | "media" | "presenter";
 
 type ValueKindDef = {
   accept: string[];

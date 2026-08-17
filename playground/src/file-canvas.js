@@ -9,10 +9,24 @@
  */
 export function extractComponentNames(source) {
   const names = [];
-  const re = /(?:^|\n)\s*component\s+([A-Za-z_][A-Za-z0-9_]*)/g;
+  const re = /(?:^|\n)\s*(?:component|page|screen)\s+([A-Za-z_][A-Za-z0-9_]*)/g;
   let m;
   while ((m = re.exec(source))) names.push(m[1]);
   return names;
+}
+
+/**
+ * Page/screen roles from source (`component` omitted).
+ * @param {string} source
+ * @returns {Record<string, "page" | "screen">}
+ */
+export function extractComponentRoles(source) {
+  /** @type {Record<string, "page" | "screen">} */
+  const roles = {};
+  const re = /(?:^|\n)\s*(page|screen)\s+([A-Za-z_][A-Za-z0-9_]*)/g;
+  let m;
+  while ((m = re.exec(source))) roles[m[2]] = /** @type {"page" | "screen"} */ (m[1]);
+  return roles;
 }
 
 /**
@@ -214,9 +228,35 @@ export function collectImportClosure(entry, files) {
  * @param {string} entry
  * @returns {string[]}
  */
+function fileBasename(path) {
+  const n = String(path).replace(/\\/g, "/");
+  const i = n.lastIndexOf("/");
+  return i >= 0 ? n.slice(i + 1) : n;
+}
+
+/** Track N / slice labs: `n2_capture.pdl`, not `design.pdl`. */
+function isNumberedLabPath(path) {
+  return /^n\d+_[a-z0-9_]+\.pdl$/i.test(fileBasename(path));
+}
+
+function sourceForPath(files, path) {
+  if (!path) return "";
+  if (typeof files[path] === "string") return files[path];
+  const norm = path.replace(/\\/g, "/");
+  if (typeof files[norm] === "string") return files[norm];
+  const base = fileBasename(norm);
+  for (const [k, v] of Object.entries(files)) {
+    if (fileBasename(k) === base && typeof v === "string") return v;
+  }
+  return "";
+}
+
 export function unreachableWorkspaceModules(files, entry) {
   if (!entry) return [];
   const closure = collectImportClosure(entry, files);
+  const entrySource = sourceForPath(files, entry);
+  const entryNames = new Set(extractComponentNames(entrySource));
+  const entryIsLab = isNumberedLabPath(entry);
   /** @type {string[]} */
   const orphans = [];
   for (const [path, source] of Object.entries(files)) {
@@ -224,6 +264,11 @@ export function unreachableWorkspaceModules(files, entry) {
     if (!key.endsWith(".pdl")) continue;
     if (closure.has(key)) continue;
     if (!fileHasPreviewableDecls(source)) continue;
+    // `lab/nav/n0_*.pdl` … `n6_*.pdl` are alternate entries. Importing them
+    // into n5 would duplicate Phone / EpisodeRow (PDL-E007), not "complete" the pack.
+    if (entryIsLab && isNumberedLabPath(key)) continue;
+    const orphanNames = extractComponentNames(source);
+    if (orphanNames.some((n) => entryNames.has(n))) continue;
     orphans.push(key);
   }
   orphans.sort();

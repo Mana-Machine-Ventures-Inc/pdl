@@ -152,14 +152,14 @@ describe("parser", () => {
       `component Modal <PointerInput>() layout {
          self.appear = {
            animate = Motion(
-             transition: (duration: 250, easing: "ease-out"),
+             duration: 250, ease: .out,
              pose: Pose(opacity: 0, scale: 0.95, translateY: 8),
              stagger: Stagger(step: 30, from: .last)
            )
          }
          self.dismiss = {
            animate = Motion(
-             transition: (duration: 180, easing: "ease-in"),
+             duration: 180, ease: .in,
              pose: Pose(opacity: 0, blur: 4)
            )
          }
@@ -176,10 +176,10 @@ describe("parser", () => {
         kind: "animate",
         value: {
           kind: "motion",
-          transition: {
-            kind: "transition",
+          timing: {
+            kind: "timing",
             duration: { kind: "number", value: 250 },
-            easing: { kind: "string", value: "ease-out" },
+            ease: { kind: "dotEnum", value: ".out" },
           },
           pose: {
             kind: "pose",
@@ -213,7 +213,7 @@ describe("parser", () => {
   it("parses frame animate on a child and on self", () => {
     const m = parseModule(
       `semantic motion.spin: Motion = Motion(
-         transition: (duration: 800, easing: "linear"),
+         duration: 800, ease: .linear,
          play: .loop,
          pose: Pose(rotate: 360)
        )
@@ -254,7 +254,7 @@ describe("parser", () => {
   it("parses bare frame animate on the component root", () => {
     const m = parseModule(
       `semantic motion.spin: Motion = Motion(
-         transition: (duration: 800, easing: "linear"),
+         duration: 800, ease: .linear,
          play: .loop,
          pose: Pose(rotate: 360)
        )
@@ -278,7 +278,7 @@ describe("parser", () => {
   it("parses Motion(token, play:) copy + override", () => {
     const m = parseModule(
       `semantic motion.hoverPop: Motion = Motion(
-         transition: (duration: 280, easing: "ease-out"),
+         duration: 280, ease: .out,
          keys: [Key(pose: Pose(scale: 1.12), at: 1)]
        )
        component Chip <PointerInput>() layout {
@@ -357,13 +357,13 @@ describe("parser", () => {
     ).toThrow(/requires `radius:`/);
   });
 
-  it("rejects empty Pose and Motion without transition", () => {
+  it("rejects empty Pose and Motion without timing", () => {
     expect(() =>
       parseModule(`primitive p: Pose = Pose()`, "x.pdl"),
     ).toThrow(/at least one overlay field/);
     expect(() =>
       parseModule(`primitive m: Motion = Motion(pose: Pose(opacity: 0))`, "x.pdl"),
-    ).toThrow(/requires `transition:`/);
+    ).toThrow(/requires `duration:` \/ `ease:`|requires `timing:`/);
   });
 
   it("parses Shadow(…) constructor on tokens", () => {

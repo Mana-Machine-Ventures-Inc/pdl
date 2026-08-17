@@ -27,6 +27,30 @@ pub fn is_host_protocol_prelude(name: &str) -> bool {
     HOST_PROTOCOL_PRELUDE.iter().any(|n| *n == name)
 }
 
+/// Prelude API protocol for `page` destinations. Always in scope.
+/// Canonical twin: `test-fixtures/pdl/stdlib/page_protocols.pdl`.
+pub const PAGE_PROTOCOL_PRELUDE: &str = "Page";
+
+fn page_protocol_prelude_decl() -> ProtocolDecl {
+    ProtocolDecl {
+        name: PAGE_PROTOCOL_PRELUDE.to_string(),
+        role: ProtocolRole::Api,
+        requires: Vec::new(),
+        params: Vec::new(),
+        emits: Vec::new(),
+        inbound: Vec::new(),
+        verbs: Vec::new(),
+    }
+}
+
+/// Ensure prelude `Page` exists as an empty API protocol (`protocol Page: component { }`).
+/// Author restatements may add params; a host redefinition is PDL-E032.
+pub fn inject_page_protocol_prelude(protocols: &mut IndexMap<String, ProtocolDecl>) {
+    protocols
+        .entry(PAGE_PROTOCOL_PRELUDE.to_string())
+        .or_insert_with(page_protocol_prelude_decl);
+}
+
 fn host_protocol_prelude_decl(name: &str) -> ProtocolDecl {
     match name {
         "PointerInput" => ProtocolDecl {
@@ -220,28 +244,35 @@ fn collect_host_protocols(
     Ok(())
 }
 
-/// Effective host protocols for a component (direct `<P, Q>` or via API `requires`).
+/// Whether this API protocol is an ancestor-sink contract (`.ancestors` emit).
+pub fn protocol_has_ancestors_emit(p: &ProtocolDecl) -> bool {
+    p.emits
+        .iter()
+        .any(|e| e.propagation == EmitPropagation::Ancestors)
+}
+
+/// Effective host protocols for a component: receive `<>` plus `requires`
+/// walked from both receive and `emits <P>` (so `emits <SubnavItem>` still
+/// implies `PointerInput`).
 pub fn effective_host_protocols(
     design: &DesignDefinition,
     c: &ComponentDecl,
 ) -> Result<Vec<String>, PdlError> {
     let mut out = Vec::new();
     let mut visiting = HashSet::new();
-    for proto in &c.conforms_to {
+    for proto in c.conforms_to.iter().chain(c.emits_protocols.iter()) {
         collect_host_protocols(design, proto, &mut out, &mut visiting)?;
         visiting.clear();
     }
     Ok(out)
 }
 
-/// Effective emits for a component: protocol emits ∪ component-owned emits
-/// (same emit name: component declaration replaces).
-pub fn effective_emits(
-    design: &DesignDefinition,
-    c: &ComponentDecl,
-) -> Vec<ProtocolEmitDecl> {
+/// Effective emits for a component: `emits <P>` protocol channels ∪
+/// component-owned inline emits (same emit name: component declaration replaces).
+/// Receive `<>` does not contribute send channels.
+pub fn effective_emits(design: &DesignDefinition, c: &ComponentDecl) -> Vec<ProtocolEmitDecl> {
     let mut merged: IndexMap<String, ProtocolEmitDecl> = IndexMap::new();
-    for proto_name in &c.conforms_to {
+    for proto_name in &c.emits_protocols {
         if let Some(proto) = design.protocols.get(proto_name) {
             for e in &proto.emits {
                 merged.insert(e.name.clone(), e.clone());
@@ -305,12 +336,13 @@ pub fn effective_params(
     c: &ComponentDecl,
 ) -> Result<Vec<ComponentParam>, PdlError> {
     let mut merged: IndexMap<String, ComponentParam> = IndexMap::new();
-    for proto_name in &c.conforms_to {
+    // API / slot params come from send protocols (`emits <P>`), not receive `<>`.
+    for proto_name in &c.emits_protocols {
         let proto = design.protocols.get(proto_name).ok_or_else(|| {
             PdlError::new(
                 "PDL-E022",
                 format!(
-                    "Component `{}` conforms to unknown protocol `{}`",
+                    "Component `{}` emits unknown protocol `{}`",
                     c.name, proto_name
                 ),
                 Some(design.entry_path.clone()),
@@ -780,6 +812,7 @@ fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefin
     }
 
     inject_host_protocol_prelude(&mut protocols);
+    inject_page_protocol_prelude(&mut protocols);
     inject_editable_text_prelude_variants(&mut variants);
 
     Ok(DesignDefinition {

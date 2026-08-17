@@ -1,0 +1,16 @@
+// PDL-E055: replace is only legal in an ancestor-capture body.
+
+page Home() layout {
+  children = []
+}
+
+page Episode() layout {
+  children = []
+}
+
+screen Phone() layout {
+  let home = Home()
+  let presenter = Presenter(root: home)
+  children = [presenter]
+  presenter.replace(Episode())
+}

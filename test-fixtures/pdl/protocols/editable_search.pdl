@@ -10,7 +10,7 @@ protocol FormField: component {
   }
 }
 
-component SearchField <FormField> (
+component SearchField emits <FormField> (
   placeholder: String = "Search"
 ) text {
   content = placeholder

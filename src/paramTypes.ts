@@ -21,11 +21,12 @@ export const BUILTIN_PARAM_TYPES: ReadonlySet<string> = new Set([
   "LetterSpacing",
   "Sizing",
   "Duration",
-  "Easing",
-  "Transition",
+  "Ease",
+  "Timing",
   "Pose",
   "Stagger",
   "Motion",
+  "PresentationMotion",
   "Effect",
   "Blur",
   "Vibrancy",
@@ -118,8 +119,8 @@ export function inferValueLetType(value: {
       return "Icon";
     case "mediaSourceRef":
       return "MediaSource";
-    case "transition":
-      return "Transition";
+    case "timing":
+      return "Timing";
     case "pose":
       return "Pose";
     case "stagger":

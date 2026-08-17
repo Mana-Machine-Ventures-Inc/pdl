@@ -1,0 +1,3 @@
+// PDL-E001: protocol subject must be `component`, not `page`.
+protocol Dest: page {
+}

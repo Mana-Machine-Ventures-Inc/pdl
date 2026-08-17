@@ -1,0 +1,99 @@
+// B7c — nearest bare ancestor capture wins.
+// NestedShell owns Presenter + showEpisode; Phone also captures.
+// Emit from a row inside NestedShell must not change Phone's stack.
+// The slate "Nested shell" chrome stays visible after a row tap.
+
+variant EpisodeId { case demo case late }
+
+protocol ShowEpisode: component {
+  emits(propagation: .ancestors) {
+    showEpisode(id: EpisodeId)
+  }
+}
+
+component EpisodeRow <PointerInput> emits <ShowEpisode>(
+  episodeId: EpisodeId = .demo,
+  title: String = "Morning Cup",
+  subtitle: String = "12 min"
+) layout {
+  direction = .column
+  gap = 4
+  padding = EdgeInsets(x: 16, y: 14)
+  background = #FFFFFF
+  cornerRadius = 12
+  width = .fill
+
+  let name = Text(content: title, color: #0F172A, fontSize: 16, fontWeight: 600)
+  let meta = Text(content: subtitle, color: #64748B, fontSize: 13)
+  children = [name, meta]
+  self.pressEnd = { emit showEpisode(episodeId) }
+}
+
+page InnerHome() layout {
+  direction = .column
+  gap = 10
+  width = .fill
+  height = .fill
+  background = #F8FAFC
+  padding = 12
+
+  let hint = Text(content: "Tap a row. Episode pushes inside this shell, not on Phone.", color: #475569, fontSize: 13)
+  let row = EpisodeRow(episodeId: .demo, title: "Morning Cup", subtitle: "12 min")
+  let row2 = EpisodeRow(episodeId: .late, title: "Late Night", subtitle: "48 min")
+  children = [hint, row, row2]
+}
+
+page Episode(episodeId: EpisodeId = .demo) layout {
+  direction = .column
+  gap = 8
+  padding = 16
+  width = .fill
+  height = .fill
+  background = #EFF6FF
+
+  let kicker = Text(content: "Inside NestedShell", color: #2563EB, fontSize: 13, fontWeight: 600)
+  let title = Text(content: "Morning Cup", color: #0F172A, fontSize: 22, fontWeight: 700)
+  if episodeId == .late {
+    title.content = "Late Night"
+  }
+  let body = Text(content: "If Phone had also pushed, the slate shell chrome would be gone.", color: #475569, fontSize: 14)
+  children = [kicker, title, body]
+}
+
+page NestedShell <ShowEpisode>() layout {
+  direction = .column
+  gap = 8
+  padding = 12
+  width = .fill
+  height = .fill
+  background = #1E293B
+
+  let chrome = Text(content: "Nested shell", color: #94A3B8, fontSize: 12, fontWeight: 600)
+  let inner = InnerHome()
+  let presenter = Presenter(root: inner)
+  children = [chrome, presenter]
+  showEpisode(id: EpisodeId) = {
+    presenter.push(Episode(episodeId: id))
+  }
+}
+
+screen Phone <ShowEpisode>() layout {
+  direction = .column
+  gap = 8
+  width = 390
+  height = 760
+  background = #0F172A
+  padding = 12
+  cornerRadius = 28
+
+  let shell = NestedShell()
+  let presenter = Presenter(root: shell)
+  children = [presenter]
+  showEpisode(id: EpisodeId) = {
+    presenter.push(Episode(episodeId: id))
+  }
+}
+
+fixtures Phone {
+  example "Home" { }
+}

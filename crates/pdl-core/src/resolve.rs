@@ -107,6 +107,10 @@ struct MutableFrame {
     instance_kwargs: Option<Map<String, Value>>,
     /// Preserved across LetInstance flatten (`insert_catal_tree` → rematerialize).
     foreach_list: Option<String>,
+    /// Presenter stack (`root` + pushed pages). Painted children are the stack
+    /// top, plus the cover layered above when set.
+    presenter_stack: Option<Vec<ChildEntry>>,
+    presenter_cover: Option<ChildEntry>,
 }
 
 /// Parent `ForEach(list)` forwarded into a child component that mounts that list
@@ -141,6 +145,8 @@ struct SlotResolveCtx {
     pending_let_instances: Vec<PendingLetInstance>,
     /// Resolved host param bag (H3). Nested `<Host>` instances share one environment.
     host: Option<Map<String, Value>>,
+    /// Fixture / bake pins: presenter let id → stack + optional cover.
+    presenter_pins: HashMap<String, crate::presenter::PresenterPin>,
 }
 
 /// `chips` or `[chips]` used as a list-forward / mount reference in kwargs.
@@ -184,7 +190,8 @@ fn collect_foreach_forwards_for_kwargs(
     let mut out = HashMap::new();
     for (child_param, expr) in kwargs {
         if let Some(list_name) = list_ident_from_expr(expr) {
-            if let Some(fwd) = foreach_forward_for_list(slot_ctx, param_values, param_meta, list_name)
+            if let Some(fwd) =
+                foreach_forward_for_list(slot_ctx, param_values, param_meta, list_name)
             {
                 out.insert(child_param.clone(), fwd);
             }
@@ -280,6 +287,8 @@ fn insert_catal_tree(frames: &mut HashMap<String, MutableFrame>, catal: &CatalFr
             instance_of: catal.instance_of.clone(),
             instance_kwargs: catal.instance_kwargs.clone(),
             foreach_list: catal.foreach_list.clone(),
+            presenter_stack: None,
+            presenter_cover: None,
         },
     );
 }
@@ -416,13 +425,12 @@ fn is_resolved_closed_sizing(v: Option<&Value>) -> bool {
     false
 }
 
-fn normalize_aspect_box_props(props: &mut Map<String, Value>, entry_path: &str) -> Result<(), PdlError> {
-    let w_aspect = props
-        .get("width")
-        .is_some_and(is_resolved_aspect_sizing);
-    let h_aspect = props
-        .get("height")
-        .is_some_and(is_resolved_aspect_sizing);
+fn normalize_aspect_box_props(
+    props: &mut Map<String, Value>,
+    entry_path: &str,
+) -> Result<(), PdlError> {
+    let w_aspect = props.get("width").is_some_and(is_resolved_aspect_sizing);
+    let h_aspect = props.get("height").is_some_and(is_resolved_aspect_sizing);
     if w_aspect && h_aspect {
         return Err(PdlError::new(
             "PDL-E006",
@@ -815,6 +823,8 @@ fn ensure_frame(frames: &mut HashMap<String, MutableFrame>, id: &str, kind: &str
             instance_of: None,
             instance_kwargs: None,
             foreach_list: None,
+            presenter_stack: None,
+            presenter_cover: None,
         });
 }
 
@@ -870,9 +880,7 @@ fn eval_foreach_overlay(
             other => {
                 return Err(PdlError::new(
                     "PDL-E001",
-                    format!(
-                        "Internal: unexpected item in ForEach body during resolve: {other:?}"
-                    ),
+                    format!("Internal: unexpected item in ForEach body during resolve: {other:?}"),
                     Some(design.entry_path.clone()),
                     None,
                     None,
@@ -919,8 +927,15 @@ fn process_frame_items(
         match item {
             FrameBodyItem::Prop { name, value } => {
                 if name == "hidden" {
-                    let hidden =
-                        eval_hidden_expr(value, design, tokens, param_values, param_meta, local_values, opts)?;
+                    let hidden = eval_hidden_expr(
+                        value,
+                        design,
+                        tokens,
+                        param_values,
+                        param_meta,
+                        local_values,
+                        opts,
+                    )?;
                     let f = frames.get_mut(default_target).unwrap();
                     if hidden {
                         f.props.insert("hidden".to_string(), Value::Bool(true));
@@ -939,7 +954,15 @@ fn process_frame_items(
                     }
                     continue;
                 }
-                let v = eval_prop(value, design, tokens, param_values, param_meta, local_values, opts)?;
+                let v = eval_prop(
+                    value,
+                    design,
+                    tokens,
+                    param_values,
+                    param_meta,
+                    local_values,
+                    opts,
+                )?;
                 if name == "style" {
                     let f = frames.get_mut(default_target).unwrap();
                     merge_style_props(&mut f.props, v, &entry_path, opts.catalogue_token_refs)?;
@@ -968,7 +991,15 @@ fn process_frame_items(
                             None,
                         ));
                     }
-                    let pv = eval_prop(value, design, tokens, param_values, param_meta, local_values, opts)?;
+                    let pv = eval_prop(
+                        value,
+                        design,
+                        tokens,
+                        param_values,
+                        param_meta,
+                        local_values,
+                        opts,
+                    )?;
                     slot_ctx
                         .slot_overrides
                         .entry(frame_id.to_string())
@@ -979,8 +1010,15 @@ fn process_frame_items(
                 let kind = frame_kind_or_layout(frames, frame_id);
                 ensure_frame(frames, frame_id, &kind);
                 if name == "hidden" {
-                    let hidden =
-                        eval_hidden_expr(value, design, tokens, param_values, param_meta, local_values, opts)?;
+                    let hidden = eval_hidden_expr(
+                        value,
+                        design,
+                        tokens,
+                        param_values,
+                        param_meta,
+                        local_values,
+                        opts,
+                    )?;
                     let fr = frames.get_mut(frame_id).unwrap();
                     if hidden {
                         fr.props.insert("hidden".to_string(), Value::Bool(true));
@@ -999,7 +1037,15 @@ fn process_frame_items(
                     }
                     continue;
                 }
-                let pv = eval_prop(value, design, tokens, param_values, param_meta, local_values, opts)?;
+                let pv = eval_prop(
+                    value,
+                    design,
+                    tokens,
+                    param_values,
+                    param_meta,
+                    local_values,
+                    opts,
+                )?;
                 if name == "style" {
                     let fr = frames.get_mut(frame_id).unwrap();
                     merge_style_props(&mut fr.props, pv, &entry_path, opts.catalogue_token_refs)?;
@@ -1026,7 +1072,15 @@ fn process_frame_items(
                     {
                         let ck = frame_kind_or_layout(frames, cid);
                         ensure_frame(frames, cid, &ck);
-                        let pv = eval_prop(op, design, tokens, param_values, param_meta, local_values, opts)?;
+                        let pv = eval_prop(
+                            op,
+                            design,
+                            tokens,
+                            param_values,
+                            param_meta,
+                            local_values,
+                            opts,
+                        )?;
                         let coerced = coerce_frame_prop_value("opacity", pv, &entry_path)?;
                         let fr = frames.get_mut(cid).unwrap();
                         assign_frame_prop(&mut fr.props, "opacity", coerced);
@@ -1131,6 +1185,67 @@ fn process_frame_items(
     Ok(())
 }
 
+fn stack_entry_display(entry: &ChildEntry, frames: &HashMap<String, MutableFrame>) -> String {
+    match entry {
+        ChildEntry::Instance { component, .. } => component.clone(),
+        ChildEntry::FrameRef { id, .. } => frames
+            .get(id)
+            .and_then(|f| f.instance_of.clone())
+            .unwrap_or_else(|| id.clone()),
+        _ => crate::presenter::stack_entry_name(entry),
+    }
+}
+
+/// After lets flatten, pin stack / cover and paint the stack top (plus cover).
+fn apply_presenter_stacks(frames: &mut HashMap<String, MutableFrame>, slot_ctx: &SlotResolveCtx) {
+    let presenter_ids: Vec<String> = frames
+        .iter()
+        .filter(|(_, mf)| mf.kind == "presenter")
+        .map(|(id, _)| id.clone())
+        .collect();
+    for id in presenter_ids {
+        let default_stack = frames
+            .get(&id)
+            .map(|mf| mf.child_entries.clone())
+            .unwrap_or_default();
+        let pin = slot_ctx.presenter_pins.get(&id);
+        let stack = pin
+            .map(|p| p.stack.clone())
+            .filter(|s| !s.is_empty())
+            .unwrap_or(default_stack);
+        if stack.is_empty() {
+            continue;
+        }
+        let cover = pin.and_then(|p| p.cover.clone());
+        let names: Vec<Value> = stack
+            .iter()
+            .map(|e| Value::String(stack_entry_display(e, frames)))
+            .collect();
+        let mut painted: Vec<ChildEntry> = stack.last().cloned().into_iter().collect();
+        if let Some(c) = cover.clone() {
+            painted.push(c);
+        }
+        let cover_name = cover.as_ref().map(|c| stack_entry_display(c, frames));
+        if let Some(mf) = frames.get_mut(&id) {
+            if !mf.props.contains_key("width") {
+                mf.props
+                    .insert("width".to_string(), Value::String("fill".to_string()));
+            }
+            if !mf.props.contains_key("height") {
+                mf.props
+                    .insert("height".to_string(), Value::String("fill".to_string()));
+            }
+            mf.props.insert("stack".to_string(), Value::Array(names));
+            if let Some(name) = cover_name {
+                mf.props.insert("cover".to_string(), Value::String(name));
+            }
+            mf.child_entries = painted;
+            mf.presenter_stack = Some(stack);
+            mf.presenter_cover = cover;
+        }
+    }
+}
+
 /// Resolve `component_name` into a materialised [`CatalFrame`] tree.
 pub fn resolve_component_tree(
     design: &DesignDefinition,
@@ -1158,6 +1273,27 @@ pub fn resolve_component_tree_with_host(
     options: ResolveOptions,
     host_env: Option<&Map<String, Value>>,
 ) -> Result<CatalFrame, PdlError> {
+    resolve_component_tree_with_presenter_pins(
+        design,
+        component_name,
+        tokens,
+        param_overrides,
+        options,
+        host_env,
+        HashMap::new(),
+    )
+}
+
+/// Like [`resolve_component_tree_with_host`], applying fixture-pinned presenter stacks.
+pub fn resolve_component_tree_with_presenter_pins(
+    design: &DesignDefinition,
+    component_name: &str,
+    tokens: &mut Tokens,
+    param_overrides: &Map<String, Value>,
+    options: ResolveOptions,
+    host_env: Option<&Map<String, Value>>,
+    presenter_pins: HashMap<String, crate::presenter::PresenterPin>,
+) -> Result<CatalFrame, PdlError> {
     resolve_component_tree_with_list_forwards(
         design,
         component_name,
@@ -1166,6 +1302,7 @@ pub fn resolve_component_tree_with_host(
         options,
         &HashMap::new(),
         host_env,
+        presenter_pins,
     )
 }
 
@@ -1179,6 +1316,7 @@ fn resolve_component_tree_with_list_forwards(
     options: ResolveOptions,
     list_forwards: &HashMap<String, ForEachForward>,
     host_env: Option<&Map<String, Value>>,
+    presenter_pins: HashMap<String, crate::presenter::PresenterPin>,
 ) -> Result<CatalFrame, PdlError> {
     let c = design
         .components
@@ -1193,12 +1331,7 @@ fn resolve_component_tree_with_list_forwards(
                 None,
             )
         })?;
-    let mut param_values = resolve_default_param_values_with_host(
-        design,
-        tokens,
-        &c,
-        host_env,
-    )?;
+    let mut param_values = resolve_default_param_values_with_host(design, tokens, &c, host_env)?;
     for (k, v) in param_overrides {
         param_values.insert(k.clone(), v.clone());
     }
@@ -1214,11 +1347,14 @@ fn resolve_component_tree_with_list_forwards(
             instance_of: None,
             instance_kwargs: None,
             foreach_list: None,
+            presenter_stack: None,
+            presenter_cover: None,
         },
     );
     let mut slot_ctx = SlotResolveCtx {
         foreach_forwards: list_forwards.clone(),
         host: host_env.cloned(),
+        presenter_pins,
         ..Default::default()
     };
     let mut local_values = Map::new();
@@ -1239,12 +1375,8 @@ fn resolve_component_tree_with_list_forwards(
     let pending = std::mem::take(&mut slot_ctx.pending_let_instances);
     for pending in pending {
         let scoped = merge_locals(&param_values, &local_values);
-        let child_forwards = collect_foreach_forwards_for_kwargs(
-            &pending.kwargs,
-            &slot_ctx,
-            &scoped,
-            &param_meta,
-        );
+        let child_forwards =
+            collect_foreach_forwards_for_kwargs(&pending.kwargs, &slot_ctx, &scoped, &param_meta);
         let mut kw_explicit = Map::new();
         for (k, expr) in &pending.kwargs {
             let eval_expr = kwargs_expr_for_eval(k, expr, &child_forwards);
@@ -1267,11 +1399,13 @@ fn resolve_component_tree_with_list_forwards(
             options,
             &child_forwards,
             host_env,
+            HashMap::new(),
         )?;
         sub.instance_of = Some(pending.component.clone());
         sub.instance_kwargs = Some(kw_explicit);
         insert_catal_tree(&mut frames, &sub, &pending.id);
     }
+    apply_presenter_stacks(&mut frames, &slot_ctx);
     // EditableText on a text-root component implies an editable leaf — no author
     // `editable = true` required (session bind is always protocol `value`).
     imply_editable_text_root(design, &c, &mut frames)?;
@@ -1323,6 +1457,7 @@ fn mount_instance(
         options,
         list_forwards,
         host_env,
+        HashMap::new(),
     )?;
     visiting_inst.remove(&key);
     sub.id = format!("{parent_id}_{component}_{si}");
@@ -1495,7 +1630,10 @@ fn materialize(
                 });
                 si += 1;
             }
-            ChildEntry::FrameRef { id: cid, opacity: _ } => {
+            ChildEntry::FrameRef {
+                id: cid,
+                opacity: _,
+            } => {
                 if frames.contains_key(cid) {
                     children.push(materialize(
                         cid,
@@ -1575,9 +1713,7 @@ fn materialize(
                         use_string_placeholders: false,
                     };
                     let val = crate::evaluate::evaluate_value(
-                        &crate::ast::ValueExpr::Ident {
-                            name: cid.clone(),
-                        },
+                        &crate::ast::ValueExpr::Ident { name: cid.clone() },
                         &mut ev,
                     )?;
                     if field.is_array {
@@ -1635,12 +1771,8 @@ fn materialize(
                 kwargs,
                 opacity,
             } => {
-                let child_forwards = collect_foreach_forwards_for_kwargs(
-                    kwargs,
-                    slot_ctx,
-                    param_values,
-                    param_meta,
-                );
+                let child_forwards =
+                    collect_foreach_forwards_for_kwargs(kwargs, slot_ctx, param_values, param_meta);
                 let mut kw_overrides = Map::new();
                 for (k, expr) in kwargs {
                     let eval_expr = kwargs_expr_for_eval(k, expr, &child_forwards);

@@ -71,6 +71,28 @@ function stripLeadingDot(s: string): string {
   return s.startsWith(".") ? s.slice(1) : s;
 }
 
+function evaluateEase(raw: unknown): unknown {
+  if (typeof raw === "string") return raw.trim().replace(/^\./, "");
+  return raw;
+}
+
+function reversePresentationMotion(raw: unknown): unknown {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new PdlError("PDL-E005", "`.reversed` is only valid on a PresentationMotion");
+  }
+  const o = { ...(raw as Record<string, unknown>) };
+  if (o.kind !== "presentationMotion") {
+    throw new PdlError("PDL-E005", "`.reversed` is only valid on a PresentationMotion");
+  }
+  const incoming = o.incoming;
+  const outgoing = o.outgoing;
+  o.incoming = outgoing;
+  o.outgoing = incoming;
+  const front = String(o.front ?? "incoming").replace(/^\./, "");
+  o.front = front === "outgoing" ? ".incoming" : ".outgoing";
+  return o;
+}
+
 /** Shallow Motion object from a token/value used as `Motion(base, field:)`. */
 function motionObjectFromEval(raw: unknown): Record<string, unknown> {
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
@@ -81,7 +103,7 @@ function motionObjectFromEval(raw: unknown): Record<string, unknown> {
     return { ...o, kind: "motion" };
   }
   if (o.duration != null) {
-    return { kind: "motion", transition: o };
+    return { kind: "motion", timing: o };
   }
   return { ...o, kind: "motion" };
 }
@@ -160,6 +182,10 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
     case "dotEnum":
       return stripLeadingDot(expr.value);
     case "ident": {
+      if (expr.name.endsWith(".reversed")) {
+        const base = expr.name.slice(0, -".reversed".length);
+        return reversePresentationMotion(evaluateValue({ kind: "ident", name: base }, opts));
+      }
       const name = expr.name;
       if (opts.paramMeta?.has(name)) {
         const t = opts.paramMeta.get(name)!.typeName;
@@ -352,12 +378,32 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
       }
       return { kind: "instance", component: expr.component, kwargs };
     }
-    case "transition":
+    case "timing":
       return {
         duration: evaluateValue(expr.duration, opts),
-        easing: evaluateValue(expr.easing, opts),
+        ease: evaluateEase(evaluateValue(expr.ease, opts)),
         ...(expr.delay !== undefined ? { delay: evaluateValue(expr.delay, opts) } : {}),
       };
+    case "easeBezier": {
+      const a = Number(evaluateValue(expr.x1, opts));
+      const b = Number(evaluateValue(expr.y1, opts));
+      const c = Number(evaluateValue(expr.x2, opts));
+      const d = Number(evaluateValue(expr.y2, opts));
+      return { kind: "easeBezier", x1: a, y1: b, x2: c, y2: d };
+    }
+    case "presentationMotion": {
+      const out: Record<string, unknown> = {
+        kind: "presentationMotion",
+        incoming: evaluateValue(expr.incoming, opts),
+        outgoing: evaluateValue(expr.outgoing, opts),
+      };
+      if (expr.duration !== undefined) out.duration = evaluateValue(expr.duration, opts);
+      if (expr.ease !== undefined) out.ease = evaluateEase(evaluateValue(expr.ease, opts));
+      if (expr.delay !== undefined) out.delay = evaluateValue(expr.delay, opts);
+      if (expr.front !== undefined) out.front = evaluateValue(expr.front, opts);
+      if (expr.promoteAt !== undefined) out.promoteAt = evaluateValue(expr.promoteAt, opts);
+      return out;
+    }
     case "pose": {
       const props: Record<string, unknown> = { kind: "pose" };
       for (const [k, v] of Object.entries(expr.props)) {
@@ -376,13 +422,13 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
         kind: "key",
         pose: evaluateValue(expr.pose, opts),
         at: evaluateValue(expr.at, opts),
-        ...(expr.easing !== undefined ? { easing: evaluateValue(expr.easing, opts) } : {}),
+        ...(expr.ease !== undefined ? { ease: evaluateEase(evaluateValue(expr.ease, opts)) } : {}),
       };
     case "motion": {
       const out: Record<string, unknown> = expr.base
         ? motionObjectFromEval(evaluateValue(expr.base, opts))
         : { kind: "motion" };
-      if (expr.transition !== undefined) out.transition = evaluateValue(expr.transition, opts);
+      if (expr.timing !== undefined) out.timing = evaluateValue(expr.timing, opts);
       if (expr.play !== undefined) out.play = evaluateValue(expr.play, opts);
       if (expr.pose !== undefined) out.pose = evaluateValue(expr.pose, opts);
       if (expr.keys !== undefined) out.keys = evaluateValue(expr.keys, opts);

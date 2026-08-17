@@ -24,8 +24,10 @@ The top-level blocks in a `.pdl` file. Use them to import files, name tokens, an
 | [`enum`](#variants) | `enum Name { case a; case b }` | Same as variant in v1. Prefer [`enum`](#variants) for ids (`FilterId`); prefer [`variant`](#variants) for visual axes. |
 | `protocol` | `protocol P: component { … }  or  protocol P { host … }` | A shared contract. Use an API protocol so mixed chips share `select`; use a host protocol so the preview can deliver clicks. |
 | `component` | `component Name(params) kind { … }` | A reusable UI piece: a name, public parameters, and one root frame. |
-| `emits` | `emits Name { channel(field: Type) }  or  } emits { … }` | What this component can tell its parent (selected, changed). Not a click from the preview — that is a host event. |
-| [`fixtures`](#fixtures) | `fixtures Component { example "Label" { param = value } }` | Named preview scenarios (“Empty search”, “Focus mood”). A bag of parameters — not data you put on screen. |
+| `page` | `page Name(params) kind { … }` | A navigable destination. Same body machine as component. Auto-satisfies prelude `Page`, so a screen can take `content: Page = Home()`. |
+| `screen` | `screen Name(params) kind { … }` | A device shell. Same body machine as component. Studio lists screens as prototype roots. Mount `Presenter(root:)` next to chrome. |
+| `emits` | `emits <P>  or  emits Name { channel(field: Type) }  or  emits(propagation: .ancestors) { … }` | `emits <P>` sends a named protocol (channels, params, `[P]` slots). `emits { … }` declares one-off channels. Default `.parent` stays at the declaring parent. `.ancestors` climbs until a sink that both lists `<P>` and writes `channel(…) =` stops it. Not a click from the preview — that is a host event. |
+| [`fixtures`](#fixtures) | `fixtures Component { example "Label" { param = value } }` | Named preview scenarios (“Empty search”, “Focus mood”). A bag of parameters — not data you put on screen. A Presenter let may be pinned as a stack (`presenter = [Home(), Episode()]`) and an optional cover (`presenter.cover = Settings()`). |
 | `samples` | `samples Bank { entry { field: Type = … } }` | A reusable catalog of instances you mount so a prototype can stay interactive. Point at `Tracks.library.tracks`. |
 | [`usage`](#usage) | `usage Component { description = "…" }` | A written note for authors and tools. In v1 the only key is `description`. See [`Usage`](#usage). |
 | [`rules`](#rule) | `rules Component { tags = […]; Rule(.must, …) }` | Checks the design can fail in preview or CI. Tags and [`Rule`](#rule) lines live only here. See [`Rule`](#rule). |
@@ -103,7 +105,7 @@ A flex-like container — the usual root of a component, and any nested group. W
 | Property | Type | Values |
 |----------|------|--------|
 | `align` | [`Align`](#align) | [`.start`](#align) · [`.center`](#align) · [`.end`](#align) · [`.stretch`](#align) |
-| `animate` | [`Motion`](#motion), [`Transition`](#transition) | motion, transition |
+| `animate` | [`Motion`](#motion), [`Timing`](#timing) | motion, timing |
 | `background` | [`Color`](#color), [`Background`](#background), [`Foreground`](#foreground), [`Ramp`](#ramp), [`Blur`](#blur), [`Media`](#media), [`Vibrancy`](#vibrancy) | hex, opacityOf, array |
 | `blur` | [`Radius`](#radius) | ≥ 0 |
 | `borderColor` | [`Color`](#color) | hex, opacityOf |
@@ -144,7 +146,7 @@ A typography node. `content` is the string. Prefer `style:` naming a [`typeStyle
 | Property | Type | Values |
 |----------|------|--------|
 | `align` | [`Align`](#align) | [`.start`](#align) · [`.center`](#align) · [`.end`](#align) |
-| `animate` | [`Motion`](#motion), [`Transition`](#transition) | motion, transition |
+| `animate` | [`Motion`](#motion), [`Timing`](#timing) | motion, timing |
 | `background` | [`Color`](#color), [`Background`](#background), [`Foreground`](#foreground), [`Ramp`](#ramp), [`Blur`](#blur), [`Media`](#media), [`Vibrancy`](#vibrancy) | hex, opacityOf, array |
 | `blur` | [`Radius`](#radius) | ≥ 0 |
 | `borderColor` | [`Color`](#color) | hex, opacityOf |
@@ -183,7 +185,7 @@ A small tintable glyph. The `icon` property is an [`Icon`](#icon) token or [`Ico
 
 | Property | Type | Values |
 |----------|------|--------|
-| `animate` | [`Motion`](#motion), [`Transition`](#transition) | motion, transition |
+| `animate` | [`Motion`](#motion), [`Timing`](#timing) | motion, timing |
 | `blur` | [`Radius`](#radius) | ≥ 0 |
 | `color` | [`Color`](#color) | hex, opacityOf |
 | `effect` | [`Effect`](#effect) | effect |
@@ -204,7 +206,7 @@ A box that draws raster, vector, or video from a [`MediaSource`](#mediasource). 
 | Property | Type | Values |
 |----------|------|--------|
 | `align` | [`Align`](#align) | [`.start`](#align) · [`.center`](#align) · [`.end`](#align) |
-| `animate` | [`Motion`](#motion), [`Transition`](#transition) | motion, transition |
+| `animate` | [`Motion`](#motion), [`Timing`](#timing) | motion, timing |
 | `aspectRatio` | [`Ratio`](#ratio) | number, ratio |
 | `background` | [`Color`](#color), [`Background`](#background), [`Foreground`](#foreground), [`Ramp`](#ramp), [`Blur`](#blur), [`Media`](#media), [`Vibrancy`](#vibrancy) | hex, opacityOf, array |
 | `blur` | [`Radius`](#radius) | ≥ 0 |
@@ -338,7 +340,8 @@ A `let` names something inside a component. Prefer a lowercase id so it does not
 Accepted syntax:
 
 - `let title = Text(…)` — Nested text frame. Mount with `children = [title]`.
-- `let box = Layout(…)` — Nested layout. Same four constructors as the root: [`Layout`](#layout), [`Text`](#text), [`Icon`](#icon), [`Media`](#media).
+- `let box = Layout(…)` — Nested layout. Frame constructors: [`Layout`](#layout), [`Text`](#text), [`Icon`](#icon), [`Media`](#media), Presenter.
+- `let presenter = Presenter(root: home)` — Navigation hole. `root` is required and must be a `page`. The hole accepts layout box props (`width`, `height`, `padding`, [`align`](#align), [`justify`](#justify)); `width` / `height` default to [`.fill`](#contentmode). Command it from a capture: `presenter.push(Episode(id: id))` / `presenter.pop()` / `presenter.replace(…)` / `presenter.present(Settings(), style: .cover)` / `presenter.dismiss()`. Fixture pin: `presenter = [Home(), Episode()]` and `presenter.cover = Settings()`.
 - `let save = Button(label: "Save")` — A component you declared. Pass its parameters; mount it in [`children`](#children) like a frame.
 - `let ramp: Ramp = Ramp(…)` — Typed value. Reuse in `background = [ramp]`. Not mountable.
 - `title.color = color.ink` — Assign after the let. The let must appear earlier in the body.
@@ -605,7 +608,7 @@ component Cleared() layout {
 
 ## Token types
 
-Named values you declare once and reuse. Write `primitive` for the raw palette and `semantic` for the names components should use ([`color.surface`](#color)). Pick a type when a property needs a color, a gap, a shadow, and so on. [`Duration`](#duration), [`Easing`](#easing), [`Transition`](#transition), [`Pose`](#pose), [`Stagger`](#stagger), and [`Motion`](#motion) are the motion types — they exist for handler `animate =` and for frame `animate`. [`Effect`](#effect) is paint: [`.blurSelf`](#effectkind) softens the node, [`.blurBehind`](#effectkind) samples what is behind.
+Named values you declare once and reuse. Write `primitive` for the raw palette and `semantic` for the names components should use ([`color.surface`](#color)). Pick a type when a property needs a color, a gap, a shadow, and so on. [`Duration`](#duration), [`Ease`](#ease), [`Timing`](#timing), [`Pose`](#pose), [`Stagger`](#stagger), [`Motion`](#motion), and [`PresentationMotion`](#presentationmotion) are the motion types — they exist for handler `animate =`, frame `animate`, and Presenter pair clips. [`Effect`](#effect) is paint: [`.blurSelf`](#effectkind) softens the node, [`.blurBehind`](#effectkind) samples what is behind.
 
 ### `Color`
 
@@ -882,7 +885,7 @@ width = 240
 
 Animation length in milliseconds. Unitless — not `150ms`.
 
-Category: motion. Used on: [`Transition`](#transition).[`duration`](#duration), [`Stagger`](#stagger).`step`, `animate`.
+Category: motion. Used on: [`Timing`](#timing).[`duration`](#duration), [`Stagger`](#stagger).`step`, `animate`.
 
 Accepted syntax:
 
@@ -894,38 +897,38 @@ primitive motion.duration.fast: Duration = 150
 primitive motion.duration.standard: Duration = 250
 ```
 
-### `Easing`
+### `Ease`
 
-A timing curve. A quoted CSS easing string.
+How time is shaped. Named cases `.linear` / `.in` / `.out`, or `Ease.bezier(x1, y1, x2, y2)`. Not a CSS string.
 
-Category: motion. Used on: [`Transition`](#transition).[`easing`](#easing).
+Category: motion. Used on: [`Timing`](#timing).[`ease`](#ease), [`Motion`](#motion).[`ease`](#ease), [`Key`](#key).[`ease`](#ease).
 
 Accepted syntax:
 
-- `"linear"` — Linear curve.
-- `"cubic-bezier(0.2, 0, 0, 1)"` — Cubic bezier.
-- `motion.easing.standard` — An Easing token.
+- `.out` — Decelerate into rest.
+- `Ease.bezier(0.2, 0, 0, 1)` — Cubic bezier control points.
+- `motion.ease.standard` — An Ease token.
 
 ```pdl
-primitive motion.easing.standard: Easing = "cubic-bezier(0.2, 0, 0, 1)"
-primitive motion.easing.linear: Easing = "linear"
+primitive motion.ease.standard: Ease = Ease.bezier(0.2, 0, 0, 1)
+primitive motion.ease.linear: Ease = .linear
 ```
 
-### `Transition`
+### `Timing`
 
-A duration plus easing, and an optional delay (default 0). Written as a tuple, not a constructor call. Themes replace a Transition wholly — no deep merge. A Transition is valid `animate =` sugar for `Motion(transition: …)`.
+A duration plus ease, and an optional delay (default 0). Written `Timing(duration:, ease: [, delay:])`. Themes replace a Timing wholly — no deep merge. A Timing is valid `animate =` sugar for `Motion(timing: …)`.
 
-Category: motion. Used on: [`Motion`](#motion).[`transition`](#transition), `animate`.
+Category: motion. Used on: [`Motion`](#motion).[`timing`](#timing), `animate`.
 
 Accepted syntax:
 
-- `(duration: …, easing: …)` — Required fields. Values may be literals or [`Duration`](#duration) / [`Easing`](#easing) tokens.
-- `(duration: …, easing: …, delay: …)` — Optional delay in milliseconds.
-- `motion.appear` — A Transition token.
+- `Timing(duration: …, ease: …)` — Required fields. Values may be literals or [`Duration`](#duration) / [`Ease`](#ease) tokens.
+- `Timing(duration: …, ease: …, delay: …)` — Optional delay in milliseconds.
+- `motion.appear` — A Timing token.
 
 ```pdl
-semantic motion.appear: Transition = (duration: motion.duration.standard, easing: motion.easing.standard)
-semantic motion.instant: Transition = (duration: 0, easing: motion.easing.linear)
+semantic motion.appear: Timing = Timing(duration: motion.duration.standard, ease: motion.ease.standard)
+semantic motion.instant: Timing = Timing(duration: 0, ease: .linear)
 ```
 
 ### `Pose`
@@ -961,23 +964,43 @@ semantic motion.stagger.list: Stagger = Stagger(step: 30, from: .first)
 
 ### `Motion`
 
-The value of `animate =` (handler or frame). Joins a [`Transition`](#transition) with an optional [`Play`](#play), [`Pose`](#pose) or keys, [`Stagger`](#stagger), and finite repeat. [`transition`](#transition) is required unless the first operand is a Motion token (`Motion(token, field:)` copies then overrides). `pose:` and `keys:` together are rejected. `play: .loop` is forever — do not also set `repeat:`. [`stagger`](#stagger) and `repeat` require a pose track. Omit [`play`](#play) on reusable tokens so the site default applies. A [`Transition`](#transition) token or tuple is sugar for `Motion(transition: …)`. Themes replace a Motion wholly — no field merge.
+The value of `animate =` (handler or frame). Joins a clock with an optional [`Play`](#play), [`Pose`](#pose) or keys, [`Stagger`](#stagger), and finite repeat. Declare `duration:` / `ease:` / optional `delay:` on the Motion, or pass `timing:` as a [`Timing`](#timing) token or [`Timing(…)`](#timing). Do not mix `timing:` with flattened clock fields (E005). `pose:` and `keys:` together are rejected. `play: .loop` is forever — do not also set `repeat:`. [`stagger`](#stagger) and `repeat` require a pose track. Omit [`play`](#play) on reusable tokens so the site default applies. A [`Timing`](#timing) token or [`Timing(…)`](#timing) is sugar for `Motion(timing: …)`. Themes replace a Motion wholly — no field merge.
 
 Category: motion. Used on: `animate`.
 
 Accepted syntax:
 
-- `Motion(transition: motion.appear)` — Curve only — hover / implicit interpolation.
-- `Motion(transition: motion.appear, pose: Pose(opacity: 0))` — Lifecycle overlay. Handler name is the direction.
-- `Motion(transition: motion.appear, pose: pose.fadeUp, stagger: Stagger(step: 30, from: .first))` — Full join.
+- `Motion(timing: motion.appear)` — Curve only — hover / implicit interpolation.
+- `Motion(timing: motion.appear, pose: Pose(opacity: 0))` — Lifecycle overlay. Handler name is the direction.
+- `Motion(duration: 250, ease: .out, pose: pose.fadeUp, stagger: Stagger(step: 30, from: .first))` — Full join with an explicit clock.
 - `Motion(motion.hoverPop, play: .toRest)` — Shallow copy of a Motion token; labeled fields replace those fields.
-- `motion.appear` — A [`Transition`](#transition) token — sugar for Motion(transition: that).
-- `(duration: 250, easing: "ease-out")` — A [`Transition`](#transition) tuple — same sugar.
+- `motion.appear` — A [`Timing`](#timing) token — sugar for Motion(timing: that).
+- `Timing(duration: 250, ease: .out)` — A [`Timing`](#timing) constructor — same sugar.
 - `motion.enterCard` — A Motion token.
 
 ```pdl
-semantic motion.hoverPop: Motion = Motion(transition: motion.appear, keys: [Key(pose: Pose(scale: 1.12), at: 1)])
+semantic motion.hoverPop: Motion = Motion(timing: motion.appear, keys: [Key(pose: Pose(scale: 1.12), at: 1)])
 hoverEnd = { animate = Motion(motion.hoverPop, play: .toRest) }
+```
+
+### `PresentationMotion`
+
+A Presenter pair clip. `incoming` plays [`.toRest`](#play) (mounts at pose, eases to rest). `outgoing` plays [`.toPose`](#play). Pair-level [`duration`](#duration) / [`ease`](#ease) / `delay` apply when a slot is a [`Pose`](#pose). A [`Motion`](#motion) slot keeps its own clock. `front` is `.incoming` or `.outgoing`. `promoteAt` (0…1) flips z at that progress. `.reversed` swaps sides and flips `front`.
+
+Category: motion. Used on: `Presenter`.`move`, `present`.`move`, `push`.`move`, `dismissMove`.
+
+Accepted syntax:
+
+- `PresentationMotion(incoming: Pose(translateX: 390), outgoing: Pose(translateX: -48, opacity: 0.86), duration: 320, ease: .out)` — Pair clip with inherited timing on both poses.
+- `motion.navPush.reversed` — Swap incoming/outgoing and flip front.
+
+```pdl
+semantic motion.navPush: PresentationMotion = PresentationMotion(
+  incoming: Pose(translateX: 390),
+  outgoing: Pose(translateX: -48, opacity: 0.86),
+  duration: 320,
+  ease: .out
+)
 ```
 
 ### `Effect`
@@ -1180,14 +1203,14 @@ foreground = fg.hoverTint
 
 A named remap of tokens you already declared. Use a theme for light/dark, brand, or reduced motion. Components keep using semantic names; the theme changes what those names resolve to.
 
-A named override bundle. Each line is `tokenName = value`. The left side is a declared `primitive` or `semantic` (prefer semantics so components stay stable). The right side is a value of that token’s type — another token, or a literal. The assignment replaces the whole token; there is no field-by-field merge inside a [`Shadow`](#shadow) or [`Transition`](#transition). Themes do not inherit. Write one theme per concern (Dark, ReducedMotion) and combine them when you bake or in the Playground — not with `theme Child: Parent`.
+A named override bundle. Each line is `tokenName = value`. The left side is a declared `primitive` or `semantic` (prefer semantics so components stay stable). The right side is a value of that token’s type — another token, or a literal. The assignment replaces the whole token; there is no field-by-field merge inside a [`Shadow`](#shadow) or Transition. Themes do not inherit. Write one theme per concern (Dark, ReducedMotion) and combine them when you bake or in the Playground — not with `theme Child: Parent`.
 
 Accepted syntax:
 
 - `theme Name { … }` — Declare a named bundle. Name is an identifier, not a string.
 - `color.surface = color.ink` — Remap a semantic to another token. Preferred.
 - `color.surface = #111827` — Literal of the token’s type. Fine for a skin; prefer a token ref when the value is reused.
-- `motion.appear = motion.instant` — Replace a structured token wholly ([`Transition`](#transition), [`Shadow`](#shadow), [`Background`](#background), …).
+- `motion.appear = motion.instant` — Replace a structured token wholly (Transition, [`Shadow`](#shadow), [`Background`](#background), …).
 
 Rejected:
 
@@ -1343,7 +1366,7 @@ Asymmetric radii: Corner(tl:, tr:, br:, bl:). Produces [`CornerRadii`](#cornerra
 | [`Pose(…)`](#pose) | Overlay snapshot: Pose(opacity:, scale:, scaleX:, scaleY:, translateX:, translateY:, blur:, rotate:, originX:, originY:). At least one field. Used on [`Motion.pose`](#motion). |
 | [`Stagger(…)`](#stagger) | Stagger(step: [`Duration`](#duration) [, from: .first\|.last]). Used on [`Motion.stagger`](#motion). from defaults to .first. |
 | [`Key(…)`](#key) | Key(pose: [`Pose`](#pose) \| .rest, at: 0…1 [, easing:]). A waypoint on [`Motion.keys`](#motion). |
-| [`Motion(…)`](#motion) | Motion(transition: [`Transition`](#transition) [, play:] [, pose: [`Pose`](#pose)] [, keys: [Key, …]] [, stagger: [`Stagger`](#stagger)] [, repeat: n]) or Motion(token, field:). The type of animate =. A bare [`Transition`](#transition) is sugar for Motion(transition: …). Site default fills play when omitted. |
+| [`Motion(…)`](#motion) | Motion(transition: Transition [, play:] [, pose: [`Pose`](#pose)] [, keys: [Key, …]] [, stagger: [`Stagger`](#stagger)] [, repeat: n]) or Motion(token, field:). The type of animate =. A bare Transition is sugar for Motion(transition: …). Site default fills play when omitted. |
 | [`Effect(…)`](#effect) | Effect([`.blurSelf`](#effectkind) \| [`.blurBehind`](#effectkind) \| [`.glass`](#effectkind), radius: [, vibrancy:]). Frame property [`effect`](#effect). `blur = n` is sugar for [`.blurSelf`](#effectkind). [`.glass`](#effectkind) is reserved. Not a layer and not a child. |
 
 ## Layers {#layers}
@@ -1737,13 +1760,17 @@ component Chip <PointerInput>(title: String = "All") layout {
 
 ## Emits
 
-How a child tells its parent something happened — a chip was selected, a field changed. Declare the channel, fire it from a click, and listen on the parent.
+How a child tells its parent something happened — a chip was selected, a field changed. Declare the channel with `emits { … }` or inherit it with `emits <P>`, fire it from a click, and listen on the parent. `emits <P>` is also how a component fills a `[P]` slot.
 
 | Form | Meaning |
 |------|------|
 | `emits C { select(filter: FilterId) }` | Declare what this component can tell its parent, in a separate block. Each field needs a type. |
 | `} emits { select(filter: FilterId) }` | The same channels, written right after the component body. |
+| `emits <ShowEpisode>  or  } emits <SubnavItem>` | This component sends that protocol — it may `emit` those channels, inherits the protocol’s params, and may fill a `[ShowEpisode]` / `[SubnavItem]` slot. Header form sits before `(params)`; trailing form sits after `}`. |
 | `protocol P: component { emits { select(filter: FilterId) } }` | One shared channel for every component that follows the protocol — a mixed list of chips all `select`. |
+| `emits(propagation: .parent) { select(filter: FilterId) }` | Same as omitting the argument. The immediate parent must capture on the child let. |
+| `emits(propagation: .ancestors) { showEpisode(id: EpisodeId) }` | Unhandled emits climb ancestors until a bare `showEpisode(id:) = { … }` stops them. Catalogue records `propagation` only when it is not `.parent`. |
+| `showEpisode(id: EpisodeId) = { … }` | Ancestor capture on this node — usually the screen. The sink must also list the protocol in receive `<>` (`screen Phone <ShowEpisode>`). Not `ShowEpisode.showEpisode` and not `presenter.showEpisode`. |
 | `emit select(filter)` | Fire the channel from a click (or other host handler). Pass values that match the declared types. |
 | `emit open(self)` | Send this whole instance to the parent — “open this row.” |
 | `all.select(filter_id: FilterId) = { … }` | The parent hears one named child (`All`) and updates its own state. |
@@ -1778,14 +1805,19 @@ component FilterBar(currentFilter: FilterId = .all) layout {
 
 ## Protocols
 
-A shared contract so several components can sit in the same list and speak the same language. Use an API protocol when different chip types all `select`. Use a host protocol when the preview must deliver clicks or typing.
+A shared contract so several components can sit in the same list and speak the same language. `<>` receives: host inbound ([`PointerInput`](#pointerinput)) and ancestor sinks (`ShowEpisode` on the screen). `emits <P>` sends: fire that protocol’s channels, inherit its params, and satisfy `[P]` slots.
 
 | Form | Meaning |
 |------|------|
 | `protocol P: component { … }` | A contract for components that share parameters and emits. Use for mixed lists and slots. |
 | `protocol P { host … }` | A contract with the preview — clicks, editing. Not something you put in a list. |
-| `component C <P, Q>(…) kind { … }` | This component follows the listed protocols. It gets an API protocol’s parameters and may use those host events. Any number of host protocols; at most one API protocol. |
+| `component C <P, Q>(…) kind { … }` | Receive list. [`Host`](#host) inbound ([`PointerInput`](#pointerinput), [`EditableText`](#editabletext), [`Host`](#host)) and ancestor-sink APIs (`ShowEpisode`). Multiple sinks are allowed (`<ShowEpisode, AppNav>`). |
+| `component C <PointerInput> emits <ShowEpisode>(…) kind { … }` | Receive host clicks; send the nav protocol. Same protocol cannot appear in both lists. |
+| `component C emits <SubnavItem>(…) kind { … }` | Send / slot membership. Inherits `SubnavItem` params and `select`; `requires PointerInput` still applies. Param-only APIs (`ModalContent`, `Page`) use this form too. |
+| `screen Phone <ShowEpisode>(…) layout { showEpisode(id:) = { … } }` | The screen is the ancestor sink. It opts in with `<>` and writes the bare handler. Emitters write `emits <ShowEpisode>`. |
 | `component C <Host>()` | Read the active [`host`](#host) profile’s params. No clicks or typing — that is [`PointerInput`](#pointerinput) / [`EditableText`](#editabletext). See [`Host`](#host) environment. |
+| `page Home() layout { … }` | A destination. Auto-satisfies prelude `Page` without writing `<Page>`. |
+| `screen Phone() layout { let presenter = Presenter(root: home) … }` | A shell. Mount a `Presenter` next to chrome. `Page` is a prelude API protocol; only `page` declarations (or `component C emits <Page>`) fill `root`. |
 | `requires PointerInput` | This API protocol also needs preview events (clicks or typing). |
 | `title = ""` | A parameter every conforming component has. |
 
@@ -1797,7 +1829,7 @@ protocol SubnavItem: component {
   emits { select(filter: FilterId) }
 }
 
-component FilterChip <SubnavItem>(
+component FilterChip emits <SubnavItem>(
   selected: Bool = false
 ) layout {
   let label = Text(content: title)
@@ -1938,15 +1970,15 @@ component Shell <Host>() layout {
 
 ## Handler motion {#handler-motion}
 
-One `animate =` assignment on a host handler, or a standing `animate` on any frame. Its type is [`Motion`](#motion): a [`Transition`](#transition), an optional play mode, [`Pose`](#pose) or keys, [`Stagger`](#stagger), and finite repeat. A bare [`Transition`](#transition) is sugar for Motion(transition: …). Bake stays at rest; the HTML host plays a CSS overlay.
+One `animate =` assignment on a host handler, or a standing `animate` on any frame. Its type is [`Motion`](#motion): a Transition, an optional play mode, [`Pose`](#pose) or keys, [`Stagger`](#stagger), and finite repeat. A bare Transition is sugar for Motion(transition: …). Bake stays at rest; the HTML host plays a CSS overlay.
 
-[`Host`](#host) handler bodies have one motion assignment: `animate =`. Its type is [`Motion`](#motion) — a [`Transition`](#transition) plus optional play, [`Pose`](#pose) or keys, [`Stagger`](#stagger), and finite repeat. A [`Transition`](#transition) token or tuple is sugar for `Motion(transition: …)`. `Motion(token, field:)` copies a [`Motion`](#motion) token and overrides labeled fields. Bake is the rest pose. The HTML host plays a CSS overlay — not layout. Units: [`Duration`](#duration) is milliseconds; translate and blur are CSS pixels; scale is unitless; opacity is 0…1; rotate is degrees; originX / originY are 0…1. [`Pose`](#pose) fields: [`opacity`](#opacity), `scale`, `scaleX`, `scaleY`, `translateX`, `translateY`, [`blur`](#blur), `rotate`, `originX`, `originY`. Appear defaults to play toward rest; dismiss toward the last key; hoverStart / pressStart with a pose track default [`.toPose`](#play); hoverEnd / pressEnd default [`.toRest`](#play). Reusable tokens omit [`play`](#play). [`Pose`](#pose) / keys are legal on pointer handlers (flourish). [`stagger`](#stagger) without a pose track is rejected.
+[`Host`](#host) handler bodies have one motion assignment: `animate =`. Its type is [`Motion`](#motion) — a Transition plus optional play, [`Pose`](#pose) or keys, [`Stagger`](#stagger), and finite repeat. A Transition token or tuple is sugar for `Motion(transition: …)`. `Motion(token, field:)` copies a [`Motion`](#motion) token and overrides labeled fields. Bake is the rest pose. The HTML host plays a CSS overlay — not layout. Units: [`Duration`](#duration) is milliseconds; translate and blur are CSS pixels; scale is unitless; opacity is 0…1; rotate is degrees; originX / originY are 0…1. [`Pose`](#pose) fields: [`opacity`](#opacity), `scale`, `scaleX`, `scaleY`, `translateX`, `translateY`, [`blur`](#blur), `rotate`, `originX`, `originY`. Appear defaults to play toward rest; dismiss toward the last key; hoverStart / pressStart with a pose track default [`.toPose`](#play); hoverEnd / pressEnd default [`.toRest`](#play). Reusable tokens omit [`play`](#play). [`Pose`](#pose) / keys are legal on pointer handlers (flourish). [`stagger`](#stagger) without a pose track is rejected.
 
 Accepted syntax:
 
-- `animate = motion.interactive` — [`Transition`](#transition) sugar. Use this curve for property changes this handler triggers (implicit interpolation).
+- `animate = motion.interactive` — Transition sugar. Use this curve for property changes this handler triggers (implicit interpolation).
 - `animate = Motion(transition: motion.appear, pose: Pose(opacity: 0, scale: 0.95, translateY: 8))` — Lifecycle overlay. appear = from pose; dismiss = to pose.
-- `animate = Motion(transition: motion.appear, pose: pose.fadeUp, stagger: Stagger(step: 30, from: .first))` — [`Pose`](#pose) each direct visible child with this [`Transition`](#transition); stagger them like this.
+- `animate = Motion(transition: motion.appear, pose: pose.fadeUp, stagger: Stagger(step: 30, from: .first))` — [`Pose`](#pose) each direct visible child with this Transition; stagger them like this.
 - `animate = Motion(motion.hoverPop, play: .toRest)` — Copy a [`Motion`](#motion) token and override play (or any other field).
 - `if isLoading { icon.animate = motion.spin }` — Standing overlay on a frame. Bake carries the [`Motion`](#motion) while the if is true; omit the field when false.
 - `self.animate = motion.spin` — Same property on the component root.

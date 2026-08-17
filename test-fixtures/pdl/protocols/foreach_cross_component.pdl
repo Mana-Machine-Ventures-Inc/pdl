@@ -7,7 +7,7 @@ protocol CrossChip: component {
   }
 }
 
-component CrossChipView <CrossChip>(
+component CrossChipView emits <CrossChip>(
   selected: Bool = false
 ) layout {
   direction = .row

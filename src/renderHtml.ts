@@ -861,6 +861,69 @@ function layoutContainerStyle(props: Record<string, unknown>): string {
   return mergeInlineStyles(layoutFlexGridStyle(props), boxMetricsStyle(props), "position:relative");
 }
 
+/**
+ * Presenter is a one-child hole. `.fill` on the main axis must take remaining
+ * space next to chrome (`flex:1`), not `height:100%` of the screen (that
+ * overflows a tab bar). Hug / fixed sizes keep ordinary box metrics.
+ */
+function presenterHoleItemStyle(props: Record<string, unknown>): string {
+  const parts: string[] = [
+    "min-width:0",
+    "min-height:0",
+    // Overlay hole: stack top + cover share one cell (not a flex row).
+    "display:grid",
+    "grid-template-columns:minmax(0,1fr)",
+    "grid-template-rows:minmax(0,1fr)",
+    "position:relative",
+  ];
+  if (!sizingAxisIsHug(props, "width") && props.width === "fill") {
+    parts.push("width:100%");
+  }
+  if (props.height === "fill" || props.height === undefined || props.height === null) {
+    parts.push("flex:1 1 0%", "height:auto");
+  }
+  return parts.join(";");
+}
+
+function presenterHasCover(props: Record<string, unknown>, kids: unknown[]): boolean {
+  return typeof props.cover === "string" && props.cover.length > 0 && kids.length >= 2;
+}
+
+/** Stack top stays in flow; cover is centered over it (no shield yet). */
+function renderPresenterInner(
+  kids: BakedFrame[],
+  props: Record<string, unknown>,
+  frameOpts: FrameRenderOpts,
+  instCtx?: InstanceRenderCtx,
+): string {
+  if (presenterHasCover(props, kids)) {
+    const stackKids = kids.slice(0, -1);
+    const coverKid = kids[kids.length - 1]!;
+    const stack = stackKids
+      .map((ch, i) =>
+        renderFrame(ch, stackChildOpts(undefined, i, stackKids.length, frameOpts), instCtx),
+      )
+      .join("");
+    const cover = renderFrame(
+      coverKid,
+      {
+        stackChild: false,
+        stackZ: 0,
+        sessionParams: frameOpts.sessionParams,
+        instancePath: frameOpts.instancePath,
+        isTreeRoot: false,
+      },
+      instCtx,
+    );
+    return `${stack}<div class="pdl-presenter__cover">${cover}</div>`;
+  }
+  return kids
+    .map((ch, i) =>
+      renderFrame(ch, stackChildOpts(props.direction, i, kids.length, frameOpts), instCtx),
+    )
+    .join("");
+}
+
 /** Per-frame box: container / leaf metrics + flex-item / stack-cell positioning. */
 function frameBoxStyle(
   props: Record<string, unknown>,
@@ -1394,10 +1457,11 @@ function computeShellStyleForPatch(
 ): string | null {
   const props = (frame.props ?? {}) as Record<string, unknown>;
   const kind = frame.kind;
-  if (kind === "layout") {
+  if (kind === "layout" || kind === "presenter") {
     return mergeInlineStyles(
-      frameBoxStyle(props, "layout", opts),
+      frameBoxStyle(props, kind === "layout" ? "layout" : kind, opts),
       isStackDirection(props.direction) ? "position:relative" : "",
+      kind === "presenter" ? presenterHoleItemStyle(props) : "",
     );
   }
   if (kind === "text") {
@@ -1942,9 +2006,10 @@ function renderFrame(
     }
   }
 
-  if (kind === "layout") {
+  if (kind === "layout" || kind === "presenter") {
     const isStack = isStackDirection(props.direction);
     const layered = layoutLayerBandsActive(props);
+    const holeItem = kind === "presenter" ? presenterHoleItemStyle(props) : "";
     if (layered) {
       // Shell holds chrome (radius, outside border, drop shadow, layer bands).
       // Inside border is an overlay above bands/content. Overflow lives on
@@ -1952,6 +2017,7 @@ function renderFrame(
       const shellStyle = mergeInlineStyles(
         frameBoxStyle(props, "layout", frameOpts),
         isStack ? "position:relative" : "",
+        holeItem,
       );
       const innerStyle = mergeInlineStyles(
         layoutFlexGridStyle(props),
@@ -1967,11 +2033,14 @@ function renderFrame(
       );
       const under = renderLayerBandHtml(flattenLayerOps(props.background), 0);
       const over = renderLayerBandHtml(flattenLayerOps(props.foreground), 2);
-      const innerKids = kids
-        .map((ch, i) =>
-          renderFrame(ch, stackChildOpts(props.direction, i, kids.length, frameOpts), instCtx),
-        )
-        .join("");
+      const innerKids =
+        kind === "presenter"
+          ? renderPresenterInner(kids, props, frameOpts, instCtx)
+          : kids
+              .map((ch, i) =>
+                renderFrame(ch, stackChildOpts(props.direction, i, kids.length, frameOpts), instCtx),
+              )
+              .join("");
       const inner = `<div class="pdl-layout__content" style="${escapeStyleAttr(innerStyle)}">${innerKids}</div>`;
       const { style, html } = withInsideBorderOverlay(shellStyle, props, `${under}${inner}${over}`);
       return `<div class="pdl-frame pdl-layout pdl-layout--layers"${dataId}${instAttrs} style="${escapeStyleAttr(style)}">${html}</div>`;
@@ -1979,14 +2048,19 @@ function renderFrame(
     const shellStyle = mergeInlineStyles(
       frameBoxStyle(props, "layout", frameOpts),
       isStack ? "position:relative" : "",
+      holeItem,
     );
-    const inner = kids
-      .map((ch, i) =>
-        renderFrame(ch, stackChildOpts(props.direction, i, kids.length, frameOpts), instCtx),
-      )
-      .join("");
+    const inner =
+      kind === "presenter"
+        ? renderPresenterInner(kids, props, frameOpts, instCtx)
+        : kids
+            .map((ch, i) =>
+              renderFrame(ch, stackChildOpts(props.direction, i, kids.length, frameOpts), instCtx),
+            )
+            .join("");
     const { style, html } = withInsideBorderOverlay(shellStyle, props, inner);
-    return `<div class="pdl-frame pdl-layout"${dataId}${instAttrs} style="${escapeStyleAttr(style)}">${html}</div>`;
+    const holeClass = kind === "presenter" ? " pdl-presenter" : "";
+    return `<div class="pdl-frame pdl-layout${holeClass}"${dataId}${instAttrs} style="${escapeStyleAttr(style)}">${html}</div>`;
   }
 
   if (kind === "text") {
@@ -2274,7 +2348,7 @@ body.pdl-device-stage .pdl-preview-params,
 body.pdl-device-stage .pdl-preview-head,
 body.pdl-device-stage .pdl-usage,
 body.pdl-device-stage .pdl-rule-list,
-body.pdl-device-stage .pdl-fixture-bar,
+body.pdl-device-stage .pdl-fixture-bar:not(.pdl-screen-bar),
 body.pdl-device-stage .pdl-param-bar {
   display: none !important;
 }
@@ -2312,6 +2386,28 @@ body.pdl-device-stage .pdl-motion-bar {
   justify-content: center;
   background: transparent;
   border: none;
+}
+body.pdl-device-stage .pdl-screen-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 3;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+body.pdl-device-stage .pdl-screen-bar label {
+  display: none;
+}
+body.pdl-device-stage .pdl-screen-reset {
+  min-height: 44px;
+  padding: 10px 18px;
+  font-size: 16px;
+  border-radius: 10px;
 }
 body.pdl-device-stage .pdl-motion-btn {
   min-height: 44px;
@@ -2460,6 +2556,72 @@ body.pdl-device-stage .pdl-canvas--fill-height {
   cursor: pointer;
   touch-action: manipulation;
 }
+.pdl-presenter {
+  position: relative;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+.pdl-presenter > :first-child {
+  grid-area: 1 / 1 / 2 / 2;
+  z-index: 1;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  align-self: stretch;
+  justify-self: stretch;
+}
+.pdl-presenter > .pdl-presenter__cover {
+  grid-area: 1 / 1 / 2 / 2;
+  z-index: 3;
+  align-self: stretch;
+  justify-self: stretch;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.pdl-presenter > :not(:first-child):not(.pdl-presenter__cover) {
+  grid-area: 1 / 1 / 2 / 2;
+  z-index: 3;
+  justify-self: center;
+  align-self: center;
+  max-width: 100%;
+  max-height: 100%;
+}
+.pdl-presenter.pdl-presenter--clip {
+  overflow: hidden;
+}
+.pdl-presenter.pdl-presenter--clip > .pdl-presenter__lane {
+  grid-area: 1 / 1 / 2 / 2;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  align-self: stretch;
+  justify-self: stretch;
+}
+.pdl-presenter.pdl-presenter--clip > :not(:first-child):not(.pdl-presenter__cover) {
+  z-index: 1;
+  justify-self: stretch;
+  align-self: stretch;
+}
+.pdl-presenter.pdl-presenter--clip > .pdl-presenter__lane.pdl-presenter__lane--front {
+  z-index: 4;
+}
+.pdl-presenter.pdl-presenter--clip > .pdl-presenter__lane.pdl-presenter__lane--back {
+  z-index: 1;
+}
+.pdl-presenter__cover > * {
+  pointer-events: auto;
+}
 .pdl-text--editable::placeholder { opacity: 1; color: inherit; }
 .pdl-text--editable {
   cursor: text;
@@ -2551,6 +2713,29 @@ body.pdl-device-stage .pdl-canvas--fill-height {
 }
 .pdl-fixture-bar select {
   min-width: 11rem;
+}
+.pdl-screen-bar {
+  align-items: flex-end;
+}
+.pdl-screen-reset {
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 4px 10px;
+  border: 1px solid #8aa0b8;
+  border-radius: 4px;
+  background: #fff;
+  color: #334;
+  cursor: pointer;
+  align-self: flex-end;
+  margin-top: 1.1em;
+}
+.pdl-screen-reset:hover {
+  border-color: #38f;
+}
+.pdl-screen-bar:not(:has(label)) .pdl-screen-reset {
+  margin-top: 0;
+  align-self: center;
 }
 .pdl-preview--render-error {
   border-color: #e57373;
@@ -2687,18 +2872,30 @@ function renderParamBar(
 function renderFixtureBar(
   componentName: string,
   spec: { labels: string[]; active?: string | null } | undefined,
+  isScreen = false,
 ): string {
-  if (!spec?.labels?.length) return "";
-  const id = `pdl-fixture-${escapeAttr(componentName)}`;
-  const active = spec.active && spec.labels.includes(spec.active) ? spec.active : "";
-  const opts = [
-    `<option value=""${active === "" ? " selected" : ""}>— Defaults —</option>`,
-    ...spec.labels.map((label) => {
-      const sel = label === active ? " selected" : "";
-      return `<option value="${escapeAttr(label)}"${sel}>${escapeHtml(label)}</option>`;
-    }),
-  ].join("");
-  return `<div class="pdl-fixture-bar" data-pdl-fixture-bar="${escapeAttr(componentName)}"><label for="${id}">Fixture<select id="${id}" data-pdl-fixture>${opts}</select></label></div>`;
+  const hasFixtures = Boolean(spec?.labels?.length);
+  if (!hasFixtures && !isScreen) return "";
+  const n = escapeAttr(componentName);
+  let fixture = "";
+  if (hasFixtures && spec) {
+    const id = `pdl-fixture-${n}`;
+    const active = spec.active && spec.labels.includes(spec.active) ? spec.active : "";
+    const opts = [
+      `<option value=""${active === "" ? " selected" : ""}>— Defaults —</option>`,
+      ...spec.labels.map((label) => {
+        const sel = label === active ? " selected" : "";
+        return `<option value="${escapeAttr(label)}"${sel}>${escapeHtml(label)}</option>`;
+      }),
+    ].join("");
+    fixture = `<label for="${id}">Fixture<select id="${id}" data-pdl-fixture>${opts}</select></label>`;
+  }
+  const reset = isScreen
+    ? `<button type="button" class="pdl-screen-reset" data-pdl-screen-reset="${n}" title="Restore this screen to its declared start">Reset</button>`
+    : "";
+  const screenClass = isScreen ? " pdl-screen-bar" : "";
+  const screenAttr = isScreen ? ` data-pdl-screen-bar="${n}"` : "";
+  return `<div class="pdl-fixture-bar${screenClass}" data-pdl-fixture-bar="${n}"${screenAttr}>${fixture}${reset}</div>`;
 }
 
 function renderMotionClipButton(componentName: string, clip: MotionClip): string {
@@ -2788,6 +2985,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       string,
       { labels: string[]; active?: string | null }
     >;
+    /** Catalogue `role` (`page` / `screen`) keyed by component name. */
+    componentRolesByComponent?: Record<string, string>;
     /** Declaration sites for "Source file" links (`path` + 1-based `line`). */
     componentSourcesByComponent?: Record<string, { path: string; line: number }>;
     /**
@@ -2962,7 +3161,11 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             : stateExtra
               ? ` data-pdl-chrome-state-param="interactionState"`
               : "";
-        const fixtureBar = renderFixtureBar(name, opts.fixtureControlsByComponent?.[name]);
+        const fixtureBar = renderFixtureBar(
+          name,
+          opts.fixtureControlsByComponent?.[name],
+          opts.componentRolesByComponent?.[name] === "screen",
+        );
         const paramBar = renderParamBar(name, opts.paramControlsByComponent?.[name]);
         const motionClips = collectMotionClips(
           name,
@@ -3060,13 +3263,18 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     var m = (h && h.motion && typeof h.motion === 'object') ? Object.assign({}, h.motion) : {};
     if (m.staggerFrom) m.staggerFrom = stripDot(m.staggerFrom);
     if (typeof m.play === 'string') m.play = stripDot(m.play);
-    var hasEvaluated = (m.pose && Object.keys(m.pose).length) || (m.from && Object.keys(m.from).length) || (m.to && Object.keys(m.to).length) || m.transition || (m.keys && m.keys.length);
+    if (m.timing && !m.transition) {
+      var timed = transitionFromValue(m.timing);
+      if (timed) m.transition = timed;
+    }
+    var hasEvaluated = (m.pose && Object.keys(m.pose).length) || (m.from && Object.keys(m.from).length) || (m.to && Object.keys(m.to).length) || m.timing || m.transition || (m.keys && m.keys.length);
     function transitionFromValue(v) {
       if (!v || typeof v !== 'object') return null;
-      var inner = v.transition || v;
+      var inner = v.timing || v.transition || v;
       var dur = numberish(inner.duration);
       var delay = numberish(inner.delay);
-      var easing = typeof inner.easing === 'string' ? inner.easing : (inner.easing && inner.easing.value);
+      var easeRaw = inner.ease != null ? inner.ease : inner.easing;
+      var easing = typeof easeRaw === 'string' ? easeRaw : (easeRaw && easeRaw.value);
       if (dur == null) return null;
       return { duration: dur, easing: easing || 'linear', delay: delay || 0 };
     }
@@ -3096,7 +3304,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         if (at == null) continue;
         var poseRaw = k.pose;
         var entry = { at: at };
-        if (typeof k.easing === 'string' && k.easing) entry.easing = k.easing;
+        if (typeof k.ease === 'string' && k.ease) entry.easing = k.ease;
+        else if (typeof k.easing === 'string' && k.easing) entry.easing = k.easing;
         if (poseRaw === 'rest' || poseRaw === '.rest') entry.pose = 'rest';
         else {
           var snap = poseFromValue(poseRaw);
@@ -3124,7 +3333,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       var v = item.value || {};
       if (v.kind === 'motion') {
         if (!hasEvaluated) {
-          var t = transitionFromValue(v.transition);
+          var t = transitionFromValue(v.timing || v.transition);
           if (t) m.transition = t;
           var pose = poseFromValue(v.pose);
           if (pose) m.pose = pose;
@@ -3666,13 +3875,65 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     if (channelCaps.length === 1) return channelCaps[0];
     return null;
   }
-  function applyEmitCapture(parentParams, captures, channel, emitArgNames, childParams, qualifier, onHostVerb) {
-    if (!captures || !captures.length) {
-      return { params: Object.assign({}, parentParams), changed: false, handled: false, localChrome: false };
+  function findBareAncestorCapture(caps, channel) {
+    if (!caps || !caps.length) return null;
+    for (var i = 0; i < caps.length; i++) {
+      var c = caps[i];
+      if (!c || c.channel !== channel) continue;
+      if (c.capture === 'ancestor' || c.qualifier == null || c.qualifier === '') return c;
     }
+    return null;
+  }
+  function collectAncestorTypes(startNode, section) {
+    var out = [];
+    var n = startNode;
+    while (n && n !== section) {
+      if (n.getAttribute && n.hasAttribute('data-pdl-instance-of')) {
+        out.push(n.getAttribute('data-pdl-instance-of'));
+      }
+      n = n.parentElement;
+    }
+    return out;
+  }
+  function resolveEmitCapture(sectionCaps, channel, wantQual, startNode, section) {
+    if (wantQual) {
+      var exact = findEmitCapture(sectionCaps || [], channel, wantQual);
+      if (exact && (exact.qualifier || null) === wantQual) {
+        return { capture: exact, owner: 'section' };
+      }
+    }
+    var types = collectAncestorTypes(startNode, section);
+    for (var t = 0; t < types.length; t++) {
+      var bare = findBareAncestorCapture(emitCaptures[types[t]] || [], channel);
+      if (bare) return { capture: bare, owner: types[t] };
+    }
+    var sectionBare = findBareAncestorCapture(sectionCaps || [], channel);
+    if (sectionBare) return { capture: sectionBare, owner: 'section' };
+    var fallback = findEmitCapture(sectionCaps || [], channel, wantQual);
+    if (fallback) return { capture: fallback, owner: 'section' };
+    return null;
+  }
+  function evalPageExpr(page, scope) {
+    if (!page || typeof page !== 'object') return null;
+    if (page.kind === 'ident') return { id: String(page.name || '') };
+    var component = page.component ? String(page.component) : '';
+    if (!component) return null;
+    var src = page.kwargs && typeof page.kwargs === 'object' ? page.kwargs
+      : page.params && typeof page.params === 'object' ? page.params
+      : {};
+    var params = {};
+    Object.keys(src).forEach(function(k){
+      params[k] = evalAssignValue(src[k], scope);
+    });
+    return { component: component, params: params };
+  }
+  function applyEmitCapture(parentParams, captures, channel, emitArgNames, childParams, qualifier, onHostVerb, startNode, section) {
     var wantQual = qualifier != null && String(qualifier).length ? String(qualifier) : null;
-    var capture = findEmitCapture(captures, channel, wantQual);
-    if (!capture) return { params: Object.assign({}, parentParams), changed: false, handled: false, localChrome: false };
+    var resolved = resolveEmitCapture(captures || [], channel, wantQual, startNode, section);
+    if (!resolved || !resolved.capture) {
+      return { params: Object.assign({}, parentParams), changed: false, handled: false, localChrome: false, presenterOps: [] };
+    }
+    var capture = resolved.capture;
     var scope = Object.assign({}, parentParams);
     (capture.payload || []).forEach(function(p, i){
       var src = emitArgNames[i] || p.name;
@@ -3682,6 +3943,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     var next = Object.assign({}, parentParams);
     var changed = false;
     var localChrome = false;
+    var presenterOps = [];
     (capture.body || []).forEach(function(a){
       if (!a) return;
       if (a.kind === 'hostVerb' && a.name) {
@@ -3701,17 +3963,30 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         }
         return;
       }
+      if (a.kind === 'presenterVerb' && a.name) {
+        presenterOps.push({
+          qualifier: a.qualifier || 'presenter',
+          name: a.name,
+          page: evalPageExpr(a.page, scope),
+          style: a.style || null,
+          move: a.move,
+          dismissMove: a.dismissMove,
+          owner: resolved.owner
+        });
+        changed = true;
+        return;
+      }
       if (!a.param) return;
-      var resolved = evalAssignValue(a.value, scope);
+      var resolvedVal = evalAssignValue(a.value, scope);
       if (a.value && typeof a.value === 'object' && a.value.kind === 'ident') {
         var nm = String(a.value.name || '');
-        if (Object.prototype.hasOwnProperty.call(scope, nm)) resolved = scope[nm];
+        if (Object.prototype.hasOwnProperty.call(scope, nm)) resolvedVal = scope[nm];
       }
-      if (next[a.param] !== resolved) changed = true;
-      next[a.param] = resolved;
-      scope[a.param] = resolved;
+      if (next[a.param] !== resolvedVal) changed = true;
+      next[a.param] = resolvedVal;
+      scope[a.param] = resolvedVal;
     });
-    return { params: next, changed: changed, handled: true, localChrome: localChrome };
+    return { params: next, changed: changed, handled: true, localChrome: localChrome, presenterOps: presenterOps };
   }
   function showInstEditingChrome(instNode, on) {
     if (!instNode) return false;
@@ -3863,7 +4138,9 @@ export function renderBakedDesignToHtmlDocumentWithReport(
   }
   function postHeight() {
     try {
-      var h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+      // Measure the content box, not html.scrollHeight — that tracks the iframe
+      // viewport after the parent auto-sizes, which ratchets height forever.
+      var h = document.body.scrollHeight;
       parent.postMessage({ type: 'pdl-resize', height: h }, '*');
     } catch (e) {}
   }
@@ -3921,7 +4198,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         return (
           ev.target &&
           ev.target.closest &&
-          (ev.target.closest('.pdl-param-bar') || ev.target.closest('.pdl-fixture-bar') || ev.target.closest('.pdl-motion-bar'))
+          (ev.target.closest('.pdl-param-bar') || ev.target.closest('.pdl-fixture-bar') || ev.target.closest('.pdl-screen-bar') || ev.target.closest('.pdl-motion-bar'))
         );
       }
       function postMsg(payload) {
@@ -4003,13 +4280,20 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           previewHandled = true;
         }
         var needRebake = false;
-        if (result.emits && result.emits.length && captures.length) {
+        var presenterOps = [];
+        var emitUnhandled = false;
+        if (result.emits && result.emits.length) {
           result.emits.forEach(function(em){
-            var cap = applyEmitCapture(liveParams, captures, em.name, em.args || [], liveParams, null);
+            var cap = applyEmitCapture(liveParams, captures, em.name, em.args || [], liveParams, null, null, section, section);
+            if (cap.presenterOps && cap.presenterOps.length) {
+              presenterOps = presenterOps.concat(cap.presenterOps);
+            }
             if (cap.handled && cap.changed) {
               liveParams = cap.params;
               writeParams(section, liveParams);
               needRebake = true;
+            } else if (!cap.handled) {
+              emitUnhandled = true;
             }
           });
         }
@@ -4019,9 +4303,11 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           event: event,
           params: liveParams,
           emits: result.emits,
+          presenterOps: presenterOps,
           handled: result.handled,
           changed: result.changed || needRebake,
-          previewHandled: needRebake ? false : previewHandled
+          previewHandled: needRebake ? false : previewHandled,
+          unhandledAncestors: emitUnhandled
         });
         return result;
       }
@@ -4113,6 +4399,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             childLive = result.params;
             var needRebake = false;
             var localVerbChrome = false;
+            var presenterOps = [];
+            var emitUnhandled = false;
             (result.emits || []).forEach(function(em){
               var cap = applyEmitCapture(
                 liveParams,
@@ -4125,12 +4413,19 @@ export function renderBakedDesignToHtmlDocumentWithReport(
                   var vr = runQualifiedHostVerb(section, parentBag, captures, hv);
                   if (vr.localChrome) localVerbChrome = true;
                   return { params: vr.parentParams, changed: vr.changed, localChrome: vr.localChrome };
-                }
+                },
+                node,
+                section
               );
+              if (cap.presenterOps && cap.presenterOps.length) {
+                presenterOps = presenterOps.concat(cap.presenterOps);
+              }
               if (cap.handled && cap.changed) {
                 liveParams = cap.params;
                 writeParams(section, liveParams);
                 needRebake = true;
+              } else if ((result.emits || []).length && !cap.handled) {
+                emitUnhandled = true;
               }
               if (cap.localChrome) localVerbChrome = true;
             });
@@ -4160,10 +4455,12 @@ export function renderBakedDesignToHtmlDocumentWithReport(
               params: liveParams,
               childParams: childLive,
               emits: result.emits,
+              presenterOps: presenterOps,
               handled: result.handled,
               changed: result.changed || needRebake,
               // Parent rebake only when emit capture changed parent SoT.
-              previewHandled: needRebake ? false : localHandled
+              previewHandled: needRebake ? false : localHandled,
+              unhandledAncestors: emitUnhandled
             });
           }
           if (instanceLet) childDispatchers[instanceLet] = childDispatch;
@@ -4358,15 +4655,19 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           childBag = result.params;
           persistBag();
           var needRebake = false;
+          var presenterOps = [];
           (result.emits || []).forEach(function(em){
-            var cap = applyEmitCapture(liveParams, captures, em.name, em.args || [], childBag, childQualifier);
+            var cap = applyEmitCapture(liveParams, captures, em.name, em.args || [], childBag, childQualifier, null, instNode, section);
+            if (cap.presenterOps && cap.presenterOps.length) {
+              presenterOps = presenterOps.concat(cap.presenterOps);
+            }
             if (cap.handled && cap.changed) {
               liveParams = cap.params;
               writeParams(section, liveParams);
               needRebake = true;
             }
           });
-          return { emits: result.emits, changed: result.changed || needRebake, handled: result.handled, needRebake: needRebake };
+          return { emits: result.emits, presenterOps: presenterOps, changed: result.changed || needRebake, handled: result.handled, needRebake: needRebake };
         }
         var ignoreBlurUntil = 0;
         var ignoreNextBlurCommit = false;
@@ -4495,6 +4796,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
               params: liveParams,
               childParams: childBag,
               emits: nr.emits || [],
+              presenterOps: nr.presenterOps || [],
               handled: true,
               changed: true,
               previewHandled: nr.needRebake ? false : true
@@ -4895,11 +5197,25 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       bar.setAttribute('data-pdl-listening', '1');
       var component = bar.getAttribute('data-pdl-fixture-bar');
       var sel = bar.querySelector('select[data-pdl-fixture]');
-      if (!sel || !component) return;
-      sel.addEventListener('change', function(){
-        var label = sel.value ? String(sel.value) : null;
+      if (sel && component) {
+        sel.addEventListener('change', function(){
+          var label = sel.value ? String(sel.value) : null;
+          try {
+            parent.postMessage({ type: 'pdl-fixture', component: component, label: label }, '*');
+          } catch (e) {}
+        });
+      }
+    });
+    document.querySelectorAll('[data-pdl-screen-reset]').forEach(function(btn){
+      if (btn.getAttribute('data-pdl-listening') === '1') return;
+      btn.setAttribute('data-pdl-listening', '1');
+      btn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        var component = btn.getAttribute('data-pdl-screen-reset');
+        if (!component) return;
         try {
-          parent.postMessage({ type: 'pdl-fixture', component: component, label: label }, '*');
+          parent.postMessage({ type: 'pdl-screen-reset', component: component }, '*');
         } catch (e) {}
       });
     });

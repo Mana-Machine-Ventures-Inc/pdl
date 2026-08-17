@@ -1,0 +1,30 @@
+// PDL-E055: present style .sheet is not legal yet; use .cover.
+
+page Home() layout {
+  children = []
+}
+
+page Settings() layout {
+  children = []
+}
+
+protocol AppNav: component {
+  emits(propagation: .ancestors) {
+    showSettings()
+  }
+}
+
+component SettingsButton <PointerInput> emits <AppNav>() layout {
+  children = []
+  self.pressEnd = { emit showSettings() }
+}
+
+screen Phone <AppNav>() layout {
+  let home = Home()
+  let presenter = Presenter(root: home)
+  let gear = SettingsButton()
+  children = [presenter, gear]
+  showSettings() = {
+    presenter.present(Settings(), style: .sheet)
+  }
+}

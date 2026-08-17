@@ -17,7 +17,10 @@ fn empty_fixture_keeps_tracks_array() {
     let idx = raw.find("Empty · no matches").expect("label");
     let window = &raw[idx..idx.saturating_add(400).min(raw.len())];
     eprintln!("RAW WINDOW:\n{window}");
-    assert!(window.contains("tracks"), "raw catalogue missing tracks near Empty: {window}");
+    assert!(
+        window.contains("tracks"),
+        "raw catalogue missing tracks near Empty: {window}"
+    );
 
     let out = stable_stringify(&doc, StableStringifyOptions { omit_empty: true });
     let idx2 = out.find("Empty · no matches").expect("label after omit");

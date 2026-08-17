@@ -1,0 +1,13 @@
+// PDL-E056: receive `<ShowEpisode>` requires a bare showEpisode(…) = handler.
+
+variant EpisodeId { case demo }
+
+protocol ShowEpisode: component {
+  emits(propagation: .ancestors) {
+    showEpisode(id: EpisodeId)
+  }
+}
+
+screen Phone <ShowEpisode>() layout {
+  children = []
+}

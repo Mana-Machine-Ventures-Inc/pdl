@@ -21,8 +21,14 @@ fn fixture_empty_tracks_bakes_zero_rows() {
     let mut overrides = Map::new();
     overrides.insert("tracks".into(), json!([]));
     overrides.insert("status".into(), json!("empty"));
-    let doc = build_baked_design_component(&design, "PlaylistComposer", None, &overrides, Some("t".into()))
-        .expect("bake");
+    let doc = build_baked_design_component(
+        &design,
+        "PlaylistComposer",
+        None,
+        &overrides,
+        Some("t".into()),
+    )
+    .expect("bake");
     assert_eq!(track_row_count(&doc), 0, "expected no TrackRow instances");
 }
 
@@ -36,8 +42,14 @@ fn fixture_focus_tracks_bakes_two_rows() {
     let mut overrides = Map::new();
     overrides.insert("tracks".into(), tracks);
     overrides.insert("currentMood".into(), json!("focus"));
-    let doc = build_baked_design_component(&design, "PlaylistComposer", None, &overrides, Some("t".into()))
-        .expect("bake");
+    let doc = build_baked_design_component(
+        &design,
+        "PlaylistComposer",
+        None,
+        &overrides,
+        Some("t".into()),
+    )
+    .expect("bake");
     assert_eq!(track_row_count(&doc), 2, "expected 2 TrackRow instances");
 }
 
@@ -46,8 +58,14 @@ fn mood_focus_mounts_tracks_focus_sample() {
     let design = playlist_design();
     let mut overrides = Map::new();
     overrides.insert("currentMood".into(), json!("focus"));
-    let doc = build_baked_design_component(&design, "PlaylistComposer", None, &overrides, Some("t".into()))
-        .expect("bake");
+    let doc = build_baked_design_component(
+        &design,
+        "PlaylistComposer",
+        None,
+        &overrides,
+        Some("t".into()),
+    )
+    .expect("bake");
     assert_eq!(
         track_row_count(&doc),
         2,

@@ -21,6 +21,7 @@ pub mod pack;
 pub mod param_bindings;
 pub mod param_types;
 pub mod parser;
+pub mod presenter;
 pub mod resolve;
 pub mod resolve_bundle;
 pub mod rules_json;
@@ -33,8 +34,9 @@ pub use catalogue::{build_catalogue_component_row, build_component_catalogue};
 pub use design::{
     component_reads_host, effective_emits, effective_host_protocols, effective_params,
     host_profile_for_shape, host_protocols_for_protocol, inject_editable_text_prelude_variants,
-    inject_host_protocol_prelude, is_host_protocol_prelude, load_design, load_design_from_sources,
-    resolve_active_host, DesignDefinition, SourceMap, HOST_PROTOCOL_PRELUDE,
+    inject_host_protocol_prelude, inject_page_protocol_prelude, is_host_protocol_prelude,
+    load_design, load_design_from_sources, protocol_has_ancestors_emit, resolve_active_host,
+    DesignDefinition, SourceMap, HOST_PROTOCOL_PRELUDE, PAGE_PROTOCOL_PRELUDE,
     TEXT_FIELD_ACTIVATION_VARIANT,
 };
 pub use error::PdlError;

@@ -61,7 +61,7 @@ Pack (.pdl files)
 | **P4** | Hover/press host: iframe interactions, click → emit status *(dual-bake was interim)* |
 | **P5** | Variant preview: **Single / Grid / Pick** (grid capped at 16 combos) |
 | **P6** | Incremental preview apply — param/interaction updates **bake IR → DOM reconcile** (primary); dirty-owner-only on multi-component canvases; HTML morph fallback; cold path still `srcdoc`. **Instance resolve** paints nested pointer/editing chrome (`pdl-resolve-instance` → bake child + IR patch); parent rebake only when parent SoT changes. Dual-bake chrome caches **retired** — single-tree mounts. Status shows `· live apply` / `Instance resolve · …`. See [`PROPOSAL_INCREMENTAL_PREVIEW_APPLY.md`](./PROPOSAL_INCREMENTAL_PREVIEW_APPLY.md). |
-| **Fixtures UI** | §11 scenarios live **on each preview section** (Fixture select above param knobs). Left-rail chips still mirror the **primary** component. No global Preview-panel fixture dropdown. |
+| **Fixtures UI** | §11 scenarios live **on each preview section** (Fixture select above param knobs). Left-rail chips still mirror the **primary** component. No global Preview-panel fixture dropdown. Nav pack fixture chips pin `presenter` / `presenter.cover` (not Phone params); live clicks update the same pin bag. Every **screen** preview also has **Reset** next to Fixtures — clears presenter pins, param kv, and the active fixture so the declared start paints again. |
 | **Typed samples** | Packs author `samples` banks; Playground only assigns scalars/variants. Playlist Composer mood/search worlds mount `Tracks.*.tracks` at bake — host JS catalogs removed. |
 | **Host chrome** | When the design declares `host` profiles, top-right **WindowSize** / **AppSurface** (variant host params) pin the bag after `mount`. **Auto** follows live `view.width` / `view.height` / `studio.platform` (resize rebake) or fixture `hostFacts`. Theme picker lists user themes only. |
 
@@ -77,7 +77,7 @@ Pack (.pdl files)
 ┌────────────┬──────────────────────────┬─────────────────────┐
 │ Pack       │  File tabs + PDL editor  │  Preview (HTML)     │
 │ Fixtures*  │  Add property            │  per-section:       │
-│ Params     │                          │   Fixture · params  │
+│ Params     │                          │   Fixture · Reset · params  │
 │ Variants   │                          │  iframe             │
 │            │                          │  Tokens tab         │
 └────────────┴──────────────────────────┴─────────────────────┘
@@ -99,6 +99,7 @@ Pack (.pdl files)
 | `test-fixtures/pdl/lab/samples-tracks.pdl` | Minimal typed-samples lab |
 | `test-fixtures/pdl/lab/usage-rules/` | Usage notes + red/orange rule warnings |
 | `test-fixtures/pdl/lab/host/` | Host profiles, `mount`, catalogs, fixture env pins (pack **Host environment**) |
+| `test-fixtures/pdl/lab/nav/` | Presenter stack + cover (pack **Nav (Presenter)**). Fixture chips pin `presenter` / `presenter.cover`; live clicks apply session pins and rebake Phone. |
 | `src/renderHtml.ts` | Bake JSON → HTML (+ interactive host, per-component fixture bars) |
 
 ---

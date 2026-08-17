@@ -567,7 +567,7 @@ component LabBar(
 
 **Spec:** §4a′ `EditableText`; fixture pattern `editable_search.pdl`.
 
-- [ ] `component LabField <FormField>(…) text { editable = value; … }` with API `requires EditableText` + `requires PointerInput`  
+- [ ] `component LabField emits <FormField>(…) text { editable = value; … }` with API `requires EditableText` + `requires PointerInput`  
 - [ ] `self.pressEnd = { editing = true; beginEditing(value) }`  
 - [ ] Soft keyboard / Done → `keyboardDismissed` assigns + optional `emit change`  
 - [ ] Cancel → `keyboardCancelled` / `cancelEditing()`  
@@ -591,7 +591,7 @@ component LabBar(
 
 - [ ] `protocol SubnavItem: component { …; emits { select(filter: FilterId) } }` — **`: component` required**  
 - [ ] Missing `: component` on an API protocol → **hard parse error**  
-- [ ] `component LabChip <SubnavItem>(…) layout { … }` conforms (params + emits inherited)  
+- [ ] `component LabChip emits <SubnavItem>(…) layout { … }` sends (params + emits inherited)  
 - [ ] Parent list `[SubnavItem]` with mixed concrete types + one ForEach capture channel
 
 ### 11.2 Host protocols & `requires`

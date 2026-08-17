@@ -35,13 +35,21 @@
 use crate::ast::*;
 use crate::error::PdlError;
 use crate::frame_props::looks_like_qualified_enum_type_name;
-use crate::motion::{is_motion_prop_name, MOTION_PROP_NAMES};
 use crate::lexer::{tokenize, Token, TokenKind};
+use crate::motion::{is_motion_prop_name, MOTION_PROP_NAMES};
 use crate::param_types::infer_value_let_type;
 use crate::world_a::{
     frame_ctor_kwargs_to_body, frame_ctor_to_kind, is_frame_ctor_name, lower_world_a_body,
     RESERVED_FRAME_CTOR_COMPONENT_NAMES,
 };
+
+#[derive(Default)]
+struct PresenterVerbArgs {
+    page: Option<ValueExpr>,
+    style: Option<String>,
+    move_spec: Option<ValueExpr>,
+    dismiss_move: Option<ValueExpr>,
+}
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -81,9 +89,29 @@ impl Parser {
                         handlers: host_handlers,
                     }));
                 }
-                // Trailing `} emits { … }` after the component.
-                if self.is(TokenKind::Emits) && self.peek_ahead_kind(1) == TokenKind::LBrace {
-                    declarations.push(TopLevelDecl::Emits(self.parse_inline_emits(name)?));
+                // Trailing `} emits <P>` / `} emits { … }` after the component.
+                // Not `emits(propagation: …) Name { … }` — that is a top-level emits-decl.
+                if self.is_trailing_emits() {
+                    let (more_protos, inline) = self.parse_trailing_emits(name.clone())?;
+                    if let Some(c) = declarations.iter_mut().rev().find_map(|d| match d {
+                        TopLevelDecl::Component(c) if c.name == name => Some(c),
+                        _ => None,
+                    }) {
+                        for p in more_protos {
+                            if c.emits_protocols.iter().any(|e| e == &p) {
+                                return Err(self.err_code(
+                                    "PDL-E043",
+                                    format!(
+                                        "Component `{name}` lists protocol `{p}` more than once"
+                                    ),
+                                ));
+                            }
+                            c.emits_protocols.push(p);
+                        }
+                    }
+                    if let Some(emits) = inline {
+                        declarations.push(TopLevelDecl::Emits(emits));
+                    }
                 }
                 if self.is(TokenKind::Interaction) {
                     return Err(self.err_interaction_removed());
@@ -114,6 +142,12 @@ impl Parser {
             TokenKind::Variant => Ok(TopLevelDecl::Variant(self.parse_variant()?)),
             TokenKind::Protocol => Ok(TopLevelDecl::Protocol(self.parse_protocol()?)),
             TokenKind::Component => Ok(TopLevelDecl::Component(self.parse_component()?)),
+            TokenKind::Ident if self.peek().value == "page" => Ok(TopLevelDecl::Component(
+                self.parse_component_like(ComponentRole::Page)?,
+            )),
+            TokenKind::Ident if self.peek().value == "screen" => Ok(TopLevelDecl::Component(
+                self.parse_component_like(ComponentRole::Screen)?,
+            )),
             TokenKind::Expose => Err(self.err_code(
                 "PDL-E001",
                 "`expose` was removed from PDL; all component parameters are public (use `emits` for output)",
@@ -162,6 +196,12 @@ impl Parser {
     fn consume_param_type_name(&mut self) -> Result<String, PdlError> {
         let t = self.peek().clone();
         if t.kind == TokenKind::Ident {
+            if matches!(t.value.as_str(), "page" | "screen") {
+                return Err(self.err_code(
+                    "PDL-E039",
+                    "Parameter type must be `Page` (prelude protocol), not the `page` / `screen` keyword",
+                ));
+            }
             return Ok(self.consume(TokenKind::Ident)?.value);
         }
         if is_type_keyword(t.kind) {
@@ -328,9 +368,8 @@ impl Parser {
         {
             return self.parse_mount_token_assign();
         }
-        Err(self.err(
-            "Expected `let`, `self.param =`, `use catalog`, token assign, or `if` in `mount`",
-        ))
+        Err(self
+            .err("Expected `let`, `self.param =`, `use catalog`, token assign, or `if` in `mount`"))
     }
 
     fn parse_mount_use_catalog(&mut self) -> Result<MountItem, PdlError> {
@@ -422,10 +461,7 @@ impl Parser {
             return self.parse_mount_host_probe();
         }
         if self.is(TokenKind::QuestionQuestion) {
-            return Err(self.err_code(
-                "PDL-E047",
-                "`??` is only valid in a `mount` coalesce chain",
-            ));
+            return Err(self.err_code("PDL-E047", "`??` is only valid in a `mount` coalesce chain"));
         }
         Ok(MountExpr::Value(self.parse_primary_value()?))
     }
@@ -544,16 +580,107 @@ impl Parser {
         )
     }
 
-    /// Inline trailing block: `emits { select(filter: FilterId) … }` after a component.
-    fn parse_inline_emits(&mut self, component: String) -> Result<EmitsDecl, PdlError> {
-        self.consume(TokenKind::Emits)?;
-        self.consume(TokenKind::LBrace)?;
-        let emits = self.parse_emits_list_body()?;
-        self.consume(TokenKind::RBrace)?;
-        Ok(EmitsDecl { component, emits })
+    /// `emits` `[ (propagation: .parent | .ancestors) ]` — omitted means `.parent`.
+    fn parse_emits_propagation(&mut self) -> Result<EmitPropagation, PdlError> {
+        if !self.is(TokenKind::LParen) {
+            return Ok(EmitPropagation::Parent);
+        }
+        self.advance();
+        let key = self.consume(TokenKind::Ident)?;
+        if key.value != "propagation" {
+            return Err(self.err_code(
+                "PDL-E051",
+                format!(
+                    "Unknown emits argument `{}` (expected `propagation`)",
+                    key.value
+                ),
+            ));
+        }
+        self.consume(TokenKind::Colon)?;
+        if !self.is(TokenKind::DotEnum) {
+            return Err(self.err_code(
+                "PDL-E051",
+                "emits(propagation:) expected `.parent` or `.ancestors`".to_string(),
+            ));
+        }
+        let raw = self.advance().value;
+        let case = raw.strip_prefix('.').unwrap_or(raw.as_str());
+        let propagation = match case {
+            "parent" => EmitPropagation::Parent,
+            "ancestors" => EmitPropagation::Ancestors,
+            _ => {
+                return Err(self.err_code(
+                    "PDL-E051",
+                    format!(
+                        "Unknown emit propagation `{raw}` (expected `.parent` or `.ancestors`)"
+                    ),
+                ));
+            }
+        };
+        self.consume(TokenKind::RParen)?;
+        Ok(propagation)
     }
 
-    fn parse_emits_list_body(&mut self) -> Result<Vec<ProtocolEmitDecl>, PdlError> {
+    /// `emits <P, Q>` send-protocol list (header or trailing).
+    fn parse_emits_protocol_list(&mut self, component: &str) -> Result<Vec<String>, PdlError> {
+        self.parse_protocol_header_list(component)
+    }
+
+    /// ` <P, Q> ` after `component Name` (receive) or `emits` (send).
+    fn parse_protocol_header_list(&mut self, component: &str) -> Result<Vec<String>, PdlError> {
+        self.consume(TokenKind::Lt)?;
+        let mut protos: Vec<String> = Vec::new();
+        loop {
+            let proto = self.consume(TokenKind::Ident)?.value;
+            if protos.iter().any(|p| p == &proto) {
+                return Err(self.err_code(
+                    "PDL-E043",
+                    format!("Component `{component}` lists protocol `{proto}` more than once"),
+                ));
+            }
+            protos.push(proto);
+            if self.is(TokenKind::Comma) {
+                self.advance();
+                if self.is(TokenKind::Gt) {
+                    self.advance();
+                    break;
+                }
+                continue;
+            }
+            self.consume(TokenKind::Gt)?;
+            break;
+        }
+        Ok(protos)
+    }
+
+    /// Trailing `emits <P>` and/or `emits { select(…) }`.
+    fn parse_trailing_emits(
+        &mut self,
+        component: String,
+    ) -> Result<(Vec<String>, Option<EmitsDecl>), PdlError> {
+        self.consume(TokenKind::Emits)?;
+        let mut protos = Vec::new();
+        if self.is(TokenKind::Lt) {
+            protos = self.parse_emits_protocol_list(&component)?;
+        }
+        let propagation = self.parse_emits_propagation()?;
+        if self.is(TokenKind::LBrace) {
+            self.advance();
+            let emits = self.parse_emits_list_body(propagation)?;
+            self.consume(TokenKind::RBrace)?;
+            return Ok((protos, Some(EmitsDecl { component, emits })));
+        }
+        if protos.is_empty() {
+            return Err(self
+                .err("Expected `emits <Protocol>` or `emits { channel(…) }` after the component"));
+        }
+        Ok((protos, None))
+    }
+
+    fn parse_emits_list_body(
+        &mut self,
+        propagation: EmitPropagation,
+    ) -> Result<Vec<ProtocolEmitDecl>, PdlError> {
         let mut emits = Vec::new();
         while !self.is(TokenKind::RBrace) {
             let name = self.consume(TokenKind::Ident)?.value;
@@ -575,7 +702,11 @@ impl Parser {
                 }
             }
             self.consume(TokenKind::RParen)?;
-            emits.push(ProtocolEmitDecl { name, args });
+            emits.push(ProtocolEmitDecl {
+                name,
+                args,
+                propagation,
+            });
         }
         Ok(emits)
     }
@@ -594,9 +725,10 @@ impl Parser {
 
     fn parse_emits_decl(&mut self) -> Result<EmitsDecl, PdlError> {
         self.consume(TokenKind::Emits)?;
+        let propagation = self.parse_emits_propagation()?;
         let component = self.consume(TokenKind::Ident)?.value;
         self.consume(TokenKind::LBrace)?;
-        let emits = self.parse_emits_list_body()?;
+        let emits = self.parse_emits_list_body(propagation)?;
         self.consume(TokenKind::RBrace)?;
         Ok(EmitsDecl { component, emits })
     }
@@ -651,7 +783,8 @@ impl Parser {
             }
             if self.is(TokenKind::Ident) {
                 let name = self.peek().value.clone();
-                if (name == "from" || name == "to") && self.peek_ahead_kind(1) == TokenKind::LBrace {
+                if (name == "from" || name == "to") && self.peek_ahead_kind(1) == TokenKind::LBrace
+                {
                     return Err(self.err(
                         "`from { }` / `to { }` were removed; write `animate = Motion(transition: …, pose: Pose(…))`",
                     ));
@@ -674,7 +807,9 @@ impl Parser {
                 self.consume(TokenKind::Ident)?.value
             };
             // Let-qualified host verb: `Input.beginEditing(draft)` / `Input.finishEditing()`.
-            if !self_prefixed && self.is(TokenKind::Dot) && self.peek_ahead_kind(1) == TokenKind::Ident
+            if !self_prefixed
+                && self.is(TokenKind::Dot)
+                && self.peek_ahead_kind(1) == TokenKind::Ident
             {
                 let after_ident = self.peek_ahead_kind(2);
                 if after_ident == TokenKind::LParen {
@@ -797,10 +932,7 @@ impl Parser {
                 "hostFacts" => {
                     host_facts = Some(self.fixture_string_prop(&value, "hostFacts")?);
                 }
-                _ => bindings.push(FixtureBinding {
-                    name: pname,
-                    value,
-                }),
+                _ => bindings.push(FixtureBinding { name: pname, value }),
             }
         }
         self.consume(TokenKind::RBrace)?;
@@ -827,6 +959,11 @@ impl Parser {
         let t = self.peek().clone();
         if t.kind == TokenKind::Ident {
             self.advance();
+            if self.is(TokenKind::Dot) && self.peek_ahead_kind(1) == TokenKind::Ident {
+                self.advance();
+                let field = self.consume(TokenKind::Ident)?.value;
+                return Ok(format!("{}.{field}", t.value));
+            }
             return Ok(t.value);
         }
         if t.kind == TokenKind::Host {
@@ -1077,7 +1214,8 @@ impl Parser {
                 self.advance();
                 self.consume(TokenKind::Dot)?;
                 let pick = self.peek().clone();
-                if pick.kind == TokenKind::Ident && (pick.value == "first" || pick.value == "last") {
+                if pick.kind == TokenKind::Ident && (pick.value == "first" || pick.value == "last")
+                {
                     self.advance();
                     let index = if pick.value == "first" {
                         ChildrenPickIndex::First
@@ -1288,10 +1426,7 @@ impl Parser {
                 sections.push(ExtendSection::Rules { statements });
                 continue;
             }
-            return Err(self.err(format!(
-                "Unexpected extend section {:?}",
-                self.peek().kind
-            )));
+            return Err(self.err(format!("Unexpected extend section {:?}", self.peek().kind)));
         }
         self.consume(TokenKind::RBrace)?;
         Ok(ExtendDecl {
@@ -1358,8 +1493,9 @@ impl Parser {
 
     fn parse_protocol_emits_block(&mut self) -> Result<Vec<ProtocolEmitDecl>, PdlError> {
         self.consume(TokenKind::Emits)?;
+        let propagation = self.parse_emits_propagation()?;
         self.consume(TokenKind::LBrace)?;
-        let emits = self.parse_emits_list_body()?;
+        let emits = self.parse_emits_list_body(propagation)?;
         self.consume(TokenKind::RBrace)?;
         Ok(emits)
     }
@@ -1372,6 +1508,17 @@ impl Parser {
         let mut component_subject = false;
         if self.is(TokenKind::Colon) {
             self.advance();
+            if self.is(TokenKind::Ident) && matches!(self.peek().value.as_str(), "page" | "screen")
+            {
+                return Err(self.err_code(
+                    "PDL-E001",
+                    format!(
+                        "Protocol `{name}` subject must be `component`, not `page` / `screen` \
+                         (write `protocol {name}: component {{ … }}`; a `page` declaration \
+                         auto-conforms to prelude `Page`)"
+                    ),
+                ));
+            }
             if !self.is(TokenKind::Component) {
                 return Err(self.err(format!(
                     "Protocol `{name}` subject must be `component` \
@@ -1492,43 +1639,42 @@ impl Parser {
     }
 
     fn parse_component(&mut self) -> Result<ComponentDecl, PdlError> {
-        self.consume(TokenKind::Component)?;
+        self.parse_component_like(ComponentRole::Component)
+    }
+
+    fn parse_component_like(&mut self, role: ComponentRole) -> Result<ComponentDecl, PdlError> {
+        match role {
+            ComponentRole::Component => {
+                self.consume(TokenKind::Component)?;
+            }
+            ComponentRole::Page | ComponentRole::Screen => {
+                let t = self.consume(TokenKind::Ident)?;
+                if t.value != role.as_str() {
+                    return Err(self.err(format!(
+                        "Expected `{}`, got `{}`",
+                        role.as_str(),
+                        t.value
+                    )));
+                }
+            }
+        }
         let name = self.consume(TokenKind::Ident)?.value;
         if RESERVED_FRAME_CTOR_COMPONENT_NAMES.contains(&name.as_str()) {
             return Err(self.err(format!(
                 "Component name `{name}` is reserved for the World A frame constructor; rename the component"
             )));
         }
-        // Optional `component Name <P, Q>(…)`
+        // Optional `component Name <P, Q>` receive list, then `emits <R, S>` send list.
         let conforms_to = if self.is(TokenKind::Lt) {
-            self.advance();
-            let mut protos: Vec<String> = Vec::new();
-            loop {
-                let proto = self.consume(TokenKind::Ident)?.value;
-                if protos.iter().any(|p| p == &proto) {
-                    return Err(self.err_code(
-                        "PDL-E043",
-                        format!(
-                            "Component `{name}` lists protocol `{proto}` more than once"
-                        ),
-                    ));
-                }
-                protos.push(proto);
-                if self.is(TokenKind::Comma) {
-                    self.advance();
-                    if self.is(TokenKind::Gt) {
-                        self.advance();
-                        break;
-                    }
-                    continue;
-                }
-                self.consume(TokenKind::Gt)?;
-                break;
-            }
-            protos
+            self.parse_protocol_header_list(&name)?
         } else {
             Vec::new()
         };
+        let mut emits_protocols = Vec::new();
+        if self.is(TokenKind::Emits) && self.peek_ahead_kind(1) == TokenKind::Lt {
+            self.advance();
+            emits_protocols = self.parse_emits_protocol_list(&name)?;
+        }
         self.consume(TokenKind::LParen)?;
         let mut params: Vec<ComponentParam> = Vec::new();
         if !self.is(TokenKind::RParen) {
@@ -1580,7 +1726,9 @@ impl Parser {
         self.consume(TokenKind::RBrace)?;
         Ok(ComponentDecl {
             name,
+            role,
             conforms_to,
+            emits_protocols,
             params,
             root_kind,
             body,
@@ -1643,10 +1791,7 @@ impl Parser {
                 self.consume(TokenKind::LBrace)?;
                 let body = self.parse_interaction_handler_body()?;
                 self.consume(TokenKind::RBrace)?;
-                return Ok(FrameBodyItem::HostHandler {
-                    event: field,
-                    body,
-                });
+                return Ok(FrameBodyItem::HostHandler { event: field, body });
             }
             let value = if field == "hidden" {
                 self.parse_hidden_rhs()?
@@ -1682,15 +1827,18 @@ impl Parser {
                 self.consume(TokenKind::LBrace)?;
                 let body = self.parse_interaction_handler_body()?;
                 self.consume(TokenKind::RBrace)?;
-                return Ok(FrameBodyItem::HostHandler {
-                    event: name,
-                    body,
-                });
+                return Ok(FrameBodyItem::HostHandler { event: name, body });
             }
             self.advance();
             if self.is(TokenKind::Dot) {
                 self.consume(TokenKind::Dot)?;
                 let field = self.consume_frame_field_name()?;
+                if PresenterVerb::from_name(&field).is_some() && self.is(TokenKind::LParen) {
+                    return Err(self.err_code(
+                        "PDL-E055",
+                        format!("`{name}.{field}(…)` is only legal in an ancestor-capture body"),
+                    ));
+                }
                 if field == "children" {
                     self.consume(TokenKind::Eq)?;
                     let entries = self.parse_children_rhs()?;
@@ -1831,11 +1979,7 @@ impl Parser {
         })
     }
 
-    fn parse_foreach_if_chain(
-        &mut self,
-        list: &str,
-        item: &str,
-    ) -> Result<IfChain, PdlError> {
+    fn parse_foreach_if_chain(&mut self, list: &str, item: &str) -> Result<IfChain, PdlError> {
         let mut branches: Vec<IfBranch> = Vec::new();
         self.consume(TokenKind::If)?;
         let c0 = self.parse_condition_expr()?;
@@ -1968,13 +2112,25 @@ impl Parser {
             } else {
                 self.consume(TokenKind::Ident)?.value
             };
-            // `Input.beginEditing(draft)` / `Input.finishEditing()`
+            // `Input.beginEditing(draft)` / `presenter.replace(Episode(…))`
             if self.is(TokenKind::Dot)
                 && self.peek_ahead_kind(1) == TokenKind::Ident
                 && self.peek_ahead_kind(2) == TokenKind::LParen
             {
                 self.advance();
                 let verb = self.consume(TokenKind::Ident)?.value;
+                if let Some(pv) = PresenterVerb::from_name(&verb) {
+                    let args = self.parse_presenter_verb_args()?;
+                    body.push(LayoutOnBodyItem::PresenterVerb {
+                        qualifier: first,
+                        verb: pv,
+                        page: args.page,
+                        style: args.style,
+                        move_spec: args.move_spec,
+                        dismiss_move: args.dismiss_move,
+                    });
+                    continue;
+                }
                 let args = self.parse_host_verb_args()?;
                 body.push(LayoutOnBodyItem::HostVerb {
                     qualifier: Some(first),
@@ -2007,6 +2163,48 @@ impl Parser {
             payload,
             body,
         })
+    }
+
+    /// `()` / `(Episode(…))` / `(Settings(), style: .cover)` / `(Episode(), move:, dismissMove:)`.
+    fn parse_presenter_verb_args(&mut self) -> Result<PresenterVerbArgs, PdlError> {
+        self.consume(TokenKind::LParen)?;
+        let mut out = PresenterVerbArgs::default();
+        if !self.is(TokenKind::RParen) {
+            if !(self.is(TokenKind::Ident) && self.peek_ahead_kind(1) == TokenKind::Colon) {
+                out.page = Some(self.parse_value_expr()?);
+                if self.is(TokenKind::Comma) {
+                    self.advance();
+                }
+            }
+            while !self.is(TokenKind::RParen) {
+                let key = self.consume(TokenKind::Ident)?.value;
+                self.consume(TokenKind::Colon)?;
+                match key.as_str() {
+                    "style" => {
+                        let raw = if self.is(TokenKind::DotEnum) {
+                            self.advance().value
+                        } else if self.is(TokenKind::Ident) {
+                            self.advance().value
+                        } else {
+                            return Err(self.err("Presenter `style` must be a case (`.cover`)"));
+                        };
+                        out.style = Some(raw.trim_start_matches('.').to_string());
+                    }
+                    "move" => out.move_spec = Some(self.parse_value_expr()?),
+                    "dismissMove" => out.dismiss_move = Some(self.parse_value_expr()?),
+                    other => {
+                        return Err(self.err(format!(
+                            "Unknown presenter argument `{other}` (expected `style`, `move`, `dismissMove`)"
+                        )));
+                    }
+                }
+                if self.is(TokenKind::Comma) {
+                    self.advance();
+                }
+            }
+        }
+        self.consume(TokenKind::RParen)?;
+        Ok(out)
     }
 
     /// `(draft)` / `(value, …)` / `()` after a host verb name.
@@ -2051,19 +2249,20 @@ impl Parser {
                 let frame_kind = frame_ctor_to_kind(ctor)
                     .expect("peek_frame_ctor_name only returns known ctors")
                     .to_string();
+                let body = if ctor == "Presenter" {
+                    self.presenter_ctor_body(props, child_entries)?
+                } else {
+                    frame_ctor_kwargs_to_body(&props, child_entries)
+                };
                 return Ok(FrameBodyItem::Let {
                     id,
                     frame_kind,
-                    body: frame_ctor_kwargs_to_body(&props, child_entries),
+                    body,
                 });
             }
             // `let x = Comp(…)` → instance; `let blur = Blur(…)` → value let (inferred)
             let value = self.parse_value_expr()?;
-            if let ValueExpr::Instance {
-                component,
-                kwargs,
-            } = value
-            {
+            if let ValueExpr::Instance { component, kwargs } = value {
                 return Ok(FrameBodyItem::LetInstance {
                     id,
                     component,
@@ -2356,10 +2555,7 @@ impl Parser {
         }
         let lhs = self.parse_primary_value()?;
         if self.is(TokenKind::QuestionQuestion) {
-            return Err(self.err_code(
-                "PDL-E047",
-                "`??` is only valid in a `mount` coalesce chain",
-            ));
+            return Err(self.err_code("PDL-E047", "`??` is only valid in a `mount` coalesce chain"));
         }
         if self.is(TokenKind::At) {
             self.advance();
@@ -2370,7 +2566,11 @@ impl Parser {
     }
 
     /// Postfix `@ Opacity`: colors → OpacityOf; MediaLayer → `opacity:`; Color → wrap `color:`.
-    fn apply_opacity_sugar(&self, lhs: ValueExpr, opacity: ValueExpr) -> Result<ValueExpr, PdlError> {
+    fn apply_opacity_sugar(
+        &self,
+        lhs: ValueExpr,
+        opacity: ValueExpr,
+    ) -> Result<ValueExpr, PdlError> {
         match lhs {
             ValueExpr::Call {
                 callee: CallCallee::MediaLayer,
@@ -2448,10 +2648,9 @@ impl Parser {
                 ));
             }
             TokenKind::QuestionQuestion => {
-                return Err(self.err_code(
-                    "PDL-E047",
-                    "`??` is only valid in a `mount` coalesce chain",
-                ));
+                return Err(
+                    self.err_code("PDL-E047", "`??` is only valid in a `mount` coalesce chain")
+                );
             }
             TokenKind::HexColor => {
                 self.advance();
@@ -2504,9 +2703,9 @@ impl Parser {
                     }
                     self.consume(TokenKind::LParen)?;
                     if !self.is(TokenKind::Number) {
-                        return Err(self.err(
-                            "`.fixed` expects a Distance number (px), e.g. `.fixed(48)`",
-                        ));
+                        return Err(
+                            self.err("`.fixed` expects a Distance number (px), e.g. `.fixed(48)`")
+                        );
                     }
                     let n = self.consume(TokenKind::Number)?;
                     self.consume(TokenKind::RParen)?;
@@ -2518,9 +2717,9 @@ impl Parser {
                 }
                 if v == ".flex" {
                     if !self.is(TokenKind::LParen) {
-                        return Err(self.err(
-                            "`.flex` requires arguments, e.g. `.flex(min: 8, max: 120)`",
-                        ));
+                        return Err(
+                            self.err("`.flex` requires arguments, e.g. `.flex(min: 8, max: 120)`")
+                        );
                     }
                     self.consume(TokenKind::LParen)?;
                     let flex_args = self.parse_flex_args()?;
@@ -2613,6 +2812,44 @@ impl Parser {
                     "Unknown Sizing mode `{mode}`; expected hug, fill, fixed, flex, or aspect"
                 )));
             }
+            TokenKind::Ease => {
+                self.advance();
+                self.consume(TokenKind::Dot)?;
+                let method = self.consume(TokenKind::Ident)?.value;
+                if method == "bezier" {
+                    self.consume(TokenKind::LParen)?;
+                    let x1 = self.parse_value_expr()?;
+                    self.consume(TokenKind::Comma)?;
+                    let y1 = self.parse_value_expr()?;
+                    self.consume(TokenKind::Comma)?;
+                    let x2 = self.parse_value_expr()?;
+                    self.consume(TokenKind::Comma)?;
+                    let y2 = self.parse_value_expr()?;
+                    self.consume(TokenKind::RParen)?;
+                    return Ok(ValueExpr::EaseBezier {
+                        x1: Box::new(x1),
+                        y1: Box::new(y1),
+                        x2: Box::new(x2),
+                        y2: Box::new(y2),
+                    });
+                }
+                if method == "cubic" {
+                    return Err(self.err("Write `Ease.bezier(x1, y1, x2, y2)`"));
+                }
+                if method == "linear" || method == "in" || method == "out" {
+                    if self.is(TokenKind::LParen) {
+                        return Err(self.err(format!(
+                            "`Ease.{method}` takes no arguments; write `.{method}` or `Ease.bezier(…)`"
+                        )));
+                    }
+                    return Ok(ValueExpr::DotEnum {
+                        value: format!(".{method}"),
+                    });
+                }
+                return Err(self.err(
+                    "Ease is `.linear`, `.in`, `.out`, or `Ease.bezier(x1, y1, x2, y2)`",
+                ));
+            }
             TokenKind::LParen => {
                 return self.parse_paren_value();
             }
@@ -2679,27 +2916,9 @@ impl Parser {
         let first = self.consume(TokenKind::Ident)?.value;
         self.consume(TokenKind::Colon)?;
         if first == "duration" {
-            let duration = self.parse_value_expr()?;
-            self.consume(TokenKind::Comma)?;
-            self.consume(TokenKind::Ident)?;
-            self.consume(TokenKind::Colon)?;
-            let easing = self.parse_value_expr()?;
-            let mut delay: Option<Box<ValueExpr>> = None;
-            if self.is(TokenKind::Comma) {
-                self.advance();
-                let lab = self.consume(TokenKind::Ident)?.value;
-                if lab != "delay" {
-                    return Err(self.err("Expected delay in transition"));
-                }
-                self.consume(TokenKind::Colon)?;
-                delay = Some(Box::new(self.parse_value_expr()?));
-            }
-            self.consume(TokenKind::RParen)?;
-            return Ok(ValueExpr::Transition {
-                duration: Box::new(duration),
-                easing: Box::new(easing),
-                delay,
-            });
+            return Err(self.err(
+                "Write `Timing(duration:, ease: [, delay:])` — the `(duration:, ease:)` tuple is removed",
+            ));
         }
         if first == "saturation" {
             return Err(self.err(
@@ -2757,9 +2976,7 @@ impl Parser {
                     fields,
                 });
             }
-            return Err(
-                self.err("EdgeInsets requires (x:, y:) or (top:, right:, bottom:, left:)")
-            );
+            return Err(self.err("EdgeInsets requires (x:, y:) or (top:, right:, bottom:, left:)"));
         }
         if name == "Corner" {
             let mut fields = self.parse_labelled_args()?;
@@ -2799,9 +3016,9 @@ impl Parser {
                     });
                 }
                 _ => {
-                    return Err(self.err(
-                        "Shadow requires x, y, blurRadius, color (optional spread)",
-                    ));
+                    return Err(
+                        self.err("Shadow requires x, y, blurRadius, color (optional spread)")
+                    );
                 }
             }
         }
@@ -2875,6 +3092,11 @@ impl Parser {
             self.consume(TokenKind::RParen)?;
             return Ok(ValueExpr::GradientStop { fields });
         }
+        if name == "Timing" {
+            let args = self.parse_labelled_args()?;
+            self.consume(TokenKind::RParen)?;
+            return finish_timing(args).map_err(|m| self.err(m));
+        }
         if name == "Pose" {
             let args = self.parse_labelled_args()?;
             self.consume(TokenKind::RParen)?;
@@ -2889,6 +3111,11 @@ impl Parser {
             let args = self.parse_labelled_args()?;
             self.consume(TokenKind::RParen)?;
             return finish_key(args).map_err(|m| self.err(m));
+        }
+        if name == "PresentationMotion" {
+            let args = self.parse_labelled_args()?;
+            self.consume(TokenKind::RParen)?;
+            return finish_presentation_motion(args).map_err(|m| self.err(m));
         }
         if name == "Motion" {
             let base = if self.looks_like_motion_base() {
@@ -2906,9 +3133,8 @@ impl Parser {
         }
         if name == "Effect" {
             if self.is(TokenKind::RParen) {
-                return Err(self.err(
-                    "`Effect(…)` requires a kind (`.blurSelf`, `.blurBehind`, or `.glass`)",
-                ));
+                return Err(self
+                    .err("`Effect(…)` requires a kind (`.blurSelf`, `.blurBehind`, or `.glass`)"));
             }
             let effect_kind = self.parse_value_expr()?;
             let args = if self.is(TokenKind::Comma) {
@@ -2945,9 +3171,9 @@ impl Parser {
                     ));
                 }
                 if !has_radius {
-                    return Err(self.err(
-                        "`Blur(…)` requires `radius:` (optional `style:`, `vibrancy:`)",
-                    ));
+                    return Err(
+                        self.err("`Blur(…)` requires `radius:` (optional `style:`, `vibrancy:`)")
+                    );
                 }
                 let unknown: Vec<_> = args
                     .keys()
@@ -2971,9 +3197,7 @@ impl Parser {
                     ));
                 }
                 if !has_sat || !has_bri {
-                    return Err(self.err(
-                        "`Vibrancy(…)` requires `saturation:` and `brightness:`",
-                    ));
+                    return Err(self.err("`Vibrancy(…)` requires `saturation:` and `brightness:`"));
                 }
                 let unknown: Vec<_> = args
                     .keys()
@@ -3039,9 +3263,9 @@ impl Parser {
             }
             let n = self.num(&w_tok.value);
             if !(n > 0.0) || !n.is_finite() {
-                return Err(self.err(
-                    "`.aspect(n)` requires a positive finite ratio (width/height)",
-                ));
+                return Err(
+                    self.err("`.aspect(n)` requires a positive finite ratio (width/height)")
+                );
             }
             return Ok(ValueExpr::Number { value: n });
         }
@@ -3100,9 +3324,9 @@ impl Parser {
 
     fn parse_child_entry(&mut self) -> Result<ChildEntry, PdlError> {
         if self.is(TokenKind::DotEnum) && self.peek().value == ".spacer" {
-            return Err(self.err(
-                "`.spacer` was renamed to `Spacer()` (zero-arg child constructor)",
-            ));
+            return Err(
+                self.err("`.spacer` was renamed to `Spacer()` (zero-arg child constructor)")
+            );
         }
         if self.is(TokenKind::Effect) {
             return Err(self.err(
@@ -3119,6 +3343,12 @@ impl Parser {
             let frame_kind = frame_ctor_to_kind(ctor)
                 .expect("peek_frame_ctor_name only returns known ctors")
                 .to_string();
+            let (props, child_entries) = if ctor == "Presenter" {
+                let (box_props, root) = self.split_presenter_ctor_args(props, child_entries)?;
+                (box_props, root.map(|entry| vec![entry]))
+            } else {
+                (props, child_entries)
+            };
             return Ok(ChildEntry::FrameCtor {
                 frame_kind,
                 props,
@@ -3137,9 +3367,9 @@ impl Parser {
                     }
                     self.consume(TokenKind::RParen)?;
                     if self.is(TokenKind::At) {
-                        return Err(self.err(
-                            "`Spacer()` is not opacity-bearing; cannot apply postfix `@`",
-                        ));
+                        return Err(
+                            self.err("`Spacer()` is not opacity-bearing; cannot apply postfix `@`")
+                        );
                     }
                     return Ok(ChildEntry::Spacer);
                 }
@@ -3180,14 +3410,84 @@ impl Parser {
             "Layout" => "Layout",
             "Icon" => "Icon",
             "Media" => "Media",
+            "Presenter" => "Presenter",
             _ => unreachable!(),
         })
+    }
+
+    fn split_presenter_ctor_args(
+        &self,
+        props: indexmap::IndexMap<String, ValueExpr>,
+        child_entries: Option<Vec<ChildEntry>>,
+    ) -> Result<(indexmap::IndexMap<String, ValueExpr>, Option<ChildEntry>), PdlError> {
+        if child_entries.is_some() {
+            return Err(self.err_code(
+                "PDL-E054",
+                "Presenter takes `root:`, not `children:` — it paints one destination",
+            ));
+        }
+        let mut root = None;
+        let mut box_props = indexmap::IndexMap::new();
+        for (k, v) in props {
+            if k == "children" {
+                return Err(self.err_code(
+                    "PDL-E054",
+                    "Presenter takes `root:`, not `children:` — it paints one destination",
+                ));
+            }
+            if k == "root" {
+                root = Some(v);
+            } else {
+                box_props.insert(k, v);
+            }
+        }
+        let Some(root) = root else {
+            return Ok((box_props, None));
+        };
+        let entry = match root {
+            ValueExpr::Ident { name } => ChildEntry::FrameRef {
+                id: name,
+                opacity: None,
+            },
+            ValueExpr::Instance {
+                component, kwargs, ..
+            } => ChildEntry::Instance {
+                component,
+                kwargs,
+                opacity: None,
+            },
+            _ => {
+                return Err(self.err_code(
+                    "PDL-E054",
+                    "Presenter `root` must be a page let or a page instance (`Home()` / `home`)",
+                ));
+            }
+        };
+        Ok((box_props, Some(entry)))
+    }
+
+    fn presenter_ctor_body(
+        &self,
+        props: indexmap::IndexMap<String, ValueExpr>,
+        child_entries: Option<Vec<ChildEntry>>,
+    ) -> Result<Vec<FrameBodyItem>, PdlError> {
+        let (box_props, root) = self.split_presenter_ctor_args(props, child_entries)?;
+        Ok(frame_ctor_kwargs_to_body(
+            &box_props,
+            root.map(|entry| vec![entry]),
+        ))
     }
 
     /// Frame ctor kwargs; `children:` is a child-entry list, not a ValueExpr.
     fn parse_frame_ctor_args(
         &mut self,
-    ) -> Result<(indexmap::IndexMap<String, ValueExpr>, Option<Vec<ChildEntry>>), PdlError> {
+    ) -> Result<
+        (
+            indexmap::IndexMap<String, ValueExpr>,
+            Option<Vec<ChildEntry>>,
+        ),
+        PdlError,
+    > {
         let mut props: indexmap::IndexMap<String, ValueExpr> = indexmap::IndexMap::new();
         let mut child_entries: Option<Vec<ChildEntry>> = None;
         if self.is(TokenKind::RParen) {
@@ -3227,6 +3527,35 @@ impl Parser {
             .get(self.index + n)
             .map(|t| t.kind)
             .unwrap_or(TokenKind::Eof)
+    }
+
+    /// Trailing `emits {` / `emits <P>` / `emits(propagation: …) {` — not `emits(…) Name {`.
+    fn is_trailing_emits(&self) -> bool {
+        if !self.is(TokenKind::Emits) {
+            return false;
+        }
+        match self.peek_ahead_kind(1) {
+            TokenKind::LBrace | TokenKind::Lt => true,
+            TokenKind::LParen => {
+                let mut depth = 0;
+                let mut i = 1;
+                loop {
+                    match self.peek_ahead_kind(i) {
+                        TokenKind::Eof => return false,
+                        TokenKind::LParen => depth += 1,
+                        TokenKind::RParen => {
+                            depth -= 1;
+                            if depth == 0 {
+                                return self.peek_ahead_kind(i + 1) == TokenKind::LBrace;
+                            }
+                        }
+                        _ => {}
+                    }
+                    i += 1;
+                }
+            }
+            _ => false,
+        }
     }
 
     /// `Motion(motion.hoverPop, …)` — ident path followed by `,` or `)`, not `label:`.
@@ -3366,8 +3695,8 @@ fn is_type_keyword(kind: TokenKind) -> bool {
             | TokenKind::LetterSpacing
             | TokenKind::Sizing
             | TokenKind::Duration
-            | TokenKind::Easing
-            | TokenKind::Transition
+            | TokenKind::Ease
+            | TokenKind::Timing
             | TokenKind::Pose
             | TokenKind::Stagger
             | TokenKind::Motion
@@ -3402,8 +3731,33 @@ fn is_kw_call_start(kind: TokenKind) -> bool {
             | TokenKind::Pose
             | TokenKind::Stagger
             | TokenKind::Motion
+            | TokenKind::Timing
             | TokenKind::Effect
     )
+}
+
+fn finish_timing(mut args: indexmap::IndexMap<String, ValueExpr>) -> Result<ValueExpr, String> {
+    if args.contains_key("easing") {
+        return Err("Write `ease:` (Timing), not `easing:`".to_string());
+    }
+    let duration = args
+        .swap_remove("duration")
+        .ok_or_else(|| "`Timing(…)` requires `duration:`".to_string())?;
+    let ease = args
+        .swap_remove("ease")
+        .ok_or_else(|| "`Timing(…)` requires `ease:`".to_string())?;
+    let delay = args.swap_remove("delay");
+    if !args.is_empty() {
+        let unknown = args.keys().cloned().collect::<Vec<_>>().join(", ");
+        return Err(format!(
+            "Timing unknown label(s): {unknown} (expected duration, ease, optional delay)"
+        ));
+    }
+    Ok(ValueExpr::Timing {
+        duration: Box::new(duration),
+        ease: Box::new(ease),
+        delay: delay.map(Box::new),
+    })
 }
 
 fn finish_pose(args: indexmap::IndexMap<String, ValueExpr>) -> Result<ValueExpr, String> {
@@ -3457,17 +3811,20 @@ fn finish_stagger(mut args: indexmap::IndexMap<String, ValueExpr>) -> Result<Val
 }
 
 fn finish_key(mut args: indexmap::IndexMap<String, ValueExpr>) -> Result<ValueExpr, String> {
-    let pose = args
-        .swap_remove("pose")
-        .ok_or_else(|| "`Key(…)` requires `pose:` and `at:` (0…1 of transition.duration)".to_string())?;
-    let at = args
-        .swap_remove("at")
-        .ok_or_else(|| "`Key(…)` requires `pose:` and `at:` (0…1 of transition.duration)".to_string())?;
-    let easing = args.swap_remove("easing");
+    let pose = args.swap_remove("pose").ok_or_else(|| {
+        "`Key(…)` requires `pose:` and `at:` (0…1 of transition.duration)".to_string()
+    })?;
+    let at = args.swap_remove("at").ok_or_else(|| {
+        "`Key(…)` requires `pose:` and `at:` (0…1 of transition.duration)".to_string()
+    })?;
+    if args.contains_key("easing") {
+        return Err("Write `ease:` on Key, not `easing:`".to_string());
+    }
+    let ease = args.swap_remove("ease");
     if !args.is_empty() {
         let unknown = args.keys().cloned().collect::<Vec<_>>().join(", ");
         return Err(format!(
-            "Key unknown label(s): {unknown} (expected pose, at, optional easing)"
+            "Key unknown label(s): {unknown} (expected pose, at, optional ease)"
         ));
     }
     let rest = matches!(
@@ -3480,7 +3837,7 @@ fn finish_key(mut args: indexmap::IndexMap<String, ValueExpr>) -> Result<ValueEx
     Ok(ValueExpr::Key {
         pose: Box::new(pose),
         at: Box::new(at),
-        easing: easing.map(Box::new),
+        ease: ease.map(Box::new),
     })
 }
 
@@ -3488,9 +3845,36 @@ fn finish_motion(
     base: Option<ValueExpr>,
     mut args: indexmap::IndexMap<String, ValueExpr>,
 ) -> Result<ValueExpr, String> {
-    let transition = args.swap_remove("transition");
-    if base.is_none() && transition.is_none() {
-        return Err("`Motion(…)` requires `transition:` (a Transition token or tuple)".to_string());
+    if args.contains_key("transition") {
+        return Err("Write `timing:` (a Timing) or flattened `duration:` / `ease:`, not `transition:`".to_string());
+    }
+    if args.contains_key("easing") {
+        return Err("Write `ease:`, not `easing:`".to_string());
+    }
+    let timing = args.swap_remove("timing");
+    let duration = args.swap_remove("duration");
+    let ease = args.swap_remove("ease");
+    let delay = args.swap_remove("delay");
+    if timing.is_some() && (duration.is_some() || ease.is_some() || delay.is_some()) {
+        return Err("`Motion` cannot take `timing:` and flattened `duration:` / `ease:` / `delay:`".to_string());
+    }
+    let clock = if let Some(t) = timing {
+        Some(t)
+    } else if duration.is_some() || ease.is_some() || delay.is_some() {
+        let dur = duration.ok_or_else(|| {
+            "`Motion` flattened clock needs `duration:` (and usually `ease:`)".to_string()
+        })?;
+        let ez = ease.ok_or_else(|| "`Motion` flattened clock needs `ease:`".to_string())?;
+        Some(ValueExpr::Timing {
+            duration: Box::new(dur),
+            ease: Box::new(ez),
+            delay: delay.map(Box::new),
+        })
+    } else {
+        None
+    };
+    if base.is_none() && clock.is_none() {
+        return Err("`Motion(…)` requires `duration:` / `ease:` (optional `delay:`) or `timing:` (a Timing token or `Timing(…)`)".to_string());
     }
     let pose = args.swap_remove("pose");
     let keys = args.swap_remove("keys");
@@ -3500,12 +3884,12 @@ fn finish_motion(
     if !args.is_empty() {
         let unknown = args.keys().cloned().collect::<Vec<_>>().join(", ");
         return Err(format!(
-            "Motion unknown label(s): {unknown} (expected transition, optional play, pose, keys, stagger, repeat)"
+            "Motion unknown label(s): {unknown} (expected timing or duration/ease/delay, optional play, pose, keys, stagger, repeat)"
         ));
     }
     Ok(ValueExpr::Motion {
         base: base.map(Box::new),
-        transition: transition.map(Box::new),
+        timing: clock.map(Box::new),
         pose: pose.map(Box::new),
         keys: keys.map(Box::new),
         play: play.map(Box::new),
@@ -3520,7 +3904,8 @@ fn finish_effect(
 ) -> Result<ValueExpr, String> {
     let ValueExpr::DotEnum { value } = &effect_kind else {
         return Err(
-            "`Effect(…)` first argument must be `.blurSelf`, `.blurBehind`, or `.glass`".to_string(),
+            "`Effect(…)` first argument must be `.blurSelf`, `.blurBehind`, or `.glass`"
+                .to_string(),
         );
     };
     let raw = value.strip_prefix('.').unwrap_or(value.as_str());
@@ -3549,6 +3934,37 @@ fn finish_effect(
         effect_kind: Box::new(effect_kind),
         radius: radius.map(Box::new),
         vibrancy: vibrancy.map(Box::new),
+    })
+}
+
+fn finish_presentation_motion(
+    mut args: indexmap::IndexMap<String, ValueExpr>,
+) -> Result<ValueExpr, String> {
+    let incoming = args
+        .swap_remove("incoming")
+        .ok_or_else(|| "`PresentationMotion` requires `incoming:`".to_string())?;
+    let outgoing = args
+        .swap_remove("outgoing")
+        .ok_or_else(|| "`PresentationMotion` requires `outgoing:`".to_string())?;
+    let duration = args.swap_remove("duration");
+    let ease = args.swap_remove("ease");
+    let delay = args.swap_remove("delay");
+    let front = args.swap_remove("front");
+    let promote_at = args.swap_remove("promoteAt");
+    if !args.is_empty() {
+        let unknown = args.keys().cloned().collect::<Vec<_>>().join(", ");
+        return Err(format!(
+            "PresentationMotion unknown label(s): {unknown} (expected incoming, outgoing, optional duration, ease, delay, front, promoteAt)"
+        ));
+    }
+    Ok(ValueExpr::PresentationMotion {
+        incoming: Box::new(incoming),
+        outgoing: Box::new(outgoing),
+        duration: duration.map(Box::new),
+        ease: ease.map(Box::new),
+        delay: delay.map(Box::new),
+        front: front.map(Box::new),
+        promote_at: promote_at.map(Box::new),
     })
 }
 

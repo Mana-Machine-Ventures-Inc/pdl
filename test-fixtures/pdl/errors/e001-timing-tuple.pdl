@@ -1,0 +1,9 @@
+component BadTuple <PointerInput>() layout {
+  children = []
+  self.appear = {
+    animate = Motion(
+      timing: (duration: 200, ease: .out),
+      pose: Pose(opacity: 0)
+    )
+  }
+}

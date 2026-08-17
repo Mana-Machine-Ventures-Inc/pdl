@@ -4,19 +4,34 @@
   "primitives": {
     "atoms.motion.ease.linear": {
       "definition": {
-        "kind": "string",
-        "value": "linear"
+        "kind": "dotEnum",
+        "value": ".linear"
       },
       "name": "atoms.motion.ease.linear",
-      "tokenType": "Easing"
+      "tokenType": "Ease"
     },
     "atoms.motion.ease.standard": {
       "definition": {
-        "kind": "string",
-        "value": "cubic-bezier(0.2, 0, 0, 1)"
+        "kind": "easeBezier",
+        "x1": {
+          "kind": "number",
+          "value": 0.2
+        },
+        "x2": {
+          "kind": "number",
+          "value": 0
+        },
+        "y1": {
+          "kind": "number",
+          "value": 0
+        },
+        "y2": {
+          "kind": "number",
+          "value": 1
+        }
       },
       "name": "atoms.motion.ease.standard",
-      "tokenType": "Easing"
+      "tokenType": "Ease"
     },
     "atoms.motion.fast": {
       "definition": {
@@ -40,21 +55,21 @@
     "atoms.motion.transition.quick": {
       "definition": {
         "duration": "primitive:atoms.motion.fast",
-        "easing": "primitive:atoms.motion.ease.linear",
-        "kind": "transition"
+        "ease": "primitive:atoms.motion.ease.linear",
+        "kind": "timing"
       },
       "name": "atoms.motion.transition.quick",
-      "tokenType": "Transition"
+      "tokenType": "Timing"
     },
     "atoms.motion.transition.smooth": {
       "definition": {
         "delay": "primitive:atoms.motion.fast",
         "duration": "primitive:atoms.motion.slow",
-        "easing": "primitive:atoms.motion.ease.standard",
-        "kind": "transition"
+        "ease": "primitive:atoms.motion.ease.standard",
+        "kind": "timing"
       },
       "name": "atoms.motion.transition.smooth",
-      "tokenType": "Transition"
+      "tokenType": "Timing"
     }
   }
 }

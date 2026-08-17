@@ -79,8 +79,7 @@ fn omit_empty_deep(value: &Value, ctx: Option<OmitEmptyCtx>) -> Option<Value> {
             let mut out = Map::new();
             for (k, v) in obj {
                 let child_inside_props = inside_props || k == "props";
-                let child_inside_fixtures =
-                    inside_fixtures || k == "fixtures" || k == "samples";
+                let child_inside_fixtures = inside_fixtures || k == "fixtures" || k == "samples";
                 let next_ctx = Some(OmitEmptyCtx {
                     strip_empty_strings_outside_props: effective.strip_empty_strings_outside_props,
                     inside_props: child_inside_props,
@@ -228,6 +227,9 @@ mod fixture_empty_tests {
             }
         });
         let s = stable_stringify(&v, StableStringifyOptions { omit_empty: true });
-        assert!(s.contains("\"tracks\": []") || s.contains("\"tracks\":[]"), "got: {s}");
+        assert!(
+            s.contains("\"tracks\": []") || s.contains("\"tracks\":[]"),
+            "got: {s}"
+        );
     }
 }

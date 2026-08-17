@@ -108,6 +108,22 @@ describe("validateMergedDesign (motion)", () => {
       /both `pose:` and `keys:`/,
     );
   });
+
+  it("PDL-E001 when Timing is written as a naked tuple", () => {
+    expectLoadFails(
+      "PDL-E001",
+      "errors/e001-timing-tuple.pdl",
+      /Timing\(duration:, ease:/,
+    );
+  });
+
+  it("PDL-E005 when Ease is a CSS string", () => {
+    expectLoadFails(
+      "PDL-E005",
+      "errors/e005-ease-css.pdl",
+      /Ease\.bezier|\.linear/,
+    );
+  });
 });
 
 describe("validateMergedDesign (effect)", () => {

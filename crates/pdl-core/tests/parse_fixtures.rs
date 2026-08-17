@@ -43,7 +43,8 @@ fn parses_all_non_error_fixtures() {
 
     let mut failures = Vec::new();
     for path in &files {
-        let source = fs::read_to_string(path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+        let source =
+            fs::read_to_string(path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
         let rel = path.strip_prefix(repo_root()).unwrap_or(path);
         let rel_str = rel.to_string_lossy();
         // Known oddball: intentionally bad sugar sample under atoms (not under errors/).
@@ -162,7 +163,7 @@ protocol ModalContent: component {
   }
 }
 
-component UpsellBody <ModalContent>(
+component UpsellBody emits <ModalContent>(
   cta: String = "Upgrade"
 ) layout {
   let T = Text(content: title)
@@ -183,7 +184,8 @@ component UpsellBody <ModalContent>(
     }
     match &m.declarations[1] {
         pdl_core::ast::TopLevelDecl::Component(c) => {
-            assert_eq!(c.conforms_to.as_slice(), ["ModalContent"]);
+            assert!(c.conforms_to.is_empty(), "{:?}", c.conforms_to);
+            assert_eq!(c.emits_protocols.as_slice(), ["ModalContent"]);
             assert_eq!(c.params.len(), 1);
             assert_eq!(c.params[0].name, "cta");
         }
@@ -199,7 +201,7 @@ fn loads_protocol_fixture_with_effective_params() {
     let design = load_design(entry.to_str().unwrap()).expect("load protocols design");
     assert!(design.protocols.contains_key("ModalContent"));
     let upsell = design.components.get("UpsellBody").expect("UpsellBody");
-    assert_eq!(upsell.conforms_to.as_slice(), ["ModalContent"]);
+    assert_eq!(upsell.emits_protocols.as_slice(), ["ModalContent"]);
     let params = effective_params(&design, upsell).unwrap();
     let names: Vec<_> = params.iter().map(|p| p.name.as_str()).collect();
     assert_eq!(names, vec!["title", "subtitle", "cta"]);
@@ -216,7 +218,7 @@ protocol ModalContent: component {
   title = "T"
 }
 
-component Body <ModalContent>() layout {
+component Body emits <ModalContent>() layout {
   let T = Text(content: title)
   children = [T]
 }
@@ -260,7 +262,7 @@ protocol SubnavItem: component {
   filter: FilterId = .all
   emits { select(filter: FilterId) }
 }
-component FilterChip <SubnavItem>() layout {
+component FilterChip emits <SubnavItem>() layout {
   children = []
   self.pressEnd = { emit select(filter) }
 }
@@ -269,35 +271,43 @@ emits FilterChip {
 }
 "#;
     let m = parse_module_source(src, "chip.pdl").unwrap();
-    let kinds: Vec<_> = m.declarations.iter().map(|d| match d {
-        pdl_core::ast::TopLevelDecl::Variant(_) => "variant",
-        pdl_core::ast::TopLevelDecl::Protocol(p) => {
-            if p.name == "SubnavItem" {
-                assert_eq!(p.emits[0].name, "select");
-                assert_eq!(p.emits[0].args[0].name, "filter");
-                assert_eq!(p.emits[0].args[0].type_name, "FilterId");
-                assert!(p.requires.iter().any(|r| r == "PointerInput"));
-            } else if p.name == "PointerInput" {
-                assert_eq!(p.role, pdl_core::ast::ProtocolRole::Host);
+    let kinds: Vec<_> = m
+        .declarations
+        .iter()
+        .map(|d| match d {
+            pdl_core::ast::TopLevelDecl::Variant(_) => "variant",
+            pdl_core::ast::TopLevelDecl::Protocol(p) => {
+                if p.name == "SubnavItem" {
+                    assert_eq!(p.emits[0].name, "select");
+                    assert_eq!(p.emits[0].args[0].name, "filter");
+                    assert_eq!(p.emits[0].args[0].type_name, "FilterId");
+                    assert_eq!(
+                        p.emits[0].propagation,
+                        pdl_core::ast::EmitPropagation::Parent
+                    );
+                    assert!(p.requires.iter().any(|r| r == "PointerInput"));
+                } else if p.name == "PointerInput" {
+                    assert_eq!(p.role, pdl_core::ast::ProtocolRole::Host);
+                }
+                "protocol"
             }
-            "protocol"
-        }
-        pdl_core::ast::TopLevelDecl::Component(_) => "component",
-        pdl_core::ast::TopLevelDecl::Interaction(i) => {
-            assert_eq!(i.name, "default");
-            assert_eq!(i.handlers[0].event, "pressEnd");
-            assert!(matches!(
-                i.handlers[0].body[0],
-                pdl_core::ast::InteractionHandlerItem::Emit { .. }
-            ));
-            "interaction"
-        }
-        pdl_core::ast::TopLevelDecl::Emits(e) => {
-            assert_eq!(e.component, "FilterChip");
-            "emits"
-        }
-        _ => "other",
-    }).collect();
+            pdl_core::ast::TopLevelDecl::Component(_) => "component",
+            pdl_core::ast::TopLevelDecl::Interaction(i) => {
+                assert_eq!(i.name, "default");
+                assert_eq!(i.handlers[0].event, "pressEnd");
+                assert!(matches!(
+                    i.handlers[0].body[0],
+                    pdl_core::ast::InteractionHandlerItem::Emit { .. }
+                ));
+                "interaction"
+            }
+            pdl_core::ast::TopLevelDecl::Emits(e) => {
+                assert_eq!(e.component, "FilterChip");
+                "emits"
+            }
+            _ => "other",
+        })
+        .collect();
     assert_eq!(
         kinds,
         vec![
@@ -318,14 +328,14 @@ component Modal <PointerInput>() layout {
   children = []
   self.appear = {
     animate = Motion(
-      transition: (duration: 250, easing: "ease-out"),
+      duration: 250, ease: .out,
       pose: Pose(opacity: 0, scale: 0.95, translateY: 8),
       stagger: Stagger(step: 30, from: .last)
     )
   }
   self.dismiss = {
     animate = Motion(
-      transition: (duration: 180, easing: "ease-in"),
+      duration: 180, ease: .in,
       pose: Pose(opacity: 0)
     )
   }
@@ -361,14 +371,15 @@ fn motion_lab_catalogue_evaluates_snapshots() {
     use pdl_core::{build_component_catalogue, load_design};
     let path = repo_root().join("test-fixtures/pdl/lab/motion/design.pdl");
     let design = load_design(path.to_str().unwrap()).expect("load motion lab");
-    let cat = build_component_catalogue(&design, None, &[], Some("2026-01-01T00:00:00.000Z".into()))
-        .expect("catalogue");
+    let cat =
+        build_component_catalogue(&design, None, &[], Some("2026-01-01T00:00:00.000Z".into()))
+            .expect("catalogue");
     let appear = &cat["components"]["MotionModal"]["interactions"][0]["handlers"][0];
     assert_eq!(appear["event"], "appear");
     assert_eq!(appear["motion"]["pose"]["opacity"], 0.0);
     assert_eq!(appear["motion"]["pose"]["scale"], 0.95);
     assert_eq!(appear["motion"]["pose"]["translateY"], 8.0);
-    assert_eq!(appear["motion"]["transition"]["duration"], 250.0);
+    assert_eq!(appear["motion"]["timing"]["duration"], 250.0);
     let list = &cat["components"]["MotionStaggerList"]["interactions"][0]["handlers"][0];
     assert_eq!(list["motion"]["stagger"], 40.0);
     assert_eq!(list["motion"]["staggerFrom"], "last");
@@ -376,9 +387,8 @@ fn motion_lab_catalogue_evaluates_snapshots() {
     assert_eq!(blur["event"], "appear");
     assert_eq!(blur["motion"]["pose"]["blur"], 18.0);
     assert_eq!(blur["motion"]["pose"]["opacity"], 0.35);
-    let pose = |name: &str| {
-        &cat["components"][name]["interactions"][0]["handlers"][0]["motion"]["pose"]
-    };
+    let pose =
+        |name: &str| &cat["components"][name]["interactions"][0]["handlers"][0]["motion"]["pose"];
     assert_eq!(pose("MotionPoseOpacity")["opacity"], 0.0);
     assert_eq!(pose("MotionPoseScale")["scale"], 0.5);
     assert_eq!(pose("MotionPoseScaleX")["scaleX"], 0.2);
@@ -441,7 +451,8 @@ fn motion_lab_catalogue_evaluates_snapshots() {
 #[test]
 fn rejects_motion_copy_base_and_merged_pose_keys() {
     use pdl_core::design::load_design;
-    let not_motion = repo_root().join("test-fixtures/pdl/errors/e005-motion-override-not-motion.pdl");
+    let not_motion =
+        repo_root().join("test-fixtures/pdl/errors/e005-motion-override-not-motion.pdl");
     let err = load_design(not_motion.to_str().unwrap()).unwrap_err();
     assert_eq!(err.code, "PDL-E005");
     assert!(
@@ -463,7 +474,7 @@ fn rejects_motion_copy_base_and_merged_pose_keys() {
 fn parses_motion_token_play_override() {
     let src = r#"
 semantic motion.hoverPop: Motion = Motion(
-  transition: (duration: 280, easing: "ease-out"),
+  duration: 280, ease: .out,
   keys: [Key(pose: Pose(scale: 1.12), at: 1)]
 )
 component Chip <PointerInput>() layout {
@@ -546,7 +557,11 @@ fn rejects_frame_animate_that_is_not_motion() {
     let entry = repo_root().join("test-fixtures/pdl/errors/e006-frame-animate-not-motion.pdl");
     let err = load_design(entry.to_str().unwrap()).unwrap_err();
     assert_eq!(err.code, "PDL-E006");
-    assert!(err.message.contains("property `animate`"), "{}", err.message);
+    assert!(
+        err.message.contains("property `animate`"),
+        "{}",
+        err.message
+    );
 }
 
 #[test]
@@ -645,11 +660,7 @@ fn self_prop_assigns_component_root_not_intermediate_let() {
         Some(&Value::String("#FFFFFF".into())),
         "self.background → component root"
     );
-    let b = root
-        .children
-        .iter()
-        .find(|c| c.id == "b")
-        .expect("let b");
+    let b = root.children.iter().find(|c| c.id == "b").expect("let b");
     assert_eq!(
         b.props.get("background"),
         Some(&Value::String("#AAAAAA".into())),
@@ -728,7 +739,9 @@ component Host(tone: Tone = .primary) layout {
     let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
     assert_eq!(err.code, "PDL-E040");
     assert!(
-        err.message.contains("tone") && err.message.contains("Tone") && err.message.contains("String"),
+        err.message.contains("tone")
+            && err.message.contains("Tone")
+            && err.message.contains("String"),
         "{}",
         err.message
     );
@@ -854,7 +867,8 @@ fn rejects_handler_frame_prop_assign() {
     let err = load_design(entry.to_str().unwrap()).unwrap_err();
     assert_eq!(err.code, "PDL-E001");
     assert!(
-        err.message.contains("Interaction handlers can only assign component parameters")
+        err.message
+            .contains("Interaction handlers can only assign component parameters")
             && err.message.contains("Label.content")
             && err.message.contains("layout body"),
         "{}",
@@ -896,9 +910,8 @@ fn let_value_ramp_bakes_into_background() {
     use serde_json::Map;
     let entry = repo_root().join("test-fixtures/pdl/atoms/let_value_ramp.pdl");
     let design = load_design(entry.to_str().unwrap()).expect("load");
-    let baked =
-        build_baked_design_component(&design, "AtomLetValueRamp", None, &Map::new(), None)
-            .expect("bake");
+    let baked = build_baked_design_component(&design, "AtomLetValueRamp", None, &Map::new(), None)
+        .expect("bake");
     let kind = baked
         .pointer("/components/AtomLetValueRamp/root/props/background/0/kind")
         .and_then(|v| v.as_str());
@@ -912,14 +925,9 @@ fn let_value_blur_object_and_bare_token_layer() {
     use serde_json::Map;
     let entry = repo_root().join("test-fixtures/pdl/atoms/let_value_named_types.pdl");
     let design = load_design(entry.to_str().unwrap()).expect("load");
-    let baked = build_baked_design_component(
-        &design,
-        "AtomLetValueNamedTypes",
-        None,
-        &Map::new(),
-        None,
-    )
-    .expect("bake");
+    let baked =
+        build_baked_design_component(&design, "AtomLetValueNamedTypes", None, &Map::new(), None)
+            .expect("bake");
     let radius = baked
         .pointer("/components/AtomLetValueNamedTypes/root/props/background/0/radius")
         .and_then(|v| v.as_f64());
@@ -948,8 +956,8 @@ fn child_mount_at_opacity_applies_on_bake() {
     let root = repo_root();
     let entry = root.join("test-fixtures/pdl/atoms/child_opacity_at.pdl");
     let design = load_design(entry.to_str().unwrap()).expect("load");
-    let baked = build_baked_design_component(&design, "LabLayers", None, &Map::new(), None)
-        .expect("bake");
+    let baked =
+        build_baked_design_component(&design, "LabLayers", None, &Map::new(), None).expect("bake");
     let opacity = baked
         .pointer("/components/LabLayers/root/children/0/props/opacity")
         .and_then(|v| v.as_f64());
@@ -1014,7 +1022,11 @@ component BadDefault(mode: Mode = "a") layout {
     );
     let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
     assert_eq!(err.code, "PDL-E040");
-    assert!(err.message.contains("Mode") || err.message.contains("string"), "{}", err.message);
+    assert!(
+        err.message.contains("Mode") || err.message.contains("string"),
+        "{}",
+        err.message
+    );
 }
 
 #[test]
@@ -1411,7 +1423,8 @@ primitive shield4: Opacity = red
     let err = load_design_from_sources("/v/bad.pdl", &sources).unwrap_err();
     assert_eq!(err.code, "PDL-E005");
     assert!(
-        err.message.contains("Primitive `shield4` must use a literal value"),
+        err.message
+            .contains("Primitive `shield4` must use a literal value"),
         "{}",
         err.message
     );
@@ -1434,7 +1447,8 @@ primitive color.dup: Color = #00FF00
     let err = load_design_from_sources("/v/dup.pdl", &sources).unwrap_err();
     assert_eq!(err.code, "PDL-E003");
     assert!(
-        err.message.contains("Invalid redeclaration of token `color.dup`"),
+        err.message
+            .contains("Invalid redeclaration of token `color.dup`"),
         "{}",
         err.message
     );
@@ -1472,10 +1486,7 @@ component EditChip <PointerInput, EditableText>() text {
     let m = parse_module_source(src, "multi.pdl").unwrap();
     match &m.declarations[0] {
         pdl_core::ast::TopLevelDecl::Component(c) => {
-            assert_eq!(
-                c.conforms_to.as_slice(),
-                ["PointerInput", "EditableText"]
-            );
+            assert_eq!(c.conforms_to.as_slice(), ["PointerInput", "EditableText"]);
         }
         other => panic!("expected component, got {other:?}"),
     }
@@ -1494,28 +1505,914 @@ component Bad <PointerInput, PointerInput>() layout {
 }
 
 #[test]
-fn multiple_api_protocols_is_e044() {
+fn api_protocol_in_receive_header_is_e044() {
     use pdl_core::design::load_design_from_sources;
     use pdl_core::SourceMap;
     let mut sources = SourceMap::new();
     sources.insert(
-        "/v/two-api.pdl".to_string(),
+        "/v/api-receive.pdl".to_string(),
         r#"
-protocol A: component {
+protocol TitleBody: component {
   title: String = ""
 }
-protocol B: component {
-  subtitle: String = ""
-}
-component Bad <A, B>() layout {
+component Bad <TitleBody>() layout {
   children = []
 }
 "#
         .to_string(),
     );
-    let err = load_design_from_sources("/v/two-api.pdl", &sources).unwrap_err();
+    let err = load_design_from_sources("/v/api-receive.pdl", &sources).unwrap_err();
     assert_eq!(err.code, "PDL-E044");
-    assert!(err.message.contains("A") && err.message.contains("B"), "{}", err.message);
+    assert!(
+        err.message.contains("emits <TitleBody>") && err.message.contains("Bad"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn parses_header_and_trailing_emits_protocols() {
+    let src = r#"
+protocol ShowEpisode: component {
+  emits(propagation: .ancestors) { showEpisode(id: EpisodeId) }
+}
+protocol SubnavItem: component {
+  title = ""
+}
+component Row <PointerInput> emits <ShowEpisode>() layout {
+  children = []
+} emits <SubnavItem>
+"#;
+    let m = parse_module_source(src, "emits_proto.pdl").unwrap();
+    match &m.declarations[2] {
+        pdl_core::ast::TopLevelDecl::Component(c) => {
+            assert_eq!(c.conforms_to.as_slice(), ["PointerInput"]);
+            assert_eq!(c.emits_protocols.as_slice(), ["ShowEpisode", "SubnavItem"]);
+        }
+        other => panic!("expected component, got {other:?}"),
+    }
+}
+
+#[test]
+fn two_ancestor_sinks_in_receive_header_ok() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/two-sinks.pdl".to_string(),
+        r#"
+variant EpisodeId { case demo }
+protocol ShowEpisode: component {
+  emits(propagation: .ancestors) { showEpisode(id: EpisodeId) }
+}
+protocol AppNav: component {
+  emits(propagation: .ancestors) { back() }
+}
+screen Phone <ShowEpisode, AppNav>() layout {
+  children = []
+  showEpisode(id: EpisodeId) = { }
+  back() = { }
+}
+"#
+        .to_string(),
+    );
+    let design = load_design_from_sources("/v/two-sinks.pdl", &sources).expect("load");
+    assert_eq!(
+        design.components["Phone"].conforms_to.as_slice(),
+        ["ShowEpisode", "AppNav"]
+    );
+}
+
+#[test]
+fn same_protocol_receive_and_send_is_e044() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/both.pdl".to_string(),
+        r#"
+variant EpisodeId { case demo }
+protocol ShowEpisode: component {
+  emits(propagation: .ancestors) { showEpisode(id: EpisodeId) }
+}
+component Bad <ShowEpisode> emits <ShowEpisode>() layout {
+  children = []
+  showEpisode(id: EpisodeId) = { }
+}
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/both.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E044");
+    assert!(err.message.contains("ShowEpisode"), "{}", err.message);
+}
+
+#[test]
+fn sink_missing_handler_is_e056() {
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/errors/e056-sink-missing-handler.pdl");
+    let err = load_design(path.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E056");
+    assert!(
+        err.message.contains("ShowEpisode") && err.message.contains("showEpisode"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn page_and_screen_parse_as_component_roles() {
+    let src = r#"
+page Home() layout { children = [] }
+screen Phone() layout { children = [] }
+"#;
+    let m = parse_module_source(src, "roles.pdl").unwrap();
+    match &m.declarations[0] {
+        pdl_core::ast::TopLevelDecl::Component(c) => {
+            assert_eq!(c.name, "Home");
+            assert_eq!(c.role, pdl_core::ast::ComponentRole::Page);
+        }
+        other => panic!("expected page, got {other:?}"),
+    }
+    match &m.declarations[1] {
+        pdl_core::ast::TopLevelDecl::Component(c) => {
+            assert_eq!(c.name, "Phone");
+            assert_eq!(c.role, pdl_core::ast::ComponentRole::Screen);
+        }
+        other => panic!("expected screen, got {other:?}"),
+    }
+}
+
+#[test]
+fn page_satisfies_prelude_page_slot() {
+    use pdl_core::catalogue::build_component_catalogue;
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/lab/nav/n0_roles.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load");
+    assert_eq!(
+        design.components["Home"].role,
+        pdl_core::ast::ComponentRole::Page
+    );
+    assert_eq!(
+        design.components["Phone"].role,
+        pdl_core::ast::ComponentRole::Screen
+    );
+    assert!(design.protocols.contains_key("Page"));
+    assert_eq!(
+        design.protocols["Page"].role,
+        pdl_core::ast::ProtocolRole::Api
+    );
+    let cat =
+        build_component_catalogue(&design, None, &[], Some("1970-01-01T00:00:00.000Z".into()))
+            .expect("catalogue");
+    assert_eq!(cat["components"]["Home"]["role"], "page");
+    assert_eq!(cat["components"]["Phone"]["role"], "screen");
+    assert!(cat["components"]["Button"].get("role").is_none());
+    assert!(cat["protocols"].get("Page").is_some());
+}
+
+#[test]
+fn protocol_subject_page_is_e001() {
+    let path = repo_root().join("test-fixtures/pdl/errors/e001-protocol-subject-page.pdl");
+    let src = std::fs::read_to_string(&path).unwrap();
+    let err = parse_module_source(&src, "e001-protocol-subject-page.pdl").unwrap_err();
+    assert_eq!(err.code, "PDL-E001");
+    assert!(err.message.contains("page"), "{}", err.message);
+}
+
+#[test]
+fn page_keyword_as_slot_type_is_e039() {
+    let path = repo_root().join("test-fixtures/pdl/errors/e039-page-keyword-as-type.pdl");
+    let src = std::fs::read_to_string(&path).unwrap();
+    let err = parse_module_source(&src, "e039-page-keyword-as-type.pdl").unwrap_err();
+    assert_eq!(err.code, "PDL-E039");
+    assert!(err.message.contains("Page"), "{}", err.message);
+}
+
+#[test]
+fn component_in_page_slot_is_e040() {
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/errors/e040-component-in-page-slot.pdl");
+    let err = load_design(path.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E040");
+    assert!(
+        err.message.contains("Home") || err.message.contains("Page"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn emit_propagation_ancestors_stamps_channels() {
+    let src = r#"
+variant EpisodeId { case demo }
+protocol ShowEpisode: component {
+  emits(propagation: .ancestors) {
+    showEpisode(id: EpisodeId)
+  }
+}
+component Row() layout { children = [] } emits(propagation: .ancestors) {
+  showEpisode(id: EpisodeId)
+}
+emits(propagation: .ancestors) Row {
+  open(id: EpisodeId)
+}
+"#;
+    let m = parse_module_source(src, "n1_ancestors.pdl").unwrap();
+    let mut saw_protocol = false;
+    let mut saw_trailing = false;
+    let mut saw_toplevel = false;
+    for d in &m.declarations {
+        match d {
+            pdl_core::ast::TopLevelDecl::Protocol(p) if p.name == "ShowEpisode" => {
+                assert_eq!(p.emits[0].name, "showEpisode");
+                assert_eq!(
+                    p.emits[0].propagation,
+                    pdl_core::ast::EmitPropagation::Ancestors
+                );
+                saw_protocol = true;
+            }
+            pdl_core::ast::TopLevelDecl::Emits(e) if e.component == "Row" => {
+                assert!(
+                    e.emits
+                        .iter()
+                        .all(|ch| { ch.propagation == pdl_core::ast::EmitPropagation::Ancestors }),
+                    "{e:?}"
+                );
+                if e.emits.iter().any(|ch| ch.name == "showEpisode") {
+                    saw_trailing = true;
+                }
+                if e.emits.iter().any(|ch| ch.name == "open") {
+                    saw_toplevel = true;
+                }
+            }
+            _ => {}
+        }
+    }
+    assert!(saw_protocol && saw_trailing && saw_toplevel);
+}
+
+#[test]
+fn unknown_emit_propagation_is_e051() {
+    let path = repo_root().join("test-fixtures/pdl/errors/e051-unknown-emit-propagation.pdl");
+    let src = std::fs::read_to_string(&path).unwrap();
+    let err = parse_module_source(&src, "e051-unknown-emit-propagation.pdl").unwrap_err();
+    assert_eq!(err.code, "PDL-E051");
+    assert!(
+        err.message.contains(".up") || err.message.contains("propagation"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn catalogue_omits_parent_propagation_records_ancestors() {
+    use pdl_core::catalogue::build_component_catalogue;
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/lab/nav/n1_propagation.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load");
+    let cat =
+        build_component_catalogue(&design, None, &[], Some("1970-01-01T00:00:00.000Z".into()))
+            .expect("catalogue");
+    let chip_emits = cat["components"]["Chip"]["emits"]
+        .as_array()
+        .expect("Chip emits");
+    assert!(
+        chip_emits.iter().all(|e| e.get("propagation").is_none()),
+        "{chip_emits:?}"
+    );
+    assert_eq!(
+        cat["components"]["EpisodeRow"]["emits"][0]["propagation"],
+        "ancestors"
+    );
+    assert_eq!(
+        cat["components"]["DeepLink"]["emits"][0]["propagation"],
+        "ancestors"
+    );
+    assert_eq!(
+        cat["protocols"]["ShowEpisode"]["emits"][0]["propagation"],
+        "ancestors"
+    );
+    assert_eq!(cat["components"]["Chip"]["emits"][0]["name"], "select");
+    assert_eq!(cat["components"]["Button"]["emits"][0]["name"], "tap");
+    assert!(cat["components"]["Button"]["emits"][0]
+        .get("propagation")
+        .is_none());
+}
+
+#[test]
+fn ancestor_capture_parses_bare_channel() {
+    let src = r#"
+variant EpisodeId { case demo }
+protocol ShowEpisode: component {
+  emits(propagation: .ancestors) { showEpisode(id: EpisodeId) }
+}
+screen Phone(current: EpisodeId = .demo) layout {
+  children = []
+  showEpisode(id: EpisodeId) = { current = id }
+}
+"#;
+    let m = parse_module_source(src, "n2_bare.pdl").unwrap();
+    let phone = m
+        .declarations
+        .iter()
+        .find_map(|d| match d {
+            pdl_core::ast::TopLevelDecl::Component(c) if c.name == "Phone" => Some(c),
+            _ => None,
+        })
+        .expect("Phone");
+    let handler = phone
+        .body
+        .iter()
+        .find_map(|i| match i {
+            pdl_core::ast::FrameBodyItem::LayoutOn { handler } => Some(handler),
+            _ => None,
+        })
+        .expect("bare capture");
+    assert!(handler.qualifier.is_none());
+    assert_eq!(handler.channel, "showEpisode");
+    assert_eq!(handler.payload[0].name, "id");
+    assert_eq!(handler.payload[0].type_name, "EpisodeId");
+}
+
+#[test]
+fn n2_lab_screen_receives_show_episode() {
+    use pdl_core::catalogue::build_component_catalogue;
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/lab/nav/n2_capture.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load");
+    let phone = &design.components["Phone"];
+    assert_eq!(phone.role, pdl_core::ast::ComponentRole::Screen);
+    assert_eq!(phone.conforms_to.as_slice(), ["ShowEpisode"]);
+    assert_eq!(
+        design.components["EpisodeRow"].emits_protocols.as_slice(),
+        ["ShowEpisode"]
+    );
+    let capture = phone
+        .body
+        .iter()
+        .find_map(|i| match i {
+            pdl_core::ast::FrameBodyItem::LayoutOn { handler } => Some(handler),
+            _ => None,
+        })
+        .expect("ancestor capture");
+    assert!(capture.qualifier.is_none());
+    assert_eq!(capture.channel, "showEpisode");
+    let cat =
+        build_component_catalogue(&design, None, &[], Some("1970-01-01T00:00:00.000Z".into()))
+            .expect("catalogue");
+    let caps = cat["components"]["Phone"]["emitCaptures"]
+        .as_array()
+        .expect("caps");
+    assert_eq!(caps[0]["channel"], "showEpisode");
+    assert!(caps[0].get("qualifier").is_none());
+    assert_eq!(caps[0]["capture"], "ancestor");
+}
+
+#[test]
+fn protocol_channel_capture_is_e052() {
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/errors/e052-protocol-channel-capture.pdl");
+    let err = load_design(path.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E052");
+    assert!(err.message.contains("ShowEpisode"), "{}", err.message);
+}
+
+#[test]
+fn presenter_channel_capture_is_e052() {
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/errors/e052-presenter-channel-capture.pdl");
+    let err = load_design(path.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E052");
+    assert!(err.message.contains("presenter"), "{}", err.message);
+}
+
+#[test]
+fn unhandled_ancestors_emit_is_e053() {
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/errors/e053-unhandled-ancestors.pdl");
+    let err = load_design(path.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E053");
+    assert!(
+        err.message.contains("showEpisode") && err.message.contains("Home"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn n3_presenter_bakes_root_and_replace_pin() {
+    use indexmap::IndexMap;
+    use pdl_core::ast::{ChildEntry, FrameBodyItem};
+    use pdl_core::bake::build_baked_design_component;
+    use pdl_core::design::load_design;
+    use serde_json::Map;
+
+    let path = repo_root().join("test-fixtures/pdl/lab/nav/n3_presenter.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load n3");
+    let phone = &design.components["Phone"];
+    assert_eq!(phone.conforms_to.as_slice(), ["ShowEpisode"]);
+    let presenter = phone
+        .body
+        .iter()
+        .find_map(|i| match i {
+            FrameBodyItem::Let {
+                id,
+                frame_kind,
+                body,
+            } if id == "presenter" => Some((frame_kind.as_str(), body)),
+            _ => None,
+        })
+        .expect("presenter let");
+    assert_eq!(presenter.0, "presenter");
+    let capture = phone
+        .body
+        .iter()
+        .find_map(|i| match i {
+            FrameBodyItem::LayoutOn { handler } => Some(handler),
+            _ => None,
+        })
+        .expect("capture");
+    assert!(matches!(
+        &capture.body[0],
+        pdl_core::ast::LayoutOnBodyItem::PresenterVerb {
+            qualifier,
+            verb: pdl_core::ast::PresenterVerb::Replace,
+            ..
+        } if qualifier == "presenter"
+    ));
+
+    let doc =
+        build_baked_design_component(&design, "Phone", None, &Map::new(), None).expect("bake root");
+    let root = &doc["components"]["Phone"]["root"];
+    assert_eq!(root["children"][0]["kind"], "presenter");
+    assert_eq!(root["children"][0]["props"]["width"], "fill");
+    assert_eq!(root["children"][0]["props"]["height"], "fill");
+    assert_eq!(root["children"][0]["children"][0]["instanceOf"], "Home");
+
+    let mut pinned = design;
+    let phone = pinned.components.get_mut("Phone").unwrap();
+    for item in &mut phone.body {
+        if let FrameBodyItem::Let {
+            id,
+            frame_kind,
+            body,
+        } = item
+        {
+            if id == "presenter" && frame_kind == "presenter" {
+                for b in body {
+                    if let FrameBodyItem::Children { entries, .. } = b {
+                        *entries = vec![ChildEntry::Instance {
+                            component: "Episode".into(),
+                            kwargs: IndexMap::new(),
+                            opacity: None,
+                        }];
+                    }
+                }
+            }
+        }
+    }
+    let replaced = build_baked_design_component(&pinned, "Phone", None, &Map::new(), None)
+        .expect("bake replace pin");
+    assert_eq!(
+        replaced["components"]["Phone"]["root"]["children"][0]["children"][0]["instanceOf"],
+        "Episode"
+    );
+}
+
+#[test]
+fn presenter_missing_root_is_e054() {
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/errors/e054-presenter-missing-root.pdl");
+    let err = load_design(path.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E054");
+    assert!(err.message.contains("root"), "{}", err.message);
+}
+
+#[test]
+fn presenter_accepts_box_props_and_rejects_direction() {
+    use pdl_core::ast::FrameBodyItem;
+    use pdl_core::bake::build_baked_design_component;
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    use serde_json::Map;
+
+    let src = r#"
+page Home() layout { children = [] }
+screen Phone() layout {
+  let home = Home()
+  let presenter = Presenter(root: home, height: .hug, padding: 8)
+  children = [presenter]
+}
+"#;
+    let mut sources = SourceMap::new();
+    sources.insert("/v/presenter-box.pdl".into(), src.into());
+    let design = load_design_from_sources("/v/presenter-box.pdl", &sources).expect("load");
+    let phone = &design.components["Phone"];
+    let body = phone
+        .body
+        .iter()
+        .find_map(|i| match i {
+            FrameBodyItem::Let {
+                id,
+                frame_kind,
+                body,
+            } if id == "presenter" && frame_kind == "presenter" => Some(body),
+            _ => None,
+        })
+        .expect("presenter let");
+    assert!(
+        body.iter().any(|i| matches!(
+            i,
+            FrameBodyItem::Prop { name, .. } if name == "height"
+        )),
+        "{body:?}"
+    );
+    assert!(
+        body.iter().any(|i| matches!(
+            i,
+            FrameBodyItem::Prop { name, .. } if name == "padding"
+        )),
+        "{body:?}"
+    );
+
+    let doc =
+        build_baked_design_component(&design, "Phone", None, &Map::new(), None).expect("bake");
+    let hole = &doc["components"]["Phone"]["root"]["children"][0];
+    assert_eq!(hole["kind"], "presenter");
+    assert_eq!(hole["props"]["width"], "fill");
+    assert_eq!(hole["props"]["height"], "hug");
+    assert_eq!(hole["props"]["padding"]["top"], 8.0);
+
+    let bad = r#"
+page Home() layout { children = [] }
+screen Phone() layout {
+  let home = Home()
+  let presenter = Presenter(root: home, direction: .row)
+  children = [presenter]
+}
+"#;
+    let mut bad_sources = SourceMap::new();
+    bad_sources.insert("/v/presenter-dir.pdl".into(), bad.into());
+    let err = load_design_from_sources("/v/presenter-dir.pdl", &bad_sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E011");
+    assert!(err.message.contains("direction"), "{}", err.message);
+}
+
+#[test]
+fn n4_stack_bakes_top_and_fixture_pin() {
+    use pdl_core::ast::{FrameBodyItem, LayoutOnBodyItem, PresenterVerb};
+    use pdl_core::bake::{
+        build_baked_design_component, build_baked_design_component_with_presenter_pins,
+    };
+    use pdl_core::catalogue::build_component_catalogue;
+    use pdl_core::design::load_design;
+    use pdl_core::presenter::presenter_pins_from_fixture;
+    use serde_json::{json, Map};
+
+    let path = repo_root().join("test-fixtures/pdl/lab/nav/n4_stack.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load n4");
+    let phone = &design.components["Phone"];
+    assert_eq!(phone.conforms_to.as_slice(), ["ShowEpisode", "AppNav"]);
+    let verbs: Vec<_> = phone
+        .body
+        .iter()
+        .filter_map(|i| match i {
+            FrameBodyItem::LayoutOn { handler } => handler.body.first(),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        verbs.iter().any(|i| matches!(
+            i,
+            LayoutOnBodyItem::PresenterVerb {
+                verb: PresenterVerb::Push,
+                ..
+            }
+        )),
+        "{verbs:?}"
+    );
+    assert!(
+        verbs.iter().any(|i| matches!(
+            i,
+            LayoutOnBodyItem::PresenterVerb {
+                verb: PresenterVerb::Pop,
+                ..
+            }
+        )),
+        "{verbs:?}"
+    );
+
+    let doc =
+        build_baked_design_component(&design, "Phone", None, &Map::new(), None).expect("bake root");
+    let presenter = &doc["components"]["Phone"]["root"]["children"][0];
+    assert_eq!(presenter["kind"], "presenter");
+    assert_eq!(presenter["children"][0]["instanceOf"], "Home");
+    assert_eq!(presenter["props"]["stack"], json!(["Home"]));
+
+    let pins = presenter_pins_from_fixture(&design, "Phone", "Episode");
+    let pinned = build_baked_design_component_with_presenter_pins(
+        &design,
+        "Phone",
+        None,
+        &Map::new(),
+        None,
+        None,
+        None,
+        pins,
+    )
+    .expect("bake pin");
+    let top = &pinned["components"]["Phone"]["root"]["children"][0];
+    assert_eq!(top["children"][0]["instanceOf"], "Episode");
+    assert_eq!(top["props"]["stack"], json!(["Home", "Episode"]));
+
+    let cat =
+        build_component_catalogue(&design, None, &[], Some("1970-01-01T00:00:00.000Z".into()))
+            .expect("catalogue");
+    let pin = &cat["components"]["Phone"]["fixtures"]["Episode"]["presenter"];
+    assert_eq!(pin[0]["component"], "Home");
+    assert_eq!(pin[1]["component"], "Episode");
+}
+
+#[test]
+fn n5_cover_bakes_above_stack_and_fixture_pin() {
+    use pdl_core::ast::{FrameBodyItem, LayoutOnBodyItem, PresenterVerb};
+    use pdl_core::bake::{
+        build_baked_design_component, build_baked_design_component_with_presenter_pins,
+    };
+    use pdl_core::catalogue::build_component_catalogue;
+    use pdl_core::design::load_design;
+    use pdl_core::presenter::presenter_pins_from_fixture;
+    use serde_json::{json, Map};
+
+    let path = repo_root().join("test-fixtures/pdl/lab/nav/n5_cover.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load n5");
+    let phone = &design.components["Phone"];
+    assert_eq!(phone.conforms_to.as_slice(), ["ShowEpisode", "AppNav"]);
+    let verbs: Vec<_> = phone
+        .body
+        .iter()
+        .filter_map(|i| match i {
+            FrameBodyItem::LayoutOn { handler } => handler.body.first(),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        verbs.iter().any(|i| matches!(
+            i,
+            LayoutOnBodyItem::PresenterVerb {
+                verb: PresenterVerb::Present,
+                style: Some(s),
+                ..
+            } if s == "cover"
+        )),
+        "{verbs:?}"
+    );
+    assert!(
+        verbs.iter().any(|i| matches!(
+            i,
+            LayoutOnBodyItem::PresenterVerb {
+                verb: PresenterVerb::Dismiss,
+                ..
+            }
+        )),
+        "{verbs:?}"
+    );
+
+    let doc =
+        build_baked_design_component(&design, "Phone", None, &Map::new(), None).expect("bake root");
+    let presenter = &doc["components"]["Phone"]["root"]["children"][0];
+    assert_eq!(presenter["kind"], "presenter");
+    assert_eq!(presenter["children"][0]["instanceOf"], "Home");
+    assert_eq!(presenter["props"]["stack"], json!(["Home"]));
+    assert!(presenter["props"].get("cover").is_none());
+
+    let episode_pins = presenter_pins_from_fixture(&design, "Phone", "Episode");
+    let episode = build_baked_design_component_with_presenter_pins(
+        &design,
+        "Phone",
+        None,
+        &Map::new(),
+        None,
+        None,
+        None,
+        episode_pins,
+    )
+    .expect("bake episode");
+    let ep = &episode["components"]["Phone"]["root"]["children"][0];
+    assert_eq!(ep["children"][0]["instanceOf"], "Episode");
+    assert_eq!(ep["props"]["stack"], json!(["Home", "Episode"]));
+    assert!(ep["props"].get("cover").is_none());
+
+    let pins = presenter_pins_from_fixture(&design, "Phone", "Settings");
+    let covered = build_baked_design_component_with_presenter_pins(
+        &design,
+        "Phone",
+        None,
+        &Map::new(),
+        None,
+        None,
+        None,
+        pins,
+    )
+    .expect("bake cover");
+    let top = &covered["components"]["Phone"]["root"]["children"][0];
+    assert_eq!(top["children"][0]["instanceOf"], "Episode");
+    assert_eq!(top["children"][1]["instanceOf"], "Settings");
+    assert_eq!(top["props"]["stack"], json!(["Home", "Episode"]));
+    assert_eq!(top["props"]["cover"], "Settings");
+
+    let cat =
+        build_component_catalogue(&design, None, &[], Some("1970-01-01T00:00:00.000Z".into()))
+            .expect("catalogue");
+    let fx = &cat["components"]["Phone"]["fixtures"]["Settings"];
+    assert_eq!(fx["presenter"][1]["component"], "Episode");
+    assert_eq!(fx["presenter.cover"]["component"], "Settings");
+
+    let from_json = pdl_core::presenter::pins_from_json(fx);
+    let via_json = build_baked_design_component_with_presenter_pins(
+        &design,
+        "Phone",
+        None,
+        &Map::new(),
+        None,
+        None,
+        None,
+        from_json,
+    )
+    .expect("bake pins_from_json");
+    let via = &via_json["components"]["Phone"]["root"]["children"][0];
+    assert_eq!(via["children"][0]["instanceOf"], "Episode");
+    assert_eq!(via["children"][1]["instanceOf"], "Settings");
+    assert_eq!(via["props"]["cover"], "Settings");
+    assert_eq!(via["props"]["stack"], json!(["Home", "Episode"]));
+}
+
+#[test]
+fn n8_slide_catalogue_evaluates_pair_move() {
+    use pdl_core::catalogue::build_component_catalogue;
+    use pdl_core::design::load_design;
+
+    let path = repo_root().join("test-fixtures/pdl/lab/nav/n8_slide.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load n8");
+    let cat =
+        build_component_catalogue(&design, None, &[], Some("1970-01-01T00:00:00.000Z".into()))
+            .expect("catalogue");
+    let caps = cat["components"]["Phone"]["emitCaptures"]
+        .as_array()
+        .expect("captures");
+    let push = caps
+        .iter()
+        .find(|c| c["channel"] == "showEpisode")
+        .expect("showEpisode");
+    let verb = &push["body"][0];
+    assert_eq!(verb["kind"], "presenterVerb");
+    assert_eq!(verb["name"], "push");
+    assert_eq!(verb["move"]["kind"], "presentationMotion");
+    assert_eq!(verb["move"]["incoming"]["translateX"], 390.0);
+    assert_eq!(verb["dismissMove"]["kind"], "presentationMotion");
+    assert_eq!(verb["dismissMove"]["outgoing"]["translateX"], 390.0);
+}
+
+#[test]
+fn b7_apply_ops_then_bake_cover_dismiss_pop() {
+    use pdl_core::bake::build_baked_design_component_with_presenter_pins;
+    use pdl_core::design::load_design;
+    use pdl_core::presenter::{apply_presenter_ops_json, pins_from_json};
+    use serde_json::{json, Map};
+
+    let path = repo_root().join("test-fixtures/pdl/lab/nav/n5_cover.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load n5");
+    let mut pins = serde_json::json!({
+        "presenter": { "stack": [{ "component": "Home", "params": {} }] }
+    });
+    pins = apply_presenter_ops_json(
+        &pins,
+        &json!([{
+            "qualifier": "presenter",
+            "name": "push",
+            "page": { "component": "Episode", "params": { "episodeId": "demo" } }
+        }]),
+    );
+    pins = apply_presenter_ops_json(
+        &pins,
+        &json!([{
+            "qualifier": "presenter",
+            "name": "present",
+            "page": { "component": "Settings", "params": {} }
+        }]),
+    );
+    let covered = build_baked_design_component_with_presenter_pins(
+        &design,
+        "Phone",
+        None,
+        &Map::new(),
+        None,
+        None,
+        None,
+        pins_from_json(&pins),
+    )
+    .expect("cover");
+    let top = &covered["components"]["Phone"]["root"]["children"][0];
+    assert_eq!(top["children"][0]["instanceOf"], "Episode");
+    assert_eq!(top["children"][1]["instanceOf"], "Settings");
+    assert_eq!(top["props"]["cover"], "Settings");
+    assert_eq!(top["props"]["stack"], json!(["Home", "Episode"]));
+
+    pins = apply_presenter_ops_json(
+        &pins,
+        &json!([{ "qualifier": "presenter", "name": "dismiss" }]),
+    );
+    pins = apply_presenter_ops_json(&pins, &json!([{ "qualifier": "presenter", "name": "pop" }]));
+    let home = build_baked_design_component_with_presenter_pins(
+        &design,
+        "Phone",
+        None,
+        &Map::new(),
+        None,
+        None,
+        None,
+        pins_from_json(&pins),
+    )
+    .expect("home");
+    let root = &home["components"]["Phone"]["root"]["children"][0];
+    assert_eq!(root["children"][0]["instanceOf"], "Home");
+    assert!(root["props"].get("cover").is_none());
+    assert_eq!(root["props"]["stack"], json!(["Home"]));
+}
+
+#[test]
+fn n6_nested_shell_and_phone_both_capture_show_episode() {
+    use pdl_core::catalogue::build_component_catalogue;
+    use pdl_core::design::load_design;
+
+    let path = repo_root().join("test-fixtures/pdl/lab/nav/n6_climb.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load n6");
+    let cat =
+        build_component_catalogue(&design, None, &[], Some("1970-01-01T00:00:00.000Z".into()))
+            .expect("catalogue");
+    let shell = cat["components"]["NestedShell"]["emitCaptures"]
+        .as_array()
+        .expect("NestedShell captures");
+    assert!(
+        shell
+            .iter()
+            .any(|c| c["channel"] == "showEpisode" && c["capture"] == "ancestor"),
+        "{shell:?}"
+    );
+    let phone = cat["components"]["Phone"]["emitCaptures"]
+        .as_array()
+        .expect("Phone captures");
+    assert!(
+        phone
+            .iter()
+            .any(|c| c["channel"] == "showEpisode" && c["capture"] == "ancestor"),
+        "{phone:?}"
+    );
+}
+
+#[test]
+fn present_sheet_is_e055() {
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/errors/e055-present-sheet.pdl");
+    let err = load_design(path.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E055");
+    assert!(
+        err.message.contains("sheet") && err.message.contains("cover"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn replace_outside_capture_is_e055() {
+    let path = repo_root().join("test-fixtures/pdl/errors/e055-replace-outside-capture.pdl");
+    let src = std::fs::read_to_string(&path).unwrap();
+    let err = parse_module_source(&src, "e055-replace-outside-capture.pdl").unwrap_err();
+    assert_eq!(err.code, "PDL-E055");
+    assert!(err.message.contains("replace"), "{}", err.message);
+}
+
+#[test]
+fn bare_parent_channel_is_e024() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let mut sources = SourceMap::new();
+    sources.insert(
+        "/v/parent.pdl".to_string(),
+        r#"
+variant FilterId { case all }
+component Chip() layout { children = [] } emits { select(filter: FilterId) }
+component Bar() layout {
+  children = []
+  select(filter: FilterId) = { }
+}
+"#
+        .to_string(),
+    );
+    let err = load_design_from_sources("/v/parent.pdl", &sources).unwrap_err();
+    assert_eq!(err.code, "PDL-E024");
+    assert!(err.message.contains("select"), "{}", err.message);
 }
 
 #[test]
@@ -1552,12 +2449,12 @@ fn loads_h0_multi_protocol_lab() {
     let path = repo_root().join("test-fixtures/pdl/lab/host/h0_multi_protocol.pdl");
     let design = load_design(path.to_str().unwrap()).expect("load H0 lab");
     let c = design.components.get("EditChip").expect("EditChip");
-    assert_eq!(
-        c.conforms_to.as_slice(),
-        ["PointerInput", "EditableText"]
-    );
+    assert_eq!(c.conforms_to.as_slice(), ["PointerInput", "EditableText"]);
     let hosts = effective_host_protocols(&design, c).expect("hosts");
-    assert_eq!(hosts, vec!["PointerInput".to_string(), "EditableText".to_string()]);
+    assert_eq!(
+        hosts,
+        vec!["PointerInput".to_string(), "EditableText".to_string()]
+    );
     let names: Vec<_> = effective_params(&design, c)
         .expect("params")
         .iter()
@@ -1643,7 +2540,10 @@ fn host_defaults_inject_into_effective_params() {
         .iter()
         .map(|p| p.name.as_str().to_string())
         .collect();
-    assert!(!card_names.iter().any(|n| n == "sizeClass"), "{card_names:?}");
+    assert!(
+        !card_names.iter().any(|n| n == "sizeClass"),
+        "{card_names:?}"
+    );
     let click = design.components.get("ClickShell").expect("ClickShell");
     assert_eq!(click.conforms_to.as_slice(), ["Host", "PointerInput"]);
     let click_names: Vec<_> = effective_params(&design, click)
@@ -1651,7 +2551,10 @@ fn host_defaults_inject_into_effective_params() {
         .iter()
         .map(|p| p.name.as_str().to_string())
         .collect();
-    assert!(click_names.iter().any(|n| n == "sizeClass"), "{click_names:?}");
+    assert!(
+        click_names.iter().any(|n| n == "sizeClass"),
+        "{click_names:?}"
+    );
 }
 
 #[test]
@@ -1756,16 +2659,14 @@ fn bake_theme_rejects_catalog_name() {
     use serde_json::Map;
     let path = repo_root().join("test-fixtures/pdl/lab/host/design.pdl");
     let design = load_design(path.to_str().unwrap()).expect("load");
-    let err = build_baked_design_component(
-        &design,
-        "Shell",
-        Some("AppleIcons"),
-        &Map::new(),
-        None,
-    )
-    .unwrap_err();
+    let err = build_baked_design_component(&design, "Shell", Some("AppleIcons"), &Map::new(), None)
+        .unwrap_err();
     assert_eq!(err.code, "PDL-E049");
-    assert!(err.message.contains("catalog") || err.message.contains("AppleIcons"), "{}", err.message);
+    assert!(
+        err.message.contains("catalog") || err.message.contains("AppleIcons"),
+        "{}",
+        err.message
+    );
 }
 
 #[test]
@@ -1910,9 +2811,15 @@ fn host_watch_facts_set_compact_and_watch() {
     let params = &doc["components"]["Shell"]["bakedParams"];
     assert_eq!(params["sizeClass"], "compact");
     assert_eq!(params["surface"], "watch");
-    assert_eq!(doc["components"]["Shell"]["root"]["props"]["direction"], "column");
+    assert_eq!(
+        doc["components"]["Shell"]["root"]["props"]["direction"],
+        "column"
+    );
     assert_eq!(doc["components"]["Shell"]["root"]["props"]["gap"], 8);
-    assert_eq!(doc["components"]["Shell"]["root"]["props"]["cornerRadius"], 20);
+    assert_eq!(
+        doc["components"]["Shell"]["root"]["props"]["cornerRadius"],
+        20
+    );
 }
 
 #[test]
@@ -1944,8 +2851,14 @@ fn host_param_fact_pins_override_mount() {
     let params = &doc["components"]["Shell"]["bakedParams"];
     assert_eq!(params["sizeClass"], "expanded");
     assert_eq!(params["surface"], "web");
-    assert_eq!(doc["components"]["Shell"]["root"]["props"]["direction"], "row");
-    assert_eq!(doc["components"]["Shell"]["root"]["props"]["cornerRadius"], 0);
+    assert_eq!(
+        doc["components"]["Shell"]["root"]["props"]["direction"],
+        "row"
+    );
+    assert_eq!(
+        doc["components"]["Shell"]["root"]["props"]["cornerRadius"],
+        0
+    );
 }
 
 #[test]
@@ -1954,8 +2867,9 @@ fn host_lab_catalogue_lists_catalogs_apart_from_themes() {
     use pdl_core::design::load_design;
     let path = repo_root().join("test-fixtures/pdl/lab/host/design.pdl");
     let design = load_design(path.to_str().unwrap()).expect("load");
-    let cat = build_component_catalogue(&design, None, &[], Some("1970-01-01T00:00:00.000Z".into()))
-        .expect("catalogue");
+    let cat =
+        build_component_catalogue(&design, None, &[], Some("1970-01-01T00:00:00.000Z".into()))
+            .expect("catalogue");
     assert!(cat["themes"].get("Dark").is_some(), "themes.Dark");
     assert!(cat["themes"].get("AppleIcons").is_none());
     assert_eq!(cat["catalogs"]["AppleIcons"]["role"], "host");
@@ -2044,9 +2958,18 @@ fn stdlib_host_protocols_file_parses_inbound_and_verbs() {
         "beginEditing(startingValue): {:?}",
         edit.verbs
     );
-    assert!(edit.verbs.iter().any(|v| v.name == "finishEditing" && v.params.is_empty()));
-    assert!(edit.verbs.iter().any(|v| v.name == "cancelEditing" && v.params.is_empty()));
-    assert!(edit.verbs.iter().any(|v| v.name == "commitEditing" && v.params.is_empty()));
+    assert!(edit
+        .verbs
+        .iter()
+        .any(|v| v.name == "finishEditing" && v.params.is_empty()));
+    assert!(edit
+        .verbs
+        .iter()
+        .any(|v| v.name == "cancelEditing" && v.params.is_empty()));
+    assert!(edit
+        .verbs
+        .iter()
+        .any(|v| v.name == "commitEditing" && v.params.is_empty()));
     let host = design.protocols.get("Host").expect("Host");
     assert_eq!(host.role, pdl_core::ast::ProtocolRole::Host);
     assert!(host.inbound.is_empty());
@@ -2066,7 +2989,7 @@ protocol FormField: component {
   requires PointerInput
   placeholder: String = ""
 }
-component SearchField <FormField>(placeholder: String = "Search") text {
+component SearchField emits <FormField>(placeholder: String = "Search") text {
   content = placeholder
   if isEditing {
     content = value
@@ -2170,7 +3093,11 @@ component Editor(draft: String = "", editing: Bool = false, committed: String = 
             _ => None,
         })
         .collect();
-    assert!(captures.len() >= 3, "expected Edit/Done/Cancel captures, got {}", captures.len());
+    assert!(
+        captures.len() >= 3,
+        "expected Edit/Done/Cancel captures, got {}",
+        captures.len()
+    );
     let edit = captures
         .iter()
         .find(|h| h.qualifier.as_deref() == Some("Edit"))
@@ -2252,8 +3179,8 @@ component MyTextField <EditableText>() text {
         .unwrap_or("");
     assert_eq!(content, "Type here…", "tree props: {:?}", tree.props);
 
-    let baked = build_baked_design_component(&design, "MyTextField", None, &overrides, None)
-        .expect("bake");
+    let baked =
+        build_baked_design_component(&design, "MyTextField", None, &overrides, None).expect("bake");
     let bp = &baked["components"]["MyTextField"]["bakedParams"];
     assert_eq!(bp["isEmpty"], Value::Bool(true));
     assert_eq!(bp["value"], Value::String("".into()), "bakedParams: {bp:?}");
@@ -2373,7 +3300,12 @@ fn loads_filter_chip_with_effective_emits() {
     assert_eq!(emits[0].name, "select");
     assert_eq!(emits[0].args[0].name, "filter");
     assert_eq!(emits[0].args[0].type_name, "FilterId");
-    assert!(design.interactions.get("FilterChip").unwrap().contains_key("default"));
+    assert_eq!(emits[0].propagation, pdl_core::ast::EmitPropagation::Parent);
+    assert!(design
+        .interactions
+        .get("FilterChip")
+        .unwrap()
+        .contains_key("default"));
 }
 
 #[test]
@@ -2397,6 +3329,10 @@ component Chip <PointerInput>(filter: FilterId = .all) layout {
             pdl_core::ast::TopLevelDecl::Emits(e) => {
                 assert_eq!(e.component, "Chip");
                 assert_eq!(e.emits[0].name, "select");
+                assert_eq!(
+                    e.emits[0].propagation,
+                    pdl_core::ast::EmitPropagation::Parent
+                );
                 "emits"
             }
             pdl_core::ast::TopLevelDecl::Interaction(i) => {
@@ -2407,10 +3343,7 @@ component Chip <PointerInput>(filter: FilterId = .all) layout {
             _ => "other",
         })
         .collect();
-    assert_eq!(
-        kinds,
-        vec!["variant", "component", "interaction", "emits"]
-    );
+    assert_eq!(kinds, vec!["variant", "component", "interaction", "emits"]);
 }
 
 #[test]
@@ -2497,11 +3430,7 @@ component Bar(
         })
         .expect("Bar");
     match &bar.body[0] {
-        pdl_core::ast::FrameBodyItem::ForEach {
-            list,
-            item,
-            body,
-        } => {
+        pdl_core::ast::FrameBodyItem::ForEach { list, item, body } => {
             assert_eq!(list, "chips");
             assert_eq!(item, "chip");
             assert!(
@@ -2635,7 +3564,7 @@ protocol Item: component {
   filter: FilterId = .all
   emits { select(filter: FilterId) }
 }
-component Chip <Item>() layout { children = [] }
+component Chip emits <Item>() layout { children = [] }
 component Host(
   currentFilter: FilterId = .all,
   chips: [Item] = [Chip()]
@@ -2673,25 +3602,20 @@ fn bakes_foreach_with_selected_bind() {
     let design = load_design(path.to_str().unwrap()).expect("load protocols design");
     let mut overrides = Map::new();
     overrides.insert("currentFilter".into(), json!("podcasts"));
-    let doc = build_baked_design_component(
-        &design,
-        "LibrarySubnav",
-        None,
-        &overrides,
-        None,
-    )
-    .expect("bake LibrarySubnav");
+    let doc = build_baked_design_component(&design, "LibrarySubnav", None, &overrides, None)
+        .expect("bake LibrarySubnav");
     let children = doc["components"]["LibrarySubnav"]["root"]["children"]
         .as_array()
         .expect("children");
-    assert_eq!(children.len(), 4, "ForEach should expand four chip instances");
+    assert_eq!(
+        children.len(),
+        4,
+        "ForEach should expand four chip instances"
+    );
     let mut selected_by_title = Map::new();
     for ch in children {
         let kwargs = ch["instanceKwargs"].as_object().expect("instanceKwargs");
-        let title = kwargs
-            .get("title")
-            .and_then(|v| v.as_str())
-            .expect("title");
+        let title = kwargs.get("title").and_then(|v| v.as_str()).expect("title");
         let selected = kwargs.get("selected").cloned().expect("selected bind");
         selected_by_title.insert(title.to_string(), selected);
         // Nested Label still present
@@ -2852,7 +3776,7 @@ fn foreach_without_children_is_e035() {
         "/v/bad.pdl".to_string(),
         r#"
 protocol Item: component { title = "" }
-component Chip <Item>() layout { children = [] }
+component Chip emits <Item>() layout { children = [] }
 component Host(
   chips: [Item] = [Chip()]
 ) layout {
@@ -3100,8 +4024,8 @@ component BadGap() layout {
 
 #[test]
 fn later_gap_clears_column_and_row_gap() {
-    use pdl_core::design::load_design_from_sources;
     use pdl_core::bake::build_baked_design_component;
+    use pdl_core::design::load_design_from_sources;
     use pdl_core::SourceMap;
     use serde_json::Map;
     let mut sources = SourceMap::new();
@@ -3120,8 +4044,8 @@ component GapReset() layout {
         .to_string(),
     );
     let design = load_design_from_sources("/v/ok.pdl", &sources).expect("load");
-    let doc = build_baked_design_component(&design, "GapReset", None, &Map::new(), None)
-        .expect("bake");
+    let doc =
+        build_baked_design_component(&design, "GapReset", None, &Map::new(), None).expect("bake");
     let props = &doc["components"]["GapReset"]["root"]["props"];
     assert_eq!(props["gap"], 8);
     assert!(props.get("columnGap").is_none(), "{props:?}");

@@ -7,7 +7,7 @@ use indexmap::IndexMap;
 
 use crate::ast::{ChildEntry, FrameBodyItem, ValueExpr};
 
-pub const FRAME_CTOR_NAMES: &[&str] = &["Text", "Layout", "Icon", "Media"];
+pub const FRAME_CTOR_NAMES: &[&str] = &["Text", "Layout", "Icon", "Media", "Presenter"];
 
 /// Reserved component names — collide with World A frame ctors.
 pub const RESERVED_FRAME_CTOR_COMPONENT_NAMES: &[&str] = FRAME_CTOR_NAMES;
@@ -23,6 +23,7 @@ pub fn frame_ctor_to_kind(name: &str) -> Option<&'static str> {
         "Layout" => Some("layout"),
         "Icon" => Some("icon"),
         "Media" => Some("media"),
+        "Presenter" => Some("presenter"),
         _ => None,
     }
 }

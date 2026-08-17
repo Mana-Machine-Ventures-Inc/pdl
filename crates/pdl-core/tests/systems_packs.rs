@@ -20,7 +20,11 @@ fn collect_pdl_sources(dir: &Path, out: &mut SourceMap) {
         if path.is_dir() {
             collect_pdl_sources(&path, out);
         } else if path.extension().and_then(|e| e.to_str()) == Some("pdl") {
-            let abs = path.canonicalize().expect("canonicalize").to_string_lossy().replace('\\', "/");
+            let abs = path
+                .canonicalize()
+                .expect("canonicalize")
+                .to_string_lossy()
+                .replace('\\', "/");
             let text = fs::read_to_string(&path).expect("read pdl");
             out.insert(abs, text);
         }
@@ -35,12 +39,8 @@ fn airbnb_lite_bakes_from_disk() {
         design.components.contains_key("AbnFormActionsDemo"),
         "expected AbnFormActionsDemo"
     );
-    let sys = build_baked_design_system(
-        &design,
-        None,
-        Some("1970-01-01T00:00:00.000Z".into()),
-    )
-    .unwrap_or_else(|e| panic!("{}", e.format()));
+    let sys = build_baked_design_system(&design, None, Some("1970-01-01T00:00:00.000Z".into()))
+        .unwrap_or_else(|e| panic!("{}", e.format()));
     assert!(sys["components"]["AbnButton"].is_object());
     let one = build_baked_design_component(
         &design,
@@ -68,9 +68,13 @@ fn airbnb_lite_bakes_from_source_map() {
     collect_pdl_sources(&pack_dir, &mut sources);
     // Packs may import shared host protocols outside the pack directory.
     collect_pdl_sources(&repo_root().join("test-fixtures/pdl/stdlib"), &mut sources);
-    assert!(sources.len() >= 5, "expected pack modules, got {}", sources.len());
-    let design = load_design_from_sources(&entry, &sources)
-        .unwrap_or_else(|e| panic!("{}", e.format()));
+    assert!(
+        sources.len() >= 5,
+        "expected pack modules, got {}",
+        sources.len()
+    );
+    let design =
+        load_design_from_sources(&entry, &sources).unwrap_or_else(|e| panic!("{}", e.format()));
     let doc = build_baked_design_component(
         &design,
         "AbnButtonRowDemo",

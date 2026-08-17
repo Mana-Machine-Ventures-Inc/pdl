@@ -1,0 +1,12 @@
+// PDL standard-library page protocol (language prelude).
+//
+// Always in scope — no import required. Compilers inject `Page` into every
+// design merge. Restating this file in a pack is documentation only; redefining
+// `Page` as a host protocol is PDL-E032.
+//
+// A `page Name(…) layout { }` declaration auto-satisfies this protocol
+// (slot type `content: Page = Home()`). Screens and ordinary components do not.
+// Authors may also write `component C emits <Page>()` if they need the bound
+// without the destination role.
+
+protocol Page: component { }

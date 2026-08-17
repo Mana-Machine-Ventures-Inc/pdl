@@ -106,11 +106,13 @@ fn value_kind_name(value: &ValueExpr) -> &'static str {
         ValueExpr::IconFile { .. } | ValueExpr::IconSystem { .. } => "iconRef",
         ValueExpr::MediaSourceFile { .. } | ValueExpr::MediaSourceUrl { .. } => "mediaSourceRef",
         ValueExpr::Array { .. } => "array",
-        ValueExpr::Transition { .. } => "transition",
+        ValueExpr::Timing { .. } => "timing",
         ValueExpr::Pose { .. } => "pose",
         ValueExpr::Stagger { .. } => "stagger",
         ValueExpr::Key { .. } => "key",
         ValueExpr::Motion { .. } => "motion",
+        ValueExpr::EaseBezier { .. } => "easeBezier",
+        ValueExpr::PresentationMotion { .. } => "presentationMotion",
         ValueExpr::Effect { .. } => "effect",
         ValueExpr::VibrancyTuple { .. } => "vibrancyTuple",
         ValueExpr::RampInline { .. } => "rampInline",
@@ -182,9 +184,7 @@ pub fn is_frame_enum_type_name(name: &str) -> bool {
 pub fn looks_like_qualified_enum_type_name(name: &str) -> bool {
     let mut chars = name.chars();
     match chars.next() {
-        Some(c) if c.is_ascii_uppercase() => {
-            chars.all(|c| c.is_ascii_alphanumeric())
-        }
+        Some(c) if c.is_ascii_uppercase() => chars.all(|c| c.is_ascii_alphanumeric()),
         _ => false,
     }
 }
@@ -394,7 +394,11 @@ pub fn assert_frame_prop_compatible(
             }
         }
         if type_id == "mediaSource" {
-            assert_media_source_meta_frame(design, value, &format!("{context}: property `{prop}`"))?;
+            assert_media_source_meta_frame(
+                design,
+                value,
+                &format!("{context}: property `{prop}`"),
+            )?;
         }
         return Ok(());
     }
@@ -416,14 +420,10 @@ fn assert_media_source_meta_frame(
 ) -> Result<(), PdlError> {
     let (media_kind, format) = match value {
         ValueExpr::MediaSourceFile {
-            media_kind,
-            format,
-            ..
+            media_kind, format, ..
         }
         | ValueExpr::MediaSourceUrl {
-            media_kind,
-            format,
-            ..
+            media_kind, format, ..
         } => (media_kind, format),
         _ => return Ok(()),
     };
@@ -480,9 +480,7 @@ fn assert_media_source_meta_frame(
         if mk != expected {
             return Err(err(
                 "PDL-E006",
-                format!(
-                    "{context}: MediaSource kind `.{mk}` is incompatible with format `.{fmt}`"
-                ),
+                format!("{context}: MediaSource kind `.{mk}` is incompatible with format `.{fmt}`"),
                 design,
             ));
         }
@@ -590,9 +588,7 @@ pub fn assert_aspect_box_consistent(
     if aspect_ratio.is_some() && (w_aspect || h_aspect) {
         return Err(err(
             "PDL-E006",
-            format!(
-                "{context}: use either `aspectRatio` or `.aspect(…)` on one axis, not both"
-            ),
+            format!("{context}: use either `aspectRatio` or `.aspect(…)` on one axis, not both"),
             design,
         ));
     }

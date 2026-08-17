@@ -3,18 +3,20 @@
 //! Rust port of `src/bakeDesign.ts`. Produces fully materialised, draw-oriented
 //! JSON (one component entry per component, no token tables).
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use serde_json::{Map, Value};
 
 use crate::ast::{ComponentDecl, RootKind, ValueExpr};
 use crate::design::DesignDefinition;
-use crate::mount::resolve_host_environment;
 use crate::error::PdlError;
 use crate::evaluate::{build_resolved_token_map, evaluate_value, Eval, Tokens};
+use crate::mount::resolve_host_environment;
+use crate::presenter::PresenterPin;
 use crate::resolve::{
     prune_hidden_children_tree, resolve_component_tree_with_host,
-    resolve_default_param_values_with_host, CatalFrame, RESOLVE_OPTIONS_LITERAL_BAKE,
+    resolve_component_tree_with_presenter_pins, resolve_default_param_values_with_host, CatalFrame,
+    RESOLVE_OPTIONS_LITERAL_BAKE,
 };
 
 /// Schema version for stable PDL JSON artefacts. Matches the TypeScript oracle
@@ -39,9 +41,7 @@ fn expand_type_style_into_frame(
 ) -> Result<CatalFrame, PdlError> {
     let mut props = frame.props.clone();
     if let Some(Value::String(ts_raw)) = props.get("typeStyle").cloned() {
-        let name = ts_raw
-            .strip_prefix("typeStyle:")
-            .unwrap_or(ts_raw.as_str());
+        let name = ts_raw.strip_prefix("typeStyle:").unwrap_or(ts_raw.as_str());
         if let Some(decl) = design.type_styles.get(name) {
             let mut from_style = Map::new();
             for (k, expr) in &decl.props {
@@ -217,12 +217,7 @@ pub fn build_baked_design_system_with_host(
     for c in sorted {
         let mut baked_params =
             resolve_default_param_values_with_host(design, &mut token_map, c, host_env.as_ref())?;
-        crate::resolve::sync_editable_text_facts(
-            design,
-            c,
-            &mut baked_params,
-            &empty_overrides,
-        )?;
+        crate::resolve::sync_editable_text_facts(design, c, &mut baked_params, &empty_overrides)?;
         let raw = resolve_component_tree_with_host(
             design,
             &c.name,
@@ -242,8 +237,7 @@ pub fn build_baked_design_system_with_host(
         );
     }
 
-    let preview_background =
-        resolve_preview_background_css(design, &token_map, host_env.as_ref());
+    let preview_background = resolve_preview_background_css(design, &token_map, host_env.as_ref());
     Ok(baked_document(
         &generated_at.unwrap_or_else(now_iso8601),
         &design.entry_path,
@@ -284,6 +278,29 @@ pub fn build_baked_design_component_with_host(
     facts: Option<&Map<String, Value>>,
     generated_at: Option<String>,
 ) -> Result<Value, PdlError> {
+    build_baked_design_component_with_presenter_pins(
+        design,
+        component_name,
+        theme,
+        param_overrides,
+        host,
+        facts,
+        generated_at,
+        HashMap::new(),
+    )
+}
+
+/// [`build_baked_design_component_with_host`] with fixture-pinned presenter stacks.
+pub fn build_baked_design_component_with_presenter_pins(
+    design: &DesignDefinition,
+    component_name: &str,
+    theme: Option<&str>,
+    param_overrides: &Map<String, Value>,
+    host: Option<&str>,
+    facts: Option<&Map<String, Value>>,
+    generated_at: Option<String>,
+    presenter_pins: HashMap<String, PresenterPin>,
+) -> Result<Value, PdlError> {
     let c = design
         .components
         .get(component_name)
@@ -308,13 +325,14 @@ pub fn build_baked_design_component_with_host(
     }
     // Same EditableText fact sync as resolve — HTML session host reads bakedParams.value.
     crate::resolve::sync_editable_text_facts(design, &c, &mut baked_params, param_overrides)?;
-    let raw = resolve_component_tree_with_host(
+    let raw = resolve_component_tree_with_presenter_pins(
         design,
         component_name,
         &mut token_map,
         param_overrides,
         opts,
         host_env.as_ref(),
+        presenter_pins,
     )?;
 
     let mut components = Map::new();
@@ -328,8 +346,7 @@ pub fn build_baked_design_component_with_host(
         ),
     );
 
-    let preview_background =
-        resolve_preview_background_css(design, &token_map, host_env.as_ref());
+    let preview_background = resolve_preview_background_css(design, &token_map, host_env.as_ref());
     Ok(baked_document(
         &generated_at.unwrap_or_else(now_iso8601),
         &design.entry_path,

@@ -89,7 +89,7 @@ component Button <PointerInput>(
   emits { change(value: String) }
 }
 
-component SearchField <FormField>(
+component SearchField emits <FormField>(
   value: String = "",
   placeholder: String = "Search",
   editing: Bool = false
@@ -167,7 +167,7 @@ protocol SubnavItem: component {
   }
 }
 
-component FilterChip <SubnavItem>(
+component FilterChip emits <SubnavItem>(
   selected: Bool = false
 ) layout {
   direction = .row
@@ -533,13 +533,13 @@ usage MissingLabel {
 
   self.appear = {
     animate = Motion(
-      transition: (duration: 250, easing: "cubic-bezier(0.2, 0, 0, 1)"),
+      duration: 250, ease: Ease.bezier(0.2, 0, 0, 1),
       pose: Pose(opacity: 0, scale: 0.95, translateY: 8)
     )
   }
   self.dismiss = {
     animate = Motion(
-      transition: (duration: 180, easing: "ease-in"),
+      duration: 180, ease: .in,
       pose: Pose(opacity: 0, scale: 0.95)
     )
   }

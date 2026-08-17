@@ -1,0 +1,112 @@
+// N4 — Presenter stack: push / pop + fixture pin.
+// Screen receives <ShowEpisode, AppNav>. Capture commands the presenter let.
+// Not on the TS oracle manifest.
+
+variant EpisodeId { case demo case late }
+
+protocol ShowEpisode: component {
+  emits(propagation: .ancestors) {
+    showEpisode(id: EpisodeId)
+  }
+}
+
+protocol AppNav: component {
+  emits(propagation: .ancestors) {
+    back()
+  }
+}
+
+component EpisodeRow <PointerInput> emits <ShowEpisode>(
+  episodeId: EpisodeId = .demo,
+  title: String = "Morning Cup",
+  subtitle: String = "12 min"
+) layout {
+  direction = .column
+  gap = 4
+  padding = EdgeInsets(x: 16, y: 14)
+  background = #FFFFFF
+  cornerRadius = 12
+  width = .fill
+
+  let name = Text(content: title, color: #0F172A, fontSize: 16, fontWeight: 600)
+  let meta = Text(content: subtitle, color: #64748B, fontSize: 13)
+  children = [name, meta]
+  self.pressEnd = { emit showEpisode(episodeId) }
+}
+
+component BackButton <PointerInput> emits <AppNav>(
+  label: String = "Back"
+) layout {
+  direction = .row
+  align = .center
+  padding = EdgeInsets(x: 12, y: 8)
+  background = #E2E8F0
+  cornerRadius = 8
+  width = .hug
+  height = .hug
+
+  let text = Text(content: label, color: #0F172A, fontSize: 14, fontWeight: 600)
+  children = [text]
+  self.pressEnd = { emit back() }
+}
+
+page Home() layout {
+  direction = .column
+  gap = 12
+  padding = 20
+  width = .fill
+  height = .fill
+  background = #F8FAFC
+
+  let kicker = Text(content: "N4 — stack", color: #64748B, fontSize: 13, fontWeight: 600)
+  let title = Text(content: "Home", color: #0F172A, fontSize: 28, fontWeight: 700)
+  let hint = Text(content: "Tap a row to push. Back pops to Home.", color: #475569, fontSize: 14)
+  let row = EpisodeRow(episodeId: .demo, title: "Morning Cup", subtitle: "12 min")
+  let row2 = EpisodeRow(episodeId: .late, title: "Late Night", subtitle: "48 min")
+  children = [kicker, title, hint, row, row2]
+}
+
+page Episode(episodeId: EpisodeId = .demo) layout {
+  direction = .column
+  gap = 12
+  padding = 20
+  width = .fill
+  height = .fill
+  background = #EFF6FF
+
+  let back = BackButton()
+  let kicker = Text(content: "Episode", color: #2563EB, fontSize: 13, fontWeight: 600)
+  let title = Text(content: "Morning Cup", color: #0F172A, fontSize: 28, fontWeight: 700)
+  if episodeId == .late {
+    title.content = "Late Night"
+  }
+  let body = Text(content: "Pushed on the stack. Back pops — it does not replace Home.", color: #475569, fontSize: 15)
+  children = [back, kicker, title, body]
+}
+
+screen Phone <ShowEpisode, AppNav>() layout {
+  direction = .column
+  gap = 8
+  width = 390
+  height = 760
+  background = #0F172A
+  padding = 12
+  cornerRadius = 28
+
+  let home = Home()
+  let presenter = Presenter(root: home)
+  children = [presenter]
+  showEpisode(id: EpisodeId) = {
+    presenter.push(Episode(episodeId: id))
+  }
+  back() = {
+    presenter.pop()
+  }
+}
+
+fixtures Phone {
+  example "Home" { }
+  example "Episode" {
+    presenter = [Home(), Episode(episodeId: .demo)]
+  }
+}

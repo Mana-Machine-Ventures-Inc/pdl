@@ -179,9 +179,16 @@ pub fn strength_to_json(s: &str) -> &'static str {
 }
 
 /// Build the canonical `RuleDefJson` object for one rule line (tier defaults to `static`).
-pub fn rule_line_to_def(strength: &str, query: &RuleQueryParsed, description: Option<&str>) -> Value {
+pub fn rule_line_to_def(
+    strength: &str,
+    query: &RuleQueryParsed,
+    description: Option<&str>,
+) -> Value {
     obj(vec![
-        ("strength", Value::String(strength_to_json(strength).to_string())),
+        (
+            "strength",
+            Value::String(strength_to_json(strength).to_string()),
+        ),
         ("query", rule_query_to_json(query)),
         (
             "description",

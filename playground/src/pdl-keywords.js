@@ -17,6 +17,8 @@ export const PDL_KEYWORDS = [
   "emits",
   "emit",
   "component",
+  "page",
+  "screen",
   "usage",
   "fixtures",
   "extend",

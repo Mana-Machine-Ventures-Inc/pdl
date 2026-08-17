@@ -1,0 +1,10 @@
+// PDL-E054: Presenter() requires root.
+
+page Home() layout {
+  children = []
+}
+
+screen Phone() layout {
+  let presenter = Presenter()
+  children = [presenter]
+}

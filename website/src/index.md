@@ -26,7 +26,9 @@ Language version: **`1.0.0-beta`** (still allowed to change).
 | Word | Meaning |
 |------|---------|
 | **Component** | A reusable UI piece: a name, public parameters, and one root **frame**. |
-| **Frame** | A layout node. Kinds are `layout` (container), `text`, `icon`, and `media`. |
+| **page** | A navigable destination. Same body as a component. Auto-satisfies prelude `Page`. |
+| **screen** | A device shell. Same body as a component. Studio lists screens as prototype roots. Mount `Presenter(root:)` next to chrome. |
+| **Frame** | A layout node. Kinds are `layout` (container), `text`, `icon`, `media`, and `presenter`. |
 | **Token** | A named value (`color.surface`, `space.stack`). **Primitives** are the raw palette; **semantics** are the intent names components should use. |
 | **Theme** | A named remap of semantic tokens a person flips (light / dark). Not a platform icon set. |
 | **Catalog** | A named remap the environment applies (`use catalog` in `mount`) — SF Symbols vs Material icons. Not listed next to themes. |

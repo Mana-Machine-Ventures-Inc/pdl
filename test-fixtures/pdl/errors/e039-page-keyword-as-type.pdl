@@ -1,0 +1,8 @@
+// PDL-E039: slot type is prelude `Page`, not the `page` keyword.
+component Shell(content: page = Home()) layout {
+  children = []
+}
+
+page Home() layout {
+  children = []
+}

@@ -1,10 +1,8 @@
 //! Injection pack validate + bake (B3).
 
-use pdl_core::pack::{
-    bake_injection_pack, load_injection_pack_file, validate_injection_pack,
-};
-use pdl_core::stable_json::{stable_stringify, StableStringifyOptions};
 use pdl_core::load_design;
+use pdl_core::pack::{bake_injection_pack, load_injection_pack_file, validate_injection_pack};
+use pdl_core::stable_json::{stable_stringify, StableStringifyOptions};
 use serde_json::Value;
 use std::path::PathBuf;
 
@@ -29,14 +27,18 @@ fn validates_and_bakes_confirm_pack() {
     assert!(v.warnings.is_empty());
     assert_eq!(v.pack.component, "Modal");
 
-    let baked = bake_injection_pack(&design, &raw, Some("2026-08-06T00:00:00.000Z".into())).unwrap();
+    let baked =
+        bake_injection_pack(&design, &raw, Some("2026-08-06T00:00:00.000Z".into())).unwrap();
     assert!(baked.warnings.is_empty());
     let modal = &baked.document["components"]["Modal"];
     assert_eq!(modal["bakedParams"]["chromeTitle"], "Confirm");
     let children = modal["root"]["children"].as_array().unwrap();
     assert_eq!(children[0]["props"]["content"], "Confirm");
     assert_eq!(children[1]["instanceOf"], "ConfirmBody");
-    assert_eq!(children[1]["children"][0]["props"]["content"], "Delete project?");
+    assert_eq!(
+        children[1]["children"][0]["props"]["content"],
+        "Delete project?"
+    );
     assert_eq!(
         baked.document["provenance"]["bakeProfile"],
         "injection-pack"
@@ -83,7 +85,8 @@ fn confirm_pack_matches_golden() {
     };
     let pack_path = repo_root().join("test-fixtures/pdl/protocols/packs/modal_confirm.json");
     let raw = load_injection_pack_file(pack_path.to_str().unwrap()).unwrap();
-    let baked = bake_injection_pack(&design, &raw, Some("2026-08-06T00:00:00.000Z".into())).unwrap();
+    let baked =
+        bake_injection_pack(&design, &raw, Some("2026-08-06T00:00:00.000Z".into())).unwrap();
     let out = stable_stringify(&baked.document, StableStringifyOptions { omit_empty: true });
     let golden = std::fs::read_to_string(
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))

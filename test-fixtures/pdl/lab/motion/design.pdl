@@ -1,5 +1,5 @@
 // Playground lab — HTML preview motion (WAAPI overlay + Replay).
-// Bake stays at rest pose. Hex colors and inline Transition tuples — no import.
+// Bake stays at rest pose. Hex colors and inline Timing / Ease — no import.
 
 variant InteractionState {
   case rest
@@ -7,7 +7,7 @@ variant InteractionState {
 }
 
 semantic motion.hoverPop: Motion = Motion(
-  transition: (duration: 280, easing: "ease-out"),
+  duration: 280, ease: .out,
   keys: [
     Key(pose: Pose(scale: 1.12), at: 0.4),
     Key(pose: Pose(scale: 1.04), at: 1)
@@ -15,7 +15,7 @@ semantic motion.hoverPop: Motion = Motion(
 )
 
 semantic motion.hoverPopHeld: Motion = Motion(
-  transition: (duration: 280, easing: "ease-out"),
+  duration: 280, ease: .out,
   play: .toPose,
   keys: [
     Key(pose: Pose(scale: 1.12), at: 1)
@@ -23,13 +23,13 @@ semantic motion.hoverPopHeld: Motion = Motion(
 )
 
 semantic motion.spin: Motion = Motion(
-  transition: (duration: 800, easing: "linear"),
+  duration: 800, ease: .linear,
   play: .loop,
   pose: Pose(rotate: 360)
 )
 
 semantic motion.pulse: Motion = Motion(
-  transition: (duration: 900, easing: "ease-in-out"),
+  duration: 900, ease: Ease.bezier(0.42, 0, 0.58, 1),
   play: .loop,
   keys: [
     Key(pose: Pose(opacity: 0.45, scale: 0.96), at: 0.5),
@@ -38,7 +38,7 @@ semantic motion.pulse: Motion = Motion(
 )
 
 semantic motion.sheen: Motion = Motion(
-  transition: (duration: 1400, easing: "linear"),
+  duration: 1400, ease: .linear,
   play: .loop,
   keys: [
     Key(pose: Pose(translateX: -80), at: 0),
@@ -52,12 +52,12 @@ variant PressPopState {
 }
 
 semantic motion.pressIn: Motion = Motion(
-  transition: (duration: 90, easing: "ease-in"),
+  duration: 90, ease: .in,
   keys: [Key(pose: Pose(scale: 0.94, translateY: 1), at: 1)]
 )
 
 semantic motion.pressPop: Motion = Motion(
-  transition: (duration: 420, easing: "ease-out"),
+  duration: 420, ease: .out,
   play: .toPose,
   keys: [
     Key(pose: Pose(scale: 1.08, translateY: -3), at: 0.35),
@@ -82,13 +82,13 @@ component MotionModal <PointerInput>() layout {
 
   self.appear = {
     animate = Motion(
-      transition: (duration: 250, easing: "ease-out"),
+      duration: 250, ease: .out,
       pose: Pose(opacity: 0, scale: 0.95, translateY: 8)
     )
   }
   self.dismiss = {
     animate = Motion(
-      transition: (duration: 180, easing: "ease-in"),
+      duration: 180, ease: .in,
       pose: Pose(opacity: 0, scale: 0.95, translateY: 8)
     )
   }
@@ -123,7 +123,7 @@ component MotionStaggerList <PointerInput>() layout {
 
   self.appear = {
     animate = Motion(
-      transition: (duration: 220, easing: "ease-out"),
+      duration: 220, ease: .out,
       pose: Pose(blur: 18, opacity: 0, translateY: 10),
       stagger: Stagger(step: 40, from: .last)
     )
@@ -154,12 +154,12 @@ component MotionHoverChip <PointerInput>(
   children = [text]
 
   hoverStart = {
-    animate = (duration: 500, easing: "ease-out")
+    animate = Timing(duration: 500, ease: .out)
     interactionState = .hovered
   }
   
   hoverEnd = {
-    animate = (duration: 500, easing: "ease-out")
+    animate = Timing(duration: 500, ease: .out)
     interactionState = .rest
   }
 }
@@ -179,7 +179,7 @@ component MotionHoverFlourish <PointerInput>() layout {
 
   self.hoverStart = {
     animate = Motion(
-      transition: (duration: 400, easing: "ease-out"),
+      duration: 400, ease: .out,
       play: .toRest,
       keys: [
         Key(pose: Pose(scale: 1.16, translateY: -4), at: 0.35),
@@ -190,7 +190,7 @@ component MotionHoverFlourish <PointerInput>() layout {
   }
   self.hoverEnd = {
     animate = Motion(
-      transition: (duration: 280, easing: "ease-out"),
+      duration: 280, ease: .out,
       keys: [
         Key(pose: Pose(scale: 1.16, translateY: -4), at: 0.35),
         Key(pose: Pose(scale: 0.98), at: 0.7),
@@ -326,7 +326,7 @@ component MotionAppearThenPulse <PointerInput>() layout {
   children = [Text(content: "appear→pulse", color: #93C5FD, fontSize: 14, fontWeight: 700)]
   self.appear = {
     animate = Motion(
-      transition: (duration: 200, easing: "linear"),
+      duration: 200, ease: .linear,
       pose: Pose(opacity: 0)
     )
   }
@@ -353,13 +353,13 @@ component MotionBlurCard <PointerInput>() layout {
 
   self.appear = {
     animate = Motion(
-      transition: (duration: 420, easing: "ease-out"),
+      duration: 420, ease: .out,
       pose: Pose(blur: 18, opacity: 0.35)
     )
   }
   self.dismiss = {
     animate = Motion(
-      transition: (duration: 280, easing: "ease-in"),
+      duration: 280, ease: .in,
       pose: Pose(blur: 18, opacity: 0.35)
     )
   }
@@ -385,13 +385,13 @@ component MotionPoseOpacity <PointerInput>() layout {
 
   self.appear = {
     animate = Motion(
-      transition: (duration: 400, easing: "ease-out"),
+      duration: 400, ease: .out,
       pose: Pose(opacity: 0)
     )
   }
   self.dismiss = {
     animate = Motion(
-      transition: (duration: 280, easing: "ease-in"),
+      duration: 280, ease: .in,
       pose: Pose(opacity: 0)
     )
   }
@@ -417,13 +417,13 @@ component MotionPoseScale <PointerInput>() layout {
 
   self.appear = {
     animate = Motion(
-      transition: (duration: 400, easing: "ease-out"),
+      duration: 400, ease: .out,
       pose: Pose(scale: 0.5)
     )
   }
   self.dismiss = {
     animate = Motion(
-      transition: (duration: 280, easing: "ease-in"),
+      duration: 280, ease: .in,
       pose: Pose(scale: 0.5)
     )
   }
@@ -449,13 +449,13 @@ component MotionPoseScaleX <PointerInput>() layout {
 
   self.appear = {
     animate = Motion(
-      transition: (duration: 400, easing: "ease-out"),
+      duration: 400, ease: .out,
       pose: Pose(scaleX: 0.2)
     )
   }
   self.dismiss = {
     animate = Motion(
-      transition: (duration: 280, easing: "ease-in"),
+      duration: 280, ease: .in,
       pose: Pose(scaleX: 0.2)
     )
   }
@@ -481,13 +481,13 @@ component MotionPoseScaleY <PointerInput>() layout {
 
   self.appear = {
     animate = Motion(
-      transition: (duration: 400, easing: "ease-out"),
+      duration: 400, ease: .out,
       pose: Pose(scaleY: 0.2)
     )
   }
   self.dismiss = {
     animate = Motion(
-      transition: (duration: 280, easing: "ease-in"),
+      duration: 280, ease: .in,
       pose: Pose(scaleY: 0.2)
     )
   }
@@ -513,13 +513,13 @@ component MotionPoseTranslateX <PointerInput>() layout {
 
   self.appear = {
     animate = Motion(
-      transition: (duration: 400, easing: "ease-out"),
+      duration: 400, ease: .out,
       pose: Pose(translateX: 48)
     )
   }
   self.dismiss = {
     animate = Motion(
-      transition: (duration: 280, easing: "ease-in"),
+      duration: 280, ease: .in,
       pose: Pose(translateX: 48)
     )
   }
@@ -545,13 +545,13 @@ component MotionPoseTranslateY <PointerInput>() layout {
 
   self.appear = {
     animate = Motion(
-      transition: (duration: 400, easing: "ease-out"),
+      duration: 400, ease: .out,
       pose: Pose(translateY: 24)
     )
   }
   self.dismiss = {
     animate = Motion(
-      transition: (duration: 280, easing: "ease-in"),
+      duration: 280, ease: .in,
       pose: Pose(translateY: 24)
     )
   }
@@ -577,13 +577,13 @@ component MotionPoseBlur <PointerInput>() layout {
 
   self.appear = {
     animate = Motion(
-      transition: (duration: 420, easing: "ease-out"),
+      duration: 420, ease: .out,
       pose: Pose(blur: 16)
     )
   }
   self.dismiss = {
     animate = Motion(
-      transition: (duration: 280, easing: "ease-in"),
+      duration: 280, ease: .in,
       pose: Pose(blur: 16)
     )
   }
@@ -609,13 +609,13 @@ component MotionPoseRotate <PointerInput>() layout {
 
   self.appear = {
     animate = Motion(
-      transition: (duration: 400, easing: "ease-out"),
+      duration: 400, ease: .out,
       pose: Pose(rotate: -12)
     )
   }
   self.dismiss = {
     animate = Motion(
-      transition: (duration: 280, easing: "ease-in"),
+      duration: 280, ease: .in,
       pose: Pose(rotate: -12)
     )
   }

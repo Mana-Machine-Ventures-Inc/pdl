@@ -20,7 +20,11 @@ fn has_known_file_ext(s: &str) -> bool {
 }
 
 pub fn is_pack_relative_file_path(s: &str) -> bool {
-    if s.is_empty() || s.starts_with('/') || s.contains("://") || s.contains('\\') || s.contains("..")
+    if s.is_empty()
+        || s.starts_with('/')
+        || s.contains("://")
+        || s.contains('\\')
+        || s.contains("..")
     {
         return false;
     }

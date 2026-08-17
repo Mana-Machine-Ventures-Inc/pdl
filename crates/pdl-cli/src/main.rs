@@ -9,8 +9,10 @@ use std::path::PathBuf;
 use std::process;
 
 use pdl_core::bake::{
-    build_baked_design_component_with_host, build_baked_design_system_with_host,
+    build_baked_design_component_with_host, build_baked_design_component_with_presenter_pins,
+    build_baked_design_system_with_host,
 };
+use pdl_core::presenter::pins_from_json;
 use pdl_core::catalogue::build_component_catalogue;
 use pdl_core::design::load_design;
 use pdl_core::evaluate::build_resolved_token_map;
@@ -30,7 +32,7 @@ Usage:
   pdl graphSystem <entry.pdl> [--out <file.json>]
   pdl graphComponent <entry.pdl> <ComponentName> [--theme <ThemeName>] [--out <file.json>] [key=value ...]
   pdl bakeSystem <entry.pdl> [--theme <ThemeName>] [--host <HostName>] [--hostFacts <json-or-path>] [--out <file.json>]
-  pdl bakeComponent <entry.pdl> <ComponentName> [--theme <ThemeName>] [--host <HostName>] [--hostFacts <json-or-path>] [--out <file.json>] [key=value ...]
+  pdl bakeComponent <entry.pdl> <ComponentName> [--theme <ThemeName>] [--host <HostName>] [--hostFacts <json-or-path>] [--presenterPins <json-or-path>] [--out <file.json>] [key=value ...]
   pdl bakePack <entry.pdl> <pack.json> [--out <file.json>]
   pdl validatePack <entry.pdl> <pack.json> [--out <file.json>]
   pdl catalogue <entry.pdl> [--theme <ThemeName>] [--out <file.json>]
@@ -43,6 +45,8 @@ Options:
   --host <name>    Host profile (Default / sole if omitted)
   --hostFacts <json-or-path>
                    Opaque facts bag for `mount` (`{{}}` or omit ≡ no keys)
+  --presenterPins <json-or-path>
+                   Presenter pin bag (`{{ letId: {{ stack, cover? }} }}`)
   --out <path>     Write JSON to file instead of stdout
 "
     );
@@ -125,8 +129,22 @@ struct ThemeOutKv {
     theme: Option<String>,
     host: Option<String>,
     host_facts: Option<Map<String, Value>>,
+    presenter_pins: Option<Value>,
     out_path: Option<String>,
     kv_parts: Vec<String>,
+}
+
+fn parse_json_object_arg(flag: &str, raw: &str) -> Result<Value, String> {
+    let text = if raw.trim_start().starts_with('{') {
+        raw.to_string()
+    } else {
+        fs::read_to_string(raw).map_err(|e| format!("{flag} {raw}: {e}"))?
+    };
+    let v: Value = serde_json::from_str(&text).map_err(|e| format!("{flag} JSON: {e}"))?;
+    match v {
+        Value::Object(_) => Ok(v),
+        _ => Err(format!("{flag} must be a JSON object")),
+    }
 }
 
 fn parse_host_facts_arg(raw: &str) -> Result<Map<String, Value>, String> {
@@ -147,6 +165,7 @@ fn parse_theme_out_and_kv(rest: &[String]) -> ThemeOutKv {
     let mut theme = None;
     let mut host = None;
     let mut host_facts = None;
+    let mut presenter_pins = None;
     let mut out_path = None;
     let mut i = 0;
     while i < rest.len() {
@@ -172,6 +191,14 @@ fn parse_theme_out_and_kv(rest: &[String]) -> ThemeOutKv {
                 usage();
             };
             host_facts = Some(parse_host_facts_arg(t).unwrap_or_else(|e| die(e)));
+        } else if a == "--presenterPins" {
+            i += 1;
+            let t = rest.get(i).filter(|s| !s.starts_with('-'));
+            let Some(t) = t else {
+                usage();
+            };
+            presenter_pins =
+                Some(parse_json_object_arg("--presenterPins", t).unwrap_or_else(|e| die(e)));
         } else if a == "--out" {
             i += 1;
             let p = rest.get(i).filter(|s| !s.starts_with('-'));
@@ -188,6 +215,7 @@ fn parse_theme_out_and_kv(rest: &[String]) -> ThemeOutKv {
         theme,
         host,
         host_facts,
+        presenter_pins,
         out_path,
         kv_parts,
     }
@@ -259,6 +287,7 @@ fn run(cmd: &str, entry: &str, argv: &[String]) -> Result<(), String> {
                 theme,
                 host: _,
                 host_facts: _,
+                presenter_pins: _,
                 out_path,
                 kv_parts,
             } = parse_theme_out_and_kv(&argv[3..]);
@@ -282,6 +311,7 @@ fn run(cmd: &str, entry: &str, argv: &[String]) -> Result<(), String> {
                 theme,
                 host,
                 host_facts,
+                presenter_pins: _,
                 out_path,
                 kv_parts,
             } = parse_theme_out_and_kv(&argv[2..]);
@@ -307,20 +337,35 @@ fn run(cmd: &str, entry: &str, argv: &[String]) -> Result<(), String> {
                 theme,
                 host,
                 host_facts,
+                presenter_pins,
                 out_path,
                 kv_parts,
             } = parse_theme_out_and_kv(&argv[3..]);
             let kv = parse_key_values(&kv_parts)?;
             let design = load_design(entry).map_err(|e| e.format())?;
-            let baked = build_baked_design_component_with_host(
-                &design,
-                &comp,
-                theme.as_deref(),
-                &kv,
-                host.as_deref(),
-                host_facts.as_ref(),
-                None,
-            )
+            let baked = if let Some(pins_v) = presenter_pins {
+                let pins = pins_from_json(&pins_v);
+                build_baked_design_component_with_presenter_pins(
+                    &design,
+                    &comp,
+                    theme.as_deref(),
+                    &kv,
+                    host.as_deref(),
+                    host_facts.as_ref(),
+                    None,
+                    pins,
+                )
+            } else {
+                build_baked_design_component_with_host(
+                    &design,
+                    &comp,
+                    theme.as_deref(),
+                    &kv,
+                    host.as_deref(),
+                    host_facts.as_ref(),
+                    None,
+                )
+            }
             .map_err(|e| e.format())?;
             let s = stable_stringify(&baked, omit_empty());
             write_json(out_path.as_deref(), &s).map_err(|e| e.to_string())?;
@@ -332,12 +377,14 @@ fn run(cmd: &str, entry: &str, argv: &[String]) -> Result<(), String> {
                 theme: unexpected_theme,
                 host: unexpected_host,
                 host_facts: unexpected_facts,
+                presenter_pins: unexpected_pins,
                 out_path,
                 kv_parts,
             } = parse_theme_out_and_kv(&argv[3..]);
             if unexpected_theme.is_some()
                 || unexpected_host.is_some()
                 || unexpected_facts.is_some()
+                || unexpected_pins.is_some()
                 || !kv_parts.is_empty()
             {
                 usage();
@@ -386,6 +433,7 @@ fn run(cmd: &str, entry: &str, argv: &[String]) -> Result<(), String> {
                 theme,
                 host: _,
                 host_facts: _,
+                presenter_pins: _,
                 out_path,
                 kv_parts,
             } = parse_theme_out_and_kv(&argv[2..]);

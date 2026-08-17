@@ -61,9 +61,9 @@ export function collectDeclaredTokenNamesFromValueExpr(
         collectDeclaredTokenNamesFromValueExpr(v, design, sink);
       }
       return;
-    case "transition":
+    case "timing":
       collectDeclaredTokenNamesFromValueExpr(expr.duration, design, sink);
-      collectDeclaredTokenNamesFromValueExpr(expr.easing, design, sink);
+      collectDeclaredTokenNamesFromValueExpr(expr.ease, design, sink);
       if (expr.delay) collectDeclaredTokenNamesFromValueExpr(expr.delay, design, sink);
       return;
     case "pose":
@@ -76,11 +76,11 @@ export function collectDeclaredTokenNamesFromValueExpr(
     case "key":
       collectDeclaredTokenNamesFromValueExpr(expr.pose, design, sink);
       collectDeclaredTokenNamesFromValueExpr(expr.at, design, sink);
-      if (expr.easing) collectDeclaredTokenNamesFromValueExpr(expr.easing, design, sink);
+      if (expr.ease) collectDeclaredTokenNamesFromValueExpr(expr.ease, design, sink);
       return;
     case "motion":
       if (expr.base) collectDeclaredTokenNamesFromValueExpr(expr.base, design, sink);
-      if (expr.transition) collectDeclaredTokenNamesFromValueExpr(expr.transition, design, sink);
+      if (expr.timing) collectDeclaredTokenNamesFromValueExpr(expr.timing, design, sink);
       if (expr.pose) collectDeclaredTokenNamesFromValueExpr(expr.pose, design, sink);
       if (expr.keys) collectDeclaredTokenNamesFromValueExpr(expr.keys, design, sink);
       if (expr.play) collectDeclaredTokenNamesFromValueExpr(expr.play, design, sink);
@@ -106,6 +106,21 @@ export function collectDeclaredTokenNamesFromValueExpr(
       return;
     case "gradientStop":
       for (const v of Object.values(expr.fields)) collectDeclaredTokenNamesFromValueExpr(v, design, sink);
+      return;
+    case "easeBezier":
+      collectDeclaredTokenNamesFromValueExpr(expr.x1, design, sink);
+      collectDeclaredTokenNamesFromValueExpr(expr.y1, design, sink);
+      collectDeclaredTokenNamesFromValueExpr(expr.x2, design, sink);
+      collectDeclaredTokenNamesFromValueExpr(expr.y2, design, sink);
+      return;
+    case "presentationMotion":
+      collectDeclaredTokenNamesFromValueExpr(expr.incoming, design, sink);
+      collectDeclaredTokenNamesFromValueExpr(expr.outgoing, design, sink);
+      if (expr.duration) collectDeclaredTokenNamesFromValueExpr(expr.duration, design, sink);
+      if (expr.ease) collectDeclaredTokenNamesFromValueExpr(expr.ease, design, sink);
+      if (expr.delay) collectDeclaredTokenNamesFromValueExpr(expr.delay, design, sink);
+      if (expr.front) collectDeclaredTokenNamesFromValueExpr(expr.front, design, sink);
+      if (expr.promoteAt) collectDeclaredTokenNamesFromValueExpr(expr.promoteAt, design, sink);
       return;
     case "hex":
     case "string":

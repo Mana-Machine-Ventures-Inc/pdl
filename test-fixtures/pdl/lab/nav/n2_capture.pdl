@@ -1,0 +1,61 @@
+// N2 — bare ancestor capture. Screen receives <ShowEpisode>; EpisodeRow sends.
+// Handler assigns an ordinary param (Presenter verbs are N3).
+// Not on the TS oracle manifest.
+
+variant EpisodeId { case demo case late }
+
+protocol ShowEpisode: component {
+  emits(propagation: .ancestors) {
+    showEpisode(id: EpisodeId)
+  }
+}
+
+component EpisodeRow <PointerInput> emits <ShowEpisode>(
+  episodeId: EpisodeId = .demo,
+  title: String = "Morning Cup",
+  subtitle: String = "12 min"
+) layout {
+  direction = .column
+  gap = 4
+  padding = EdgeInsets(x: 16, y: 14)
+  background = #FFFFFF
+  cornerRadius = 12
+  width = .fill
+
+  let name = Text(content: title, color: #0F172A, fontSize: 16, fontWeight: 600)
+  let meta = Text(content: subtitle, color: #64748B, fontSize: 13)
+  children = [name, meta]
+  self.pressEnd = { emit showEpisode(episodeId) }
+}
+
+page Home() layout {
+  direction = .column
+  gap = 10
+  width = .fill
+
+  let row = EpisodeRow(episodeId: .demo, title: "Morning Cup", subtitle: "12 min")
+  let row2 = EpisodeRow(episodeId: .late, title: "Late Night", subtitle: "48 min")
+  children = [row, row2]
+}
+
+screen Phone <ShowEpisode>(current: EpisodeId = .demo) layout {
+  direction = .column
+  gap = 12
+  width = 390
+  height = 760
+  background = #F8FAFC
+  padding = 20
+  cornerRadius = 28
+
+  let kicker = Text(content: "N2 — capture", color: #64748B, fontSize: 13, fontWeight: 600)
+  let title = Text(content: "Library", color: #0F172A, fontSize: 28, fontWeight: 700)
+  let status = Text(content: "Selected: Morning Cup", color: #2563EB, fontSize: 15, fontWeight: 600)
+  if current == .late {
+    status.content = "Selected: Late Night"
+  }
+  let home = Home()
+  children = [kicker, title, status, home]
+  showEpisode(id: EpisodeId) = {
+    current = id
+  }
+}

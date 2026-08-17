@@ -1,0 +1,8 @@
+// PDL-E040: a plain component does not satisfy prelude `Page`.
+component Home() layout {
+  children = []
+}
+
+component Shell(content: Page = Home()) layout {
+  children = [content]
+}

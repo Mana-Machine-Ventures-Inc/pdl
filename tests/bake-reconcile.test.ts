@@ -428,3 +428,71 @@ describe("reconcileBakedComponentIntoCanvas NoteEditor-shaped", () => {
     expect(canvas.querySelector("[data-pdl-press-activate]")).toBeTruthy();
   });
 });
+
+describe("presenter cover overlay", () => {
+  function page(id: string, name: string): BakedFrame {
+    return {
+      id,
+      kind: "layout",
+      instanceOf: name,
+      props: { direction: "vertical", width: "fill", height: "fill" },
+      children: [],
+    };
+  }
+
+  function presenter(children: BakedFrame[], cover?: string): BakedFrame {
+    return {
+      id: "hole",
+      kind: "presenter",
+      props: {
+        width: "fill",
+        height: "fill",
+        ...(cover ? { cover } : {}),
+      },
+      children,
+    };
+  }
+
+  it("wraps the cover on incremental apply so it overlays the stack top", () => {
+    const episode = page("episode", "Episode");
+    const settings = page("settings", "Settings");
+    const prevRoot = presenter([episode]);
+    const nextRoot = presenter([episode, settings], "Settings");
+    const prevComp: BakedComponentJson = { name: "Phone", rootKind: "presenter", root: prevRoot };
+    const nextComp: BakedComponentJson = { name: "Phone", rootKind: "presenter", root: nextRoot };
+
+    const canvas = mountCanvas(prevRoot);
+    const hole = canvas.querySelector(".pdl-presenter")!;
+    expect(hole.querySelector(".pdl-presenter__cover")).toBeFalsy();
+    expect(hole.querySelector('[data-pdl-instance-of="Episode"]')).toBeTruthy();
+
+    expect(reconcileBakedComponentIntoCanvas(canvas, prevComp, nextComp, {})).toBe(true);
+
+    const cover = hole.querySelector(":scope > .pdl-presenter__cover");
+    expect(cover).toBeTruthy();
+    expect(cover!.querySelector('[data-pdl-instance-of="Settings"]')).toBeTruthy();
+    expect(hole.querySelector(':scope > [data-pdl-instance-of="Episode"]')).toBeTruthy();
+    expect(hole.querySelector(':scope > [data-pdl-instance-of="Settings"]')).toBeFalsy();
+    expect(hole.getAttribute("style") ?? "").toContain("display:grid");
+  });
+
+  it("keeps a pair-clip outgoing snapshot when the stack child is patched", () => {
+    const home = page("home", "Home");
+    const episode = page("episode", "Episode");
+    const prevRoot = presenter([home]);
+    const nextRoot = presenter([episode]);
+    const prevComp: BakedComponentJson = { name: "Phone", rootKind: "presenter", root: prevRoot };
+    const nextComp: BakedComponentJson = { name: "Phone", rootKind: "presenter", root: nextRoot };
+
+    const canvas = mountCanvas(prevRoot);
+    const hole = canvas.querySelector(".pdl-presenter")!;
+    const live = hole.firstElementChild!;
+    const clip = live.cloneNode(true) as HTMLElement;
+    clip.setAttribute("data-pdl-presenter-clip", "outgoing");
+    hole.append(clip);
+
+    expect(reconcileBakedComponentIntoCanvas(canvas, prevComp, nextComp, {})).toBe(true);
+    expect(hole.querySelector('[data-pdl-presenter-clip="outgoing"]')).toBe(clip);
+    expect(hole.querySelector('[data-pdl-instance-of="Episode"]')).toBeTruthy();
+  });
+});

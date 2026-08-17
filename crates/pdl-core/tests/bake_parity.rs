@@ -2,8 +2,7 @@
 //! `npm run bakeSystem -- <fixture> --out tests/golden/<name>.bake.json`).
 
 use pdl_core::bake::{
-    build_baked_design_component, build_baked_design_component_with_host,
-    build_baked_design_system,
+    build_baked_design_component, build_baked_design_component_with_host, build_baked_design_system,
 };
 use pdl_core::stable_json::{stable_stringify, StableStringifyOptions};
 use pdl_core::{load_design, DesignDefinition};
@@ -58,7 +57,8 @@ fn bake_system_matches_ts_goldens() {
         }
         let (key, rel_path) = line.split_once('|').expect("manifest line key|path");
         let golden_path = golden_dir().join(format!("{key}.bake.json"));
-        let golden_text = fs::read_to_string(&golden_path).unwrap_or_else(|_| panic!("golden for {key}"));
+        let golden_text =
+            fs::read_to_string(&golden_path).unwrap_or_else(|_| panic!("golden for {key}"));
         let golden: Value = serde_json::from_str(&golden_text).expect("parse golden");
         let (generated_at, entry_path) = golden_volatiles(&golden);
 
@@ -143,11 +143,7 @@ fn protocols_design_bake_golden() {
     assert_eq!(out, golden_text, "protocols bake golden mismatch");
 }
 
-fn bake_host_lab_golden(
-    host: Option<&str>,
-    facts: Option<&Map<String, Value>>,
-    golden_file: &str,
-) {
+fn bake_host_lab_golden(host: Option<&str>, facts: Option<&Map<String, Value>>, golden_file: &str) {
     bake_host_lab_component_golden("Shell", None, host, facts, golden_file);
 }
 
@@ -179,7 +175,12 @@ fn bake_host_lab_component_golden(
         facts,
         Some(generated_at),
     )
-    .unwrap_or_else(|e| panic!("bake {component} theme={theme:?} host={host:?}: {}", e.format()));
+    .unwrap_or_else(|e| {
+        panic!(
+            "bake {component} theme={theme:?} host={host:?}: {}",
+            e.format()
+        )
+    });
     let out = stable_stringify(&doc, StableStringifyOptions { omit_empty: true });
     if std::env::var("UPDATE_GOLDENS").ok().as_deref() == Some("1") {
         fs::write(&golden_path, &out).unwrap();

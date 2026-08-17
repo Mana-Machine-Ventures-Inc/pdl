@@ -7,9 +7,14 @@
 export function analyze_sources(files_json: string, entry: string): string;
 
 /**
+ * Apply presenter verbs to a pin bag. `pinsJson` / `opsJson` → next `pinsJson`.
+ */
+export function apply_presenter_pins(pins_json: string, ops_json: string): string;
+
+/**
  * Bake one component; returns bake-document JSON string.
  */
-export function bake_component_sources(files_json: string, entry: string, component: string, theme?: string | null, kv_json?: string | null, host?: string | null, host_facts_json?: string | null): string;
+export function bake_component_sources(files_json: string, entry: string, component: string, theme?: string | null, kv_json?: string | null, host?: string | null, host_facts_json?: string | null, pins_json?: string | null): string;
 
 /**
  * Bake all components (system defaults).
@@ -21,7 +26,8 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly analyze_sources: (a: number, b: number, c: number, d: number) => [number, number, number, number];
-    readonly bake_component_sources: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number) => [number, number, number, number];
+    readonly apply_presenter_pins: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly bake_component_sources: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number) => [number, number, number, number];
     readonly bake_system_sources: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => [number, number, number, number];
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_malloc: (a: number, b: number) => number;

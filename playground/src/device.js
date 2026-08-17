@@ -9,6 +9,8 @@ import {
   collectEditableSessionDefaults,
   renderBakedDesignToHtmlDocumentWithReport,
 } from "@pdl/renderHtml.ts";
+import { applyPresenterOps, resolvePairMove } from "./presenter-pins.js";
+import { snapshotPresenterOutgoing, startPresenterPairClip } from "./presenter-clip.js";
 import { loadWasmBake, virtualizeSources } from "./wasm-bake.js";
 
 const FOLLOW_POLL_MS = 750;
@@ -45,6 +47,8 @@ let fixturesByComponent = {};
 let componentParams = {};
 /** @type {Record<string, string[]>} */
 let variantCases = {};
+/** @type {Record<string, string>} */
+let componentRoles = {};
 /** @type {Record<string, unknown>} */
 let interactionsByComponent = {};
 /** @type {Record<string, unknown>} */
@@ -56,6 +60,8 @@ let rulesByComponent = {};
 let enrichReady = false;
 /** @type {Record<string, unknown>} */
 let kv = {};
+/** @type {Record<string, unknown>} */
+let presenterPins = {};
 /** @type {string | null} */
 let activeFixture = null;
 let follow = true;
@@ -73,6 +79,8 @@ const instanceBakeIrCache = new Map();
 const instanceResolveToken = new Map();
 /** @type {Map<string, Promise<void>>} */
 const instanceResolveTail = new Map();
+/** @type {{ cancel: () => void } | null} */
+let activePairClip = null;
 
 function setStatus(msg) {
   if (statusEl) statusEl.textContent = msg;
@@ -152,6 +160,7 @@ async function openPack(id, preferredComponent) {
         : components[0] || "";
   if (componentSelect && want) componentSelect.value = want;
   kv = {};
+  presenterPins = {};
   activeFixture = null;
 }
 
@@ -190,6 +199,7 @@ function applyLoadMeta(meta) {
   }
   if (meta.fixturesByComponent) fixturesByComponent = meta.fixturesByComponent;
   if (meta.componentParams) componentParams = meta.componentParams;
+  if (meta.componentRoles) componentRoles = meta.componentRoles;
   if (meta.variantCases) variantCases = meta.variantCases;
   interactionsByComponent = meta.interactionsByComponent ?? {};
   emitCapturesByComponent = meta.emitCapturesByComponent ?? {};
@@ -251,6 +261,19 @@ function applyFrameWidth() {
   }
 }
 
+function isPresenterPinKey(k) {
+  return k === "presenter" || k.endsWith(".cover");
+}
+
+function pinsFromFixtureExample(example) {
+  /** @type {Record<string, unknown>} */
+  const pins = {};
+  for (const [k, v] of Object.entries(example ?? {})) {
+    if (isPresenterPinKey(k)) pins[k] = v;
+  }
+  return pins;
+}
+
 function splitFixtureExample(example) {
   /** @type {Record<string, unknown>} */
   const kv = {};
@@ -261,9 +284,59 @@ function splitFixtureExample(example) {
     else if (k === "theme" && typeof v === "string") env.theme = v;
     else if (k === "hostFacts" && v && typeof v === "object" && !Array.isArray(v)) {
       env.hostFacts = /** @type {Record<string, unknown>} */ (v);
-    } else if (k !== "host" && k !== "theme" && k !== "hostFacts") kv[k] = v;
+    } else if (k !== "host" && k !== "theme" && k !== "hostFacts" && !isPresenterPinKey(k)) {
+      kv[k] = v;
+    }
   }
   return { kv, env };
+}
+
+function extractPresenterPins(bakedComp) {
+  /** @type {Record<string, unknown>} */
+  const acc = {};
+  function walk(n) {
+    if (!n || typeof n !== "object") return;
+    const rec = /** @type {Record<string, unknown>} */ (n);
+    if (rec.kind === "presenter" && typeof rec.id === "string" && rec.id) {
+      const props =
+        rec.props && typeof rec.props === "object"
+          ? /** @type {Record<string, unknown>} */ (rec.props)
+          : {};
+      const names = Array.isArray(props.stack) ? props.stack.map(String) : [];
+      const pin = {
+        stack: names.map((c) => ({ component: c, params: {} })),
+      };
+      if (typeof props.cover === "string" && props.cover) {
+        pin.cover = { component: props.cover, params: {} };
+      }
+      acc[rec.id] = pin;
+    }
+    for (const ch of Array.isArray(rec.children) ? rec.children : []) walk(ch);
+  }
+  walk(bakedComp?.root);
+  return Object.keys(acc).length ? acc : null;
+}
+
+function seedPinsFromBake(bakedComp) {
+  const seeded = extractPresenterPins(bakedComp);
+  if (!seeded) return;
+  if (!presenterPins || !Object.keys(presenterPins).length) {
+    presenterPins = seeded;
+    return;
+  }
+  for (const [letId, pin] of Object.entries(seeded)) {
+    const existing = presenterPins[letId];
+    const stack =
+      existing && typeof existing === "object"
+        ? /** @type {{ stack?: unknown }} */ (existing).stack
+        : null;
+    if (!Array.isArray(stack) || stack.length === 0) presenterPins[letId] = pin;
+  }
+}
+
+function pinsJson() {
+  if (!presenterPins || !Object.keys(presenterPins).length) return undefined;
+  return JSON.stringify(presenterPins);
 }
 
 async function bakeComponentWasm(componentName, paramBag) {
@@ -281,6 +354,7 @@ async function bakeComponentWasm(componentName, paramBag) {
     JSON.stringify(paramBag ?? {}),
     deviceHost(),
     JSON.stringify(facts ?? {}),
+    pinsJson(),
   );
   return JSON.parse(bakeJson);
 }
@@ -301,6 +375,8 @@ function renderBody() {
     hostChrome: "device",
     engine: "rust",
     kv,
+    presenterPins,
+    presenterPinsByComponent: component ? { [component]: presenterPins } : {},
     componentOverrides: overrides,
     activeFixturesByComponent: activeFixture ? { [component]: activeFixture } : {},
   };
@@ -404,6 +480,7 @@ function renderHtmlLocal(bake, component) {
     usageByComponent,
     rulesByComponent,
     editableTypeDefaults: editableTypeDefaults(),
+    componentRolesByComponent: componentRoles,
   });
   if (renderFailures?.length) {
     console.warn(
@@ -447,6 +524,7 @@ async function runRender(opts = {}) {
   let bake = null;
   try {
     bake = await bakeComponentWasm(component, kv);
+    if (bake?.components?.[component]) seedPinsFromBake(bake.components[component]);
   } catch (err) {
     console.warn("device WASM bake failed:", err);
   }
@@ -678,10 +756,11 @@ function applyFixture(component, label) {
   const examples = fixturesByComponent[component];
   activeFixture = label;
   if (label && examples && typeof examples === "object" && examples[label]) {
-    const { kv: nextKv, env } = splitFixtureExample(
-      /** @type {Record<string, unknown>} */ (examples[label]),
-    );
+    const example = /** @type {Record<string, unknown>} */ (examples[label]);
+    const { kv: nextKv, env } = splitFixtureExample(example);
     kv = nextKv;
+    const pins = pinsFromFixtureExample(example);
+    presenterPins = Object.keys(pins).length ? pins : {};
     if (env.host) stagedHost = env.host;
     if (env.theme) theme = env.theme;
     if (env.hostFacts) {
@@ -690,6 +769,7 @@ function applyFixture(component, label) {
     }
   } else if (!label) {
     kv = {};
+    presenterPins = {};
   }
   void runRender();
 }
@@ -730,6 +810,10 @@ async function applyStage(stage) {
       components = stage.components.map(String);
     }
     kv = stage.kv && typeof stage.kv === "object" && !Array.isArray(stage.kv) ? { ...stage.kv } : {};
+    presenterPins =
+      stage.presenterPins && typeof stage.presenterPins === "object" && !Array.isArray(stage.presenterPins)
+        ? { ...stage.presenterPins }
+        : {};
     activeFixture = typeof stage.activeFixture === "string" ? stage.activeFixture : null;
     fillPackSelect();
     fillComponentSelect();
@@ -774,6 +858,14 @@ window.addEventListener("message", (ev) => {
     applyFixture(data.component, label);
     return;
   }
+  if (data.type === "pdl-screen-reset" && typeof data.component === "string") {
+    leaveFollow("Local · reset");
+    kv = {};
+    presenterPins = {};
+    activeFixture = null;
+    void runRender({ remount: true });
+    return;
+  }
   if (data.type === "pdl-param" && data.component && data.kv && typeof data.kv === "object") {
     leaveFollow("Local · variant");
     applyParams(String(data.component), data.kv);
@@ -786,16 +878,33 @@ window.addEventListener("message", (ev) => {
   if (data.type === "pdl-interaction") {
     const evName = typeof data.event === "string" ? data.event : "";
     const comp = typeof data.component === "string" ? data.component : currentComponent();
-    if (evName) setStatus(`${comp} · ${evName}`);
-    if (
-      data.previewHandled !== true &&
-      data.changed &&
-      data.params &&
-      typeof data.params === "object"
-    ) {
+    if (data.unhandledAncestors) setStatus(`${comp} · unhandled ancestors (no-op)`);
+    else if (evName) setStatus(`${comp} · ${evName}`);
+    const ops = Array.isArray(data.presenterOps) ? data.presenterOps : [];
+    const sectionOps = ops.filter((op) => !op.owner || op.owner === "section" || op.owner === comp);
+    const pinsChanged = sectionOps.length > 0;
+    const pairMove = pinsChanged ? resolvePairMove(sectionOps, presenterPins) : null;
+    const outgoingSnap = pairMove ? snapshotPresenterOutgoing(frame?.contentDocument) : null;
+    if (activePairClip) {
+      activePairClip.cancel();
+      activePairClip = null;
+    }
+    if (pinsChanged) {
+      presenterPins = applyPresenterOps(presenterPins ?? {}, sectionOps);
+    }
+    const assignChanged = Boolean(data.changed) && ops.length === 0;
+    if (data.previewHandled !== true && (pinsChanged || assignChanged)) {
       leaveFollow("Local · interaction");
-      kv = { ...data.params };
-      void runRender();
+      if (data.params && typeof data.params === "object") kv = { ...data.params };
+      void runRender().then(() => {
+        if (pairMove && outgoingSnap) {
+          activePairClip = startPresenterPairClip(
+            frame?.contentDocument,
+            outgoingSnap,
+            pairMove,
+          );
+        }
+      });
     }
   }
 });
@@ -809,6 +918,7 @@ componentSelect?.addEventListener("change", () => {
   if (applyingRemote) return;
   leaveFollow("Local · component");
   kv = {};
+  presenterPins = {};
   activeFixture = null;
   void runRender({ remount: true });
 });

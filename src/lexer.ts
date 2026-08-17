@@ -65,8 +65,8 @@ export type TokenKind =
   | "LetterSpacing"
   | "Sizing"
   | "Duration"
-  | "Easing"
-  | "Transition"
+  | "Ease"
+  | "Timing"
   | "Pose"
   | "Stagger"
   | "Motion"
@@ -177,8 +177,8 @@ const KEYWORDS = new Map<string, TokenKind>([
   ["LetterSpacing", "LetterSpacing"],
   ["Sizing", "Sizing"],
   ["Duration", "Duration"],
-  ["Easing", "Easing"],
-  ["Transition", "Transition"],
+  ["Ease", "Ease"],
+  ["Timing", "Timing"],
   ["Pose", "Pose"],
   ["Stagger", "Stagger"],
   ["Motion", "Motion"],

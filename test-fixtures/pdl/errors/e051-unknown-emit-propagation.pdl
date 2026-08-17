@@ -1,0 +1,7 @@
+// PDL-E051: unknown emit propagation case.
+
+component Chip() layout {
+  children = []
+} emits(propagation: .up) {
+  select(filter: String)
+}

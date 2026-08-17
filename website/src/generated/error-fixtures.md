@@ -6,7 +6,7 @@ Oracle `.pdl` files under [`test-fixtures/pdl/errors/`](https://github.com/Mana-
 
 A conforming compiler **MUST** emit the code encoded in the filename (`e007-…` → **PDL-E007**), except where a test documents a different code (language evolution — see [Filename vs observed](#filename-vs-observed)). Diagnostic meanings: [Diagnostics](./diagnostics.md).
 
-**108** current oracles · **2** support files · **5** legacy · **1** valid controls.
+**121** current oracles · **2** support files · **5** legacy · **1** valid controls.
 
 ## Coverage by catalog code
 
@@ -14,11 +14,11 @@ Active `PDL-E` codes from `shared/diagnostics.json`. **Current** counts ignore `
 
 | Code | Name | Current | Legacy | Status |
 |------|------|---------|--------|--------|
-| **PDL-E001** | `unexpected-token` | 16 | 0 | covered |
+| **PDL-E001** | `unexpected-token` | 18 | 0 | covered |
 | **PDL-E002** | `circular-import` | 1 | 0 | covered |
 | **PDL-E003** | `duplicate-symbol` | 3 | 0 | covered |
 | **PDL-E004** | `unknown-token-type` | 1 | 0 | covered |
-| **PDL-E005** | `token-type-mismatch` | 32 | 0 | covered |
+| **PDL-E005** | `token-type-mismatch` | 33 | 0 | covered |
 | **PDL-E006** | `frame-prop-type-mismatch` | 13 | 0 | covered |
 | **PDL-E007** | `unresolved-reference` | 6 | 1 | covered |
 | **PDL-E008** | `unresolved-type-style` | 0 | 0 | **gap** |
@@ -50,18 +50,24 @@ Active `PDL-E` codes from `shared/diagnostics.json`. **Current** counts ignore `
 | **PDL-E036** | `list-emit-capture` | 0 | 0 | **gap** |
 | **PDL-E037** | `unknown-component` | 5 | 0 | covered |
 | **PDL-E038** | `mixed-condition-operators` | 2 | 0 | covered |
-| **PDL-E039** | `unknown-param-type` | 2 | 0 | covered |
-| **PDL-E040** | `param-type-mismatch` | 4 | 0 | covered |
+| **PDL-E039** | `unknown-param-type` | 3 | 0 | covered |
+| **PDL-E040** | `param-type-mismatch` | 5 | 0 | covered |
 | **PDL-E041** | `unknown-sample-path` | 1 | 0 | covered |
 | **PDL-E042** | `duplicate-mount` | 2 | 0 | covered |
 | **PDL-E043** | `duplicate-protocol-header` | 1 | 0 | covered |
-| **PDL-E044** | `multiple-api-protocols` | 1 | 0 | covered |
+| **PDL-E044** | `wrong-protocol-stance` | 1 | 0 | covered |
 | **PDL-E045** | `host-param-shape-mismatch` | 1 | 0 | covered |
 | **PDL-E046** | `unknown-host-profile` | 2 | 0 | covered |
 | **PDL-E047** | `host-probe-outside-mount` | 2 | 0 | covered |
 | **PDL-E048** | `mount-coalesce-empty` | 1 | 0 | covered |
 | **PDL-E049** | `theme-catalog-role-mismatch` | 2 | 0 | covered |
 | **PDL-E050** | `invalid-host-facts` | 1 | 0 | covered |
+| **PDL-E051** | `unknown-emit-propagation` | 1 | 0 | covered |
+| **PDL-E052** | `invalid-ancestor-capture-form` | 2 | 0 | covered |
+| **PDL-E053** | `unhandled-ancestors-emit` | 1 | 0 | covered |
+| **PDL-E054** | `presenter-missing-root` | 1 | 0 | covered |
+| **PDL-E055** | `presenter-verb-outside-capture` | 2 | 0 | covered |
+| **PDL-E056** | `sink-missing-handler` | 1 | 0 | covered |
 
 ## Codes without an oracle
 
@@ -72,9 +78,9 @@ These codes are in the diagnostic catalog but have no `eNNN-*.pdl` under `errors
 - **PDL-E014** — `duplicate-fixture-label` — Two `example` blocks within the same `fixtures ComponentName { … }` have identical labels.
 - **PDL-E017** — `quoted-hex-color` — A string literal is used where a `Color` value is expected and the string content matches the hex color pattern — hex colors must be unquoted.
 - **PDL-E018** — `reserved-word-as-identifier` — A reserved word (§20.4) is used as a user-defined identifier.
-- **PDL-E022** — `unknown-protocol` — A `component C <P>` / `component C <P, Q>` or protocol-typed param references an undeclared protocol.
+- **PDL-E022** — `unknown-protocol` — A `component C <P>` / `emits <P>` or protocol-typed param references an undeclared protocol.
 - **PDL-E023** — `unknown-foreach-list` — `ForEach(name)` names a parameter that is not an expandable list/slot in the enclosing component (§4e).
-- **PDL-E024** — `unknown-emit-channel` — Layout emit capture or `emit` names a channel not in the effective `emits` set for the relevant component/protocol (§4d–§4e).
+- **PDL-E024** — `unknown-emit-channel` — Layout emit capture or `emit` names a channel not in the effective `emits` set, or a bare `channel(…) =` ancestor capture is written without listing that channel’s protocol in receive `<>`.
 - **PDL-E025** — `invalid-foreach-binding` — A derived bind inside `ForEach` references an unknown parent/item field or fails type rules for the target child param (§4e).
 - **PDL-E026** — `foreach-chrome-unimplemented` — `before` / `between` / `after` appears in `ForEach` before B6 is implemented (implementations **MAY** use this code while rejecting chrome).
 - **PDL-E027** — `emit-payload-mismatch` — Layout `channel(…) = { … }` arity or types do not match the effective emit signature by position, or a fire-site `emit` arg fails the declared payload type (§4d–§4e).
@@ -113,8 +119,10 @@ The filename still records the original intent. TypeScript tests assert a **diff
 | [`e001-import-missing.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-import-missing.pdl) | **PDL-E001** | **ENOENT** | `unexpected-token` | io | import missing |
 | [`e001-invalid-hex.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-invalid-hex.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | invalid hex |
 | [`e001-leading-zero-number.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-leading-zero-number.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | Leading zero in number literal — lexer error. |
+| [`e001-protocol-subject-page.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-protocol-subject-page.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | PDL-E001: protocol subject must be `component`, not `page`. |
 | [`e001-ratio-zero-height.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-ratio-zero-height.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | ratio zero height |
 | [`e001-spacer-at-opacity.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-spacer-at-opacity.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | spacer at opacity |
+| [`e001-timing-tuple.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-timing-tuple.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | timing tuple |
 | [`e001-unclosed-layout.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-unclosed-layout.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | Missing closing `}` on layout body — parse error. |
 | [`e001-unknown-keyword.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-unknown-keyword.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | Unknown top-level keyword — parse error. |
 | [`e001-unterminated-string.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-unterminated-string.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | Unterminated string in text `content` — lexer error. |
@@ -128,6 +136,7 @@ The filename still records the original intent. TypeScript tests assert a **diff
 | [`e005-blur-number-token.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-blur-number-token.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | Blur is a layer object — bare numbers are Radius, not Blur. |
 | [`e005-color-number.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-color-number.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | PDL-E005 — Color tokens must be #hex (or color @ opacity) |
 | [`e005-distance-string.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-distance-string.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | distance string |
+| [`e005-ease-css.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-ease-css.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | ease css |
 | [`e005-effect-glass.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-effect-glass.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | effect glass |
 | [`e005-fontfamily-hex.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-fontfamily-hex.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | PDL-E005 — FontFamily tokens must be strings |
 | [`e005-fontfamily-number.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-fontfamily-number.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | PDL-E005 — FontFamily tokens must be strings |
@@ -192,16 +201,18 @@ The filename still records the original intent. TypeScript tests assert a **diff
 | [`e038-hidden-mixed-and-or.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e038-hidden-mixed-and-or.pdl) | **PDL-E038** | **PDL-E038** | `mixed-condition-operators` | load | `hidden =` condition cannot mix && and \|\| without parens (same rule as layout `if`). |
 | [`e038-mixed-and-or.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e038-mixed-and-or.pdl) | **PDL-E038** | **PDL-E038** | `mixed-condition-operators` | load | Cannot mix `&&` and `\|\|` at top level of a condition without parentheses. |
 | [`e039-boolean-spelling.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e039-boolean-spelling.pdl) | **PDL-E039** | **PDL-E039** | `unknown-param-type` | load | boolean spelling |
+| [`e039-page-keyword-as-type.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e039-page-keyword-as-type.pdl) | **PDL-E039** | **PDL-E039** | `unknown-param-type` | load | PDL-E039: slot type is prelude `Page`, not the `page` keyword. |
 | [`e039-unknown-param-type.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e039-unknown-param-type.pdl) | **PDL-E039** | **PDL-E039** | `unknown-param-type` | load | unknown param type |
 | [`e040-blur-vibrancy-dot-enum.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e040-blur-vibrancy-dot-enum.pdl) | **PDL-E040** | **PDL-E040** | `param-type-mismatch` | load | blur vibrancy dot enum |
 | [`e040-blur-vibrancy-number.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e040-blur-vibrancy-number.pdl) | **PDL-E040** | **PDL-E040** | `param-type-mismatch` | load | blur vibrancy number |
+| [`e040-component-in-page-slot.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e040-component-in-page-slot.pdl) | **PDL-E040** | **PDL-E040** | `param-type-mismatch` | load | PDL-E040: a plain component does not satisfy prelude `Page`. |
 | [`e040-let-instance-bool-to-string.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e040-let-instance-bool-to-string.pdl) | **PDL-E040** | **PDL-E040** | `param-type-mismatch` | load | let instance bool to string |
 | [`e040-let-instance-wrong-type.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e040-let-instance-wrong-type.pdl) | **PDL-E040** | **PDL-E040** | `param-type-mismatch` | load | let instance wrong type |
 | [`e041-unknown-sample-path.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e041-unknown-sample-path.pdl) | **PDL-E041** | **PDL-E041** | `unknown-sample-path` | load | unknown sample path |
 | [`e042-duplicate-mount-nested.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e042-duplicate-mount-nested.pdl) | **PDL-E042** | **PDL-E042** | `duplicate-mount` | load | PDL-E042: the same let cannot be a child of two parents. |
 | [`e042-duplicate-mount.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e042-duplicate-mount.pdl) | **PDL-E042** | **PDL-E042** | `duplicate-mount` | load | PDL-E042: the same let cannot appear twice in children. |
 | [`e043-duplicate-protocol-header.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e043-duplicate-protocol-header.pdl) | **PDL-E043** | **PDL-E043** | `duplicate-protocol-header` | load | PDL-E043: the same protocol cannot appear twice in a component header. |
-| [`e044-multiple-api-protocols.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e044-multiple-api-protocols.pdl) | **PDL-E044** | **PDL-E044** | `multiple-api-protocols` | load | PDL-E044: at most one API protocol in a component header. |
+| [`e044-wrong-protocol-stance.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e044-wrong-protocol-stance.pdl) | **PDL-E044** | **PDL-E044** | `wrong-protocol-stance` | load | PDL-E044: API send/slot protocols go in `emits <>`, not receive `<>`. |
 | [`e045-host-shape-mismatch.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e045-host-shape-mismatch.pdl) | **PDL-E045** | **PDL-E045** | `host-param-shape-mismatch` | load | PDL-E045: every host profile must share param names and types. |
 | [`e046-unknown-host-in-fixture.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e046-unknown-host-in-fixture.pdl) | **PDL-E046** | **PDL-E046** | `unknown-host-profile` | load | PDL-E046: fixture names a host profile that is not in the design. |
 | [`e046-unknown-host.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e046-unknown-host.pdl) | **PDL-E046** | **PDL-E046** | `unknown-host-profile` | load | PDL-E046: bake --host names a profile that is not in the design. |
@@ -211,6 +222,14 @@ The filename still records the original intent. TypeScript tests assert a **diff
 | [`e049-fixture-theme-is-catalog.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e049-fixture-theme-is-catalog.pdl) | **PDL-E049** | **PDL-E049** | `theme-catalog-role-mismatch` | load | PDL-E049: fixture theme names a catalog. |
 | [`e049-use-catalog-on-theme.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e049-use-catalog-on-theme.pdl) | **PDL-E049** | **PDL-E049** | `theme-catalog-role-mismatch` | load | PDL-E049: use catalog names a theme. |
 | [`e050-invalid-host-facts.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e050-invalid-host-facts.pdl) | **PDL-E050** | **PDL-E050** | `invalid-host-facts` | load | PDL-E050: fixture hostFacts is not a JSON object. |
+| [`e051-unknown-emit-propagation.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e051-unknown-emit-propagation.pdl) | **PDL-E051** | **PDL-E051** | `unknown-emit-propagation` | load | PDL-E051: unknown emit propagation case. |
+| [`e052-presenter-channel-capture.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e052-presenter-channel-capture.pdl) | **PDL-E052** | **PDL-E052** | `invalid-ancestor-capture-form` | load | PDL-E052: presenter.channel is not ancestor capture. |
+| [`e052-protocol-channel-capture.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e052-protocol-channel-capture.pdl) | **PDL-E052** | **PDL-E052** | `invalid-ancestor-capture-form` | load | PDL-E052: Protocol.channel is not ancestor capture. |
+| [`e053-unhandled-ancestors.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e053-unhandled-ancestors.pdl) | **PDL-E053** | **PDL-E053** | `unhandled-ancestors-emit` | load | PDL-E053: mounted .ancestors emit never meets a bare handler. |
+| [`e054-presenter-missing-root.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e054-presenter-missing-root.pdl) | **PDL-E054** | **PDL-E054** | `presenter-missing-root` | load | PDL-E054: Presenter() requires root. |
+| [`e055-present-sheet.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e055-present-sheet.pdl) | **PDL-E055** | **PDL-E055** | `presenter-verb-outside-capture` | load | PDL-E055: present style .sheet is not legal yet; use .cover. |
+| [`e055-replace-outside-capture.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e055-replace-outside-capture.pdl) | **PDL-E055** | **PDL-E055** | `presenter-verb-outside-capture` | load | PDL-E055: replace is only legal in an ancestor-capture body. |
+| [`e056-sink-missing-handler.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e056-sink-missing-handler.pdl) | **PDL-E056** | **PDL-E056** | `sink-missing-handler` | load | PDL-E056: receive `<ShowEpisode>` requires a bare showEpisode(…) = handler. |
 
 ## Support files
 

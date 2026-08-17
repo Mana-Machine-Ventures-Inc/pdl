@@ -280,7 +280,10 @@ pub fn assert_param_value_compatible(
         };
     }
     if expected == "EdgeInsets" {
-        return if matches!(value, ValueExpr::EdgeInsets { .. } | ValueExpr::Number { .. }) {
+        return if matches!(
+            value,
+            ValueExpr::EdgeInsets { .. } | ValueExpr::Number { .. }
+        ) {
             Ok(())
         } else {
             Err(mismatch())
@@ -300,14 +303,14 @@ pub fn assert_param_value_compatible(
             Err(mismatch())
         };
     }
-    if expected == "Easing" {
+    if expected == "Ease" {
         return match value {
             ValueExpr::DotEnum { .. } | ValueExpr::String { .. } => Ok(()),
             _ => Err(mismatch()),
         };
     }
-    if expected == "Transition" {
-        return if matches!(value, ValueExpr::Transition { .. }) {
+    if expected == "Timing" {
+        return if matches!(value, ValueExpr::Timing { .. }) {
             Ok(())
         } else {
             Err(mismatch())
@@ -330,7 +333,7 @@ pub fn assert_param_value_compatible(
     if expected == "Motion" {
         return if matches!(
             value,
-            ValueExpr::Motion { .. } | ValueExpr::Transition { .. }
+            ValueExpr::Motion { .. } | ValueExpr::Timing { .. }
         ) {
             Ok(())
         } else {
@@ -400,9 +403,22 @@ pub fn assert_param_value_compatible(
         };
     }
 
-    if design.components.contains_key(expected) || design.protocols.contains_key(expected) {
+    if design.components.contains_key(expected) {
         return match value {
             ValueExpr::Instance { component, .. } if component == expected => Ok(()),
+            ValueExpr::Array { .. } => Ok(()),
+            ValueExpr::Null => Ok(()),
+            _ => Err(mismatch()),
+        };
+    }
+    if design.protocols.contains_key(expected) {
+        return match value {
+            ValueExpr::Instance { component, .. }
+                if component == expected
+                    || crate::pack::component_satisfies_bound(design, component, expected) =>
+            {
+                Ok(())
+            }
             ValueExpr::Array { .. } => Ok(()),
             ValueExpr::Null => Ok(()),
             _ => Err(mismatch()),

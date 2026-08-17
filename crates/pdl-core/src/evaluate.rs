@@ -190,16 +190,14 @@ fn eval_media_format_opt(
     let v = evaluate_value(expr, ev)?;
     let raw = match &v {
         Value::String(s) => s.as_str(),
-        _ => {
-            return Err(PdlError::new(
-                "PDL-E006",
-                "MediaSource format must be a closed case (.webp|.jpeg|.png|.gif|.svg|.mp4|.webm|.pdf)"
-                    .to_string(),
-                Some(ev.design.entry_path.clone()),
-                None,
-                None,
-            ))
-        }
+        _ => return Err(PdlError::new(
+            "PDL-E006",
+            "MediaSource format must be a closed case (.webp|.jpeg|.png|.gif|.svg|.mp4|.webm|.pdf)"
+                .to_string(),
+            Some(ev.design.entry_path.clone()),
+            None,
+            None,
+        )),
     };
     let Some(f) = normalize_media_format_name(raw) else {
         return Err(PdlError::new(
@@ -465,14 +463,14 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
                 ("params", Value::Object(params)),
             ]))
         }
-        ValueExpr::Transition {
+        ValueExpr::Timing {
             duration,
-            easing,
+            ease,
             delay,
         } => {
             let mut entries = vec![
                 ("duration", evaluate_value(duration, ev)?),
-                ("easing", evaluate_value(easing, ev)?),
+                ("ease", evaluate_ease(evaluate_value(ease, ev)?)?),
             ];
             if let Some(d) = delay {
                 entries.push(("delay", evaluate_value(d, ev)?));
@@ -497,20 +495,64 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
             }
             Ok(obj(entries))
         }
-        ValueExpr::Key { pose, at, easing } => {
+        ValueExpr::Key { pose, at, ease } => {
             let mut entries = vec![
                 ("kind", Value::String("key".to_string())),
                 ("pose", evaluate_value(pose, ev)?),
                 ("at", evaluate_value(at, ev)?),
             ];
-            if let Some(e) = easing {
-                entries.push(("easing", evaluate_value(e, ev)?));
+            if let Some(e) = ease {
+                entries.push(("ease", evaluate_ease(evaluate_value(e, ev)?)?));
+            }
+            Ok(obj(entries))
+        }
+        ValueExpr::EaseBezier { x1, y1, x2, y2 } => {
+            let a = number_from_eval(&evaluate_value(x1, ev)?)?;
+            let b = number_from_eval(&evaluate_value(y1, ev)?)?;
+            let c = number_from_eval(&evaluate_value(x2, ev)?)?;
+            let d = number_from_eval(&evaluate_value(y2, ev)?)?;
+            Ok(obj(vec![
+                ("kind", Value::String("easeBezier".to_string())),
+                ("x1", number_value(a)),
+                ("y1", number_value(b)),
+                ("x2", number_value(c)),
+                ("y2", number_value(d)),
+            ]))
+        }
+        ValueExpr::PresentationMotion {
+            incoming,
+            outgoing,
+            duration,
+            ease,
+            delay,
+            front,
+            promote_at,
+        } => {
+            let mut entries = vec![
+                ("kind", Value::String("presentationMotion".to_string())),
+                ("incoming", evaluate_value(incoming, ev)?),
+                ("outgoing", evaluate_value(outgoing, ev)?),
+            ];
+            if let Some(d) = duration {
+                entries.push(("duration", evaluate_value(d, ev)?));
+            }
+            if let Some(e) = ease {
+                entries.push(("ease", evaluate_ease(evaluate_value(e, ev)?)?));
+            }
+            if let Some(d) = delay {
+                entries.push(("delay", evaluate_value(d, ev)?));
+            }
+            if let Some(f) = front {
+                entries.push(("front", evaluate_value(f, ev)?));
+            }
+            if let Some(p) = promote_at {
+                entries.push(("promoteAt", evaluate_value(p, ev)?));
             }
             Ok(obj(entries))
         }
         ValueExpr::Motion {
             base,
-            transition,
+            timing,
             pose,
             keys,
             play,
@@ -524,8 +566,8 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
                 m.insert("kind".into(), Value::String("motion".into()));
                 m
             };
-            if let Some(t) = transition {
-                map.insert("transition".into(), evaluate_value(t, ev)?);
+            if let Some(t) = timing {
+                map.insert("timing".into(), evaluate_value(t, ev)?);
             }
             if let Some(p) = play {
                 map.insert("play".into(), evaluate_value(p, ev)?);
@@ -709,6 +751,10 @@ fn evaluate_call(
 }
 
 fn evaluate_ident(name: &str, ev: &mut Eval) -> Result<Value, PdlError> {
+    if let Some(base) = name.strip_suffix(".reversed") {
+        let v = evaluate_ident(base, ev)?;
+        return reverse_presentation_motion(v);
+    }
     if let Some(meta) = ev.param_meta {
         if let Some(t) = meta.get(name) {
             if ev.use_string_placeholders && is_placeholder_type(&t.type_name) && !t.is_array {
@@ -852,6 +898,69 @@ fn is_decimal_string(s: &str) -> bool {
     chars.next().is_none()
 }
 
+fn number_from_eval(v: &Value) -> Result<f64, PdlError> {
+    match v {
+        Value::Number(n) => n.as_f64().ok_or_else(|| {
+            PdlError::new("PDL-E005", "Expected a number", None, None, None)
+        }),
+        _ => Err(PdlError::new(
+            "PDL-E005",
+            "Expected a number",
+            None,
+            None,
+            None,
+        )),
+    }
+}
+
+fn evaluate_ease(raw: Value) -> Result<Value, PdlError> {
+    match raw {
+        Value::String(s) => Ok(Value::String(s.trim().trim_start_matches('.').to_string())),
+        other => Ok(other),
+    }
+}
+
+fn reverse_presentation_motion(raw: Value) -> Result<Value, PdlError> {
+    let Value::Object(mut o) = raw else {
+        return Err(PdlError::new(
+            "PDL-E005",
+            "`.reversed` is only valid on a PresentationMotion",
+            None,
+            None,
+            None,
+        ));
+    };
+    if o.get("kind").and_then(|v| v.as_str()) != Some("presentationMotion") {
+        return Err(PdlError::new(
+            "PDL-E005",
+            "`.reversed` is only valid on a PresentationMotion",
+            None,
+            None,
+            None,
+        ));
+    }
+    let incoming = o.remove("incoming");
+    let outgoing = o.remove("outgoing");
+    if let Some(v) = outgoing {
+        o.insert("incoming".into(), v);
+    }
+    if let Some(v) = incoming {
+        o.insert("outgoing".into(), v);
+    }
+    let front = o
+        .get("front")
+        .and_then(|v| v.as_str())
+        .unwrap_or("incoming")
+        .trim_start_matches('.');
+    let flipped = if front == "outgoing" {
+        "incoming"
+    } else {
+        "outgoing"
+    };
+    o.insert("front".into(), Value::String(format!(".{flipped}")));
+    Ok(Value::Object(o))
+}
+
 fn obj(entries: Vec<(&str, Value)>) -> Value {
     let mut m = Map::new();
     for (k, v) in entries {
@@ -879,7 +988,7 @@ fn motion_object_from_eval(raw: Value) -> Map<String, Value> {
     if o.contains_key("duration") {
         let mut m = Map::new();
         m.insert("kind".into(), Value::String("motion".into()));
-        m.insert("transition".into(), Value::Object(o));
+        m.insert("timing".into(), Value::Object(o));
         return m;
     }
     let mut m = o;
@@ -911,28 +1020,30 @@ pub fn build_resolved_token_map(
         evaluate_value(&ValueExpr::Ident { name: n }, &mut ev)?;
     }
 
-    let apply_theme =
-        |name: &str, tokens: &mut Tokens, visiting: &mut HashSet<String>| -> Result<(), PdlError> {
-            let Some(th) = design.themes.get(name) else {
-                if design.catalogs.contains_key(name) {
-                    return Err(PdlError::new(
+    let apply_theme = |name: &str,
+                       tokens: &mut Tokens,
+                       visiting: &mut HashSet<String>|
+     -> Result<(), PdlError> {
+        let Some(th) = design.themes.get(name) else {
+            if design.catalogs.contains_key(name) {
+                return Err(PdlError::new(
                         "PDL-E049",
                         format!("`{name}` is a catalog, not a theme; catalogs apply via `use catalog` in `mount`"),
                         Some(design.entry_path.clone()),
                         None,
                         None,
                     ));
-                }
-                return Err(PdlError::new(
-                    "PDL-E005",
-                    format!("Unknown theme {name}"),
-                    Some(design.entry_path.clone()),
-                    None,
-                    None,
-                ));
-            };
-            apply_token_overrides(design, tokens, visiting, &th.overrides)
+            }
+            return Err(PdlError::new(
+                "PDL-E005",
+                format!("Unknown theme {name}"),
+                Some(design.entry_path.clone()),
+                None,
+                None,
+            ));
         };
+        apply_token_overrides(design, tokens, visiting, &th.overrides)
+    };
 
     if let Some(name) = theme_name {
         apply_theme(name, &mut tokens, &mut visiting)?;

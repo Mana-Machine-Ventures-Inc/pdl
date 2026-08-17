@@ -34,14 +34,9 @@ fn bake_mounts_focus_sample_via_mood_branch() {
     let design = load_design(lab_path().to_str().unwrap()).expect("load");
     let mut overrides = Map::new();
     overrides.insert("mood".into(), json!("focus"));
-    let doc = build_baked_design_component(
-        &design,
-        "SampleShelf",
-        None,
-        &overrides,
-        Some("t".into()),
-    )
-    .expect("bake");
+    let doc =
+        build_baked_design_component(&design, "SampleShelf", None, &overrides, Some("t".into()))
+            .expect("bake");
     assert_eq!(track_row_count(&doc), 1, "focus sample has one TrackRow");
     let json = serde_json::to_string(&doc).unwrap();
     assert!(json.contains("Desk"), "expected Desk from focus sample");
@@ -52,14 +47,9 @@ fn bake_empty_sample_mounts_zero_rows() {
     let design = load_design(lab_path().to_str().unwrap()).expect("load");
     let mut overrides = Map::new();
     overrides.insert("mood".into(), json!("night"));
-    let doc = build_baked_design_component(
-        &design,
-        "SampleShelf",
-        None,
-        &overrides,
-        Some("t".into()),
-    )
-    .expect("bake");
+    let doc =
+        build_baked_design_component(&design, "SampleShelf", None, &overrides, Some("t".into()))
+            .expect("bake");
     assert_eq!(track_row_count(&doc), 0);
 }
 

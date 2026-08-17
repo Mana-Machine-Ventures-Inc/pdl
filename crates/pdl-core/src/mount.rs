@@ -68,7 +68,10 @@ fn coerce_host_param_override(
                 _ => {
                     return Err(PdlError::new(
                         "PDL-E005",
-                        format!("Host override `{0}` must be a {1} case", p.name, p.type_name),
+                        format!(
+                            "Host override `{0}` must be a {1} case",
+                            p.name, p.type_name
+                        ),
                         Some(design.entry_path.clone()),
                         None,
                         None,
@@ -212,24 +215,10 @@ fn eval_mount_items(
             }
             MountItem::If { chain } => {
                 let taken = pick_mount_if(
-                    design,
-                    tokens,
-                    profile,
-                    chain,
-                    facts,
-                    bag,
-                    locals,
-                    local_meta,
+                    design, tokens, profile, chain, facts, bag, locals, local_meta,
                 )?;
                 eval_mount_items(
-                    design,
-                    tokens,
-                    profile,
-                    taken,
-                    facts,
-                    bag,
-                    locals,
-                    local_meta,
+                    design, tokens, profile, taken, facts, bag, locals, local_meta,
                 )?;
             }
         }
@@ -288,7 +277,9 @@ fn pick_mount_if<'a>(
         return Ok(&chain.then_items);
     }
     for (cond, body) in &chain.else_if {
-        if eval_mount_cond(design, tokens, profile, cond, facts, bag, locals, local_meta)? {
+        if eval_mount_cond(
+            design, tokens, profile, cond, facts, bag, locals, local_meta,
+        )? {
             return Ok(body);
         }
     }
@@ -306,7 +297,9 @@ fn eval_mount_expr_required(
     local_meta: &ParamMeta,
     where_: &str,
 ) -> Result<Value, PdlError> {
-    match eval_mount_expr(design, tokens, profile, expr, facts, bag, locals, local_meta)? {
+    match eval_mount_expr(
+        design, tokens, profile, expr, facts, bag, locals, local_meta,
+    )? {
         Some(v) => Ok(v),
         None => Err(PdlError::new(
             "PDL-E048",
@@ -454,8 +447,9 @@ fn eval_mount_cond(
     match cond {
         MountCondition::And { items } => {
             for item in items {
-                if !eval_mount_cond(design, tokens, profile, item, facts, bag, locals, local_meta)?
-                {
+                if !eval_mount_cond(
+                    design, tokens, profile, item, facts, bag, locals, local_meta,
+                )? {
                     return Ok(false);
                 }
             }
@@ -463,19 +457,27 @@ fn eval_mount_cond(
         }
         MountCondition::Or { items } => {
             for item in items {
-                if eval_mount_cond(design, tokens, profile, item, facts, bag, locals, local_meta)? {
+                if eval_mount_cond(
+                    design, tokens, profile, item, facts, bag, locals, local_meta,
+                )? {
                     return Ok(true);
                 }
             }
             Ok(false)
         }
         MountCondition::Truthy { expr } => {
-            let v = eval_mount_expr(design, tokens, profile, expr, facts, bag, locals, local_meta)?;
+            let v = eval_mount_expr(
+                design, tokens, profile, expr, facts, bag, locals, local_meta,
+            )?;
             Ok(is_truthy(v.as_ref()))
         }
         MountCondition::Cmp { left, op, right } => {
-            let l = eval_mount_expr(design, tokens, profile, left, facts, bag, locals, local_meta)?;
-            let r = eval_mount_expr(design, tokens, profile, right, facts, bag, locals, local_meta)?;
+            let l = eval_mount_expr(
+                design, tokens, profile, left, facts, bag, locals, local_meta,
+            )?;
+            let r = eval_mount_expr(
+                design, tokens, profile, right, facts, bag, locals, local_meta,
+            )?;
             Ok(compare_mount(l.as_ref(), *op, r.as_ref()))
         }
     }

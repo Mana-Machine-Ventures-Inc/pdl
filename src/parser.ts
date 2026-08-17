@@ -81,9 +81,24 @@ export class Parser {
             handlers: hostHandlers,
           });
         }
-        // Trailing `} emits { … }` (skipped in TS oracle).
-        if (this.is("emits") && this.peekAheadKind(1) === "{") {
-          this.skipInlineEmitsBlock();
+        // Trailing `} emits <P>` / `} emits { … }` (TS keeps protocol names; skips inline body).
+        // Not `emits(propagation: …) Name { … }` — that is a top-level emits-decl.
+        if (this.isTrailingEmits()) {
+          const more = this.skipInlineEmitsBlock(name);
+          if (more.length) {
+            const existing = decl.emitsProtocols ?? [];
+            for (const p of more) {
+              if (existing.includes(p)) {
+                const t = this.peek();
+                throw new PdlError(
+                  "PDL-E043",
+                  `Component \`${name}\` lists protocol \`${p}\` more than once`,
+                  { path: this.filePath, line: t.line, column: t.column },
+                );
+              }
+            }
+            decl.emitsProtocols = [...existing, ...more];
+          }
         }
         if (this.is("interaction")) {
           throw this.errInteractionRemoved();
@@ -120,6 +135,10 @@ export class Parser {
         return this.parseProtocol();
       case "component":
         return this.parseComponent();
+      case "IDENT":
+        if (this.peek().value === "page") return this.parseComponentLike("page");
+        if (this.peek().value === "screen") return this.parseComponentLike("screen");
+        throw this.err(`Unexpected token IDENT at top level`);
       case "expose":
         return this.parseExpose();
       case "interaction":
@@ -168,7 +187,16 @@ export class Parser {
   /** Parameter types may use keyword spellings (`Icon`, `Color`, …). */
   private consumeParamTypeName(): string {
     const t = this.peek();
-    if (t.kind === "IDENT") return this.consume("IDENT").value;
+    if (t.kind === "IDENT") {
+      if (t.value === "page" || t.value === "screen") {
+        throw new PdlError(
+          "PDL-E039",
+          "Parameter type must be `Page` (prelude protocol), not the `page` / `screen` keyword",
+          { path: this.filePath, line: t.line, column: t.column },
+        );
+      }
+      return this.consume("IDENT").value;
+    }
     const typeKeywords: TokenKind[] = [
       "Color",
       "Opacity",
@@ -185,8 +213,8 @@ export class Parser {
       "LetterSpacing",
       "Sizing",
       "Duration",
-      "Easing",
-      "Transition",
+      "Ease",
+      "Timing",
       "Pose",
       "Stagger",
       "Motion",
@@ -227,8 +255,8 @@ export class Parser {
       "LetterSpacing",
       "Sizing",
       "Duration",
-      "Easing",
-      "Transition",
+      "Ease",
+      "Timing",
       "Pose",
       "Stagger",
       "Motion",
@@ -393,16 +421,85 @@ export class Parser {
     return { kind: "expose", component, names };
   }
 
-  /** Skim trailing `emits { … }` after a component (oracle does not keep EmitsDecl yet). */
-  private skipInlineEmitsBlock(): void {
-    this.consume("emits");
-    this.consume("{");
+  /** Trailing `emits {` / `emits <P>` / `emits(propagation: …) {` — not `emits(…) Name {`. */
+  private isTrailingEmits(): boolean {
+    if (!this.is("emits")) return false;
+    const next = this.peekAheadKind(1);
+    if (next === "{" || next === "<") return true;
+    if (next !== "(") return false;
+    let depth = 0;
+    for (let i = 1; ; i++) {
+      const k = this.peekAheadKind(i);
+      if (k === "EOF") return false;
+      if (k === "(") depth += 1;
+      else if (k === ")") {
+        depth -= 1;
+        if (depth === 0) return this.peekAheadKind(i + 1) === "{";
+      }
+    }
+  }
+
+  /** `emits` `[ (propagation: .parent | .ancestors) ]` — skim only. */
+  private skipOptionalEmitsPropagation(): void {
+    if (!this.is("(")) return;
     let depth = 1;
+    this.advance();
     while (depth > 0 && !this.is("EOF")) {
-      if (this.is("{")) depth += 1;
-      else if (this.is("}")) depth -= 1;
+      if (this.is("(")) depth += 1;
+      else if (this.is(")")) depth -= 1;
       this.advance();
     }
+  }
+
+  /** ` <P, Q> ` after `component Name` (receive) or `emits` (send). */
+  private parseProtocolHeaderList(component: string): string[] {
+    this.consume("<");
+    const protos: string[] = [];
+    while (true) {
+      const proto = this.consume("IDENT").value;
+      if (protos.includes(proto)) {
+        const t = this.peek();
+        throw new PdlError(
+          "PDL-E043",
+          `Component \`${component}\` lists protocol \`${proto}\` more than once`,
+          { path: this.filePath, line: t.line, column: t.column },
+        );
+      }
+      protos.push(proto);
+      if (this.is(",")) {
+        this.advance();
+        if (this.is(">")) {
+          this.advance();
+          break;
+        }
+        continue;
+      }
+      this.consume(">");
+      break;
+    }
+    return protos;
+  }
+
+  /** Skim trailing `emits <P>` / `emits { … }`. Returns send-protocol names. */
+  private skipInlineEmitsBlock(component: string): string[] {
+    this.consume("emits");
+    const protos: string[] = [];
+    if (this.is("<")) {
+      protos.push(...this.parseProtocolHeaderList(component));
+    }
+    this.skipOptionalEmitsPropagation();
+    if (this.is("{")) {
+      this.consume("{");
+      let depth = 1;
+      while (depth > 0 && !this.is("EOF")) {
+        if (this.is("{")) depth += 1;
+        else if (this.is("}")) depth -= 1;
+        this.advance();
+      }
+    } else if (!protos.length) {
+      throw this.err("Expected `emits <Protocol>` or `emits { channel(…) }` after the component");
+    }
+    return protos;
   }
 
   private errInteractionRemoved(): PdlError {
@@ -561,6 +658,11 @@ export class Parser {
     const t = this.peek();
     if (t.kind === "IDENT") {
       this.advance();
+      if (this.is(".") && this.peekAheadKind(1) === "IDENT") {
+        this.advance();
+        const field = this.consume("IDENT").value;
+        return `${t.value}.${field}`;
+      }
       return t.value;
     }
     if (t.kind === "host" || t.kind === "theme") {
@@ -987,6 +1089,14 @@ export class Parser {
     let componentSubject = false;
     if (this.is(":")) {
       this.advance();
+      if (
+        this.is("IDENT") &&
+        (this.peek().value === "page" || this.peek().value === "screen")
+      ) {
+        throw this.err(
+          `Protocol \`${name}\` subject must be \`component\`, not \`page\` / \`screen\` (write \`protocol ${name}: component { … }\`)`,
+        );
+      }
       if (!this.is("component")) {
         throw this.err(
           `Protocol \`${name}\` subject must be \`component\` (write \`protocol ${name}: component { … }\`)`,
@@ -1013,6 +1123,7 @@ export class Parser {
       }
       if (this.is("emits")) {
         this.advance();
+        this.skipOptionalEmitsPropagation();
         this.consume("{");
         while (!this.is("}")) {
           this.advance(); // skim emit signatures
@@ -1073,38 +1184,23 @@ export class Parser {
   }
 
   private parseComponent(): ComponentDecl {
-    this.consume("component");
+    return this.parseComponentLike("component");
+  }
+
+  private parseComponentLike(role: "component" | "page" | "screen"): ComponentDecl {
+    if (role === "component") this.consume("component");
+    else this.consume("IDENT");
     const name = this.consume("IDENT").value;
     if (RESERVED_FRAME_CTOR_COMPONENT_NAMES.has(name as FrameCtorName)) {
       throw this.err(
         `Component name \`${name}\` is reserved for the World A frame constructor; rename the component`,
       );
     }
-    const conformsTo: string[] = [];
-    if (this.is("<")) {
+    const conformsTo = this.is("<") ? this.parseProtocolHeaderList(name) : [];
+    const emitsProtocols: string[] = [];
+    if (this.is("emits") && this.peekAheadKind(1) === "<") {
       this.advance();
-      while (true) {
-        const proto = this.consume("IDENT").value;
-        if (conformsTo.includes(proto)) {
-          const t = this.peek();
-          throw new PdlError(
-            "PDL-E043",
-            `Component \`${name}\` lists protocol \`${proto}\` more than once`,
-            { path: this.filePath, line: t.line, column: t.column },
-          );
-        }
-        conformsTo.push(proto);
-        if (this.is(",")) {
-          this.advance();
-          if (this.is(">")) {
-            this.advance();
-            break;
-          }
-          continue;
-        }
-        this.consume(">");
-        break;
-      }
+      emitsProtocols.push(...this.parseProtocolHeaderList(name));
     }
     this.consume("(");
     const params: ComponentParam[] = [];
@@ -1147,7 +1243,9 @@ export class Parser {
     return {
       kind: "component",
       name,
+      ...(role !== "component" ? { role } : {}),
       ...(conformsTo.length ? { conformsTo } : {}),
+      ...(emitsProtocols.length ? { emitsProtocols } : {}),
       params,
       rootKind,
       body,
@@ -1758,6 +1856,35 @@ export class Parser {
         `Unknown Sizing mode \`${mode}\`; expected hug, fill, fixed, flex, or aspect`,
       );
     }
+    if (t.kind === "Ease") {
+      this.advance();
+      this.consume(".");
+      const method = this.consume("IDENT").value;
+      if (method === "bezier") {
+        this.consume("(");
+        const x1 = this.parseValueExpr();
+        this.consume(",");
+        const y1 = this.parseValueExpr();
+        this.consume(",");
+        const x2 = this.parseValueExpr();
+        this.consume(",");
+        const y2 = this.parseValueExpr();
+        this.consume(")");
+        return { kind: "easeBezier", x1, y1, x2, y2 };
+      }
+      if (method === "cubic") {
+        throw this.err("Write `Ease.bezier(x1, y1, x2, y2)`");
+      }
+      if (method === "linear" || method === "in" || method === "out") {
+        if (this.is("(")) {
+          throw this.err(
+            `\`Ease.${method}\` takes no arguments; write \`.${method}\` or \`Ease.bezier(…)\``,
+          );
+        }
+        return { kind: "dotEnum", value: `.${method}` };
+      }
+      throw this.err("Ease is `.linear`, `.in`, `.out`, or `Ease.bezier(x1, y1, x2, y2)`");
+    }
     if (t.kind === "(") {
       return this.parseParenValue();
     }
@@ -1810,6 +1937,7 @@ export class Parser {
       "Pose",
       "Stagger",
       "Motion",
+      "Timing",
       "Effect",
     ];
     if (kwCallStarts.includes(t.kind)) {
@@ -1827,21 +1955,9 @@ export class Parser {
     const first = this.consume("IDENT").value;
     this.consume(":");
     if (first === "duration") {
-      const duration = this.parseValueExpr();
-      this.consume(",");
-      this.consume("IDENT");
-      this.consume(":");
-      const easing = this.parseValueExpr();
-      let delay: ValueExpr | undefined;
-      if (this.is(",")) {
-        this.advance();
-        const lab = this.consume("IDENT").value;
-        if (lab !== "delay") throw this.err("Expected delay in transition");
-        this.consume(":");
-        delay = this.parseValueExpr();
-      }
-      this.consume(")");
-      return { kind: "transition", duration, easing, delay };
+      throw this.err(
+        "Write `Timing(duration:, ease: [, delay:])` — the `(duration:, ease:)` tuple is removed",
+      );
     }
     if (first === "saturation") {
       throw this.err(
@@ -1977,6 +2093,11 @@ export class Parser {
       this.consume(")");
       return { kind: "gradientStop", fields };
     }
+    if (name === "Timing") {
+      const args = this.parseLabelledArgs();
+      this.consume(")");
+      return this.finishTiming(args);
+    }
     if (name === "Pose") {
       const args = this.parseLabelledArgs();
       this.consume(")");
@@ -1998,6 +2119,11 @@ export class Parser {
       const args = this.parseLabelledArgs();
       this.consume(")");
       return this.finishMotion(base, args);
+    }
+    if (name === "PresentationMotion") {
+      const args = this.parseLabelledArgs();
+      this.consume(")");
+      return this.finishPresentationMotion(args);
     }
     if (name === "Effect") {
       if (this.is(")")) {
@@ -2092,6 +2218,25 @@ export class Parser {
     return args;
   }
 
+  private finishTiming(args: Record<string, ValueExpr>): ValueExpr {
+    if ("easing" in args) throw this.err("Write `ease:` (Timing), not `easing:`");
+    if (!args.duration) throw this.err("`Timing(…)` requires `duration:`");
+    if (!args.ease) throw this.err("`Timing(…)` requires `ease:`");
+    const allowed = new Set(["duration", "ease", "delay"]);
+    const unknown = Object.keys(args).filter((k) => !allowed.has(k));
+    if (unknown.length) {
+      throw this.err(
+        `Timing unknown label(s): ${unknown.join(", ")} (expected duration, ease, optional delay)`,
+      );
+    }
+    return {
+      kind: "timing",
+      duration: args.duration,
+      ease: args.ease,
+      ...(args.delay ? { delay: args.delay } : {}),
+    };
+  }
+
   private finishPose(args: Record<string, ValueExpr>): ValueExpr {
     const unknown = Object.keys(args).filter((k) => !isMotionPropName(k));
     if (unknown.length) {
@@ -2127,11 +2272,12 @@ export class Parser {
 
   private finishKey(args: Record<string, ValueExpr>): ValueExpr {
     if (!("pose" in args) || !("at" in args)) {
-      throw this.err("`Key(…)` requires `pose:` and `at:` (0…1 of transition.duration)");
+      throw this.err("`Key(…)` requires `pose:` and `at:` (0…1 of timing.duration)");
     }
-    const unknown = Object.keys(args).filter((k) => k !== "pose" && k !== "at" && k !== "easing");
+    if ("easing" in args) throw this.err("Write `ease:` on Key, not `easing:`");
+    const unknown = Object.keys(args).filter((k) => k !== "pose" && k !== "at" && k !== "ease");
     if (unknown.length) {
-      throw this.err(`Key unknown label(s): ${unknown.join(", ")} (expected pose, at, optional easing)`);
+      throw this.err(`Key unknown label(s): ${unknown.join(", ")} (expected pose, at, optional ease)`);
     }
     const pose = args.pose;
     const rest =
@@ -2143,7 +2289,7 @@ export class Parser {
       kind: "key",
       pose,
       at: args.at,
-      ...(args.easing ? { easing: args.easing } : {}),
+      ...(args.ease ? { ease: args.ease } : {}),
     };
   }
 
@@ -2159,25 +2305,65 @@ export class Parser {
   }
 
   private finishMotion(base: ValueExpr | undefined, args: Record<string, ValueExpr>): ValueExpr {
-    if (!base && !("transition" in args)) {
-      throw this.err("`Motion(…)` requires `transition:` (a Transition token or tuple)");
+    if ("transition" in args) {
+      throw this.err("Write `timing:` (a Timing) or flattened `duration:` / `ease:`, not `transition:`");
     }
-    const allowed = new Set(["transition", "play", "pose", "keys", "stagger", "repeat"]);
+    if ("easing" in args) throw this.err("Write `ease:`, not `easing:`");
+    const timing = args.timing;
+    const duration = args.duration;
+    const ease = args.ease;
+    const delay = args.delay;
+    if (timing && (duration || ease || delay)) {
+      throw this.err("`Motion` cannot take `timing:` and flattened `duration:` / `ease:` / `delay:`");
+    }
+    let clock = timing;
+    if (!clock && (duration || ease || delay)) {
+      if (!duration) throw this.err("`Motion` flattened clock needs `duration:` (and usually `ease:`)");
+      if (!ease) throw this.err("`Motion` flattened clock needs `ease:`");
+      clock = { kind: "timing", duration, ease, ...(delay ? { delay } : {}) };
+    }
+    if (!base && !clock) {
+      throw this.err("`Motion(…)` requires `duration:` / `ease:` (optional `delay:`) or `timing:` (a Timing token or `Timing(…)`)");
+    }
+    const allowed = new Set(["timing", "duration", "ease", "delay", "play", "pose", "keys", "stagger", "repeat"]);
     const unknown = Object.keys(args).filter((k) => !allowed.has(k));
     if (unknown.length) {
       throw this.err(
-        `Motion unknown label(s): ${unknown.join(", ")} (expected transition, optional play, pose, keys, stagger, repeat)`,
+        `Motion unknown label(s): ${unknown.join(", ")} (expected timing or duration/ease/delay, optional play, pose, keys, stagger, repeat)`,
       );
     }
     return {
       kind: "motion",
       ...(base ? { base } : {}),
-      ...(args.transition ? { transition: args.transition } : {}),
+      ...(clock ? { timing: clock } : {}),
       ...(args.play ? { play: args.play } : {}),
       ...(args.pose ? { pose: args.pose } : {}),
       ...(args.keys ? { keys: args.keys } : {}),
       ...(args.stagger ? { stagger: args.stagger } : {}),
       ...(args.repeat ? { repeat: args.repeat } : {}),
+    };
+  }
+
+  private finishPresentationMotion(args: Record<string, ValueExpr>): ValueExpr {
+    if (!("incoming" in args) || !("outgoing" in args)) {
+      throw this.err("`PresentationMotion` requires `incoming:` and `outgoing:`");
+    }
+    const allowed = new Set(["incoming", "outgoing", "duration", "ease", "delay", "front", "promoteAt"]);
+    const unknown = Object.keys(args).filter((k) => !allowed.has(k));
+    if (unknown.length) {
+      throw this.err(
+        `PresentationMotion unknown label(s): ${unknown.join(", ")} (expected incoming, outgoing, optional duration, ease, delay, front, promoteAt)`,
+      );
+    }
+    return {
+      kind: "presentationMotion",
+      incoming: args.incoming,
+      outgoing: args.outgoing,
+      ...(args.duration ? { duration: args.duration } : {}),
+      ...(args.ease ? { ease: args.ease } : {}),
+      ...(args.delay ? { delay: args.delay } : {}),
+      ...(args.front ? { front: args.front } : {}),
+      ...(args.promoteAt ? { promoteAt: args.promoteAt } : {}),
     };
   }
 

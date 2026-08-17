@@ -57,20 +57,37 @@ export type ValueExpr =
     }
   | { kind: "array"; items: ValueExpr[] }
   | { kind: "instance"; component: string; kwargs: Record<string, ValueExpr> }
-  | { kind: "transition"; duration: ValueExpr; easing: ValueExpr; delay?: ValueExpr }
+  | { kind: "timing"; duration: ValueExpr; ease: ValueExpr; delay?: ValueExpr }
   | { kind: "pose"; props: Record<string, ValueExpr> }
   | { kind: "stagger"; step: ValueExpr; from?: ValueExpr }
-  | { kind: "key"; pose: ValueExpr; at: ValueExpr; easing?: ValueExpr }
+  | { kind: "key"; pose: ValueExpr; at: ValueExpr; ease?: ValueExpr }
   | {
       kind: "motion";
       /** Positional copy source: `Motion(motion.hoverPop, play: .toRest)`. */
       base?: ValueExpr;
-      transition?: ValueExpr;
+      timing?: ValueExpr;
       pose?: ValueExpr;
       keys?: ValueExpr;
       play?: ValueExpr;
       repeat?: ValueExpr;
       stagger?: ValueExpr;
+    }
+  | {
+      kind: "easeBezier";
+      x1: ValueExpr;
+      y1: ValueExpr;
+      x2: ValueExpr;
+      y2: ValueExpr;
+    }
+  | {
+      kind: "presentationMotion";
+      incoming: ValueExpr;
+      outgoing: ValueExpr;
+      duration?: ValueExpr;
+      ease?: ValueExpr;
+      delay?: ValueExpr;
+      front?: ValueExpr;
+      promoteAt?: ValueExpr;
     }
   /** `Effect(.blurSelf | .blurBehind | .glass, radius: [, vibrancy:])`. */
   | {
@@ -104,10 +121,10 @@ export type ComponentParam = {
   defaultValue: ValueExpr;
 };
 
-/** World A frame ctor before desugar (`Text` / `Layout` / `Icon` / `Media`). */
+/** World A frame ctor before desugar (`Text` / `Layout` / `Icon` / `Media` / `Presenter`). */
 export type FrameCtorChild = {
   kind: "frameCtor";
-  frameKind: "layout" | "text" | "icon" | "media";
+  frameKind: "layout" | "text" | "icon" | "media" | "presenter";
   props: Record<string, ValueExpr>;
   /** Nested `children:` entries (may themselves include frameCtors). */
   childEntries?: ChildEntry[];
@@ -144,8 +161,12 @@ export type IfChain = {
 export type ComponentDecl = {
   kind: "component";
   name: string;
-  /** Protocol names from `component C <P, Q>`. Rust validates host vs API roles. */
+  /** `page` / `screen` when declared with those keywords. Omitted for `component`. */
+  role?: "page" | "screen";
+  /** Receive protocols from `component C <P, Q>` (host inbound + ancestor sinks). */
   conformsTo?: string[];
+  /** Send protocols from `emits <P>` (channels, API params, `[P]` slots). */
+  emitsProtocols?: string[];
   params: ComponentParam[];
   rootKind: "layout" | "text" | "icon" | "media";
   body: FrameBodyItem[];

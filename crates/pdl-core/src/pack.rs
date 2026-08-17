@@ -68,18 +68,17 @@ fn schema_version_ok(v: &str) -> bool {
 }
 
 /// Whether `component` may fill a slot typed as `bound` (protocol or concrete name).
-pub fn component_satisfies_bound(
-    design: &DesignDefinition,
-    component: &str,
-    bound: &str,
-) -> bool {
+pub fn component_satisfies_bound(design: &DesignDefinition, component: &str, bound: &str) -> bool {
     if component == bound {
         return true;
     }
     let Some(c) = design.components.get(component) else {
         return false;
     };
-    c.conforms_to.iter().any(|p| p == bound)
+    if bound == crate::design::PAGE_PROTOCOL_PRELUDE && c.role == crate::ast::ComponentRole::Page {
+        return true;
+    }
+    c.emits_protocols.iter().any(|p| p == bound)
 }
 
 fn parse_pack_object(raw: &Value, design: &DesignDefinition) -> Result<InjectionPack, PdlError> {
@@ -138,7 +137,10 @@ fn parse_pack_object(raw: &Value, design: &DesignDefinition) -> Result<Injection
     };
     // Reject unknown top-level keys softly? Hard-error on unknown for v1 clarity.
     for k in obj.keys() {
-        if !matches!(k.as_str(), "schemaVersion" | "component" | "theme" | "params") {
+        if !matches!(
+            k.as_str(),
+            "schemaVersion" | "component" | "theme" | "params"
+        ) {
             return Err(err(
                 "PDL-E020",
                 format!("Unknown injection pack field `{k}`"),
@@ -212,10 +214,9 @@ fn normalize_instance_item(
         }
     };
     // Soft-check: unknown param keys on the concrete component.
-    if let Ok(effective) = crate::design::effective_params(
-        design,
-        design.components.get(component).unwrap(),
-    ) {
+    if let Ok(effective) =
+        crate::design::effective_params(design, design.components.get(component).unwrap())
+    {
         let known: std::collections::HashSet<_> =
             effective.iter().map(|p| p.name.as_str()).collect();
         for k in params.keys() {
@@ -334,8 +335,7 @@ pub fn validate_injection_pack(
             ));
         };
         let path = format!("params.{key}");
-        if let Some(normalized) =
-            normalize_param_value(design, param, value, &path, &mut warnings)?
+        if let Some(normalized) = normalize_param_value(design, param, value, &path, &mut warnings)?
         {
             overrides.insert(key.clone(), normalized);
         }

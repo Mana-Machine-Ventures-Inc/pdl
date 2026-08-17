@@ -23,13 +23,13 @@
           }
         }
       },
-      "conformsTo": [
-        "ModalContent"
-      ],
       "defaultParams": {
         "subtitle": "Subtitle",
         "title": "Modal Title"
       },
+      "emitsProtocols": [
+        "ModalContent"
+      ],
       "expose": [
         "title",
         "subtitle"
@@ -72,9 +72,6 @@
           }
         }
       },
-      "conformsTo": [
-        "SubnavItem"
-      ],
       "defaultParams": {
         "filter": "all",
         "interactionState": "rest",
@@ -90,6 +87,9 @@
           ],
           "name": "select"
         }
+      ],
+      "emitsProtocols": [
+        "SubnavItem"
       ],
       "expose": [
         "title",
@@ -942,9 +942,6 @@
       }
     },
     "SearchField": {
-      "conformsTo": [
-        "FormField"
-      ],
       "defaultParams": {
         "activatesOn": "focus",
         "isEditing": "false",
@@ -962,6 +959,9 @@
           ],
           "name": "change"
         }
+      ],
+      "emitsProtocols": [
+        "FormField"
       ],
       "expose": [
         "placeholder",
@@ -1117,14 +1117,14 @@
           }
         }
       },
-      "conformsTo": [
-        "ModalContent"
-      ],
       "defaultParams": {
         "cta": "Upgrade",
         "subtitle": "Subtitle",
         "title": "Modal Title"
       },
+      "emitsProtocols": [
+        "ModalContent"
+      ],
       "expose": [
         "title",
         "subtitle",

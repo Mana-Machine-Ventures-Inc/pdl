@@ -92,6 +92,14 @@ const PACK_CATALOG = [
     defaultComponent: "Shell",
     description: "Host profiles, mount facts, catalogs, fixture env pins (H0–H5)",
   },
+  {
+    id: "lab-nav",
+    label: "Nav (Presenter)",
+    entry: "test-fixtures/pdl/lab/nav/n8_slide.pdl",
+    defaultComponent: "Phone",
+    description:
+      "N8 pair slide — tap a row: Episode enters from the right, Home eases left. Back plays .reversed.",
+  },
 ];
 
 function collectPdlFiles(dirAbs, repoRoot, out = {}) {
@@ -189,6 +197,14 @@ function lanInfo(port) {
   };
 }
 
+const nodeRequire = createRequire(import.meta.url);
+
+/** PNG buffer for a device-stage URL (Open on phone QR). */
+async function qrPngBuffer(text) {
+  const QRCode = nodeRequire("qrcode");
+  return QRCode.toBuffer(text, { type: "png", width: 240, margin: 1 });
+}
+
 /** Desktop → phone projection snapshot (one session per Playground process). */
 let stageRev = 0;
 /** @type {Record<string, unknown> | null} */
@@ -225,6 +241,10 @@ function handlePutStage(body) {
     diskRoot: body.diskRoot === true,
     files: body.files && typeof body.files === "object" && !Array.isArray(body.files) ? body.files : {},
     kv: body.kv && typeof body.kv === "object" && !Array.isArray(body.kv) ? body.kv : {},
+    presenterPins:
+      body.presenterPins && typeof body.presenterPins === "object" && !Array.isArray(body.presenterPins)
+        ? body.presenterPins
+        : {},
     activeFixture: typeof body.activeFixture === "string" ? body.activeFixture : null,
     components: Array.isArray(body.components) ? body.components.map(String) : [],
     updatedAt: Date.now(),
@@ -414,7 +434,22 @@ function readJsonBody(req) {
 function designMeta(design) {
   const components = [...design.components.keys()].sort();
   const themes = [...design.themes.keys()].sort();
-  return { components, themes };
+  return { components, themes, componentRoles: componentRolesFromDesign(design) };
+}
+
+/**
+ * @param {{ components?: Map<string, { role?: string }> }} design
+ * @returns {Record<string, string>}
+ */
+function componentRolesFromDesign(design) {
+  /** @type {Record<string, string>} */
+  const out = {};
+  const comps = design?.components;
+  if (!comps || typeof comps.entries !== "function") return out;
+  for (const [name, c] of comps.entries()) {
+    if (c?.role === "page" || c?.role === "screen") out[name] = c.role;
+  }
+  return out;
 }
 
 /**
@@ -809,6 +844,8 @@ function enrichFromRustCatalogue(entryAbs) {
   const usageByComponent = {};
   /** @type {Record<string, { tagOps: object[]; rules: object[] }>} */
   const rulesByComponent = {};
+  /** @type {Record<string, string>} */
+  const componentRoles = {};
   for (const [name, c] of Object.entries(cat.components ?? {})) {
     componentParams[name] = (c.params ?? []).map((p) => {
       // Array / object types are not Playground knobs — mark as object so controls skip them.
@@ -840,6 +877,9 @@ function enrichFromRustCatalogue(entryAbs) {
     if (typeof c.usage === "string" && c.usage.trim()) {
       usageByComponent[name] = c.usage.trim();
     }
+    if (typeof c.role === "string" && (c.role === "page" || c.role === "screen")) {
+      componentRoles[name] = c.role;
+    }
     if (c.rules && typeof c.rules === "object") {
       const tags = Array.isArray(c.rules.tags) ? c.rules.tags.map(String) : [];
       const rules = Array.isArray(c.rules.rules) ? c.rules.rules : [];
@@ -866,6 +906,7 @@ function enrichFromRustCatalogue(entryAbs) {
     },
     fixturesByComponent,
     componentParams,
+    componentRoles,
     variantCases,
     interactionsByComponent,
     emitCapturesByComponent,
@@ -965,6 +1006,10 @@ async function enrichDesignAt(entryAbs, summaryRoot) {
         ...(tsPayload.componentParams ?? {}),
         ...(rustEnrich.componentParams ?? {}),
       },
+      componentRoles: {
+        ...(tsPayload.componentRoles ?? {}),
+        ...(rustEnrich.componentRoles ?? {}),
+      },
       hostParams: rustEnrich.hostParams ?? [],
       loader: "ts+rust-catalogue",
     };
@@ -1042,6 +1087,17 @@ function assertUnderRepo(abs) {
  * @param {string[]} names
  * @param {Record<string, string | null | undefined>} [activeByComponent]
  */
+/**
+ * Catalogue page/screen roles for preview chrome (Playground Reset).
+ * @param {{ componentRoles?: Record<string, string> }} enriched
+ */
+function componentRolesFromEnriched(enriched) {
+  const roles = enriched?.componentRoles;
+  return roles && typeof roles === "object" && !Array.isArray(roles)
+    ? /** @type {Record<string, string>} */ (roles)
+    : {};
+}
+
 function buildFixtureControlsByComponent(enriched, names, activeByComponent) {
   /** @type {Record<string, { labels: string[]; active?: string | null }>} */
   const out = {};
@@ -1363,6 +1419,23 @@ async function handleRender(body) {
           ? hostFacts
           : undefined,
       paramOverrides: componentParamOverrides,
+      presenterPins:
+        typeof component === "string" &&
+        body.presenterPinsByComponent &&
+        typeof body.presenterPinsByComponent === "object" &&
+        !Array.isArray(body.presenterPinsByComponent)
+          ? /** @type {Record<string, Record<string, unknown>>} */ (body.presenterPinsByComponent)[
+              component
+            ]
+          : body.presenterPins && typeof body.presenterPins === "object"
+            ? body.presenterPins
+            : undefined,
+      presenterPinsByComponent:
+        body.presenterPinsByComponent &&
+        typeof body.presenterPinsByComponent === "object" &&
+        !Array.isArray(body.presenterPinsByComponent)
+          ? /** @type {Record<string, Record<string, unknown>>} */ (body.presenterPinsByComponent)
+          : undefined,
       bakeOutPath,
       title: "PDL Playground preview",
       singleComponent:
@@ -1447,6 +1520,7 @@ async function handleRender(body) {
         editableTypeDefaults: editableTypeDefaultsFromEnriched(enriched),
         paramControlsByComponent,
         fixtureControlsByComponent,
+        componentRolesByComponent: componentRolesFromEnriched(enriched),
         componentSourcesByComponent,
       });
       html = rerender.html;
@@ -1593,6 +1667,12 @@ async function handleRenderFromBake(body) {
       editableTypeDefaults: editableTypeDefaultsFromEnriched(enriched),
       paramControlsByComponent,
       fixtureControlsByComponent,
+      componentRolesByComponent:
+        enriched != null
+          ? componentRolesFromEnriched(enriched)
+          : body.componentRolesByComponent && typeof body.componentRolesByComponent === "object"
+            ? /** @type {Record<string, string>} */ (body.componentRolesByComponent)
+            : undefined,
     });
     return {
       ok: true,
@@ -1686,8 +1766,18 @@ const server = createServer(async (req, res) => {
   if (req.method === "GET" && pathname === "/api/lan") {
     const bound = /** @type {import("node:net").AddressInfo | null} */ (server.address());
     const port = bound?.port ?? DEFAULT_FIRST_PORT;
+    const info = lanInfo(port);
+    const firstLan = info.device.lan[0];
+    if (firstLan) {
+      try {
+        const png = await qrPngBuffer(firstLan);
+        info.device.qrDataUrl = `data:image/png;base64,${png.toString("base64")}`;
+      } catch {
+        /* /api/qr still available after qrcode is installed */
+      }
+    }
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
-    res.end(JSON.stringify(lanInfo(port)));
+    res.end(JSON.stringify(info));
     return;
   }
 
@@ -1709,8 +1799,7 @@ const server = createServer(async (req, res) => {
       return;
     }
     try {
-      const QRCode = createRequire(import.meta.url)("qrcode");
-      const png = await QRCode.toBuffer(raw, { type: "png", width: 240, margin: 1 });
+      const png = await qrPngBuffer(raw);
       res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "no-store" });
       res.end(png);
     } catch (e) {

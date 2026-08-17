@@ -248,15 +248,15 @@ pub fn serialise_value_expr(e: &ValueExpr) -> Value {
                 Value::Array(items.iter().map(serialise_value_expr).collect()),
             ),
         ]),
-        ValueExpr::Transition {
+        ValueExpr::Timing {
             duration,
-            easing,
+            ease,
             delay,
         } => {
             let mut entries = vec![
-                ("kind", Value::String("transition".to_string())),
+                ("kind", Value::String("timing".to_string())),
                 ("duration", serialise_value_expr(duration)),
-                ("easing", serialise_value_expr(easing)),
+                ("ease", serialise_value_expr(ease)),
             ];
             if let Some(d) = delay {
                 entries.push(("delay", serialise_value_expr(d)));
@@ -277,20 +277,20 @@ pub fn serialise_value_expr(e: &ValueExpr) -> Value {
             }
             obj(entries)
         }
-        ValueExpr::Key { pose, at, easing } => {
+        ValueExpr::Key { pose, at, ease } => {
             let mut entries = vec![
                 ("kind", Value::String("key".to_string())),
                 ("pose", serialise_value_expr(pose)),
                 ("at", serialise_value_expr(at)),
             ];
-            if let Some(e) = easing {
-                entries.push(("easing", serialise_value_expr(e)));
+            if let Some(e) = ease {
+                entries.push(("ease", serialise_value_expr(e)));
             }
             obj(entries)
         }
         ValueExpr::Motion {
             base,
-            transition,
+            timing,
             pose,
             keys,
             play,
@@ -301,8 +301,8 @@ pub fn serialise_value_expr(e: &ValueExpr) -> Value {
             if let Some(b) = base {
                 entries.push(("base", serialise_value_expr(b)));
             }
-            if let Some(t) = transition {
-                entries.push(("transition", serialise_value_expr(t)));
+            if let Some(t) = timing {
+                entries.push(("timing", serialise_value_expr(t)));
             }
             if let Some(p) = play {
                 entries.push(("play", serialise_value_expr(p)));
@@ -318,6 +318,44 @@ pub fn serialise_value_expr(e: &ValueExpr) -> Value {
             }
             if let Some(r) = repeat {
                 entries.push(("repeat", serialise_value_expr(r)));
+            }
+            obj(entries)
+        }
+        ValueExpr::EaseBezier { x1, y1, x2, y2 } => obj(vec![
+            ("kind", Value::String("easeBezier".to_string())),
+            ("x1", serialise_value_expr(x1)),
+            ("y1", serialise_value_expr(y1)),
+            ("x2", serialise_value_expr(x2)),
+            ("y2", serialise_value_expr(y2)),
+        ]),
+        ValueExpr::PresentationMotion {
+            incoming,
+            outgoing,
+            duration,
+            ease,
+            delay,
+            front,
+            promote_at,
+        } => {
+            let mut entries = vec![
+                ("kind", Value::String("presentationMotion".to_string())),
+                ("incoming", serialise_value_expr(incoming)),
+                ("outgoing", serialise_value_expr(outgoing)),
+            ];
+            if let Some(d) = duration {
+                entries.push(("duration", serialise_value_expr(d)));
+            }
+            if let Some(e) = ease {
+                entries.push(("ease", serialise_value_expr(e)));
+            }
+            if let Some(d) = delay {
+                entries.push(("delay", serialise_value_expr(d)));
+            }
+            if let Some(f) = front {
+                entries.push(("front", serialise_value_expr(f)));
+            }
+            if let Some(p) = promote_at {
+                entries.push(("promoteAt", serialise_value_expr(p)));
             }
             obj(entries)
         }
@@ -509,7 +547,10 @@ pub fn serialise_value_expr_with_token_refs(expr: &ValueExpr, design: &DesignDef
         ValueExpr::IconSystem { system, name } => obj(vec![
             ("kind", Value::String("iconRef".to_string())),
             ("source", Value::String("system".to_string())),
-            ("system", serialise_value_expr_with_token_refs(system, design)),
+            (
+                "system",
+                serialise_value_expr_with_token_refs(system, design),
+            ),
             ("name", serialise_value_expr_with_token_refs(name, design)),
         ]),
         ValueExpr::MediaSourceFile {
@@ -523,10 +564,7 @@ pub fn serialise_value_expr_with_token_refs(expr: &ValueExpr, design: &DesignDef
                 ("path", serialise_value_expr_with_token_refs(path, design)),
             ];
             if let Some(k) = media_kind {
-                entries.push((
-                    "mediaKind",
-                    serialise_value_expr_with_token_refs(k, design),
-                ));
+                entries.push(("mediaKind", serialise_value_expr_with_token_refs(k, design)));
             }
             if let Some(f) = format {
                 entries.push(("format", serialise_value_expr_with_token_refs(f, design)));
@@ -544,10 +582,7 @@ pub fn serialise_value_expr_with_token_refs(expr: &ValueExpr, design: &DesignDef
                 ("url", serialise_value_expr_with_token_refs(url, design)),
             ];
             if let Some(k) = media_kind {
-                entries.push((
-                    "mediaKind",
-                    serialise_value_expr_with_token_refs(k, design),
-                ));
+                entries.push(("mediaKind", serialise_value_expr_with_token_refs(k, design)));
             }
             if let Some(f) = format {
                 entries.push(("format", serialise_value_expr_with_token_refs(f, design)));
@@ -566,20 +601,20 @@ pub fn serialise_value_expr_with_token_refs(expr: &ValueExpr, design: &DesignDef
                 ),
             ),
         ]),
-        ValueExpr::Transition {
+        ValueExpr::Timing {
             duration,
-            easing,
+            ease,
             delay,
         } => {
             let mut entries = vec![
-                ("kind", Value::String("transition".to_string())),
+                ("kind", Value::String("timing".to_string())),
                 (
                     "duration",
                     serialise_value_expr_with_token_refs(duration, design),
                 ),
                 (
-                    "easing",
-                    serialise_value_expr_with_token_refs(easing, design),
+                    "ease",
+                    serialise_value_expr_with_token_refs(ease, design),
                 ),
             ];
             if let Some(d) = delay {
@@ -604,20 +639,20 @@ pub fn serialise_value_expr_with_token_refs(expr: &ValueExpr, design: &DesignDef
             }
             obj(entries)
         }
-        ValueExpr::Key { pose, at, easing } => {
+        ValueExpr::Key { pose, at, ease } => {
             let mut entries = vec![
                 ("kind", Value::String("key".to_string())),
                 ("pose", serialise_value_expr_with_token_refs(pose, design)),
                 ("at", serialise_value_expr_with_token_refs(at, design)),
             ];
-            if let Some(e) = easing {
-                entries.push(("easing", serialise_value_expr_with_token_refs(e, design)));
+            if let Some(e) = ease {
+                entries.push(("ease", serialise_value_expr_with_token_refs(e, design)));
             }
             obj(entries)
         }
         ValueExpr::Motion {
             base,
-            transition,
+            timing,
             pose,
             keys,
             play,
@@ -628,9 +663,9 @@ pub fn serialise_value_expr_with_token_refs(expr: &ValueExpr, design: &DesignDef
             if let Some(b) = base {
                 entries.push(("base", serialise_value_expr_with_token_refs(b, design)));
             }
-            if let Some(t) = transition {
+            if let Some(t) = timing {
                 entries.push((
-                    "transition",
+                    "timing",
                     serialise_value_expr_with_token_refs(t, design),
                 ));
             }
@@ -648,6 +683,50 @@ pub fn serialise_value_expr_with_token_refs(expr: &ValueExpr, design: &DesignDef
             }
             if let Some(r) = repeat {
                 entries.push(("repeat", serialise_value_expr_with_token_refs(r, design)));
+            }
+            obj(entries)
+        }
+        ValueExpr::EaseBezier { x1, y1, x2, y2 } => obj(vec![
+            ("kind", Value::String("easeBezier".to_string())),
+            ("x1", serialise_value_expr_with_token_refs(x1, design)),
+            ("y1", serialise_value_expr_with_token_refs(y1, design)),
+            ("x2", serialise_value_expr_with_token_refs(x2, design)),
+            ("y2", serialise_value_expr_with_token_refs(y2, design)),
+        ]),
+        ValueExpr::PresentationMotion {
+            incoming,
+            outgoing,
+            duration,
+            ease,
+            delay,
+            front,
+            promote_at,
+        } => {
+            let mut entries = vec![
+                ("kind", Value::String("presentationMotion".to_string())),
+                (
+                    "incoming",
+                    serialise_value_expr_with_token_refs(incoming, design),
+                ),
+                (
+                    "outgoing",
+                    serialise_value_expr_with_token_refs(outgoing, design),
+                ),
+            ];
+            if let Some(d) = duration {
+                entries.push(("duration", serialise_value_expr_with_token_refs(d, design)));
+            }
+            if let Some(e) = ease {
+                entries.push(("ease", serialise_value_expr_with_token_refs(e, design)));
+            }
+            if let Some(d) = delay {
+                entries.push(("delay", serialise_value_expr_with_token_refs(d, design)));
+            }
+            if let Some(f) = front {
+                entries.push(("front", serialise_value_expr_with_token_refs(f, design)));
+            }
+            if let Some(p) = promote_at {
+                entries.push(("promoteAt", serialise_value_expr_with_token_refs(p, design)));
             }
             obj(entries)
         }
@@ -802,13 +881,13 @@ pub fn collect_declared_token_names_from_value_expr(
                 collect_declared_token_names_from_value_expr(it, design, sink);
             }
         }
-        ValueExpr::Transition {
+        ValueExpr::Timing {
             duration,
-            easing,
+            ease,
             delay,
         } => {
             collect_declared_token_names_from_value_expr(duration, design, sink);
-            collect_declared_token_names_from_value_expr(easing, design, sink);
+            collect_declared_token_names_from_value_expr(ease, design, sink);
             if let Some(d) = delay {
                 collect_declared_token_names_from_value_expr(d, design, sink);
             }
@@ -824,16 +903,16 @@ pub fn collect_declared_token_names_from_value_expr(
                 collect_declared_token_names_from_value_expr(f, design, sink);
             }
         }
-        ValueExpr::Key { pose, at, easing } => {
+        ValueExpr::Key { pose, at, ease } => {
             collect_declared_token_names_from_value_expr(pose, design, sink);
             collect_declared_token_names_from_value_expr(at, design, sink);
-            if let Some(e) = easing {
+            if let Some(e) = ease {
                 collect_declared_token_names_from_value_expr(e, design, sink);
             }
         }
         ValueExpr::Motion {
             base,
-            transition,
+            timing,
             pose,
             keys,
             play,
@@ -843,7 +922,7 @@ pub fn collect_declared_token_names_from_value_expr(
             if let Some(b) = base {
                 collect_declared_token_names_from_value_expr(b, design, sink);
             }
-            if let Some(t) = transition {
+            if let Some(t) = timing {
                 collect_declared_token_names_from_value_expr(t, design, sink);
             }
             if let Some(p) = pose {
@@ -860,6 +939,39 @@ pub fn collect_declared_token_names_from_value_expr(
             }
             if let Some(s) = stagger {
                 collect_declared_token_names_from_value_expr(s, design, sink);
+            }
+        }
+        ValueExpr::EaseBezier { x1, y1, x2, y2 } => {
+            collect_declared_token_names_from_value_expr(x1, design, sink);
+            collect_declared_token_names_from_value_expr(y1, design, sink);
+            collect_declared_token_names_from_value_expr(x2, design, sink);
+            collect_declared_token_names_from_value_expr(y2, design, sink);
+        }
+        ValueExpr::PresentationMotion {
+            incoming,
+            outgoing,
+            duration,
+            ease,
+            delay,
+            front,
+            promote_at,
+        } => {
+            collect_declared_token_names_from_value_expr(incoming, design, sink);
+            collect_declared_token_names_from_value_expr(outgoing, design, sink);
+            if let Some(d) = duration {
+                collect_declared_token_names_from_value_expr(d, design, sink);
+            }
+            if let Some(e) = ease {
+                collect_declared_token_names_from_value_expr(e, design, sink);
+            }
+            if let Some(d) = delay {
+                collect_declared_token_names_from_value_expr(d, design, sink);
+            }
+            if let Some(f) = front {
+                collect_declared_token_names_from_value_expr(f, design, sink);
+            }
+            if let Some(p) = promote_at {
+                collect_declared_token_names_from_value_expr(p, design, sink);
             }
         }
         ValueExpr::Effect {

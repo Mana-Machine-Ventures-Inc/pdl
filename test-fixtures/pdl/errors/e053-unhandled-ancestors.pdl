@@ -1,0 +1,23 @@
+// PDL-E053: mounted .ancestors emit never meets a bare handler.
+
+variant EpisodeId { case demo }
+
+protocol ShowEpisode: component {
+  emits(propagation: .ancestors) {
+    showEpisode(id: EpisodeId)
+  }
+}
+
+component EpisodeRow emits <ShowEpisode>() layout {
+  children = []
+}
+
+page Home() layout {
+  let row = EpisodeRow()
+  children = [row]
+}
+
+screen Phone() layout {
+  let home = Home()
+  children = [home]
+}

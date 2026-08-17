@@ -5,14 +5,18 @@
 
 import type { ChildEntry, FrameBodyItem, ValueExpr } from "./ast.js";
 
-export const FRAME_CTOR_NAMES = new Set(["Text", "Layout", "Icon", "Media"]);
-export type FrameCtorName = "Text" | "Layout" | "Icon" | "Media";
+export const FRAME_CTOR_NAMES = new Set(["Text", "Layout", "Icon", "Media", "Presenter"]);
+export type FrameCtorName = "Text" | "Layout" | "Icon" | "Media" | "Presenter";
 
-export const FRAME_CTOR_TO_KIND: Record<FrameCtorName, "layout" | "text" | "icon" | "media"> = {
+export const FRAME_CTOR_TO_KIND: Record<
+  FrameCtorName,
+  "layout" | "text" | "icon" | "media" | "presenter"
+> = {
   Text: "text",
   Layout: "layout",
   Icon: "icon",
   Media: "media",
+  Presenter: "presenter",
 };
 
 export function isFrameCtorName(name: string): name is FrameCtorName {

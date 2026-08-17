@@ -1,0 +1,96 @@
+// N1 — emits(propagation:). Catalogue stamps `.ancestors`; omits `.parent`.
+// EpisodeRow / DeepLink are not mounted under a screen (E053). Chip + Button are.
+// Not on the TS oracle manifest.
+
+variant EpisodeId { case demo }
+variant FilterId { case all }
+
+protocol ShowEpisode: component {
+  emits(propagation: .ancestors) {
+    showEpisode(id: EpisodeId)
+  }
+}
+
+component EpisodeRow emits <ShowEpisode>(
+  title: String = "Morning Cup"
+) layout {
+  direction = .column
+  gap = 4
+  padding = EdgeInsets(x: 16, y: 14)
+  background = #FFFFFF
+  cornerRadius = 12
+  width = .fill
+
+  let name = Text(content: title, color: #0F172A, fontSize: 16, fontWeight: 600)
+  let meta = Text(content: "Episode · 12 min", color: #64748B, fontSize: 13)
+  children = [name, meta]
+}
+
+component Chip(
+  title: String = "All"
+) layout {
+  direction = .row
+  align = .center
+  padding = EdgeInsets(x: 12, y: 8)
+  background = #E2E8F0
+  cornerRadius = 999
+  width = .hug
+  height = .hug
+
+  let label = Text(content: title, color: #0F172A, fontSize: 13, fontWeight: 600)
+  children = [label]
+} emits {
+  select(filter: FilterId)
+}
+
+component DeepLink(
+  title: String = "Open episode"
+) layout {
+  direction = .row
+  align = .center
+  justify = .center
+  padding = EdgeInsets(x: 16, y: 10)
+  background = #0F172A
+  cornerRadius = 10
+  width = .hug
+  height = .hug
+
+  let label = Text(content: title, color: #FFFFFF, fontSize: 15, fontWeight: 600)
+  children = [label]
+} emits(propagation: .ancestors) {
+  showEpisode(id: EpisodeId)
+}
+
+component Button(label: String = "Tap") layout {
+  direction = .row
+  align = .center
+  justify = .center
+  padding = EdgeInsets(x: 16, y: 10)
+  background = #2563EB
+  cornerRadius = 10
+  width = .hug
+  height = .hug
+
+  let text = Text(content: label, color: #FFFFFF, fontSize: 15, fontWeight: 600)
+  children = [text]
+}
+
+emits(propagation: .parent) Button {
+  tap()
+}
+
+// Safe to mount: Chip is .parent-default, Button tap is .parent. No ancestor emit.
+component Catalog() layout {
+  direction = .column
+  gap = 12
+  padding = 20
+  width = 390
+  background = #F8FAFC
+  cornerRadius = 16
+
+  let kicker = Text(content: "N1 — emit shapes", color: #64748B, fontSize: 13, fontWeight: 600)
+  let title = Text(content: "Chip + Button", color: #0F172A, fontSize: 22, fontWeight: 700)
+  let chip = Chip(title: "Podcasts")
+  let button = Button(label: "Parent tap")
+  children = [kicker, title, chip, button]
+}

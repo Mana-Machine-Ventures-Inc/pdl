@@ -4,7 +4,7 @@ protocol ModalContent: component {
   subtitle = "Subtitle" // Can be ignored
 }
 
-component UpsellBody <ModalContent>(
+component UpsellBody emits <ModalContent>(
   cta: String = "Upgrade"
 ) layout {
   direction = .column
@@ -21,7 +21,7 @@ component UpsellBody <ModalContent>(
   children = [Title, Sub, Cta]
 }
 
-component ConfirmBody <ModalContent>() layout {
+component ConfirmBody emits <ModalContent>() layout {
   direction = .column
 
   let Title = Text(content: title)

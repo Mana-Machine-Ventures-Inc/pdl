@@ -23,7 +23,17 @@ cd playground && npm install && npm run build
 npm run playground
 ```
 
-**Default bake engine is Rust WASM** (in-browser, ~ms). Prefer it for interactive preview; **Rust CLI** spawns `pdl` each tick and feels much slower. Rebuild WASM after language changes: `npm run build:wasm`.
+**Default bake engine is Rust WASM** (in-browser, ~ms). Prefer it for interactive preview; **Rust CLI** spawns `pdl` each tick and feels much slower.
+
+After language / `pdl-core` changes, backends go stale independently:
+
+| Artifact | Used for | Rebuild |
+|----------|----------|---------|
+| `target/debug/pdl` | Catalogue enrich (`pdl catalogue`) | `npm run build:rust` (also runs at `npm run playground`) |
+| `playground/static/wasm/pdl_wasm_bg.wasm` | In-browser bake | `npm run build:wasm` or `npm run playground:fresh` |
+| `dist/` | TS `loadDesign` | `npm run build` (`tsc`) |
+
+Hard-refresh the tab after a WASM/JS rebuild. Do not rely on an old `target/debug/pdl` from a previous day.
 
 ## Phone / same-network stage
 

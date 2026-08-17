@@ -22,7 +22,7 @@ protocol SubnavItem: component {
   }
 }
 
-component FilterChip <SubnavItem>(
+component FilterChip emits <SubnavItem>(
   selected: Bool = false,
   interactionState: ChipInteraction = .rest
 ) layout {

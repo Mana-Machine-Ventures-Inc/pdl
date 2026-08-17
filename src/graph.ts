@@ -90,11 +90,11 @@ export function serialiseValueExpr(e: ValueExpr): unknown {
           Object.entries(e.kwargs).map(([k, v]) => [k, serialiseValueExpr(v)]),
         ),
       };
-    case "transition":
+    case "timing":
       return {
-        kind: "transition",
+        kind: "timing",
         duration: serialiseValueExpr(e.duration),
-        easing: serialiseValueExpr(e.easing),
+        ease: serialiseValueExpr(e.ease),
         ...(e.delay ? { delay: serialiseValueExpr(e.delay) } : {}),
       };
     case "pose":
@@ -115,18 +115,37 @@ export function serialiseValueExpr(e: ValueExpr): unknown {
         kind: "key",
         pose: serialiseValueExpr(e.pose),
         at: serialiseValueExpr(e.at),
-        ...(e.easing ? { easing: serialiseValueExpr(e.easing) } : {}),
+        ...(e.ease ? { ease: serialiseValueExpr(e.ease) } : {}),
       };
     case "motion":
       return {
         kind: "motion",
         ...(e.base ? { base: serialiseValueExpr(e.base) } : {}),
-        ...(e.transition ? { transition: serialiseValueExpr(e.transition) } : {}),
+        ...(e.timing ? { timing: serialiseValueExpr(e.timing) } : {}),
         ...(e.play ? { play: serialiseValueExpr(e.play) } : {}),
         ...(e.pose ? { pose: serialiseValueExpr(e.pose) } : {}),
         ...(e.keys ? { keys: serialiseValueExpr(e.keys) } : {}),
         ...(e.stagger ? { stagger: serialiseValueExpr(e.stagger) } : {}),
         ...(e.repeat ? { repeat: serialiseValueExpr(e.repeat) } : {}),
+      };
+    case "easeBezier":
+      return {
+        kind: "easeBezier",
+        x1: serialiseValueExpr(e.x1),
+        y1: serialiseValueExpr(e.y1),
+        x2: serialiseValueExpr(e.x2),
+        y2: serialiseValueExpr(e.y2),
+      };
+    case "presentationMotion":
+      return {
+        kind: "presentationMotion",
+        incoming: serialiseValueExpr(e.incoming),
+        outgoing: serialiseValueExpr(e.outgoing),
+        ...(e.duration ? { duration: serialiseValueExpr(e.duration) } : {}),
+        ...(e.ease ? { ease: serialiseValueExpr(e.ease) } : {}),
+        ...(e.delay ? { delay: serialiseValueExpr(e.delay) } : {}),
+        ...(e.front ? { front: serialiseValueExpr(e.front) } : {}),
+        ...(e.promoteAt ? { promoteAt: serialiseValueExpr(e.promoteAt) } : {}),
       };
     case "effect":
       return {
@@ -265,11 +284,11 @@ export function serialiseValueExprWithTokenRefs(expr: ValueExpr, design: DesignD
           ]),
         ),
       };
-    case "transition":
+    case "timing":
       return {
-        kind: "transition",
+        kind: "timing",
         duration: serialiseValueExprWithTokenRefs(expr.duration, design),
-        easing: serialiseValueExprWithTokenRefs(expr.easing, design),
+        ease: serialiseValueExprWithTokenRefs(expr.ease, design),
         ...(expr.delay ? { delay: serialiseValueExprWithTokenRefs(expr.delay, design) } : {}),
       };
     case "pose":
@@ -290,20 +309,43 @@ export function serialiseValueExprWithTokenRefs(expr: ValueExpr, design: DesignD
         kind: "key",
         pose: serialiseValueExprWithTokenRefs(expr.pose, design),
         at: serialiseValueExprWithTokenRefs(expr.at, design),
-        ...(expr.easing ? { easing: serialiseValueExprWithTokenRefs(expr.easing, design) } : {}),
+        ...(expr.ease ? { ease: serialiseValueExprWithTokenRefs(expr.ease, design) } : {}),
       };
     case "motion":
       return {
         kind: "motion",
         ...(expr.base ? { base: serialiseValueExprWithTokenRefs(expr.base, design) } : {}),
-        ...(expr.transition
-          ? { transition: serialiseValueExprWithTokenRefs(expr.transition, design) }
+        ...(expr.timing
+          ? { timing: serialiseValueExprWithTokenRefs(expr.timing, design) }
           : {}),
         ...(expr.play ? { play: serialiseValueExprWithTokenRefs(expr.play, design) } : {}),
         ...(expr.pose ? { pose: serialiseValueExprWithTokenRefs(expr.pose, design) } : {}),
         ...(expr.keys ? { keys: serialiseValueExprWithTokenRefs(expr.keys, design) } : {}),
         ...(expr.stagger ? { stagger: serialiseValueExprWithTokenRefs(expr.stagger, design) } : {}),
         ...(expr.repeat ? { repeat: serialiseValueExprWithTokenRefs(expr.repeat, design) } : {}),
+      };
+    case "easeBezier":
+      return {
+        kind: "easeBezier",
+        x1: serialiseValueExprWithTokenRefs(expr.x1, design),
+        y1: serialiseValueExprWithTokenRefs(expr.y1, design),
+        x2: serialiseValueExprWithTokenRefs(expr.x2, design),
+        y2: serialiseValueExprWithTokenRefs(expr.y2, design),
+      };
+    case "presentationMotion":
+      return {
+        kind: "presentationMotion",
+        incoming: serialiseValueExprWithTokenRefs(expr.incoming, design),
+        outgoing: serialiseValueExprWithTokenRefs(expr.outgoing, design),
+        ...(expr.duration
+          ? { duration: serialiseValueExprWithTokenRefs(expr.duration, design) }
+          : {}),
+        ...(expr.ease ? { ease: serialiseValueExprWithTokenRefs(expr.ease, design) } : {}),
+        ...(expr.delay ? { delay: serialiseValueExprWithTokenRefs(expr.delay, design) } : {}),
+        ...(expr.front ? { front: serialiseValueExprWithTokenRefs(expr.front, design) } : {}),
+        ...(expr.promoteAt
+          ? { promoteAt: serialiseValueExprWithTokenRefs(expr.promoteAt, design) }
+          : {}),
       };
     case "effect":
       return {

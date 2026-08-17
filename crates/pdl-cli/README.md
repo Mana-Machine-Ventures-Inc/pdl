@@ -20,7 +20,7 @@ cargo run -q -p pdl-cli -- bakeSystem test-fixtures/pdl/integration/greeting.pdl
 | Command | Notes |
 |---------|--------|
 | `bakeSystem` | Full `bakedDesign`; optional `--host` / `--hostFacts` |
-| `bakeComponent` | Single-component bake + `key=value` overrides; optional `--host` / `--hostFacts` |
+| `bakeComponent` | Single-component bake + `key=value` overrides; optional `--host` / `--hostFacts` / `--presenterPins` |
 | `bakePack` | Injection pack JSON → `bakedDesign` (`bakeProfile: injection-pack`) |
 | `validatePack` | Catalogue-gate a pack; soft-skip warnings in report |
 | `graphSystem` | `componentCatalogue` (no `--theme`) |

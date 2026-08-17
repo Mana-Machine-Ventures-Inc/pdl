@@ -2,7 +2,7 @@ component BadBoth <PointerInput>() layout {
   children = []
   self.appear = {
     animate = Motion(
-      transition: (duration: 200, easing: "ease-out"),
+      duration: 200, ease: .out,
       pose: Pose(opacity: 0),
       keys: [Key(pose: Pose(scale: 0.9), at: 1)]
     )

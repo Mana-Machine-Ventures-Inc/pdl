@@ -1,0 +1,1 @@
+primitive bad.ease: Ease = "ease-out"

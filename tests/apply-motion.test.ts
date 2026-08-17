@@ -4,6 +4,7 @@ import {
   effectiveTransition,
   implicitTransitionCss,
   motionKeyframes,
+  playPresentationMotion,
   poseTrackKeyframes,
   resolvedMotionKeys,
   snapshotsForMode,
@@ -18,10 +19,10 @@ const appearBody: InteractionHandlerItem[] = [
     kind: "animate",
     value: {
       kind: "motion",
-      transition: {
-        kind: "transition",
+      timing: {
+        kind: "timing",
         duration: { kind: "number", value: 250 },
-        easing: { kind: "string", value: "ease-out" },
+        ease: { kind: "string", value: "ease-out" },
       },
       pose: {
         kind: "pose",
@@ -41,7 +42,7 @@ const appearBody: InteractionHandlerItem[] = [
 ];
 
 describe("applyMotion", () => {
-  it("collects Motion(transition, pose, stagger)", () => {
+  it("collects Motion(timing, pose, stagger)", () => {
     const spec = collectMotionFromHandlerItems(appearBody);
     expect(spec.transition).toEqual({ duration: 250, easing: "ease-out", delay: 0 });
     expect(spec.pose).toEqual({ opacity: 0, scale: 0.95, translateY: 8 });
@@ -49,14 +50,14 @@ describe("applyMotion", () => {
     expect(spec.staggerFrom).toBe("last");
   });
 
-  it("treats a bare Transition as Motion sugar", () => {
+  it("treats a bare Timing as Motion sugar", () => {
     const spec = collectMotionFromHandlerItems([
       {
         kind: "animate",
         value: {
-          kind: "transition",
+          kind: "timing",
           duration: { kind: "number", value: 200 },
-          easing: { kind: "string", value: "ease-out" },
+          ease: { kind: "string", value: "ease-out" },
         },
       },
     ]);
@@ -158,5 +159,56 @@ describe("applyMotion", () => {
     expect(css).toContain("background-color 200ms ease-out");
     expect(css).toContain("opacity 200ms ease-out");
     expect(implicitTransitionCss({ duration: 0, easing: "linear", delay: 0 })).toBe("none");
+  });
+});
+
+describe("playPresentationMotion", () => {
+  function fakeLane() {
+    /** @type {{ duration?: number; easing?: string; toOpacity?: string }} */
+    const seen: { duration?: number; easing?: string; toOpacity?: string } = {};
+    const el = {
+      classList: { add() {}, remove() {}, toggle() {} },
+      style: { zIndex: "" },
+      getAnimations: () => [],
+      animate: (frames: Array<{ opacity?: string }>, opts: { duration: number; easing: string }) => {
+        seen.duration = opts.duration;
+        seen.easing = opts.easing;
+        seen.toOpacity = frames[frames.length - 1]?.opacity;
+        const listeners: Array<() => void> = [];
+        const anim = {
+          addEventListener(type: string, fn: () => void) {
+            if (type === "finish") listeners.push(fn);
+          },
+          cancel() {},
+        };
+        setTimeout(() => {
+          for (const fn of listeners) fn();
+        }, opts.duration);
+        return anim;
+      },
+    };
+    return { el, seen };
+  }
+
+  it("plays both lanes for the pair duration (not a fixed 800ms cap)", async () => {
+    const incoming = fakeLane();
+    const outgoing = fakeLane();
+    let done = false;
+    playPresentationMotion(incoming.el as never, outgoing.el as never, {
+      incoming: { translateX: 390 },
+      outgoing: { translateX: 0, opacity: 0 },
+      duration: 2000,
+      ease: "in",
+      front: ".outgoing",
+    }, { onDone: () => { done = true; } });
+    expect(incoming.seen.duration).toBe(2000);
+    expect(outgoing.seen.duration).toBe(2000);
+    expect(incoming.seen.easing).toBe("ease-in");
+    expect(outgoing.seen.easing).toBe("ease-in");
+    expect(outgoing.seen.toOpacity).toBe("0");
+    await new Promise((r) => setTimeout(r, 900));
+    expect(done).toBe(false);
+    await new Promise((r) => setTimeout(r, 1300));
+    expect(done).toBe(true);
   });
 });

@@ -54,8 +54,12 @@
       "range": [0, 1]
     },
     "motion": {
-      "accept": ["motion", "transition"],
-      "tokenTypes": ["Motion", "Transition"]
+      "accept": ["motion", "timing"],
+      "tokenTypes": ["Motion", "Timing"]
+    },
+    "presentationMotion": {
+      "accept": ["presentationMotion", "ident"],
+      "tokenTypes": ["PresentationMotion"]
     },
     "effect": {
       "accept": ["effect"],
@@ -85,7 +89,7 @@
     },
     "string": {
       "accept": ["string"],
-      "tokenTypes": ["FontFamily", "Easing"]
+      "tokenTypes": ["FontFamily", "Ease"]
     },
     "icon": {
       "accept": ["string", "iconRef"],
@@ -238,6 +242,27 @@
         "opacity": { "type": "opacity" }
       }
     },
+    "presenter": {
+      "props": {
+        "width": { "type": "sizing" },
+        "height": { "type": "sizing" },
+        "align": { "type": "enumAlignLayout" },
+        "justify": { "type": "enumJustifyLayout" },
+        "padding": { "type": "edgeInsets" },
+        "margin": { "type": "edgeInsets" },
+        "background": { "type": "colorOrLayers" },
+        "foreground": { "type": "colorOrLayers" },
+        "cornerRadius": { "type": "cornerRadius" },
+        "opacity": { "type": "opacity" },
+        "overflow": { "type": "enumOverflow" },
+        "shadow": { "type": "shadow" },
+        "borderWidth": { "type": "nonNegNumber" },
+        "borderColor": { "type": "color" },
+        "borderPosition": { "type": "enumBorderPosition" },
+        "move": { "type": "presentationMotion" },
+        "dismissMove": { "type": "presentationMotion" }
+      }
+    },
     "media": {
       "props": {
         "source": { "type": "mediaSource" },
@@ -288,6 +313,10 @@
       "typeStyleRef": true
     },
     "children": {
+      "structural": true
+    },
+    "root": {
+      "kinds": ["presenter"],
       "structural": true
     }
   }

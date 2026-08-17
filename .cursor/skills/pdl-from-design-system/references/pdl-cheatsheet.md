@@ -123,7 +123,7 @@ protocol SubnavItem: component {
   emits { select(filter: FilterId) }
 }
 
-component FilterChip <SubnavItem>(selected: Bool = false) layout {
+component FilterChip emits <SubnavItem>(selected: Bool = false) layout {
   let label = Text(content: title)
   children = [label]
   self.pressEnd = { emit select(filter) }   // host inbound (§4a′)

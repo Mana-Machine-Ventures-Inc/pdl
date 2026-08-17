@@ -193,15 +193,67 @@
         "props": { "type": "object" }
       }
     },
+    "catalogueEmit": {
+      "type": "object",
+      "required": ["name", "args"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "type"],
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "type": "string" }
+            }
+          }
+        },
+        "propagation": {
+          "type": "string",
+          "enum": ["parent", "ancestors"],
+          "description": "How far an unhandled emit travels. Omitted when `.parent` (default)."
+        }
+      }
+    },
+    "catalogueEmitCapture": {
+      "type": "object",
+      "required": ["channel", "payload", "body"],
+      "additionalProperties": false,
+      "properties": {
+        "qualifier": {
+          "type": "string",
+          "description": "Child let or ForEach list name. Omitted for ancestor capture."
+        },
+        "channel": { "type": "string" },
+        "payload": { "type": "array" },
+        "body": { "type": "array" },
+        "capture": {
+          "const": "ancestor",
+          "description": "Present when this is a bare `channel(…) =` ancestor capture."
+        }
+      }
+    },
     "catalogueComponentRow": {
       "type": "object",
       "required": ["name", "root"],
       "properties": {
         "name": { "type": "string" },
+        "role": {
+          "type": "string",
+          "enum": ["component", "page", "screen"],
+          "description": "Declaration keyword. Omitted when `component` (default)."
+        },
         "conformsTo": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Protocol names from `component C <P, Q>`. Omitted when empty."
+          "description": "Receive protocols from `component C <P, Q>` (host inbound + ancestor sinks). Omitted when empty."
+        },
+        "emitsProtocols": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Send protocols from `emits <P>` (channels, API params, `[P]` slot membership). Omitted when empty."
         },
         "hostProtocols": {
           "type": "array",
@@ -218,6 +270,16 @@
         "fixtures": { "type": "object" },
         "rules": { "type": "object" },
         "interactions": { "type": "array" },
+        "emits": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/catalogueEmit" },
+          "description": "Effective emit channels. `propagation` is omitted when `.parent` (default)."
+        },
+        "emitCaptures": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/catalogueEmitCapture" },
+          "description": "Layout emit captures. Ancestor captures omit `qualifier` and set `capture` to `ancestor`."
+        },
         "root": { "$ref": "#/$defs/rootFrame" },
         "defaultParams": { "type": "object" },
         "childNodes": {

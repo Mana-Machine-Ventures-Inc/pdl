@@ -65,10 +65,16 @@ pub enum CallCallee {
 pub enum SizingMode {
     Hug,
     Fill,
-    Fixed { fixed: f64 },
-    Flex { flex_args: IndexMap<String, ValueExpr> },
+    Fixed {
+        fixed: f64,
+    },
+    Flex {
+        flex_args: IndexMap<String, ValueExpr>,
+    },
     /// Derive this axis from the other so width/height = ratio (`W:H`, number, or Ratio token).
-    Aspect { aspect: Box<ValueExpr> },
+    Aspect {
+        aspect: Box<ValueExpr>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -156,9 +162,9 @@ pub enum ValueExpr {
     Array {
         items: Vec<ValueExpr>,
     },
-    Transition {
+    Timing {
         duration: Box<ValueExpr>,
-        easing: Box<ValueExpr>,
+        ease: Box<ValueExpr>,
         delay: Option<Box<ValueExpr>>,
     },
     /// `Pose(opacity:, scale:, …)` — overlay snapshot.
@@ -170,22 +176,39 @@ pub enum ValueExpr {
         step: Box<ValueExpr>,
         from: Option<Box<ValueExpr>>,
     },
-    /// `Key(pose: Pose | .rest, at: [, easing:])`.
+    /// `Key(pose: Pose | .rest, at: [, ease:])`.
     Key {
         pose: Box<ValueExpr>,
         at: Box<ValueExpr>,
-        easing: Option<Box<ValueExpr>>,
+        ease: Option<Box<ValueExpr>>,
     },
-    /// `Motion(transition: [, play:] [, pose:] [, keys:] [, stagger:] [, repeat:])`.
+    /// `Motion(timing: | duration:/ease:/delay: [, play:] [, pose:] [, keys:] [, stagger:] [, repeat:])`.
     Motion {
         /// Positional copy source: `Motion(motion.hoverPop, play: .toRest)`.
         base: Option<Box<ValueExpr>>,
-        transition: Option<Box<ValueExpr>>,
+        timing: Option<Box<ValueExpr>>,
         pose: Option<Box<ValueExpr>>,
         keys: Option<Box<ValueExpr>>,
         play: Option<Box<ValueExpr>>,
         repeat: Option<Box<ValueExpr>>,
         stagger: Option<Box<ValueExpr>>,
+    },
+    /// `Ease.bezier(x1, y1, x2, y2)`.
+    EaseBezier {
+        x1: Box<ValueExpr>,
+        y1: Box<ValueExpr>,
+        x2: Box<ValueExpr>,
+        y2: Box<ValueExpr>,
+    },
+    /// Presenter pair clip.
+    PresentationMotion {
+        incoming: Box<ValueExpr>,
+        outgoing: Box<ValueExpr>,
+        duration: Option<Box<ValueExpr>>,
+        ease: Option<Box<ValueExpr>>,
+        delay: Option<Box<ValueExpr>>,
+        front: Option<Box<ValueExpr>>,
+        promote_at: Option<Box<ValueExpr>>,
     },
     /// `Effect(.blurSelf | .blurBehind | .glass, radius: [, vibrancy:])`.
     Effect {
@@ -322,7 +345,9 @@ pub enum FrameBodyItem {
 /// Parent-layout capture of a child emit channel (§4e / §8) — handler assignment.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LayoutOnHandler {
-    /// Optional let/slot qualifier (`Field` in `Field.change`). List params are **PDL-E036**.
+    /// Child-let / ForEach binder (`Field` in `Field.change`). **`None` is ancestor
+    /// capture** (`showEpisode(id:) = { … }`) — not `Protocol.channel`, not `self.`.
+    /// List params are **PDL-E036**.
     pub qualifier: Option<String>,
     pub channel: String,
     pub payload: Vec<EmitArgDecl>,
@@ -345,6 +370,50 @@ pub enum LayoutOnBodyItem {
         name: String,
         args: Vec<String>,
     },
+    /// `presenter.replace/push/pop/present/dismiss(…)` — legal only in an ancestor-capture body.
+    PresenterVerb {
+        qualifier: String,
+        verb: PresenterVerb,
+        page: Option<ValueExpr>,
+        /// `present(…, style: .cover)` — case name without the leading dot.
+        style: Option<String>,
+        /// `push(page, move:, dismissMove:)` — evaluated PresentationMotion.
+        move_spec: Option<ValueExpr>,
+        dismiss_move: Option<ValueExpr>,
+    },
+}
+
+/// Presenter hole verbs. N3 `replace`; N4 `push` / `pop`; N5 `present` / `dismiss`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PresenterVerb {
+    Replace,
+    Push,
+    Pop,
+    Present,
+    Dismiss,
+}
+
+impl PresenterVerb {
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "replace" => Some(Self::Replace),
+            "push" => Some(Self::Push),
+            "pop" => Some(Self::Pop),
+            "present" => Some(Self::Present),
+            "dismiss" => Some(Self::Dismiss),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Replace => "replace",
+            Self::Push => "push",
+            Self::Pop => "pop",
+            Self::Present => "present",
+            Self::Dismiss => "dismiss",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -391,13 +460,37 @@ pub enum RootKind {
     Media,
 }
 
+/// Discoverability role. Same bake machine; `page` auto-satisfies prelude `Page`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ComponentRole {
+    #[default]
+    Component,
+    Page,
+    Screen,
+}
+
+impl ComponentRole {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Component => "component",
+            Self::Page => "page",
+            Self::Screen => "screen",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComponentDecl {
     pub name: String,
-    /// Protocols this component conforms to (`component Name <P, Q>(…)`).
-    /// Empty means no header. Host protocols may be listed together; at most
-    /// one API protocol is allowed (validated after merge).
+    /// `component` / `page` / `screen`. Omitted from catalogue when `component`.
+    pub role: ComponentRole,
+    /// Protocols this component **receives** (`component Name <P, Q>(…)`).
+    /// Host inbound (`PointerInput`) and ancestor-sink API protocols (`ShowEpisode`).
+    /// A `page` satisfies prelude `Page` via [`ComponentRole::Page`], not this list.
     pub conforms_to: Vec<String>,
+    /// Protocols this component **sends** (`emits <ShowEpisode>` / `emits <SubnavItem>`).
+    /// Supplies emit channels, API params, and `[P]` slot membership.
+    pub emits_protocols: Vec<String>,
     /// Params declared on the component itself (protocol params are merged via
     /// [`crate::design::effective_params`]).
     pub params: Vec<ComponentParam>,
@@ -412,11 +505,30 @@ pub struct EmitArgDecl {
     pub type_name: String,
 }
 
+/// How far an unhandled emit travels (`emits(propagation:)`). Default `.parent`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum EmitPropagation {
+    #[default]
+    Parent,
+    Ancestors,
+}
+
+impl EmitPropagation {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Parent => "parent",
+            Self::Ancestors => "ancestors",
+        }
+    }
+}
+
 /// Shared emit channel declared on a `protocol` or `emits C` (`select(filter: FilterId)`).
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProtocolEmitDecl {
     pub name: String,
     pub args: Vec<EmitArgDecl>,
+    /// Copied from the enclosing `emits(propagation:)` block (N1).
+    pub propagation: EmitPropagation,
 }
 
 /// Protocol role: in-tree API/structure vs host runtime powers (§4a / capabilities proposal).

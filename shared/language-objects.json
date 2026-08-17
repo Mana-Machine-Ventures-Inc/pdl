@@ -15,7 +15,7 @@
     "conditionals": "Change a handful of properties when a parameter or state changes. First match wins.",
     "conditions": "Comparisons and booleans used in `if` and ForEach. Keep `&&` and `||` in separate expressions, or parenthesize.",
     "null": "Clear a frame or typeStyle property so the default applies. Not a token value.",
-    "tokenTypes": "Named values you declare once and reuse. Write `primitive` for the raw palette and `semantic` for the names components should use (`color.surface`). Pick a type when a property needs a color, a gap, a shadow, and so on. Duration, Easing, Transition, Pose, Stagger, and Motion are the motion types — they exist for handler `animate =` and for frame `animate`. Effect is paint: `.blurSelf` softens the node, `.blurBehind` samples what is behind.",
+    "tokenTypes": "Named values you declare once and reuse. Write `primitive` for the raw palette and `semantic` for the names components should use (`color.surface`). Pick a type when a property needs a color, a gap, a shadow, and so on. Duration, Ease, Timing, Pose, Stagger, Motion, and PresentationMotion are the motion types — they exist for handler `animate =`, frame `animate`, and Presenter pair clips. Effect is paint: `.blurSelf` softens the node, `.blurBehind` samples what is behind.",
     "theme": "A named remap of tokens you already declared. Use a theme for light/dark, brand, or reduced motion. Components keep using semantic names; the theme changes what those names resolve to.",
     "catalog": "A named remap the environment applies — platform icon sets, not light/dark. Same override lines as a theme. Only `use catalog Name` inside `mount` applies it. The theme picker must not list catalogs.",
     "host": "An environment profile: `host Name(params) [mount { … }]`. Components opt in with `<Host>` to read those params. Width-class and surface taxonomies are pack-local variants, not language types. Bake runs `mount` once against an opaque facts bag, then any fact whose key matches a host param pins that param for every `<Host>` component.",
@@ -25,8 +25,8 @@
     "assets": "How you point at a glyph or a file. `IconRef` is the Icon token RHS; `MediaSource` is the source for a `media` frame and `MediaLayer`.",
     "enums": "Closed choices such as `.row` or `.center`. Use them on layout properties and as parameter types.",
     "eventDirections": "A component hears its parameters. That is enough for a fixture, and for a parent that already knows the state. It is not enough when the user clicks a chip, or when a field should start editing. PDL does not run like a script in the page. The host — the preview, or the app that embeds the design — delivers pointer and text events onto a component that opted in (`<PointerInput>`, `<EditableText>`). The component can then emit a typed channel to its parent (`select`, `change`). The parent assigns on that channel and its own parameters update, so the row can show which chip is selected. A component can also ask the host to do something, such as begin editing. Those are three different paths. A `pressEnd` is not an emit.",
-    "emits": "How a child tells its parent something happened — a chip was selected, a field changed. Declare the channel, fire it from a click, and listen on the parent.",
-    "protocols": "A shared contract so several components can sit in the same list and speak the same language. Use an API protocol when different chip types all `select`. Use a host protocol when the preview must deliver clicks or typing.",
+    "emits": "How a child tells its parent something happened — a chip was selected, a field changed. Declare the channel with `emits { … }` or inherit it with `emits <P>`, fire it from a click, and listen on the parent. `emits <P>` is also how a component fills a `[P]` slot.",
+    "protocols": "A shared contract so several components can sit in the same list and speak the same language. `<>` receives: host inbound (`PointerInput`) and ancestor sinks (`ShowEpisode` on the screen). `emits <P>` sends: fire that protocol’s channels, inherit its params, and satisfy `[P]` slots.",
     "hostPrelude": "A host protocol lets the preview (or app) trigger component changes: hover color, a click, focus, typing — or, with `Host`, read the active environment profile. Use `PointerInput` for buttons and chips; use `EditableText` for a field the user types into; use `Host` on a structural parent. Opt in with `component C <PointerInput>`. List more than one when needed: `component C <Host, PointerInput>`. These names are built in — you do not import them.",
     "motion": "One `animate =` assignment on a host handler, or a standing `animate` on any frame. Its type is Motion: a Transition, an optional play mode, Pose or keys, Stagger, and finite repeat. A bare Transition is sugar for Motion(transition: …). Bake stays at rest; the HTML host plays a CSS overlay.",
     "samples": "Reusable catalogs of instances you mount in layout so a prototype can stay interactive — a library of tracks, a set of chips, an empty list you can switch to. Write the catalog once and point at `Tracks.library.tracks` from a parameter default or from `children`. Isolated component examples, the kind you would put in design-system documentation, belong in fixtures.",
@@ -472,7 +472,7 @@
       "name": "Duration",
       "category": "motion",
       "usedOn": [
-        "Transition.duration",
+        "Timing.duration",
         "Stagger.step",
         "animate"
       ],
@@ -490,51 +490,53 @@
       "example": "primitive motion.duration.fast: Duration = 150\nprimitive motion.duration.standard: Duration = 250"
     },
     {
-      "name": "Easing",
+      "name": "Ease",
       "category": "motion",
       "usedOn": [
-        "Transition.easing"
+        "Timing.ease",
+        "Motion.ease",
+        "Key.ease"
       ],
-      "meaning": "A timing curve. A quoted CSS easing string.",
+      "meaning": "How time is shaped. Named cases `.linear` / `.in` / `.out`, or `Ease.bezier(x1, y1, x2, y2)`. Not a CSS string.",
       "accept": [
         {
-          "form": "\"linear\"",
-          "meaning": "Linear curve."
+          "form": ".out",
+          "meaning": "Decelerate into rest."
         },
         {
-          "form": "\"cubic-bezier(0.2, 0, 0, 1)\"",
-          "meaning": "Cubic bezier."
+          "form": "Ease.bezier(0.2, 0, 0, 1)",
+          "meaning": "Cubic bezier control points."
         },
         {
-          "form": "motion.easing.standard",
-          "meaning": "An Easing token."
+          "form": "motion.ease.standard",
+          "meaning": "An Ease token."
         }
       ],
-      "example": "primitive motion.easing.standard: Easing = \"cubic-bezier(0.2, 0, 0, 1)\"\nprimitive motion.easing.linear: Easing = \"linear\""
+      "example": "primitive motion.ease.standard: Ease = Ease.bezier(0.2, 0, 0, 1)\nprimitive motion.ease.linear: Ease = .linear"
     },
     {
-      "name": "Transition",
+      "name": "Timing",
       "category": "motion",
       "usedOn": [
-        "Motion.transition",
+        "Motion.timing",
         "animate"
       ],
-      "meaning": "A duration plus easing, and an optional delay (default 0). Written as a tuple, not a constructor call. Themes replace a Transition wholly — no deep merge. A Transition is valid `animate =` sugar for `Motion(transition: …)`.",
+      "meaning": "A duration plus ease, and an optional delay (default 0). Written `Timing(duration:, ease: [, delay:])`. Themes replace a Timing wholly — no deep merge. A Timing is valid `animate =` sugar for `Motion(timing: …)`.",
       "accept": [
         {
-          "form": "(duration: …, easing: …)",
-          "meaning": "Required fields. Values may be literals or Duration / Easing tokens."
+          "form": "Timing(duration: …, ease: …)",
+          "meaning": "Required fields. Values may be literals or Duration / Ease tokens."
         },
         {
-          "form": "(duration: …, easing: …, delay: …)",
+          "form": "Timing(duration: …, ease: …, delay: …)",
           "meaning": "Optional delay in milliseconds."
         },
         {
           "form": "motion.appear",
-          "meaning": "A Transition token."
+          "meaning": "A Timing token."
         }
       ],
-      "example": "semantic motion.appear: Transition = (duration: motion.duration.standard, easing: motion.easing.standard)\nsemantic motion.instant: Transition = (duration: 0, easing: motion.easing.linear)"
+      "example": "semantic motion.appear: Timing = Timing(duration: motion.duration.standard, ease: motion.ease.standard)\nsemantic motion.instant: Timing = Timing(duration: 0, ease: .linear)"
     },
     {
       "name": "Pose",
@@ -585,19 +587,19 @@
       "usedOn": [
         "animate"
       ],
-      "meaning": "The value of `animate =` (handler or frame). Joins a Transition with an optional Play, Pose or keys, Stagger, and finite repeat. `transition` is required unless the first operand is a Motion token (`Motion(token, field:)` copies then overrides). `pose:` and `keys:` together are rejected. `play: .loop` is forever — do not also set `repeat:`. `stagger` and `repeat` require a pose track. Omit `play` on reusable tokens so the site default applies. A Transition token or tuple is sugar for `Motion(transition: …)`. Themes replace a Motion wholly — no field merge.",
+      "meaning": "The value of `animate =` (handler or frame). Joins a clock with an optional Play, Pose or keys, Stagger, and finite repeat. Declare `duration:` / `ease:` / optional `delay:` on the Motion, or pass `timing:` as a Timing token or `Timing(…)`. Do not mix `timing:` with flattened clock fields (E005). `pose:` and `keys:` together are rejected. `play: .loop` is forever — do not also set `repeat:`. `stagger` and `repeat` require a pose track. Omit `play` on reusable tokens so the site default applies. A Timing token or `Timing(…)` is sugar for `Motion(timing: …)`. Themes replace a Motion wholly — no field merge.",
       "accept": [
         {
-          "form": "Motion(transition: motion.appear)",
+          "form": "Motion(timing: motion.appear)",
           "meaning": "Curve only — hover / implicit interpolation."
         },
         {
-          "form": "Motion(transition: motion.appear, pose: Pose(opacity: 0))",
+          "form": "Motion(timing: motion.appear, pose: Pose(opacity: 0))",
           "meaning": "Lifecycle overlay. Handler name is the direction."
         },
         {
-          "form": "Motion(transition: motion.appear, pose: pose.fadeUp, stagger: Stagger(step: 30, from: .first))",
-          "meaning": "Full join."
+          "form": "Motion(duration: 250, ease: .out, pose: pose.fadeUp, stagger: Stagger(step: 30, from: .first))",
+          "meaning": "Full join with an explicit clock."
         },
         {
           "form": "Motion(motion.hoverPop, play: .toRest)",
@@ -605,18 +607,40 @@
         },
         {
           "form": "motion.appear",
-          "meaning": "A Transition token — sugar for Motion(transition: that)."
+          "meaning": "A Timing token — sugar for Motion(timing: that)."
         },
         {
-          "form": "(duration: 250, easing: \"ease-out\")",
-          "meaning": "A Transition tuple — same sugar."
+          "form": "Timing(duration: 250, ease: .out)",
+          "meaning": "A Timing constructor — same sugar."
         },
         {
           "form": "motion.enterCard",
           "meaning": "A Motion token."
         }
       ],
-      "example": "semantic motion.hoverPop: Motion = Motion(transition: motion.appear, keys: [Key(pose: Pose(scale: 1.12), at: 1)])\nhoverEnd = { animate = Motion(motion.hoverPop, play: .toRest) }"
+      "example": "semantic motion.hoverPop: Motion = Motion(timing: motion.appear, keys: [Key(pose: Pose(scale: 1.12), at: 1)])\nhoverEnd = { animate = Motion(motion.hoverPop, play: .toRest) }"
+    },
+    {
+      "name": "PresentationMotion",
+      "category": "motion",
+      "usedOn": [
+        "Presenter.move",
+        "present.move",
+        "push.move",
+        "dismissMove"
+      ],
+      "meaning": "A Presenter pair clip. `incoming` plays `.toRest` (mounts at pose, eases to rest). `outgoing` plays `.toPose`. Pair-level `duration` / `ease` / `delay` apply when a slot is a Pose. A Motion slot keeps its own clock. `front` is `.incoming` or `.outgoing`. `promoteAt` (0…1) flips z at that progress. `.reversed` swaps sides and flips `front`.",
+      "accept": [
+        {
+          "form": "PresentationMotion(incoming: Pose(translateX: 390), outgoing: Pose(translateX: -48, opacity: 0.86), duration: 320, ease: .out)",
+          "meaning": "Pair clip with inherited timing on both poses."
+        },
+        {
+          "form": "motion.navPush.reversed",
+          "meaning": "Swap incoming/outgoing and flip front."
+        }
+      ],
+      "example": "semantic motion.navPush: PresentationMotion = PresentationMotion(\n  incoming: Pose(translateX: 390),\n  outgoing: Pose(translateX: -48, opacity: 0.86),\n  duration: 320,\n  ease: .out\n)"
     },
     {
       "name": "Effect",
@@ -1362,6 +1386,11 @@
       "meaning": "Build a media frame (source:, contentMode:, …). This is not MediaLayer."
     },
     {
+      "name": "Presenter",
+      "kind": "frame",
+      "meaning": "A navigation hole with a stack and an optional layered cover. `let presenter = Presenter(root: home)` then `children = [presenter, tabBar]`. The hole is a one-child layout box: `width` / `height` default to `.fill` so it occupies remaining space next to chrome; set `.hug` or a fixed size to opt out. `padding`, `align`, and `justify` inset or place a hugging page inside the hole. Bake always paints the stack top; when a cover is up it is centered over that page so the prior screen stays visible around it. `presenter.push` / `pop` / `replace` / `present(…, style: .cover)` / `dismiss` are legal only in an ancestor-capture body. Pin a stack with `presenter = [Home(), Episode()]` and a cover with `presenter.cover = Settings()`. Not a page."
+    },
+    {
       "name": "Spacer",
       "kind": "child",
       "meaning": "Zero-argument child that absorbs remaining free space on the parent’s main axis. Only legal inside `children = […]`. Write `Spacer()` — bare `Spacer` is a name. `Spacer() @ opacity` is illegal.",
@@ -1513,14 +1542,24 @@
       "meaning": "A reusable UI piece: a name, public parameters, and one root frame."
     },
     {
+      "name": "page",
+      "form": "page Name(params) kind { … }",
+      "meaning": "A navigable destination. Same body machine as component. Auto-satisfies prelude `Page`, so a screen can take `content: Page = Home()`."
+    },
+    {
+      "name": "screen",
+      "form": "screen Name(params) kind { … }",
+      "meaning": "A device shell. Same body machine as component. Studio lists screens as prototype roots. Mount `Presenter(root:)` next to chrome."
+    },
+    {
       "name": "emits",
-      "form": "emits Name { channel(field: Type) }  or  } emits { … }",
-      "meaning": "What this component can tell its parent (selected, changed). Not a click from the preview — that is a host event."
+      "form": "emits <P>  or  emits Name { channel(field: Type) }  or  emits(propagation: .ancestors) { … }",
+      "meaning": "`emits <P>` sends a named protocol (channels, params, `[P]` slots). `emits { … }` declares one-off channels. Default `.parent` stays at the declaring parent. `.ancestors` climbs until a sink that both lists `<P>` and writes `channel(…) =` stops it. Not a click from the preview — that is a host event."
     },
     {
       "name": "fixtures",
       "form": "fixtures Component { example \"Label\" { param = value } }",
-      "meaning": "Named preview scenarios (“Empty search”, “Focus mood”). A bag of parameters — not data you put on screen."
+      "meaning": "Named preview scenarios (“Empty search”, “Focus mood”). A bag of parameters — not data you put on screen. A Presenter let may be pinned as a stack (`presenter = [Home(), Episode()]`) and an optional cover (`presenter.cover = Settings()`)."
     },
     {
       "name": "samples",
@@ -1648,7 +1687,11 @@
       },
       {
         "form": "let box = Layout(…)",
-        "meaning": "Nested layout. Same four constructors as the root: Layout, Text, Icon, Media."
+        "meaning": "Nested layout. Frame constructors: Layout, Text, Icon, Media, Presenter."
+      },
+      {
+        "form": "let presenter = Presenter(root: home)",
+        "meaning": "Navigation hole. `root` is required and must be a `page`. The hole accepts layout box props (`width`, `height`, `padding`, `align`, `justify`); `width` / `height` default to `.fill`. Command it from a capture: `presenter.push(Episode(id: id))` / `presenter.pop()` / `presenter.replace(…)` / `presenter.present(Settings(), style: .cover)` / `presenter.dismiss()`. Fixture pin: `presenter = [Home(), Episode()]` and `presenter.cover = Settings()`."
       },
       {
         "form": "let save = Button(label: \"Save\")",
@@ -2059,8 +2102,24 @@
       "meaning": "The same channels, written right after the component body."
     },
     {
+      "form": "emits <ShowEpisode>  or  } emits <SubnavItem>",
+      "meaning": "This component sends that protocol — it may `emit` those channels, inherits the protocol’s params, and may fill a `[ShowEpisode]` / `[SubnavItem]` slot. Header form sits before `(params)`; trailing form sits after `}`."
+    },
+    {
       "form": "protocol P: component { emits { select(filter: FilterId) } }",
       "meaning": "One shared channel for every component that follows the protocol — a mixed list of chips all `select`."
+    },
+    {
+      "form": "emits(propagation: .parent) { select(filter: FilterId) }",
+      "meaning": "Same as omitting the argument. The immediate parent must capture on the child let."
+    },
+    {
+      "form": "emits(propagation: .ancestors) { showEpisode(id: EpisodeId) }",
+      "meaning": "Unhandled emits climb ancestors until a bare `showEpisode(id:) = { … }` stops them. Catalogue records `propagation` only when it is not `.parent`."
+    },
+    {
+      "form": "showEpisode(id: EpisodeId) = { … }",
+      "meaning": "Ancestor capture on this node — usually the screen. The sink must also list the protocol in receive `<>` (`screen Phone <ShowEpisode>`). Not `ShowEpisode.showEpisode` and not `presenter.showEpisode`."
     },
     {
       "form": "emit select(filter)",
@@ -2090,11 +2149,31 @@
     },
     {
       "form": "component C <P, Q>(…) kind { … }",
-      "meaning": "This component follows the listed protocols. It gets an API protocol’s parameters and may use those host events. Any number of host protocols; at most one API protocol."
+      "meaning": "Receive list. Host inbound (`PointerInput`, `EditableText`, `Host`) and ancestor-sink APIs (`ShowEpisode`). Multiple sinks are allowed (`<ShowEpisode, AppNav>`)."
+    },
+    {
+      "form": "component C <PointerInput> emits <ShowEpisode>(…) kind { … }",
+      "meaning": "Receive host clicks; send the nav protocol. Same protocol cannot appear in both lists."
+    },
+    {
+      "form": "component C emits <SubnavItem>(…) kind { … }",
+      "meaning": "Send / slot membership. Inherits `SubnavItem` params and `select`; `requires PointerInput` still applies. Param-only APIs (`ModalContent`, `Page`) use this form too."
+    },
+    {
+      "form": "screen Phone <ShowEpisode>(…) layout { showEpisode(id:) = { … } }",
+      "meaning": "The screen is the ancestor sink. It opts in with `<>` and writes the bare handler. Emitters write `emits <ShowEpisode>`."
     },
     {
       "form": "component C <Host>()",
       "meaning": "Read the active `host` profile’s params. No clicks or typing — that is PointerInput / EditableText. See Host environment."
+    },
+    {
+      "form": "page Home() layout { … }",
+      "meaning": "A destination. Auto-satisfies prelude `Page` without writing `<Page>`."
+    },
+    {
+      "form": "screen Phone() layout { let presenter = Presenter(root: home) … }",
+      "meaning": "A shell. Mount a `Presenter` next to chrome. `Page` is a prelude API protocol; only `page` declarations (or `component C emits <Page>`) fill `root`."
     },
     {
       "form": "requires PointerInput",
@@ -2105,7 +2184,7 @@
       "meaning": "A parameter every conforming component has."
     }
   ],
-  "protocolExample": "protocol SubnavItem: component {\n  requires PointerInput\n  title = \"\"\n  filter: FilterId = .all\n  emits { select(filter: FilterId) }\n}\n\ncomponent FilterChip <SubnavItem>(\n  selected: Bool = false\n) layout {\n  let label = Text(content: title)\n  children = [label]\n  self.pressEnd = { emit select(filter) }\n}\n\ncomponent LibrarySubnav(\n  currentFilter: FilterId = .all,\n  chips: [SubnavItem] = [\n    FilterChip(title: \"All\", filter: .all),\n    FilterChip(title: \"Podcasts\", filter: .podcasts)\n  ]\n) layout {\n  ForEach(chips) { chip in\n    chip.selected = self.currentFilter == filter\n    chip.select(filter_id: FilterId) = { currentFilter = filter_id }\n  }\n  children = chips\n}",
+  "protocolExample": "protocol SubnavItem: component {\n  requires PointerInput\n  title = \"\"\n  filter: FilterId = .all\n  emits { select(filter: FilterId) }\n}\n\ncomponent FilterChip emits <SubnavItem>(\n  selected: Bool = false\n) layout {\n  let label = Text(content: title)\n  children = [label]\n  self.pressEnd = { emit select(filter) }\n}\n\ncomponent LibrarySubnav(\n  currentFilter: FilterId = .all,\n  chips: [SubnavItem] = [\n    FilterChip(title: \"All\", filter: .all),\n    FilterChip(title: \"Podcasts\", filter: .podcasts)\n  ]\n) layout {\n  ForEach(chips) { chip in\n    chip.selected = self.currentFilter == filter\n    chip.select(filter_id: FilterId) = { currentFilter = filter_id }\n  }\n  children = chips\n}",
   "hostProtocols": [
     {
       "name": "PointerInput",

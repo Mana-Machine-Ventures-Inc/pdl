@@ -1,0 +1,55 @@
+// N0 — page / screen roles + prelude Page as a slot type.
+// Not on the TS oracle manifest.
+
+page Home() layout {
+  direction = .column
+  gap = 12
+  padding = 20
+  width = .fill
+  height = .fill
+  background = #F8FAFC
+
+  let kicker = Text(content: "Library", color: #64748B, fontSize: 13, fontWeight: 600)
+  let title = Text(content: "Home", color: #0F172A, fontSize: 28, fontWeight: 700)
+  let open = Button(label: "Open episode")
+  children = [kicker, title, open]
+}
+
+page Episode(episodeId: String = "demo") layout {
+  direction = .column
+  gap = 12
+  padding = 20
+  width = .fill
+  height = .fill
+  background = #F8FAFC
+
+  let kicker = Text(content: "Episode", color: #64748B, fontSize: 13, fontWeight: 600)
+  let title = Text(content: "Morning Cup", color: #0F172A, fontSize: 28, fontWeight: 700)
+  let body = Text(content: "A page in the Phone slot — swap content: Episode() to see this.", color: #475569, fontSize: 15)
+  children = [kicker, title, body]
+}
+
+component Button(label: String = "OK") layout {
+  direction = .row
+  align = .center
+  justify = .center
+  padding = EdgeInsets(x: 16, y: 10)
+  cornerRadius = 10
+  width = .hug
+  height = .hug
+  background = #2563EB
+
+  let text = Text(content: label, color: #FFFFFF, fontSize: 15, fontWeight: 600)
+  children = [text]
+}
+
+screen Phone(content: Page = Home()) layout {
+  direction = .column
+  width = 390
+  height = 760
+  background = #0F172A
+  padding = 12
+  cornerRadius = 28
+
+  children = [content]
+}

@@ -70,12 +70,34 @@ function childrenContainer(el: Element): Element {
 
 function findChildByKey(parent: Element, key: string): Element | null {
   for (const ch of Array.from(parent.children)) {
+    if (ch.classList.contains("pdl-presenter__cover")) {
+      const inner = findChildByKey(ch, key);
+      if (inner) return inner;
+      continue;
+    }
     const letK = ch.getAttribute("data-pdl-instance-let");
     if (letK && `let:${letK}` === key) return ch;
     const id = ch.getAttribute("data-pdl-id");
     if (id && `id:${id}` === key) return ch;
   }
   return null;
+}
+
+function unwrapPresenterCovers(parentEl: Element): void {
+  for (const ch of Array.from(parentEl.children)) {
+    if (!ch.classList.contains("pdl-presenter__cover")) continue;
+    while (ch.firstChild) parentEl.insertBefore(ch.firstChild, ch);
+    ch.remove();
+  }
+}
+
+function wrapPresenterCover(parentEl: Element, coverKid: Element): void {
+  const doc = parentEl.ownerDocument;
+  if (!doc) return;
+  const wrap = doc.createElement("div");
+  wrap.className = "pdl-presenter__cover";
+  parentEl.insertBefore(wrap, coverKid);
+  wrap.appendChild(coverKid);
 }
 
 function migrateSession(from: Element, to: Element): void {
@@ -470,6 +492,10 @@ function reconcileChildList(
   prevInstCtx?: InstanceRenderCtx,
   prevParentOpts?: FrameRenderOpts,
 ): void {
+  if (parentEl.classList.contains("pdl-presenter")) {
+    unwrapPresenterCovers(parentEl);
+  }
+
   const prevByKey = new Map(prevKids.map((f) => [frameReconcileKey(f), f]));
   /** @type {Element[]} */
   const desired: Element[] = [];
@@ -514,12 +540,20 @@ function reconcileChildList(
   }
 
   applyChildOrder(parentEl, desired);
+  if (parentEl.classList.contains("pdl-presenter") && desired.length >= 2) {
+    wrapPresenterCover(parentEl, desired[desired.length - 1]!);
+  }
+}
+
+function isPresenterClipOutgoing(el: Element): boolean {
+  return el.getAttribute("data-pdl-presenter-clip") === "outgoing";
 }
 
 /** Remove leftovers and move nodes into `desired` order with minimal mutations. */
 function applyChildOrder(parentEl: Element, desired: Element[]): void {
   const want = new Set(desired);
   for (const ch of Array.from(parentEl.children)) {
+    if (isPresenterClipOutgoing(ch)) continue;
     if (!want.has(ch)) parentEl.removeChild(ch);
   }
   for (let i = 0; i < desired.length; i++) {

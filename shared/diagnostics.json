@@ -113,7 +113,7 @@
     {
       "code": "PDL-E022",
       "name": "unknown-protocol",
-      "trigger": "A `component C <P>` / `component C <P, Q>` or protocol-typed param references an undeclared protocol."
+      "trigger": "A `component C <P>` / `emits <P>` or protocol-typed param references an undeclared protocol."
     },
     {
       "code": "PDL-E023",
@@ -123,7 +123,7 @@
     {
       "code": "PDL-E024",
       "name": "unknown-emit-channel",
-      "trigger": "Layout emit capture or `emit` names a channel not in the effective `emits` set for the relevant component/protocol (§4d–§4e)."
+      "trigger": "Layout emit capture or `emit` names a channel not in the effective `emits` set, or a bare `channel(…) =` ancestor capture is written without listing that channel’s protocol in receive `<>`."
     },
     {
       "code": "PDL-E025",
@@ -218,12 +218,12 @@
     {
       "code": "PDL-E043",
       "name": "duplicate-protocol-header",
-      "trigger": "A component header lists the same protocol more than once (`component C <PointerInput, PointerInput>`)."
+      "trigger": "A receive `<>` list or send `emits <>` list repeats the same protocol (`<PointerInput, PointerInput>` or `emits <ShowEpisode, ShowEpisode>`)."
     },
     {
       "code": "PDL-E044",
-      "name": "multiple-api-protocols",
-      "trigger": "A component header lists more than one API protocol (`component C <ModalContent, SubnavItem>`). Any number of host protocols is allowed; at most one API protocol in v1."
+      "name": "wrong-protocol-stance",
+      "trigger": "An API protocol with no `.ancestors` emit is listed in receive `<>` (write `emits <P>` to send or fill a `[P]` slot); a host protocol is listed in `emits <>`; or the same protocol appears in both `<>` and `emits <>`."
     },
     {
       "code": "PDL-E045",
@@ -254,6 +254,36 @@
       "code": "PDL-E050",
       "name": "invalid-host-facts",
       "trigger": "A fixture `hostFacts` value is not a JSON object string (invalid JSON, or a JSON array/scalar)."
+    },
+    {
+      "code": "PDL-E051",
+      "name": "unknown-emit-propagation",
+      "trigger": "`emits(…)` uses an unknown argument or `propagation` case. Only `propagation: .parent` and `propagation: .ancestors` are legal; omitted means `.parent`."
+    },
+    {
+      "code": "PDL-E052",
+      "name": "invalid-ancestor-capture-form",
+      "trigger": "Ancestor capture is written as a bare `channel(…) = { … }`. `Protocol.channel =` and `presenter.channel =` are rejected."
+    },
+    {
+      "code": "PDL-E053",
+      "name": "unhandled-ancestors-emit",
+      "trigger": "A mounted `emits(propagation: .ancestors)` channel never meets an ancestor that both lists the protocol in receive `<>` and writes a bare `channel(…) =` before a root."
+    },
+    {
+      "code": "PDL-E054",
+      "name": "presenter-missing-root",
+      "trigger": "`Presenter()` is missing `root:`, uses `children:`, or `root` is not a page let / page instance."
+    },
+    {
+      "code": "PDL-E055",
+      "name": "presenter-verb-outside-capture",
+      "trigger": "`presenter.replace/push/pop/present/dismiss(…)` appears outside an ancestor-capture body, names a let that is not a Presenter, uses a bad arity, or uses a style other than `.cover`."
+    },
+    {
+      "code": "PDL-E056",
+      "name": "sink-missing-handler",
+      "trigger": "A component lists an ancestor-sink protocol in receive `<>` (`<ShowEpisode>`) but has no bare `channel(…) =` handler for one of that protocol’s `.ancestors` channels."
     }
   ],
   "warnings": [

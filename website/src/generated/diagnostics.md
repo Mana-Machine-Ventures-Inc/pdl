@@ -31,9 +31,9 @@ Catalog: [`shared/diagnostics.json`](https://github.com/Mana-Machine-Ventures-In
 | **PDL-E019** | `invalid-override-target` | A `children` frame-id ref or `FrameId.prop` / `FrameId.children` assignment names a frame that has not been declared with `let` / `letInstance` earlier in the component body (forward reference). |
 | **PDL-E020** | `invalid-constructor-arg` | Constructor / pack argument error: required kw missing, illegal combination (e.g. **`MediaLayer(…)` already has `opacity:` and also uses postfix `@`**), or pack schema violation. (Wrong *types* on known kwargs are often **PDL-E040**.) |
 | **PDL-E021** | `duplicate-let-frame-id` | Two **`let`** or **`letInstance`** frames in the same component reuse the same **`id`** (names must be unique across the whole component body, including all **`if`** branches and sibling nested frames). |
-| **PDL-E022** | `unknown-protocol` | A `component C <P>` / `component C <P, Q>` or protocol-typed param references an undeclared protocol. |
+| **PDL-E022** | `unknown-protocol` | A `component C <P>` / `emits <P>` or protocol-typed param references an undeclared protocol. |
 | **PDL-E023** | `unknown-foreach-list` | `ForEach(name)` names a parameter that is not an expandable list/slot in the enclosing component (§4e). |
-| **PDL-E024** | `unknown-emit-channel` | Layout emit capture or `emit` names a channel not in the effective `emits` set for the relevant component/protocol (§4d–§4e). |
+| **PDL-E024** | `unknown-emit-channel` | Layout emit capture or `emit` names a channel not in the effective `emits` set, or a bare `channel(…) =` ancestor capture is written without listing that channel’s protocol in receive `<>`. |
 | **PDL-E025** | `invalid-foreach-binding` | A derived bind inside `ForEach` references an unknown parent/item field or fails type rules for the target child param (§4e). |
 | **PDL-E026** | `foreach-chrome-unimplemented` | `before` / `between` / `after` appears in `ForEach` before B6 is implemented (implementations **MAY** use this code while rejecting chrome). |
 | **PDL-E027** | `emit-payload-mismatch` | Layout `channel(…) = { … }` arity or types do not match the effective emit signature by position, or a fire-site `emit` arg fails the declared payload type (§4d–§4e). |
@@ -52,14 +52,20 @@ Catalog: [`shared/diagnostics.json`](https://github.com/Mana-Machine-Ventures-In
 | **PDL-E040** | `param-type-mismatch` | A parameter default, instance kwarg, or fixture binding is not type-compatible with the declared parameter type (§23.4 / §23.6). |
 | **PDL-E041** | `unknown-sample-path` | A `Bank.entry.field` sample path names an unknown bank, entry, or field; a path is sample-shaped but invalid; or a `samples` bank name collides with a component (§11a). |
 | **PDL-E042** | `duplicate-mount` | The same **`let`** / **`letInstance`** frame is mounted more than once (`children = [button, button]`, or the same id under two parents). A let is one object with one place in the tree; write two lets or a list. |
-| **PDL-E043** | `duplicate-protocol-header` | A component header lists the same protocol more than once (`component C <PointerInput, PointerInput>`). |
-| **PDL-E044** | `multiple-api-protocols` | A component header lists more than one API protocol (`component C <ModalContent, SubnavItem>`). Any number of host protocols is allowed; at most one API protocol in v1. |
+| **PDL-E043** | `duplicate-protocol-header` | A receive `<>` list or send `emits <>` list repeats the same protocol (`<PointerInput, PointerInput>` or `emits <ShowEpisode, ShowEpisode>`). |
+| **PDL-E044** | `wrong-protocol-stance` | An API protocol with no `.ancestors` emit is listed in receive `<>` (write `emits <P>` to send or fill a `[P]` slot); a host protocol is listed in `emits <>`; or the same protocol appears in both `<>` and `emits <>`. |
 | **PDL-E045** | `host-param-shape-mismatch` | Two `host` profiles in the same design declare different param names or types. Defaults may differ; the `<Host>` contract must be one shape. |
 | **PDL-E046** | `unknown-host-profile` | Bake `--host` / `host` names a profile that is not in the design, or the design has several `host` profiles and none named `Default` and no profile was requested. |
 | **PDL-E047** | `host-probe-outside-mount` | `host["…"]` or `??` appears outside a `mount` body (component body, token RHS, or other value). |
 | **PDL-E048** | `mount-coalesce-empty` | A `mount` let or `self.param =` coalesce produced no value (every `as?` arm missed and there was no literal fallback), or a strict `as` convert failed. |
 | **PDL-E049** | `theme-catalog-role-mismatch` | `use catalog` names a `theme`, or bake `--theme` / the theme argument names a `catalog`. Themes are user-toggleable; catalogs are host-applied in `mount`. |
 | **PDL-E050** | `invalid-host-facts` | A fixture `hostFacts` value is not a JSON object string (invalid JSON, or a JSON array/scalar). |
+| **PDL-E051** | `unknown-emit-propagation` | `emits(…)` uses an unknown argument or `propagation` case. Only `propagation: .parent` and `propagation: .ancestors` are legal; omitted means `.parent`. |
+| **PDL-E052** | `invalid-ancestor-capture-form` | Ancestor capture is written as a bare `channel(…) = { … }`. `Protocol.channel =` and `presenter.channel =` are rejected. |
+| **PDL-E053** | `unhandled-ancestors-emit` | A mounted `emits(propagation: .ancestors)` channel never meets an ancestor that both lists the protocol in receive `<>` and writes a bare `channel(…) =` before a root. |
+| **PDL-E054** | `presenter-missing-root` | `Presenter()` is missing `root:`, uses `children:`, or `root` is not a page let / page instance. |
+| **PDL-E055** | `presenter-verb-outside-capture` | `presenter.replace/push/pop/present/dismiss(…)` appears outside an ancestor-capture body, names a let that is not a Presenter, uses a bad arity, or uses a style other than `.cover`. |
+| **PDL-E056** | `sink-missing-handler` | A component lists an ancestor-sink protocol in receive `<>` (`<ShowEpisode>`) but has no bare `channel(…) =` handler for one of that protocol’s `.ancestors` channels. |
 
 ## Warnings (PDL-W0xx)
 
@@ -106,7 +112,9 @@ Catalog: [`shared/keywords.json`](https://github.com/Mana-Machine-Ventures-Inc/p
 | `enum` | Surface alias of variant (same IR in v1). |
 | `protocol` | Shared param/emits or host-role contract. |
 | `component` | UI definition. |
-| `emits` | Companion output API for a component. |
+| `page` | Navigable destination (contextual at top level; `color.page` stays an ident). Auto-satisfies prelude `Page`. |
+| `screen` | Device shell (contextual at top level). Same body as component; typically mounts a Presenter (N5). |
+| `emits` | Send stance: `emits <P>` inherits a protocol’s channels/params/slots; `emits { channel(…) }` declares one-off channels. |
 | `fixtures` | Named preview scenarios (param bags) for one component. |
 | `samples` | Typed data banks referenced as Bank.entry.field. |
 | `usage` | Human-readable guidance. |
@@ -187,12 +195,13 @@ These are type/ctor names, not user identifiers. World A frame ctors Text / Layo
 | `LetterSpacing` | — |
 | `Sizing` | — |
 | `Duration` | — |
-| `Easing` | — |
-| `Transition` | — |
+| `Ease` | — |
+| `Timing` | — |
 | `Pose` | — |
 | `Stagger` | — |
 | `Key` | — |
 | `Motion` | — |
+| `PresentationMotion` | — |
 | `Effect` | — |
 | `Ramp` | — |
 | `Blur` | — |
