@@ -454,12 +454,19 @@ export function requestInteractiveRebind(frame) {
  * Push a fresh catalogue into the live iframe host (motion pose/duration edits).
  * @param {HTMLIFrameElement} frame
  * @param {Record<string, unknown> | null | undefined} interactions
+ * @param {Record<string, unknown> | null | undefined} [emitCaptures]
  */
-export function pushPreviewInteractions(frame, interactions) {
-  if (!interactions || typeof interactions !== "object") return;
+export function pushPreviewInteractions(frame, interactions, emitCaptures) {
+  const hasIx = interactions && typeof interactions === "object";
+  const hasCaps = emitCaptures && typeof emitCaptures === "object";
+  if (!hasIx && !hasCaps) return;
   try {
     frame.contentWindow?.postMessage(
-      { type: "pdl-update-interactions", interactions },
+      {
+        type: "pdl-update-interactions",
+        ...(hasIx ? { interactions } : {}),
+        ...(hasCaps ? { emitCaptures } : {}),
+      },
       "*",
     );
   } catch {

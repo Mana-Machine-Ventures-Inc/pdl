@@ -968,6 +968,11 @@ function validateRulesForComponent(design: DesignDefinition, componentName: stri
 }
 
 function tokenTypeOf(design: DesignDefinition, name: string): string | undefined {
+  if (name.endsWith(".reversed")) {
+    const base = name.slice(0, -".reversed".length);
+    const t = design.primitives.get(base)?.tokenType ?? design.semantics.get(base)?.tokenType;
+    return t === "PresentationMotion" ? t : undefined;
+  }
   return design.primitives.get(name)?.tokenType ?? design.semantics.get(name)?.tokenType;
 }
 

@@ -54,7 +54,7 @@ PresentationMotion(
 
 - Lexer/keyword `PresentationMotion`
 - AST + parse + evaluate (`kind: "presentationMotion"`)
-- `.reversed` swaps sides and flips `front`
+- `.reversed` swaps sides, flips `front`, and time-reverses `ease` (`.in`↔`.out`; bezier inverts). `delay` stays.
 - `Presenter(root:, move:, dismissMove:)`
 - Verb args: `move:` / `dismissMove:` (ValueExpr). `push(page, move:, dismissMove:)` legal
 - `present` still accepts `style: .cover` (N5). `move:` on `present` is hide-prior pair clip when no cover style — **v1 demo uses `push(..., move:)`** so N5 cover stays untouched

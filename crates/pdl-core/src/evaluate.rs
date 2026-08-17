@@ -920,6 +920,70 @@ fn evaluate_ease(raw: Value) -> Result<Value, PdlError> {
     }
 }
 
+/// Time-reverse an Ease. `.in`↔`.out`; bezier (x1,y1,x2,y2) → (1-x2,1-y2,1-x1,1-y1).
+fn reverse_ease(raw: Value) -> Value {
+    match raw {
+        Value::String(s) => {
+            let t = s.trim().trim_start_matches('.');
+            Value::String(
+                match t {
+                    "in" => "out",
+                    "out" => "in",
+                    other => other,
+                }
+                .to_string(),
+            )
+        }
+        Value::Object(o) if o.get("kind").and_then(|v| v.as_str()) == Some("easeBezier") => {
+            let x1 = o.get("x1").and_then(Value::as_f64);
+            let y1 = o.get("y1").and_then(Value::as_f64);
+            let x2 = o.get("x2").and_then(Value::as_f64);
+            let y2 = o.get("y2").and_then(Value::as_f64);
+            if let (Some(x1), Some(y1), Some(x2), Some(y2)) = (x1, y1, x2, y2) {
+                return obj(vec![
+                    ("kind", Value::String("easeBezier".to_string())),
+                    ("x1", number_value(1.0 - x2)),
+                    ("y1", number_value(1.0 - y2)),
+                    ("x2", number_value(1.0 - x1)),
+                    ("y2", number_value(1.0 - y1)),
+                ]);
+            }
+            Value::Object(o)
+        }
+        Value::Object(ref o) => {
+            if let Some(v) = o.get("value").and_then(|v| v.as_str()) {
+                return reverse_ease(Value::String(v.to_string()));
+            }
+            Value::Object(o.clone())
+        }
+        other => other,
+    }
+}
+
+fn reverse_slot_clock(slot: Value) -> Value {
+    let Value::Object(mut o) = slot else {
+        return slot;
+    };
+    let kind = o.get("kind").and_then(|v| v.as_str());
+    let is_motion = kind == Some("motion")
+        || o.contains_key("timing")
+        || o.contains_key("keys")
+        || (o.contains_key("pose") && kind != Some("pose"));
+    if !is_motion {
+        return Value::Object(o);
+    }
+    if let Some(e) = o.remove("ease") {
+        o.insert("ease".into(), reverse_ease(e));
+    }
+    if let Some(Value::Object(mut t)) = o.remove("timing") {
+        if let Some(e) = t.remove("ease") {
+            t.insert("ease".into(), reverse_ease(e));
+        }
+        o.insert("timing".into(), Value::Object(t));
+    }
+    Value::Object(o)
+}
+
 fn reverse_presentation_motion(raw: Value) -> Result<Value, PdlError> {
     let Value::Object(mut o) = raw else {
         return Err(PdlError::new(
@@ -942,10 +1006,13 @@ fn reverse_presentation_motion(raw: Value) -> Result<Value, PdlError> {
     let incoming = o.remove("incoming");
     let outgoing = o.remove("outgoing");
     if let Some(v) = outgoing {
-        o.insert("incoming".into(), v);
+        o.insert("incoming".into(), reverse_slot_clock(v));
     }
     if let Some(v) = incoming {
-        o.insert("outgoing".into(), v);
+        o.insert("outgoing".into(), reverse_slot_clock(v));
+    }
+    if let Some(e) = o.remove("ease") {
+        o.insert("ease".into(), reverse_ease(e));
     }
     let front = o
         .get("front")

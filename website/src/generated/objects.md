@@ -985,14 +985,14 @@ hoverEnd = { animate = Motion(motion.hoverPop, play: .toRest) }
 
 ### `PresentationMotion`
 
-A Presenter pair clip. `incoming` plays [`.toRest`](#play) (mounts at pose, eases to rest). `outgoing` plays [`.toPose`](#play). Pair-level [`duration`](#duration) / [`ease`](#ease) / `delay` apply when a slot is a [`Pose`](#pose). A [`Motion`](#motion) slot keeps its own clock. `front` is `.incoming` or `.outgoing`. `promoteAt` (0…1) flips z at that progress. `.reversed` swaps sides and flips `front`.
+A Presenter pair clip. `incoming` plays [`.toRest`](#play) (mounts at pose, eases to rest). `outgoing` plays [`.toPose`](#play). Pair-level [`duration`](#duration) / [`ease`](#ease) / `delay` apply when a slot is a [`Pose`](#pose). A [`Motion`](#motion) slot keeps its own clock. `front` is `.incoming` or `.outgoing`. `promoteAt` (0…1) flips z at that progress. `.reversed` swaps sides, flips `front`, and time-reverses [`ease`](#ease) (`.in`↔`.out`; bezier control points invert). `delay` stays. Write `dismissMove:` to override.
 
 Category: motion. Used on: `Presenter`.`move`, `present`.`move`, `push`.`move`, `dismissMove`.
 
 Accepted syntax:
 
 - `PresentationMotion(incoming: Pose(translateX: 390), outgoing: Pose(translateX: -48, opacity: 0.86), duration: 320, ease: .out)` — Pair clip with inherited timing on both poses.
-- `motion.navPush.reversed` — Swap incoming/outgoing and flip front.
+- `motion.navPush.reversed` — Swap incoming/outgoing, flip front, and time-reverse ease.
 
 ```pdl
 semantic motion.navPush: PresentationMotion = PresentationMotion(

@@ -242,7 +242,7 @@ Single painted child. This is “set a child,” not a stack.
 | `Presenter(root:, move:, dismissMove:)` | Parse |
 | `present(page, move:, dismissMove:)` in a capture body; stored on the entry | AST + pins JSON |
 | `dismiss()` uses the entry’s `dismissMove` or the same `move` (not reverse) | Golden |
-| `motion.navPush.reversed` swaps sides and flips `front` | Parse + evaluate |
+| `motion.navPush.reversed` swaps sides, flips `front`, and time-reverses `ease` | Parse + evaluate |
 | Both omitted → snap (or Presenter default) | Golden |
 | Host keeps outgoing + incoming, honors `front` / `promoteAt`, then commits | n4/n5 lab with `move:` |
 | `swap` / `replace` take optional `move` only; `dismissMove` on them is an error | Validate |

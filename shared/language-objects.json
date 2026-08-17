@@ -629,7 +629,7 @@
         "push.move",
         "dismissMove"
       ],
-      "meaning": "A Presenter pair clip. `incoming` plays `.toRest` (mounts at pose, eases to rest). `outgoing` plays `.toPose`. Pair-level `duration` / `ease` / `delay` apply when a slot is a Pose. A Motion slot keeps its own clock. `front` is `.incoming` or `.outgoing`. `promoteAt` (0…1) flips z at that progress. `.reversed` swaps sides and flips `front`.",
+      "meaning": "A Presenter pair clip. `incoming` plays `.toRest` (mounts at pose, eases to rest). `outgoing` plays `.toPose`. Pair-level `duration` / `ease` / `delay` apply when a slot is a Pose. A Motion slot keeps its own clock. `front` is `.incoming` or `.outgoing`. `promoteAt` (0…1) flips z at that progress. `.reversed` swaps sides, flips `front`, and time-reverses `ease` (`.in`↔`.out`; bezier control points invert). `delay` stays. Write `dismissMove:` to override.",
       "accept": [
         {
           "form": "PresentationMotion(incoming: Pose(translateX: 390), outgoing: Pose(translateX: -48, opacity: 0.86), duration: 320, ease: .out)",
@@ -637,7 +637,7 @@
         },
         {
           "form": "motion.navPush.reversed",
-          "meaning": "Swap incoming/outgoing and flip front."
+          "meaning": "Swap incoming/outgoing, flip front, and time-reverse ease."
         }
       ],
       "example": "semantic motion.navPush: PresentationMotion = PresentationMotion(\n  incoming: Pose(translateX: 390),\n  outgoing: Pose(translateX: -48, opacity: 0.86),\n  duration: 320,\n  ease: .out\n)"

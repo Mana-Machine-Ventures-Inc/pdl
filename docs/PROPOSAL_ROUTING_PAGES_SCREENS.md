@@ -651,7 +651,7 @@ presenter.dismiss()
 | `move:` only | that crossing | **the same `move` again** (not reversed) |
 | `move:` + `dismissMove:` | `move` | `dismissMove` as a normal crossing |
 
-**Omit `dismissMove` is not reverse.** Reverse is a computed property: `motion.navPush.reversed` swaps the two **sides** (pose + that side’s timing travel together) and flips `front` (`.incoming` ↔ `.outgoing`). `promoteAt` stays. You may name it (`semantic motion.navPop: PresentationMotion = motion.navPush.reversed`). A theme that replaces `motion.navPush` changes the derived value too.
+**Omit `dismissMove` is not reverse.** Reverse is a computed property: `motion.navPush.reversed` swaps the two **sides** (pose + that side’s timing travel together), flips `front` (`.incoming` ↔ `.outgoing`), and **time-reverses `ease`**: `.in`↔`.out`, `Ease.bezier(x1,y1,x2,y2)` → `Ease.bezier(1-x2,1-y2,1-x1,1-y1)`, `.linear` stays. Pair `delay` and `promoteAt` stay. A `Motion` slot’s own `ease` flips after the swap. `keys:` paths are not reversed — write `dismissMove:` for that. You may name it (`semantic motion.navPop: PresentationMotion = motion.navPush.reversed`). A theme that replaces `motion.navPush` changes the derived value too.
 
 `replace` / `swap` take optional `move` only (no `dismissMove`). `retainPrior: true` does not take a `PresentationMotion` in v1 — use `appear` / `disappear` on the presented tree. Hide-prior `present` is the pair-clip case.
 
@@ -752,7 +752,7 @@ Locked enough to implement N6–N9. These are the holes to stare at before gramm
 | **`.sheet`** | **Later (E055).** Author a bottom-hugging `Cover` with `.stack` + `justify` on the surface if they need the look now. |
 | **Fixture chips** | **Locked lean.** Snap to the pinned world. No `PresentationMotion` / `appear` on fixture apply (load-time section `appear` may still run). |
 | **`Presenter.dismissMove`** | **Locked lean.** Hole default when every dismiss should differ from every present. Verb `dismissMove:` still wins per entry. |
-| **Grammar of `.reversed`** | **Locked.** Computed property (`motion.navPush.reversed`). Swaps sides + flips `front`. Not `.reversed()`, not omit-magic. |
+| **Grammar of `.reversed`** | **Locked.** Computed property (`motion.navPush.reversed`). Swaps sides, flips `front`, time-reverses `ease`. Not `.reversed()`, not omit-magic. |
 | **Reduced Motion** | **Locked lean.** Theme replaces the `PresentationMotion` token wholly (fade or instant). `.reversed` of that token follows. |
 | **Several presenters** | **Locked.** Each hole has its own stack. **Per-tab history** = one Presenter per tab, not `replace` on a shared hole. |
 | **N5 one `cover` field** | **Keep until N9.** Labs may still pin `presenter.cover`. |

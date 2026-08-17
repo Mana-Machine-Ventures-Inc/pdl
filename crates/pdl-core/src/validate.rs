@@ -2144,6 +2144,14 @@ fn validate_rules_for_component(
 }
 
 fn token_type_of(design: &DesignDefinition, name: &str) -> Option<String> {
+    if let Some(base) = name.strip_suffix(".reversed") {
+        let t = design
+            .primitives
+            .get(base)
+            .map(|p| p.token_type.clone())
+            .or_else(|| design.semantics.get(base).map(|s| s.token_type.clone()));
+        return t.filter(|ty| ty == "PresentationMotion");
+    }
     design
         .primitives
         .get(name)

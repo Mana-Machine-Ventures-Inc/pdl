@@ -1,0 +1,34 @@
+// Token-only: `.reversed` time-reverses Ease (pair clock + Motion slot clocks).
+
+semantic motion.slideOut: PresentationMotion = PresentationMotion(
+  incoming: Pose(translateX: 390),
+  outgoing: Pose(translateX: -48),
+  duration: 320,
+  ease: .out,
+  delay: 40,
+  front: .incoming
+)
+semantic motion.slideIn: PresentationMotion = motion.slideOut.reversed
+
+semantic motion.material: PresentationMotion = PresentationMotion(
+  incoming: Pose(translateX: 390),
+  outgoing: Pose(opacity: 0),
+  duration: 400,
+  ease: Ease.bezier(0.2, 0, 0, 1)
+)
+semantic motion.materialBack: PresentationMotion = motion.material.reversed
+
+semantic motion.slotClocks: PresentationMotion = PresentationMotion(
+  incoming: Motion(duration: 200, ease: .out, pose: Pose(translateX: 40)),
+  outgoing: Motion(duration: 200, ease: .in, pose: Pose(opacity: 0)),
+  front: .outgoing
+)
+semantic motion.slotClocksBack: PresentationMotion = motion.slotClocks.reversed
+
+semantic motion.holdLinear: PresentationMotion = PresentationMotion(
+  incoming: Pose(opacity: 0),
+  outgoing: Pose(opacity: 0),
+  duration: 100,
+  ease: .linear
+)
+semantic motion.holdLinearBack: PresentationMotion = motion.holdLinear.reversed

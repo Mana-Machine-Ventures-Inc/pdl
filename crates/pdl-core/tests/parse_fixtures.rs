@@ -2272,6 +2272,41 @@ fn n8_slide_catalogue_evaluates_pair_move() {
     assert_eq!(verb["move"]["incoming"]["translateX"], 390.0);
     assert_eq!(verb["dismissMove"]["kind"], "presentationMotion");
     assert_eq!(verb["dismissMove"]["outgoing"]["translateX"], 390.0);
+    assert_eq!(verb["move"]["ease"], "out");
+    assert_eq!(verb["dismissMove"]["ease"], "in");
+}
+
+#[test]
+fn reversed_ease_flips_pair_and_slot_clocks() {
+    use pdl_core::design::load_design;
+    use pdl_core::evaluate::build_resolved_token_map;
+
+    let path = repo_root().join("test-fixtures/pdl/lab/nav/reversed_ease.pdl");
+    let design = load_design(path.to_str().unwrap()).expect("load reversed_ease");
+    let tokens = build_resolved_token_map(&design, None, &[]).expect("tokens");
+
+    let slide_in = &tokens["motion.slideIn"];
+    assert_eq!(slide_in["ease"], "in");
+    assert_eq!(slide_in["delay"], 40.0);
+    assert_eq!(slide_in["incoming"]["translateX"], -48.0);
+    assert_eq!(slide_in["outgoing"]["translateX"], 390.0);
+    assert_eq!(slide_in["front"], ".outgoing");
+
+    let material_back = &tokens["motion.materialBack"];
+    assert_eq!(material_back["ease"]["kind"], "easeBezier");
+    assert_eq!(material_back["ease"]["x1"], 1.0);
+    assert_eq!(material_back["ease"]["y1"], 0.0);
+    assert_eq!(material_back["ease"]["x2"], 0.8);
+    assert_eq!(material_back["ease"]["y2"], 1.0);
+
+    let slots = &tokens["motion.slotClocksBack"];
+    assert_eq!(slots["incoming"]["pose"]["opacity"], 0.0);
+    assert_eq!(slots["outgoing"]["pose"]["translateX"], 40.0);
+    assert_eq!(slots["incoming"]["timing"]["ease"], "out");
+    assert_eq!(slots["outgoing"]["timing"]["ease"], "in");
+    assert_eq!(slots["front"], ".incoming");
+
+    assert_eq!(tokens["motion.holdLinearBack"]["ease"], "linear");
 }
 
 #[test]

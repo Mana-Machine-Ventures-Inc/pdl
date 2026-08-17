@@ -4188,7 +4188,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
   document.querySelectorAll('section.pdl-preview[data-pdl-interactive]').forEach(function(section){
       var name = section.getAttribute('data-pdl-component');
       var decls = interactions[name] || [];
-      var captures = emitCaptures[name] || [];
+      function sectionCaptures() { return emitCaptures[name] || []; }
+      var captures = sectionCaptures();
       var byEvent = handlersByEvent(decls);
       var liveParams = readParams(section);
       var canvas = section.querySelector('.pdl-state:not([hidden]) .pdl-canvas')
@@ -4284,7 +4285,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         var emitUnhandled = false;
         if (result.emits && result.emits.length) {
           result.emits.forEach(function(em){
-            var cap = applyEmitCapture(liveParams, captures, em.name, em.args || [], liveParams, null, null, section, section);
+            var cap = applyEmitCapture(liveParams, sectionCaptures(), em.name, em.args || [], liveParams, null, null, section, section);
             if (cap.presenterOps && cap.presenterOps.length) {
               presenterOps = presenterOps.concat(cap.presenterOps);
             }
@@ -4404,13 +4405,13 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             (result.emits || []).forEach(function(em){
               var cap = applyEmitCapture(
                 liveParams,
-                captures,
+                sectionCaptures(),
                 em.name,
                 em.args || [],
                 childLive,
                 childQualifier,
                 function(hv, parentBag){
-                  var vr = runQualifiedHostVerb(section, parentBag, captures, hv);
+                  var vr = runQualifiedHostVerb(section, parentBag, sectionCaptures(), hv);
                   if (vr.localChrome) localVerbChrome = true;
                   return { params: vr.parentParams, changed: vr.changed, localChrome: vr.localChrome };
                 },
@@ -4657,7 +4658,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           var needRebake = false;
           var presenterOps = [];
           (result.emits || []).forEach(function(em){
-            var cap = applyEmitCapture(liveParams, captures, em.name, em.args || [], childBag, childQualifier, null, instNode, section);
+            var cap = applyEmitCapture(liveParams, sectionCaptures(), em.name, em.args || [], childBag, childQualifier, null, instNode, section);
             if (cap.presenterOps && cap.presenterOps.length) {
               presenterOps = presenterOps.concat(cap.presenterOps);
             }
@@ -5233,7 +5234,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       });
     });
   }
-  function applyInteractions(next) {
+  function applyInteractions(next, nextCaptures) {
+    if (nextCaptures && typeof nextCaptures === 'object') emitCaptures = nextCaptures;
     if (!next || typeof next !== 'object') return;
     var prev = interactions;
     var names = {};
@@ -5276,7 +5278,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
   window.addEventListener('message', function(ev){
     if (!ev || !ev.data) return;
     if (ev.data.type === 'pdl-update-interactions') {
-      applyInteractions(ev.data.interactions);
+      applyInteractions(ev.data.interactions, ev.data.emitCaptures);
       postHeight();
       return;
     }

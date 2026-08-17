@@ -20,7 +20,7 @@ import {
 } from "./file-canvas.js";
 import { pdlCompletionSource as buildPdlCompletionSource } from "./pdl-completions.js";
 import { formatTemplateInsert, PDL_TEMPLATES } from "./pdl-templates.js";
-import { applyPresenterOps, resolvePairMove } from "./presenter-pins.js";
+import { applyPresenterOps, refreshPinnedPairMoves, resolvePairMove } from "./presenter-pins.js";
 import { snapshotPresenterOutgoing, startPresenterPairClip } from "./presenter-clip.js";
 import { loadWasmBake, virtualizeSources } from "./wasm-bake.js";
 import {
@@ -2720,19 +2720,35 @@ function getBodyBase() {
   };
 }
 
+/** Live preview enrich: editor overlay, never raw disk (token edits are not flushed yet). */
+async function previewSourceBody() {
+  const entry = bakeEntryPath();
+  const overlay = await sourcesForWasmBake(entry);
+  return {
+    files: overlay,
+    entry,
+    engine: selectedEngine(),
+  };
+}
+
 /** WASM IR-only ticks have no enrich payload — load the catalogue and push it. */
 async function refreshPreviewInteractionsFromLoad(renderId) {
   try {
     const res = await fetch("/api/load", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(getBodyBase()),
+      body: JSON.stringify(await previewSourceBody()),
     });
     if (renderId !== latestRenderId) return;
     const loaded = await res.json();
     if (renderId !== latestRenderId) return;
-    if (loaded?.interactionsByComponent) {
-      pushPreviewInteractions(frame, loaded.interactionsByComponent);
+    if (loaded?.interactionsByComponent || loaded?.emitCapturesByComponent) {
+      pushPreviewInteractions(
+        frame,
+        loaded.interactionsByComponent,
+        loaded.emitCapturesByComponent,
+      );
+      refreshPinnedPairMoves(presenterPinsByComponent, loaded.emitCapturesByComponent);
     }
   } catch {
     /* ignore */
@@ -3151,20 +3167,28 @@ function applyPreviewUpdate(data, opts) {
     let applyKind = "";
     // Ideal path: bake IR → reconcile DOM (no HTML required).
     // nextBaked may be a dirty-only patch (one component); merge into lastBakedDesign.
+    let catalogueOnly = false;
     if (nextBaked?.components && lastBakedDesign?.components) {
       const recon = tryIncrementalBakeReconcile(doc, lastBakedDesign, nextBaked);
       if (recon.ok && !recon.changed) {
         if (nextBaked) lastBakedDesign = mergeBakedDesign(lastBakedDesign, nextBaked);
-        void publishStage();
-        return "incremental";
-      }
-      if (recon.ok && recon.changed) {
+        if (html.length === 0) {
+          pushPreviewInteractions(frame, data.interactionsByComponent, data.emitCapturesByComponent);
+          refreshPinnedPairMoves(presenterPinsByComponent, data.emitCapturesByComponent);
+          void publishStage();
+          return "incremental";
+        }
+        // Catalogue-only source edits live outside IR — remount so the host
+        // inlines the new PresentationMotion / appear spec.
+        catalogueOnly = true;
+      } else if (recon.ok && recon.changed) {
         applied = true;
         applyKind = "ir";
       }
     }
     // Bridge: identity morph of rebaked HTML when IR cannot apply.
-    if (!applied && html.length > 0) {
+    // Skip morph on catalogue-only ticks — script tags keep the old captures.
+    if (!applied && !catalogueOnly && html.length > 0) {
       applied = applyPreviewHtml(doc, html);
       if (applied) applyKind = "morph";
     }
@@ -3175,7 +3199,8 @@ function applyPreviewUpdate(data, opts) {
       requestInteractiveRebind(frame);
       // Pose/duration live in the catalogue, not rest-pose IR — push even when
       // reconcile was a no-op so the host can re-arm appear with the new spec.
-      pushPreviewInteractions(frame, data.interactionsByComponent);
+      pushPreviewInteractions(frame, data.interactionsByComponent, data.emitCapturesByComponent);
+      refreshPinnedPairMoves(presenterPinsByComponent, data.emitCapturesByComponent);
       frame.dataset.pdlLastApply = applyKind;
       void publishStage();
       return "incremental";
@@ -3685,6 +3710,7 @@ async function runRender({ debounced = false } = {}) {
       const liveDoc = frame.contentDocument;
       if (
         incremental &&
+        ownerOnly &&
         previewDocumentLive &&
         lastBakedDesign?.components &&
         allowIrOnlyPreviewApply({ incremental, ownerOnly, doc: liveDoc })
@@ -3719,7 +3745,7 @@ async function runRender({ debounced = false } = {}) {
           kv,
           activeFixturesByComponent: { ...activeFixtureByComponent },
           componentRolesByComponent: { ...componentRoles },
-          ...getBodyBase(),
+          ...(await previewSourceBody()),
         }),
       });
       const data = await res.json();
@@ -3754,7 +3780,7 @@ async function runRender({ debounced = false } = {}) {
     /** @type {Record<string, unknown>} */
     const env = currentBakeEnv();
     const body = {
-      ...getBodyBase(),
+      ...(await previewSourceBody()),
       theme: env.theme,
       host: env.host,
       hostFacts: env.hostFacts,

@@ -76,6 +76,49 @@ function evaluateEase(raw: unknown): unknown {
   return raw;
 }
 
+/** Time-reverse an Ease. `.in`↔`.out`; bezier (x1,y1,x2,y2) → (1-x2,1-y2,1-x1,1-y1). */
+function reverseEase(raw: unknown): unknown {
+  if (raw == null) return raw;
+  if (typeof raw === "string") {
+    const s = raw.trim().replace(/^\./, "");
+    if (s === "in") return "out";
+    if (s === "out") return "in";
+    return s;
+  }
+  if (typeof raw === "object" && !Array.isArray(raw)) {
+    const o = raw as Record<string, unknown>;
+    if (o.kind === "easeBezier") {
+      const x1 = Number(o.x1);
+      const y1 = Number(o.y1);
+      const x2 = Number(o.x2);
+      const y2 = Number(o.y2);
+      if ([x1, y1, x2, y2].every(Number.isFinite)) {
+        return { kind: "easeBezier", x1: 1 - x2, y1: 1 - y2, x2: 1 - x1, y2: 1 - y1 };
+      }
+    }
+    if (typeof o.value === "string") return reverseEase(o.value);
+  }
+  return raw;
+}
+
+function reverseSlotClock(slot: unknown): unknown {
+  if (slot == null || typeof slot !== "object" || Array.isArray(slot)) return slot;
+  const o = { ...(slot as Record<string, unknown>) };
+  const isMotion =
+    o.kind === "motion" ||
+    o.timing != null ||
+    o.keys != null ||
+    (o.pose != null && o.kind !== "pose");
+  if (!isMotion) return slot;
+  if (o.ease != null) o.ease = reverseEase(o.ease);
+  if (o.timing && typeof o.timing === "object" && !Array.isArray(o.timing)) {
+    const t = { ...(o.timing as Record<string, unknown>) };
+    if (t.ease != null) t.ease = reverseEase(t.ease);
+    o.timing = t;
+  }
+  return o;
+}
+
 function reversePresentationMotion(raw: unknown): unknown {
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
     throw new PdlError("PDL-E005", "`.reversed` is only valid on a PresentationMotion");
@@ -86,8 +129,9 @@ function reversePresentationMotion(raw: unknown): unknown {
   }
   const incoming = o.incoming;
   const outgoing = o.outgoing;
-  o.incoming = outgoing;
-  o.outgoing = incoming;
+  o.incoming = reverseSlotClock(outgoing);
+  o.outgoing = reverseSlotClock(incoming);
+  if (o.ease != null) o.ease = reverseEase(o.ease);
   const front = String(o.front ?? "incoming").replace(/^\./, "");
   o.front = front === "outgoing" ? ".incoming" : ".outgoing";
   return o;

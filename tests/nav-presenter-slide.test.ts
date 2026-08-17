@@ -5,7 +5,11 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { Window } from "happy-dom";
 import { describe, expect, it } from "vitest";
-import { applyPresenterOps, resolvePairMove } from "../playground/src/presenter-pins.js";
+import {
+  applyPresenterOps,
+  refreshPinnedPairMoves,
+  resolvePairMove,
+} from "../playground/src/presenter-pins.js";
 import { renderBakedDesignToHtmlDocumentWithReport } from "../src/renderHtml.js";
 
 const ENTRY = "test-fixtures/pdl/lab/nav/n8_slide.pdl";
@@ -68,7 +72,7 @@ describe("n8 Phone pair slide", () => {
     const cat = catalogue();
     const caps = (cat.components.Phone.emitCaptures ?? []) as Array<{
       channel?: string;
-      body?: Array<{ kind?: string; name?: string; move?: { kind?: string; incoming?: { translateX?: number } }; dismissMove?: { kind?: string; outgoing?: { translateX?: number } } }>;
+      body?: Array<{ kind?: string; name?: string; move?: { kind?: string; ease?: string; incoming?: { translateX?: number } }; dismissMove?: { kind?: string; ease?: string; outgoing?: { translateX?: number } } }>;
     }>;
     const show = caps.find((c) => c.channel === "showEpisode");
     const verb = show?.body?.find((b) => b.kind === "presenterVerb");
@@ -77,6 +81,8 @@ describe("n8 Phone pair slide", () => {
     expect(verb?.move?.incoming?.translateX).toBe(390);
     expect(verb?.dismissMove?.kind).toBe("presentationMotion");
     expect(verb?.dismissMove?.outgoing?.translateX).toBe(390);
+    expect(verb?.move?.ease).toBe("out");
+    expect(verb?.dismissMove?.ease).toBe("in");
   }, 20_000);
 
   it("pressEnd posts push with move; pop resolves dismissMove", async () => {
@@ -124,4 +130,69 @@ describe("n8 Phone pair slide", () => {
       "presentationMotion",
     );
   }, 20_000);
+
+  it("pdl-update-interactions swaps emitCaptures so the next press uses the new move", async () => {
+    const { window, document, messages } = await mountPhone();
+    const cat = catalogue();
+    const nextCaps = structuredClone(cat.components.Phone.emitCaptures) as Array<{
+      body?: Array<{ kind?: string; move?: { duration?: number } }>;
+    }>;
+    const verb = nextCaps.flatMap((c) => c.body ?? []).find((b) => b.kind === "presenterVerb");
+    expect(verb?.move).toBeTruthy();
+    verb!.move = { ...(verb!.move ?? {}), duration: 2000 };
+
+    window.dispatchEvent(
+      new window.MessageEvent("message", {
+        data: {
+          type: "pdl-update-interactions",
+          emitCaptures: { Phone: nextCaps },
+        },
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 20));
+
+    const morning = document.querySelector('[data-pdl-instance-of="EpisodeRow"]')!;
+    morning.dispatchEvent(new window.MouseEvent("mousedown", { button: 0, bubbles: true }));
+    morning.dispatchEvent(new window.MouseEvent("mouseup", { button: 0, bubbles: true }));
+    await new Promise((r) => setTimeout(r, 30));
+
+    const ix = [...messages].reverse().find(
+      (m) =>
+        (m as { type?: string }).type === "pdl-interaction" &&
+        (m as { event?: string }).event === "pressEnd",
+    ) as { presenterOps?: Array<{ move?: { duration?: number } }> };
+    expect(ix?.presenterOps?.[0]?.move?.duration).toBe(2000);
+  }, 20_000);
+
+  it("refreshPinnedPairMoves retargets lastDismissMove at the new catalogue clip", () => {
+    const pins = {
+      Phone: {
+        presenter: {
+          stack: [{ component: "Home", params: {} }, { component: "Episode", params: {} }],
+          lastMove: { kind: "presentationMotion", duration: 320 },
+          lastDismissMove: { kind: "presentationMotion", duration: 320 },
+        },
+      },
+    };
+    refreshPinnedPairMoves(pins, {
+      Phone: [
+        {
+          channel: "showEpisode",
+          body: [
+            {
+              kind: "presenterVerb",
+              name: "push",
+              move: { kind: "presentationMotion", duration: 2000 },
+              dismissMove: { kind: "presentationMotion", duration: 1800 },
+            },
+          ],
+        },
+      ],
+    });
+    expect(pins.Phone.presenter.lastMove).toEqual({ kind: "presentationMotion", duration: 2000 });
+    expect(pins.Phone.presenter.lastDismissMove).toEqual({
+      kind: "presentationMotion",
+      duration: 1800,
+    });
+  });
 });

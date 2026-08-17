@@ -116,3 +116,39 @@ export function resolvePairMove(ops, pins) {
   }
   return null;
 }
+
+/**
+ * After a catalogue refresh, retarget stored pair clips at the newly
+ * evaluated `move` / `dismissMove` so Back uses the edited token.
+ *
+ * @param {Record<string, unknown> | null | undefined} pinsByOwner
+ * @param {Record<string, unknown> | null | undefined} emitCapturesByComponent
+ */
+export function refreshPinnedPairMoves(pinsByOwner, emitCapturesByComponent) {
+  if (!pinsByOwner || !emitCapturesByComponent) return;
+  for (const [owner, bag] of Object.entries(pinsByOwner)) {
+    const caps = emitCapturesByComponent[owner];
+    if (!Array.isArray(caps) || !bag || typeof bag !== "object" || Array.isArray(bag)) continue;
+    /** @type {{ move?: unknown, dismissMove?: unknown } | null} */
+    let found = null;
+    for (const cap of caps) {
+      if (!cap || typeof cap !== "object") continue;
+      const body = /** @type {{ body?: unknown }} */ (cap).body;
+      if (!Array.isArray(body)) continue;
+      for (const item of body) {
+        if (!item || typeof item !== "object") continue;
+        const rec = /** @type {{ kind?: string, move?: unknown, dismissMove?: unknown }} */ (item);
+        if (rec.kind === "presenterVerb" && (rec.move != null || rec.dismissMove != null)) {
+          found = rec;
+        }
+      }
+    }
+    if (!found) continue;
+    for (const pin of Object.values(/** @type {Record<string, unknown>} */ (bag))) {
+      if (!pin || typeof pin !== "object" || Array.isArray(pin)) continue;
+      const rec = /** @type {Record<string, unknown>} */ (pin);
+      if (rec.lastMove != null && found.move != null) rec.lastMove = found.move;
+      if (rec.lastDismissMove != null) rec.lastDismissMove = found.dismissMove ?? found.move;
+    }
+  }
+}
