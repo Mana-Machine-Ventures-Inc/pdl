@@ -145,7 +145,7 @@ export function serialiseValueExpr(e: ValueExpr): unknown {
         ...(e.ease ? { ease: serialiseValueExpr(e.ease) } : {}),
         ...(e.delay ? { delay: serialiseValueExpr(e.delay) } : {}),
         ...(e.front ? { front: serialiseValueExpr(e.front) } : {}),
-        ...(e.promoteAt ? { promoteAt: serialiseValueExpr(e.promoteAt) } : {}),
+        ...(e.switchAt ? { switchAt: serialiseValueExpr(e.switchAt) } : {}),
       };
     case "effect":
       return {
@@ -343,8 +343,8 @@ export function serialiseValueExprWithTokenRefs(expr: ValueExpr, design: DesignD
         ...(expr.ease ? { ease: serialiseValueExprWithTokenRefs(expr.ease, design) } : {}),
         ...(expr.delay ? { delay: serialiseValueExprWithTokenRefs(expr.delay, design) } : {}),
         ...(expr.front ? { front: serialiseValueExprWithTokenRefs(expr.front, design) } : {}),
-        ...(expr.promoteAt
-          ? { promoteAt: serialiseValueExprWithTokenRefs(expr.promoteAt, design) }
+        ...(expr.switchAt
+          ? { switchAt: serialiseValueExprWithTokenRefs(expr.switchAt, design) }
           : {}),
       };
     case "effect":

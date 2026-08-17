@@ -59,4 +59,21 @@ describe("PresentationMotion .reversed ease", () => {
     const back = t.get("motion.holdLinearBack") as { ease?: string };
     expect(back.ease).toBe("linear");
   });
+
+  it("keeps front and inverts switchAt", () => {
+    const t = tokens();
+    const fwd = t.get("motion.cardSwap") as {
+      front?: string;
+      switchAt?: number;
+      incoming?: { translateX?: number };
+      outgoing?: { translateX?: number };
+    };
+    const back = t.get("motion.cardSwapBack") as typeof fwd;
+    expect(fwd.front).toBe("outgoing");
+    expect(fwd.switchAt).toBe(0.3);
+    expect(back.incoming?.translateX).toBe(36);
+    expect(back.outgoing?.translateX).toBe(-36);
+    expect(back.front).toBe("outgoing");
+    expect(back.switchAt).toBe(0.7);
+  });
 });

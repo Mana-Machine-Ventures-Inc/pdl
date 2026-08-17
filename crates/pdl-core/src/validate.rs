@@ -2414,7 +2414,7 @@ fn token_rhs_expectation(token_type: &str) -> &'static str {
             "`Motion(timing: … [, play:] [, pose:] [, keys:] [, stagger:] [, repeat:])`, `Motion(token, field:)`, or a Timing"
         }
         "PresentationMotion" => {
-            "`PresentationMotion(incoming:, outgoing: [, duration:] [, ease:] [, delay:] [, front:] [, promoteAt:])`"
+            "`PresentationMotion(incoming:, outgoing: [, duration:] [, ease:] [, delay:] [, front:] [, switchAt:])`"
         }
         "Effect" => {
             "`Effect(.blurSelf | .blurBehind, radius: [, vibrancy:])` (`.glass` is not implemented yet)"

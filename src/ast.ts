@@ -87,7 +87,7 @@ export type ValueExpr =
       ease?: ValueExpr;
       delay?: ValueExpr;
       front?: ValueExpr;
-      promoteAt?: ValueExpr;
+      switchAt?: ValueExpr;
     }
   /** `Effect(.blurSelf | .blurBehind | .glass, radius: [, vibrancy:])`. */
   | {

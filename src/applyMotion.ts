@@ -493,7 +493,7 @@ export type PresentationMotionEval = {
   ease?: unknown;
   delay?: unknown;
   front?: unknown;
-  promoteAt?: unknown;
+  switchAt?: unknown;
 };
 
 function slotMotionSpec(slot: unknown, pair: PresentationMotionEval): MotionSpec {
@@ -575,7 +575,7 @@ function clearPresenterLane(el: Element) {
 
 /**
  * Play a Presenter pair clip. Incoming mounts at pose and eases to rest;
- * outgoing eases to its pose. `front` / `promoteAt` set z-order.
+ * outgoing eases to its pose. `front` / `switchAt` set z-order.
  * `dismissMove` should pass `defaultFront: "outgoing"` (or stamp via
  * `withDismissDefaultFront`) so the leaving page stays on top.
  */
@@ -600,7 +600,7 @@ export function playPresentationMotion(
   const incomingAnim = playMotionOnElement(incomingEl, incomingSpec, "appear", { reduced });
   const outgoingAnim = playMotionOnElement(outgoingEl, outgoingSpec, "dismiss", { reduced });
   const anims = [incomingAnim, outgoingAnim].filter((a): a is Animation => a != null);
-  const promoteAt = Number(raw.promoteAt);
+  const switchAt = Number(raw.switchAt);
   const clock = pairClock(raw);
   const pairMs = Math.max(
     incomingSpec.transition?.duration ?? 0,
@@ -613,11 +613,11 @@ export function playPresentationMotion(
     clock.delay,
   );
   let promoteTimer: ReturnType<typeof setTimeout> | undefined;
-  if (Number.isFinite(promoteAt) && promoteAt >= 0 && promoteAt <= 1) {
+  if (Number.isFinite(switchAt) && switchAt >= 0 && switchAt <= 1) {
     promoteTimer = setTimeout(() => {
       applyPresenterLaneFront(incomingEl, !incomingFront);
       applyPresenterLaneFront(outgoingEl, incomingFront);
-    }, Math.max(0, pairMs * promoteAt));
+    }, Math.max(0, pairMs * switchAt));
   }
   let done = false;
   let timeout: ReturnType<typeof setTimeout> | undefined;

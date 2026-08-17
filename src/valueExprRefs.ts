@@ -120,7 +120,7 @@ export function collectDeclaredTokenNamesFromValueExpr(
       if (expr.ease) collectDeclaredTokenNamesFromValueExpr(expr.ease, design, sink);
       if (expr.delay) collectDeclaredTokenNamesFromValueExpr(expr.delay, design, sink);
       if (expr.front) collectDeclaredTokenNamesFromValueExpr(expr.front, design, sink);
-      if (expr.promoteAt) collectDeclaredTokenNamesFromValueExpr(expr.promoteAt, design, sink);
+      if (expr.switchAt) collectDeclaredTokenNamesFromValueExpr(expr.switchAt, design, sink);
       return;
     case "hex":
     case "string":

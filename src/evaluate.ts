@@ -132,8 +132,15 @@ function reversePresentationMotion(raw: unknown): unknown {
   o.incoming = reverseSlotClock(outgoing);
   o.outgoing = reverseSlotClock(incoming);
   if (o.ease != null) o.ease = reverseEase(o.ease);
-  const front = String(o.front ?? "incoming").replace(/^\./, "");
-  o.front = front === "outgoing" ? ".incoming" : ".outgoing";
+  const switchAt = Number(o.switchAt);
+  if (Number.isFinite(switchAt)) {
+    // Side swap remaps who `front` is; invert the wall-clock flip so the
+    // same pages are on top at the start/end of the reversed clip.
+    o.switchAt = 1 - switchAt;
+  } else {
+    const front = String(o.front ?? "incoming").replace(/^\./, "");
+    o.front = front === "outgoing" ? ".incoming" : ".outgoing";
+  }
   return o;
 }
 
@@ -445,7 +452,7 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
       if (expr.ease !== undefined) out.ease = evaluateEase(evaluateValue(expr.ease, opts));
       if (expr.delay !== undefined) out.delay = evaluateValue(expr.delay, opts);
       if (expr.front !== undefined) out.front = evaluateValue(expr.front, opts);
-      if (expr.promoteAt !== undefined) out.promoteAt = evaluateValue(expr.promoteAt, opts);
+      if (expr.switchAt !== undefined) out.switchAt = evaluateValue(expr.switchAt, opts);
       return out;
     }
     case "pose": {

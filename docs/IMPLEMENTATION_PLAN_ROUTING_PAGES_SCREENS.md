@@ -47,20 +47,20 @@ Until a slice is locked, tooling must not treat `page` / `screen` / `Presenter` 
 | **Q19** | Retained stack per tab | One `Presenter` per tab. Not `replace` on a shared hole |
 | **Q20** | `present` / `swap` / `replace` | `present` appends (`retainPrior` is the paint flag). `swap` changes the top slot. `replace` wipes to `[page]`. At one entry, `swap` ≡ `replace` |
 | **Q21** | Default `retainPrior` | `false` |
-| **Q22** | Crossing front | On `PresentationMotion` (`front` / `promoteAt`). Not `present(z:)`. Not on `Pose` |
+| **Q22** | Crossing front | On `PresentationMotion` (`front` / `switchAt`). Not `present(z:)`. Not on `Pose` |
 | **Q23** | `dismissMove` on `swap` / `replace` | Illegal. Optional `move` only |
 | **Q24** | N3 `replace` (shipped) | Becomes `swap` in N9. New `replace` is full-stack wipe |
 | **Q25** | `replace` with several painted layers | Snap; `disappear` on each discarded painted instance |
 | **Q26** | `appear` vs pair timing | Fire `appear` when incoming is mounted for the move |
 | **Q27** | RTL | No silent invert in v1. Second token or later Pose unit |
 | **Q28** | `PresentationMotion(token, field:)` | Not in v1. Literal + `.reversed` only |
-| **Q29** | Mid-clip front flip | `promoteAt: Number?`. No associated enum values in v1 |
+| **Q29** | Mid-clip front flip | `switchAt: Number?`. No associated enum values in v1 |
 | **Q30** | Timing / Ease rename | M5 breaking slice. N8 depends on it. [`IMPLEMENTATION_PLAN_MOTION_NAMING.md`](./IMPLEMENTATION_PLAN_MOTION_NAMING.md) |
 | **Q31** | Per-side clocks | Allowed. Interrupt is per playhead |
 | **D1** | Verbs where | Capture bodies only |
 | **D2** | Painted children | Walk from top: while `retainPrior`, keep walking; stop at first `false` (N9). N5: top + one cover field |
 | **D5** | `appear` / `disappear` | Instance-root lifecycle. Not PointerInput. `disappear` = discarded only |
-| **D6** | `PresentationMotion` | `incoming` / `outgoing` (Motion \| Pose); play implied by slot. `front` / `promoteAt`. Omit `dismissMove` = same `move`. Reverse is `.reversed` (swap sides + flip front). Hide-prior `present` only in v1 |
+| **D6** | `PresentationMotion` | `incoming` / `outgoing` (Motion \| Pose); play implied by slot. `front` / `switchAt`. Omit `dismissMove` = same `move`. Reverse is `.reversed` (swap sides; flip front or invert `switchAt`). Hide-prior `present` only in v1 |
 | **D7** | Three verbs | `present(retainPrior:)` appends; `swap` changes top; `replace` wipes stack. No `.push` / `.cover` / `.root` styles. No `z:` on the call |
 | **D8** | Tabs + retained stacks | One `Presenter` per tab. Not `replace` on a shared hole |
 | **D9** | Front | On `PresentationMotion`, not on the verb |
@@ -237,14 +237,14 @@ Single painted child. This is “set a child,” not a stack.
 
 | Done when | Evidence |
 |-----------|----------|
-| Type `PresentationMotion(incoming:, outgoing:, duration?, ease?, delay?, front?, promoteAt?)` | Grammar + lock files |
+| Type `PresentationMotion(incoming:, outgoing:, duration?, ease?, delay?, front?, switchAt?)` | Grammar + lock files |
 | Slot is `Motion` or `Pose`; play implied (incoming `.toRest`, outgoing `.toPose`) | Parse + evaluate |
 | `Presenter(root:, move:, dismissMove:)` | Parse |
 | `present(page, move:, dismissMove:)` in a capture body; stored on the entry | AST + pins JSON |
 | `dismiss()` uses the entry’s `dismissMove` or the same `move` (not reverse) | Golden |
-| `motion.navPush.reversed` swaps sides, flips `front`, and time-reverses `ease` | Parse + evaluate |
+| `motion.navPush.reversed` swaps sides, time-reverses `ease`; flips `front` or inverts `switchAt` | Parse + evaluate |
 | Both omitted → snap (or Presenter default) | Golden |
-| Host keeps outgoing + incoming, honors `front` / `promoteAt`, then commits | n4/n5 lab with `move:` |
+| Host keeps outgoing + incoming, honors `front` / `switchAt`, then commits | n4/n5 lab with `move:` |
 | `swap` / `replace` take optional `move` only; `dismissMove` on them is an error | Validate |
 | `retainPrior: true` does not take a `PresentationMotion` | Validate |
 | No `z:` on the verb | Validate |

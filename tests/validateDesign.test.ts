@@ -117,6 +117,14 @@ describe("validateMergedDesign (motion)", () => {
     );
   });
 
+  it("PDL-E001 when PresentationMotion uses promoteAt", () => {
+    expectLoadFails(
+      "PDL-E001",
+      "errors/e001-promote-at.pdl",
+      /switchAt:.*promoteAt/,
+    );
+  });
+
   it("PDL-E005 when Ease is a CSS string", () => {
     expectLoadFails(
       "PDL-E005",

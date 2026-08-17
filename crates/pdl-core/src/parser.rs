@@ -3950,11 +3950,14 @@ fn finish_presentation_motion(
     let ease = args.swap_remove("ease");
     let delay = args.swap_remove("delay");
     let front = args.swap_remove("front");
-    let promote_at = args.swap_remove("promoteAt");
+    if args.contains_key("promoteAt") {
+        return Err("Write `switchAt:` (0…1), not `promoteAt:`".to_string());
+    }
+    let switch_at = args.swap_remove("switchAt");
     if !args.is_empty() {
         let unknown = args.keys().cloned().collect::<Vec<_>>().join(", ");
         return Err(format!(
-            "PresentationMotion unknown label(s): {unknown} (expected incoming, outgoing, optional duration, ease, delay, front, promoteAt)"
+            "PresentationMotion unknown label(s): {unknown} (expected incoming, outgoing, optional duration, ease, delay, front, switchAt)"
         ));
     }
     Ok(ValueExpr::PresentationMotion {
@@ -3964,7 +3967,7 @@ fn finish_presentation_motion(
         ease: ease.map(Box::new),
         delay: delay.map(Box::new),
         front: front.map(Box::new),
-        promote_at: promote_at.map(Box::new),
+        switch_at: switch_at.map(Box::new),
     })
 }
 

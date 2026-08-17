@@ -2348,11 +2348,14 @@ export class Parser {
     if (!("incoming" in args) || !("outgoing" in args)) {
       throw this.err("`PresentationMotion` requires `incoming:` and `outgoing:`");
     }
-    const allowed = new Set(["incoming", "outgoing", "duration", "ease", "delay", "front", "promoteAt"]);
+    if ("promoteAt" in args) {
+      throw this.err("Write `switchAt:` (0…1), not `promoteAt:`");
+    }
+    const allowed = new Set(["incoming", "outgoing", "duration", "ease", "delay", "front", "switchAt"]);
     const unknown = Object.keys(args).filter((k) => !allowed.has(k));
     if (unknown.length) {
       throw this.err(
-        `PresentationMotion unknown label(s): ${unknown.join(", ")} (expected incoming, outgoing, optional duration, ease, delay, front, promoteAt)`,
+        `PresentationMotion unknown label(s): ${unknown.join(", ")} (expected incoming, outgoing, optional duration, ease, delay, front, switchAt)`,
       );
     }
     return {
@@ -2363,7 +2366,7 @@ export class Parser {
       ...(args.ease ? { ease: args.ease } : {}),
       ...(args.delay ? { delay: args.delay } : {}),
       ...(args.front ? { front: args.front } : {}),
-      ...(args.promoteAt ? { promoteAt: args.promoteAt } : {}),
+      ...(args.switchAt ? { switchAt: args.switchAt } : {}),
     };
   }
 

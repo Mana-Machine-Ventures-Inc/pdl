@@ -335,7 +335,7 @@ pub fn serialise_value_expr(e: &ValueExpr) -> Value {
             ease,
             delay,
             front,
-            promote_at,
+            switch_at,
         } => {
             let mut entries = vec![
                 ("kind", Value::String("presentationMotion".to_string())),
@@ -354,8 +354,8 @@ pub fn serialise_value_expr(e: &ValueExpr) -> Value {
             if let Some(f) = front {
                 entries.push(("front", serialise_value_expr(f)));
             }
-            if let Some(p) = promote_at {
-                entries.push(("promoteAt", serialise_value_expr(p)));
+            if let Some(p) = switch_at {
+                entries.push(("switchAt", serialise_value_expr(p)));
             }
             obj(entries)
         }
@@ -700,7 +700,7 @@ pub fn serialise_value_expr_with_token_refs(expr: &ValueExpr, design: &DesignDef
             ease,
             delay,
             front,
-            promote_at,
+            switch_at,
         } => {
             let mut entries = vec![
                 ("kind", Value::String("presentationMotion".to_string())),
@@ -725,8 +725,8 @@ pub fn serialise_value_expr_with_token_refs(expr: &ValueExpr, design: &DesignDef
             if let Some(f) = front {
                 entries.push(("front", serialise_value_expr_with_token_refs(f, design)));
             }
-            if let Some(p) = promote_at {
-                entries.push(("promoteAt", serialise_value_expr_with_token_refs(p, design)));
+            if let Some(p) = switch_at {
+                entries.push(("switchAt", serialise_value_expr_with_token_refs(p, design)));
             }
             obj(entries)
         }
@@ -954,7 +954,7 @@ pub fn collect_declared_token_names_from_value_expr(
             ease,
             delay,
             front,
-            promote_at,
+            switch_at,
         } => {
             collect_declared_token_names_from_value_expr(incoming, design, sink);
             collect_declared_token_names_from_value_expr(outgoing, design, sink);
@@ -970,7 +970,7 @@ pub fn collect_declared_token_names_from_value_expr(
             if let Some(f) = front {
                 collect_declared_token_names_from_value_expr(f, design, sink);
             }
-            if let Some(p) = promote_at {
+            if let Some(p) = switch_at {
                 collect_declared_token_names_from_value_expr(p, design, sink);
             }
         }

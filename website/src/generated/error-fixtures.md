@@ -6,7 +6,7 @@ Oracle `.pdl` files under [`test-fixtures/pdl/errors/`](https://github.com/Mana-
 
 A conforming compiler **MUST** emit the code encoded in the filename (`e007-…` → **PDL-E007**), except where a test documents a different code (language evolution — see [Filename vs observed](#filename-vs-observed)). Diagnostic meanings: [Diagnostics](./diagnostics.md).
 
-**122** current oracles · **2** support files · **5** legacy · **1** valid controls.
+**123** current oracles · **2** support files · **5** legacy · **1** valid controls.
 
 ## Coverage by catalog code
 
@@ -14,7 +14,7 @@ Active `PDL-E` codes from `shared/diagnostics.json`. **Current** counts ignore `
 
 | Code | Name | Current | Legacy | Status |
 |------|------|---------|--------|--------|
-| **PDL-E001** | `unexpected-token` | 18 | 0 | covered |
+| **PDL-E001** | `unexpected-token` | 19 | 0 | covered |
 | **PDL-E002** | `circular-import` | 1 | 0 | covered |
 | **PDL-E003** | `duplicate-symbol` | 3 | 0 | covered |
 | **PDL-E004** | `unknown-token-type` | 1 | 0 | covered |
@@ -119,6 +119,7 @@ The filename still records the original intent. TypeScript tests assert a **diff
 | [`e001-import-missing.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-import-missing.pdl) | **PDL-E001** | **ENOENT** | `unexpected-token` | io | import missing |
 | [`e001-invalid-hex.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-invalid-hex.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | invalid hex |
 | [`e001-leading-zero-number.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-leading-zero-number.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | Leading zero in number literal — lexer error. |
+| [`e001-promote-at.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-promote-at.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | promote at |
 | [`e001-protocol-subject-page.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-protocol-subject-page.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | PDL-E001: protocol subject must be `component`, not `page`. |
 | [`e001-ratio-zero-height.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-ratio-zero-height.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | ratio zero height |
 | [`e001-spacer-at-opacity.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-spacer-at-opacity.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | spacer at opacity |

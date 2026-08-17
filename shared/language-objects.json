@@ -629,7 +629,7 @@
         "push.move",
         "dismissMove"
       ],
-      "meaning": "A Presenter pair clip. `incoming` plays `.toRest` (mounts at pose, eases to rest). `outgoing` plays `.toPose`. Pair-level `duration` / `ease` / `delay` apply when a slot is a Pose. A Motion slot keeps its own clock. `front` is who starts on top (`.incoming` or `.outgoing`). Omit it: `move` keeps incoming on top; `dismissMove` keeps outgoing on top. `promoteAt` (0…1) flips z at that fraction of the pair duration — wall-clock, not eased progress. Omit `promoteAt` to keep `front` the whole clip. `.reversed` swaps sides, flips `front`, and time-reverses `ease` (`.in`↔`.out`; bezier control points invert). `delay` and `promoteAt` stay. Write `dismissMove:` to override.",
+      "meaning": "A Presenter pair clip. `incoming` plays `.toRest` (mounts at pose, eases to rest). `outgoing` plays `.toPose`. Pair-level `duration` / `ease` / `delay` apply when a slot is a Pose. A Motion slot keeps its own clock. `front` is who starts on top (`.incoming` or `.outgoing`). Omit it: `move` keeps incoming on top; `dismissMove` keeps outgoing on top. `switchAt` (0…1) switches who is on top at that fraction of the pair duration — wall-clock, not eased progress. Omit `switchAt` to keep `front` the whole clip. `.reversed` swaps sides and time-reverses `ease` (`.in`↔`.out`; bezier control points invert). `delay` stays. Omit `switchAt`: flip `front`. With `switchAt`: keep `front` (the side swap remaps who that label is) and invert to `1 − switchAt`. Write `dismissMove:` to override.",
       "accept": [
         {
           "form": "PresentationMotion(incoming: Pose(translateX: 390), outgoing: Pose(translateX: -48, opacity: 0.86), duration: 320, ease: .out)",
@@ -640,19 +640,19 @@
           "meaning": "Who starts on top. `.incoming` or `.outgoing`."
         },
         {
-          "form": "promoteAt: 0.5",
-          "meaning": "Flip z at that fraction of the pair duration (0…1). Card swap / crossfade."
+          "form": "switchAt: 0.5",
+          "meaning": "Switch who is on top at that fraction of the pair duration (0…1)."
         },
         {
-          "form": "PresentationMotion(incoming: Pose(scale: 0.92, translateX: -36), outgoing: Pose(scale: 0.92, translateX: 36), duration: 480, ease: .in, front: .outgoing, promoteAt: 0.5)",
+          "form": "PresentationMotion(incoming: Pose(scale: 0.92, translateX: -36), outgoing: Pose(scale: 0.92, translateX: 36), duration: 480, ease: .in, front: .outgoing, switchAt: 0.5)",
           "meaning": "Card swap: outgoing starts in front; incoming takes front at the crossing."
         },
         {
           "form": "motion.navPush.reversed",
-          "meaning": "Swap incoming/outgoing, flip front, time-reverse ease. promoteAt stays."
+          "meaning": "Swap incoming/outgoing, time-reverse ease. No switchAt: flip front. With switchAt: keep front, invert to 1 − switchAt."
         }
       ],
-      "example": "semantic motion.navPush: PresentationMotion = PresentationMotion(\n  incoming: Pose(translateX: 390),\n  outgoing: Pose(translateX: -48, opacity: 0.86),\n  duration: 320,\n  ease: .out\n)\nsemantic motion.cardSwap: PresentationMotion = PresentationMotion(\n  incoming: Pose(scale: 0.92, translateX: -36),\n  outgoing: Pose(scale: 0.92, translateX: 36),\n  duration: 480,\n  ease: .in,\n  front: .outgoing,\n  promoteAt: 0.5\n)"
+      "example": "semantic motion.navPush: PresentationMotion = PresentationMotion(\n  incoming: Pose(translateX: 390),\n  outgoing: Pose(translateX: -48, opacity: 0.86),\n  duration: 320,\n  ease: .out\n)\nsemantic motion.cardSwap: PresentationMotion = PresentationMotion(\n  incoming: Pose(scale: 0.92, translateX: -36),\n  outgoing: Pose(scale: 0.92, translateX: 36),\n  duration: 480,\n  ease: .in,\n  front: .outgoing,\n  switchAt: 0.5\n)"
     },
     {
       "name": "Effect",
@@ -1242,7 +1242,7 @@
       "usedOn": [
         "PresentationMotion.front"
       ],
-      "meaning": "Which side of a Presenter pair clip starts on top. Not a token type — only the `front:` field on PresentationMotion. Pair with `promoteAt` to flip mid-clip (card swap, crossfade). Do not put crossing z on Pose.",
+      "meaning": "Which side of a Presenter pair clip starts on top. Not a token type — only the `front:` field on PresentationMotion. Pair with `switchAt` to switch who is on top mid-clip (card swap, crossfade). Do not put crossing z on Pose.",
       "cases": [
         {
           "case": "incoming",
@@ -1253,7 +1253,7 @@
           "meaning": "The leaving page starts in front. Default for `dismissMove` when `front` is omitted."
         }
       ],
-      "example": "semantic motion.cardSwap: PresentationMotion = PresentationMotion(\n  incoming: Pose(scale: 0.92, translateX: -36),\n  outgoing: Pose(scale: 0.92, translateX: 36),\n  duration: 480,\n  ease: .in,\n  front: .outgoing,\n  promoteAt: 0.5\n)"
+      "example": "semantic motion.cardSwap: PresentationMotion = PresentationMotion(\n  incoming: Pose(scale: 0.92, translateX: -36),\n  outgoing: Pose(scale: 0.92, translateX: 36),\n  duration: 480,\n  ease: .in,\n  front: .outgoing,\n  switchAt: 0.5\n)"
     },
     {
       "name": "RampDirection",

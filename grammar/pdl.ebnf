@@ -636,7 +636,7 @@ presentation-motion-arg
     | 'ease' ':' value-expr
     | 'delay' ':' value-expr
     | 'front' ':' value-expr
-    | 'promoteAt' ':' value-expr ;
+    | 'switchAt' ':' value-expr ;
 
 effect-literal
   ::= 'Effect' '(' effect-kind [ ',' effect-arg { ',' effect-arg } ] ')' ;

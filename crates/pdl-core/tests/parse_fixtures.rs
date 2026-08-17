@@ -449,6 +449,19 @@ fn motion_lab_catalogue_evaluates_snapshots() {
 }
 
 #[test]
+fn rejects_promote_at_label() {
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/errors/e001-promote-at.pdl");
+    let err = load_design(path.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E001");
+    assert!(
+        err.message.contains("switchAt:") && err.message.contains("promoteAt"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
 fn rejects_ease_bezier_x_out_of_range() {
     use pdl_core::design::load_design;
     let path = repo_root().join("test-fixtures/pdl/errors/e005-ease-bezier-x.pdl");
@@ -2320,6 +2333,12 @@ fn reversed_ease_flips_pair_and_slot_clocks() {
     assert_eq!(slots["front"], ".incoming");
 
     assert_eq!(tokens["motion.holdLinearBack"]["ease"], "linear");
+
+    let card_back = &tokens["motion.cardSwapBack"];
+    assert_eq!(card_back["incoming"]["translateX"], 36.0);
+    assert_eq!(card_back["outgoing"]["translateX"], -36.0);
+    assert_eq!(card_back["front"], "outgoing");
+    assert_eq!(card_back["switchAt"], 0.7);
 }
 
 #[test]

@@ -526,7 +526,7 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
             ease,
             delay,
             front,
-            promote_at,
+            switch_at,
         } => {
             let mut entries = vec![
                 ("kind", Value::String("presentationMotion".to_string())),
@@ -545,8 +545,8 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
             if let Some(f) = front {
                 entries.push(("front", evaluate_value(f, ev)?));
             }
-            if let Some(p) = promote_at {
-                entries.push(("promoteAt", evaluate_value(p, ev)?));
+            if let Some(p) = switch_at {
+                entries.push(("switchAt", evaluate_value(p, ev)?));
             }
             Ok(obj(entries))
         }
@@ -1014,17 +1014,23 @@ fn reverse_presentation_motion(raw: Value) -> Result<Value, PdlError> {
     if let Some(e) = o.remove("ease") {
         o.insert("ease".into(), reverse_ease(e));
     }
-    let front = o
-        .get("front")
-        .and_then(|v| v.as_str())
-        .unwrap_or("incoming")
-        .trim_start_matches('.');
-    let flipped = if front == "outgoing" {
-        "incoming"
+    if let Some(p) = o.get("switchAt").and_then(Value::as_f64) {
+        // Side swap remaps who `front` is; invert the wall-clock flip so the
+        // same pages are on top at the start/end of the reversed clip.
+        o.insert("switchAt".into(), number_value(1.0 - p));
     } else {
-        "outgoing"
-    };
-    o.insert("front".into(), Value::String(format!(".{flipped}")));
+        let front = o
+            .get("front")
+            .and_then(|v| v.as_str())
+            .unwrap_or("incoming")
+            .trim_start_matches('.');
+        let flipped = if front == "outgoing" {
+            "incoming"
+        } else {
+            "outgoing"
+        };
+        o.insert("front".into(), Value::String(format!(".{flipped}")));
+    }
     Ok(Value::Object(o))
 }
 

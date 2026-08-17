@@ -208,7 +208,7 @@ pub enum ValueExpr {
         ease: Option<Box<ValueExpr>>,
         delay: Option<Box<ValueExpr>>,
         front: Option<Box<ValueExpr>>,
-        promote_at: Option<Box<ValueExpr>>,
+        switch_at: Option<Box<ValueExpr>>,
     },
     /// `Effect(.blurSelf | .blurBehind | .glass, radius: [, vibrancy:])`.
     Effect {

@@ -32,3 +32,12 @@ semantic motion.holdLinear: PresentationMotion = PresentationMotion(
   ease: .linear
 )
 semantic motion.holdLinearBack: PresentationMotion = motion.holdLinear.reversed
+
+semantic motion.cardSwap: PresentationMotion = PresentationMotion(
+  incoming: Pose(translateX: -36),
+  outgoing: Pose(translateX: 36),
+  duration: 480,
+  front: .outgoing,
+  switchAt: 0.3
+)
+semantic motion.cardSwapBack: PresentationMotion = motion.cardSwap.reversed

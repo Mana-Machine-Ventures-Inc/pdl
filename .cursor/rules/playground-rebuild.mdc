@@ -1,0 +1,28 @@
+---
+description: Rebuild Playground backends after language/compiler work before asking anyone to test in the Playground.
+alwaysApply: true
+---
+
+# Playground backends go stale
+
+Playground **default engine is WASM**. Bake **parses PDL in** `playground/static/wasm/pdl_wasm_bg.wasm` (it compiles `pdl-core`). Catalogue uses `target/release/pdl` **if that file exists**, else `target/debug/pdl`. TS `loadDesign` uses `dist/` from `tsc`.
+
+A parse/validate/evaluate/catalogue **label rename** (e.g. `promoteAt` → `switchAt`) that is not in the WASM shows up as `PDL-E001` “unknown label … expected \<old name\>”. That means the WASM (or a stale `target/release/pdl`) is old — rebuild it; do not “fix” the lab to the old name.
+
+Do **not** tell the user to paste a lab or “try the Playground” until the backends that changed are rebuilt **into this repo’s `target/`** (Cursor’s sandbox `CARGO_TARGET_DIR` does not update `target/debug/pdl`).
+
+After **any** `pdl-core` parse / validate / evaluate / catalogue / bake change:
+
+```bash
+CARGO_TARGET_DIR="$PWD/target" cargo build -p pdl-cli
+# If target/release/pdl exists it wins over debug — rebuild or delete it.
+CARGO_TARGET_DIR="$PWD/target" cargo build -p pdl-cli --release
+npm run build
+npm run build:wasm
+```
+
+Host-only JS (`applyMotion`, playground `src/`): `npm run build --prefix playground` and restart `playground-server` (Node ESM caches `dist/`).
+
+`npm run playground` builds cli + tsc + Vite, **not** WASM. `npm run playground:fresh` also rebuilds WASM — use that after language/compiler edits.
+
+A hard-refresh of the Playground tab is still required so the browser does not keep old WASM/JS.
