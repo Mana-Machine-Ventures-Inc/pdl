@@ -44,7 +44,7 @@ Implement **after A2** unless a spike is explicitly throwaway.
 | **B4b** | Language cleanup (locked 2026-08-06) | ✅ Rust: reject `expose`; trailing `} emits { }`; `self` / `self.param`; param==param; E028/E029; catalogue `expose` = all params |
 | **B5** | Emit handler assignment + `ForEach` derived binds (Pattern A) | ✅ Rust parse + bake expand; emit capture validated (host dispatch B7); `library_subnav.pdl` parses |
 | **B6** | `ForEach` before/between/after | Deferred chrome — grammar sketched under §4e; not first compiler slice |
-| **B7** | Host emit dispatch + prototype runtime stub | outside core language |
+| **B7** | Host emit dispatch + live Presenter nav | ✅ B7a–c: pins through bake, `presenterVerb` on emit, ancestor climb. No router / `.sheet` / `prototype { start }` |
 
 ---
 
@@ -56,7 +56,7 @@ Implement **after A2** unless a spike is explicitly throwaway.
 | Rust-first language | **B1–B4** (`protocol`, `[T]`, packs, `emits` / host inbound handlers) | TS oracle port of B1–B4 |
 | Normative grammar | `grammar/pdl.ebnf` + language-objects; Rust B4b/B5 | **B6** chrome; TS oracle lag; B7 host dispatch |
 | Typed samples | `samples` banks + `Bank.entry.field`; Rust + TS; catalogue `samples`; playlist-composer-lite + `lab/samples-tracks.pdl`; **PDL-E041** | ForEach over sample path; sample RHS in emit-assign; lints for bare `children = list` |
-| HTML host (C1) | Static draw of bake IR; interactive host; handler + standing motion overlay (appear/dismiss, play / keys, frame `animate`, `rotate`, clip rack); frame `effect` / `blur =` (filter + backdrop-filter) | Emit dispatch (B7); M4 teaching tokens; E1 `Blur()` alias close; E4 `.glass` |
+| HTML host (C1) | Static draw of bake IR; interactive host; handler + standing motion overlay (appear/dismiss, play / keys, frame `animate`, `rotate`, clip rack); frame `effect` / `blur =` (filter + backdrop-filter); **B7** presenter pins + click-to-push/pop/present | M5 Timing / Ease; M4 teaching tokens; E1 `Blur()` alias close; E4 `.glass` |
 | Native / prototype | — | C2 SwiftUI; C3 / Track N (`Presenter` stack); A5 C ABI |
 
 **Bake JSON** remains the stability boundary. HTML is a static C1 host: it draws whatever bake already flattened. `ForEach` / emit capture become visible in HTML only after Rust expands them at bake. Host prelude stubs: `test-fixtures/pdl/stdlib/host_protocols.pdl`.
@@ -98,24 +98,29 @@ Unified `host Name(params) [mount]`, `<Host>` inject, opaque facts bag, `theme` 
 
 **Proposal:** `docs/PROPOSAL_ROUTING_PAGES_SCREENS.md` (proposed). **Plan:** [`IMPLEMENTATION_PLAN_ROUTING_PAGES_SCREENS.md`](./IMPLEMENTATION_PLAN_ROUTING_PAGES_SCREENS.md).
 
-`page` / `screen` roles, prelude `Presenter(root:)`, `emits(propagation:)`, bare ancestor capture on the screen. Screen is the parent; it does not `<ShowEpisode>`. Live click-to-push waits on B7.
+`page` / `screen` roles, prelude `Presenter(root:)`, `emits(propagation:)`, bare ancestor capture on the screen. Emitters write `emits <ShowEpisode>`; the screen receives with `<ShowEpisode>` and a bare handler. Live click is **B7a–c** (fixture pins + `presenterVerb` + ancestor climb). **N6–N9** lock `appear` / `disappear`, `PresentationMotion`, and `present(retainPrior:)` / `swap` / `replace` (no `.push` / `.cover` / `.root` styles).
 
 | Step | Deliverable |
 |------|-------------|
-| **N0** | `page` / `screen` roles + catalogue + prelude `Page` |
-| **N1** | `emits(propagation: .parent \| .ancestors)` |
-| **N2** | Bare `channel(…) =` ancestor capture |
-| **N3** | `Presenter(root:)` + `replace` + lab |
-| **N4** | `push` / `pop` + pinned-stack fixture |
-| **N5** | `present(.cover)` / `dismiss` |
+| **N0** | ✅ `page` / `screen` roles + catalogue + prelude `Page` |
+| **N1** | ✅ `emits(propagation: .parent \| .ancestors)` parse + catalogue |
+| **N2** | ✅ Bare `channel(…) =` ancestor capture + unhandled-at-root |
+| **N3** | ✅ `Presenter(root:)` + `replace` + lab |
+| **N4** | ✅ `push` / `pop` + pinned-stack fixture |
+| **N5** | ✅ `present(.cover)` / `dismiss` + cover fixture pin (paints **over** stack top) |
+| **B7** | ✅ Live Presenter nav in HTML (pins / verbs / climb) |
+| **N6** | `appear` / `disappear` lifecycle (not PointerInput; rename inbound `dismiss`) |
+| **N7** | Host: retained-layer `appear` on mount; `dismiss` waits for `disappear` |
+| **N8** | `PresentationMotion` + `present(…, move:, dismissMove:)` + `.reversed` + two-node lane (**needs M5**) |
+| **N9** | `present(retainPrior:)` / `swap` / `replace`; paint walk; many retained layers; per-tab Presenters |
 
 ---
 
 ## Track M — Motion play, keys, frame `animate`
 
-**Proposal:** `docs/PROPOSAL_MOTION_PLAY.md` (accepted — **P** + **M0–M3** shipped; **M4** open).  
-**Baseline already shipped:** `Motion` / `Pose` / `Stagger` / `Play` / `Key` on handler and frame `animate =`; HTML WAAPI overlay; Playground clip rack + live pose-param updates.  
-**Principle:** Rust-first parse/validate (A2 parity exists). One `motion-literal` / Pose-field slice at a time.
+**Proposal:** `docs/PROPOSAL_MOTION_PLAY.md` (accepted — **P** + **M0–M3** shipped). **M5** naming before **M4** tokens and before Track N **N8**. Plan: [`IMPLEMENTATION_PLAN_MOTION_NAMING.md`](./IMPLEMENTATION_PLAN_MOTION_NAMING.md).  
+**Baseline already shipped:** `Motion` / `Pose` / `Stagger` / `Play` / `Key` on handler and frame `animate =`; HTML WAAPI overlay; Playground clip rack + live pose-param updates. Clock types are still `Transition` / `Easing` until M5.  
+**Principle:** Rust-first parse/validate (A2 parity exists). One `motion-literal` / Pose-field slice at a time. **M5 is breaking** — no dual-name period.
 
 | Step | Deliverable | Done when |
 |------|-------------|-----------|
@@ -124,7 +129,8 @@ Unified `host Name(params) [mount]`, `<Host>` inject, opaque facts bag, `theme` 
 | **M1** | Site default `play` + `Motion(token, play:)` | Appear/dismiss visually unchanged; hover+keys lab; token that omits `play` flips on `hoverEnd`; override-spelling golden |
 | **M2** | Frame `animate` on bake IR | Bake golden; `if` omits the field; legal on any frame including `self` |
 | **M3** | HTML key WAAPI + standing start/stop | Labs: spinner, pulse, sheen child, hover flourish; tests: continuous `rotate: 360` loop, interrupt reverse-from-current, appear-then-standing on shared opacity |
-| **M4** | Tokens + teaching | `motion.spin` / `pulse` / `hoverPop` / `shake`; Language objects + Guide line from the proposal |
+| **M5** | Clock rename | `Transition` → `Timing`, `Easing` → `Ease`; `transition:` / `easing:` rejected. Checklist in the motion-naming plan |
+| **M4** | Tokens + teaching | After M5. `motion.spin` / `pulse` / `hoverPop` / `shake` in the new names |
 
 **Locked (do not re-open in implementation):** `.loop` is forever (`repeat` is finite only); reusable tokens omit `play`; `hoverEnd` reverses from current progress; standing waits for appear `finished`; one standing spec per node (handler `animate` is an event shot).
 
@@ -182,9 +188,9 @@ None from the A0 question set. Further grammar nits can be decided when updating
 - [x] Typed samples — Rust + TS; catalogue `samples`; playlist-composer-lite + lab; **PDL-E041**; Playground per-component fixtures  
 - [x] Public docs site (`website/`) + generated reference (frame props, diagnostics, keywords, bake/catalogue JSON Schema sketches)  
 - [ ] Align published `schemaVersion` string to plain **`1.0.0`** when touching normative version prose (drop `-beta` framing; still unreleased)
-- [ ] Track M — **P** + **M0** + **M1** + **M2** + **M3** shipped (keys WAAPI + standing); next **M4** tokens + teaching (`docs/PROPOSAL_MOTION_PLAY.md`)
+- [ ] Track M — **P** + **M0–M3** shipped; next **M5** Timing / Ease rename then **M4** tokens (`docs/IMPLEMENTATION_PLAN_MOTION_NAMING.md`)
 - [ ] Track E — **E0** + **E2** + E3 lab / `effect.frost` shipped (frame `effect` / `blur =` sugar, HTML filter + backdrop-filter, Pose rest = baked self blur); **E1** `Blur()` alias window still open; leftover E3 is `material.sheet` as fill + `effect`; **E4** `.glass` reserved (`docs/PROPOSAL_FRAME_BLUR.md`)
 - [x] Track H — Host environment **accepted** — **H0–H5 shipped** (`docs/IMPLEMENTATION_PLAN_HOST_ENVIRONMENT.md`)
-- [ ] Track N — Pages / screens / Presenter **proposed** (`docs/IMPLEMENTATION_PLAN_ROUTING_PAGES_SCREENS.md`)
+- [x] Track N — Pages / screens / Presenter **N0–N5 shipped**; live click **B7a–c**; **N6–N9 proposed** (`docs/IMPLEMENTATION_PLAN_ROUTING_PAGES_SCREENS.md`)
 
 Progress and intentional gaps also tracked in **`docs/SPEC_GAPS.md`**.

@@ -1,13 +1,13 @@
 # Proposal: Motion play modes, keys, and frame `animate`
 
-**Status:** accepted — **P** + **M0–M3** shipped (2026-08-14; second revision — locks play/repeat, token override, appear+standing, interrupt reverse). Next **M4** tokens + teaching.  
-**Depends on:** v1 handler motion (`Motion` / `Pose` / `Stagger` / `Transition`); HTML host overlay in `src/renderHtml.ts` + `src/applyMotion.ts` / `src/motionProps.ts`; Rust `crates/pdl-core/src/motion.rs`; Playground live catalogue push  
-**Related:** `website` objects — Handler motion; lab `test-fixtures/pdl/lab/motion/`  
+**Status:** accepted — **P** + **M0–M3** shipped (2026-08-14; second revision — locks play/repeat, token override, appear+standing, interrupt reverse). Next **M5** clock rename (breaking), then **M4** tokens.  
+**Depends on:** v1 handler motion (`Motion` / `Pose` / `Stagger` / clock — today `Transition`, M5 `Timing`); HTML host overlay in `src/renderHtml.ts` + `src/applyMotion.ts` / `src/motionProps.ts`; Rust `crates/pdl-core/src/motion.rs`; Playground live catalogue push  
+**Related:** `website` objects — Handler motion; lab `test-fixtures/pdl/lab/motion/`; Presenter `appear` / `disappear` + `PresentationMotion` in [`PROPOSAL_ROUTING_PAGES_SCREENS.md`](./PROPOSAL_ROUTING_PAGES_SCREENS.md) §14–§17 (N6–N9, not shipped)  
 **Plan:** Track M in `docs/IMPLEMENTATION_PLAN.md`  
 **Supersedes (authoring):** earlier draft that introduced a separate `Cycle` type  
 **Does not change:** bake-at-rest; hover **without** a pose still implicit-tweens assigns
 
-**P** + **M0–M3** shipped: `Play` / `Key` / frame `animate` / HTML key WAAPI + standing start/stop. Transition-only hover stays a tree tween. Bake stays at rest; the host plays a CSS overlay. **M4** is teaching tokens (`motion.spin` / `pulse` / `hoverPop` / `shake`), not a second motion system.
+**P** + **M0–M3** shipped: `Play` / `Key` / frame `animate` / HTML key WAAPI + standing start/stop. Timing-only hover stays a tree tween (today still spelled Transition). Bake stays at rest; the host plays a CSS overlay. **M5** renames the clock (`Transition` → `Timing`, `Easing` → `Ease`) — breaking, no dual names. **M4** teaching tokens come after M5. Plan: [`IMPLEMENTATION_PLAN_MOTION_NAMING.md`](./IMPLEMENTATION_PLAN_MOTION_NAMING.md). Presenter pair clips are **`PresentationMotion`** (routing), not a second `Motion`. Do not add an `Animation` type.
 
 ---
 
@@ -18,7 +18,7 @@ v1 `animate =` is already one object. The host infers from→to from the **event
 | Site | Implied playhead |
 |------|------------------|
 | `appear` | from pose → rest |
-| `dismiss` | from current → pose |
+| `disappear` (today still spelled `dismiss` on PointerInput) | from current → pose |
 | `hoverStart` / `hoverEnd` | no pose — tween bake A → bake B |
 
 That inference is right for the defaults and wrong as the *only* rule. Designers also need:
@@ -138,7 +138,7 @@ Site default fills `play` only when the Motion value omitted it.
 | Site | Default `play` | From → to |
 |------|----------------|-----------|
 | `appear` | `.toRest` | first pole → `.rest` (today: authored pose → rest) |
-| `dismiss` | `.toPose` | current → last key |
+| `disappear` (inbound; today `dismiss`) | `.toPose` | current → last key |
 | `hoverStart` + pose/keys | `.toPose` | current → last key |
 | `hoverEnd` + pose/keys | `.toRest` | reverse the **same** keys from **current progress** (§6) |
 | `pressStart` + pose/keys | `.toPose` | |
