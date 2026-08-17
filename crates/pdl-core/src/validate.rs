@@ -1225,13 +1225,60 @@ fn validate_presentation_motion_value(
     }
 }
 
+fn bezier_coord(
+    design: &DesignDefinition,
+    value: &ValueExpr,
+    label: &str,
+    where_: &str,
+) -> Result<f64, PdlError> {
+    match value {
+        ValueExpr::Number { value: n } if n.is_finite() => Ok(*n),
+        _ => Err(err(
+            "PDL-E005",
+            format!("{where_}: Ease.bezier {label} must be a number"),
+            design,
+        )),
+    }
+}
+
+fn validate_ease_bezier(
+    design: &DesignDefinition,
+    x1: &ValueExpr,
+    y1: &ValueExpr,
+    x2: &ValueExpr,
+    y2: &ValueExpr,
+    where_: &str,
+) -> Result<(), PdlError> {
+    let x1 = bezier_coord(design, x1, "x1", where_)?;
+    bezier_coord(design, y1, "y1", where_)?;
+    let x2 = bezier_coord(design, x2, "x2", where_)?;
+    bezier_coord(design, y2, "y2", where_)?;
+    if !(0.0..=1.0).contains(&x1) {
+        return Err(err(
+            "PDL-E005",
+            format!("{where_}: Ease.bezier x1 must be 0…1 (got {x1})"),
+            design,
+        ));
+    }
+    if !(0.0..=1.0).contains(&x2) {
+        return Err(err(
+            "PDL-E005",
+            format!("{where_}: Ease.bezier x2 must be 0…1 (got {x2})"),
+            design,
+        ));
+    }
+    Ok(())
+}
+
 fn validate_ease_value(
     design: &DesignDefinition,
     value: &ValueExpr,
     where_: &str,
 ) -> Result<(), PdlError> {
     match value {
-        ValueExpr::EaseBezier { .. } => Ok(()),
+        ValueExpr::EaseBezier { x1, y1, x2, y2 } => {
+            validate_ease_bezier(design, x1, y1, x2, y2, where_)
+        }
         ValueExpr::DotEnum { value } => {
             let raw = value.trim_start_matches('.');
             if raw == "linear" || raw == "in" || raw == "out" {
@@ -1434,7 +1481,7 @@ fn validate_keys_value(
         ));
     }
     for item in items {
-        let ValueExpr::Key { pose, at, .. } = item else {
+        let ValueExpr::Key { pose, at, ease } = item else {
             return Err(err(
                 "PDL-E005",
                 format!("Motion `keys:` entries must be `Key(…)` in {component_name}"),
@@ -1456,6 +1503,9 @@ fn validate_keys_value(
                     design,
                 ));
             }
+        }
+        if let Some(e) = ease {
+            validate_ease_value(design, e, &format!("Key `ease:` in {component_name}"))?;
         }
     }
     Ok(())
@@ -2902,6 +2952,9 @@ fn assert_token_rhs_compatible(
 
     if token_type == "Shadow" {
         assert_shadow_constructor_fields(design, name, value)?;
+    }
+    if token_type == "Ease" {
+        validate_ease_value(design, value, &format!("Token `{name}`"))?;
     }
     if token_type == "Motion" {
         if let ValueExpr::Motion { .. } = value {

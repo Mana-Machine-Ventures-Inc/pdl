@@ -519,6 +519,44 @@ function slotMotionSpec(slot: unknown, pair: PresentationMotionEval): MotionSpec
   };
 }
 
+/** `dismissMove` omits `front` → outgoing stays on top (the page leaving). */
+export function withDismissDefaultFront<T>(raw: T): T {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const o = raw as Record<string, unknown>;
+  if (o.kind != null && o.kind !== "presentationMotion") return raw;
+  const front = String(o.front ?? "").replace(/^\./, "");
+  if (front === "incoming" || front === "outgoing") return raw;
+  return { ...o, front: ".outgoing" } as T;
+}
+
+function presentationIncomingIsFront(
+  raw: PresentationMotionEval,
+  defaultFront: "incoming" | "outgoing" = "incoming",
+): boolean {
+  const frontRaw = coerceEase(raw.front);
+  const front = String(frontRaw ?? raw.front ?? defaultFront).replace(/^\./, "");
+  return front !== "outgoing";
+}
+
+function applySnapshotStyle(el: Element, snap: MotionSnapshot, restOpacity: number) {
+  if (!("style" in el)) return;
+  const css = snapshotToCss(snap, restOpacity);
+  const style = (el as HTMLElement).style;
+  style.transform = css.transform;
+  style.opacity = css.opacity;
+  style.filter = css.filter;
+  style.transformOrigin = css.transformOrigin;
+}
+
+function clearMotionOverlayStyle(el: Element) {
+  if (!("style" in el)) return;
+  const style = (el as HTMLElement).style;
+  style.transform = "";
+  style.opacity = "";
+  style.filter = "";
+  style.transformOrigin = "";
+}
+
 function applyPresenterLaneFront(el: Element, front: boolean) {
   el.classList.toggle("pdl-presenter__lane--front", front);
   el.classList.toggle("pdl-presenter__lane--back", !front);
@@ -531,32 +569,37 @@ function clearPresenterLane(el: Element) {
     "pdl-presenter__lane--front",
     "pdl-presenter__lane--back",
   );
+  clearMotionOverlayStyle(el);
   if ("style" in el) (el as HTMLElement).style.zIndex = "";
 }
 
 /**
  * Play a Presenter pair clip. Incoming mounts at pose and eases to rest;
  * outgoing eases to its pose. `front` / `promoteAt` set z-order.
+ * `dismissMove` should pass `defaultFront: "outgoing"` (or stamp via
+ * `withDismissDefaultFront`) so the leaving page stays on top.
  */
 export function playPresentationMotion(
   incomingEl: Element,
   outgoingEl: Element,
   raw: PresentationMotionEval,
-  opts?: { reduced?: boolean; onDone?: () => void },
+  opts?: { reduced?: boolean; onDone?: () => void; defaultFront?: "incoming" | "outgoing" },
 ): { cancel: () => void } {
   const reduced = Boolean(opts?.reduced);
   const incomingSpec = slotMotionSpec(raw.incoming, raw);
   const outgoingSpec = slotMotionSpec(raw.outgoing, raw);
-  const incomingAnim = playMotionOnElement(incomingEl, incomingSpec, "appear", { reduced });
-  const outgoingAnim = playMotionOnElement(outgoingEl, outgoingSpec, "dismiss", { reduced });
-  const anims = [incomingAnim, outgoingAnim].filter((a): a is Animation => a != null);
-  const frontRaw = coerceEase(raw.front);
-  const front = String(frontRaw ?? raw.front ?? "incoming").replace(/^\./, "");
-  const incomingFront = front !== "outgoing";
+  const incomingFront = presentationIncomingIsFront(raw, opts?.defaultFront ?? "incoming");
   incomingEl.classList.add("pdl-presenter__lane");
   outgoingEl.classList.add("pdl-presenter__lane");
   applyPresenterLaneFront(incomingEl, incomingFront);
   applyPresenterLaneFront(outgoingEl, !incomingFront);
+  const incomingFrom = snapshotsForMode(incomingSpec, "appear")?.from;
+  const outgoingFrom = snapshotsForMode(outgoingSpec, "dismiss")?.from;
+  if (incomingFrom) applySnapshotStyle(incomingEl, incomingFrom, 1);
+  if (outgoingFrom) applySnapshotStyle(outgoingEl, outgoingFrom, 1);
+  const incomingAnim = playMotionOnElement(incomingEl, incomingSpec, "appear", { reduced });
+  const outgoingAnim = playMotionOnElement(outgoingEl, outgoingSpec, "dismiss", { reduced });
+  const anims = [incomingAnim, outgoingAnim].filter((a): a is Animation => a != null);
   const promoteAt = Number(raw.promoteAt);
   const clock = pairClock(raw);
   const pairMs = Math.max(

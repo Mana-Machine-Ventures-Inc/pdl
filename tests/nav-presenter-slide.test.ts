@@ -129,6 +129,18 @@ describe("n8 Phone pair slide", () => {
     expect(popMove && typeof popMove === "object" && (popMove as { kind?: string }).kind).toBe(
       "presentationMotion",
     );
+    expect((popMove as { front?: string }).front).toBe(".outgoing");
+
+    const explicit = resolvePairMove(
+      [{ qualifier: "presenter", name: "pop" }],
+      {
+        presenter: {
+          stack: [{ component: "Home", params: {} }],
+          lastDismissMove: { kind: "presentationMotion", front: ".incoming" },
+        },
+      },
+    );
+    expect((explicit as { front?: string }).front).toBe(".incoming");
   }, 20_000);
 
   it("pdl-update-interactions swaps emitCaptures so the next press uses the new move", async () => {
@@ -193,6 +205,7 @@ describe("n8 Phone pair slide", () => {
     expect(pins.Phone.presenter.lastDismissMove).toEqual({
       kind: "presentationMotion",
       duration: 1800,
+      front: ".outgoing",
     });
   });
 });

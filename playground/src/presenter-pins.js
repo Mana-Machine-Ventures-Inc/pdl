@@ -3,6 +3,16 @@
  * `{ letId: { stack: [{ component, params }], cover? } }`
  */
 
+/** `dismissMove` with no `front` keeps the leaving page on top. */
+function withDismissDefaultFront(raw) {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const o = /** @type {Record<string, unknown>} */ (raw);
+  if (o.kind != null && o.kind !== "presentationMotion") return raw;
+  const front = String(o.front ?? "").replace(/^\./, "");
+  if (front === "incoming" || front === "outgoing") return raw;
+  return { ...o, front: ".outgoing" };
+}
+
 /**
  * @param {unknown} page
  * @returns {{ component: string, params: Record<string, unknown> } | null}
@@ -100,7 +110,7 @@ export function resolvePairMove(ops, pins) {
       if (op.move && typeof op.move === "object") return op.move;
     }
     if (op.name === "pop" || op.name === "dismiss") {
-      if (op.move && typeof op.move === "object") return op.move;
+      if (op.move && typeof op.move === "object") return withDismissDefaultFront(op.move);
       const pin =
         pins && typeof pins === "object" && !Array.isArray(pins)
           ? /** @type {Record<string, unknown>} */ (pins)[qualifier]
@@ -108,9 +118,11 @@ export function resolvePairMove(ops, pins) {
       if (pin && typeof pin === "object" && !Array.isArray(pin)) {
         const rec = /** @type {Record<string, unknown>} */ (pin);
         if (rec.lastDismissMove && typeof rec.lastDismissMove === "object") {
-          return rec.lastDismissMove;
+          return withDismissDefaultFront(rec.lastDismissMove);
         }
-        if (rec.lastMove && typeof rec.lastMove === "object") return rec.lastMove;
+        if (rec.lastMove && typeof rec.lastMove === "object") {
+          return withDismissDefaultFront(rec.lastMove);
+        }
       }
     }
   }
@@ -148,7 +160,9 @@ export function refreshPinnedPairMoves(pinsByOwner, emitCapturesByComponent) {
       if (!pin || typeof pin !== "object" || Array.isArray(pin)) continue;
       const rec = /** @type {Record<string, unknown>} */ (pin);
       if (rec.lastMove != null && found.move != null) rec.lastMove = found.move;
-      if (rec.lastDismissMove != null) rec.lastDismissMove = found.dismissMove ?? found.move;
+      if (rec.lastDismissMove != null) {
+        rec.lastDismissMove = withDismissDefaultFront(found.dismissMove ?? found.move);
+      }
     }
   }
 }

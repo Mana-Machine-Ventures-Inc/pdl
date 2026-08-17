@@ -449,6 +449,19 @@ fn motion_lab_catalogue_evaluates_snapshots() {
 }
 
 #[test]
+fn rejects_ease_bezier_x_out_of_range() {
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/errors/e005-ease-bezier-x.pdl");
+    let err = load_design(path.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(
+        err.message.contains("Ease.bezier x2 must be 0…1 (got -1)"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
 fn rejects_motion_copy_base_and_merged_pose_keys() {
     use pdl_core::design::load_design;
     let not_motion =

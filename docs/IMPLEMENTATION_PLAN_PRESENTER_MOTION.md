@@ -34,7 +34,7 @@ See motion-naming plan. Done when:
 - HTML WAAPI still receives a CSS easing string at the host edge
 - `npm test` motion + parse fixtures green
 
-**Ease:** `.linear` `.in` `.out`; `Ease.bezier(x1, y1, x2, y2)`. Not CSS strings.
+**Ease:** `.linear` `.in` `.out`; `Ease.bezier(x1, y1, x2, y2)`. x1/x2 must be 0…1. Not CSS strings.
 
 ---
 
@@ -81,7 +81,7 @@ On `push`/`pop` with a move spec:
 3. Reconcile: **do not drop** outgoing; mount incoming in the same grid cell
 4. Incoming starts at incoming pose; outgoing animates to outgoing pose
 5. Play both WAAPI (per-side duration if Motion slots)
-6. `front: .incoming` → incoming z above; `.outgoing` → behind; `promoteAt` flips at that progress
+6. `front: .incoming` → incoming z above; `.outgoing` → outgoing above. Omit `front`: `move` defaults incoming, `dismissMove` defaults outgoing. `promoteAt` flips at that progress
 7. On both finished (safety timeout = pair duration + delay + 100ms): remove outgoing, clear overlays
 8. Interrupt: if another nav arrives, cancel and commit/restore (v1: cancel + snap commit)
 

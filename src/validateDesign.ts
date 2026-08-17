@@ -462,12 +462,54 @@ function validateFixturesForComponent(design: DesignDefinition, componentName: s
   }
 }
 
+function bezierCoord(
+  design: DesignDefinition,
+  value: ValueExpr,
+  label: string,
+  where: string,
+): number {
+  if (value.kind === "number" && Number.isFinite(value.value)) return value.value;
+  throw new PdlError(
+    "PDL-E005",
+    `${where}: Ease.bezier ${label} must be a number`,
+    { path: design.entryPath },
+  );
+}
+
+function validateEaseBezier(
+  design: DesignDefinition,
+  value: Extract<ValueExpr, { kind: "easeBezier" }>,
+  where: string,
+): void {
+  const x1 = bezierCoord(design, value.x1, "x1", where);
+  bezierCoord(design, value.y1, "y1", where);
+  const x2 = bezierCoord(design, value.x2, "x2", where);
+  bezierCoord(design, value.y2, "y2", where);
+  if (x1 < 0 || x1 > 1) {
+    throw new PdlError(
+      "PDL-E005",
+      `${where}: Ease.bezier x1 must be 0…1 (got ${x1})`,
+      { path: design.entryPath },
+    );
+  }
+  if (x2 < 0 || x2 > 1) {
+    throw new PdlError(
+      "PDL-E005",
+      `${where}: Ease.bezier x2 must be 0…1 (got ${x2})`,
+      { path: design.entryPath },
+    );
+  }
+}
+
 function validateEaseValue(
   design: DesignDefinition,
   value: ValueExpr,
   where: string,
 ): void {
-  if (value.kind === "easeBezier") return;
+  if (value.kind === "easeBezier") {
+    validateEaseBezier(design, value, where);
+    return;
+  }
   if (value.kind === "dotEnum") {
     const raw = value.value.replace(/^\./, "");
     if (raw === "linear" || raw === "in" || raw === "out") return;
@@ -681,6 +723,9 @@ function validateKeyValue(design: DesignDefinition, value: ValueExpr, componentN
       `Key \`at:\` must be 0…1 (got ${value.at.value}) in ${componentName}`,
       { path: design.entryPath },
     );
+  }
+  if (value.ease) {
+    validateEaseValue(design, value.ease, `Key \`ease:\` in ${componentName}`);
   }
 }
 
@@ -1515,6 +1560,9 @@ function assertTokenRhsCompatible(
   }
   if (tokenType === "Motion" && value.kind === "motion") {
     validateAnimateMotion(design, value, name, "");
+  }
+  if (tokenType === "Ease") {
+    validateEaseValue(design, value, `Token \`${name}\``);
   }
   if ((tokenType === "Timing" || tokenType === "Motion") && value.kind === "timing") {
     validateEaseValue(design, value.ease, `Token \`${name}\``);

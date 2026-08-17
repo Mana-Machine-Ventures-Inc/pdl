@@ -124,6 +124,14 @@ describe("validateMergedDesign (motion)", () => {
       /Ease\.bezier|\.linear/,
     );
   });
+
+  it("PDL-E005 when Ease.bezier x is outside 0…1", () => {
+    expectLoadFails(
+      "PDL-E005",
+      "errors/e005-ease-bezier-x.pdl",
+      /Ease\.bezier x2 must be 0…1 \(got -1\)/,
+    );
+  });
 });
 
 describe("validateMergedDesign (effect)", () => {

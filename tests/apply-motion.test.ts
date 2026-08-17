@@ -10,6 +10,7 @@ import {
   snapshotsForMode,
   staggerDelayMs,
   waapiEffectTiming,
+  withDismissDefaultFront,
 } from "../src/applyMotion.js";
 import { applySiteDefaultPlay, defaultMotionPlay, snapshotToCss } from "../src/motionProps.js";
 import type { InteractionHandlerItem } from "../src/ast.js";
@@ -164,16 +165,37 @@ describe("applyMotion", () => {
 
 describe("playPresentationMotion", () => {
   function fakeLane() {
-    /** @type {{ duration?: number; easing?: string; toOpacity?: string }} */
-    const seen: { duration?: number; easing?: string; toOpacity?: string } = {};
+    const classes = new Set<string>();
+    const seen: {
+      duration?: number;
+      easing?: string;
+      fromOpacity?: string;
+      toOpacity?: string;
+      front?: boolean;
+      startOpacity?: string;
+    } = {};
     const el = {
-      classList: { add() {}, remove() {}, toggle() {} },
-      style: { zIndex: "" },
+      classList: {
+        add(...names: string[]) {
+          for (const n of names) classes.add(n);
+        },
+        remove(...names: string[]) {
+          for (const n of names) classes.delete(n);
+        },
+        toggle(name: string, on?: boolean) {
+          if (on) classes.add(name);
+          else classes.delete(name);
+          if (name === "pdl-presenter__lane--front") seen.front = Boolean(on);
+        },
+      },
+      style: { zIndex: "", transform: "", opacity: "", filter: "", transformOrigin: "" },
       getAnimations: () => [],
       animate: (frames: Array<{ opacity?: string }>, opts: { duration: number; easing: string }) => {
         seen.duration = opts.duration;
         seen.easing = opts.easing;
+        seen.fromOpacity = frames[0]?.opacity;
         seen.toOpacity = frames[frames.length - 1]?.opacity;
+        seen.startOpacity = el.style.opacity;
         const listeners: Array<() => void> = [];
         const anim = {
           addEventListener(type: string, fn: () => void) {
@@ -210,5 +232,54 @@ describe("playPresentationMotion", () => {
     expect(done).toBe(false);
     await new Promise((r) => setTimeout(r, 1300));
     expect(done).toBe(true);
+  });
+
+  it("animates incoming opacity from the start pose (toRest)", () => {
+    const incoming = fakeLane();
+    const outgoing = fakeLane();
+    playPresentationMotion(incoming.el as never, outgoing.el as never, {
+      kind: "presentationMotion",
+      incoming: { kind: "pose", translateX: -48, opacity: 0.86 },
+      outgoing: { kind: "pose", translateX: 390 },
+      duration: 3200,
+      ease: "linear",
+    });
+    expect(incoming.seen.startOpacity).toBe("0.86");
+    expect(incoming.seen.fromOpacity).toBe("0.86");
+    expect(incoming.seen.toOpacity).toBe("1");
+  });
+
+  it("puts outgoing in front when dismiss defaults front", () => {
+    const incoming = fakeLane();
+    const outgoing = fakeLane();
+    playPresentationMotion(
+      incoming.el as never,
+      outgoing.el as never,
+      {
+        incoming: { translateX: -48, opacity: 0.86 },
+        outgoing: { translateX: 390 },
+        duration: 200,
+        ease: "linear",
+      },
+      { defaultFront: "outgoing" },
+    );
+    expect(incoming.seen.front).toBe(false);
+    expect(outgoing.seen.front).toBe(true);
+  });
+});
+
+describe("withDismissDefaultFront", () => {
+  it("stamps .outgoing when front is omitted", () => {
+    expect(withDismissDefaultFront({ kind: "presentationMotion", duration: 320 })).toEqual({
+      kind: "presentationMotion",
+      duration: 320,
+      front: ".outgoing",
+    });
+  });
+
+  it("keeps an explicit front", () => {
+    expect(
+      withDismissDefaultFront({ kind: "presentationMotion", front: ".incoming" }),
+    ).toEqual({ kind: "presentationMotion", front: ".incoming" });
   });
 });

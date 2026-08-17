@@ -899,14 +899,14 @@ primitive motion.duration.standard: Duration = 250
 
 ### `Ease`
 
-How time is shaped. Named cases `.linear` / `.in` / `.out`, or `Ease.bezier(x1, y1, x2, y2)`. Not a CSS string.
+How time is shaped. Named cases `.linear` / `.in` / `.out`, or `Ease.bezier(x1, y1, x2, y2)`. x1 and x2 must be 0…1 (CSS time axis). y1 and y2 may overshoot. Not a CSS string.
 
 Category: motion. Used on: [`Timing`](#timing).[`ease`](#ease), [`Motion`](#motion).[`ease`](#ease), [`Key`](#key).[`ease`](#ease).
 
 Accepted syntax:
 
 - `.out` — Decelerate into rest.
-- `Ease.bezier(0.2, 0, 0, 1)` — Cubic bezier control points.
+- `Ease.bezier(0.2, 0, 0, 1)` — Cubic bezier. x1/x2 in 0…1; y may overshoot.
 - `motion.ease.standard` — An Ease token.
 
 ```pdl
@@ -985,14 +985,17 @@ hoverEnd = { animate = Motion(motion.hoverPop, play: .toRest) }
 
 ### `PresentationMotion`
 
-A Presenter pair clip. `incoming` plays [`.toRest`](#play) (mounts at pose, eases to rest). `outgoing` plays [`.toPose`](#play). Pair-level [`duration`](#duration) / [`ease`](#ease) / `delay` apply when a slot is a [`Pose`](#pose). A [`Motion`](#motion) slot keeps its own clock. `front` is `.incoming` or `.outgoing`. `promoteAt` (0…1) flips z at that progress. `.reversed` swaps sides, flips `front`, and time-reverses [`ease`](#ease) (`.in`↔`.out`; bezier control points invert). `delay` stays. Write `dismissMove:` to override.
+A Presenter pair clip. `incoming` plays [`.toRest`](#play) (mounts at pose, eases to rest). `outgoing` plays [`.toPose`](#play). Pair-level [`duration`](#duration) / [`ease`](#ease) / `delay` apply when a slot is a [`Pose`](#pose). A [`Motion`](#motion) slot keeps its own clock. [`front`](#front) is who starts on top ([`.incoming`](#front) or [`.outgoing`](#front)). Omit it: `move` keeps incoming on top; `dismissMove` keeps outgoing on top. `promoteAt` (0…1) flips z at that fraction of the pair duration — wall-clock, not eased progress. Omit `promoteAt` to keep [`front`](#front) the whole clip. `.reversed` swaps sides, flips [`front`](#front), and time-reverses [`ease`](#ease) (`.in`↔`.out`; bezier control points invert). `delay` and `promoteAt` stay. Write `dismissMove:` to override.
 
 Category: motion. Used on: `Presenter`.`move`, `present`.`move`, `push`.`move`, `dismissMove`.
 
 Accepted syntax:
 
-- `PresentationMotion(incoming: Pose(translateX: 390), outgoing: Pose(translateX: -48, opacity: 0.86), duration: 320, ease: .out)` — Pair clip with inherited timing on both poses.
-- `motion.navPush.reversed` — Swap incoming/outgoing, flip front, and time-reverse ease.
+- `PresentationMotion(incoming: Pose(translateX: 390), outgoing: Pose(translateX: -48, opacity: 0.86), duration: 320, ease: .out)` — Push-style pair. Omit front: move keeps incoming on top.
+- `front: .outgoing` — Who starts on top. [`.incoming`](#front) or [`.outgoing`](#front).
+- `promoteAt: 0.5` — Flip z at that fraction of the pair duration (0…1). Card swap / crossfade.
+- `PresentationMotion(incoming: Pose(scale: 0.92, translateX: -36), outgoing: Pose(scale: 0.92, translateX: 36), duration: 480, ease: .in, front: .outgoing, promoteAt: 0.5)` — Card swap: outgoing starts in front; incoming takes front at the crossing.
+- `motion.navPush.reversed` — Swap incoming/outgoing, flip front, time-reverse ease. promoteAt stays.
 
 ```pdl
 semantic motion.navPush: PresentationMotion = PresentationMotion(
@@ -1000,6 +1003,14 @@ semantic motion.navPush: PresentationMotion = PresentationMotion(
   outgoing: Pose(translateX: -48, opacity: 0.86),
   duration: 320,
   ease: .out
+)
+semantic motion.cardSwap: PresentationMotion = PresentationMotion(
+  incoming: Pose(scale: 0.92, translateX: -36),
+  outgoing: Pose(scale: 0.92, translateX: 36),
+  duration: 480,
+  ease: .in,
+  front: .outgoing,
+  promoteAt: 0.5
 )
 ```
 
@@ -1639,6 +1650,28 @@ Used on: [`Motion`](#motion).[`play`](#play).
 ```pdl
 hoverEnd = { animate = Motion(motion.hoverPop, play: .toRest) }
 icon.animate = Motion(transition: motion.appear, play: .loop, pose: Pose(rotate: 360))
+```
+
+### `Front`
+
+Which side of a Presenter pair clip starts on top. Not a token type — only the `front:` field on [`PresentationMotion`](#presentationmotion). Pair with `promoteAt` to flip mid-clip (card swap, crossfade). Do not put crossing z on [`Pose`](#pose).
+
+Used on: [`PresentationMotion`](#presentationmotion).[`front`](#front).
+
+| Case | Meaning |
+|------|--------|
+| `.incoming` | The entering page starts in front. Default for `move` when `front` is omitted. |
+| `.outgoing` | The leaving page starts in front. Default for `dismissMove` when `front` is omitted. |
+
+```pdl
+semantic motion.cardSwap: PresentationMotion = PresentationMotion(
+  incoming: Pose(scale: 0.92, translateX: -36),
+  outgoing: Pose(scale: 0.92, translateX: 36),
+  duration: 480,
+  ease: .in,
+  front: .outgoing,
+  promoteAt: 0.5
+)
 ```
 
 ### `RampDirection`

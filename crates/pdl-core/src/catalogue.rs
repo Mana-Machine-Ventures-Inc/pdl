@@ -72,6 +72,27 @@ fn obj(entries: Vec<(&str, Value)>) -> Value {
     Value::Object(m)
 }
 
+/// `dismissMove` with no `front` keeps the leaving page on top.
+fn with_dismiss_front(value: Value) -> Value {
+    let Value::Object(mut m) = value else {
+        return value;
+    };
+    if let Some(kind) = m.get("kind").and_then(|k| k.as_str()) {
+        if kind != "presentationMotion" {
+            return Value::Object(m);
+        }
+    }
+    let front = m
+        .get("front")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim_start_matches('.');
+    if front != "incoming" && front != "outgoing" {
+        m.insert("front".to_string(), Value::String(".outgoing".to_string()));
+    }
+    Value::Object(m)
+}
+
 fn catalogue_emit_channel(e: &ProtocolEmitDecl) -> Value {
     let mut entries = vec![
         ("name", Value::String(e.name.clone())),
@@ -549,8 +570,10 @@ fn serialise_layout_on_handler(
                 if let Some(m) = dismiss_move {
                     entries.push((
                         "dismissMove",
-                        try_eval_value(m, design, tokens)
-                            .unwrap_or_else(|| serialise_value_expr(m)),
+                        with_dismiss_front(
+                            try_eval_value(m, design, tokens)
+                                .unwrap_or_else(|| serialise_value_expr(m)),
+                        ),
                     ));
                 }
                 obj(entries)
@@ -1732,4 +1755,25 @@ pub fn build_component_catalogue(
     doc.insert("components".to_string(), Value::Object(components));
 
     Ok(Value::Object(doc))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::with_dismiss_front;
+    use serde_json::json;
+
+    #[test]
+    fn dismiss_front_defaults_outgoing_when_omitted() {
+        let stamped = with_dismiss_front(json!({
+            "kind": "presentationMotion",
+            "incoming": { "translateX": -48.0, "opacity": 0.86 },
+            "outgoing": { "translateX": 390.0 }
+        }));
+        assert_eq!(stamped["front"], ".outgoing");
+        let kept = with_dismiss_front(json!({
+            "kind": "presentationMotion",
+            "front": ".incoming"
+        }));
+        assert_eq!(kept["front"], ".incoming");
+    }
 }

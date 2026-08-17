@@ -6,7 +6,7 @@ Oracle `.pdl` files under [`test-fixtures/pdl/errors/`](https://github.com/Mana-
 
 A conforming compiler **MUST** emit the code encoded in the filename (`e007-…` → **PDL-E007**), except where a test documents a different code (language evolution — see [Filename vs observed](#filename-vs-observed)). Diagnostic meanings: [Diagnostics](./diagnostics.md).
 
-**121** current oracles · **2** support files · **5** legacy · **1** valid controls.
+**122** current oracles · **2** support files · **5** legacy · **1** valid controls.
 
 ## Coverage by catalog code
 
@@ -18,7 +18,7 @@ Active `PDL-E` codes from `shared/diagnostics.json`. **Current** counts ignore `
 | **PDL-E002** | `circular-import` | 1 | 0 | covered |
 | **PDL-E003** | `duplicate-symbol` | 3 | 0 | covered |
 | **PDL-E004** | `unknown-token-type` | 1 | 0 | covered |
-| **PDL-E005** | `token-type-mismatch` | 33 | 0 | covered |
+| **PDL-E005** | `token-type-mismatch` | 34 | 0 | covered |
 | **PDL-E006** | `frame-prop-type-mismatch` | 13 | 0 | covered |
 | **PDL-E007** | `unresolved-reference` | 6 | 1 | covered |
 | **PDL-E008** | `unresolved-type-style` | 0 | 0 | **gap** |
@@ -136,6 +136,7 @@ The filename still records the original intent. TypeScript tests assert a **diff
 | [`e005-blur-number-token.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-blur-number-token.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | Blur is a layer object — bare numbers are Radius, not Blur. |
 | [`e005-color-number.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-color-number.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | PDL-E005 — Color tokens must be #hex (or color @ opacity) |
 | [`e005-distance-string.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-distance-string.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | distance string |
+| [`e005-ease-bezier-x.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-ease-bezier-x.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | ease bezier x |
 | [`e005-ease-css.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-ease-css.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | ease css |
 | [`e005-effect-glass.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-effect-glass.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | effect glass |
 | [`e005-fontfamily-hex.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-fontfamily-hex.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | PDL-E005 — FontFamily tokens must be strings |
