@@ -56,7 +56,7 @@ Implement **after A2** unless a spike is explicitly throwaway.
 | Rust-first language | **B1–B4** (`protocol`, `[T]`, packs, `emits` / host inbound handlers) | TS oracle port of B1–B4 |
 | Normative grammar | `grammar/pdl.ebnf` + language-objects; Rust B4b/B5 | **B6** chrome; TS oracle lag; B7 host dispatch |
 | Typed samples | `samples` banks + `Bank.entry.field`; Rust + TS; catalogue `samples`; playlist-composer-lite + `lab/samples-tracks.pdl`; **PDL-E041** | ForEach over sample path; sample RHS in emit-assign; lints for bare `children = list` |
-| HTML host (C1) | Static draw of bake IR; interactive host; handler + standing motion overlay (appear/dismiss, play / keys, frame `animate`, `rotate`, clip rack); frame `effect` / `blur =` (filter + backdrop-filter); **B7** presenter pins + click-to-push/pop/present | M5 Timing / Ease; M4 teaching tokens; E1 `Blur()` alias close; E4 `.glass` |
+| HTML host (C1) | Static draw of bake IR; interactive host; handler + standing motion overlay (appear/dismiss, play / keys, frame `animate`, `rotate`, clip rack); frame `effect` / `blur =` (filter + backdrop-filter); **B7** presenter pins + click-to-push/pop/present | M5 Timing / Ease; M4 teaching tokens; E1 `Blur()` alias close; E4 `.glass`; **L0–L1** layer `blend:` (proposed) |
 | Native / prototype | — | C2 SwiftUI; C3 / Track N (`Presenter` stack); A5 C ABI |
 
 **Bake JSON** remains the stability boundary. HTML is a static C1 host: it draws whatever bake already flattened. `ForEach` / emit capture become visible in HTML only after Rust expands them at bake. Host prelude stubs: `test-fixtures/pdl/stdlib/host_protocols.pdl`.
@@ -139,6 +139,22 @@ Unified `host Name(params) [mount]`, `<Host>` inject, opaque facts bag, `theme` 
 
 ---
 
+## Track L — Layer blend modes
+
+**Proposal:** [`docs/PROPOSAL_LAYER_BLEND.md`](./PROPOSAL_LAYER_BLEND.md) (**proposed** 2026-08-18). Not locked — do not parse `blend:` until L0 updates `shared/*.json` + `grammar/pdl.ebnf`.
+
+Per-paint compositor on fill constructors. Backdrop = earlier fills in the same isolated `background` / `foreground` band. Not frame-into-parent (L3). Not pass-through.
+
+| Step | Deliverable |
+|------|-------------|
+| **L0** | `BlendMode` enum + `blend:` on `Color()` / `Ramp()` / `MediaLayer()`; Rust + TS validate/bake; goldens |
+| **L1** | HTML `mix-blend-mode` on layer ops; first fill forced `.normal`; `lab/blend/` |
+| **L2** | Optional: drop fg-band isolation when any fg fill is non-normal |
+| **L3** | Frame `blendMode` (whole node vs parent) — separate accept |
+| **L4** | Wider enum / explicit isolation policy |
+
+---
+
 ## Golden harness (shared)
 
 1. Generate or check in **bake JSON goldens** for:
@@ -193,5 +209,6 @@ None from the A0 question set. Further grammar nits can be decided when updating
 - [ ] Track E — **E0** + **E2** + E3 lab / `effect.frost` shipped (frame `effect` / `blur =` sugar, HTML filter + backdrop-filter, Pose rest = baked self blur); **E1** `Blur()` alias window still open; leftover E3 is `material.sheet` as fill + `effect`; **E4** `.glass` reserved (`docs/PROPOSAL_FRAME_BLUR.md`)
 - [x] Track H — Host environment **accepted** — **H0–H5 shipped** (`docs/IMPLEMENTATION_PLAN_HOST_ENVIRONMENT.md`)
 - [x] Track N — Pages / screens / Presenter **N0–N5 shipped**; live click **B7a–c**; **N6–N9 proposed** (`docs/IMPLEMENTATION_PLAN_ROUTING_PAGES_SCREENS.md`)
+- [ ] Track L — Layer blend **proposed** — per-paint `blend:` on Color / Ramp / MediaLayer; isolated bands; HTML `mix-blend-mode` (**L0–L1**). Fg isolation lift **L2**; frame `blendMode` **L3** (`docs/PROPOSAL_LAYER_BLEND.md`)
 
 Progress and intentional gaps also tracked in **`docs/SPEC_GAPS.md`**.
