@@ -155,6 +155,24 @@ describe("applyMotion", () => {
     expect(frames[3]!.transform).toBe("translate(0px, 0px) rotate(0deg) scale(1, 1)");
   });
 
+  it("puts Key.ease on the WAAPI frame for that stop", () => {
+    const frames = poseTrackKeyframes(
+      {
+        transition: { duration: 480, easing: "ease-in", delay: 0 },
+        keys: [
+          { pose: { translateX: 390 }, at: 0 },
+          { pose: { translateX: 40 }, at: 0.55, easing: "ease-out" },
+          { pose: "rest", at: 1 },
+        ],
+      },
+      1,
+    );
+    expect(frames.map((f) => f.offset)).toEqual([0, 0.55, 1]);
+    expect(frames[1]!.easing).toBe("ease-out");
+    expect(frames[0]!.easing).toBeUndefined();
+    expect(frames[2]!.easing).toBeUndefined();
+  });
+
   it("builds implicit CSS transition from animate =", () => {
     const css = implicitTransitionCss({ duration: 200, easing: "ease-out", delay: 0 });
     expect(css).toContain("background-color 200ms ease-out");
@@ -173,6 +191,9 @@ describe("playPresentationMotion", () => {
       toOpacity?: string;
       front?: boolean;
       startOpacity?: string;
+      offsets?: Array<number | undefined>;
+      frameEasings?: Array<string | undefined>;
+      frameCount?: number;
     } = {};
     const el = {
       classList: {
@@ -190,12 +211,18 @@ describe("playPresentationMotion", () => {
       },
       style: { zIndex: "", transform: "", opacity: "", filter: "", transformOrigin: "" },
       getAnimations: () => [],
-      animate: (frames: Array<{ opacity?: string }>, opts: { duration: number; easing: string }) => {
+      animate: (
+        frames: Array<{ opacity?: string; offset?: number; easing?: string }>,
+        opts: { duration: number; easing: string },
+      ) => {
         seen.duration = opts.duration;
         seen.easing = opts.easing;
         seen.fromOpacity = frames[0]?.opacity;
         seen.toOpacity = frames[frames.length - 1]?.opacity;
         seen.startOpacity = el.style.opacity;
+        seen.offsets = frames.map((f) => f.offset);
+        seen.frameEasings = frames.map((f) => f.easing);
+        seen.frameCount = frames.length;
         const listeners: Array<() => void> = [];
         const anim = {
           addEventListener(type: string, fn: () => void) {
@@ -265,6 +292,83 @@ describe("playPresentationMotion", () => {
     );
     expect(incoming.seen.front).toBe(false);
     expect(outgoing.seen.front).toBe(true);
+  });
+
+  it("plays a 3-key incoming path and a Pose outgoing", () => {
+    const incoming = fakeLane();
+    const outgoing = fakeLane();
+    playPresentationMotion(incoming.el as never, outgoing.el as never, {
+      kind: "presentationMotion",
+      incoming: {
+        kind: "motion",
+        duration: 480,
+        ease: "out",
+        keys: [
+          { pose: { translateX: 390, opacity: 0 }, at: 0 },
+          { pose: { translateX: 40 }, at: 0.55, ease: "out" },
+          { pose: "rest", at: 1 },
+        ],
+      },
+      outgoing: { kind: "pose", translateX: -48, opacity: 0.86 },
+      duration: 320,
+      ease: "in",
+    });
+    expect(incoming.seen.duration).toBe(480);
+    expect(incoming.seen.offsets).toEqual([0, 0.55, 1]);
+    expect(incoming.seen.frameEasings?.[1]).toBe("ease-out");
+    expect(incoming.seen.startOpacity).toBe("0");
+    expect(incoming.seen.fromOpacity).toBe("0");
+    expect(outgoing.seen.duration).toBe(320);
+    expect(outgoing.seen.frameCount).toBe(2);
+    expect(outgoing.seen.toOpacity).toBe("0.86");
+  });
+
+  it("animates a keys-only incoming Motion (no pose:)", () => {
+    const incoming = fakeLane();
+    const outgoing = fakeLane();
+    playPresentationMotion(incoming.el as never, outgoing.el as never, {
+      incoming: {
+        kind: "motion",
+        duration: 200,
+        ease: "linear",
+        keys: [
+          { pose: { opacity: 0 }, at: 0 },
+          { pose: "rest", at: 1 },
+        ],
+      },
+      outgoing: { kind: "pose", translateX: 0 },
+      duration: 200,
+      ease: "linear",
+    });
+    expect(incoming.seen.frameCount).toBe(2);
+    expect(incoming.seen.duration).toBe(200);
+    expect(incoming.seen.startOpacity).toBe("0");
+  });
+
+  it("flips front at switchAt on a keyed incoming", async () => {
+    const incoming = fakeLane();
+    const outgoing = fakeLane();
+    playPresentationMotion(incoming.el as never, outgoing.el as never, {
+      incoming: {
+        kind: "motion",
+        duration: 80,
+        ease: "linear",
+        keys: [
+          { pose: { translateX: 390 }, at: 0 },
+          { pose: "rest", at: 1 },
+        ],
+      },
+      outgoing: { kind: "pose", translateX: -48 },
+      duration: 80,
+      ease: "linear",
+      front: ".outgoing",
+      switchAt: 40,
+    });
+    expect(incoming.seen.front).toBe(false);
+    expect(outgoing.seen.front).toBe(true);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(incoming.seen.front).toBe(true);
+    expect(outgoing.seen.front).toBe(false);
   });
 });
 

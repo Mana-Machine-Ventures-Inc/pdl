@@ -462,6 +462,19 @@ fn rejects_promote_at_label() {
 }
 
 #[test]
+fn rejects_switch_at_fraction() {
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/errors/e005-switch-at-fraction.pdl");
+    let err = load_design(path.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E005");
+    assert!(
+        err.message.contains("milliseconds") && err.message.contains("0…1"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
 fn rejects_ease_bezier_x_out_of_range() {
     use pdl_core::design::load_design;
     let path = repo_root().join("test-fixtures/pdl/errors/e005-ease-bezier-x.pdl");
@@ -2338,7 +2351,36 @@ fn reversed_ease_flips_pair_and_slot_clocks() {
     assert_eq!(card_back["incoming"]["translateX"], 36.0);
     assert_eq!(card_back["outgoing"]["translateX"], -36.0);
     assert_eq!(card_back["front"], "outgoing");
-    assert_eq!(card_back["switchAt"], 0.7);
+    assert_eq!(card_back["switchAt"], 336.0);
+
+    let toss = &tokens["motion.cardToss"];
+    assert_eq!(toss["incoming"]["keys"][1]["ease"], "out");
+    assert_eq!(toss["incoming"]["keys"][1]["at"], 0.55);
+    let toss_back = &tokens["motion.cardTossBack"];
+    assert_eq!(toss_back["outgoing"]["timing"]["ease"], "in");
+    assert_eq!(toss_back["outgoing"]["keys"][1]["at"], 0.55);
+    assert_eq!(toss_back["outgoing"]["keys"][1]["ease"], "out");
+    assert_eq!(toss_back["switchAt"], 336.0);
+}
+
+#[test]
+fn rejects_key_easing_label() {
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/errors/e001-key-easing.pdl");
+    let err = load_design(path.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E001");
+    assert!(
+        err.message.contains("ease:") && err.message.contains("easing:"),
+        "{}",
+        err.message
+    );
+}
+
+#[test]
+fn loads_n8_keys_lab() {
+    use pdl_core::design::load_design;
+    let path = repo_root().join("test-fixtures/pdl/lab/nav/n8_keys.pdl");
+    load_design(path.to_str().unwrap()).expect("load n8_keys");
 }
 
 #[test]

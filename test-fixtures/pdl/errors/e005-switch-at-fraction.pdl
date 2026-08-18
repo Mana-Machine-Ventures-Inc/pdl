@@ -1,0 +1,7 @@
+semantic bad.swap: PresentationMotion = PresentationMotion(
+  incoming: Pose(opacity: 0),
+  outgoing: Pose(opacity: 0),
+  duration: 480,
+  ease: .linear,
+  switchAt: 0.5
+)

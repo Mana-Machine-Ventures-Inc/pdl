@@ -1,0 +1,5 @@
+semantic bad.key: Motion = Motion(
+  duration: 200,
+  ease: .out,
+  keys: [Key(pose: Pose(scale: 1.12), at: 1, easing: .out)]
+)

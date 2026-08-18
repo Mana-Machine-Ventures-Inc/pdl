@@ -1198,7 +1198,12 @@ fn validate_presentation_motion_value(
     component_name: &str,
 ) -> Result<(), PdlError> {
     match value {
-        ValueExpr::PresentationMotion { .. } => Ok(()),
+        ValueExpr::PresentationMotion { switch_at, .. } => {
+            if let Some(p) = switch_at {
+                validate_switch_at_ms(design, p, &format!("{where_} switchAt"))?;
+            }
+            Ok(())
+        }
         ValueExpr::Ident { name } => {
             let base = presentation_motion_ident_name(name);
             match token_type_of(design, base).as_deref() {
@@ -1264,6 +1269,31 @@ fn validate_ease_bezier(
         return Err(err(
             "PDL-E005",
             format!("{where_}: Ease.bezier x2 must be 0…1 (got {x2})"),
+            design,
+        ));
+    }
+    Ok(())
+}
+
+fn validate_switch_at_ms(
+    design: &DesignDefinition,
+    value: &ValueExpr,
+    where_: &str,
+) -> Result<(), PdlError> {
+    let ValueExpr::Number { value: n } = value else {
+        return Ok(());
+    };
+    if !n.is_finite() || *n < 0.0 {
+        return Err(err(
+            "PDL-E005",
+            format!("{where_} must be a non-negative Duration in milliseconds"),
+            design,
+        ));
+    }
+    if *n > 0.0 && *n < 1.0 {
+        return Err(err(
+            "PDL-E005",
+            format!("{where_} is milliseconds, not 0…1 (got {n})"),
             design,
         ));
     }
@@ -2971,10 +3001,17 @@ fn assert_token_rhs_compatible(
     }
     if token_type == "PresentationMotion" {
         if let ValueExpr::PresentationMotion {
-            ease: Some(e), ..
+            ease,
+            switch_at,
+            ..
         } = value
         {
-            validate_ease_value(design, e, &format!("Token `{name}` ease"))?;
+            if let Some(e) = ease {
+                validate_ease_value(design, e, &format!("Token `{name}` ease"))?;
+            }
+            if let Some(p) = switch_at {
+                validate_switch_at_ms(design, p, &format!("Token `{name}` switchAt"))?;
+            }
         }
     }
     if token_type == "Effect" {

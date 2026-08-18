@@ -985,7 +985,7 @@ hoverEnd = { animate = Motion(motion.hoverPop, play: .toRest) }
 
 ### `PresentationMotion`
 
-A Presenter pair clip. `incoming` plays [`.toRest`](#play) (mounts at pose, eases to rest). `outgoing` plays [`.toPose`](#play). Pair-level [`duration`](#duration) / [`ease`](#ease) / `delay` apply when a slot is a [`Pose`](#pose). A [`Motion`](#motion) slot keeps its own clock. [`front`](#front) is who starts on top ([`.incoming`](#front) or [`.outgoing`](#front)). Omit it: `move` keeps incoming on top; `dismissMove` keeps outgoing on top. `switchAt` (0…1) switches who is on top at that fraction of the pair duration — wall-clock, not eased progress. Omit `switchAt` to keep [`front`](#front) the whole clip. `.reversed` swaps sides and time-reverses [`ease`](#ease) (`.in`↔`.out`; bezier control points invert). `delay` stays. Omit `switchAt`: flip [`front`](#front). With `switchAt`: keep [`front`](#front) (the side swap remaps who that label is) and invert to `1 − switchAt`. Write `dismissMove:` to override.
+A Presenter pair clip. `incoming` plays [`.toRest`](#play) (mounts at pose, eases to rest). `outgoing` plays [`.toPose`](#play). Pair-level [`duration`](#duration) / [`ease`](#ease) / `delay` apply when a slot is a [`Pose`](#pose). A [`Motion`](#motion) slot keeps its own clock. A [`Motion`](#motion) with `keys:` plays that path as authored ([`Key.ease`](#key) is the curve to the next stop). [`front`](#front) is who starts on top ([`.incoming`](#front) or [`.outgoing`](#front)). Omit it: `move` keeps incoming on top; `dismissMove` keeps outgoing on top. `switchAt` is a [`Duration`](#duration) in milliseconds — wall-clock from play start, not eased progress. Omit it to keep [`front`](#front) the whole clip. `.reversed` swaps sides and time-reverses [`ease`](#ease) (`.in`↔`.out`; bezier control points invert). `delay` stays. Omit `switchAt`: flip [`front`](#front). With `switchAt`: keep [`front`](#front) (the side swap remaps who that label is) and invert to `span − switchAt` (span is max of each side’s delay + duration). `keys:` paths are not reversed — write `dismissMove:` for that.
 
 Category: motion. Used on: `Presenter`.`move`, `present`.`move`, `push`.`move`, `dismissMove`.
 
@@ -993,9 +993,10 @@ Accepted syntax:
 
 - `PresentationMotion(incoming: Pose(translateX: 390), outgoing: Pose(translateX: -48, opacity: 0.86), duration: 320, ease: .out)` — Push-style pair. Omit front: move keeps incoming on top.
 - `front: .outgoing` — Who starts on top. [`.incoming`](#front) or [`.outgoing`](#front).
-- `switchAt: 0.5` — Switch who is on top at that fraction of the pair duration (0…1).
-- `PresentationMotion(incoming: Pose(scale: 0.92, translateX: -36), outgoing: Pose(scale: 0.92, translateX: 36), duration: 480, ease: .in, front: .outgoing, switchAt: 0.5)` — Card swap: outgoing starts in front; incoming takes front at the crossing.
-- `motion.navPush.reversed` — Swap incoming/outgoing, time-reverse ease. No switchAt: flip front. With switchAt: keep front, invert to 1 − switchAt.
+- `switchAt: 240` — Switch who is on top at that many milliseconds from play start.
+- `PresentationMotion(incoming: Pose(scale: 0.92, translateX: -36), outgoing: Pose(scale: 0.92, translateX: 36), duration: 480, ease: .in, front: .outgoing, switchAt: 240)` — Card swap: outgoing starts in front; incoming takes front at 240ms.
+- `motion.navPush.reversed` — Swap incoming/outgoing, time-reverse ease. No switchAt: flip front. With switchAt: keep front, invert to span − switchAt. [`Key`](#key) lists stay.
+- `incoming: Motion(duration: 480, ease: .out, keys: [Key(pose: Pose(translateX: 390), at: 0), Key(pose: .rest, at: 1)])` — Keyed incoming path. Played as authored. Per-key `ease:` is the curve to the next stop.
 
 ```pdl
 semantic motion.navPush: PresentationMotion = PresentationMotion(
@@ -1010,7 +1011,7 @@ semantic motion.cardSwap: PresentationMotion = PresentationMotion(
   duration: 480,
   ease: .in,
   front: .outgoing,
-  switchAt: 0.5
+  switchAt: 240
 )
 ```
 
@@ -1376,7 +1377,7 @@ Asymmetric radii: Corner(tl:, tr:, br:, bl:). Produces [`CornerRadii`](#cornerra
 | [`Vibrancy(…)`](#vibrancy) | Vibrancy(saturation:, brightness:). Used on [`Blur`](#blur) or as its own layer token. |
 | [`Pose(…)`](#pose) | Overlay snapshot: Pose(opacity:, scale:, scaleX:, scaleY:, translateX:, translateY:, blur:, rotate:, originX:, originY:). At least one field. Used on [`Motion.pose`](#motion). |
 | [`Stagger(…)`](#stagger) | Stagger(step: [`Duration`](#duration) [, from: .first\|.last]). Used on [`Motion.stagger`](#motion). from defaults to .first. |
-| [`Key(…)`](#key) | Key(pose: [`Pose`](#pose) \| .rest, at: 0…1 [, easing:]). A waypoint on [`Motion.keys`](#motion). |
+| [`Key(…)`](#key) | Key(pose: [`Pose`](#pose) \| .rest, at: 0…1 [, ease:]). A waypoint on [`Motion.keys`](#motion). `ease:` is the curve from this stop to the next; omit it to use the [`Motion`](#motion) clock. |
 | [`Motion(…)`](#motion) | Motion(transition: Transition [, play:] [, pose: [`Pose`](#pose)] [, keys: [Key, …]] [, stagger: [`Stagger`](#stagger)] [, repeat: n]) or Motion(token, field:). The type of animate =. A bare Transition is sugar for Motion(transition: …). Site default fills play when omitted. |
 | [`Effect(…)`](#effect) | Effect([`.blurSelf`](#effectkind) \| [`.blurBehind`](#effectkind) \| [`.glass`](#effectkind), radius: [, vibrancy:]). Frame property [`effect`](#effect). `blur = n` is sugar for [`.blurSelf`](#effectkind). [`.glass`](#effectkind) is reserved. Not a layer and not a child. |
 
@@ -1670,7 +1671,7 @@ semantic motion.cardSwap: PresentationMotion = PresentationMotion(
   duration: 480,
   ease: .in,
   front: .outgoing,
-  switchAt: 0.5
+  switchAt: 240
 )
 ```
 

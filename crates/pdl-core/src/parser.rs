@@ -3951,7 +3951,7 @@ fn finish_presentation_motion(
     let delay = args.swap_remove("delay");
     let front = args.swap_remove("front");
     if args.contains_key("promoteAt") {
-        return Err("Write `switchAt:` (0…1), not `promoteAt:`".to_string());
+        return Err("Write `switchAt:` (milliseconds), not `promoteAt:`".to_string());
     }
     let switch_at = args.swap_remove("switchAt");
     if !args.is_empty() {

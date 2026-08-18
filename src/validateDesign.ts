@@ -501,6 +501,25 @@ function validateEaseBezier(
   }
 }
 
+function validateSwitchAtMs(design: DesignDefinition, value: ValueExpr, where: string): void {
+  if (value.kind !== "number") return;
+  const n = value.value;
+  if (!Number.isFinite(n) || n < 0) {
+    throw new PdlError(
+      "PDL-E005",
+      `${where} must be a non-negative Duration in milliseconds`,
+      { path: design.entryPath },
+    );
+  }
+  if (n > 0 && n < 1) {
+    throw new PdlError(
+      "PDL-E005",
+      `${where} is milliseconds, not 0…1 (got ${n})`,
+      { path: design.entryPath },
+    );
+  }
+}
+
 function validateEaseValue(
   design: DesignDefinition,
   value: ValueExpr,
@@ -1567,8 +1586,11 @@ function assertTokenRhsCompatible(
   if ((tokenType === "Timing" || tokenType === "Motion") && value.kind === "timing") {
     validateEaseValue(design, value.ease, `Token \`${name}\``);
   }
-  if (tokenType === "PresentationMotion" && value.kind === "presentationMotion" && value.ease) {
-    validateEaseValue(design, value.ease, `Token \`${name}\` ease`);
+  if (tokenType === "PresentationMotion" && value.kind === "presentationMotion") {
+    if (value.ease) validateEaseValue(design, value.ease, `Token \`${name}\` ease`);
+    if (value.switchAt) {
+      validateSwitchAtMs(design, value.switchAt, `Token \`${name}\` switchAt`);
+    }
   }
   if (tokenType === "Effect" && value.kind === "effect") {
     try {

@@ -70,10 +70,52 @@ describe("PresentationMotion .reversed ease", () => {
     };
     const back = t.get("motion.cardSwapBack") as typeof fwd;
     expect(fwd.front).toBe("outgoing");
-    expect(fwd.switchAt).toBe(0.3);
+    expect(fwd.switchAt).toBe(144);
     expect(back.incoming?.translateX).toBe(36);
     expect(back.outgoing?.translateX).toBe(-36);
     expect(back.front).toBe("outgoing");
-    expect(back.switchAt).toBe(0.7);
+    expect(back.switchAt).toBe(336);
+  });
+
+  it("does not reverse key lists", () => {
+    const t = tokens();
+    type Keyed = {
+      front?: string;
+      switchAt?: number;
+      ease?: string;
+      incoming?: {
+        kind?: string;
+        translateX?: number;
+        timing?: { ease?: string };
+        keys?: Array<{ at?: number; ease?: string; pose?: { translateX?: number } | string }>;
+      };
+      outgoing?: {
+        kind?: string;
+        translateX?: number;
+        timing?: { ease?: string };
+        keys?: Array<{ at?: number; ease?: string; pose?: { translateX?: number } | string }>;
+      };
+    };
+    const fwd = t.get("motion.cardToss") as Keyed;
+    const back = t.get("motion.cardTossBack") as Keyed;
+    expect(fwd.incoming?.keys?.map((k) => k.at)).toEqual([0, 0.55, 1]);
+    expect(fwd.incoming?.keys?.[1]?.ease).toBe("out");
+    expect(fwd.incoming?.timing?.ease).toBe("out");
+    expect(back.incoming?.translateX).toBe(-48);
+    expect(back.outgoing?.timing?.ease).toBe("in");
+    expect(back.outgoing?.keys?.map((k) => k.at)).toEqual([0, 0.55, 1]);
+    expect(back.outgoing?.keys?.[1]?.ease).toBe("out");
+    expect(back.front).toBe("outgoing");
+    expect(back.switchAt).toBe(336);
+  });
+
+  it("evaluates n8_keys cardToss keys", () => {
+    const design = loadDesign(resolve(__dirname, "../test-fixtures/pdl/lab/nav/n8_keys.pdl"));
+    const toss = buildResolvedTokenMap(design).get("motion.cardToss") as {
+      incoming?: { keys?: unknown[] };
+      outgoing?: { keys?: unknown[] };
+    };
+    expect(toss.incoming?.keys).toHaveLength(3);
+    expect(toss.outgoing?.keys).toHaveLength(2);
   });
 });

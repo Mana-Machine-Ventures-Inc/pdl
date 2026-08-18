@@ -54,7 +54,7 @@ Until a slice is locked, tooling must not treat `page` / `screen` / `Presenter` 
 | **Q26** | `appear` vs pair timing | Fire `appear` when incoming is mounted for the move |
 | **Q27** | RTL | No silent invert in v1. Second token or later Pose unit |
 | **Q28** | `PresentationMotion(token, field:)` | Not in v1. Literal + `.reversed` only |
-| **Q29** | Mid-clip front flip | `switchAt: Number?`. No associated enum values in v1 |
+| **Q29** | Mid-clip front flip | `switchAt: Duration?` (ms from play start). (0, 1) is E005 |
 | **Q30** | Timing / Ease rename | M5 breaking slice. N8 depends on it. [`IMPLEMENTATION_PLAN_MOTION_NAMING.md`](./IMPLEMENTATION_PLAN_MOTION_NAMING.md) |
 | **Q31** | Per-side clocks | Allowed. Interrupt is per playhead |
 | **D1** | Verbs where | Capture bodies only |
@@ -398,6 +398,7 @@ Do not start N3 until N2 goldens reject `Protocol.channel =`. Do not start N4 un
 - [ ] N6 `appear` / `disappear` (rename + detach from PointerInput)
 - [ ] N7 retained-layer host sequencing
 - [ ] N8 `PresentationMotion` + `present(move:, dismissMove:)` + `.reversed`
+- [x] N8k Motion-in-slot `keys:` on the pair player — [`IMPLEMENTATION_PLAN_PRESENTATION_MOTION_KEYS.md`](./IMPLEMENTATION_PLAN_PRESENTATION_MOTION_KEYS.md)
 - [ ] N9 `present(retainPrior:)` / `swap` / `replace`; paint walk; N3 `replace` → `swap`
 - [ ] Language objects / Guide / `SPEC_GAPS` status when each slice locks
 - [ ] Do **not** implement a reserved `Routing` protocol or Studio singleton sink

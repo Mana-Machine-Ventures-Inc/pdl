@@ -38,6 +38,24 @@ semantic motion.cardSwap: PresentationMotion = PresentationMotion(
   outgoing: Pose(translateX: 36),
   duration: 480,
   front: .outgoing,
-  switchAt: 0.3
+  switchAt: 144
 )
 semantic motion.cardSwapBack: PresentationMotion = motion.cardSwap.reversed
+
+semantic motion.cardToss: PresentationMotion = PresentationMotion(
+  incoming: Motion(
+    duration: 480,
+    ease: .out,
+    keys: [
+      Key(pose: Pose(translateX: 390, opacity: 0), at: 0),
+      Key(pose: Pose(translateX: 40), at: 0.55, ease: .out),
+      Key(pose: .rest, at: 1)
+    ]
+  ),
+  outgoing: Pose(translateX: -48, opacity: 0.86),
+  duration: 320,
+  ease: .in,
+  front: .outgoing,
+  switchAt: 144
+)
+semantic motion.cardTossBack: PresentationMotion = motion.cardToss.reversed

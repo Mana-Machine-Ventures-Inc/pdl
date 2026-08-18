@@ -125,6 +125,18 @@ describe("validateMergedDesign (motion)", () => {
     );
   });
 
+  it("PDL-E005 when switchAt is a 0…1 fraction", () => {
+    expectLoadFails(
+      "PDL-E005",
+      "errors/e005-switch-at-fraction.pdl",
+      /milliseconds, not 0…1/,
+    );
+  });
+
+  it("PDL-E001 when Key uses easing:", () => {
+    expectLoadFails("PDL-E001", "errors/e001-key-easing.pdl", /ease:.*easing:/);
+  });
+
   it("PDL-E005 when Ease is a CSS string", () => {
     expectLoadFails(
       "PDL-E005",

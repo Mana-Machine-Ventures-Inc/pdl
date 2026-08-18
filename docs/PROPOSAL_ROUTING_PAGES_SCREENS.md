@@ -395,7 +395,7 @@ Live click-to-navigate needs emit dispatch (**B7**). N3–N5 labs can bake a pin
 | **Q26** | `appear` vs `PresentationMotion` timing | **Fire `appear` when the incoming page is mounted for the move** (CTA can run during the slide), not after commit. |
 | **Q27** | RTL / writing direction | **No silent invert in v1.** Authors ship a second token or a later hole-relative Pose unit (Q16). |
 | **Q28** | `PresentationMotion(token, field:)` copy-override | **Not in v1.** Literal + `.reversed` only. Copy-override can wait until Motion’s constructor is boring and a lab needs “nav push, this time from behind.” |
-| **Q29** | Mid-clip front flip | **`switchAt: Number?`** (0…1). Omit = keep `front` for the whole clip. Not `incomingAfter(t)` — enums have no associated values in v1. (Renamed from `promoteAt`.) |
+| **Q29** | Mid-clip front flip | **`switchAt: Duration?`** (milliseconds from play start). Omit = keep `front` the whole clip. Values in (0, 1) are E005. Not `incomingAfter(t)`. (Renamed from `promoteAt`; was 0…1.) |
 | **Q30** | Timing / Ease vs today’s `Transition` / `Easing` | **Consolidate now (M5).** Breaking rename. No dual-name period. N8 depends on M5. Plan: [`IMPLEMENTATION_PLAN_MOTION_NAMING.md`](./IMPLEMENTATION_PLAN_MOTION_NAMING.md). |
 | **Q31** | Per-side clocks | **Allowed.** A `Motion` in a slot uses its own duration / ease / delay. Shared `duration` / `ease` apply when a slot is a `Pose`. Interrupt reverses each side from its own progress. |
 
@@ -588,13 +588,13 @@ PresentationMotion(
   ease: Ease?,
   delay: Duration?,
   front: Front = .incoming,
-  switchAt: Number?            // 0…1; omit = keep front the whole clip
+  switchAt: Duration?          // ms from play start; omit = keep front the whole clip
 )
 ```
 
 Play is **implied by the slot**, not stored on the Motion. `enterFrom` / `leaveTo` were role names for those Poses; the slots are now `incoming` / `outgoing`.
 
-A **Pose** in a slot inherits the pair’s `duration` / `ease` / `delay`. A **Motion** in a slot uses its own clock (different durations and eases are allowed). If both slots are Poses and no shared duration is set, the hole default applies, or the crossing snaps.
+A **Pose** in a slot inherits the pair’s `duration` / `ease` / `delay`. A **Motion** in a slot uses its own clock (different durations and eases are allowed). A Motion with `keys:` plays that path as authored (`Key.ease` is the curve to the next stop). If both slots are Poses and no shared duration is set, the hole default applies, or the crossing snaps.
 
 ```pdl
 semantic motion.navPush: PresentationMotion = PresentationMotion(
@@ -617,7 +617,7 @@ semantic motion.crossFade: PresentationMotion = PresentationMotion(
   incoming: Motion(duration: 280, ease: Ease.bezier(0.42, 0, 0.58, 1), pose: Pose(opacity: 0)),
   outgoing: Motion(duration: 280, ease: Ease.bezier(0.42, 0, 0.58, 1), pose: Pose(opacity: 0)),
   front: .outgoing,
-  switchAt: 0.5
+  switchAt: 240
 )
 ```
 
@@ -651,7 +651,7 @@ presenter.dismiss()
 | `move:` only | that crossing | **the same `move` again** (not reversed) |
 | `move:` + `dismissMove:` | `move` | `dismissMove` as a normal crossing |
 
-**Omit `dismissMove` is not reverse.** Reverse is a computed property: `motion.navPush.reversed` swaps the two **sides** (pose + that side’s timing travel together) and **time-reverses `ease`**: `.in`↔`.out`, `Ease.bezier(x1,y1,x2,y2)` → `Ease.bezier(1-x2,1-y2,1-x1,1-y1)`, `.linear` stays. Pair `delay` stays. Omit `switchAt`: flip `front` (`.incoming` ↔ `.outgoing`) so the same page stays on top. With `switchAt`: keep `front` (the side swap remaps who that label is) and invert to `1 − switchAt`. A `Motion` slot’s own `ease` flips after the swap. `keys:` paths are not reversed — write `dismissMove:` for that. You may name it (`semantic motion.navPop: PresentationMotion = motion.navPush.reversed`). A theme that replaces `motion.navPush` changes the derived value too.
+**Omit `dismissMove` is not reverse.** Reverse is a computed property: `motion.navPush.reversed` swaps the two **sides** (pose + that side’s timing travel together) and **time-reverses `ease`**: `.in`↔`.out`, `Ease.bezier(x1,y1,x2,y2)` → `Ease.bezier(1-x2,1-y2,1-x1,1-y1)`, `.linear` stays. Pair `delay` stays. Omit `switchAt`: flip `front` (`.incoming` ↔ `.outgoing`) so the same page stays on top. With `switchAt`: keep `front` (the side swap remaps who that label is) and invert to `span − switchAt` (span is max of each side’s delay + duration). A `Motion` slot’s own `ease` flips after the swap. `keys:` paths are not reversed — write `dismissMove:` for that. You may name it (`semantic motion.navPop: PresentationMotion = motion.navPush.reversed`). A theme that replaces `motion.navPush` changes the derived value too.
 
 `replace` / `swap` take optional `move` only (no `dismissMove`). `retainPrior: true` does not take a `PresentationMotion` in v1 — use `appear` / `disappear` on the presented tree. Hide-prior `present` is the pair-clip case.
 
@@ -742,7 +742,7 @@ Locked enough to implement N6–N9. These are the holes to stare at before gramm
 | **RTL (Q27)** | **Locked.** No silent invert. Second token or later Pose unit. |
 | **Copy-override (Q28)** | **Locked.** Not in v1. Literal + `.reversed` only. |
 | **Front site (Q22)** | **Locked.** On `PresentationMotion` (`front` / `switchAt`). Not `present(z:)`. Not on `Pose`. |
-| **Mid-clip flip (Q29)** | **Locked.** `switchAt: Number?`. Enums have no associated values in v1. |
+| **Mid-clip flip (Q29)** | **Locked.** `switchAt: Duration?` (ms from play start). (0, 1) is E005. |
 | **Per-side clocks (Q31)** | **Locked.** Motion-in-slot uses its own timing. Interrupt is per playhead. |
 | **Timing / Ease rename (Q30)** | **Locked.** M5 breaking slice before N8. See motion-naming plan. |
 | **Interrupt** | **Locked lean.** Back mid-present: reverse each live clip from current progress, then commit or restore. |
@@ -752,7 +752,7 @@ Locked enough to implement N6–N9. These are the holes to stare at before gramm
 | **`.sheet`** | **Later (E055).** Author a bottom-hugging `Cover` with `.stack` + `justify` on the surface if they need the look now. |
 | **Fixture chips** | **Locked lean.** Snap to the pinned world. No `PresentationMotion` / `appear` on fixture apply (load-time section `appear` may still run). |
 | **`Presenter.dismissMove`** | **Locked lean.** Hole default when every dismiss should differ from every present. Verb `dismissMove:` still wins per entry. |
-| **Grammar of `.reversed`** | **Locked.** Computed property (`motion.navPush.reversed`). Swaps sides, time-reverses `ease`. Omit `switchAt`: flip `front`. With `switchAt`: keep `front`, invert to `1 − switchAt`. Not `.reversed()`, not omit-magic. |
+| **Grammar of `.reversed`** | **Locked.** Computed property (`motion.navPush.reversed`). Swaps sides, time-reverses `ease`. Omit `switchAt`: flip `front`. With `switchAt`: keep `front`, invert to `span − switchAt`. Not `.reversed()`, not omit-magic. |
 | **Reduced Motion** | **Locked lean.** Theme replaces the `PresentationMotion` token wholly (fade or instant). `.reversed` of that token follows. |
 | **Several presenters** | **Locked.** Each hole has its own stack. **Per-tab history** = one Presenter per tab, not `replace` on a shared hole. |
 | **N5 one `cover` field** | **Keep until N9.** Labs may still pin `presenter.cover`. |

@@ -100,6 +100,14 @@ const PACK_CATALOG = [
     description:
       "N8 pair slide — tap a row: Episode enters from the right, Home eases left. Back plays .reversed.",
   },
+  {
+    id: "lab-nav-keys",
+    label: "Nav (keys)",
+    entry: "test-fixtures/pdl/lab/nav/n8_keys.pdl",
+    defaultComponent: "Phone",
+    description:
+      "N8k keyed pair — Episode tosses through a mid pose. Back is a hand-written key path.",
+  },
 ];
 
 function collectPdlFiles(dirAbs, repoRoot, out = {}) {

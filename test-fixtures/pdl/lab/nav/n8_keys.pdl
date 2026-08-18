@@ -1,0 +1,155 @@
+// N8k — Keyed pair clip. Incoming tosses through a mid pose; outgoing
+// dips then parks. Back is a hand-written path (.reversed does not reverse keys).
+
+variant EpisodeId { case demo case late }
+
+protocol ShowEpisode: component {
+  emits(propagation: .ancestors) {
+    showEpisode(id: EpisodeId)
+  }
+}
+
+protocol AppNav: component {
+  emits(propagation: .ancestors) {
+    back()
+  }
+}
+
+semantic motion.cardToss: PresentationMotion = PresentationMotion(
+  incoming: Motion(
+    duration: 480,
+    ease: .out,
+    keys: [
+      Key(pose: Pose(translateX: 390, translateY: 24, rotate: 8, opacity: 0), at: 0),
+      Key(pose: Pose(translateX: 28, translateY: -18, rotate: -2, scale: 1.02), at: 0.55, ease: .out),
+      Key(pose: .rest, at: 1, ease: Ease.bezier(0.2, 1.2, 0.4, 1))
+    ]
+  ),
+  outgoing: Motion(
+    duration: 480,
+    ease: .in,
+    keys: [
+      Key(pose: Pose(translateX: -36, translateY: 12, rotate: -6, scale: 0.96), at: 0.45, ease: .in),
+      Key(pose: Pose(translateX: -72, opacity: 0.7), at: 1)
+    ]
+  ),
+  front: .outgoing,
+  switchAt: 240
+)
+
+semantic motion.cardTossBack: PresentationMotion = PresentationMotion(
+  incoming: Motion(
+    duration: 480,
+    ease: .out,
+    keys: [
+      Key(pose: Pose(translateX: -72, opacity: 0.7), at: 0),
+      Key(pose: Pose(translateX: -36, translateY: 12, rotate: -6, scale: 0.96), at: 0.55, ease: .out),
+      Key(pose: .rest, at: 1)
+    ]
+  ),
+  outgoing: Motion(
+    duration: 480,
+    ease: .in,
+    keys: [
+      Key(pose: Pose(translateX: 28, translateY: -18, rotate: -2, scale: 1.02), at: 0.45),
+      Key(pose: Pose(translateX: 390, translateY: 24, rotate: 8, opacity: 0), at: 1, ease: .in)
+    ]
+  ),
+  front: .outgoing,
+  switchAt: 240
+)
+
+component EpisodeRow <PointerInput> emits <ShowEpisode>(
+  episodeId: EpisodeId = .demo,
+  title: String = "Morning Cup",
+  subtitle: String = "12 min"
+) layout {
+  direction = .column
+  gap = 4
+  padding = EdgeInsets(x: 16, y: 14)
+  background = #FFFFFF
+  cornerRadius = 12
+  width = .fill
+
+  let name = Text(content: title, color: #0F172A, fontSize: 16, fontWeight: 600)
+  let meta = Text(content: subtitle, color: #64748B, fontSize: 13)
+  children = [name, meta]
+  self.pressEnd = { emit showEpisode(episodeId) }
+}
+
+component BackButton <PointerInput> emits <AppNav>(
+  label: String = "Back"
+) layout {
+  direction = .row
+  align = .center
+  padding = EdgeInsets(x: 12, y: 8)
+  background = #E2E8F0
+  cornerRadius = 8
+  width = .hug
+  height = .hug
+
+  let text = Text(content: label, color: #0F172A, fontSize: 14, fontWeight: 600)
+  children = [text]
+  self.pressEnd = { emit back() }
+}
+
+page Home() layout {
+  direction = .column
+  gap = 12
+  padding = 20
+  width = .fill
+  height = .fill
+  background = #F8FAFC
+
+  let kicker = Text(content: "N8k — keys", color: #64748B, fontSize: 13, fontWeight: 600)
+  let title = Text(content: "Home", color: #0F172A, fontSize: 28, fontWeight: 700)
+  let hint = Text(content: "Tap a row. Episode tosses in through a mid pose.", color: #475569, fontSize: 14)
+  let row = EpisodeRow(episodeId: .demo, title: "Morning Cup", subtitle: "12 min")
+  let row2 = EpisodeRow(episodeId: .late, title: "Late Night", subtitle: "48 min")
+  children = [kicker, title, hint, row, row2]
+}
+
+page Episode(episodeId: EpisodeId = .demo) layout {
+  direction = .column
+  gap = 12
+  padding = 20
+  width = .fill
+  height = .fill
+  background = #EFF6FF
+
+  let back = BackButton()
+  let kicker = Text(content: "Episode", color: #2563EB, fontSize: 13, fontWeight: 600)
+  let title = Text(content: "Morning Cup", color: #0F172A, fontSize: 28, fontWeight: 700)
+  if episodeId == .late {
+    title.content = "Late Night"
+  }
+  let body = Text(content: "Pushed with keyed PresentationMotion. Back is cardTossBack.", color: #475569, fontSize: 15)
+  children = [back, kicker, title, body]
+}
+
+screen Phone <ShowEpisode, AppNav>() layout {
+  direction = .column
+  gap = 8
+  width = 390
+  height = 760
+  background = #0F172A
+  padding = 12
+  cornerRadius = 28
+
+  let home = Home()
+  let presenter = Presenter(root: home)
+  children = [presenter]
+  showEpisode(id: EpisodeId) = {
+    presenter.push(Episode(episodeId: id), move: motion.cardToss, dismissMove: motion.cardTossBack)
+  }
+  back() = {
+    presenter.pop()
+  }
+}
+
+fixtures Phone {
+  example "Home" { }
+  example "Episode" {
+    presenter = [Home(), Episode(episodeId: .demo)]
+  }
+}

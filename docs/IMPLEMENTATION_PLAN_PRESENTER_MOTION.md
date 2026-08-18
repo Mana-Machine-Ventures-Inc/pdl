@@ -48,13 +48,13 @@ PresentationMotion(
   ease: Ease?,
   delay: Duration?,
   front: Front = .incoming,
-  switchAt: Number?
+  switchAt: Duration?
 )
 ```
 
 - Lexer/keyword `PresentationMotion`
 - AST + parse + evaluate (`kind: "presentationMotion"`)
-- `.reversed` swaps sides and time-reverses `ease` (`.in`↔`.out`; bezier inverts). `delay` stays. Omit `switchAt`: flip `front`. With `switchAt`: keep `front`, invert to `1 − switchAt`.
+- `.reversed` swaps sides and time-reverses `ease` (`.in`↔`.out`; bezier inverts). `delay` stays. Omit `switchAt`: flip `front`. With `switchAt`: keep `front`, invert to `span − switchAt`.
 - `Presenter(root:, move:, dismissMove:)`
 - Verb args: `move:` / `dismissMove:` (ValueExpr). `push(page, move:, dismissMove:)` legal
 - `present` still accepts `style: .cover` (N5). `move:` on `present` is hide-prior pair clip when no cover style — **v1 demo uses `push(..., move:)`** so N5 cover stays untouched
@@ -81,7 +81,7 @@ On `push`/`pop` with a move spec:
 3. Reconcile: **do not drop** outgoing; mount incoming in the same grid cell
 4. Incoming starts at incoming pose; outgoing animates to outgoing pose
 5. Play both WAAPI (per-side duration if Motion slots)
-6. `front: .incoming` → incoming z above; `.outgoing` → outgoing above. Omit `front`: `move` defaults incoming, `dismissMove` defaults outgoing. `switchAt` flips at that progress
+6. `front: .incoming` → incoming z above; `.outgoing` → outgoing above. Omit `front`: `move` defaults incoming, `dismissMove` defaults outgoing. `switchAt` flips at that many milliseconds from play start
 7. On both finished (safety timeout = pair duration + delay + 100ms): remove outgoing, clear overlays
 8. Interrupt: if another nav arrives, cancel and commit/restore (v1: cancel + snap commit)
 
@@ -127,3 +127,4 @@ npm run build:wasm
 - N9 `retainPrior` / `swap` / wipe-`replace` / many retained layers
 - Hole-relative Pose, RTL invert, copy-override
 - Gesture dismiss
+- Motion-in-slot `keys:` on the pair player — [`IMPLEMENTATION_PLAN_PRESENTATION_MOTION_KEYS.md`](./IMPLEMENTATION_PLAN_PRESENTATION_MOTION_KEYS.md)

@@ -131,6 +131,7 @@ Unified `host Name(params) [mount]`, `<Host>` inject, opaque facts bag, `theme` 
 | **M3** | HTML key WAAPI + standing start/stop | Labs: spinner, pulse, sheen child, hover flourish; tests: continuous `rotate: 360` loop, interrupt reverse-from-current, appear-then-standing on shared opacity |
 | **M5** | Clock rename | `Transition` → `Timing`, `Easing` → `Ease`; `transition:` / `easing:` rejected. Checklist in the motion-naming plan |
 | **M4** | Tokens + teaching | After M5. `motion.spin` / `pulse` / `hoverPop` / `shake` in the new names |
+| **N8k** | Keyed pair paths | `PresentationMotion` Motion slots play `keys:` / `Key.ease`. Plan: [`IMPLEMENTATION_PLAN_PRESENTATION_MOTION_KEYS.md`](./IMPLEMENTATION_PLAN_PRESENTATION_MOTION_KEYS.md) |
 
 **Locked (do not re-open in implementation):** `.loop` is forever (`repeat` is finite only); reusable tokens omit `play`; `hoverEnd` reverses from current progress; standing waits for appear `finished`; one standing spec per node (handler `animate` is an event shot).
 

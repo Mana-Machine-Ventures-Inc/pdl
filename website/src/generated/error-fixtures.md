@@ -6,7 +6,7 @@ Oracle `.pdl` files under [`test-fixtures/pdl/errors/`](https://github.com/Mana-
 
 A conforming compiler **MUST** emit the code encoded in the filename (`e007-…` → **PDL-E007**), except where a test documents a different code (language evolution — see [Filename vs observed](#filename-vs-observed)). Diagnostic meanings: [Diagnostics](./diagnostics.md).
 
-**123** current oracles · **2** support files · **5** legacy · **1** valid controls.
+**125** current oracles · **2** support files · **5** legacy · **1** valid controls.
 
 ## Coverage by catalog code
 
@@ -14,11 +14,11 @@ Active `PDL-E` codes from `shared/diagnostics.json`. **Current** counts ignore `
 
 | Code | Name | Current | Legacy | Status |
 |------|------|---------|--------|--------|
-| **PDL-E001** | `unexpected-token` | 19 | 0 | covered |
+| **PDL-E001** | `unexpected-token` | 20 | 0 | covered |
 | **PDL-E002** | `circular-import` | 1 | 0 | covered |
 | **PDL-E003** | `duplicate-symbol` | 3 | 0 | covered |
 | **PDL-E004** | `unknown-token-type` | 1 | 0 | covered |
-| **PDL-E005** | `token-type-mismatch` | 34 | 0 | covered |
+| **PDL-E005** | `token-type-mismatch` | 35 | 0 | covered |
 | **PDL-E006** | `frame-prop-type-mismatch` | 13 | 0 | covered |
 | **PDL-E007** | `unresolved-reference` | 6 | 1 | covered |
 | **PDL-E008** | `unresolved-type-style` | 0 | 0 | **gap** |
@@ -118,6 +118,7 @@ The filename still records the original intent. TypeScript tests assert a **diff
 | [`e001-handler-frame-prop-assign.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-handler-frame-prop-assign.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | handler frame prop assign |
 | [`e001-import-missing.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-import-missing.pdl) | **PDL-E001** | **ENOENT** | `unexpected-token` | io | import missing |
 | [`e001-invalid-hex.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-invalid-hex.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | invalid hex |
+| [`e001-key-easing.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-key-easing.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | key easing |
 | [`e001-leading-zero-number.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-leading-zero-number.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | Leading zero in number literal — lexer error. |
 | [`e001-promote-at.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-promote-at.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | promote at |
 | [`e001-protocol-subject-page.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-protocol-subject-page.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | PDL-E001: protocol subject must be `component`, not `page`. |
@@ -165,6 +166,7 @@ The filename still records the original intent. TypeScript tests assert a **diff
 | [`e005-shadow-string.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-shadow-string.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | PDL-E005 — Shadow tokens must use Shadow(…), not CSS strings |
 | [`e005-size-string.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-size-string.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | PDL-E005 — Size tokens must be numbers |
 | [`e005-sizing-string.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-sizing-string.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | PDL-E005 — Sizing tokens must be sizing literals, not strings |
+| [`e005-switch-at-fraction.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-switch-at-fraction.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | switch at fraction |
 | [`e005-token-null.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-token-null.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | token null |
 | [`e005-unknown-theme.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-unknown-theme.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | catalogue | unknown theme |
 | [`e006-aspect-overconstrained.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e006-aspect-overconstrained.pdl) | **PDL-E006** | **PDL-E006** | `frame-prop-type-mismatch` | load | PDL-E006 — aspectRatio with both width and height closed |

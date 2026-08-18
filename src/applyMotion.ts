@@ -468,6 +468,16 @@ export function playMotionOnElement(
     /* ignore */
   }
   if (mode === "appear" || mode === "dismiss") {
+    if (spec.keys && spec.keys.length) {
+      const frames = poseTrackKeyframes(spec, restOpacity);
+      if (!frames.length) return undefined;
+      return el.animate(frames, {
+        duration: t.duration,
+        easing: t.easing,
+        delay,
+        fill: "both",
+      });
+    }
     const snaps = snapshotsForMode(spec, mode, restOpacity);
     if (!snaps) return undefined;
     return el.animate(motionKeyframes(snaps.from, snaps.to, restOpacity), {
@@ -529,6 +539,19 @@ export function withDismissDefaultFront<T>(raw: T): T {
   return { ...o, front: ".outgoing" } as T;
 }
 
+function startSnapshotForLane(
+  spec: MotionSpec,
+  mode: "appear" | "dismiss",
+): MotionSnapshot | undefined {
+  if (spec.keys && spec.keys.length) {
+    const first = spec.keys[0]!;
+    if (mode === "appear") return snapshotForKeyPose(first.pose, 1);
+    if (first.at <= 0) return snapshotForKeyPose(first.pose, 1);
+    return identitySnapshot(1);
+  }
+  return snapshotsForMode(spec, mode)?.from;
+}
+
 function presentationIncomingIsFront(
   raw: PresentationMotionEval,
   defaultFront: "incoming" | "outgoing" = "incoming",
@@ -575,7 +598,9 @@ function clearPresenterLane(el: Element) {
 
 /**
  * Play a Presenter pair clip. Incoming mounts at pose and eases to rest;
- * outgoing eases to its pose. `front` / `switchAt` set z-order.
+ * outgoing eases to its pose. A Motion slot with `keys:` plays that path
+ * as authored (`Key.ease` is the curve to the next stop). `front` / `switchAt`
+ * set z-order.
  * `dismissMove` should pass `defaultFront: "outgoing"` (or stamp via
  * `withDismissDefaultFront`) so the leaving page stays on top.
  */
@@ -593,8 +618,8 @@ export function playPresentationMotion(
   outgoingEl.classList.add("pdl-presenter__lane");
   applyPresenterLaneFront(incomingEl, incomingFront);
   applyPresenterLaneFront(outgoingEl, !incomingFront);
-  const incomingFrom = snapshotsForMode(incomingSpec, "appear")?.from;
-  const outgoingFrom = snapshotsForMode(outgoingSpec, "dismiss")?.from;
+  const incomingFrom = startSnapshotForLane(incomingSpec, "appear");
+  const outgoingFrom = startSnapshotForLane(outgoingSpec, "dismiss");
   if (incomingFrom) applySnapshotStyle(incomingEl, incomingFrom, 1);
   if (outgoingFrom) applySnapshotStyle(outgoingEl, outgoingFrom, 1);
   const incomingAnim = playMotionOnElement(incomingEl, incomingSpec, "appear", { reduced });
@@ -613,11 +638,11 @@ export function playPresentationMotion(
     clock.delay,
   );
   let promoteTimer: ReturnType<typeof setTimeout> | undefined;
-  if (Number.isFinite(switchAt) && switchAt >= 0 && switchAt <= 1) {
+  if (Number.isFinite(switchAt) && switchAt >= 0) {
     promoteTimer = setTimeout(() => {
       applyPresenterLaneFront(incomingEl, !incomingFront);
       applyPresenterLaneFront(outgoingEl, incomingFront);
-    }, Math.max(0, pairMs * switchAt));
+    }, switchAt);
   }
   let done = false;
   let timeout: ReturnType<typeof setTimeout> | undefined;

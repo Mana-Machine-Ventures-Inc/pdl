@@ -960,6 +960,56 @@ fn reverse_ease(raw: Value) -> Value {
     }
 }
 
+fn clock_ms(duration: Option<f64>, delay: Option<f64>, fallback_duration: f64) -> f64 {
+    let wait = delay.filter(|d| *d > 0.0).unwrap_or(0.0);
+    let dur = duration.filter(|d| *d > 0.0).unwrap_or(fallback_duration);
+    wait + dur
+}
+
+fn object_clock_ms(o: &Map<String, Value>, fallback_duration: f64) -> f64 {
+    clock_ms(
+        o.get("duration").and_then(Value::as_f64),
+        o.get("delay").and_then(Value::as_f64),
+        fallback_duration,
+    )
+}
+
+fn slot_span_ms(slot: Option<&Value>, pair_duration: f64, pair_delay: f64) -> f64 {
+    let Some(Value::Object(o)) = slot else {
+        return pair_delay + pair_duration;
+    };
+    let kind = o.get("kind").and_then(|v| v.as_str());
+    let is_motion = kind == Some("motion")
+        || o.contains_key("timing")
+        || o.contains_key("keys")
+        || (o.contains_key("pose") && kind != Some("pose"));
+    if !is_motion {
+        return pair_delay + pair_duration;
+    }
+    if let Some(Value::Object(t)) = o.get("timing") {
+        return object_clock_ms(t, pair_duration);
+    }
+    object_clock_ms(o, pair_duration)
+}
+
+fn pair_span_ms(o: &Map<String, Value>) -> f64 {
+    let pair_duration = o
+        .get("duration")
+        .and_then(Value::as_f64)
+        .filter(|d| *d > 0.0)
+        .unwrap_or(300.0);
+    let pair_delay = o
+        .get("delay")
+        .and_then(Value::as_f64)
+        .filter(|d| *d > 0.0)
+        .unwrap_or(0.0);
+    slot_span_ms(o.get("incoming"), pair_duration, pair_delay).max(slot_span_ms(
+        o.get("outgoing"),
+        pair_duration,
+        pair_delay,
+    ))
+}
+
 fn reverse_slot_clock(slot: Value) -> Value {
     let Value::Object(mut o) = slot else {
         return slot;
@@ -1015,9 +1065,10 @@ fn reverse_presentation_motion(raw: Value) -> Result<Value, PdlError> {
         o.insert("ease".into(), reverse_ease(e));
     }
     if let Some(p) = o.get("switchAt").and_then(Value::as_f64) {
-        // Side swap remaps who `front` is; invert the wall-clock flip so the
-        // same pages are on top at the start/end of the reversed clip.
-        o.insert("switchAt".into(), number_value(1.0 - p));
+        // Side swap remaps who `front` is; invert against the pair span
+        // (max of each side's delay + duration) so the same pages start/end on top.
+        let inverted = (pair_span_ms(&o) - p).max(0.0);
+        o.insert("switchAt".into(), number_value(inverted));
     } else {
         let front = o
             .get("front")

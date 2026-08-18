@@ -26,7 +26,11 @@ function pageEntry(page) {
     rec.params && typeof rec.params === "object" && !Array.isArray(rec.params)
       ? { .../** @type {Record<string, unknown>} */ (rec.params) }
       : {};
-  return { component, params };
+  /** @type {{ component: string, params: Record<string, unknown>, move?: unknown, dismissMove?: unknown }} */
+  const entry = { component, params };
+  if (rec.move != null) entry.move = rec.move;
+  if (rec.dismissMove != null) entry.dismissMove = rec.dismissMove;
+  return entry;
 }
 
 /**
@@ -64,10 +68,18 @@ export function applyPresenterOps(pins, ops) {
     const page = pageEntry(op.page);
     switch (op.name) {
       case "push":
-        if (page) stack.push(page);
+        if (page) {
+          if (op.move != null) page.move = op.move;
+          if (op.dismissMove != null) page.dismissMove = op.dismissMove;
+          else if (op.move != null) page.dismissMove = op.move;
+          stack.push(page);
+        }
         if (op.move != null) pin.lastMove = op.move;
+        else delete pin.lastMove;
         if (op.dismissMove != null || op.move != null) {
           pin.lastDismissMove = op.dismissMove ?? op.move;
+        } else {
+          delete pin.lastDismissMove;
         }
         break;
       case "pop":
@@ -117,6 +129,17 @@ export function resolvePairMove(ops, pins) {
           : null;
       if (pin && typeof pin === "object" && !Array.isArray(pin)) {
         const rec = /** @type {Record<string, unknown>} */ (pin);
+        const stack = Array.isArray(rec.stack) ? rec.stack : [];
+        const top =
+          stack.length > 1 && stack[stack.length - 1] && typeof stack[stack.length - 1] === "object"
+            ? /** @type {Record<string, unknown>} */ (stack[stack.length - 1])
+            : null;
+        if (top?.dismissMove && typeof top.dismissMove === "object") {
+          return withDismissDefaultFront(top.dismissMove);
+        }
+        if (top?.move && typeof top.move === "object") {
+          return withDismissDefaultFront(top.move);
+        }
         if (rec.lastDismissMove && typeof rec.lastDismissMove === "object") {
           return withDismissDefaultFront(rec.lastDismissMove);
         }
@@ -155,13 +178,32 @@ export function refreshPinnedPairMoves(pinsByOwner, emitCapturesByComponent) {
         }
       }
     }
-    if (!found) continue;
     for (const pin of Object.values(/** @type {Record<string, unknown>} */ (bag))) {
       if (!pin || typeof pin !== "object" || Array.isArray(pin)) continue;
       const rec = /** @type {Record<string, unknown>} */ (pin);
+      const stack = Array.isArray(rec.stack) ? rec.stack : [];
+      if (!found) {
+        delete rec.lastMove;
+        delete rec.lastDismissMove;
+        for (const entry of stack) {
+          if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+          const e = /** @type {Record<string, unknown>} */ (entry);
+          delete e.move;
+          delete e.dismissMove;
+        }
+        continue;
+      }
       if (rec.lastMove != null && found.move != null) rec.lastMove = found.move;
       if (rec.lastDismissMove != null) {
         rec.lastDismissMove = withDismissDefaultFront(found.dismissMove ?? found.move);
+      }
+      for (const entry of stack) {
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+        const e = /** @type {Record<string, unknown>} */ (entry);
+        if (e.move != null && found.move != null) e.move = found.move;
+        if (e.dismissMove != null) {
+          e.dismissMove = withDismissDefaultFront(found.dismissMove ?? found.move);
+        }
       }
     }
   }

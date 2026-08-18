@@ -101,6 +101,42 @@ function reverseEase(raw: unknown): unknown {
   return raw;
 }
 
+function clockMs(duration: unknown, delay: unknown, fallbackDuration: number): number {
+  const d = Number(duration);
+  const wait = Number(delay);
+  return (Number.isFinite(wait) && wait > 0 ? wait : 0) +
+    (Number.isFinite(d) && d > 0 ? d : fallbackDuration);
+}
+
+function slotSpanMs(slot: unknown, pairDuration: number, pairDelay: number): number {
+  if (slot == null || typeof slot !== "object" || Array.isArray(slot)) {
+    return pairDelay + pairDuration;
+  }
+  const o = slot as Record<string, unknown>;
+  const isMotion =
+    o.kind === "motion" ||
+    o.timing != null ||
+    o.keys != null ||
+    (o.pose != null && o.kind !== "pose");
+  if (!isMotion) return pairDelay + pairDuration;
+  const timing =
+    o.timing && typeof o.timing === "object" && !Array.isArray(o.timing)
+      ? (o.timing as Record<string, unknown>)
+      : o;
+  return clockMs(timing.duration, timing.delay, pairDuration);
+}
+
+function pairSpanMs(o: Record<string, unknown>): number {
+  const d = Number(o.duration);
+  const pairDuration = Number.isFinite(d) && d > 0 ? d : 300;
+  const pairDelay = Number(o.delay);
+  const wait = Number.isFinite(pairDelay) && pairDelay > 0 ? pairDelay : 0;
+  return Math.max(
+    slotSpanMs(o.incoming, pairDuration, wait),
+    slotSpanMs(o.outgoing, pairDuration, wait),
+  );
+}
+
 function reverseSlotClock(slot: unknown): unknown {
   if (slot == null || typeof slot !== "object" || Array.isArray(slot)) return slot;
   const o = { ...(slot as Record<string, unknown>) };
@@ -134,9 +170,9 @@ function reversePresentationMotion(raw: unknown): unknown {
   if (o.ease != null) o.ease = reverseEase(o.ease);
   const switchAt = Number(o.switchAt);
   if (Number.isFinite(switchAt)) {
-    // Side swap remaps who `front` is; invert the wall-clock flip so the
-    // same pages are on top at the start/end of the reversed clip.
-    o.switchAt = 1 - switchAt;
+    // Side swap remaps who `front` is; invert against the pair span
+    // (max of each side's delay + duration) so the same pages start/end on top.
+    o.switchAt = Math.max(0, pairSpanMs(o) - switchAt);
   } else {
     const front = String(o.front ?? "incoming").replace(/^\./, "");
     o.front = front === "outgoing" ? ".incoming" : ".outgoing";

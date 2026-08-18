@@ -2349,7 +2349,7 @@ export class Parser {
       throw this.err("`PresentationMotion` requires `incoming:` and `outgoing:`");
     }
     if ("promoteAt" in args) {
-      throw this.err("Write `switchAt:` (0…1), not `promoteAt:`");
+      throw this.err("Write `switchAt:` (milliseconds), not `promoteAt:`");
     }
     const allowed = new Set(["incoming", "outgoing", "duration", "ease", "delay", "front", "switchAt"]);
     const unknown = Object.keys(args).filter((k) => !allowed.has(k));

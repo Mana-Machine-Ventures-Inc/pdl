@@ -208,4 +208,77 @@ describe("n8 Phone pair slide", () => {
       front: ".outgoing",
     });
   });
+
+  it("refreshPinnedPairMoves drops dead lastDismissMove when the verb has no clip", () => {
+    const pins = {
+      Phone: {
+        presenter: {
+          stack: [
+            { component: "Home", params: {} },
+            {
+              component: "Episode",
+              params: {},
+              dismissMove: { kind: "presentationMotion", duration: 480 },
+            },
+          ],
+          lastDismissMove: { kind: "presentationMotion", duration: 480 },
+        },
+      },
+    };
+    refreshPinnedPairMoves(pins, {
+      Phone: [
+        {
+          channel: "showEpisode",
+          body: [{ kind: "presenterVerb", name: "push" }],
+        },
+      ],
+    });
+    expect(pins.Phone.presenter.lastDismissMove).toBeUndefined();
+    expect(pins.Phone.presenter.stack[1]?.dismissMove).toBeUndefined();
+    expect(resolvePairMove([{ qualifier: "presenter", name: "pop" }], pins.Phone)).toBeNull();
+  });
+
+  it("push without move clears pin clips; pop uses the outgoing entry", () => {
+    const tossed = applyPresenterOps(
+      { presenter: { stack: [{ component: "Home", params: {} }] } },
+      [
+        {
+          qualifier: "presenter",
+          name: "push",
+          page: { component: "Episode", params: {} },
+          move: { kind: "presentationMotion", duration: 480 },
+          dismissMove: { kind: "presentationMotion", duration: 400 },
+        },
+      ],
+    ) as {
+      presenter: {
+        stack: Array<{ component: string; dismissMove?: { duration?: number } }>;
+        lastDismissMove?: { duration?: number };
+      };
+    };
+    expect(tossed.presenter.stack[1]?.dismissMove?.duration).toBe(400);
+    expect(tossed.presenter.lastDismissMove?.duration).toBe(400);
+
+    const snapped = applyPresenterOps(tossed, [
+      {
+        qualifier: "presenter",
+        name: "push",
+        page: { component: "Settings", params: {} },
+      },
+    ]) as typeof tossed;
+    expect(snapped.presenter.lastDismissMove).toBeUndefined();
+    expect(snapped.presenter.stack[1]?.dismissMove?.duration).toBe(400);
+    expect(snapped.presenter.stack[2]?.dismissMove).toBeUndefined();
+    expect(resolvePairMove([{ qualifier: "presenter", name: "pop" }], snapped)).toBeNull();
+
+    const afterSettings = applyPresenterOps(snapped, [
+      { qualifier: "presenter", name: "pop" },
+    ]) as typeof tossed;
+    const back = resolvePairMove([{ qualifier: "presenter", name: "pop" }], afterSettings) as {
+      duration?: number;
+      front?: string;
+    };
+    expect(back.duration).toBe(400);
+    expect(back.front).toBe(".outgoing");
+  });
 });
