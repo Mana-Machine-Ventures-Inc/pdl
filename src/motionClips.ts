@@ -39,12 +39,18 @@ export function motionClipLabel(event: string): string {
 export function handlerHasMotionClip(handler: unknown): boolean {
   if (!handler || typeof handler !== "object") return false;
   const h = handler as {
+    animation?: Record<string, unknown>;
     motion?: Record<string, unknown>;
     body?: Array<{ kind?: string }>;
   };
+  const a = h.animation;
+  if (a && typeof a === "object") {
+    if (Array.isArray(a.keys) && a.keys.length) return true;
+    if (a.start != null || a.stagger != null || a.repeat != null) return true;
+  }
   const m = h.motion;
   if (m && typeof m === "object") {
-    if (m.pose || m.from || m.to || m.transition || m.stagger != null) return true;
+    if (m.pose || m.from || m.to || m.transition || m.stagger != null || Array.isArray(m.keys)) return true;
   }
   return Array.isArray(h.body) && h.body.some((it) => it != null && it.kind === "animate");
 }
@@ -61,11 +67,16 @@ export function catalogueDeclsHaveMotionClips(decls: unknown): boolean {
 }
 
 function clipKind(handler: unknown): MotionClipKind {
+  const a =
+    handler && typeof handler === "object"
+      ? (handler as { animation?: Record<string, unknown>; motion?: Record<string, unknown> }).animation
+      : undefined;
+  if (a && (a.start != null || (Array.isArray(a.keys) && a.keys.length))) return "pose";
   const m =
     handler && typeof handler === "object"
       ? (handler as { motion?: Record<string, unknown> }).motion
       : undefined;
-  if (m && (m.pose || m.from || m.to)) return "pose";
+  if (m && (m.pose || m.from || m.to || (Array.isArray(m.keys) && m.keys.length))) return "pose";
   return "tween";
 }
 

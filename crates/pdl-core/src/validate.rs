@@ -1204,15 +1204,60 @@ fn validate_fixtures_for_component(
     Ok(())
 }
 
-fn play_name(value: &ValueExpr) -> Option<&str> {
-    match value {
-        ValueExpr::DotEnum { value } => Some(value.trim_start_matches('.')),
-        _ => None,
-    }
-}
-
 fn presentation_motion_ident_name(name: &str) -> &str {
     name.strip_suffix(".reversed").unwrap_or(name)
+}
+
+fn validate_presentation_slot(
+    design: &DesignDefinition,
+    value: &ValueExpr,
+    side: &str,
+    component_name: &str,
+) -> Result<(), PdlError> {
+    match value {
+        ValueExpr::Animation { .. } => {
+            validate_animate_animation(design, value, component_name, "")
+        }
+        ValueExpr::Pose { .. } => validate_pose_value(design, value, component_name),
+        ValueExpr::Ident { name } => match token_type_of(design, name).as_deref() {
+            Some("Animation") | Some("Pose") => Ok(()),
+            Some(t) => Err(err(
+                "PDL-E005",
+                format!(
+                    "PresentationMotion `{side}:` must be Animation or Pose (got {t}) in {component_name}"
+                ),
+                design,
+            )),
+            None => Err(err(
+                "PDL-E005",
+                format!(
+                    "PresentationMotion `{side}:` must be Animation or Pose in {component_name} (unknown `{name}`)"
+                ),
+                design,
+            )),
+        },
+        ValueExpr::Motion { .. } => Err(err(
+            "PDL-E005",
+            format!(
+                "PresentationMotion `{side}:` must be Animation or Pose — Motion is a segment inside Animation.keys in {component_name}"
+            ),
+            design,
+        )),
+        ValueExpr::Timing { .. } => Err(err(
+            "PDL-E005",
+            format!(
+                "PresentationMotion `{side}:` must be Animation or Pose — Timing is not a slot value in {component_name}"
+            ),
+            design,
+        )),
+        _ => Err(err(
+            "PDL-E005",
+            format!(
+                "PresentationMotion `{side}:` must be Animation(…) or Pose(…) in {component_name}"
+            ),
+            design,
+        )),
+    }
 }
 
 fn validate_presentation_motion_value(
@@ -1222,7 +1267,18 @@ fn validate_presentation_motion_value(
     component_name: &str,
 ) -> Result<(), PdlError> {
     match value {
-        ValueExpr::PresentationMotion { switch_at, .. } => {
+        ValueExpr::PresentationMotion {
+            incoming,
+            outgoing,
+            ease,
+            switch_at,
+            ..
+        } => {
+            validate_presentation_slot(design, incoming, "incoming", component_name)?;
+            validate_presentation_slot(design, outgoing, "outgoing", component_name)?;
+            if let Some(e) = ease {
+                validate_ease_value(design, e, &format!("{where_} ease"))?;
+            }
             if let Some(p) = switch_at {
                 validate_switch_at_ms(design, p, &format!("{where_} switchAt"))?;
             }
@@ -1411,16 +1467,17 @@ fn validate_pose_value(
     component_name: &str,
 ) -> Result<(), PdlError> {
     match value {
+        ValueExpr::DotEnum { value } if value.trim_start_matches('.') == "rest" => Ok(()),
         ValueExpr::Ident { name } => match token_type_of(design, name).as_deref() {
             Some("Pose") => Ok(()),
             Some(t) => Err(err(
                 "PDL-E005",
-                format!("Motion `pose:` must be a Pose (got {t}) in {component_name}"),
+                format!("`pose:` must be a Pose (got {t}) in {component_name}"),
                 design,
             )),
             None => Err(err(
                 "PDL-E005",
-                format!("Motion `pose:` must be a Pose (unknown `{name}`) in {component_name}"),
+                format!("`pose:` must be a Pose (unknown `{name}`) in {component_name}"),
                 design,
             )),
         },
@@ -1457,7 +1514,7 @@ fn validate_pose_value(
         }
         _ => Err(err(
             "PDL-E005",
-            format!("Motion `pose:` must be `Pose(…)` or a Pose token in {component_name}"),
+            format!("`pose:` must be `Pose(…)`, a Pose token, or `.rest` in {component_name}"),
             design,
         )),
     }
@@ -1473,13 +1530,13 @@ fn validate_stagger_value(
             Some("Stagger") => Ok(()),
             Some(t) => Err(err(
                 "PDL-E005",
-                format!("Motion `stagger:` must be a Stagger (got {t}) in {component_name}"),
+                format!("Animation `stagger:` must be a Stagger (got {t}) in {component_name}"),
                 design,
             )),
             None => Err(err(
                 "PDL-E005",
                 format!(
-                    "Motion `stagger:` must be a Stagger (unknown `{name}`) in {component_name}"
+                    "Animation `stagger:` must be a Stagger (unknown `{name}`) in {component_name}"
                 ),
                 design,
             )),
@@ -1508,14 +1565,43 @@ fn validate_stagger_value(
         _ => Err(err(
             "PDL-E005",
             format!(
-                "Motion `stagger:` must be `Stagger(…)` or a Stagger token in {component_name}"
+                "Animation `stagger:` must be `Stagger(…)` or a Stagger token in {component_name}"
             ),
             design,
         )),
     }
 }
 
-fn validate_keys_value(
+fn validate_motion_segment(
+    design: &DesignDefinition,
+    value: &ValueExpr,
+    component_name: &str,
+) -> Result<(), PdlError> {
+    let ValueExpr::Motion { timing, pose } = value else {
+        return Err(err(
+            "PDL-E005",
+            format!("Animation `keys:` entries must be `Motion(…)` in {component_name}"),
+            design,
+        ));
+    };
+    match timing {
+        Some(t) => validate_transition_value(
+            design,
+            t,
+            &format!("Motion `timing:` in {component_name}"),
+        )?,
+        None => {
+            return Err(err(
+                "PDL-E005",
+                format!("Motion requires `timing:` / `duration:`+`ease:` in {component_name}"),
+                design,
+            ));
+        }
+    }
+    validate_pose_value(design, pose, component_name)
+}
+
+fn validate_animation_keys(
     design: &DesignDefinition,
     value: &ValueExpr,
     component_name: &str,
@@ -1523,73 +1609,65 @@ fn validate_keys_value(
     let ValueExpr::Array { items } = value else {
         return Err(err(
             "PDL-E005",
-            format!("Motion `keys:` must be a non-empty list of Key in {component_name}"),
+            format!("Animation `keys:` must be a non-empty list of Motion in {component_name}"),
             design,
         ));
     };
     if items.is_empty() {
         return Err(err(
             "PDL-E005",
-            format!("Motion `keys:` must be a non-empty list of Key in {component_name}"),
+            format!("Animation `keys:` must be a non-empty list of Motion in {component_name}"),
             design,
         ));
     }
     for item in items {
-        let ValueExpr::Key { pose, at, ease } = item else {
-            return Err(err(
-                "PDL-E005",
-                format!("Motion `keys:` entries must be `Key(…)` in {component_name}"),
-                design,
-            ));
-        };
-        let rest = matches!(
-            pose.as_ref(),
-            ValueExpr::DotEnum { value } if value.trim_start_matches('.') == "rest"
-        );
-        if !rest {
-            validate_pose_value(design, pose, component_name)?;
-        }
-        if let ValueExpr::Number { value } = at.as_ref() {
-            if *value < 0.0 || *value > 1.0 {
-                return Err(err(
-                    "PDL-E005",
-                    format!("Key `at:` must be 0…1 (got {value}) in {component_name}"),
-                    design,
-                ));
-            }
-        }
-        if let Some(e) = ease {
-            validate_ease_value(design, e, &format!("Key `ease:` in {component_name}"))?;
-        }
+        validate_motion_segment(design, item, component_name)?;
     }
     Ok(())
 }
 
-fn motion_field_is_pose(design: &DesignDefinition, value: &ValueExpr) -> bool {
+fn validate_animation_repeat(
+    design: &DesignDefinition,
+    value: &ValueExpr,
+    component_name: &str,
+) -> Result<(), PdlError> {
     match value {
-        ValueExpr::Pose { .. } => true,
-        ValueExpr::Ident { name } => token_type_of(design, name).as_deref() == Some("Pose"),
-        _ => false,
+        ValueExpr::DotEnum { value } if value.trim_start_matches('.') == "forever" => Ok(()),
+        ValueExpr::Number { value } if value.fract() == 0.0 && *value >= 1.0 => Ok(()),
+        ValueExpr::Ident { .. } => Ok(()),
+        ValueExpr::Number { value } => Err(err(
+            "PDL-E005",
+            format!(
+                "Animation `repeat:` must be an integer ≥ 1 or `.forever` (got {value}) in {component_name}"
+            ),
+            design,
+        )),
+        // Reject e.g. arrays / accidental dual values; forever is exclusive of a finite count.
+        ValueExpr::Array { .. } => Err(err(
+            "PDL-E005",
+            format!(
+                "Animation `repeat:` must be a single integer ≥ 1 or `.forever` (not both) in {component_name}"
+            ),
+            design,
+        )),
+        _ => Err(err(
+            "PDL-E005",
+            format!(
+                "Animation `repeat:` must be an integer ≥ 1 or `.forever` in {component_name}"
+            ),
+            design,
+        )),
     }
 }
 
-fn motion_field_is_stagger(design: &DesignDefinition, value: &ValueExpr) -> bool {
-    match value {
-        ValueExpr::Stagger { .. } => true,
-        ValueExpr::Ident { name } => token_type_of(design, name).as_deref() == Some("Stagger"),
-        _ => false,
-    }
-}
-
-struct MotionFields<'a> {
-    pose: Option<&'a ValueExpr>,
+struct AnimationFields<'a> {
     keys: Option<&'a ValueExpr>,
-    play: Option<&'a ValueExpr>,
+    start: Option<&'a ValueExpr>,
     repeat: Option<&'a ValueExpr>,
     stagger: Option<&'a ValueExpr>,
 }
 
-fn motion_token_value<'a>(design: &'a DesignDefinition, name: &str) -> Option<&'a ValueExpr> {
+fn animation_token_value<'a>(design: &'a DesignDefinition, name: &str) -> Option<&'a ValueExpr> {
     design
         .semantics
         .get(name)
@@ -1597,221 +1675,181 @@ fn motion_token_value<'a>(design: &'a DesignDefinition, name: &str) -> Option<&'
         .or_else(|| design.primitives.get(name).map(|p| &p.value))
 }
 
-fn flatten_motion_fields<'a>(
+fn flatten_animation_fields<'a>(
     design: &'a DesignDefinition,
     value: &'a ValueExpr,
     depth: u8,
-) -> MotionFields<'a> {
+) -> AnimationFields<'a> {
     if depth > 8 {
-        return MotionFields {
-            pose: None,
+        return AnimationFields {
             keys: None,
-            play: None,
+            start: None,
             repeat: None,
             stagger: None,
         };
     }
     match value {
-        ValueExpr::Ident { name } => motion_token_value(design, name)
-            .map(|inner| flatten_motion_fields(design, inner, depth + 1))
-            .unwrap_or(MotionFields {
-                pose: None,
+        ValueExpr::Ident { name } => animation_token_value(design, name)
+            .map(|inner| flatten_animation_fields(design, inner, depth + 1))
+            .unwrap_or(AnimationFields {
                 keys: None,
-                play: None,
+                start: None,
                 repeat: None,
                 stagger: None,
             }),
-        ValueExpr::Motion {
+        ValueExpr::Animation {
             base,
-            pose,
+            start,
             keys,
-            play,
-            repeat,
             stagger,
-            ..
+            repeat,
         } => {
             let from_base = base
                 .as_ref()
-                .map(|b| flatten_motion_fields(design, b, depth + 1));
-            MotionFields {
-                pose: pose.as_deref().or(from_base.as_ref().and_then(|b| b.pose)),
-                keys: keys.as_deref().or(from_base.as_ref().and_then(|b| b.keys)),
-                play: play.as_deref().or(from_base.as_ref().and_then(|b| b.play)),
-                repeat: repeat
+                .map(|b| flatten_animation_fields(design, b, depth + 1));
+            AnimationFields {
+                start: start
                     .as_deref()
-                    .or(from_base.as_ref().and_then(|b| b.repeat)),
+                    .or(from_base.as_ref().and_then(|b| b.start)),
+                keys: keys.as_deref().or(from_base.as_ref().and_then(|b| b.keys)),
                 stagger: stagger
                     .as_deref()
                     .or(from_base.as_ref().and_then(|b| b.stagger)),
+                repeat: repeat
+                    .as_deref()
+                    .or(from_base.as_ref().and_then(|b| b.repeat)),
             }
         }
-        _ => MotionFields {
-            pose: None,
+        _ => AnimationFields {
             keys: None,
-            play: None,
+            start: None,
             repeat: None,
             stagger: None,
         },
     }
 }
 
-fn validate_motion_base(
+fn validate_animation_base(
     design: &DesignDefinition,
     base: &ValueExpr,
     component_name: &str,
 ) -> Result<(), PdlError> {
     match base {
         ValueExpr::Ident { name } => match token_type_of(design, name).as_deref() {
-            Some("Motion") => Ok(()),
+            Some("Animation") => Ok(()),
             Some(t) => Err(err(
                 "PDL-E005",
-                format!("Motion copy base must be a Motion token (got {t}) in {component_name}"),
+                format!(
+                    "Animation copy base must be an Animation token (got {t}) in {component_name}"
+                ),
                 design,
             )),
             None => Err(err(
                 "PDL-E005",
                 format!(
-                    "Motion copy base must be a Motion token in {component_name} (unknown `{name}`)"
+                    "Animation copy base must be an Animation token in {component_name} (unknown `{name}`)"
                 ),
                 design,
             )),
         },
-        ValueExpr::Motion { .. } => validate_animate_motion(design, base, component_name, ""),
+        ValueExpr::Animation { .. } => validate_animate_animation(design, base, component_name, ""),
         _ => Err(err(
             "PDL-E005",
-            format!("Motion copy base must be a Motion token in {component_name}"),
+            format!("Animation copy base must be an Animation token in {component_name}"),
             design,
         )),
     }
 }
 
-fn validate_animate_motion(
+fn validate_animate_animation(
     design: &DesignDefinition,
     value: &ValueExpr,
     component_name: &str,
     _event: &str,
 ) -> Result<(), PdlError> {
     match value {
-        ValueExpr::Timing { ease, .. } => {
-            validate_ease_value(design, ease, &format!("`animate =` Timing in {component_name}"))
-        }
         ValueExpr::Ident { name } => match token_type_of(design, name).as_deref() {
-            Some("Timing") | Some("Motion") => Ok(()),
+            Some("Animation") => Ok(()),
+            Some("Motion") => Err(err(
+                "PDL-E005",
+                format!(
+                    "`animate =` must be an Animation — Motion is a segment inside Animation.keys in {component_name}"
+                ),
+                design,
+            )),
+            Some("Timing") => Err(err(
+                "PDL-E005",
+                format!(
+                    "`animate =` must be an Animation — Timing is not animate sugar in {component_name}"
+                ),
+                design,
+            )),
             Some(t) => Err(err(
                 "PDL-E005",
-                format!("`animate =` must be a Motion or Timing (got {t}) in {component_name}"),
+                format!("`animate =` must be an Animation (got {t}) in {component_name}"),
                 design,
             )),
             None => Err(err(
                 "PDL-E005",
                 format!(
-                    "`animate =` must be a Motion or Timing in {component_name} (unknown `{name}`)"
+                    "`animate =` must be an Animation in {component_name} (unknown `{name}`)"
                 ),
                 design,
             )),
         },
-        ValueExpr::Motion {
+        ValueExpr::Motion { .. } => Err(err(
+            "PDL-E005",
+            format!(
+                "`animate =` must be `Animation(…)` — Motion is a segment inside Animation.keys in {component_name}"
+            ),
+            design,
+        )),
+        ValueExpr::Timing { .. } => Err(err(
+            "PDL-E005",
+            format!(
+                "`animate =` must be `Animation(…)` — Timing is not animate sugar in {component_name}"
+            ),
+            design,
+        )),
+        ValueExpr::Animation {
             base,
-            timing,
-            pose,
+            start,
             keys,
-            play,
-            repeat,
             stagger,
+            repeat,
         } => {
             if let Some(b) = base {
-                validate_motion_base(design, b, component_name)?;
+                validate_animation_base(design, b, component_name)?;
             }
-            if let Some(t) = timing {
-                validate_transition_value(
-                    design,
-                    t,
-                    &format!("Motion `timing:` in {component_name}"),
-                )?;
+            if let Some(s) = start {
+                let rest = matches!(
+                    s.as_ref(),
+                    ValueExpr::DotEnum { value } if value.trim_start_matches('.') == "rest"
+                );
+                if !rest {
+                    validate_pose_value(design, s, component_name)?;
+                }
+            }
+            if let Some(k) = keys {
+                validate_animation_keys(design, k, component_name)?;
             } else if base.is_none() {
                 return Err(err(
                     "PDL-E005",
-                    format!("Motion requires `timing:` in {component_name}"),
+                    format!("Animation requires `keys:` in {component_name}"),
                     design,
                 ));
-            }
-            if let Some(p) = pose {
-                validate_pose_value(design, p, component_name)?;
-            }
-            if let Some(k) = keys {
-                validate_keys_value(design, k, component_name)?;
-            }
-            if let Some(p) = play {
-                let name = play_name(p);
-                if name != Some("toRest") && name != Some("toPose") && name != Some("loop") {
-                    return Err(err(
-                        "PDL-E005",
-                        format!(
-                            "Motion `play:` must be `.toRest`, `.toPose`, or `.loop` in {component_name}"
-                        ),
-                        design,
-                    ));
-                }
-            }
-            if let Some(r) = repeat {
-                match r.as_ref() {
-                    ValueExpr::Number { value } if value.fract() == 0.0 && *value >= 1.0 => {}
-                    ValueExpr::Ident { .. } => {}
-                    ValueExpr::Number { value } => {
-                        return Err(err(
-                            "PDL-E005",
-                            format!(
-                                "Motion `repeat:` must be an integer ≥ 1 (got {value}) in {component_name}"
-                            ),
-                            design,
-                        ));
-                    }
-                    _ => {
-                        return Err(err(
-                            "PDL-E005",
-                            format!("Motion `repeat:` must be a finite count in {component_name}"),
-                            design,
-                        ));
-                    }
-                }
             }
             if let Some(s) = stagger {
                 validate_stagger_value(design, s, component_name)?;
             }
-            let flat = flatten_motion_fields(design, value, 0);
-            let has_pose = flat.pose.is_some_and(|p| motion_field_is_pose(design, p));
-            let has_keys = flat.keys.is_some();
-            let has_path = has_pose || has_keys;
-            let has_stagger = flat
-                .stagger
-                .is_some_and(|s| motion_field_is_stagger(design, s));
-            if has_pose && has_keys {
-                return Err(err(
-                    "PDL-E005",
-                    format!("Motion cannot take both `pose:` and `keys:` in {component_name}"),
-                    design,
-                ));
+            if let Some(r) = repeat {
+                validate_animation_repeat(design, r, component_name)?;
             }
-            if has_stagger && !has_path {
+            let flat = flatten_animation_fields(design, value, 0);
+            if flat.keys.is_none() && base.is_none() {
                 return Err(err(
                     "PDL-E005",
-                    format!("Motion `stagger:` requires `pose:` or `keys:` in {component_name}"),
-                    design,
-                ));
-            }
-            if flat.play.and_then(play_name) == Some("loop") && flat.repeat.is_some() {
-                return Err(err(
-                    "PDL-E005",
-                    format!(
-                        "Motion `play: .loop` is forever — do not set `repeat:` in {component_name}"
-                    ),
-                    design,
-                ));
-            }
-            if flat.repeat.is_some() && !has_path {
-                return Err(err(
-                    "PDL-E005",
-                    format!("Motion `repeat:` requires `pose:` or `keys:` in {component_name}"),
+                    format!("Animation requires `keys:` in {component_name}"),
                     design,
                 ));
             }
@@ -1819,9 +1857,7 @@ fn validate_animate_motion(
         }
         _ => Err(err(
             "PDL-E005",
-            format!(
-                "`animate =` must be `Motion(…)` or a Transition token/tuple in {component_name}"
-            ),
+            format!("`animate =` must be `Animation(…)` or an Animation token in {component_name}"),
             design,
         )),
     }
@@ -1884,7 +1920,7 @@ fn validate_frame_animate_in_body(
             FrameBodyItem::Prop { name, value } | FrameBodyItem::FrameProp { name, value, .. }
                 if name == "animate" =>
             {
-                validate_animate_motion(design, value, component_name, "frame")?;
+                validate_animate_animation(design, value, component_name, "frame")?;
             }
             FrameBodyItem::Let { body, .. } | FrameBodyItem::ForEach { body, .. } => {
                 validate_frame_animate_in_body(design, body, component_name)?;
@@ -1907,6 +1943,7 @@ fn validate_interaction_body(
     design: &DesignDefinition,
     items: &[InteractionHandlerItem],
     param_by_name: &HashMap<String, String>,
+    frame_ids: &HashSet<String>,
     component_name: &str,
     event: &str,
 ) -> Result<(), PdlError> {
@@ -1924,8 +1961,19 @@ fn validate_interaction_body(
                     ));
                 }
             }
-            InteractionHandlerItem::Animate { value } => {
-                validate_animate_motion(design, value, component_name, event)?;
+            InteractionHandlerItem::Animate { target, value } => {
+                if let Some(id) = target {
+                    if !frame_ids.contains(id) {
+                        return Err(err(
+                            "PDL-E007",
+                            format!(
+                                "Unknown let `{id}` in `{id}.animate = …` (component {component_name})"
+                            ),
+                            design,
+                        ));
+                    }
+                }
+                validate_animate_animation(design, value, component_name, event)?;
             }
             InteractionHandlerItem::HostVerb {
                 qualifier,
@@ -1948,6 +1996,7 @@ fn validate_interaction_body(
                         design,
                         &br.body,
                         param_by_name,
+                        frame_ids,
                         component_name,
                         event,
                     )?;
@@ -1957,6 +2006,7 @@ fn validate_interaction_body(
                         design,
                         else_body,
                         param_by_name,
+                        frame_ids,
                         component_name,
                         event,
                     )?;
@@ -2193,6 +2243,8 @@ fn validate_interactions_for_component(
     };
     let c = design.components.get(component_name).unwrap();
     let param_by_name = param_by_name_map(design, c)?;
+    let mut frame_ids = HashSet::new();
+    collect_unique_frame_ids_from_body(&c.body, &mut frame_ids, component_name, design)?;
     for decl in m.values() {
         for h in &decl.handlers {
             if !ambient_event(&h.event) {
@@ -2205,7 +2257,14 @@ fn validate_interactions_for_component(
                     design,
                 ));
             }
-            validate_interaction_body(design, &h.body, &param_by_name, component_name, &h.event)?;
+            validate_interaction_body(
+                design,
+                &h.body,
+                &param_by_name,
+                &frame_ids,
+                component_name,
+                &h.event,
+            )?;
         }
     }
     validate_host_protocol_coverage(design, component_name)?;
@@ -2363,43 +2422,61 @@ fn validate_opacity_sides(design: &DesignDefinition, expr: &ValueExpr) -> Result
             }
             Ok(())
         }
-        ValueExpr::Key { pose, at, ease } => {
-            validate_opacity_sides(design, pose)?;
-            validate_opacity_sides(design, at)?;
-            if let Some(e) = ease {
-                validate_opacity_sides(design, e)?;
+        ValueExpr::Motion { timing, pose } => {
+            if let Some(t) = timing {
+                validate_opacity_sides(design, t)?;
             }
-            Ok(())
+            validate_opacity_sides(design, pose)
         }
-        ValueExpr::Motion {
+        ValueExpr::Animation {
             base,
-            timing,
-            pose,
+            start,
             keys,
-            play,
-            repeat,
             stagger,
+            repeat,
         } => {
             if let Some(b) = base {
                 validate_opacity_sides(design, b)?;
             }
-            if let Some(t) = timing {
-                validate_opacity_sides(design, t)?;
-            }
-            if let Some(p) = pose {
-                validate_opacity_sides(design, p)?;
+            if let Some(s) = start {
+                validate_opacity_sides(design, s)?;
             }
             if let Some(k) = keys {
                 validate_opacity_sides(design, k)?;
             }
-            if let Some(p) = play {
-                validate_opacity_sides(design, p)?;
+            if let Some(s) = stagger {
+                validate_opacity_sides(design, s)?;
             }
             if let Some(r) = repeat {
                 validate_opacity_sides(design, r)?;
             }
-            if let Some(s) = stagger {
-                validate_opacity_sides(design, s)?;
+            Ok(())
+        }
+        ValueExpr::PresentationMotion {
+            incoming,
+            outgoing,
+            duration,
+            ease,
+            delay,
+            front,
+            switch_at,
+        } => {
+            validate_opacity_sides(design, incoming)?;
+            validate_opacity_sides(design, outgoing)?;
+            if let Some(d) = duration {
+                validate_opacity_sides(design, d)?;
+            }
+            if let Some(e) = ease {
+                validate_opacity_sides(design, e)?;
+            }
+            if let Some(d) = delay {
+                validate_opacity_sides(design, d)?;
+            }
+            if let Some(f) = front {
+                validate_opacity_sides(design, f)?;
+            }
+            if let Some(p) = switch_at {
+                validate_opacity_sides(design, p)?;
             }
             Ok(())
         }
@@ -2464,8 +2541,9 @@ fn token_rhs_expectation(token_type: &str) -> &'static str {
         "Timing" => "`Timing(duration:, ease: [, delay:])`",
         "Pose" => "`Pose(opacity:, scale:, …)`",
         "Stagger" => "`Stagger(step: … [, from: .first|.last])`",
-        "Motion" => {
-            "`Motion(timing: … [, play:] [, pose:] [, keys:] [, stagger:] [, repeat:])`, `Motion(token, field:)`, or a Timing"
+        "Motion" => "`Motion(duration:, ease: [, delay:] | timing:, pose:)` — segment inside Animation.keys",
+        "Animation" => {
+            "`Animation([base,] start?, keys: [Motion…], stagger?, repeat?)` — type of `animate =`"
         }
         "PresentationMotion" => {
             "`PresentationMotion(incoming:, outgoing: [, duration:] [, ease:] [, delay:] [, front:] [, switchAt:])`"
@@ -2512,8 +2590,8 @@ fn value_expr_kind_name(value: &ValueExpr) -> &'static str {
         ValueExpr::Timing { .. } => "timing",
         ValueExpr::Pose { .. } => "pose",
         ValueExpr::Stagger { .. } => "stagger",
-        ValueExpr::Key { .. } => "key",
         ValueExpr::Motion { .. } => "motion",
+        ValueExpr::Animation { .. } => "animation",
         ValueExpr::Effect { .. } => "effect",
         ValueExpr::VibrancyTuple { .. } => "vibrancyTuple",
         ValueExpr::RampInline { .. } => "rampInline",
@@ -2903,10 +2981,8 @@ fn assert_token_rhs_compatible(
         "Timing" => matches!(value, ValueExpr::Timing { .. }),
         "Pose" => matches!(value, ValueExpr::Pose { .. }),
         "Stagger" => matches!(value, ValueExpr::Stagger { .. }),
-        "Motion" => matches!(
-            value,
-            ValueExpr::Motion { .. } | ValueExpr::Timing { .. }
-        ),
+        "Motion" => matches!(value, ValueExpr::Motion { .. }),
+        "Animation" => matches!(value, ValueExpr::Animation { .. }),
         "PresentationMotion" => matches!(value, ValueExpr::PresentationMotion { .. }),
         "Effect" => matches!(
             value,
@@ -3013,10 +3089,12 @@ fn assert_token_rhs_compatible(
     }
     if token_type == "Motion" {
         if let ValueExpr::Motion { .. } = value {
-            validate_animate_motion(design, value, name, "")?;
+            validate_motion_segment(design, value, name)?;
         }
-        if let ValueExpr::Timing { ease, .. } = value {
-            validate_ease_value(design, ease, &format!("Token `{name}`"))?;
+    }
+    if token_type == "Animation" {
+        if let ValueExpr::Animation { .. } = value {
+            validate_animate_animation(design, value, name, "")?;
         }
     }
     if token_type == "Timing" {
@@ -3025,18 +3103,8 @@ fn assert_token_rhs_compatible(
         }
     }
     if token_type == "PresentationMotion" {
-        if let ValueExpr::PresentationMotion {
-            ease,
-            switch_at,
-            ..
-        } = value
-        {
-            if let Some(e) = ease {
-                validate_ease_value(design, e, &format!("Token `{name}` ease"))?;
-            }
-            if let Some(p) = switch_at {
-                validate_switch_at_ms(design, p, &format!("Token `{name}` switchAt"))?;
-            }
+        if let ValueExpr::PresentationMotion { .. } = value {
+            validate_presentation_motion_value(design, value, &format!("Token `{name}`"), name)?;
         }
     }
     if token_type == "Effect" {

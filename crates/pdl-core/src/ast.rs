@@ -179,22 +179,20 @@ pub enum ValueExpr {
         step: Box<ValueExpr>,
         from: Option<Box<ValueExpr>>,
     },
-    /// `Key(pose: Pose | .rest, at: [, ease:])`.
-    Key {
-        pose: Box<ValueExpr>,
-        at: Box<ValueExpr>,
-        ease: Option<Box<ValueExpr>>,
-    },
-    /// `Motion(timing: | duration:/ease:/delay: [, play:] [, pose:] [, keys:] [, stagger:] [, repeat:])`.
+    /// Segment: `Motion(duration:, ease: [, delay:] | timing:, pose:)`. Not an `animate =` value.
     Motion {
-        /// Positional copy source: `Motion(motion.hoverPop, play: .toRest)`.
-        base: Option<Box<ValueExpr>>,
         timing: Option<Box<ValueExpr>>,
-        pose: Option<Box<ValueExpr>>,
+        pose: Box<ValueExpr>,
+    },
+    /// Clip: `Animation([base,] start?, keys?, stagger?, repeat?)`. Type of `animate =`.
+    /// `keys` required when `base` is absent.
+    Animation {
+        /// Positional copy source: `Animation(motion.hoverPop, start: …)`.
+        base: Option<Box<ValueExpr>>,
+        start: Option<Box<ValueExpr>>,
         keys: Option<Box<ValueExpr>>,
-        play: Option<Box<ValueExpr>>,
-        repeat: Option<Box<ValueExpr>>,
         stagger: Option<Box<ValueExpr>>,
+        repeat: Option<Box<ValueExpr>>,
     },
     /// `Ease.bezier(x1, y1, x2, y2)`.
     EaseBezier {
@@ -203,7 +201,7 @@ pub enum ValueExpr {
         x2: Box<ValueExpr>,
         y2: Box<ValueExpr>,
     },
-    /// Presenter pair clip.
+    /// Presenter pair clip. Slots are Animation or Pose sugar.
     PresentationMotion {
         incoming: Box<ValueExpr>,
         outgoing: Box<ValueExpr>,
@@ -973,7 +971,10 @@ pub enum InteractionHandlerItem {
         param: String,
         value: ValueExpr,
     },
+    /// Handler motion shot. `target: None` = event root; `Some(id)` = named let
+    /// (`knob.animate = Motion(…)`).
     Animate {
+        target: Option<String>,
         value: ValueExpr,
     },
     /// Fire a declared intent: `emit select` / `emit select(filter)`.

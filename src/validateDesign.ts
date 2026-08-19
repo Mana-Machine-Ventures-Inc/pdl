@@ -593,21 +593,22 @@ function validatePoseValue(
   value: ValueExpr,
   componentName: string,
 ): void {
+  if (value.kind === "dotEnum" && value.value.replace(/^\./, "") === "rest") return;
   if (value.kind === "ident") {
     const t = tokenTypeOf(design, value.name);
     if (t === "Pose") return;
     throw new PdlError(
       "PDL-E005",
       t
-        ? `Motion \`pose:\` must be a Pose (got ${t}) in ${componentName}`
-        : `Motion \`pose:\` must be a Pose (unknown \`${value.name}\`) in ${componentName}`,
+        ? `\`pose:\` must be a Pose (got ${t}) in ${componentName}`
+        : `\`pose:\` must be a Pose (unknown \`${value.name}\`) in ${componentName}`,
       { path: design.entryPath },
     );
   }
   if (value.kind !== "pose") {
     throw new PdlError(
       "PDL-E005",
-      `Motion \`pose:\` must be \`Pose(…)\` or a Pose token in ${componentName}`,
+      `\`pose:\` must be \`Pose(…)\`, a Pose token, or \`.rest\` in ${componentName}`,
       { path: design.entryPath },
     );
   }
@@ -646,15 +647,15 @@ function validateStaggerValue(
     throw new PdlError(
       "PDL-E005",
       t
-        ? `Motion \`stagger:\` must be a Stagger (got ${t}) in ${componentName}`
-        : `Motion \`stagger:\` must be a Stagger (unknown \`${value.name}\`) in ${componentName}`,
+        ? `Animation \`stagger:\` must be a Stagger (got ${t}) in ${componentName}`
+        : `Animation \`stagger:\` must be a Stagger (unknown \`${value.name}\`) in ${componentName}`,
       { path: design.entryPath },
     );
   }
   if (value.kind !== "stagger") {
     throw new PdlError(
       "PDL-E005",
-      `Motion \`stagger:\` must be \`Stagger(…)\` or a Stagger token in ${componentName}`,
+      `Animation \`stagger:\` must be \`Stagger(…)\` or a Stagger token in ${componentName}`,
       { path: design.entryPath },
     );
   }
@@ -685,225 +686,291 @@ function validateStaggerValue(
   }
 }
 
-function motionHasPose(design: DesignDefinition, value: ValueExpr): boolean {
-  if (value.kind === "pose") return true;
-  if (value.kind === "ident") return tokenTypeOf(design, value.name) === "Pose";
-  return false;
+function validateMotionSegment(
+  design: DesignDefinition,
+  value: ValueExpr,
+  componentName: string,
+): void {
+  if (value.kind !== "motion") {
+    throw new PdlError(
+      "PDL-E005",
+      `Animation \`keys:\` entries must be \`Motion(…)\` in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+  if (value.timing) {
+    validateTransitionValue(design, value.timing, `Motion \`timing:\` in ${componentName}`);
+  } else {
+    throw new PdlError(
+      "PDL-E005",
+      `Motion requires \`timing:\` / \`duration:\`+\`ease:\` in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+  validatePoseValue(design, value.pose, componentName);
 }
 
-function playName(value: ValueExpr): string | undefined {
-  if (value.kind !== "dotEnum") return undefined;
-  return value.value.replace(/^\./, "");
+function validateAnimationKeys(
+  design: DesignDefinition,
+  value: ValueExpr,
+  componentName: string,
+): void {
+  if (value.kind !== "array" || value.items.length === 0) {
+    throw new PdlError(
+      "PDL-E005",
+      `Animation \`keys:\` must be a non-empty list of Motion in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+  for (const item of value.items) validateMotionSegment(design, item, componentName);
 }
 
-function validatePlayValue(design: DesignDefinition, value: ValueExpr, componentName: string): void {
-  const name = playName(value);
-  if (name === "toRest" || name === "toPose" || name === "loop") return;
-  throw new PdlError(
-    "PDL-E005",
-    `Motion \`play:\` must be \`.toRest\`, \`.toPose\`, or \`.loop\` in ${componentName}`,
-    { path: design.entryPath },
-  );
-}
-
-function validateRepeatValue(design: DesignDefinition, value: ValueExpr, componentName: string): void {
+function validateAnimationRepeat(
+  design: DesignDefinition,
+  value: ValueExpr,
+  componentName: string,
+): void {
+  if (value.kind === "dotEnum" && value.value.replace(/^\./, "") === "forever") return;
   if (value.kind === "number") {
     if (!Number.isInteger(value.value) || value.value < 1) {
       throw new PdlError(
         "PDL-E005",
-        `Motion \`repeat:\` must be an integer ≥ 1 (got ${value.value}) in ${componentName}`,
+        `Animation \`repeat:\` must be an integer ≥ 1 or \`.forever\` (got ${value.value}) in ${componentName}`,
         { path: design.entryPath },
       );
     }
     return;
   }
   if (value.kind === "ident") return;
+  if (value.kind === "array") {
+    throw new PdlError(
+      "PDL-E005",
+      `Animation \`repeat:\` must be a single integer ≥ 1 or \`.forever\` (not both) in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
   throw new PdlError(
     "PDL-E005",
-    `Motion \`repeat:\` must be a finite count in ${componentName}`,
+    `Animation \`repeat:\` must be an integer ≥ 1 or \`.forever\` in ${componentName}`,
     { path: design.entryPath },
   );
 }
 
-function validateKeyValue(design: DesignDefinition, value: ValueExpr, componentName: string): void {
-  if (value.kind !== "key") {
-    throw new PdlError(
-      "PDL-E005",
-      `Motion \`keys:\` entries must be \`Key(…)\` in ${componentName}`,
-      { path: design.entryPath },
-    );
-  }
-  const rest =
-    value.pose.kind === "dotEnum" && value.pose.value.replace(/^\./, "") === "rest";
-  if (!rest) validatePoseValue(design, value.pose, componentName);
-  if (value.at.kind === "number" && (value.at.value < 0 || value.at.value > 1)) {
-    throw new PdlError(
-      "PDL-E005",
-      `Key \`at:\` must be 0…1 (got ${value.at.value}) in ${componentName}`,
-      { path: design.entryPath },
-    );
-  }
-  if (value.ease) {
-    validateEaseValue(design, value.ease, `Key \`ease:\` in ${componentName}`);
-  }
-}
-
-function validateKeysValue(design: DesignDefinition, value: ValueExpr, componentName: string): void {
-  if (value.kind !== "array" || value.items.length === 0) {
-    throw new PdlError(
-      "PDL-E005",
-      `Motion \`keys:\` must be a non-empty list of Key in ${componentName}`,
-      { path: design.entryPath },
-    );
-  }
-  for (const item of value.items) validateKeyValue(design, item, componentName);
-}
-
-function motionHasStagger(design: DesignDefinition, value: ValueExpr): boolean {
-  if (value.kind === "stagger") return true;
-  if (value.kind === "ident") return tokenTypeOf(design, value.name) === "Stagger";
-  return false;
-}
-
-type MotionFields = {
-  timing?: ValueExpr;
-  pose?: ValueExpr;
+type AnimationFields = {
   keys?: ValueExpr;
-  play?: ValueExpr;
+  start?: ValueExpr;
   repeat?: ValueExpr;
   stagger?: ValueExpr;
 };
 
-function motionTokenValue(design: DesignDefinition, name: string): ValueExpr | undefined {
+function animationTokenValue(design: DesignDefinition, name: string): ValueExpr | undefined {
   return design.semantics.get(name)?.value ?? design.primitives.get(name)?.value;
 }
 
-function flattenMotionFields(
+function flattenAnimationFields(
   design: DesignDefinition,
   value: ValueExpr,
   depth = 0,
-): MotionFields {
+): AnimationFields {
   if (depth > 8) return {};
   if (value.kind === "ident") {
-    const inner = motionTokenValue(design, value.name);
-    return inner ? flattenMotionFields(design, inner, depth + 1) : {};
+    const inner = animationTokenValue(design, value.name);
+    return inner ? flattenAnimationFields(design, inner, depth + 1) : {};
   }
-  if (value.kind !== "motion") return {};
-  const base = value.base ? flattenMotionFields(design, value.base, depth + 1) : {};
+  if (value.kind !== "animation") return {};
+  const fromBase = value.base ? flattenAnimationFields(design, value.base, depth + 1) : {};
   return {
-    timing: value.timing ?? base.timing,
-    pose: value.pose ?? base.pose,
-    keys: value.keys ?? base.keys,
-    play: value.play ?? base.play,
-    repeat: value.repeat ?? base.repeat,
-    stagger: value.stagger ?? base.stagger,
+    start: value.start ?? fromBase.start,
+    keys: value.keys ?? fromBase.keys,
+    stagger: value.stagger ?? fromBase.stagger,
+    repeat: value.repeat ?? fromBase.repeat,
   };
 }
 
-function validateMotionBase(design: DesignDefinition, base: ValueExpr, componentName: string): void {
+function validateAnimationBase(
+  design: DesignDefinition,
+  base: ValueExpr,
+  componentName: string,
+): void {
   if (base.kind === "ident") {
     const t = tokenTypeOf(design, base.name);
-    if (t === "Motion") return;
+    if (t === "Animation") return;
     throw new PdlError(
       "PDL-E005",
       t
-        ? `Motion copy base must be a Motion token (got ${t}) in ${componentName}`
-        : `Motion copy base must be a Motion token in ${componentName} (unknown \`${base.name}\`)`,
+        ? `Animation copy base must be an Animation token (got ${t}) in ${componentName}`
+        : `Animation copy base must be an Animation token in ${componentName} (unknown \`${base.name}\`)`,
       { path: design.entryPath },
     );
   }
-  if (base.kind === "motion") {
-    validateAnimateMotion(design, base, componentName, "");
+  if (base.kind === "animation") {
+    validateAnimateAnimation(design, base, componentName, "");
     return;
   }
   throw new PdlError(
     "PDL-E005",
-    `Motion copy base must be a Motion token in ${componentName}`,
+    `Animation copy base must be an Animation token in ${componentName}`,
     { path: design.entryPath },
   );
 }
 
-function validateAnimateMotion(
+function validateAnimateAnimation(
   design: DesignDefinition,
   value: ValueExpr,
   componentName: string,
   _event: string,
 ): void {
+  if (value.kind === "ident") {
+    const t = tokenTypeOf(design, value.name);
+    if (t === "Animation") return;
+    if (t === "Motion") {
+      throw new PdlError(
+        "PDL-E005",
+        `\`animate =\` must be an Animation — Motion is a segment inside Animation.keys in ${componentName}`,
+        { path: design.entryPath },
+      );
+    }
+    if (t === "Timing") {
+      throw new PdlError(
+        "PDL-E005",
+        `\`animate =\` must be an Animation — Timing is not animate sugar in ${componentName}`,
+        { path: design.entryPath },
+      );
+    }
+    throw new PdlError(
+      "PDL-E005",
+      t
+        ? `\`animate =\` must be an Animation (got ${t}) in ${componentName}`
+        : `\`animate =\` must be an Animation in ${componentName} (unknown \`${value.name}\`)`,
+      { path: design.entryPath },
+    );
+  }
+  if (value.kind === "motion") {
+    throw new PdlError(
+      "PDL-E005",
+      `\`animate =\` must be \`Animation(…)\` — Motion is a segment inside Animation.keys in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
   if (value.kind === "timing") {
-    validateEaseValue(design, value.ease, `\`animate =\` Timing in ${componentName}`);
+    throw new PdlError(
+      "PDL-E005",
+      `\`animate =\` must be \`Animation(…)\` — Timing is not animate sugar in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+  if (value.kind !== "animation") {
+    throw new PdlError(
+      "PDL-E005",
+      `\`animate =\` must be \`Animation(…)\` or an Animation token in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+  if (value.base) validateAnimationBase(design, value.base, componentName);
+  if (value.start) {
+    const rest =
+      value.start.kind === "dotEnum" && value.start.value.replace(/^\./, "") === "rest";
+    if (!rest) validatePoseValue(design, value.start, componentName);
+  }
+  if (value.keys) {
+    validateAnimationKeys(design, value.keys, componentName);
+  } else if (!value.base) {
+    throw new PdlError(
+      "PDL-E005",
+      `Animation requires \`keys:\` in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+  if (value.stagger) validateStaggerValue(design, value.stagger, componentName);
+  if (value.repeat) validateAnimationRepeat(design, value.repeat, componentName);
+  const flat = flattenAnimationFields(design, value);
+  if (!flat.keys && !value.base) {
+    throw new PdlError(
+      "PDL-E005",
+      `Animation requires \`keys:\` in ${componentName}`,
+      { path: design.entryPath },
+    );
+  }
+}
+
+function validatePresentationSlot(
+  design: DesignDefinition,
+  value: ValueExpr,
+  side: string,
+  componentName: string,
+): void {
+  if (value.kind === "animation") {
+    validateAnimateAnimation(design, value, componentName, "");
+    return;
+  }
+  if (value.kind === "pose") {
+    validatePoseValue(design, value, componentName);
     return;
   }
   if (value.kind === "ident") {
     const t = tokenTypeOf(design, value.name);
-    if (t === "Timing" || t === "Motion") return;
+    if (t === "Animation" || t === "Pose") return;
     throw new PdlError(
       "PDL-E005",
       t
-        ? `\`animate =\` must be a Motion or Timing (got ${t}) in ${componentName}`
-        : `\`animate =\` must be a Motion or Timing in ${componentName} (unknown \`${value.name}\`)`,
+        ? `PresentationMotion \`${side}:\` must be Animation or Pose (got ${t}) in ${componentName}`
+        : `PresentationMotion \`${side}:\` must be Animation or Pose in ${componentName} (unknown \`${value.name}\`)`,
       { path: design.entryPath },
     );
   }
-  if (value.kind !== "motion") {
+  if (value.kind === "motion") {
     throw new PdlError(
       "PDL-E005",
-      `\`animate =\` must be \`Motion(…)\` or a Timing token/\`Timing(…)\` in ${componentName}`,
+      `PresentationMotion \`${side}:\` must be Animation or Pose — Motion is a segment inside Animation.keys in ${componentName}`,
       { path: design.entryPath },
     );
   }
-  if (value.base) validateMotionBase(design, value.base, componentName);
-  if (value.timing) {
-    validateTransitionValue(
-      design,
-      value.timing,
-      `Motion \`timing:\` in ${componentName}`,
-    );
-  } else if (!value.base) {
+  if (value.kind === "timing") {
     throw new PdlError(
       "PDL-E005",
-      `Motion requires \`timing:\` in ${componentName}`,
+      `PresentationMotion \`${side}:\` must be Animation or Pose — Timing is not a slot value in ${componentName}`,
       { path: design.entryPath },
     );
   }
-  if (value.pose) validatePoseValue(design, value.pose, componentName);
-  if (value.keys) validateKeysValue(design, value.keys, componentName);
-  if (value.play) validatePlayValue(design, value.play, componentName);
-  if (value.repeat) validateRepeatValue(design, value.repeat, componentName);
-  if (value.stagger) validateStaggerValue(design, value.stagger, componentName);
-  const flat = flattenMotionFields(design, value);
-  const hasPose = Boolean(flat.pose && motionHasPose(design, flat.pose));
-  const hasKeys = Boolean(flat.keys);
-  const hasPath = hasPose || hasKeys;
-  const hasStagger = Boolean(flat.stagger && motionHasStagger(design, flat.stagger));
-  if (hasPose && hasKeys) {
+  throw new PdlError(
+    "PDL-E005",
+    `PresentationMotion \`${side}:\` must be Animation(…) or Pose(…) in ${componentName}`,
+    { path: design.entryPath },
+  );
+}
+
+function validatePresentationMotionValue(
+  design: DesignDefinition,
+  value: ValueExpr,
+  where: string,
+  componentName: string,
+): void {
+  if (value.kind === "presentationMotion") {
+    validatePresentationSlot(design, value.incoming, "incoming", componentName);
+    validatePresentationSlot(design, value.outgoing, "outgoing", componentName);
+    if (value.ease) validateEaseValue(design, value.ease, `${where} ease`);
+    if (value.switchAt) validateSwitchAtMs(design, value.switchAt, `${where} switchAt`);
+    return;
+  }
+  if (value.kind === "ident") {
+    const base = value.name.endsWith(".reversed")
+      ? value.name.slice(0, -".reversed".length)
+      : value.name;
+    const t = tokenTypeOf(design, base);
+    if (t === "PresentationMotion") return;
     throw new PdlError(
       "PDL-E005",
-      `Motion cannot take both \`pose:\` and \`keys:\` in ${componentName}`,
+      t
+        ? `${where} must be a PresentationMotion (got ${t}) in ${componentName}`
+        : `${where} must be a PresentationMotion (unknown \`${base}\`) in ${componentName}`,
       { path: design.entryPath },
     );
   }
-  if (hasStagger && !hasPath) {
-    throw new PdlError(
-      "PDL-E005",
-      `Motion \`stagger:\` requires \`pose:\` or \`keys:\` in ${componentName}`,
-      { path: design.entryPath },
-    );
-  }
-  const play = flat.play ? playName(flat.play) : undefined;
-  if (play === "loop" && flat.repeat) {
-    throw new PdlError(
-      "PDL-E005",
-      `Motion \`play: .loop\` is forever — do not set \`repeat:\` in ${componentName}`,
-      { path: design.entryPath },
-    );
-  }
-  if (flat.repeat && !hasPath) {
-    throw new PdlError(
-      "PDL-E005",
-      `Motion \`repeat:\` requires \`pose:\` or \`keys:\` in ${componentName}`,
-      { path: design.entryPath },
-    );
-  }
+  throw new PdlError(
+    "PDL-E005",
+    `${where} must be a PresentationMotion in ${componentName}`,
+    { path: design.entryPath },
+  );
 }
 
 function validateBlurEffectConflictInBody(
@@ -950,7 +1017,7 @@ function validateFrameAnimateInBody(
 ): void {
   for (const item of items) {
     if ((item.kind === "prop" || item.kind === "frameProp") && item.name === "animate") {
-      validateAnimateMotion(design, item.value, componentName, "frame");
+      validateAnimateAnimation(design, item.value, componentName, "frame");
     } else if (item.kind === "let") {
       validateFrameAnimateInBody(design, item.body, componentName);
     } else if (item.kind === "if") {
@@ -966,6 +1033,7 @@ function validateInteractionBody(
   design: DesignDefinition,
   items: InteractionHandlerItem[],
   paramByName: Map<string, { typeName: string }>,
+  frameIds: Set<string>,
   componentName: string,
   event: string,
 ): void {
@@ -979,14 +1047,21 @@ function validateInteractionBody(
         );
       }
     } else if (it.kind === "animate") {
-      validateAnimateMotion(design, it.value, componentName, event);
+      if (it.target && !frameIds.has(it.target)) {
+        throw new PdlError(
+          "PDL-E007",
+          `Unknown let \`${it.target}\` in \`${it.target}.animate = …\` (component ${componentName})`,
+          { path: design.entryPath },
+        );
+      }
+      validateAnimateAnimation(design, it.value, componentName, event);
     } else if (it.kind === "if") {
       for (const br of it.chain.branches) {
         validateConditionExpr(design, br.condition, paramByName, componentName);
-        validateInteractionBody(design, br.body, paramByName, componentName, event);
+        validateInteractionBody(design, br.body, paramByName, frameIds, componentName, event);
       }
       if (it.chain.elseBody) {
-        validateInteractionBody(design, it.chain.elseBody, paramByName, componentName, event);
+        validateInteractionBody(design, it.chain.elseBody, paramByName, frameIds, componentName, event);
       }
     }
   }
@@ -997,9 +1072,11 @@ function validateInteractionsForComponent(design: DesignDefinition, componentNam
   if (!m) return;
   const c = design.components.get(componentName)!;
   const paramByName = new Map(c.params.map((p) => [p.name, { typeName: p.typeName }]));
+  const frameIds = new Set<string>();
+  collectUniqueFrameIdsFromBody(c.body, frameIds, c.name, design, new Set());
   for (const decl of m.values()) {
     for (const h of decl.handlers) {
-      validateInteractionBody(design, h.body, paramByName, componentName, h.event);
+      validateInteractionBody(design, h.body, paramByName, frameIds, componentName, h.event);
     }
   }
 }
@@ -1154,10 +1231,14 @@ function tokenRhsExpectation(tokenType: string): string {
       return "`Pose(opacity:, scale:, …)`";
     case "Stagger":
       return "`Stagger(step: … [, from: .first|.last])`";
-      case "Motion":
-        return "`Motion(timing: … [, play:] [, pose:] [, keys:] [, stagger:] [, repeat:])`, `Motion(token, field:)`, or a Timing";
-      case "Effect":
-        return "`Effect(.blurSelf | .blurBehind, radius: [, vibrancy:])` (`.glass` is not implemented yet)";
+    case "Motion":
+      return "`Motion(duration:, ease: [, delay:] | timing:, pose:)` — segment inside Animation.keys";
+    case "Animation":
+      return "`Animation([base,] start?, keys: [Motion…], stagger?, repeat?)` — type of `animate =`";
+    case "PresentationMotion":
+      return "`PresentationMotion(incoming:, outgoing: [, duration:] [, ease:] [, delay:] [, front:] [, switchAt:])`";
+    case "Effect":
+      return "`Effect(.blurSelf | .blurBehind, radius: [, vibrancy:])` (`.glass` is not implemented yet)";
     case "Vibrancy":
       return "`Vibrancy(saturation: …, brightness: …)`";
     case "Ramp":
@@ -1484,7 +1565,9 @@ function assertTokenRhsCompatible(
       case "Stagger":
         return value.kind === "stagger";
       case "Motion":
-        return value.kind === "motion" || value.kind === "timing";
+        return value.kind === "motion";
+      case "Animation":
+        return value.kind === "animation";
       case "PresentationMotion":
         return value.kind === "presentationMotion";
       case "Effect":
@@ -1578,19 +1661,19 @@ function assertTokenRhsCompatible(
     validateStaggerValue(design, value, name);
   }
   if (tokenType === "Motion" && value.kind === "motion") {
-    validateAnimateMotion(design, value, name, "");
+    validateMotionSegment(design, value, name);
+  }
+  if (tokenType === "Animation" && value.kind === "animation") {
+    validateAnimateAnimation(design, value, name, "");
   }
   if (tokenType === "Ease") {
     validateEaseValue(design, value, `Token \`${name}\``);
   }
-  if ((tokenType === "Timing" || tokenType === "Motion") && value.kind === "timing") {
+  if (tokenType === "Timing" && value.kind === "timing") {
     validateEaseValue(design, value.ease, `Token \`${name}\``);
   }
   if (tokenType === "PresentationMotion" && value.kind === "presentationMotion") {
-    if (value.ease) validateEaseValue(design, value.ease, `Token \`${name}\` ease`);
-    if (value.switchAt) {
-      validateSwitchAtMs(design, value.switchAt, `Token \`${name}\` switchAt`);
-    }
+    validatePresentationMotionValue(design, value, `Token \`${name}\``, name);
   }
   if (tokenType === "Effect" && value.kind === "effect") {
     try {

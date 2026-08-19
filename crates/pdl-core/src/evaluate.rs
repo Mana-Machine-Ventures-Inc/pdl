@@ -518,17 +518,6 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
             }
             Ok(obj(entries))
         }
-        ValueExpr::Key { pose, at, ease } => {
-            let mut entries = vec![
-                ("kind", Value::String("key".to_string())),
-                ("pose", evaluate_value(pose, ev)?),
-                ("at", evaluate_value(at, ev)?),
-            ];
-            if let Some(e) = ease {
-                entries.push(("ease", evaluate_ease(evaluate_value(e, ev)?)?));
-            }
-            Ok(obj(entries))
-        }
         ValueExpr::EaseBezier { x1, y1, x2, y2 } => {
             let a = number_from_eval(&evaluate_value(x1, ev)?)?;
             let b = number_from_eval(&evaluate_value(y1, ev)?)?;
@@ -551,19 +540,49 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
             front,
             switch_at,
         } => {
+            let pair_duration = if let Some(d) = duration {
+                evaluate_value(d, ev)?
+            } else {
+                number_value(300.0)
+            };
+            let pair_ease = if let Some(e) = ease {
+                evaluate_ease(evaluate_value(e, ev)?)?
+            } else {
+                Value::String("out".into())
+            };
+            let pair_delay = if let Some(d) = delay {
+                evaluate_value(d, ev)?
+            } else {
+                number_value(0.0)
+            };
+            let pair_timing = obj(vec![
+                ("duration", pair_duration.clone()),
+                ("ease", pair_ease.clone()),
+                ("delay", pair_delay.clone()),
+            ]);
+            let incoming_v = expand_presentation_slot(
+                evaluate_value(incoming, ev)?,
+                &pair_timing,
+                PresentationSlotSide::Incoming,
+            )?;
+            let outgoing_v = expand_presentation_slot(
+                evaluate_value(outgoing, ev)?,
+                &pair_timing,
+                PresentationSlotSide::Outgoing,
+            )?;
             let mut entries = vec![
                 ("kind", Value::String("presentationMotion".to_string())),
-                ("incoming", evaluate_value(incoming, ev)?),
-                ("outgoing", evaluate_value(outgoing, ev)?),
+                ("incoming", incoming_v),
+                ("outgoing", outgoing_v),
             ];
-            if let Some(d) = duration {
-                entries.push(("duration", evaluate_value(d, ev)?));
+            if duration.is_some() {
+                entries.push(("duration", pair_duration));
             }
-            if let Some(e) = ease {
-                entries.push(("ease", evaluate_ease(evaluate_value(e, ev)?)?));
+            if ease.is_some() {
+                entries.push(("ease", pair_ease));
             }
-            if let Some(d) = delay {
-                entries.push(("delay", evaluate_value(d, ev)?));
+            if delay.is_some() {
+                entries.push(("delay", pair_delay));
             }
             if let Some(f) = front {
                 entries.push(("front", evaluate_value(f, ev)?));
@@ -573,30 +592,31 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
             }
             Ok(obj(entries))
         }
-        ValueExpr::Motion {
+        ValueExpr::Motion { timing, pose } => {
+            let mut m = Map::new();
+            m.insert("kind".into(), Value::String("motion".into()));
+            if let Some(t) = timing {
+                m.insert("timing".into(), evaluate_value(t, ev)?);
+            }
+            m.insert("pose".into(), evaluate_pose_dest(pose, ev)?);
+            Ok(Value::Object(m))
+        }
+        ValueExpr::Animation {
             base,
-            timing,
-            pose,
+            start,
             keys,
-            play,
-            repeat,
             stagger,
+            repeat,
         } => {
             let mut map = if let Some(b) = base {
-                motion_object_from_eval(evaluate_value(b, ev)?)
+                animation_object_from_eval(evaluate_value(b, ev)?)
             } else {
                 let mut m = Map::new();
-                m.insert("kind".into(), Value::String("motion".into()));
+                m.insert("kind".into(), Value::String("animation".into()));
                 m
             };
-            if let Some(t) = timing {
-                map.insert("timing".into(), evaluate_value(t, ev)?);
-            }
-            if let Some(p) = play {
-                map.insert("play".into(), evaluate_value(p, ev)?);
-            }
-            if let Some(p) = pose {
-                map.insert("pose".into(), evaluate_value(p, ev)?);
+            if let Some(s) = start {
+                map.insert("start".into(), evaluate_pose_dest(s, ev)?);
             }
             if let Some(k) = keys {
                 map.insert("keys".into(), evaluate_value(k, ev)?);
@@ -605,7 +625,7 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
                 map.insert("stagger".into(), evaluate_value(s, ev)?);
             }
             if let Some(r) = repeat {
-                map.insert("repeat".into(), evaluate_value(r, ev)?);
+                map.insert("repeat".into(), evaluate_repeat(r, ev)?);
             }
             Ok(Value::Object(map))
         }
@@ -1002,17 +1022,36 @@ fn slot_span_ms(slot: Option<&Value>, pair_duration: f64, pair_delay: f64) -> f6
         return pair_delay + pair_duration;
     };
     let kind = o.get("kind").and_then(|v| v.as_str());
-    let is_motion = kind == Some("motion")
-        || o.contains_key("timing")
-        || o.contains_key("keys")
-        || (o.contains_key("pose") && kind != Some("pose"));
-    if !is_motion {
+    if kind == Some("animation") {
+        if let Some(Value::Array(keys)) = o.get("keys") {
+            let mut total = 0.0;
+            for key in keys {
+                let Value::Object(seg) = key else {
+                    continue;
+                };
+                if let Some(Value::Object(t)) = seg.get("timing") {
+                    total += object_clock_ms(t, pair_duration);
+                } else {
+                    total += object_clock_ms(seg, pair_duration);
+                }
+            }
+            if total > 0.0 {
+                return total;
+            }
+        }
         return pair_delay + pair_duration;
     }
-    if let Some(Value::Object(t)) = o.get("timing") {
-        return object_clock_ms(t, pair_duration);
+    if kind == Some("motion")
+        || o.contains_key("timing")
+        || o.contains_key("keys")
+        || (o.contains_key("pose") && kind != Some("pose"))
+    {
+        if let Some(Value::Object(t)) = o.get("timing") {
+            return object_clock_ms(t, pair_duration);
+        }
+        return object_clock_ms(o, pair_duration);
     }
-    object_clock_ms(o, pair_duration)
+    pair_delay + pair_duration
 }
 
 fn pair_span_ms(o: &Map<String, Value>) -> f64 {
@@ -1033,18 +1072,10 @@ fn pair_span_ms(o: &Map<String, Value>) -> f64 {
     ))
 }
 
-fn reverse_slot_clock(slot: Value) -> Value {
-    let Value::Object(mut o) = slot else {
-        return slot;
+fn reverse_motion_segment(seg: Value) -> Value {
+    let Value::Object(mut o) = seg else {
+        return seg;
     };
-    let kind = o.get("kind").and_then(|v| v.as_str());
-    let is_motion = kind == Some("motion")
-        || o.contains_key("timing")
-        || o.contains_key("keys")
-        || (o.contains_key("pose") && kind != Some("pose"));
-    if !is_motion {
-        return Value::Object(o);
-    }
     if let Some(e) = o.remove("ease") {
         o.insert("ease".into(), reverse_ease(e));
     }
@@ -1055,6 +1086,22 @@ fn reverse_slot_clock(slot: Value) -> Value {
         o.insert("timing".into(), Value::Object(t));
     }
     Value::Object(o)
+}
+
+fn reverse_animation_eases(slot: Value) -> Value {
+    let Value::Object(mut o) = slot else {
+        return slot;
+    };
+    let kind = o.get("kind").and_then(|v| v.as_str());
+    if kind == Some("animation") {
+        if let Some(Value::Array(keys)) = o.remove("keys") {
+            let reversed: Vec<Value> = keys.into_iter().map(reverse_motion_segment).collect();
+            o.insert("keys".into(), Value::Array(reversed));
+        }
+        return Value::Object(o);
+    }
+    // Pose-only leftover or bare Motion segment — invert clocks if present.
+    reverse_motion_segment(Value::Object(o))
 }
 
 fn reverse_presentation_motion(raw: Value) -> Result<Value, PdlError> {
@@ -1079,10 +1126,10 @@ fn reverse_presentation_motion(raw: Value) -> Result<Value, PdlError> {
     let incoming = o.remove("incoming");
     let outgoing = o.remove("outgoing");
     if let Some(v) = outgoing {
-        o.insert("incoming".into(), reverse_slot_clock(v));
+        o.insert("incoming".into(), reverse_animation_eases(v));
     }
     if let Some(v) = incoming {
-        o.insert("outgoing".into(), reverse_slot_clock(v));
+        o.insert("outgoing".into(), reverse_animation_eases(v));
     }
     if let Some(e) = o.remove("ease") {
         o.insert("ease".into(), reverse_ease(e));
@@ -1116,30 +1163,88 @@ fn obj(entries: Vec<(&str, Value)>) -> Value {
     Value::Object(m)
 }
 
-/// Shallow Motion object from a token/value used as `Motion(base, field:)`.
-fn motion_object_from_eval(raw: Value) -> Map<String, Value> {
+enum PresentationSlotSide {
+    Incoming,
+    Outgoing,
+}
+
+fn evaluate_pose_dest(pose: &ValueExpr, ev: &mut Eval<'_>) -> Result<Value, PdlError> {
+    match pose {
+        ValueExpr::DotEnum { value } if strip_leading_dot(value) == "rest" => {
+            Ok(Value::String("rest".into()))
+        }
+        other => evaluate_value(other, ev),
+    }
+}
+
+fn evaluate_repeat(repeat: &ValueExpr, ev: &mut Eval<'_>) -> Result<Value, PdlError> {
+    match repeat {
+        ValueExpr::DotEnum { value } if strip_leading_dot(value) == "forever" => {
+            Ok(Value::String("forever".into()))
+        }
+        other => evaluate_value(other, ev),
+    }
+}
+
+/// Expand PresentationMotion slot Pose sugar to Animation JSON.
+/// Animation slots keep their own clocks; pair clock only for Pose sugar.
+fn expand_presentation_slot(
+    slot: Value,
+    pair_timing: &Value,
+    side: PresentationSlotSide,
+) -> Result<Value, PdlError> {
+    let Value::Object(o) = &slot else {
+        return Ok(slot);
+    };
+    let kind = o.get("kind").and_then(|v| v.as_str());
+    if kind == Some("animation") {
+        let mut m = o.clone();
+        m.insert("kind".into(), Value::String("animation".into()));
+        return Ok(Value::Object(m));
+    }
+    if kind == Some("pose") || (o.keys().any(|k| crate::motion::is_motion_prop_name(k)) && kind != Some("motion"))
+    {
+        let pose = slot;
+        let rest = Value::String("rest".into());
+        let segment = obj(vec![
+            ("timing", pair_timing.clone()),
+            (
+                "pose",
+                match side {
+                    PresentationSlotSide::Incoming => rest,
+                    PresentationSlotSide::Outgoing => pose.clone(),
+                },
+            ),
+        ]);
+        let mut entries = vec![
+            ("kind", Value::String("animation".into())),
+            ("keys", Value::Array(vec![segment])),
+        ];
+        if matches!(side, PresentationSlotSide::Incoming) {
+            entries.insert(1, ("start", pose));
+        }
+        return Ok(obj(entries));
+    }
+    Ok(slot)
+}
+
+/// Shallow Animation object from a token/value used as `Animation(base, field:)`.
+fn animation_object_from_eval(raw: Value) -> Map<String, Value> {
     let Value::Object(o) = raw else {
         let mut m = Map::new();
-        m.insert("kind".into(), Value::String("motion".into()));
+        m.insert("kind".into(), Value::String("animation".into()));
         return m;
     };
-    let is_motion = o.get("kind").and_then(|v| v.as_str()) == Some("motion")
-        || o.contains_key("pose")
+    let is_animation = o.get("kind").and_then(|v| v.as_str()) == Some("animation")
         || o.contains_key("keys")
-        || o.contains_key("play");
-    if is_motion {
+        || o.contains_key("start");
+    if is_animation {
         let mut m = o;
-        m.insert("kind".into(), Value::String("motion".into()));
-        return m;
-    }
-    if o.contains_key("duration") {
-        let mut m = Map::new();
-        m.insert("kind".into(), Value::String("motion".into()));
-        m.insert("timing".into(), Value::Object(o));
+        m.insert("kind".into(), Value::String("animation".into()));
         return m;
     }
     let mut m = o;
-    m.insert("kind".into(), Value::String("motion".into()));
+    m.insert("kind".into(), Value::String("animation".into()));
     m
 }
 

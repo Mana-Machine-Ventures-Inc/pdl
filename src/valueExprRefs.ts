@@ -76,19 +76,16 @@ export function collectDeclaredTokenNamesFromValueExpr(
       collectDeclaredTokenNamesFromValueExpr(expr.step, design, sink);
       if (expr.from) collectDeclaredTokenNamesFromValueExpr(expr.from, design, sink);
       return;
-    case "key":
-      collectDeclaredTokenNamesFromValueExpr(expr.pose, design, sink);
-      collectDeclaredTokenNamesFromValueExpr(expr.at, design, sink);
-      if (expr.ease) collectDeclaredTokenNamesFromValueExpr(expr.ease, design, sink);
-      return;
     case "motion":
-      if (expr.base) collectDeclaredTokenNamesFromValueExpr(expr.base, design, sink);
       if (expr.timing) collectDeclaredTokenNamesFromValueExpr(expr.timing, design, sink);
-      if (expr.pose) collectDeclaredTokenNamesFromValueExpr(expr.pose, design, sink);
+      collectDeclaredTokenNamesFromValueExpr(expr.pose, design, sink);
+      return;
+    case "animation":
+      if (expr.base) collectDeclaredTokenNamesFromValueExpr(expr.base, design, sink);
+      if (expr.start) collectDeclaredTokenNamesFromValueExpr(expr.start, design, sink);
       if (expr.keys) collectDeclaredTokenNamesFromValueExpr(expr.keys, design, sink);
-      if (expr.play) collectDeclaredTokenNamesFromValueExpr(expr.play, design, sink);
-      if (expr.repeat) collectDeclaredTokenNamesFromValueExpr(expr.repeat, design, sink);
       if (expr.stagger) collectDeclaredTokenNamesFromValueExpr(expr.stagger, design, sink);
+      if (expr.repeat) collectDeclaredTokenNamesFromValueExpr(expr.repeat, design, sink);
       return;
     case "effect":
       collectDeclaredTokenNamesFromValueExpr(expr.effectKind, design, sink);

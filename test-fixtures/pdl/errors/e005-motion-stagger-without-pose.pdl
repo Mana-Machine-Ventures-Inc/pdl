@@ -1,8 +1,7 @@
 component BadStagger <PointerInput>() layout {
   children = []
   self.appear = {
-    animate = Motion(
-      duration: 200, ease: .out,
+    animate = Animation(
       stagger: Stagger(step: 30, from: .first)
     )
   }

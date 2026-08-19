@@ -6,44 +6,40 @@ variant InteractionState {
   case hovered
 }
 
-semantic motion.hoverPop: Motion = Motion(
-  duration: 280, ease: .out,
+semantic motion.hoverPop: Animation = Animation(
   keys: [
-    Key(pose: Pose(scale: 1.12), at: 0.4),
-    Key(pose: Pose(scale: 1.04), at: 1)
+    Motion(duration: 112, ease: .out, pose: Pose(scale: 1.12)),
+    Motion(duration: 168, ease: .out, pose: Pose(scale: 1.04))
   ]
 )
 
-semantic motion.hoverPopHeld: Motion = Motion(
-  duration: 280, ease: .out,
-  play: .toPose,
+semantic motion.hoverPopHeld: Animation = Animation(
   keys: [
-    Key(pose: Pose(scale: 1.12), at: 1)
+    Motion(duration: 280, ease: .out, pose: Pose(scale: 1.12))
   ]
 )
 
-semantic motion.spin: Motion = Motion(
-  duration: 800, ease: .linear,
-  play: .loop,
-  pose: Pose(rotate: 360)
+semantic motion.spin: Animation = Animation(
+  keys: [
+    Motion(duration: 800, ease: .linear, pose: Pose(rotate: 360))
+  ],
+  repeat: .forever
 )
 
-semantic motion.pulse: Motion = Motion(
-  duration: 900, ease: Ease.bezier(0.42, 0, 0.58, 1),
-  play: .loop,
+semantic motion.pulse: Animation = Animation(
   keys: [
-    Key(pose: Pose(opacity: 0.45, scale: 0.96), at: 0.5),
-    Key(pose: .rest, at: 1)
-  ]
+    Motion(duration: 450, ease: Ease.bezier(0.42, 0, 0.58, 1), pose: Pose(opacity: 0.45, scale: 0.96)),
+    Motion(duration: 450, ease: Ease.bezier(0.42, 0, 0.58, 1), pose: .rest)
+  ],
+  repeat: .forever
 )
 
-semantic motion.sheen: Motion = Motion(
-  duration: 1400, ease: .linear,
-  play: .loop,
+semantic motion.sheen: Animation = Animation(
+  start: Pose(translateX: -80),
   keys: [
-    Key(pose: Pose(translateX: -80), at: 0),
-    Key(pose: Pose(translateX: 160), at: 1)
-  ]
+    Motion(duration: 1400, ease: .linear, pose: Pose(translateX: 160))
+  ],
+  repeat: .forever
 )
 
 variant PressPopState {
@@ -51,18 +47,17 @@ variant PressPopState {
   case pressed
 }
 
-semantic motion.pressIn: Motion = Motion(
-  duration: 90, ease: .in,
-  keys: [Key(pose: Pose(scale: 0.94, translateY: 1), at: 1)]
+semantic motion.pressIn: Animation = Animation(
+  keys: [
+    Motion(duration: 90, ease: .in, pose: Pose(scale: 0.94, translateY: 1))
+  ]
 )
 
-semantic motion.pressPop: Motion = Motion(
-  duration: 420, ease: .out,
-  play: .toPose,
+semantic motion.pressPop: Animation = Animation(
   keys: [
-    Key(pose: Pose(scale: 1.08, translateY: -3), at: 0.35),
-    Key(pose: Pose(scale: 0.98), at: 0.65),
-    Key(pose: .rest, at: 1)
+    Motion(duration: 147, ease: .out, pose: Pose(scale: 1.08, translateY: -3)),
+    Motion(duration: 126, ease: .out, pose: Pose(scale: 0.98)),
+    Motion(duration: 147, ease: .out, pose: .rest)
   ]
 )
 
@@ -81,15 +76,16 @@ component MotionModal <PointerInput>() layout {
   children = [title, body]
 
   self.appear = {
-    animate = Motion(
-      duration: 250, ease: .out,
-      pose: Pose(opacity: 0, scale: 0.95, translateY: 8)
+    animate = Animation(
+      start: Pose(opacity: 0, scale: 0.95, translateY: 8),
+      keys: [Motion(duration: 250, ease: .out, pose: .rest)]
     )
   }
   self.dismiss = {
-    animate = Motion(
-      duration: 180, ease: .in,
-      pose: Pose(opacity: 0, scale: 0.95, translateY: 8)
+    animate = Animation(
+      keys: [
+        Motion(duration: 180, ease: .in, pose: Pose(opacity: 0, scale: 0.95, translateY: 8))
+      ]
     )
   }
 }
@@ -122,9 +118,9 @@ component MotionStaggerList <PointerInput>() layout {
   children = [a, b, c]
 
   self.appear = {
-    animate = Motion(
-      duration: 220, ease: .out,
-      pose: Pose(blur: 18, opacity: 0, translateY: 10),
+    animate = Animation(
+      start: Pose(blur: 18, opacity: 0, translateY: 10),
+      keys: [Motion(duration: 220, ease: .out, pose: .rest)],
       stagger: Stagger(step: 40, from: .last)
     )
   }
@@ -154,18 +150,16 @@ component MotionHoverChip <PointerInput>(
   children = [text]
 
   hoverStart = {
-    animate = Timing(duration: 500, ease: .out)
     interactionState = .hovered
   }
   
   hoverEnd = {
-    animate = Timing(duration: 500, ease: .out)
     interactionState = .rest
   }
 }
 
 usage MotionHoverChip {
-  description = "Implicit animate = — the hover background change should take 200ms when the host patches styles."
+  description = "Interaction state only — no animate = Timing sugar. Host patches styles immediately."
 }
 
 component MotionHoverFlourish <PointerInput>() layout {
@@ -178,30 +172,25 @@ component MotionHoverFlourish <PointerInput>() layout {
   children = [Text(content: "Flourish", color: #FFFFFF, fontSize: 14, fontWeight: 600)]
 
   self.hoverStart = {
-    animate = Motion(
-      duration: 400, ease: .out,
-      play: .toRest,
+    animate = Animation(
       keys: [
-        Key(pose: Pose(scale: 1.16, translateY: -4), at: 0.35),
-        Key(pose: Pose(scale: 0.98), at: 0.7),
-        Key(pose: .rest, at: 1)
+        Motion(duration: 140, ease: .out, pose: Pose(scale: 1.16, translateY: -4)),
+        Motion(duration: 140, ease: .out, pose: Pose(scale: 0.98)),
+        Motion(duration: 120, ease: .out, pose: .rest)
       ]
     )
   }
   self.hoverEnd = {
-    animate = Motion(
-      duration: 280, ease: .out,
+    animate = Animation(
       keys: [
-        Key(pose: Pose(scale: 1.16, translateY: -4), at: 0.35),
-        Key(pose: Pose(scale: 0.98), at: 0.7),
-        Key(pose: .rest, at: 1)
+        Motion(duration: 280, ease: .out, pose: .rest)
       ]
     )
   }
 }
 
 usage MotionHoverFlourish {
-  description = "Pose track on hover: keys through a pop, then .rest. hoverEnd reverses from current progress."
+  description = "Sequential Motions through a pop, then .rest. hoverEnd authors return to .rest."
 }
 
 component MotionHoverPop <PointerInput>() layout {
@@ -217,12 +206,14 @@ component MotionHoverPop <PointerInput>() layout {
     animate = motion.hoverPop
   }
   self.hoverEnd = {
-    animate = motion.hoverPop
+    animate = Animation(
+      keys: [Motion(duration: 280, ease: .out, pose: .rest)]
+    )
   }
 }
 
 usage MotionHoverPop {
-  description = "Token omits play. hoverStart defaults .toPose; hoverEnd defaults .toRest (same keys)."
+  description = "Token holds at 1.04. hoverEnd authors return to .rest."
 }
 
 component MotionHoverPopOverride <PointerInput>() layout {
@@ -238,12 +229,14 @@ component MotionHoverPopOverride <PointerInput>() layout {
     animate = motion.hoverPopHeld
   }
   self.hoverEnd = {
-    animate = Motion(motion.hoverPopHeld, play: .toRest)
+    animate = Animation(
+      keys: [Motion(duration: 280, ease: .out, pose: .rest)]
+    )
   }
 }
 
 usage MotionHoverPopOverride {
-  description = "Token sets play: .toPose. hoverEnd copies it and overrides play: .toRest."
+  description = "Token holds at 1.12. hoverEnd is a separate Animation back to .rest."
 }
 
 component MotionStandingSpin(isLoading: Bool = true) layout {
@@ -262,7 +255,7 @@ component MotionStandingSpin(isLoading: Bool = true) layout {
 }
 
 usage MotionStandingSpin {
-  description = "Child spinner.animate = motion.spin while isLoading. Linear rotate 360 loops without a snap."
+  description = "Child spinner.animate = motion.spin while isLoading. Linear rotate 360 forever."
 }
 
 component MotionStandingSelf(isLoading: Bool = true) layout {
@@ -294,7 +287,7 @@ component MotionPulse() layout {
 }
 
 usage MotionPulse {
-  description = "Standing keys through a dim/scale pole and .rest. play: .loop."
+  description = "Standing keys through a dim/scale pole and .rest. repeat: .forever."
 }
 
 component MotionSheen() layout {
@@ -313,7 +306,7 @@ shine.blur = 12
 }
 
 usage MotionSheen {
-  description = "Keys from translateX −80 (off left) to 160 (off right). Loop wrap is hidden by overflow: .clip."
+  description = "Starts at translateX −80, eases to 160. Forever wrap is hidden by overflow: .clip."
 }
 
 component MotionAppearThenPulse <PointerInput>() layout {
@@ -325,9 +318,9 @@ component MotionAppearThenPulse <PointerInput>() layout {
   cornerRadius = 12
   children = [Text(content: "appear→pulse", color: #93C5FD, fontSize: 14, fontWeight: 700)]
   self.appear = {
-    animate = Motion(
-      duration: 200, ease: .linear,
-      pose: Pose(opacity: 0)
+    animate = Animation(
+      start: Pose(opacity: 0),
+      keys: [Motion(duration: 200, ease: .linear, pose: .rest)]
     )
   }
   self.animate = motion.pulse
@@ -352,15 +345,16 @@ component MotionBlurCard <PointerInput>() layout {
   children = [title, body]
 
   self.appear = {
-    animate = Motion(
-      duration: 420, ease: .out,
-      pose: Pose(blur: 18, opacity: 0.35)
+    animate = Animation(
+      start: Pose(blur: 18, opacity: 0.35),
+      keys: [Motion(duration: 420, ease: .out, pose: .rest)]
     )
   }
   self.dismiss = {
-    animate = Motion(
-      duration: 280, ease: .in,
-      pose: Pose(blur: 18, opacity: 0.35)
+    animate = Animation(
+      keys: [
+        Motion(duration: 280, ease: .in, pose: Pose(blur: 18, opacity: 0.35))
+      ]
     )
   }
 }
@@ -384,15 +378,14 @@ component MotionPoseOpacity <PointerInput>() layout {
   children = [title, body]
 
   self.appear = {
-    animate = Motion(
-      duration: 400, ease: .out,
-      pose: Pose(opacity: 0)
+    animate = Animation(
+      start: Pose(opacity: 0),
+      keys: [Motion(duration: 400, ease: .out, pose: .rest)]
     )
   }
   self.dismiss = {
-    animate = Motion(
-      duration: 280, ease: .in,
-      pose: Pose(opacity: 0)
+    animate = Animation(
+      keys: [Motion(duration: 280, ease: .in, pose: Pose(opacity: 0))]
     )
   }
 }
@@ -416,15 +409,14 @@ component MotionPoseScale <PointerInput>() layout {
   children = [title, body]
 
   self.appear = {
-    animate = Motion(
-      duration: 400, ease: .out,
-      pose: Pose(scale: 0.5)
+    animate = Animation(
+      start: Pose(scale: 0.5),
+      keys: [Motion(duration: 400, ease: .out, pose: .rest)]
     )
   }
   self.dismiss = {
-    animate = Motion(
-      duration: 280, ease: .in,
-      pose: Pose(scale: 0.5)
+    animate = Animation(
+      keys: [Motion(duration: 280, ease: .in, pose: Pose(scale: 0.5))]
     )
   }
 }
@@ -448,15 +440,14 @@ component MotionPoseScaleX <PointerInput>() layout {
   children = [title, body]
 
   self.appear = {
-    animate = Motion(
-      duration: 400, ease: .out,
-      pose: Pose(scaleX: 0.2)
+    animate = Animation(
+      start: Pose(scaleX: 0.2),
+      keys: [Motion(duration: 400, ease: .out, pose: .rest)]
     )
   }
   self.dismiss = {
-    animate = Motion(
-      duration: 280, ease: .in,
-      pose: Pose(scaleX: 0.2)
+    animate = Animation(
+      keys: [Motion(duration: 280, ease: .in, pose: Pose(scaleX: 0.2))]
     )
   }
 }
@@ -480,15 +471,14 @@ component MotionPoseScaleY <PointerInput>() layout {
   children = [title, body]
 
   self.appear = {
-    animate = Motion(
-      duration: 400, ease: .out,
-      pose: Pose(scaleY: 0.2)
+    animate = Animation(
+      start: Pose(scaleY: 0.2),
+      keys: [Motion(duration: 400, ease: .out, pose: .rest)]
     )
   }
   self.dismiss = {
-    animate = Motion(
-      duration: 280, ease: .in,
-      pose: Pose(scaleY: 0.2)
+    animate = Animation(
+      keys: [Motion(duration: 280, ease: .in, pose: Pose(scaleY: 0.2))]
     )
   }
 }
@@ -512,15 +502,14 @@ component MotionPoseTranslateX <PointerInput>() layout {
   children = [title, body]
 
   self.appear = {
-    animate = Motion(
-      duration: 400, ease: .out,
-      pose: Pose(translateX: 48)
+    animate = Animation(
+      start: Pose(translateX: 48),
+      keys: [Motion(duration: 400, ease: .out, pose: .rest)]
     )
   }
   self.dismiss = {
-    animate = Motion(
-      duration: 280, ease: .in,
-      pose: Pose(translateX: 48)
+    animate = Animation(
+      keys: [Motion(duration: 280, ease: .in, pose: Pose(translateX: 48))]
     )
   }
 }
@@ -544,15 +533,14 @@ component MotionPoseTranslateY <PointerInput>() layout {
   children = [title, body]
 
   self.appear = {
-    animate = Motion(
-      duration: 400, ease: .out,
-      pose: Pose(translateY: 24)
+    animate = Animation(
+      start: Pose(translateY: 24),
+      keys: [Motion(duration: 400, ease: .out, pose: .rest)]
     )
   }
   self.dismiss = {
-    animate = Motion(
-      duration: 280, ease: .in,
-      pose: Pose(translateY: 24)
+    animate = Animation(
+      keys: [Motion(duration: 280, ease: .in, pose: Pose(translateY: 24))]
     )
   }
 }
@@ -576,15 +564,14 @@ component MotionPoseBlur <PointerInput>() layout {
   children = [title, body]
 
   self.appear = {
-    animate = Motion(
-      duration: 420, ease: .out,
-      pose: Pose(blur: 16)
+    animate = Animation(
+      start: Pose(blur: 16),
+      keys: [Motion(duration: 420, ease: .out, pose: .rest)]
     )
   }
   self.dismiss = {
-    animate = Motion(
-      duration: 280, ease: .in,
-      pose: Pose(blur: 16)
+    animate = Animation(
+      keys: [Motion(duration: 280, ease: .in, pose: Pose(blur: 16))]
     )
   }
 }
@@ -608,15 +595,14 @@ component MotionPoseRotate <PointerInput>() layout {
   children = [title, body]
 
   self.appear = {
-    animate = Motion(
-      duration: 400, ease: .out,
-      pose: Pose(rotate: -12)
+    animate = Animation(
+      start: Pose(rotate: -12),
+      keys: [Motion(duration: 400, ease: .out, pose: .rest)]
     )
   }
   self.dismiss = {
-    animate = Motion(
-      duration: 280, ease: .in,
-      pose: Pose(rotate: -12)
+    animate = Animation(
+      keys: [Motion(duration: 280, ease: .in, pose: Pose(rotate: -12))]
     )
   }
 }
@@ -677,13 +663,15 @@ component PressPopButton <PointerInput>(
     chrome = .rest
   }
   self.pressCancel = {
-    animate = Motion(motion.pressIn, play: .toRest)
+    animate = Animation(
+      keys: [Motion(duration: 90, ease: .out, pose: .rest)]
+    )
     chrome = .rest
   }
 }
 
 usage PressPopButton {
-  description = "Press shrinks and darkens (hold .toPose). Release plays a forward pop — not a reverse — then sits on a raised shadow. pressEnd must set play: .toPose or the host reverses the shrink."
+  description = "Press holds a shrink. Release plays an overshoot then .rest. Cancel authors return to .rest."
 }
 
 component PressPopLab() layout {
@@ -702,6 +690,59 @@ component PressPopLab() layout {
 
 usage PressPopLab {
   description = "Soft stage so the raised / pressed shadows read. Default for the press-pop stub."
+}
+
+/// Two concurrent Animations from one pressEnd — box scales fast, label fades slow.
+component MotionTargetedDemo <PointerInput>() layout {
+  direction = .column
+  align = .center
+  gap = 12
+  padding = 16
+  width = 220
+  background = #FFFFFF
+  cornerRadius = 12
+  borderWidth = 1
+  borderColor = #E5E7EB
+
+  let box = Layout(
+    width: 120,
+    height: 72,
+    background: #3B82F6,
+    cornerRadius: 10
+  )
+  let label = Text(content: "Press me", color: #111827, fontSize: 14, fontWeight: 600)
+  children = [box, label]
+
+  self.pressStart = {
+    box.animate = Animation(
+      keys: [Motion(duration: 120, ease: .in, pose: Pose(scale: 0.94))]
+    )
+    label.animate = Animation(
+      keys: [Motion(duration: 120, ease: .in, pose: Pose(opacity: 0.55))]
+    )
+  }
+  self.pressEnd = {
+    box.animate = Animation(
+      keys: [
+        Motion(duration: 210, ease: .out, pose: Pose(scale: 1.08)),
+        Motion(duration: 210, ease: .out, pose: .rest)
+      ]
+    )
+    label.animate = Animation(
+      keys: [
+        Motion(duration: 450, ease: .out, pose: Pose(opacity: 0.55)),
+        Motion(duration: 450, ease: .out, pose: .rest)
+      ]
+    )
+  }
+  self.pressCancel = {
+    box.animate = Animation(
+      keys: [Motion(duration: 200, ease: .out, pose: .rest)]
+    )
+    label.animate = Animation(
+      keys: [Motion(duration: 200, ease: .out, pose: .rest)]
+    )
+  }
 }
 
 component MotionLab() layout {
@@ -724,9 +765,10 @@ component MotionLab() layout {
   let sheen = MotionSheen()
   let appearPulse = MotionAppearThenPulse()
   let pressPop = PressPopButton()
-  children = [modal, list, blur, chip, flourish, pop, overridePop, spin, spinSelf, pulse, sheen, appearPulse, pressPop]
+  let targeted = MotionTargetedDemo()
+  children = [modal, list, blur, chip, flourish, pop, overridePop, spin, spinSelf, pulse, sheen, appearPulse, pressPop, targeted]
 }
 
 usage MotionLab {
-  description = "Motion walkthrough. Play each clip on the rack. Hover the chip (tree tween) or the pop tokens (pose track)."
+  description = "Motion walkthrough. Play each clip on the rack. Hover the chip (state) or the pop tokens (pose track)."
 }

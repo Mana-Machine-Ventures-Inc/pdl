@@ -30,20 +30,26 @@ describe("motion clips", () => {
       interactionsByComponent,
       bake.components.MotionLab?.root?.children,
     );
+    // MotionHoverChip is state-only (no Animation) — no hover clips.
     expect(clips.map((c) => `${c.groupLabel}:${c.event}`)).toEqual([
       "modal:appear",
       "modal:dismiss",
       "list:appear",
       "blur:appear",
       "blur:dismiss",
-      "chip:hoverStart",
-      "chip:hoverEnd",
       "flourish:hoverStart",
       "flourish:hoverEnd",
       "pop:hoverStart",
       "pop:hoverEnd",
       "overridePop:hoverStart",
       "overridePop:hoverEnd",
+      "appearPulse:appear",
+      "pressPop:pressStart",
+      "pressPop:pressEnd",
+      "pressPop:pressCancel",
+      "targeted:pressStart",
+      "targeted:pressEnd",
+      "targeted:pressCancel",
     ]);
   });
 

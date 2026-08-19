@@ -1,0 +1,9 @@
+component BadForeverRepeat <PointerInput>() layout {
+  children = []
+  self.appear = {
+    animate = Animation(
+      keys: [Motion(duration: 200, ease: .linear, pose: Pose(rotate: 360))],
+      repeat: [.forever, 3]
+    )
+  }
+}

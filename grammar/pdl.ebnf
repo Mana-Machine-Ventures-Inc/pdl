@@ -57,7 +57,7 @@ token-type-name
   ::= 'Color' | 'Opacity' | 'Distance' | 'Radius' | 'Shadow'
     | 'Icon' | 'MediaSource' | 'Ratio' | 'FontFamily' | 'Size'
     | 'Weight' | 'LineHeight' | 'LetterSpacing' | 'Sizing' | 'Duration'
-    | 'Ease' | 'Timing' | 'Pose' | 'Stagger' | 'Motion' | 'PresentationMotion' | 'Effect'
+    | 'Ease' | 'Timing' | 'Pose' | 'Stagger' | 'Motion' | 'Animation' | 'PresentationMotion' | 'Effect'
     | 'Blur' | 'Vibrancy' | 'Ramp' | 'Background' | 'Foreground'
     ;
 
@@ -409,7 +409,7 @@ event-name
 handler-statement
   ::= param-assignment          (* component params only — not FrameId.prop *)
     | emit-statement
-    | animate-statement         (* value-expr is Motion, or Timing sugar *)
+    | animate-statement         (* value-expr is Animation *)
     | if-chain                  (* conditions over params; still param assigns only *)
     ;
 
@@ -422,9 +422,14 @@ param-assignment
     | 'self' '.' IDENT '=' value-expr
     ;
 
+(* Bare `animate =` plays on the event target (component root / instance).
+   `IDENT.animate =` plays on that let (`data-pdl-id`). `self.animate =` ≡ bare.
+   Multiple animate statements in one handler run concurrently (independent clocks). *)
 animate-statement
-  ::= 'animate' '=' value-expr ;   (* Motion(…) or Timing token/tuple *)
-
+  ::= 'animate' '=' value-expr
+    | IDENT '.' 'animate' '=' value-expr
+    | 'self' '.' 'animate' '=' value-expr
+    ;
 (* 21.8 Companion blocks and typed samples *)
 fixtures-decl
   ::= 'fixtures' IDENT '{' { example-decl } '}' ;
@@ -534,8 +539,8 @@ value-expr
     | ease-literal
     | pose-literal
     | stagger-literal
-    | key-literal
     | motion-literal
+    | animation-literal
     | presentation-motion-literal
     | effect-literal
     | vibrancy-literal
@@ -627,31 +632,38 @@ pose-arg
 stagger-literal
   ::= 'Stagger' '(' 'step' ':' value-expr [ ',' 'from' ':' ( '.first' | '.last' ) ] ')' ;
 
-key-literal
-  ::= 'Key' '(' 'pose' ':' value-expr ',' 'at' ':' value-expr
-      [ ',' 'ease' ':' value-expr ] ')' ;
-
+(* Segment: one clock + destination pose. Not an animate = value. *)
 motion-literal
   ::= 'Motion' '(' motion-args ')' ;
 
 motion-args
-  ::= motion-base [ ',' motion-arg { ',' motion-arg } ]
-    | motion-arg { ',' motion-arg } ;
-
-motion-base
-  ::= IDENT { '.' IDENT } ;
+  ::= motion-arg { ',' motion-arg } ;
 
 motion-arg
   ::= 'timing' ':' value-expr
     | 'duration' ':' value-expr
     | 'ease' ':' value-expr
     | 'delay' ':' value-expr
-    | 'play' ':' value-expr
-    | 'pose' ':' value-expr
+    | 'pose' ':' value-expr ;
+
+(* Clip: optional snap start + sequential Motion keys. Type of animate =. *)
+animation-literal
+  ::= 'Animation' '(' animation-args ')' ;
+
+animation-args
+  ::= animation-base [ ',' animation-arg { ',' animation-arg } ]
+    | animation-arg { ',' animation-arg } ;
+
+animation-base
+  ::= IDENT { '.' IDENT } ;
+
+animation-arg
+  ::= 'start' ':' value-expr
     | 'keys' ':' value-expr
     | 'stagger' ':' value-expr
     | 'repeat' ':' value-expr ;
 
+(* Presenter pair. Slots are Animation, or Pose sugar (+ pair clock → Animation). *)
 presentation-motion-literal
   ::= 'PresentationMotion' '(' presentation-motion-arg { ',' presentation-motion-arg } ')' ;
 

@@ -112,20 +112,17 @@ export function serialiseValueExpr(e: ValueExpr): unknown {
         step: serialiseValueExpr(e.step),
         ...(e.from ? { from: serialiseValueExpr(e.from) } : {}),
       };
-    case "key":
-      return {
-        kind: "key",
-        pose: serialiseValueExpr(e.pose),
-        at: serialiseValueExpr(e.at),
-        ...(e.ease ? { ease: serialiseValueExpr(e.ease) } : {}),
-      };
     case "motion":
       return {
         kind: "motion",
-        ...(e.base ? { base: serialiseValueExpr(e.base) } : {}),
         ...(e.timing ? { timing: serialiseValueExpr(e.timing) } : {}),
-        ...(e.play ? { play: serialiseValueExpr(e.play) } : {}),
-        ...(e.pose ? { pose: serialiseValueExpr(e.pose) } : {}),
+        pose: serialiseValueExpr(e.pose),
+      };
+    case "animation":
+      return {
+        kind: "animation",
+        ...(e.base ? { base: serialiseValueExpr(e.base) } : {}),
+        ...(e.start ? { start: serialiseValueExpr(e.start) } : {}),
         ...(e.keys ? { keys: serialiseValueExpr(e.keys) } : {}),
         ...(e.stagger ? { stagger: serialiseValueExpr(e.stagger) } : {}),
         ...(e.repeat ? { repeat: serialiseValueExpr(e.repeat) } : {}),
@@ -311,22 +308,19 @@ export function serialiseValueExprWithTokenRefs(expr: ValueExpr, design: DesignD
         step: serialiseValueExprWithTokenRefs(expr.step, design),
         ...(expr.from ? { from: serialiseValueExprWithTokenRefs(expr.from, design) } : {}),
       };
-    case "key":
-      return {
-        kind: "key",
-        pose: serialiseValueExprWithTokenRefs(expr.pose, design),
-        at: serialiseValueExprWithTokenRefs(expr.at, design),
-        ...(expr.ease ? { ease: serialiseValueExprWithTokenRefs(expr.ease, design) } : {}),
-      };
     case "motion":
       return {
         kind: "motion",
-        ...(expr.base ? { base: serialiseValueExprWithTokenRefs(expr.base, design) } : {}),
         ...(expr.timing
           ? { timing: serialiseValueExprWithTokenRefs(expr.timing, design) }
           : {}),
-        ...(expr.play ? { play: serialiseValueExprWithTokenRefs(expr.play, design) } : {}),
-        ...(expr.pose ? { pose: serialiseValueExprWithTokenRefs(expr.pose, design) } : {}),
+        pose: serialiseValueExprWithTokenRefs(expr.pose, design),
+      };
+    case "animation":
+      return {
+        kind: "animation",
+        ...(expr.base ? { base: serialiseValueExprWithTokenRefs(expr.base, design) } : {}),
+        ...(expr.start ? { start: serialiseValueExprWithTokenRefs(expr.start, design) } : {}),
         ...(expr.keys ? { keys: serialiseValueExprWithTokenRefs(expr.keys, design) } : {}),
         ...(expr.stagger ? { stagger: serialiseValueExprWithTokenRefs(expr.stagger, design) } : {}),
         ...(expr.repeat ? { repeat: serialiseValueExprWithTokenRefs(expr.repeat, design) } : {}),

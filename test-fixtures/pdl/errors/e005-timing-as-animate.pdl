@@ -1,0 +1,8 @@
+semantic timing.quick: Timing = Timing(duration: 200, ease: .out)
+
+component BadTimingAnimate <PointerInput>() layout {
+  children = []
+  self.hoverStart = {
+    animate = timing.quick
+  }
+}

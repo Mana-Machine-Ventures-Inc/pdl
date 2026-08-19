@@ -1,5 +1,10 @@
-semantic bad.key: Motion = Motion(
-  duration: 200,
-  ease: .out,
-  keys: [Key(pose: Pose(scale: 1.12), at: 1, easing: .out)]
-)
+component BadEasing <PointerInput>() layout {
+  children = []
+  self.appear = {
+    animate = Animation(
+      keys: [
+        Motion(duration: 200, ease: .out, pose: Pose(scale: 1.12), easing: .out)
+      ]
+    )
+  }
+}

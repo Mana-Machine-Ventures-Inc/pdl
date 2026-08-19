@@ -16,7 +16,7 @@
     "conditionals": "Change a handful of properties when a parameter or state changes. First match wins.",
     "conditions": "Comparisons and booleans used in `if` and ForEach. Keep `&&` and `||` in separate expressions, or parenthesize.",
     "null": "Clear a frame or typeStyle property so the default applies. Not a token value.",
-    "tokenTypes": "Named values you declare once and reuse. Write `primitive` for the raw palette and `semantic` for the names components should use (`color.surface`). Pick a type when a property needs a color, a gap, a shadow, and so on. Duration, Ease, Timing, Pose, Stagger, Motion, and PresentationMotion are the motion types — they exist for handler `animate =`, frame `animate`, and Presenter pair clips. Effect is paint: `.blurSelf` softens the node, `.blurBehind` samples what is behind.",
+    "tokenTypes": "Named values you declare once and reuse. Write `primitive` for the raw palette and `semantic` for the names components should use (`color.surface`). Pick a type when a property needs a color, a gap, a shadow, and so on. Duration, Ease, Timing, Pose, Stagger, Motion, Animation, and PresentationMotion are the motion types — Animation is `animate =`; Motion is a segment inside Animation.keys; PresentationMotion is Presenter pair clips. Effect is paint: `.blurSelf` softens the node, `.blurBehind` samples what is behind.",
     "theme": "A named remap of tokens you already declared. Use a theme for light/dark, brand, or reduced motion. Components keep using semantic names; the theme changes what those names resolve to.",
     "catalog": "A named remap the environment applies — platform icon sets, not light/dark. Same override lines as a theme. Only `use catalog Name` inside `mount` applies it. The theme picker must not list catalogs.",
     "host": "An environment profile: `host Name(params) [mount { … }]`. Components opt in with `<Host>` to read those params. Width-class and surface taxonomies are pack-local variants, not language types. Bake runs `mount` once against an opaque facts bag, then any fact whose key matches a host param pins that param for every `<Host>` component.",
@@ -29,7 +29,7 @@
     "emits": "How a child tells its parent something happened — a chip was selected, a field changed. Declare the channel with `emits { … }` or inherit it with `emits <P>`, fire it from a click, and listen on the parent. `emits <P>` is also how a component fills a `[P]` slot.",
     "protocols": "A shared contract so several components can sit in the same list and speak the same language. `<>` receives: host inbound (`PointerInput`) and ancestor sinks (`ShowEpisode` on the screen). `emits <P>` sends: fire that protocol’s channels, inherit its params, and satisfy `[P]` slots.",
     "hostPrelude": "A host protocol lets the preview (or app) trigger component changes: hover color, a click, focus, typing — or, with `Host`, read the active environment profile. Use `PointerInput` for buttons and chips; use `EditableText` for a field the user types into; use `Host` on a structural parent. Opt in with `component C <PointerInput>`. List more than one when needed: `component C <Host, PointerInput>`. These names are built in — you do not import them.",
-    "motion": "One `animate =` assignment on a host handler, or a standing `animate` on any frame. Its type is Motion: a Transition, an optional play mode, Pose or keys, Stagger, and finite repeat. A bare Transition is sugar for Motion(transition: …). Bake stays at rest; the HTML host plays a CSS overlay.",
+    "motion": "One or more `animate =` / `let.animate =` assignments on a host handler, or a standing `animate` on any frame. Its type is Animation: optional start Pose (snap), sequential Motion keys, optional Stagger and repeat (`.forever` or a count). Bake stays at rest; the HTML host plays a CSS overlay.",
     "samples": "Reusable catalogs of instances you mount in layout so a prototype can stay interactive — a library of tracks, a set of chips, an empty list you can switch to. Write the catalog once and point at `Tracks.library.tracks` from a parameter default or from `children`. Isolated component examples, the kind you would put in design-system documentation, belong in fixtures.",
     "fixtures": "A fixture is a named bag of parameter values for one component, plus optional bake knobs (`host`, `theme`, `hostFacts`). The Playground Fixture menu shows the labels. Each `example` is concrete values only — not other parameters, not layout. Flip through them to preview states without editing the component. Use fixtures for the examples you would put in design-system documentation — primary vs secondary, large vs small. Use them also for a whole view: empty search, a night playlist, mid-rename. Samples are the catalogs you mount; a fixture chooses which world the preview is in.",
     "usage": "A written note on a component for authors and tools. In v1 the only key is `description`.",
@@ -586,40 +586,79 @@
       "name": "Motion",
       "category": "motion",
       "usedOn": [
-        "animate"
+        "Animation.keys"
       ],
-      "meaning": "The value of `animate =` (handler or frame). Joins a clock with an optional Play, Pose or keys, Stagger, and finite repeat. Declare `duration:` / `ease:` / optional `delay:` on the Motion, or pass `timing:` as a Timing token or `Timing(…)`. Do not mix `timing:` with flattened clock fields (E005). `pose:` and `keys:` together are rejected. `play: .loop` is forever — do not also set `repeat:`. `stagger` and `repeat` require a pose track. Omit `play` on reusable tokens so the site default applies. A Timing token or `Timing(…)` is sugar for `Motion(timing: …)`. Themes replace a Motion wholly — no field merge.",
+      "meaning": "One segment of an Animation: a clock plus a destination Pose (or `.rest`). Not a valid `animate =` value — wrap segments in `Animation(keys: […])`. Declare `duration:` / `ease:` / optional `delay:`, or `timing:` as a Timing token / `Timing(…)`. Do not mix `timing:` with flattened clock fields. Themes replace a Motion wholly.",
       "accept": [
         {
-          "form": "Motion(timing: motion.appear)",
-          "meaning": "Curve only — hover / implicit interpolation."
+          "form": "Motion(duration: 250, ease: .out, pose: Pose(scale: 1.08))",
+          "meaning": "Ease from current overlay to this pose."
         },
         {
-          "form": "Motion(timing: motion.appear, pose: Pose(opacity: 0))",
-          "meaning": "Lifecycle overlay. Handler name is the direction."
+          "form": "Motion(duration: 400, ease: .out, pose: .rest)",
+          "meaning": "Settle to identity overlay."
         },
         {
-          "form": "Motion(duration: 250, ease: .out, pose: pose.fadeUp, stagger: Stagger(step: 30, from: .first))",
-          "meaning": "Full join with an explicit clock."
+          "form": "Motion(timing: motion.fast, pose: pose.fadeUp)",
+          "meaning": "Timing token plus destination."
+        }
+      ],
+      "reject": [
+        {
+          "form": "animate = Motion(duration: 200, ease: .out, pose: Pose(scale: 1.1))",
+          "meaning": "`animate =` takes Animation, not Motion."
         },
         {
-          "form": "Motion(motion.hoverPop, play: .toRest)",
-          "meaning": "Shallow copy of a Motion token; labeled fields replace those fields."
+          "form": "Motion(duration: 200, ease: .out, play: .toRest)",
+          "meaning": "`play:` is removed."
+        }
+      ],
+      "example": "Motion(duration: 280, ease: .out, pose: Pose(scale: 1.12))"
+    },
+    {
+      "name": "Animation",
+      "category": "motion",
+      "usedOn": [
+        "animate"
+      ],
+      "meaning": "The value of `animate =` (handler or frame). Optional `start:` snaps immediately (omit = from current overlay). `keys:` is a non-empty sequential list of Motion segments. Optional `stagger:` and `repeat:` (finite count or `.forever`). `Animation(token, field:)` copies an Animation token and overrides labeled fields. Themes replace an Animation wholly. Concurrent independent clocks use different lets (`box.animate` / `label.animate`), or bundle channels in one Pose.",
+      "accept": [
+        {
+          "form": "Animation(start: Pose(opacity: 0), keys: [Motion(duration: 250, ease: .out, pose: .rest)])",
+          "meaning": "Appear: snap start, ease to rest."
         },
         {
-          "form": "motion.appear",
-          "meaning": "A Timing token — sugar for Motion(timing: that)."
+          "form": "Animation(keys: [Motion(duration: 180, ease: .out, pose: Pose(scale: 1.08)), Motion(duration: 280, ease: .out, pose: .rest)])",
+          "meaning": "Overshoot then settle."
         },
         {
-          "form": "Timing(duration: 250, ease: .out)",
-          "meaning": "A Timing constructor — same sugar."
+          "form": "Animation(keys: [Motion(duration: 800, ease: .linear, pose: Pose(rotate: 360))], repeat: .forever)",
+          "meaning": "Standing spin."
+        },
+        {
+          "form": "Animation(motion.hoverPop, repeat: .forever)",
+          "meaning": "Copy a token and override fields."
         },
         {
           "form": "motion.enterCard",
-          "meaning": "A Motion token."
+          "meaning": "An Animation token."
         }
       ],
-      "example": "semantic motion.hoverPop: Motion = Motion(timing: motion.appear, keys: [Key(pose: Pose(scale: 1.12), at: 1)])\nhoverEnd = { animate = Motion(motion.hoverPop, play: .toRest) }"
+      "reject": [
+        {
+          "form": "Animation(keys: [])",
+          "meaning": "Empty keys rejected."
+        },
+        {
+          "form": "animate = Timing(duration: 200, ease: .out)",
+          "meaning": "Timing is not animate sugar."
+        },
+        {
+          "form": "Animation(keys: […], play: .toRest)",
+          "meaning": "`play:` is removed — put `.rest` in a Motion pose."
+        }
+      ],
+      "example": "semantic motion.hoverPop: Animation = Animation(\n  keys: [\n    Motion(duration: 110, ease: .out, pose: Pose(scale: 1.12)),\n    Motion(duration: 170, ease: .out, pose: Pose(scale: 1.04))\n  ]\n)\nhoverEnd = { animate = Animation(keys: [Motion(duration: 280, ease: .out, pose: .rest)]) }"
     },
     {
       "name": "PresentationMotion",
@@ -630,15 +669,15 @@
         "push.move",
         "dismissMove"
       ],
-      "meaning": "A Presenter pair clip. `incoming` plays `.toRest` (mounts at pose, eases to rest). `outgoing` plays `.toPose`. Pair-level `duration` / `ease` / `delay` apply when a slot is a Pose. A Motion slot keeps its own clock. A Motion with `keys:` plays that path as authored (`Key.ease` is the curve to the next stop). `front` is who starts on top (`.incoming` or `.outgoing`). Omit it: `move` keeps incoming on top; `dismissMove` keeps outgoing on top. `switchAt` is a Duration in milliseconds — wall-clock from play start, not eased progress. Omit it to keep `front` the whole clip. `.reversed` swaps sides and time-reverses `ease` (`.in`↔`.out`; bezier control points invert). `delay` stays. Omit `switchAt`: flip `front`. With `switchAt`: keep `front` (the side swap remaps who that label is) and invert to `span − switchAt` (span is max of each side’s delay + duration). `keys:` paths are not reversed — write `dismissMove:` for that.",
+      "meaning": "A Presenter pair clip. Slots are `Animation`, or `Pose` sugar with pair-level `duration` / `ease` / `delay` (incoming expands to start→rest; outgoing expands to ease to that Pose). Animation slots keep their own clocks. `front` is who starts on top (`.incoming` or `.outgoing`). Omit it: `move` keeps incoming on top; `dismissMove` keeps outgoing on top. `switchAt` is milliseconds from play start. `.reversed` swaps sides and time-reverses each Motion `ease` (`.in`↔`.out`; bezier control points invert). `delay` stays. Omit `switchAt`: flip `front`. With `switchAt`: keep `front` and invert to `span − switchAt`.",
       "accept": [
         {
           "form": "PresentationMotion(incoming: Pose(translateX: 390), outgoing: Pose(translateX: -48, opacity: 0.86), duration: 320, ease: .out)",
-          "meaning": "Push-style pair. Omit front: move keeps incoming on top."
+          "meaning": "Push-style pair via Pose sugar."
         },
         {
           "form": "front: .outgoing",
-          "meaning": "Who starts on top. `.incoming` or `.outgoing`."
+          "meaning": "Who starts on top."
         },
         {
           "form": "switchAt: 240",
@@ -646,18 +685,18 @@
         },
         {
           "form": "PresentationMotion(incoming: Pose(scale: 0.92, translateX: -36), outgoing: Pose(scale: 0.92, translateX: 36), duration: 480, ease: .in, front: .outgoing, switchAt: 240)",
-          "meaning": "Card swap: outgoing starts in front; incoming takes front at 240ms."
+          "meaning": "Card swap."
         },
         {
           "form": "motion.navPush.reversed",
-          "meaning": "Swap incoming/outgoing, time-reverse ease. No switchAt: flip front. With switchAt: keep front, invert to span − switchAt. Key lists stay."
+          "meaning": "Swap incoming/outgoing, time-reverse ease."
         },
         {
-          "form": "incoming: Motion(duration: 480, ease: .out, keys: [Key(pose: Pose(translateX: 390), at: 0), Key(pose: .rest, at: 1)])",
-          "meaning": "Keyed incoming path. Played as authored. Per-key `ease:` is the curve to the next stop."
+          "form": "incoming: Animation(start: Pose(translateX: 390), keys: [Motion(duration: 480, ease: .out, pose: .rest)])",
+          "meaning": "Explicit incoming Animation."
         }
       ],
-      "example": "semantic motion.navPush: PresentationMotion = PresentationMotion(\n  incoming: Pose(translateX: 390),\n  outgoing: Pose(translateX: -48, opacity: 0.86),\n  duration: 320,\n  ease: .out\n)\nsemantic motion.cardSwap: PresentationMotion = PresentationMotion(\n  incoming: Pose(scale: 0.92, translateX: -36),\n  outgoing: Pose(scale: 0.92, translateX: 36),\n  duration: 480,\n  ease: .in,\n  front: .outgoing,\n  switchAt: 240\n)"
+      "example": "semantic motion.navPush: PresentationMotion = PresentationMotion(\n  incoming: Pose(translateX: 390),\n  outgoing: Pose(translateX: -48, opacity: 0.86),\n  duration: 320,\n  ease: .out\n)"
     },
     {
       "name": "Effect",
@@ -1221,28 +1260,6 @@
       "example": "photo.effect = Effect(.blurSelf, radius: 8)\nsheet.effect = Effect(.blurBehind, radius: 16)"
     },
     {
-      "name": "Play",
-      "usedOn": [
-        "Motion.play"
-      ],
-      "meaning": "How a Motion runs its pose track. Not a token type — only the `play:` field on Motion. Omit it on reusable tokens so the site default applies.",
-      "cases": [
-        {
-          "case": "toRest",
-          "meaning": "Run the path and finish on rest (identity overlay). Default for appear, hoverEnd, and pressEnd."
-        },
-        {
-          "case": "toPose",
-          "meaning": "Run the path and finish on the last key. Default for dismiss, hoverStart, and pressStart when a pose track is present."
-        },
-        {
-          "case": "loop",
-          "meaning": "Repeat the path forever. Do not also set `repeat:`."
-        }
-      ],
-      "example": "hoverEnd = { animate = Motion(motion.hoverPop, play: .toRest) }\nicon.animate = Motion(transition: motion.appear, play: .loop, pose: Pose(rotate: 360))"
-    },
-    {
       "name": "Front",
       "usedOn": [
         "PresentationMotion.front"
@@ -1474,22 +1491,22 @@
     {
       "name": "Pose",
       "kind": "value",
-      "meaning": "Overlay snapshot: Pose(opacity:, scale:, scaleX:, scaleY:, translateX:, translateY:, blur:, rotate:, originX:, originY:). At least one field. Used on Motion.pose."
+      "meaning": "Overlay snapshot: Pose(opacity:, scale:, scaleX:, scaleY:, translateX:, translateY:, blur:, rotate:, originX:, originY:). At least one field. Used on Motion.pose and Animation.start. `.rest` is identity."
     },
     {
       "name": "Stagger",
       "kind": "value",
-      "meaning": "Stagger(step: Duration [, from: .first|.last]). Used on Motion.stagger. from defaults to .first."
-    },
-    {
-      "name": "Key",
-      "kind": "value",
-      "meaning": "Key(pose: Pose | .rest, at: 0…1 [, ease:]). A waypoint on Motion.keys. `ease:` is the curve from this stop to the next; omit it to use the Motion clock."
+      "meaning": "Stagger(step: Duration [, from: .first|.last]). Used on Animation.stagger. from defaults to .first."
     },
     {
       "name": "Motion",
       "kind": "value",
-      "meaning": "Motion(transition: Transition [, play:] [, pose: Pose] [, keys: [Key, …]] [, stagger: Stagger] [, repeat: n]) or Motion(token, field:). The type of animate =. A bare Transition is sugar for Motion(transition: …). Site default fills play when omitted."
+      "meaning": "Motion(duration:, ease: [, delay:] | timing:, pose:). One Animation.keys segment — clock plus destination. Not the type of animate =."
+    },
+    {
+      "name": "Animation",
+      "kind": "value",
+      "meaning": "Animation([token,] start?, keys:, stagger?, repeat?). The type of animate =. keys is a non-empty list of Motion. repeat is a count or .forever."
     },
     {
       "name": "Effect",
@@ -2058,56 +2075,52 @@
     "example": "component LibrarySubnav(\n  currentFilter: FilterId = .all,\n  chips: [FilterChip] = [FilterChip(filter: .all)]\n) layout {\n  ForEach(chips) { chip in\n    chip.selected = self.currentFilter == filter\n  }\n  self.background = color.surface\n  children = chips\n}"
   },
   "motion": {
-    "meaning": "Host handler bodies have one motion assignment: `animate =`. Its type is Motion — a Transition plus optional play, Pose or keys, Stagger, and finite repeat. A Transition token or tuple is sugar for `Motion(transition: …)`. `Motion(token, field:)` copies a Motion token and overrides labeled fields. Bake is the rest pose. The HTML host plays a CSS overlay — not layout. Units: Duration is milliseconds; translate and blur are CSS pixels; scale is unitless; opacity is 0…1; rotate is degrees; originX / originY are 0…1. Pose fields: `opacity`, `scale`, `scaleX`, `scaleY`, `translateX`, `translateY`, `blur`, `rotate`, `originX`, `originY`. Appear defaults to play toward rest; dismiss toward the last key; hoverStart / pressStart with a pose track default `.toPose`; hoverEnd / pressEnd default `.toRest`. Reusable tokens omit `play`. Pose / keys are legal on pointer handlers (flourish). `stagger` without a pose track is rejected.",
+    "meaning": "Host handler bodies assign motion with `animate =` (event target) and/or `let.animate =` (named let). Several animate statements in one handler run concurrently with independent clocks. Each value is Animation — optional start Pose (snap), sequential Motion keys, optional Stagger and repeat. Bake is rest. The HTML host plays a CSS overlay — not layout. Units: Duration is milliseconds; translate and blur are CSS pixels; scale is unitless; opacity is 0…1; rotate is degrees; originX / originY are 0…1. Appear authors `start:` then a Motion to `.rest`. Dismiss authors keys to an exit pose. Standing loops use `repeat: .forever`.",
     "accept": [
       {
-        "form": "animate = motion.interactive",
-        "meaning": "Transition sugar. Use this curve for property changes this handler triggers (implicit interpolation)."
+        "form": "animate = Animation(start: Pose(opacity: 0, translateY: 8), keys: [Motion(duration: 250, ease: .out, pose: .rest)])",
+        "meaning": "Appear: snap start, ease to rest."
       },
       {
-        "form": "animate = Motion(transition: motion.appear, pose: Pose(opacity: 0, scale: 0.95, translateY: 8))",
-        "meaning": "Lifecycle overlay. appear = from pose; dismiss = to pose."
+        "form": "knob.animate = Animation(keys: [Motion(duration: 200, ease: .out, pose: Pose(scale: 0.96))])",
+        "meaning": "Targeted shot on a named let."
       },
       {
-        "form": "animate = Motion(transition: motion.appear, pose: pose.fadeUp, stagger: Stagger(step: 30, from: .first))",
-        "meaning": "Pose each direct visible child with this Transition; stagger them like this."
+        "form": "frame1.animate = Animation(keys: [Motion(duration: 500, ease: .out, pose: Pose(scale: 1.08))])\nframe2.animate = Animation(keys: [Motion(duration: 1000, ease: .out, pose: Pose(opacity: 0.6))])",
+        "meaning": "Two independent Animations on two lets from one pressEnd."
       },
       {
-        "form": "animate = Motion(motion.hoverPop, play: .toRest)",
-        "meaning": "Copy a Motion token and override play (or any other field)."
+        "form": "animate = Animation(keys: [Motion(duration: 220, ease: .out, pose: Pose(opacity: 0))], stagger: Stagger(step: 30, from: .first))",
+        "meaning": "Stagger direct children through this Animation."
       },
       {
         "form": "if isLoading { icon.animate = motion.spin }",
-        "meaning": "Standing overlay on a frame. Bake carries the Motion while the if is true; omit the field when false."
+        "meaning": "Standing overlay while the if is true; omit when false. Token should use repeat: .forever."
       },
       {
         "form": "self.animate = motion.spin",
-        "meaning": "Same property on the component root."
+        "meaning": "In a handler, same as bare `animate =`. In layout, standing animate on the component root."
       }
     ],
     "reject": [
       {
-        "form": "interaction Appear { on appear { … } }",
-        "meaning": "The `interaction` keyword is removed (PDL-E001). Put motion on `self.appear = { … }`."
+        "form": "animate = Motion(duration: 200, ease: .out, pose: Pose(scale: 1.1))",
+        "meaning": "`animate =` takes Animation, not Motion."
+      },
+      {
+        "form": "animate = Timing(duration: 200, ease: .out)",
+        "meaning": "Timing is not animate sugar."
+      },
+      {
+        "form": "Animation(keys: […], play: .toRest)",
+        "meaning": "`play:` is removed — put `.rest` on a Motion pose."
       },
       {
         "form": "from { opacity = 0 }",
-        "meaning": "Removed. Write `pose: Pose(opacity: 0)` on Motion."
-      },
-      {
-        "form": "stagger = 30",
-        "meaning": "Removed. Write `stagger: Stagger(step: 30, from: .first)` on Motion."
-      },
-      {
-        "form": "animate = Motion(transition: motion.appear, stagger: Stagger(step: 30))",
-        "meaning": "Stagger without pose is rejected."
-      },
-      {
-        "form": "Motion(color.red, play: .toRest)",
-        "meaning": "Copy base must be a Motion token (PDL-E005)."
+        "meaning": "Removed. Write `start: Pose(opacity: 0)` on Animation."
       }
     ],
-    "example": "component Modal <PointerInput>() layout {\n  let title = Text(content: \"Hello\")\n  children = [title]\n  self.appear = {\n    animate = Motion(\n      transition: motion.appear,\n      pose: Pose(opacity: 0, scale: 0.95),\n      stagger: Stagger(step: 30, from: .first)\n    )\n  }\n  self.dismiss = {\n    animate = Motion(transition: motion.dismiss, pose: Pose(opacity: 0, scale: 0.95))\n  }\n}"
+    "example": "component Modal <PointerInput>() layout {\n  let title = Text(content: \"Hello\")\n  children = [title]\n  self.appear = {\n    animate = Animation(\n      start: Pose(opacity: 0, scale: 0.95),\n      keys: [Motion(duration: 250, ease: .out, pose: .rest)],\n      stagger: Stagger(step: 30, from: .first)\n    )\n  }\n  self.dismiss = {\n    animate = Animation(keys: [Motion(duration: 180, ease: .in, pose: Pose(opacity: 0, scale: 0.95))])\n  }\n}"
   },
   "eventDirections": [
     {

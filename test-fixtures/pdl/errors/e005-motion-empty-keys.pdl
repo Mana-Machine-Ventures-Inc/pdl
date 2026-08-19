@@ -1,0 +1,6 @@
+component BadEmptyKeys <PointerInput>() layout {
+  children = []
+  self.appear = {
+    animate = Animation(keys: [])
+  }
+}

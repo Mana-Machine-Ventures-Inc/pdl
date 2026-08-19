@@ -20,7 +20,7 @@ use crate::evaluate::{
 use crate::graph_serialize::{
     serialise_condition_expr, serialise_value_expr, serialise_value_expr_with_token_refs,
 };
-use crate::motion::{apply_site_default_play, is_motion_prop_name};
+use crate::motion::is_motion_prop_name;
 use crate::resolve::{
     is_hidden_frame, resolve_component_tree, resolve_default_param_values, CatalFrame,
     RESOLVE_OPTIONS_GRAPH_CATALOGUE,
@@ -238,10 +238,16 @@ fn serialise_interaction_handler_item(item: &InteractionHandlerItem) -> Value {
             ("param", Value::String(param.clone())),
             ("value", serialise_value_expr(value)),
         ]),
-        InteractionHandlerItem::Animate { value } => obj(vec![
-            ("kind", Value::String("animate".to_string())),
-            ("value", serialise_value_expr(value)),
-        ]),
+        InteractionHandlerItem::Animate { target, value } => {
+            let mut entries = vec![
+                ("kind", Value::String("animate".to_string())),
+                ("value", serialise_value_expr(value)),
+            ];
+            if let Some(t) = target {
+                entries.insert(1, ("target", Value::String(t.clone())));
+            }
+            obj(entries)
+        }
         InteractionHandlerItem::Emit { name, args } => obj(vec![
             ("kind", Value::String("emit".to_string())),
             ("name", Value::String(name.clone())),
@@ -408,79 +414,133 @@ fn stagger_from_json(raw: &Value) -> (Option<f64>, Option<String>) {
     (step, from)
 }
 
-fn motion_spec_from_eval(raw: &Value) -> Option<Value> {
+fn animation_key_from_json(raw: &Value) -> Option<Value> {
     let o = raw.as_object()?;
-    let mut entries: Vec<(&str, Value)> = Vec::new();
-    let is_motion = o.get("kind").and_then(|v| v.as_str()) == Some("motion")
-        || o.contains_key("timing")
-        || o.contains_key("pose")
-        || o.contains_key("keys");
-    if is_motion {
-        let t_src = o.get("timing").unwrap_or(raw);
-        if let Some(t) = timing_from_json(t_src) {
-            entries.push(("timing", t));
+    let timing_src = o.get("timing").unwrap_or(raw);
+    let timing = timing_from_json(timing_src)?;
+    let pose = match o.get("pose") {
+        Some(Value::String(s)) if s.trim_start_matches('.') == "rest" => {
+            Value::String("rest".into())
         }
-        if let Some(play) = o.get("play").and_then(|v| v.as_str()) {
-            entries.push((
-                "play",
-                Value::String(play.trim_start_matches('.').to_string()),
-            ));
-        }
-        if let Some(p) = o.get("pose").and_then(pose_from_json) {
-            entries.push(("pose", p));
-        }
-        if let Some(keys) = o.get("keys") {
-            entries.push(("keys", keys.clone()));
-        }
-        if let Some(n) = o.get("repeat").and_then(json_as_f64) {
-            if n.is_finite() && n >= 1.0 {
-                entries.push(("repeat", number_value(n)));
-            }
-        }
-        if let Some(st) = o.get("stagger") {
-            let (step, from) = stagger_from_json(st);
-            if let Some(n) = step {
-                entries.push(("stagger", number_value(n)));
-            }
-            if let Some(f) = from {
-                entries.push(("staggerFrom", Value::String(f)));
-            }
-        }
-        if let Some(from) = o
-            .get("staggerFrom")
-            .and_then(|v| v.as_str())
-            .map(|s| s.trim_start_matches('.').to_string())
-            .filter(|s| s == "first" || s == "last")
-        {
-            entries.retain(|(k, _)| *k != "staggerFrom");
-            entries.push(("staggerFrom", Value::String(from)));
-        }
-    } else if let Some(t) = timing_from_json(raw) {
-        entries.push(("timing", t));
-    }
-    if entries.is_empty() {
-        None
-    } else {
-        Some(obj(entries))
-    }
+        Some(p) => pose_from_json(p).unwrap_or_else(|| p.clone()),
+        None => return None,
+    };
+    Some(obj(vec![("timing", timing), ("pose", pose)]))
 }
 
-fn evaluate_handler_motion(
+fn animation_spec_from_eval(raw: &Value) -> Option<Value> {
+    let o = raw.as_object()?;
+    let is_animation = o.get("kind").and_then(|v| v.as_str()) == Some("animation")
+        || o.contains_key("keys")
+        || o.contains_key("start");
+    if !is_animation {
+        return None;
+    }
+    let mut entries: Vec<(&str, Value)> = vec![("kind", Value::String("animation".into()))];
+    if let Some(start) = o.get("start") {
+        if let Value::String(s) = start {
+            if s.trim_start_matches('.') == "rest" {
+                entries.push(("start", Value::String("rest".into())));
+            }
+        } else if let Some(p) = pose_from_json(start) {
+            entries.push(("start", p));
+        } else {
+            entries.push(("start", start.clone()));
+        }
+    }
+    if let Some(Value::Array(keys)) = o.get("keys") {
+        let mut out_keys = Vec::new();
+        for k in keys {
+            if let Some(seg) = animation_key_from_json(k) {
+                out_keys.push(seg);
+            }
+        }
+        if out_keys.is_empty() {
+            return None;
+        }
+        entries.push(("keys", Value::Array(out_keys)));
+    } else {
+        return None;
+    }
+    if let Some(n) = o.get("repeat").and_then(json_as_f64) {
+        if n.is_finite() && n >= 1.0 {
+            entries.push(("repeat", number_value(n)));
+        }
+    } else if let Some(s) = o.get("repeat").and_then(|v| v.as_str()) {
+        if s.trim_start_matches('.') == "forever" {
+            entries.push(("repeat", Value::String("forever".into())));
+        }
+    }
+    if let Some(st) = o.get("stagger") {
+        let (step, from) = stagger_from_json(st);
+        if let Some(n) = step {
+            entries.push(("stagger", number_value(n)));
+        }
+        if let Some(f) = from {
+            entries.push(("staggerFrom", Value::String(f)));
+        }
+    }
+    if let Some(from) = o
+        .get("staggerFrom")
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim_start_matches('.').to_string())
+        .filter(|s| s == "first" || s == "last")
+    {
+        entries.retain(|(k, _)| *k != "staggerFrom");
+        entries.push(("staggerFrom", Value::String(from)));
+    }
+    Some(obj(entries))
+}
+
+fn evaluate_handler_animation(
     body: &[InteractionHandlerItem],
     design: &DesignDefinition,
     tokens: &mut Tokens,
 ) -> Option<Value> {
     let mut merged: Option<Value> = None;
     for item in body {
-        if let InteractionHandlerItem::Animate { value } = item {
+        if let InteractionHandlerItem::Animate {
+            target: None,
+            value,
+        } = item
+        {
             if let Some(raw) = try_eval_value(value, design, tokens) {
-                if let Some(spec) = motion_spec_from_eval(&raw) {
+                if let Some(spec) = animation_spec_from_eval(&raw) {
                     merged = Some(spec);
                 }
             }
         }
     }
     merged
+}
+
+fn evaluate_handler_animation_targets(
+    body: &[InteractionHandlerItem],
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+) -> Option<Value> {
+    let mut out: Vec<Value> = Vec::new();
+    for item in body {
+        if let InteractionHandlerItem::Animate {
+            target: Some(id),
+            value,
+        } = item
+        {
+            if let Some(raw) = try_eval_value(value, design, tokens) {
+                if let Some(spec) = animation_spec_from_eval(&raw) {
+                    out.push(obj(vec![
+                        ("target", Value::String(id.clone())),
+                        ("animation", spec),
+                    ]));
+                }
+            }
+        }
+    }
+    if out.is_empty() {
+        None
+    } else {
+        Some(Value::Array(out))
+    }
 }
 
 fn serialise_interaction_decl(
@@ -504,8 +564,11 @@ fn serialise_interaction_decl(
                     ),
                 ),
             ];
-            if let Some(motion) = evaluate_handler_motion(&h.body, design, tokens) {
-                fields.push(("motion", apply_site_default_play(motion, &h.event)));
+            if let Some(animation) = evaluate_handler_animation(&h.body, design, tokens) {
+                fields.push(("animation", animation));
+            }
+            if let Some(targets) = evaluate_handler_animation_targets(&h.body, design, tokens) {
+                fields.push(("animationTargets", targets));
             }
             obj(fields)
         })

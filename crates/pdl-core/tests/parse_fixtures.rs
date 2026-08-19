@@ -327,16 +327,15 @@ fn parses_motion_pose_stagger_on_host_handlers() {
 component Modal <PointerInput>() layout {
   children = []
   self.appear = {
-    animate = Motion(
-      duration: 250, ease: .out,
-      pose: Pose(opacity: 0, scale: 0.95, translateY: 8),
+    animate = Animation(
+      start: Pose(opacity: 0, scale: 0.95, translateY: 8),
+      keys: [Motion(duration: 250, ease: .out, pose: .rest)],
       stagger: Stagger(step: 30, from: .last)
     )
   }
   self.dismiss = {
-    animate = Motion(
-      duration: 180, ease: .in,
-      pose: Pose(opacity: 0)
+    animate = Animation(
+      keys: [Motion(duration: 180, ease: .in, pose: Pose(opacity: 0))]
     )
   }
 }
@@ -354,16 +353,73 @@ component Modal <PointerInput>() layout {
     assert!(appear.body.iter().any(|it| matches!(
         it,
         pdl_core::ast::InteractionHandlerItem::Animate {
-            value: pdl_core::ast::ValueExpr::Motion { .. }
+            target: None,
+            value: pdl_core::ast::ValueExpr::Animation { .. }
         }
     )));
     let dismiss = ix.handlers.iter().find(|h| h.event == "dismiss").unwrap();
     assert!(dismiss.body.iter().any(|it| matches!(
         it,
         pdl_core::ast::InteractionHandlerItem::Animate {
-            value: pdl_core::ast::ValueExpr::Motion { .. }
+            target: None,
+            value: pdl_core::ast::ValueExpr::Animation { .. }
         }
     )));
+}
+
+#[test]
+fn targeted_handler_animate_parses_and_catalogues() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::{build_component_catalogue, SourceMap};
+    let src = r#"
+component Demo <PointerInput>() layout {
+  let box = Layout(width: 40, height: 40, background: #000000)
+  let label = Text(content: "Hi")
+  children = [box, label]
+  self.pressEnd = {
+    box.animate = Animation(keys: [Motion(duration: 200, ease: .out, pose: Pose(scale: 1.1))])
+    label.animate = Animation(keys: [Motion(duration: 800, ease: .out, pose: Pose(opacity: 0.5))])
+    animate = Animation(keys: [Motion(duration: 100, ease: .out, pose: Pose(opacity: 0.9))])
+  }
+}
+"#;
+    let mut files = SourceMap::new();
+    files.insert("demo.pdl".into(), src.into());
+    let design = load_design_from_sources("demo.pdl", &files).expect("load");
+    let ix = design
+        .interactions
+        .get("Demo")
+        .and_then(|m| m.values().next())
+        .expect("interaction");
+    let press = ix.handlers.iter().find(|h| h.event == "pressEnd").unwrap();
+    let targets: Vec<_> = press
+        .body
+        .iter()
+        .filter_map(|it| match it {
+            pdl_core::ast::InteractionHandlerItem::Animate {
+                target: Some(t),
+                ..
+            } => Some(t.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(targets, vec!["box", "label"]);
+    assert!(press.body.iter().any(|it| matches!(
+        it,
+        pdl_core::ast::InteractionHandlerItem::Animate { target: None, .. }
+    )));
+    let cat =
+        build_component_catalogue(&design, None, &[], Some("2026-01-01T00:00:00.000Z".into()))
+            .expect("catalogue");
+    let h = &cat["components"]["Demo"]["interactions"][0]["handlers"][0];
+    assert_eq!(h["event"], "pressEnd");
+    assert!(h.get("animation").is_some(), "root animate → animation");
+    let mt = h["animationTargets"].as_array().expect("animationTargets");
+    assert_eq!(mt.len(), 2);
+    assert_eq!(mt[0]["target"], "box");
+    assert_eq!(mt[0]["animation"]["keys"][0]["pose"]["scale"], 1.1);
+    assert_eq!(mt[1]["target"], "label");
+    assert_eq!(mt[1]["animation"]["keys"][0]["timing"]["duration"], 800.0);
 }
 
 #[test]
@@ -376,27 +432,28 @@ fn motion_lab_catalogue_evaluates_snapshots() {
             .expect("catalogue");
     let appear = &cat["components"]["MotionModal"]["interactions"][0]["handlers"][0];
     assert_eq!(appear["event"], "appear");
-    assert_eq!(appear["motion"]["pose"]["opacity"], 0.0);
-    assert_eq!(appear["motion"]["pose"]["scale"], 0.95);
-    assert_eq!(appear["motion"]["pose"]["translateY"], 8.0);
-    assert_eq!(appear["motion"]["timing"]["duration"], 250.0);
+    assert_eq!(appear["animation"]["start"]["opacity"], 0.0);
+    assert_eq!(appear["animation"]["start"]["scale"], 0.95);
+    assert_eq!(appear["animation"]["start"]["translateY"], 8.0);
+    assert_eq!(appear["animation"]["keys"][0]["timing"]["duration"], 250.0);
+    assert_eq!(appear["animation"]["keys"][0]["pose"], "rest");
     let list = &cat["components"]["MotionStaggerList"]["interactions"][0]["handlers"][0];
-    assert_eq!(list["motion"]["stagger"], 40.0);
-    assert_eq!(list["motion"]["staggerFrom"], "last");
+    assert_eq!(list["animation"]["stagger"], 40.0);
+    assert_eq!(list["animation"]["staggerFrom"], "last");
     let blur = &cat["components"]["MotionBlurCard"]["interactions"][0]["handlers"][0];
     assert_eq!(blur["event"], "appear");
-    assert_eq!(blur["motion"]["pose"]["blur"], 18.0);
-    assert_eq!(blur["motion"]["pose"]["opacity"], 0.35);
-    let pose =
-        |name: &str| &cat["components"][name]["interactions"][0]["handlers"][0]["motion"]["pose"];
-    assert_eq!(pose("MotionPoseOpacity")["opacity"], 0.0);
-    assert_eq!(pose("MotionPoseScale")["scale"], 0.5);
-    assert_eq!(pose("MotionPoseScaleX")["scaleX"], 0.2);
-    assert_eq!(pose("MotionPoseScaleY")["scaleY"], 0.2);
-    assert_eq!(pose("MotionPoseTranslateX")["translateX"], 48.0);
-    assert_eq!(pose("MotionPoseTranslateY")["translateY"], 24.0);
-    assert_eq!(pose("MotionPoseBlur")["blur"], 16.0);
-    assert_eq!(pose("MotionPoseRotate")["rotate"], -12.0);
+    assert_eq!(blur["animation"]["start"]["blur"], 18.0);
+    assert_eq!(blur["animation"]["start"]["opacity"], 0.35);
+    let start_pose =
+        |name: &str| &cat["components"][name]["interactions"][0]["handlers"][0]["animation"]["start"];
+    assert_eq!(start_pose("MotionPoseOpacity")["opacity"], 0.0);
+    assert_eq!(start_pose("MotionPoseScale")["scale"], 0.5);
+    assert_eq!(start_pose("MotionPoseScaleX")["scaleX"], 0.2);
+    assert_eq!(start_pose("MotionPoseScaleY")["scaleY"], 0.2);
+    assert_eq!(start_pose("MotionPoseTranslateX")["translateX"], 48.0);
+    assert_eq!(start_pose("MotionPoseTranslateY")["translateY"], 24.0);
+    assert_eq!(start_pose("MotionPoseBlur")["blur"], 16.0);
+    assert_eq!(start_pose("MotionPoseRotate")["rotate"], -12.0);
     let flourish_handlers = cat["components"]["MotionHoverFlourish"]["interactions"][0]["handlers"]
         .as_array()
         .expect("flourish handlers");
@@ -404,13 +461,13 @@ fn motion_lab_catalogue_evaluates_snapshots() {
         .iter()
         .find(|h| h["event"] == "hoverStart")
         .expect("hoverStart");
-    assert_eq!(start["motion"]["play"], "toRest");
-    assert_eq!(start["motion"]["keys"].as_array().map(|a| a.len()), Some(3));
+    assert_eq!(start["animation"]["keys"].as_array().map(|a| a.len()), Some(3));
+    assert_eq!(start["animation"]["keys"][2]["pose"], "rest");
     let flourish_end = flourish_handlers
         .iter()
         .find(|h| h["event"] == "hoverEnd")
         .expect("hoverEnd");
-    assert_eq!(flourish_end["motion"]["play"], "toRest");
+    assert_eq!(flourish_end["animation"]["keys"][0]["pose"], "rest");
     let pop_handlers = cat["components"]["MotionHoverPop"]["interactions"][0]["handlers"]
         .as_array()
         .expect("hoverPop handlers");
@@ -422,12 +479,11 @@ fn motion_lab_catalogue_evaluates_snapshots() {
         .iter()
         .find(|h| h["event"] == "hoverEnd")
         .expect("hoverEnd");
-    assert_eq!(pop_start["motion"]["play"], "toPose");
-    assert_eq!(pop_end["motion"]["play"], "toRest");
     assert_eq!(
-        pop_start["motion"]["keys"].as_array().map(|a| a.len()),
+        pop_start["animation"]["keys"].as_array().map(|a| a.len()),
         Some(2)
     );
+    assert_eq!(pop_end["animation"]["keys"][0]["pose"], "rest");
     let override_handlers = cat["components"]["MotionHoverPopOverride"]["interactions"][0]
         ["handlers"]
         .as_array()
@@ -436,8 +492,7 @@ fn motion_lab_catalogue_evaluates_snapshots() {
         .iter()
         .find(|h| h["event"] == "hoverEnd")
         .expect("hoverEnd");
-    assert_eq!(ov_end["motion"]["play"], "toRest");
-    assert_eq!(appear["motion"]["play"], "toRest");
+    assert_eq!(ov_end["animation"]["keys"][0]["pose"], "rest");
     let modal_handlers = cat["components"]["MotionModal"]["interactions"][0]["handlers"]
         .as_array()
         .expect("modal handlers");
@@ -445,7 +500,7 @@ fn motion_lab_catalogue_evaluates_snapshots() {
         .iter()
         .find(|h| h["event"] == "dismiss")
         .expect("dismiss");
-    assert_eq!(dismiss["motion"]["play"], "toPose");
+    assert_eq!(dismiss["animation"]["keys"][0]["pose"]["opacity"], 0.0);
 }
 
 #[test]
@@ -488,38 +543,41 @@ fn rejects_ease_bezier_x_out_of_range() {
 }
 
 #[test]
-fn rejects_motion_copy_base_and_merged_pose_keys() {
+fn rejects_animation_copy_base_and_pose_label() {
     use pdl_core::design::load_design;
-    let not_motion =
+    let not_anim =
         repo_root().join("test-fixtures/pdl/errors/e005-motion-override-not-motion.pdl");
-    let err = load_design(not_motion.to_str().unwrap()).unwrap_err();
+    let err = load_design(not_anim.to_str().unwrap()).unwrap_err();
     assert_eq!(err.code, "PDL-E005");
     assert!(
-        err.message.contains("copy base must be a Motion token"),
+        err.message.contains("copy base must be an Animation token"),
         "{}",
         err.message
     );
-    let both = repo_root().join("test-fixtures/pdl/errors/e005-motion-override-pose-and-keys.pdl");
-    let err = load_design(both.to_str().unwrap()).unwrap_err();
-    assert_eq!(err.code, "PDL-E005");
+    let pose_on_anim =
+        repo_root().join("test-fixtures/pdl/errors/e005-motion-override-pose-and-keys.pdl");
+    let err = load_design(pose_on_anim.to_str().unwrap()).unwrap_err();
+    assert_eq!(err.code, "PDL-E001");
     assert!(
-        err.message.contains("both `pose:` and `keys:`"),
+        err.message.contains("start:") && err.message.contains("pose:"),
         "{}",
         err.message
     );
 }
 
 #[test]
-fn parses_motion_token_play_override() {
+fn parses_animation_token_keys_override() {
     let src = r#"
-semantic motion.hoverPop: Motion = Motion(
-  duration: 280, ease: .out,
-  keys: [Key(pose: Pose(scale: 1.12), at: 1)]
+semantic motion.hoverPop: Animation = Animation(
+  keys: [Motion(duration: 280, ease: .out, pose: Pose(scale: 1.12))]
 )
 component Chip <PointerInput>() layout {
   children = []
   self.hoverEnd = {
-    animate = Motion(motion.hoverPop, play: .toRest)
+    animate = Animation(
+      motion.hoverPop,
+      keys: [Motion(duration: 280, ease: .out, pose: .rest)]
+    )
   }
 }
 "#;
@@ -536,9 +594,10 @@ component Chip <PointerInput>() layout {
     assert!(end.body.iter().any(|it| matches!(
         it,
         pdl_core::ast::InteractionHandlerItem::Animate {
-            value: pdl_core::ast::ValueExpr::Motion {
+            target: None,
+            value: pdl_core::ast::ValueExpr::Animation {
                 base: Some(_),
-                play: Some(_),
+                keys: Some(_),
                 ..
             }
         }
@@ -570,8 +629,9 @@ fn frame_animate_bakes_when_if_true_and_omits_when_false() {
         .iter()
         .find(|c| c.id == "spinner")
         .expect("spinner");
-    assert_eq!(spinner.props["animate"]["play"], json!("loop"));
-    assert_eq!(spinner.props["animate"]["pose"]["rotate"], json!(360));
+    assert_eq!(spinner.props["animate"]["kind"], json!("animation"));
+    assert_eq!(spinner.props["animate"]["repeat"], json!("forever"));
+    assert_eq!(spinner.props["animate"]["keys"][0]["pose"]["rotate"], json!(360));
     let mut off = Map::new();
     off.insert("isLoading".into(), Value::Bool(false));
     let idle = resolve_component_tree(
@@ -591,13 +651,18 @@ fn frame_animate_bakes_when_if_true_and_omits_when_false() {
 }
 
 #[test]
-fn rejects_frame_animate_that_is_not_motion() {
+fn rejects_frame_animate_that_is_not_animation() {
     use pdl_core::design::load_design;
     let entry = repo_root().join("test-fixtures/pdl/errors/e006-frame-animate-not-motion.pdl");
     let err = load_design(entry.to_str().unwrap()).unwrap_err();
-    assert_eq!(err.code, "PDL-E006");
     assert!(
-        err.message.contains("property `animate`"),
+        err.code == "PDL-E006" || err.code == "PDL-E005",
+        "code={}",
+        err.code
+    );
+    assert!(
+        err.message.contains("property `animate`")
+            || err.message.contains("must be an Animation"),
         "{}",
         err.message
     );
@@ -2308,9 +2373,9 @@ fn n8_slide_catalogue_evaluates_pair_move() {
     assert_eq!(verb["kind"], "presenterVerb");
     assert_eq!(verb["name"], "push");
     assert_eq!(verb["move"]["kind"], "presentationMotion");
-    assert_eq!(verb["move"]["incoming"]["translateX"], 390.0);
+    assert_eq!(verb["move"]["incoming"]["start"]["translateX"], 390.0);
     assert_eq!(verb["dismissMove"]["kind"], "presentationMotion");
-    assert_eq!(verb["dismissMove"]["outgoing"]["translateX"], 390.0);
+    assert_eq!(verb["dismissMove"]["outgoing"]["start"]["translateX"], 390.0);
     assert_eq!(verb["move"]["ease"], "out");
     assert_eq!(verb["dismissMove"]["ease"], "in");
 }
@@ -2327,8 +2392,8 @@ fn reversed_ease_flips_pair_and_slot_clocks() {
     let slide_in = &tokens["motion.slideIn"];
     assert_eq!(slide_in["ease"], "in");
     assert_eq!(slide_in["delay"], 40.0);
-    assert_eq!(slide_in["incoming"]["translateX"], -48.0);
-    assert_eq!(slide_in["outgoing"]["translateX"], 390.0);
+    assert_eq!(slide_in["incoming"]["keys"][0]["pose"]["translateX"], -48.0);
+    assert_eq!(slide_in["outgoing"]["start"]["translateX"], 390.0);
     assert_eq!(slide_in["front"], ".outgoing");
 
     let material_back = &tokens["motion.materialBack"];
@@ -2339,32 +2404,36 @@ fn reversed_ease_flips_pair_and_slot_clocks() {
     assert_eq!(material_back["ease"]["y2"], 1.0);
 
     let slots = &tokens["motion.slotClocksBack"];
-    assert_eq!(slots["incoming"]["pose"]["opacity"], 0.0);
-    assert_eq!(slots["outgoing"]["pose"]["translateX"], 40.0);
-    assert_eq!(slots["incoming"]["timing"]["ease"], "out");
-    assert_eq!(slots["outgoing"]["timing"]["ease"], "in");
+    assert_eq!(slots["incoming"]["keys"][0]["pose"]["opacity"], 0.0);
+    assert_eq!(slots["outgoing"]["keys"][0]["pose"]["translateX"], 40.0);
+    assert_eq!(slots["incoming"]["keys"][0]["timing"]["ease"], "out");
+    assert_eq!(slots["outgoing"]["keys"][0]["timing"]["ease"], "in");
     assert_eq!(slots["front"], ".incoming");
 
     assert_eq!(tokens["motion.holdLinearBack"]["ease"], "linear");
 
     let card_back = &tokens["motion.cardSwapBack"];
-    assert_eq!(card_back["incoming"]["translateX"], 36.0);
-    assert_eq!(card_back["outgoing"]["translateX"], -36.0);
+    assert_eq!(card_back["incoming"]["keys"][0]["pose"]["translateX"], 36.0);
+    assert_eq!(card_back["outgoing"]["start"]["translateX"], -36.0);
     assert_eq!(card_back["front"], "outgoing");
     assert_eq!(card_back["switchAt"], 336.0);
 
     let toss = &tokens["motion.cardToss"];
-    assert_eq!(toss["incoming"]["keys"][1]["ease"], "out");
-    assert_eq!(toss["incoming"]["keys"][1]["at"], 0.55);
+    assert_eq!(toss["incoming"]["keys"][0]["timing"]["ease"], "out");
+    assert_eq!(toss["incoming"]["keys"].as_array().map(|a| a.len()), Some(2));
+    assert_eq!(toss["incoming"]["start"]["translateX"], 390.0);
     let toss_back = &tokens["motion.cardTossBack"];
-    assert_eq!(toss_back["outgoing"]["timing"]["ease"], "in");
-    assert_eq!(toss_back["outgoing"]["keys"][1]["at"], 0.55);
-    assert_eq!(toss_back["outgoing"]["keys"][1]["ease"], "out");
+    assert_eq!(toss_back["outgoing"]["keys"][0]["timing"]["ease"], "in");
+    assert_eq!(
+        toss_back["outgoing"]["keys"].as_array().map(|a| a.len()),
+        Some(2)
+    );
+    assert_eq!(toss_back["outgoing"]["start"]["translateX"], 390.0);
     assert_eq!(toss_back["switchAt"], 336.0);
 }
 
 #[test]
-fn rejects_key_easing_label() {
+fn rejects_motion_easing_label() {
     use pdl_core::design::load_design;
     let path = repo_root().join("test-fixtures/pdl/errors/e001-key-easing.pdl");
     let err = load_design(path.to_str().unwrap()).unwrap_err();

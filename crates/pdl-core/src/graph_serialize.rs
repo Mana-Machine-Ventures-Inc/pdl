@@ -281,38 +281,29 @@ pub fn serialise_value_expr(e: &ValueExpr) -> Value {
             }
             obj(entries)
         }
-        ValueExpr::Key { pose, at, ease } => {
+        ValueExpr::Motion { timing, pose } => {
             let mut entries = vec![
-                ("kind", Value::String("key".to_string())),
+                ("kind", Value::String("motion".to_string())),
                 ("pose", serialise_value_expr(pose)),
-                ("at", serialise_value_expr(at)),
             ];
-            if let Some(e) = ease {
-                entries.push(("ease", serialise_value_expr(e)));
-            }
-            obj(entries)
-        }
-        ValueExpr::Motion {
-            base,
-            timing,
-            pose,
-            keys,
-            play,
-            repeat,
-            stagger,
-        } => {
-            let mut entries = vec![("kind", Value::String("motion".to_string()))];
-            if let Some(b) = base {
-                entries.push(("base", serialise_value_expr(b)));
-            }
             if let Some(t) = timing {
                 entries.push(("timing", serialise_value_expr(t)));
             }
-            if let Some(p) = play {
-                entries.push(("play", serialise_value_expr(p)));
+            obj(entries)
+        }
+        ValueExpr::Animation {
+            base,
+            start,
+            keys,
+            stagger,
+            repeat,
+        } => {
+            let mut entries = vec![("kind", Value::String("animation".to_string()))];
+            if let Some(b) = base {
+                entries.push(("base", serialise_value_expr(b)));
             }
-            if let Some(p) = pose {
-                entries.push(("pose", serialise_value_expr(p)));
+            if let Some(s) = start {
+                entries.push(("start", serialise_value_expr(s)));
             }
             if let Some(k) = keys {
                 entries.push(("keys", serialise_value_expr(k)));
@@ -650,41 +641,32 @@ pub fn serialise_value_expr_with_token_refs(expr: &ValueExpr, design: &DesignDef
             }
             obj(entries)
         }
-        ValueExpr::Key { pose, at, ease } => {
+        ValueExpr::Motion { timing, pose } => {
             let mut entries = vec![
-                ("kind", Value::String("key".to_string())),
+                ("kind", Value::String("motion".to_string())),
                 ("pose", serialise_value_expr_with_token_refs(pose, design)),
-                ("at", serialise_value_expr_with_token_refs(at, design)),
             ];
-            if let Some(e) = ease {
-                entries.push(("ease", serialise_value_expr_with_token_refs(e, design)));
-            }
-            obj(entries)
-        }
-        ValueExpr::Motion {
-            base,
-            timing,
-            pose,
-            keys,
-            play,
-            repeat,
-            stagger,
-        } => {
-            let mut entries = vec![("kind", Value::String("motion".to_string()))];
-            if let Some(b) = base {
-                entries.push(("base", serialise_value_expr_with_token_refs(b, design)));
-            }
             if let Some(t) = timing {
                 entries.push((
                     "timing",
                     serialise_value_expr_with_token_refs(t, design),
                 ));
             }
-            if let Some(p) = play {
-                entries.push(("play", serialise_value_expr_with_token_refs(p, design)));
+            obj(entries)
+        }
+        ValueExpr::Animation {
+            base,
+            start,
+            keys,
+            stagger,
+            repeat,
+        } => {
+            let mut entries = vec![("kind", Value::String("animation".to_string()))];
+            if let Some(b) = base {
+                entries.push(("base", serialise_value_expr_with_token_refs(b, design)));
             }
-            if let Some(p) = pose {
-                entries.push(("pose", serialise_value_expr_with_token_refs(p, design)));
+            if let Some(s) = start {
+                entries.push(("start", serialise_value_expr_with_token_refs(s, design)));
             }
             if let Some(k) = keys {
                 entries.push(("keys", serialise_value_expr_with_token_refs(k, design)));
@@ -914,42 +896,33 @@ pub fn collect_declared_token_names_from_value_expr(
                 collect_declared_token_names_from_value_expr(f, design, sink);
             }
         }
-        ValueExpr::Key { pose, at, ease } => {
-            collect_declared_token_names_from_value_expr(pose, design, sink);
-            collect_declared_token_names_from_value_expr(at, design, sink);
-            if let Some(e) = ease {
-                collect_declared_token_names_from_value_expr(e, design, sink);
+        ValueExpr::Motion { timing, pose } => {
+            if let Some(t) = timing {
+                collect_declared_token_names_from_value_expr(t, design, sink);
             }
+            collect_declared_token_names_from_value_expr(pose, design, sink);
         }
-        ValueExpr::Motion {
+        ValueExpr::Animation {
             base,
-            timing,
-            pose,
+            start,
             keys,
-            play,
-            repeat,
             stagger,
+            repeat,
         } => {
             if let Some(b) = base {
                 collect_declared_token_names_from_value_expr(b, design, sink);
             }
-            if let Some(t) = timing {
-                collect_declared_token_names_from_value_expr(t, design, sink);
-            }
-            if let Some(p) = pose {
-                collect_declared_token_names_from_value_expr(p, design, sink);
+            if let Some(s) = start {
+                collect_declared_token_names_from_value_expr(s, design, sink);
             }
             if let Some(k) = keys {
                 collect_declared_token_names_from_value_expr(k, design, sink);
             }
-            if let Some(p) = play {
-                collect_declared_token_names_from_value_expr(p, design, sink);
+            if let Some(s) = stagger {
+                collect_declared_token_names_from_value_expr(s, design, sink);
             }
             if let Some(r) = repeat {
                 collect_declared_token_names_from_value_expr(r, design, sink);
-            }
-            if let Some(s) = stagger {
-                collect_declared_token_names_from_value_expr(s, design, sink);
             }
         }
         ValueExpr::EaseBezier { x1, y1, x2, y2 } => {

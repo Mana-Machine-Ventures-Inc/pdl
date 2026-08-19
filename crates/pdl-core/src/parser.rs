@@ -841,6 +841,7 @@ impl Parser {
                 self.advance();
                 self.consume(TokenKind::Eq)?;
                 items.push(InteractionHandlerItem::Animate {
+                    target: None,
                     value: self.parse_value_expr()?,
                 });
                 continue;
@@ -919,17 +920,40 @@ impl Parser {
                     continue;
                 }
             }
+            // Targeted motion shot: `knob.animate = Motion(…)` / `self.animate = Motion(…)`.
+            // `animate` is a lexer keyword, not Ident.
+            if self.is(TokenKind::Dot) && self.peek_ahead_kind(1) == TokenKind::Animate {
+                self.advance(); // .
+                self.advance(); // animate
+                self.consume(TokenKind::Eq)?;
+                let target = if self_prefixed {
+                    // `self.animate =` ≡ bare root `animate =`
+                    None
+                } else {
+                    Some(param)
+                };
+                items.push(InteractionHandlerItem::Animate {
+                    target,
+                    value: self.parse_value_expr()?,
+                });
+                continue;
+            }
             // `Label.content = …` — frame-prop assign; handlers only mutate params.
             if self.is(TokenKind::Dot) {
                 self.advance();
-                let prop = self.consume(TokenKind::Ident)?.value;
+                let prop = if self.is(TokenKind::Animate) {
+                    self.advance();
+                    "animate".to_string()
+                } else {
+                    self.consume(TokenKind::Ident)?.value
+                };
                 let lhs = if self_prefixed {
                     format!("self.{param}.{prop}")
                 } else {
                     format!("{param}.{prop}")
                 };
                 return Err(self.err(format!(
-                    "Interaction handlers can only assign component parameters (e.g. `interactionState = .hovered`), not frame props like `{lhs}`. Put `{param}.{prop} = …` in the layout body / `if` branch instead (handlers set params; layout `if` updates chrome)"
+                    "Interaction handlers can only assign component parameters (e.g. `interactionState = .hovered`), not frame props like `{lhs}`. Put `{param}.{prop} = …` in the layout body / `if` branch instead (handlers set params; layout `if` updates chrome). For a motion shot on a let, write `{param}.animate = Motion(…)`."
                 )));
             }
             // Host verb: `beginEditing(value)` / `cancelEditing()`
@@ -3378,9 +3402,9 @@ impl Parser {
             return finish_stagger(args).map_err(|m| self.err(m));
         }
         if name == "Key" {
-            let args = self.parse_labelled_args()?;
-            self.consume(TokenKind::RParen)?;
-            return finish_key(args).map_err(|m| self.err(m));
+            return Err(self.err(
+                "`Key(…)` is removed — write `Animation(keys: [Motion(duration:, ease:, pose:), …])`",
+            ));
         }
         if name == "PresentationMotion" {
             let args = self.parse_labelled_args()?;
@@ -3388,6 +3412,11 @@ impl Parser {
             return finish_presentation_motion(args).map_err(|m| self.err(m));
         }
         if name == "Motion" {
+            let args = self.parse_labelled_args()?;
+            self.consume(TokenKind::RParen)?;
+            return finish_motion(args).map_err(|m| self.err(m));
+        }
+        if name == "Animation" {
             let base = if self.looks_like_motion_base() {
                 let b = self.parse_value_expr()?;
                 if self.is(TokenKind::Comma) {
@@ -3399,7 +3428,7 @@ impl Parser {
             };
             let args = self.parse_labelled_args()?;
             self.consume(TokenKind::RParen)?;
-            return finish_motion(base, args).map_err(|m| self.err(m));
+            return finish_animation(base, args).map_err(|m| self.err(m));
         }
         if name == "Effect" {
             if self.is(TokenKind::RParen) {
@@ -3984,6 +4013,7 @@ fn is_type_keyword(kind: TokenKind) -> bool {
             | TokenKind::Pose
             | TokenKind::Stagger
             | TokenKind::Motion
+            | TokenKind::Animation
             | TokenKind::Effect
             | TokenKind::Blur
             | TokenKind::Vibrancy
@@ -4015,6 +4045,7 @@ fn is_kw_call_start(kind: TokenKind) -> bool {
             | TokenKind::Pose
             | TokenKind::Stagger
             | TokenKind::Motion
+            | TokenKind::Animation
             | TokenKind::Timing
             | TokenKind::Effect
     )
@@ -4094,53 +4125,41 @@ fn finish_stagger(mut args: indexmap::IndexMap<String, ValueExpr>) -> Result<Val
     })
 }
 
-fn finish_key(mut args: indexmap::IndexMap<String, ValueExpr>) -> Result<ValueExpr, String> {
-    let pose = args.swap_remove("pose").ok_or_else(|| {
-        "`Key(…)` requires `pose:` and `at:` (0…1 of transition.duration)".to_string()
-    })?;
-    let at = args.swap_remove("at").ok_or_else(|| {
-        "`Key(…)` requires `pose:` and `at:` (0…1 of transition.duration)".to_string()
-    })?;
-    if args.contains_key("easing") {
-        return Err("Write `ease:` on Key, not `easing:`".to_string());
-    }
-    let ease = args.swap_remove("ease");
-    if !args.is_empty() {
-        let unknown = args.keys().cloned().collect::<Vec<_>>().join(", ");
-        return Err(format!(
-            "Key unknown label(s): {unknown} (expected pose, at, optional ease)"
-        ));
-    }
-    let rest = matches!(
-        &pose,
-        ValueExpr::DotEnum { value } if value.trim_start_matches('.') == "rest"
-    );
-    if !matches!(pose, ValueExpr::Pose { .. } | ValueExpr::Ident { .. }) && !rest {
-        return Err("`Key` `pose:` must be a Pose, a Pose token, or `.rest`".to_string());
-    }
-    Ok(ValueExpr::Key {
-        pose: Box::new(pose),
-        at: Box::new(at),
-        ease: ease.map(Box::new),
-    })
-}
-
-fn finish_motion(
-    base: Option<ValueExpr>,
-    mut args: indexmap::IndexMap<String, ValueExpr>,
-) -> Result<ValueExpr, String> {
+fn finish_motion(mut args: indexmap::IndexMap<String, ValueExpr>) -> Result<ValueExpr, String> {
     if args.contains_key("transition") {
-        return Err("Write `timing:` (a Timing) or flattened `duration:` / `ease:`, not `transition:`".to_string());
+        return Err(
+            "Write `timing:` (a Timing) or flattened `duration:` / `ease:`, not `transition:`"
+                .to_string(),
+        );
     }
     if args.contains_key("easing") {
         return Err("Write `ease:`, not `easing:`".to_string());
+    }
+    if args.contains_key("play") {
+        return Err(
+            "`play:` is removed — destination is `pose:` (use `.rest` to settle)".to_string(),
+        );
+    }
+    if args.contains_key("keys") {
+        return Err(
+            "`Motion.keys` is removed — put sequential segments on `Animation(keys: [Motion…])`"
+                .to_string(),
+        );
+    }
+    if args.contains_key("stagger") || args.contains_key("repeat") {
+        return Err(
+            "`stagger:` / `repeat:` belong on `Animation`, not `Motion`".to_string(),
+        );
     }
     let timing = args.swap_remove("timing");
     let duration = args.swap_remove("duration");
     let ease = args.swap_remove("ease");
     let delay = args.swap_remove("delay");
     if timing.is_some() && (duration.is_some() || ease.is_some() || delay.is_some()) {
-        return Err("`Motion` cannot take `timing:` and flattened `duration:` / `ease:` / `delay:`".to_string());
+        return Err(
+            "`Motion` cannot take `timing:` and flattened `duration:` / `ease:` / `delay:`"
+                .to_string(),
+        );
     }
     let clock = if let Some(t) = timing {
         Some(t)
@@ -4157,28 +4176,84 @@ fn finish_motion(
     } else {
         None
     };
-    if base.is_none() && clock.is_none() {
-        return Err("`Motion(…)` requires `duration:` / `ease:` (optional `delay:`) or `timing:` (a Timing token or `Timing(…)`)".to_string());
-    }
-    let pose = args.swap_remove("pose");
-    let keys = args.swap_remove("keys");
-    let play = args.swap_remove("play");
-    let repeat = args.swap_remove("repeat");
-    let stagger = args.swap_remove("stagger");
+    let clock = clock.ok_or_else(|| {
+        "`Motion(…)` requires `duration:` / `ease:` (optional `delay:`) or `timing:`".to_string()
+    })?;
+    let pose = args
+        .swap_remove("pose")
+        .ok_or_else(|| "`Motion(…)` requires `pose:` (a Pose, Pose token, or `.rest`)".to_string())?;
     if !args.is_empty() {
         let unknown = args.keys().cloned().collect::<Vec<_>>().join(", ");
         return Err(format!(
-            "Motion unknown label(s): {unknown} (expected timing or duration/ease/delay, optional play, pose, keys, stagger, repeat)"
+            "Motion unknown label(s): {unknown} (expected timing or duration/ease/delay, and pose)"
         ));
     }
+    let rest = matches!(
+        &pose,
+        ValueExpr::DotEnum { value } if value.trim_start_matches('.') == "rest"
+    );
+    if !matches!(pose, ValueExpr::Pose { .. } | ValueExpr::Ident { .. }) && !rest {
+        return Err("`Motion` `pose:` must be a Pose, a Pose token, or `.rest`".to_string());
+    }
     Ok(ValueExpr::Motion {
+        timing: Some(Box::new(clock)),
+        pose: Box::new(pose),
+    })
+}
+
+fn finish_animation(
+    base: Option<ValueExpr>,
+    mut args: indexmap::IndexMap<String, ValueExpr>,
+) -> Result<ValueExpr, String> {
+    if args.contains_key("play") {
+        return Err(
+            "`play:` is removed — author destinations in `keys:` (include `.rest` to settle)"
+                .to_string(),
+        );
+    }
+    if args.contains_key("pose") {
+        return Err(
+            "Write `start:` for a snap Pose and `keys:` for Motions — not `pose:` on Animation"
+                .to_string(),
+        );
+    }
+    let start = args.swap_remove("start");
+    let keys = args.swap_remove("keys");
+    let stagger = args.swap_remove("stagger");
+    let repeat = args.swap_remove("repeat");
+    if !args.is_empty() {
+        let unknown = args.keys().cloned().collect::<Vec<_>>().join(", ");
+        return Err(format!(
+            "Animation unknown label(s): {unknown} (expected optional start, keys, stagger, repeat)"
+        ));
+    }
+    if base.is_none() && keys.is_none() {
+        return Err("`Animation(…)` requires `keys:` (a non-empty list of Motion)".to_string());
+    }
+    if let Some(ref k) = keys {
+        match k {
+            ValueExpr::Array { items } if items.is_empty() => {
+                return Err("`Animation` `keys:` must be a non-empty list of Motion".to_string());
+            }
+            ValueExpr::Array { .. } | ValueExpr::Ident { .. } => {}
+            _ => return Err("`Animation` `keys:` must be a list of Motion".to_string()),
+        }
+    }
+    if let Some(ref s) = start {
+        let rest = matches!(
+            s,
+            ValueExpr::DotEnum { value } if value.trim_start_matches('.') == "rest"
+        );
+        if !matches!(s, ValueExpr::Pose { .. } | ValueExpr::Ident { .. }) && !rest {
+            return Err("`Animation` `start:` must be a Pose, a Pose token, or `.rest`".to_string());
+        }
+    }
+    Ok(ValueExpr::Animation {
         base: base.map(Box::new),
-        timing: clock.map(Box::new),
-        pose: pose.map(Box::new),
+        start: start.map(Box::new),
         keys: keys.map(Box::new),
-        play: play.map(Box::new),
-        repeat: repeat.map(Box::new),
         stagger: stagger.map(Box::new),
+        repeat: repeat.map(Box::new),
     })
 }
 

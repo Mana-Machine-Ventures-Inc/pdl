@@ -42,50 +42,70 @@ describe("validateMergedDesign (if conditions)", () => {
 });
 
 describe("validateMergedDesign (motion)", () => {
-  it("PDL-E005 when Motion stagger has no pose or keys", () => {
+  it("PDL-E001 when Animation has stagger but no keys", () => {
     expectLoadFails(
-      "PDL-E005",
+      "PDL-E001",
       "errors/e005-motion-stagger-without-pose.pdl",
-      /stagger:.*requires `pose:` or `keys:`/,
+      /requires `keys:`/,
     );
   });
 
-  it("PDL-E005 when Motion has both pose and keys", () => {
+  it("PDL-E001 when Animation keys is empty", () => {
     expectLoadFails(
-      "PDL-E005",
-      "errors/e005-motion-pose-and-keys.pdl",
-      /both `pose:` and `keys:`/,
+      "PDL-E001",
+      "errors/e005-motion-empty-keys.pdl",
+      /non-empty list of Motion/,
     );
   });
 
-  it("PDL-E005 when .loop also sets repeat", () => {
+  it("PDL-E005 when animate = is a Motion segment", () => {
     expectLoadFails(
       "PDL-E005",
-      "errors/e005-motion-loop-with-repeat.pdl",
-      /play: \.loop/,
+      "errors/e005-motion-as-animate.pdl",
+      /Motion is a segment/,
     );
   });
 
-  it("PDL-E005 when repeat has no pose track", () => {
+  it("PDL-E005 when animate = is a Timing", () => {
     expectLoadFails(
       "PDL-E005",
+      "errors/e005-timing-as-animate.pdl",
+      /Timing is not animate sugar/,
+    );
+  });
+
+  it("PDL-E001 when Animation sets play:", () => {
+    expectLoadFails(
+      "PDL-E001",
+      "errors/e001-animation-play.pdl",
+      /play:.*removed/,
+    );
+  });
+
+  it("PDL-E005 when forever and a finite repeat are both given", () => {
+    expectLoadFails(
+      "PDL-E005",
+      "errors/e005-animation-forever-repeat.pdl",
+      /not both/,
+    );
+  });
+
+  it("PDL-E001 when Animation has repeat but no keys", () => {
+    expectLoadFails(
+      "PDL-E001",
       "errors/e005-motion-repeat-without-path.pdl",
-      /repeat:.*requires `pose:` or `keys:`/,
+      /requires `keys:`/,
     );
   });
 
-  it("PDL-E005 when Key at is out of range", () => {
-    expectLoadFails("PDL-E005", "errors/e005-motion-key-at-range.pdl", /at:.*0…1/);
-  });
-
-  it("parses keys, play, and pose on hover", () => {
+  it("parses Animation tokens on hover", () => {
     const design = loadDesign(fx("lab/motion/design.pdl"));
     expect(design.components.has("MotionHoverFlourish")).toBe(true);
     expect(design.components.has("MotionHoverPop")).toBe(true);
     expect(design.components.has("MotionHoverPopOverride")).toBe(true);
   });
 
-  it("PDL-E006 when frame animate is not a Motion", () => {
+  it("PDL-E006 when frame animate is not an Animation", () => {
     expectLoadFails(
       "PDL-E006",
       "errors/e006-frame-animate-not-motion.pdl",
@@ -93,19 +113,19 @@ describe("validateMergedDesign (motion)", () => {
     );
   });
 
-  it("PDL-E005 when Motion copy base is not a Motion token", () => {
+  it("PDL-E005 when Animation copy base is not an Animation token", () => {
     expectLoadFails(
       "PDL-E005",
       "errors/e005-motion-override-not-motion.pdl",
-      /copy base must be a Motion token/,
+      /copy base must be an Animation token/,
     );
   });
 
-  it("PDL-E005 when Motion(token, pose:) conflicts with token keys", () => {
+  it("PDL-E001 when Animation(token, pose:) uses removed pose label", () => {
     expectLoadFails(
-      "PDL-E005",
+      "PDL-E001",
       "errors/e005-motion-override-pose-and-keys.pdl",
-      /both `pose:` and `keys:`/,
+      /start:.*pose:/,
     );
   });
 
@@ -133,7 +153,7 @@ describe("validateMergedDesign (motion)", () => {
     );
   });
 
-  it("PDL-E001 when Key uses easing:", () => {
+  it("PDL-E001 when Motion uses easing: instead of ease:", () => {
     expectLoadFails("PDL-E001", "errors/e001-key-easing.pdl", /ease:.*easing:/);
   });
 

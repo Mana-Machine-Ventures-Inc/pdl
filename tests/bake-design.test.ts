@@ -48,10 +48,9 @@ describe("bakedDesign", () => {
     });
     const spinner = on.components.MotionStandingSpin!.root.children.find((c) => c.id === "spinner")!;
     expect(spinner.props.animate).toMatchObject({
-      kind: "motion",
-      play: "loop",
-      pose: { rotate: 360 },
-      timing: { duration: 800, ease: "linear" },
+      kind: "animation",
+      repeat: "forever",
+      keys: [{ pose: { rotate: 360 }, timing: { duration: 800, ease: "linear" } }],
     });
     const off = buildBakedDesignComponent(design, {
       componentName: "MotionStandingSpin",
@@ -64,8 +63,9 @@ describe("bakedDesign", () => {
       paramOverrides: { isLoading: true },
     });
     expect(selfOn.components.MotionStandingSelf!.root.props.animate).toMatchObject({
-      play: "loop",
-      pose: { rotate: 360 },
+      kind: "animation",
+      repeat: "forever",
+      keys: [{ pose: { rotate: 360 } }],
     });
   });
 

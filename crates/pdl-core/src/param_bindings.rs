@@ -339,10 +339,14 @@ pub fn assert_param_value_compatible(
         };
     }
     if expected == "Motion" {
-        return if matches!(
-            value,
-            ValueExpr::Motion { .. } | ValueExpr::Timing { .. }
-        ) {
+        return if matches!(value, ValueExpr::Motion { .. }) {
+            Ok(())
+        } else {
+            Err(mismatch())
+        };
+    }
+    if expected == "Animation" {
+        return if matches!(value, ValueExpr::Animation { .. }) {
             Ok(())
         } else {
             Err(mismatch())

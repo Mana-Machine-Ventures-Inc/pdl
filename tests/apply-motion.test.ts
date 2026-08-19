@@ -1,37 +1,46 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
-  collectMotionFromHandlerItems,
-  effectiveTransition,
+  collectAnimationFromHandlerItems,
+  hasAnimationTrack,
+  identitySnapshot,
   implicitTransitionCss,
   motionKeyframes,
+  playAnimationOnElement,
   playPresentationMotion,
-  poseTrackKeyframes,
-  resolvedMotionKeys,
-  snapshotsForMode,
+  resolvePoseDest,
+  specFromEvaluated,
   staggerDelayMs,
-  waapiEffectTiming,
   withDismissDefaultFront,
 } from "../src/applyMotion.js";
-import { applySiteDefaultPlay, defaultMotionPlay, snapshotToCss } from "../src/motionProps.js";
+import { snapshotToCss } from "../src/motionProps.js";
 import type { InteractionHandlerItem } from "../src/ast.js";
 
 const appearBody: InteractionHandlerItem[] = [
   {
     kind: "animate",
     value: {
-      kind: "motion",
-      timing: {
-        kind: "timing",
-        duration: { kind: "number", value: 250 },
-        ease: { kind: "string", value: "ease-out" },
-      },
-      pose: {
+      kind: "animation",
+      start: {
         kind: "pose",
         props: {
           opacity: { kind: "number", value: 0 },
           scale: { kind: "number", value: 0.95 },
           translateY: { kind: "number", value: 8 },
         },
+      },
+      keys: {
+        kind: "array",
+        items: [
+          {
+            kind: "motion",
+            timing: {
+              kind: "timing",
+              duration: { kind: "number", value: 250 },
+              ease: { kind: "string", value: "ease-out" },
+            },
+            pose: { kind: "dotEnum", value: ".rest" },
+          },
+        ],
       },
       stagger: {
         kind: "stagger",
@@ -42,38 +51,64 @@ const appearBody: InteractionHandlerItem[] = [
   },
 ];
 
+function mockAnimatable() {
+  const calls: Array<{
+    frames: Keyframe[];
+    opts: KeyframeAnimationOptions;
+  }> = [];
+  const style = {
+    transform: "",
+    opacity: "",
+    filter: "",
+    transformOrigin: "",
+  };
+  const el = {
+    style,
+    getAnimations: () => [],
+    animate: (frames: Keyframe[], opts: KeyframeAnimationOptions) => {
+      calls.push({ frames, opts });
+      return { finished: Promise.resolve(), cancel() {} };
+    },
+  };
+  return { el, calls, style };
+}
+
 describe("applyMotion", () => {
-  it("collects Motion(timing, pose, stagger)", () => {
-    const spec = collectMotionFromHandlerItems(appearBody);
-    expect(spec.transition).toEqual({ duration: 250, easing: "ease-out", delay: 0 });
-    expect(spec.pose).toEqual({ opacity: 0, scale: 0.95, translateY: 8 });
-    expect(spec.stagger).toBe(40);
-    expect(spec.staggerFrom).toBe("last");
+  it("collects Animation(start, keys, stagger)", () => {
+    const spec = collectAnimationFromHandlerItems(appearBody);
+    expect(spec).toMatchObject({
+      kind: "animation",
+      start: { opacity: 0, scale: 0.95, translateY: 8 },
+      stagger: 40,
+      staggerFrom: "last",
+    });
+    expect(spec?.keys).toHaveLength(1);
+    expect(spec?.keys[0]?.timing).toMatchObject({ duration: 250, delay: 0 });
+    expect(spec?.keys[0]?.pose).toBe("rest");
+    expect(hasAnimationTrack(spec)).toBe(true);
   });
 
-  it("treats a bare Timing as Motion sugar", () => {
-    const spec = collectMotionFromHandlerItems([
-      {
-        kind: "animate",
-        value: {
-          kind: "timing",
-          duration: { kind: "number", value: 200 },
-          ease: { kind: "string", value: "ease-out" },
-        },
-      },
-    ]);
-    expect(spec.transition).toEqual({ duration: 200, easing: "ease-out", delay: 0 });
-    expect(spec.pose).toBeUndefined();
+  it("normalizes evaluated Animation JSON", () => {
+    const spec = specFromEvaluated({
+      kind: "animation",
+      start: { opacity: 0 },
+      keys: [{ timing: { duration: 200, ease: "out", delay: 0 }, pose: "rest" }],
+      repeat: "forever",
+    });
+    expect(spec?.start).toEqual({ opacity: 0 });
+    expect(spec?.keys[0]?.pose).toBe("rest");
+    expect(spec?.repeat).toBe("forever");
   });
 
-  it("builds appear keyframes from pose to identity", () => {
-    const spec = collectMotionFromHandlerItems(appearBody);
-    const snaps = snapshotsForMode(spec, "appear", 1)!;
-    const [from, to] = motionKeyframes(snaps.from, snaps.to, 1);
-    expect(from.transform).toBe("translate(0px, 8px) rotate(0deg) scale(0.95, 0.95)");
-    expect(from.opacity).toBe("0");
-    expect(to.transform).toBe("translate(0px, 0px) rotate(0deg) scale(1, 1)");
-    expect(to.opacity).toBe("1");
+  it("builds appear keyframes from start pose to rest", () => {
+    const spec = collectAnimationFromHandlerItems(appearBody)!;
+    const from = resolvePoseDest(spec.start!, identitySnapshot(1), 1);
+    const to = resolvePoseDest(spec.keys[0]!.pose, from, 1);
+    const [a, b] = motionKeyframes(from, to, 1);
+    expect(a.transform).toBe("translate(0px, 8px) rotate(0deg) scale(0.95, 0.95)");
+    expect(a.opacity).toBe("0");
+    expect(b.transform).toBe("translate(0px, 0px) rotate(0deg) scale(1, 1)");
+    expect(b.opacity).toBe("1");
   });
 
   it("composes translate then scale and blur", () => {
@@ -98,82 +133,80 @@ describe("applyMotion", () => {
   });
 
   it("reverses stagger from last", () => {
-    const spec = collectMotionFromHandlerItems(appearBody);
+    const spec = collectAnimationFromHandlerItems(appearBody)!;
     expect(staggerDelayMs(spec, 0, 3)).toBe(80);
     expect(staggerDelayMs(spec, 2, 3)).toBe(0);
   });
 
-  it("zeros duration when reduced motion is preferred", () => {
-    const spec = collectMotionFromHandlerItems(appearBody);
-    expect(effectiveTransition(spec, true).duration).toBe(0);
+  it("zeros duration when reduced motion is preferred", async () => {
+    const { el, calls } = mockAnimatable();
+    const handle = playAnimationOnElement(
+      el as never,
+      {
+        kind: "animation",
+        start: { opacity: 0 },
+        keys: [{ timing: { duration: 250, ease: "out", delay: 0 }, pose: "rest" }],
+      },
+      { reduced: true, applyStart: true },
+    );
+    expect(handle).toBeTruthy();
+    await handle!.finished;
+    expect(calls[0]?.opts.duration).toBe(0);
   });
 
-  it("fills site default play when the spec omitted it", () => {
-    expect(defaultMotionPlay("appear", true)).toBe("toRest");
-    expect(defaultMotionPlay("dismiss", true)).toBe("toPose");
-    expect(defaultMotionPlay("hoverStart", true)).toBe("toPose");
-    expect(defaultMotionPlay("hoverEnd", true)).toBe("toRest");
-    expect(defaultMotionPlay("hoverStart", false)).toBeUndefined();
-    expect(defaultMotionPlay("hoverEnd", false)).toBeUndefined();
-    const authored = applySiteDefaultPlay({ play: "toPose", keys: [] }, "hoverEnd");
-    expect(authored.play).toBe("toPose");
-    expect(applySiteDefaultPlay({ keys: [] }, "hoverEnd").play).toBe("toRest");
+  it("plays sequential keys with per-segment timing", async () => {
+    const { el, calls } = mockAnimatable();
+    const handle = playAnimationOnElement(
+      el as never,
+      {
+        kind: "animation",
+        start: { translateX: 390, opacity: 0 },
+        keys: [
+          { timing: { duration: 264, ease: "out", delay: 0 }, pose: { translateX: 40 } },
+          { timing: { duration: 216, ease: "out", delay: 0 }, pose: "rest" },
+        ],
+      },
+      { applyStart: true },
+    );
+    await handle!.finished;
+    expect(calls).toHaveLength(2);
+    expect(calls[0]?.opts.duration).toBe(264);
+    expect(calls[0]?.opts.easing).toBe("ease-out");
+    expect(calls[1]?.opts.duration).toBe(216);
+    expect(calls[0]?.frames[0]?.opacity).toBe("0");
+    expect(String(calls[1]?.frames[1]?.transform)).toContain("translate(0px, 0px)");
   });
 
-  it("expands pose sugar to one key at 1 and loops rotate 360 continuously", () => {
-    const spec = {
-      transition: { duration: 800, easing: "linear", delay: 0 },
-      play: "loop" as const,
-      pose: { rotate: 360 },
+  it("cancels forever repeat without hanging", async () => {
+    const { el, calls } = mockAnimatable();
+    // Never-resolve after a few segments so a runaway loop cannot starve the suite.
+    let n = 0;
+    el.animate = (frames: Keyframe[], opts: KeyframeAnimationOptions) => {
+      n += 1;
+      calls.push({ frames, opts });
+      if (n > 4) return { finished: new Promise(() => {}), cancel() {} };
+      return { finished: Promise.resolve(), cancel() {} };
     };
-    expect(resolvedMotionKeys(spec)).toEqual([{ pose: { rotate: 360 }, at: 1 }]);
-    const frames = poseTrackKeyframes(spec, 1);
-    expect(frames).toHaveLength(2);
-    expect(frames[0]!.offset).toBe(0);
-    expect(frames[0]!.transform).toContain("rotate(0deg)");
-    expect(frames[1]!.offset).toBe(1);
-    expect(frames[1]!.transform).toContain("rotate(360deg)");
-    const timing = waapiEffectTiming(spec, false);
-    expect(timing.iterations).toBe(Number.POSITIVE_INFINITY);
-    expect(timing.fill).toBe("none");
-    expect(timing.easing).toBe("linear");
-    expect(timing.duration).toBe(800);
-  });
-
-  it("walks authored keys including .rest", () => {
-    const frames = poseTrackKeyframes(
+    const handle = playAnimationOnElement(
+      el as never,
       {
-        keys: [
-          { pose: { scale: 1.16, translateY: -4 }, at: 0.35 },
-          { pose: { scale: 0.98 }, at: 0.7 },
-          { pose: "rest", at: 1 },
-        ],
+        kind: "animation",
+        keys: [{ timing: { duration: 800, ease: "linear", delay: 0 }, pose: { rotate: 360 } }],
+        repeat: "forever",
       },
-      1,
+      { applyStart: false },
     );
-    expect(frames.map((f) => f.offset)).toEqual([0, 0.35, 0.7, 1]);
-    expect(frames[3]!.transform).toBe("translate(0px, 0px) rotate(0deg) scale(1, 1)");
+    expect(handle).toBeTruthy();
+    await Promise.resolve();
+    handle!.cancel();
+    await handle!.finished;
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls[0]?.opts.iterations).toBe(1);
+    expect(String(calls[0]?.frames[0]?.transform)).toContain("rotate(0deg)");
+    expect(String(calls[0]?.frames[1]?.transform)).toContain("rotate(360deg)");
   });
 
-  it("puts Key.ease on the WAAPI frame for that stop", () => {
-    const frames = poseTrackKeyframes(
-      {
-        transition: { duration: 480, easing: "ease-in", delay: 0 },
-        keys: [
-          { pose: { translateX: 390 }, at: 0 },
-          { pose: { translateX: 40 }, at: 0.55, easing: "ease-out" },
-          { pose: "rest", at: 1 },
-        ],
-      },
-      1,
-    );
-    expect(frames.map((f) => f.offset)).toEqual([0, 0.55, 1]);
-    expect(frames[1]!.easing).toBe("ease-out");
-    expect(frames[0]!.easing).toBeUndefined();
-    expect(frames[2]!.easing).toBeUndefined();
-  });
-
-  it("builds implicit CSS transition from animate =", () => {
+  it("builds implicit CSS transition from Timing", () => {
     const css = implicitTransitionCss({ duration: 200, easing: "ease-out", delay: 0 });
     expect(css).toContain("background-color 200ms ease-out");
     expect(css).toContain("opacity 200ms ease-out");
@@ -191,10 +224,9 @@ describe("playPresentationMotion", () => {
       toOpacity?: string;
       front?: boolean;
       startOpacity?: string;
-      offsets?: Array<number | undefined>;
-      frameEasings?: Array<string | undefined>;
-      frameCount?: number;
-    } = {};
+      segmentCount?: number;
+      durations?: number[];
+    } = { durations: [], segmentCount: 0 };
     const el = {
       classList: {
         add(...names: string[]) {
@@ -212,53 +244,55 @@ describe("playPresentationMotion", () => {
       style: { zIndex: "", transform: "", opacity: "", filter: "", transformOrigin: "" },
       getAnimations: () => [],
       animate: (
-        frames: Array<{ opacity?: string; offset?: number; easing?: string }>,
-        opts: { duration: number; easing: string },
+        frames: Array<{ opacity?: string }>,
+        opts: { duration: number; easing: string; delay?: number },
       ) => {
         seen.duration = opts.duration;
         seen.easing = opts.easing;
         seen.fromOpacity = frames[0]?.opacity;
         seen.toOpacity = frames[frames.length - 1]?.opacity;
         seen.startOpacity = el.style.opacity;
-        seen.offsets = frames.map((f) => f.offset);
-        seen.frameEasings = frames.map((f) => f.easing);
-        seen.frameCount = frames.length;
-        const listeners: Array<() => void> = [];
-        const anim = {
-          addEventListener(type: string, fn: () => void) {
-            if (type === "finish") listeners.push(fn);
-          },
+        seen.segmentCount = (seen.segmentCount ?? 0) + 1;
+        seen.durations!.push(opts.duration);
+        const wait = Math.max(0, Number(opts.duration) + Number(opts.delay ?? 0));
+        return {
+          finished: new Promise<void>((r) => setTimeout(r, wait)),
           cancel() {},
         };
-        setTimeout(() => {
-          for (const fn of listeners) fn();
-        }, opts.duration);
-        return anim;
       },
     };
     return { el, seen };
   }
 
   it("plays both lanes for the pair duration (not a fixed 800ms cap)", async () => {
+    vi.useFakeTimers();
     const incoming = fakeLane();
     const outgoing = fakeLane();
     let done = false;
-    playPresentationMotion(incoming.el as never, outgoing.el as never, {
-      incoming: { translateX: 390 },
-      outgoing: { translateX: 0, opacity: 0 },
-      duration: 2000,
-      ease: "in",
-      front: ".outgoing",
-    }, { onDone: () => { done = true; } });
+    playPresentationMotion(
+      incoming.el as never,
+      outgoing.el as never,
+      {
+        incoming: { translateX: 390 },
+        outgoing: { translateX: 0, opacity: 0 },
+        duration: 2000,
+        ease: "in",
+        front: ".outgoing",
+      },
+      { onDone: () => { done = true; } },
+    );
     expect(incoming.seen.duration).toBe(2000);
     expect(outgoing.seen.duration).toBe(2000);
     expect(incoming.seen.easing).toBe("ease-in");
     expect(outgoing.seen.easing).toBe("ease-in");
-    expect(outgoing.seen.toOpacity).toBe("0");
-    await new Promise((r) => setTimeout(r, 900));
+    // Pose sugar: start at authored pose, key to .rest
+    expect(outgoing.seen.fromOpacity).toBe("0");
+    expect(outgoing.seen.toOpacity).toBe("1");
+    await vi.advanceTimersByTimeAsync(900);
     expect(done).toBe(false);
-    await new Promise((r) => setTimeout(r, 1300));
+    await vi.advanceTimersByTimeAsync(1300);
     expect(done).toBe(true);
+    vi.useRealTimers();
   });
 
   it("animates incoming opacity from the start pose (toRest)", () => {
@@ -268,7 +302,7 @@ describe("playPresentationMotion", () => {
       kind: "presentationMotion",
       incoming: { kind: "pose", translateX: -48, opacity: 0.86 },
       outgoing: { kind: "pose", translateX: 390 },
-      duration: 3200,
+      duration: 100,
       ease: "linear",
     });
     expect(incoming.seen.startOpacity).toBe("0.86");
@@ -285,7 +319,7 @@ describe("playPresentationMotion", () => {
       {
         incoming: { translateX: -48, opacity: 0.86 },
         outgoing: { translateX: 390 },
-        duration: 200,
+        duration: 50,
         ease: "linear",
       },
       { defaultFront: "outgoing" },
@@ -294,69 +328,61 @@ describe("playPresentationMotion", () => {
     expect(outgoing.seen.front).toBe(true);
   });
 
-  it("plays a 3-key incoming path and a Pose outgoing", () => {
+  it("plays a multi-key incoming Animation and a Pose outgoing", async () => {
+    vi.useFakeTimers();
     const incoming = fakeLane();
     const outgoing = fakeLane();
     playPresentationMotion(incoming.el as never, outgoing.el as never, {
       kind: "presentationMotion",
       incoming: {
-        kind: "motion",
-        duration: 480,
-        ease: "out",
+        kind: "animation",
+        start: { translateX: 390, opacity: 0 },
         keys: [
-          { pose: { translateX: 390, opacity: 0 }, at: 0 },
-          { pose: { translateX: 40 }, at: 0.55, ease: "out" },
-          { pose: "rest", at: 1 },
+          { timing: { duration: 264, ease: "out", delay: 0 }, pose: { translateX: 40 } },
+          { timing: { duration: 216, ease: "out", delay: 0 }, pose: "rest" },
         ],
       },
       outgoing: { kind: "pose", translateX: -48, opacity: 0.86 },
       duration: 320,
       ease: "in",
     });
-    expect(incoming.seen.duration).toBe(480);
-    expect(incoming.seen.offsets).toEqual([0, 0.55, 1]);
-    expect(incoming.seen.frameEasings?.[1]).toBe("ease-out");
     expect(incoming.seen.startOpacity).toBe("0");
     expect(incoming.seen.fromOpacity).toBe("0");
     expect(outgoing.seen.duration).toBe(320);
-    expect(outgoing.seen.frameCount).toBe(2);
-    expect(outgoing.seen.toOpacity).toBe("0.86");
+    expect(outgoing.seen.segmentCount).toBe(1);
+    await vi.advanceTimersByTimeAsync(264);
+    expect(incoming.seen.segmentCount).toBe(2);
+    expect(incoming.seen.durations).toEqual([264, 216]);
+    vi.useRealTimers();
   });
 
-  it("animates a keys-only incoming Motion (no pose:)", () => {
+  it("animates a start+keys incoming Animation", () => {
     const incoming = fakeLane();
     const outgoing = fakeLane();
     playPresentationMotion(incoming.el as never, outgoing.el as never, {
       incoming: {
-        kind: "motion",
-        duration: 200,
-        ease: "linear",
-        keys: [
-          { pose: { opacity: 0 }, at: 0 },
-          { pose: "rest", at: 1 },
-        ],
+        kind: "animation",
+        start: { opacity: 0 },
+        keys: [{ timing: { duration: 200, ease: "linear", delay: 0 }, pose: "rest" }],
       },
       outgoing: { kind: "pose", translateX: 0 },
       duration: 200,
       ease: "linear",
     });
-    expect(incoming.seen.frameCount).toBe(2);
+    expect(incoming.seen.segmentCount).toBe(1);
     expect(incoming.seen.duration).toBe(200);
     expect(incoming.seen.startOpacity).toBe("0");
   });
 
   it("flips front at switchAt on a keyed incoming", async () => {
+    vi.useFakeTimers();
     const incoming = fakeLane();
     const outgoing = fakeLane();
     playPresentationMotion(incoming.el as never, outgoing.el as never, {
       incoming: {
-        kind: "motion",
-        duration: 80,
-        ease: "linear",
-        keys: [
-          { pose: { translateX: 390 }, at: 0 },
-          { pose: "rest", at: 1 },
-        ],
+        kind: "animation",
+        start: { translateX: 390 },
+        keys: [{ timing: { duration: 80, ease: "linear", delay: 0 }, pose: "rest" }],
       },
       outgoing: { kind: "pose", translateX: -48 },
       duration: 80,
@@ -366,9 +392,11 @@ describe("playPresentationMotion", () => {
     });
     expect(incoming.seen.front).toBe(false);
     expect(outgoing.seen.front).toBe(true);
-    await new Promise((r) => setTimeout(r, 50));
+    await vi.advanceTimersByTimeAsync(40);
     expect(incoming.seen.front).toBe(true);
     expect(outgoing.seen.front).toBe(false);
+    await vi.advanceTimersByTimeAsync(80);
+    vi.useRealTimers();
   });
 });
 

@@ -218,6 +218,7 @@ export class Parser {
       "Pose",
       "Stagger",
       "Motion",
+      "Animation",
       "Effect",
       "Blur",
       "Vibrancy",
@@ -260,6 +261,7 @@ export class Parser {
       "Pose",
       "Stagger",
       "Motion",
+      "Animation",
       "Effect",
       "Blur",
       "Vibrancy",
@@ -553,12 +555,12 @@ export class Parser {
         const name = this.peek().value;
         if ((name === "from" || name === "to") && this.lookaheadKind(1) === "{") {
           throw this.err(
-            `\`from { }\` / \`to { }\` were removed; write \`animate = Motion(transition: …, pose: Pose(…))\``,
+            `\`from { }\` / \`to { }\` were removed; write \`animate = Animation(keys: [Motion(…)])\``,
           );
         }
         if ((name === "stagger" || name === "staggerFrom") && this.lookaheadKind(1) === "=") {
           throw this.err(
-            `\`stagger\` / \`staggerFrom\` handler keys were removed; write \`stagger: Stagger(step: …, from: .first)\` on Motion`,
+            `\`stagger\` / \`staggerFrom\` handler keys were removed; write \`stagger: Stagger(step: …, from: .first)\` on Animation`,
           );
         }
       }
@@ -585,13 +587,28 @@ export class Parser {
         items.push({ kind: "hostVerb", qualifier: param, name: verb, args });
         continue;
       }
+      // Targeted animation shot: `knob.animate = Animation(…)` / `self.animate = Animation(…)`.
+      // `animate` is a lexer keyword.
+      if (this.is(".") && this.lookaheadKind(1) === "animate") {
+        this.advance(); // .
+        this.advance(); // animate
+        this.consume("=");
+        items.push({
+          kind: "animate",
+          ...(selfPrefixed ? {} : { target: param }),
+          value: this.parseValueExpr(),
+        });
+        continue;
+      }
       // `Label.content = …` — frame-prop assign; handlers only mutate params.
       if (this.is(".")) {
         this.advance();
-        const prop = this.consume("IDENT").value;
+        const prop = this.is("animate")
+          ? (this.advance(), "animate")
+          : this.consume("IDENT").value;
         const lhs = selfPrefixed ? `self.${param}.${prop}` : `${param}.${prop}`;
         throw this.err(
-          `Interaction handlers can only assign component parameters (e.g. \`interactionState = .hovered\`), not frame props like \`${lhs}\`. Put \`${param}.${prop} = …\` in the layout body / \`if\` branch instead (handlers set params; layout \`if\` updates chrome)`,
+          `Interaction handlers can only assign component parameters (e.g. \`interactionState = .hovered\`), not frame props like \`${lhs}\`. Put \`${param}.${prop} = …\` in the layout body / \`if\` branch instead (handlers set params; layout \`if\` updates chrome). For an animation shot on a let, write \`${param}.animate = Animation(…)\`.`,
         );
       }
       // Host verb: `beginEditing(value)` / `cancelEditing()`
@@ -1347,13 +1364,13 @@ export class Parser {
     if (this.is("let")) return this.parseLet();
     if (this.is("if")) return { kind: "if", chain: this.parseIfChain() };
 
-    // `animate = Motion(…)` — `animate` is a lexer keyword, not IDENT.
+    // `animate = Animation(…)` — `animate` is a lexer keyword, not IDENT.
     if (this.is("animate") && this.peekAheadKind(1) === "=") {
       this.advance();
       this.consume("=");
       if (this.is("{")) {
         throw this.err(
-          "`animate =` on a frame must be a Motion or Transition, not a handler block",
+          "`animate =` on a frame must be an Animation, not a handler block",
         );
       }
       return { kind: "prop", name: "animate", value: this.parseValueExpr() };
@@ -1947,6 +1964,7 @@ export class Parser {
       "Pose",
       "Stagger",
       "Motion",
+      "Animation",
       "Timing",
       "Effect",
     ];
@@ -2119,21 +2137,26 @@ export class Parser {
       return this.finishStagger(args);
     }
     if (name === "Key") {
-      const args = this.parseLabelledArgs();
-      this.consume(")");
-      return this.finishKey(args);
-    }
-    if (name === "Motion") {
-      const base = this.looksLikeMotionBase() ? this.parseValueExpr() : undefined;
-      if (base && this.is(",")) this.advance();
-      const args = this.parseLabelledArgs();
-      this.consume(")");
-      return this.finishMotion(base, args);
+      throw this.err(
+        "`Key(…)` is removed — write `Animation(keys: [Motion(duration:, ease:, pose:), …])`",
+      );
     }
     if (name === "PresentationMotion") {
       const args = this.parseLabelledArgs();
       this.consume(")");
       return this.finishPresentationMotion(args);
+    }
+    if (name === "Motion") {
+      const args = this.parseLabelledArgs();
+      this.consume(")");
+      return this.finishMotion(args);
+    }
+    if (name === "Animation") {
+      const base = this.looksLikeMotionBase() ? this.parseValueExpr() : undefined;
+      if (base && this.is(",")) this.advance();
+      const args = this.parseLabelledArgs();
+      this.consume(")");
+      return this.finishAnimation(base, args);
     }
     if (name === "Effect") {
       if (this.is(")")) {
@@ -2280,30 +2303,7 @@ export class Parser {
     return { kind: "stagger", step: args.step, ...(args.from ? { from: args.from } : {}) };
   }
 
-  private finishKey(args: Record<string, ValueExpr>): ValueExpr {
-    if (!("pose" in args) || !("at" in args)) {
-      throw this.err("`Key(…)` requires `pose:` and `at:` (0…1 of timing.duration)");
-    }
-    if ("easing" in args) throw this.err("Write `ease:` on Key, not `easing:`");
-    const unknown = Object.keys(args).filter((k) => k !== "pose" && k !== "at" && k !== "ease");
-    if (unknown.length) {
-      throw this.err(`Key unknown label(s): ${unknown.join(", ")} (expected pose, at, optional ease)`);
-    }
-    const pose = args.pose;
-    const rest =
-      pose.kind === "dotEnum" && pose.value.replace(/^\./, "") === "rest";
-    if (pose.kind !== "pose" && pose.kind !== "ident" && !rest) {
-      throw this.err("`Key` `pose:` must be a Pose, a Pose token, or `.rest`");
-    }
-    return {
-      kind: "key",
-      pose,
-      at: args.at,
-      ...(args.ease ? { ease: args.ease } : {}),
-    };
-  }
-
-  /** `Motion(motion.hoverPop, …)` — ident path followed by `,` or `)`, not `label:`. */
+  /** `Animation(motion.hoverPop, …)` — ident path followed by `,` or `)`, not `label:`. */
   private looksLikeMotionBase(): boolean {
     if (!this.is("IDENT")) return false;
     let i = 1;
@@ -2314,11 +2314,22 @@ export class Parser {
     return next === "," || next === ")";
   }
 
-  private finishMotion(base: ValueExpr | undefined, args: Record<string, ValueExpr>): ValueExpr {
+  private finishMotion(args: Record<string, ValueExpr>): ValueExpr {
     if ("transition" in args) {
       throw this.err("Write `timing:` (a Timing) or flattened `duration:` / `ease:`, not `transition:`");
     }
     if ("easing" in args) throw this.err("Write `ease:`, not `easing:`");
+    if ("play" in args) {
+      throw this.err("`play:` is removed — destination is `pose:` (use `.rest` to settle)");
+    }
+    if ("keys" in args) {
+      throw this.err(
+        "`Motion.keys` is removed — put sequential segments on `Animation(keys: [Motion…])`",
+      );
+    }
+    if ("stagger" in args || "repeat" in args) {
+      throw this.err("`stagger:` / `repeat:` belong on `Animation`, not `Motion`");
+    }
     const timing = args.timing;
     const duration = args.duration;
     const ease = args.ease;
@@ -2332,25 +2343,75 @@ export class Parser {
       if (!ease) throw this.err("`Motion` flattened clock needs `ease:`");
       clock = { kind: "timing", duration, ease, ...(delay ? { delay } : {}) };
     }
-    if (!base && !clock) {
-      throw this.err("`Motion(…)` requires `duration:` / `ease:` (optional `delay:`) or `timing:` (a Timing token or `Timing(…)`)");
+    if (!clock) {
+      throw this.err("`Motion(…)` requires `duration:` / `ease:` (optional `delay:`) or `timing:`");
     }
-    const allowed = new Set(["timing", "duration", "ease", "delay", "play", "pose", "keys", "stagger", "repeat"]);
-    const unknown = Object.keys(args).filter((k) => !allowed.has(k));
+    if (!("pose" in args)) {
+      throw this.err("`Motion(…)` requires `pose:` (a Pose, Pose token, or `.rest`)");
+    }
+    const pose = args.pose!;
+    const unknown = Object.keys(args).filter(
+      (k) => k !== "timing" && k !== "duration" && k !== "ease" && k !== "delay" && k !== "pose",
+    );
     if (unknown.length) {
       throw this.err(
-        `Motion unknown label(s): ${unknown.join(", ")} (expected timing or duration/ease/delay, optional play, pose, keys, stagger, repeat)`,
+        `Motion unknown label(s): ${unknown.join(", ")} (expected timing or duration/ease/delay, and pose)`,
       );
     }
+    const rest = pose.kind === "dotEnum" && pose.value.replace(/^\./, "") === "rest";
+    if (pose.kind !== "pose" && pose.kind !== "ident" && !rest) {
+      throw this.err("`Motion` `pose:` must be a Pose, a Pose token, or `.rest`");
+    }
+    return { kind: "motion", timing: clock, pose };
+  }
+
+  private finishAnimation(base: ValueExpr | undefined, args: Record<string, ValueExpr>): ValueExpr {
+    if ("play" in args) {
+      throw this.err(
+        "`play:` is removed — author destinations in `keys:` (include `.rest` to settle)",
+      );
+    }
+    if ("pose" in args) {
+      throw this.err(
+        "Write `start:` for a snap Pose and `keys:` for Motions — not `pose:` on Animation",
+      );
+    }
+    const start = args.start;
+    const keys = args.keys;
+    const stagger = args.stagger;
+    const repeat = args.repeat;
+    const unknown = Object.keys(args).filter(
+      (k) => k !== "start" && k !== "keys" && k !== "stagger" && k !== "repeat",
+    );
+    if (unknown.length) {
+      throw this.err(
+        `Animation unknown label(s): ${unknown.join(", ")} (expected optional start, keys, stagger, repeat)`,
+      );
+    }
+    if (!base && !keys) {
+      throw this.err("`Animation(…)` requires `keys:` (a non-empty list of Motion)");
+    }
+    if (keys) {
+      if (keys.kind === "array" && keys.items.length === 0) {
+        throw this.err("`Animation` `keys:` must be a non-empty list of Motion");
+      }
+      if (keys.kind !== "array" && keys.kind !== "ident") {
+        throw this.err("`Animation` `keys:` must be a list of Motion");
+      }
+    }
+    if (start) {
+      const rest = start.kind === "dotEnum" && start.value.replace(/^\./, "") === "rest";
+      if (start.kind !== "pose" && start.kind !== "ident" && !rest) {
+        throw this.err("`Animation` `start:` must be a Pose, a Pose token, or `.rest`");
+      }
+    }
     return {
-      kind: "motion",
+      kind: "animation",
       ...(base ? { base } : {}),
-      ...(clock ? { timing: clock } : {}),
-      ...(args.play ? { play: args.play } : {}),
-      ...(args.pose ? { pose: args.pose } : {}),
-      ...(args.keys ? { keys: args.keys } : {}),
-      ...(args.stagger ? { stagger: args.stagger } : {}),
-      ...(args.repeat ? { repeat: args.repeat } : {}),
+      ...(start ? { start } : {}),
+      ...(keys ? { keys } : {}),
+      ...(stagger ? { stagger } : {}),
+      ...(repeat ? { repeat } : {}),
     };
   }
 

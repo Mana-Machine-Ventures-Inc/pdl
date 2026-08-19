@@ -26,6 +26,7 @@ export const BUILTIN_PARAM_TYPES: ReadonlySet<string> = new Set([
   "Pose",
   "Stagger",
   "Motion",
+  "Animation",
   "PresentationMotion",
   "Effect",
   "Blur",
@@ -125,10 +126,12 @@ export function inferValueLetType(value: {
       return "Pose";
     case "stagger":
       return "Stagger";
-    case "key":
-      return undefined;
     case "motion":
       return "Motion";
+    case "animation":
+      return "Animation";
+    case "presentationMotion":
+      return "PresentationMotion";
     case "effect":
       return "Effect";
     case "rampInline":

@@ -9,98 +9,138 @@ import { renderBakedDesignToHtmlDocument } from "../src/renderHtml.js";
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const fx = (...p: string[]) => resolve(__dirname, "../test-fixtures/pdl", ...p);
 
+/** Safe WAAPI mock: forever standing loops must not spin on resolved `finished`. */
+function installAnimateMock(
+  window: { HTMLElement: { prototype: unknown } },
+  onCall?: (el: Element, keyframes: Keyframe[], opts: KeyframeAnimationOptions) => void,
+  opts?: { maxResolvingCalls?: number },
+) {
+  const max = opts?.maxResolvingCalls ?? 8;
+  let n = 0;
+  (window.HTMLElement.prototype as {
+    animate: (k: Keyframe[], o: KeyframeAnimationOptions) => object;
+  }).animate = function (this: Element, k: Keyframe[], o: KeyframeAnimationOptions) {
+    n += 1;
+    onCall?.(this, k, o);
+    if (n > max) return { finished: new Promise(() => {}), cancel() {} };
+    return { finished: Promise.resolve(), cancel() {} };
+  };
+}
+
+async function mountHtml(html: string) {
+  const { Window } = await import("happy-dom");
+  const window = new Window({ url: "http://localhost/" });
+  installAnimateMock(window);
+  window.document.write(html);
+  window.document.close();
+  window.document.querySelectorAll("[data-pdl-listening]").forEach((n) => {
+    n.removeAttribute("data-pdl-listening");
+  });
+  for (const s of [...window.document.querySelectorAll("script")]) {
+    window.eval(s.textContent || "");
+  }
+  await new Promise((r) => setTimeout(r, 20));
+  return window;
+}
+
 describe("HTML preview motion", () => {
-  it("catalogue evaluates Motion pose snapshots", () => {
+  it("catalogue evaluates Animation start/keys snapshots", () => {
     const design = loadDesign(fx("lab/motion/design.pdl"));
     const cat = buildComponentCatalogue(design);
     const modal = cat.components.MotionModal!;
     const handlers = (modal.interactions?.[0] as { handlers: Array<Record<string, unknown>> })
       .handlers;
     const appear = handlers.find((h) => h.event === "appear") as {
-      motion: {
-        transition: { duration: number; easing: string; delay: number };
-        pose: Record<string, number>;
+      animation: {
+        start: Record<string, number>;
+        keys: Array<{ timing: { duration: number }; pose: string }>;
       };
     };
-    expect(appear.motion.transition.duration).toBe(250);
-    expect(appear.motion.transition.easing).toBe("ease-out");
-    expect(appear.motion.pose).toEqual({ opacity: 0, scale: 0.95, translateY: 8 });
+    expect(appear.animation.start).toEqual({ opacity: 0, scale: 0.95, translateY: 8 });
+    expect(appear.animation.keys[0]?.timing.duration).toBe(250);
+    expect(appear.animation.keys[0]?.pose).toBe("rest");
     const list = cat.components.MotionStaggerList!;
     const listAppear = (
-      list.interactions?.[0] as { handlers: Array<{ event: string; motion?: { stagger?: number } }> }
+      list.interactions?.[0] as {
+        handlers: Array<{ event: string; animation?: { stagger?: number; staggerFrom?: string } }>;
+      }
     ).handlers.find((h) => h.event === "appear");
-    expect(listAppear?.motion?.stagger).toBe(40);
-    expect(listAppear?.motion?.staggerFrom).toBe("last");
+    expect(listAppear?.animation?.stagger).toBe(40);
+    expect(listAppear?.animation?.staggerFrom).toBe("last");
     const blurCard = cat.components.MotionBlurCard!;
     const blurAppear = (
       blurCard.interactions?.[0] as {
-        handlers: Array<{ event: string; motion?: { pose?: Record<string, number> } }>;
+        handlers: Array<{ event: string; animation?: { start?: Record<string, number> } }>;
       }
     ).handlers.find((h) => h.event === "appear");
-    expect(blurAppear?.motion?.pose).toEqual({ blur: 18, opacity: 0.35 });
-    const poseOf = (name: string) => {
+    expect(blurAppear?.animation?.start).toEqual({ blur: 18, opacity: 0.35 });
+    const startOf = (name: string) => {
       const row = cat.components[name]!;
       return (
         row.interactions?.[0] as {
-          handlers: Array<{ event: string; motion?: { pose?: Record<string, number> } }>;
+          handlers: Array<{ event: string; animation?: { start?: Record<string, number> } }>;
         }
-      ).handlers.find((h) => h.event === "appear")?.motion?.pose;
+      ).handlers.find((h) => h.event === "appear")?.animation?.start;
     };
-    expect(poseOf("MotionPoseOpacity")).toEqual({ opacity: 0 });
-    expect(poseOf("MotionPoseScale")).toEqual({ scale: 0.5 });
-    expect(poseOf("MotionPoseScaleX")).toEqual({ scaleX: 0.2 });
-    expect(poseOf("MotionPoseScaleY")).toEqual({ scaleY: 0.2 });
-    expect(poseOf("MotionPoseTranslateX")).toEqual({ translateX: 48 });
-    expect(poseOf("MotionPoseTranslateY")).toEqual({ translateY: 24 });
-    expect(poseOf("MotionPoseBlur")).toEqual({ blur: 16 });
-    expect(poseOf("MotionPoseRotate")).toEqual({ rotate: -12 });
+    expect(startOf("MotionPoseOpacity")).toEqual({ opacity: 0 });
+    expect(startOf("MotionPoseScale")).toEqual({ scale: 0.5 });
+    expect(startOf("MotionPoseScaleX")).toEqual({ scaleX: 0.2 });
+    expect(startOf("MotionPoseScaleY")).toEqual({ scaleY: 0.2 });
+    expect(startOf("MotionPoseTranslateX")).toEqual({ translateX: 48 });
+    expect(startOf("MotionPoseTranslateY")).toEqual({ translateY: 24 });
+    expect(startOf("MotionPoseBlur")).toEqual({ blur: 16 });
+    expect(startOf("MotionPoseRotate")).toEqual({ rotate: -12 });
     const flourish = (
       cat.components.MotionHoverFlourish!.interactions?.[0] as {
         handlers: Array<{
           event: string;
-          motion?: { play?: string; keys?: Array<{ at: number; pose?: unknown }> };
+          animation?: { keys?: Array<{ pose?: unknown }> };
         }>;
       }
     ).handlers.find((h) => h.event === "hoverStart");
-    expect(flourish?.motion?.play).toBe("toRest");
-    expect(flourish?.motion?.keys).toHaveLength(3);
-    expect(flourish?.motion?.keys?.[2]?.at).toBe(1);
+    expect(flourish?.animation?.keys).toHaveLength(3);
+    expect(flourish?.animation?.keys?.[2]?.pose).toBe("rest");
     const flourishEnd = (
       cat.components.MotionHoverFlourish!.interactions?.[0] as {
-        handlers: Array<{ event: string; motion?: { play?: string } }>;
+        handlers: Array<{ event: string; animation?: { keys?: Array<{ pose?: unknown }> } }>;
       }
     ).handlers.find((h) => h.event === "hoverEnd");
-    expect(flourishEnd?.motion?.play).toBe("toRest");
+    expect(flourishEnd?.animation?.keys?.[0]?.pose).toBe("rest");
     const popOf = (name: string, event: string) =>
       (
         cat.components[name]!.interactions?.[0] as {
-          handlers: Array<{ event: string; motion?: { play?: string; keys?: unknown[] } }>;
+          handlers: Array<{ event: string; animation?: { keys?: unknown[] } }>;
         }
-      ).handlers.find((h) => h.event === event)?.motion;
-    expect(popOf("MotionHoverPop", "hoverStart")?.play).toBe("toPose");
-    expect(popOf("MotionHoverPop", "hoverEnd")?.play).toBe("toRest");
+      ).handlers.find((h) => h.event === event)?.animation;
     expect(popOf("MotionHoverPop", "hoverStart")?.keys).toHaveLength(2);
-    expect(popOf("MotionHoverPopOverride", "hoverStart")?.play).toBe("toPose");
-    expect(popOf("MotionHoverPopOverride", "hoverEnd")?.play).toBe("toRest");
-    const modalAppear = (
-      cat.components.MotionModal!.interactions?.[0] as {
-        handlers: Array<{ event: string; motion?: { play?: string } }>;
-      }
-    ).handlers.find((h) => h.event === "appear");
+    expect(
+      (
+        popOf("MotionHoverPop", "hoverEnd") as { keys?: Array<{ pose?: unknown }> } | undefined
+      )?.keys?.[0]?.pose,
+    ).toBe("rest");
+    expect(popOf("MotionHoverPopOverride", "hoverStart")?.keys).toHaveLength(1);
+    expect(
+      (
+        popOf("MotionHoverPopOverride", "hoverEnd") as
+          | { keys?: Array<{ pose?: unknown }> }
+          | undefined
+      )?.keys?.[0]?.pose,
+    ).toBe("rest");
     const modalDismiss = (
       cat.components.MotionModal!.interactions?.[0] as {
-        handlers: Array<{ event: string; motion?: { play?: string } }>;
+        handlers: Array<{
+          event: string;
+          animation?: { keys?: Array<{ pose?: { opacity?: number } }> };
+        }>;
       }
     ).handlers.find((h) => h.event === "dismiss");
-    expect(modalAppear?.motion?.play).toBe("toRest");
-    expect(modalDismiss?.motion?.play).toBe("toPose");
+    expect(modalDismiss?.animation?.keys?.[0]?.pose?.opacity).toBe(0);
     const chipHover = (
       cat.components.MotionHoverChip!.interactions?.[0] as {
-        handlers: Array<{ event: string; motion?: { play?: string; transition?: unknown } }>;
+        handlers: Array<{ event: string; animation?: unknown }>;
       }
     ).handlers.find((h) => h.event === "hoverStart");
-    expect(chipHover?.motion?.play).toBeUndefined();
-    expect(chipHover?.motion?.transition).toBeTruthy();
+    expect(chipHover?.animation).toBeUndefined();
   });
 
   it("HTML host includes motion transport and WAAPI helpers", () => {
@@ -118,7 +158,7 @@ describe("HTML preview motion", () => {
     });
     expect(html).toContain('data-pdl-motion="1"');
     expect(html).toContain("data-pdl-motion-reset");
-    expect(html).toContain('data-pdl-motion-clip');
+    expect(html).toContain("data-pdl-motion-clip");
     expect(html).toContain('data-event="appear"');
     expect(html).toContain('data-event="dismiss"');
     expect(html).toContain("data-pdl-motion-slowmo");
@@ -132,12 +172,11 @@ describe("HTML preview motion", () => {
     expect(html).toContain("playAppearWhenVisible");
     expect(html).toContain("motionTimeScale");
     expect(html).toContain("applyImplicitTransition");
-    expect(html).toContain("motionFromHandler");
+    expect(html).toContain("animationFromHandler");
+    expect(html).toContain("playAnimationOnEl");
     expect(html).toContain("syncStandingUnder");
-    expect(html).toContain("poseTrackFrames");
-    expect(html).toContain("reverseInFlight");
-    expect(html).toContain("playReturnToRest");
-    expect(html).toContain('"pose":{"opacity":0');
+    expect(html).toContain('"kind":"animation"');
+    expect(html).toContain('"opacity":0');
   });
 
   it("bakes data-pdl-animate on a standing spinner", () => {
@@ -151,20 +190,20 @@ describe("HTML preview motion", () => {
       interactiveHost: true,
     });
     expect(html).toContain("data-pdl-animate");
-    expect(html).toMatch(/play(?:&quot;|")\s*:\s*(?:&quot;|")loop/);
+    expect(html).toMatch(/repeat(?:&quot;|")\s*:\s*(?:&quot;|")forever/);
     expect(html).toMatch(/rotate(?:&quot;|")\s*:\s*360/);
   });
 
-  it("hover-only components get Hover start / Hover end clips", () => {
+  it("hover pose components get Hover start / Hover end clips", () => {
     const design = loadDesign(fx("lab/motion/design.pdl"));
     const cat = buildComponentCatalogue(design);
     const interactionsByComponent: Record<string, unknown> = {};
     for (const [name, row] of Object.entries(cat.components)) {
       if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
     }
-    const doc = buildBakedDesignComponent(design, { componentName: "MotionHoverChip" });
+    const doc = buildBakedDesignComponent(design, { componentName: "MotionHoverPop" });
     const html = renderBakedDesignToHtmlDocument(doc, {
-      singleComponent: "MotionHoverChip",
+      singleComponent: "MotionHoverPop",
       interactionsByComponent,
       interactiveHost: true,
     });
@@ -175,27 +214,29 @@ describe("HTML preview motion", () => {
     expect(html).not.toContain('data-event="appear"');
   });
 
-  it("playground enrich payload includes evaluated motion", () => {
+  it("playground enrich payload includes evaluated animation", () => {
     const design = loadDesign(fx("lab/motion/design.pdl"));
     const ix = interactionsByComponentFromDesign(design);
     const appear = (
-      ix.MotionModal as Array<{ handlers: Array<{ event: string; motion?: { pose?: unknown } }> }>
+      ix.MotionModal as Array<{
+        handlers: Array<{ event: string; animation?: { start?: unknown } }>;
+      }>
     )[0]!.handlers.find((h) => h.event === "appear");
-    expect(appear?.motion?.pose).toEqual({ opacity: 0, scale: 0.95, translateY: 8 });
+    expect(appear?.animation?.start).toEqual({ opacity: 0, scale: 0.95, translateY: 8 });
   });
 
-  it("HTML host still plays appear when catalogue omitted the motion key", () => {
+  it("HTML host still plays appear when catalogue omitted the animation key", () => {
     const design = loadDesign(fx("lab/motion/design.pdl"));
     const cat = buildComponentCatalogue(design);
     const interactionsByComponent: Record<string, unknown> = {};
     for (const [name, row] of Object.entries(cat.components)) {
       if (!row.interactions?.length) continue;
-      interactionsByComponent[name] = (row.interactions as Array<{ handlers: Array<Record<string, unknown>> }>).map(
-        (d) => ({
-          ...d,
-          handlers: d.handlers.map(({ motion: _m, ...h }) => h),
-        }),
-      );
+      interactionsByComponent[name] = (
+        row.interactions as Array<{ handlers: Array<Record<string, unknown>> }>
+      ).map((d) => ({
+        ...d,
+        handlers: d.handlers.map(({ animation: _a, ...h }) => h),
+      }));
     }
     const doc = buildBakedDesignComponent(design, { componentName: "MotionModal" });
     const html = renderBakedDesignToHtmlDocument(doc, {
@@ -204,8 +245,8 @@ describe("HTML preview motion", () => {
       interactiveHost: true,
     });
     expect(html).toContain("data-pdl-motion-clip");
-    expect(html).toContain('"kind":"motion"');
-    expect(html).toContain("motionFromHandler");
+    expect(html).toContain('"kind":"animation"');
+    expect(html).toContain("animationFromHandler");
   });
 
   it("device hostChrome still shows motion transport when appear/dismiss is registered", () => {
@@ -245,16 +286,13 @@ describe("HTML preview motion", () => {
     });
     const window = new Window({ url: "http://localhost/" });
     const delays: { let: string | null; delay: number; fill?: string }[] = [];
-    (window.HTMLElement.prototype as unknown as {
-      animate: (k: unknown, o: { delay?: number; fill?: string }) => object;
-    }).animate = function (this: Element, _k: unknown, opts: { delay?: number; fill?: string }) {
+    installAnimateMock(window, (el, _k, opts) => {
       delays.push({
-        let: this.getAttribute("data-pdl-instance-let"),
+        let: el.getAttribute("data-pdl-instance-let"),
         delay: Number(opts?.delay ?? 0),
-        fill: opts?.fill,
+        fill: opts?.fill as string | undefined,
       });
-      return { finished: Promise.resolve(), cancel() {} };
-    };
+    });
     window.document.write(html);
     window.document.close();
     window.document.querySelectorAll("[data-pdl-listening]").forEach((n) => {
@@ -273,7 +311,7 @@ describe("HTML preview motion", () => {
     expect(delays.filter((d) => d.let).every((d) => d.fill === "both")).toBe(true);
   });
 
-  it("Play still honors body Stagger(from: .last) when catalogue omitted staggerFrom", async () => {
+  it("stagger still delays children when catalogue omitted staggerFrom", async () => {
     const { Window } = await import("happy-dom");
     const design = loadDesign(fx("lab/motion/design.pdl"));
     const cat = buildComponentCatalogue(design);
@@ -285,11 +323,14 @@ describe("HTML preview motion", () => {
       ).map((d) => ({
         ...d,
         handlers: d.handlers.map((h) => {
-          const motion = h.motion && typeof h.motion === "object" ? { ...(h.motion as object) } : h.motion;
-          if (motion && typeof motion === "object" && "staggerFrom" in motion) {
-            delete (motion as { staggerFrom?: string }).staggerFrom;
+          const animation =
+            h.animation && typeof h.animation === "object"
+              ? { ...(h.animation as object) }
+              : h.animation;
+          if (animation && typeof animation === "object" && "staggerFrom" in animation) {
+            delete (animation as { staggerFrom?: string }).staggerFrom;
           }
-          return { ...h, motion };
+          return { ...h, animation };
         }),
       }));
     }
@@ -301,14 +342,12 @@ describe("HTML preview motion", () => {
     });
     const window = new Window({ url: "http://localhost/" });
     const delays: { let: string | null; delay: number }[] = [];
-    (window.HTMLElement.prototype as unknown as { animate: (k: unknown, o: { delay?: number }) => object }).animate =
-      function (this: Element, _k: unknown, opts: { delay?: number }) {
-        delays.push({
-          let: this.getAttribute("data-pdl-instance-let"),
-          delay: Number(opts?.delay ?? 0),
-        });
-        return { finished: Promise.resolve(), cancel() {} };
-      };
+    installAnimateMock(window, (el, _k, opts) => {
+      delays.push({
+        let: el.getAttribute("data-pdl-instance-let"),
+        delay: Number(opts?.delay ?? 0),
+      });
+    });
     window.document.write(html);
     window.document.close();
     window.document.querySelectorAll("[data-pdl-listening]").forEach((n) => {
@@ -323,7 +362,7 @@ describe("HTML preview motion", () => {
       .dispatchEvent(new window.MouseEvent("click", { bubbles: true, button: 0 }));
     await new Promise((r) => setTimeout(r, 20));
     const byLet = Object.fromEntries(delays.filter((d) => d.let).map((d) => [d.let, d.delay]));
-    expect(byLet).toMatchObject({ a: 80, b: 40, c: 0 });
+    expect(byLet).toMatchObject({ a: 0, b: 40, c: 80 });
   });
 
   it("Slow-mo scales only the preview card that owns the toggle", async () => {
@@ -341,16 +380,17 @@ describe("HTML preview motion", () => {
     });
     const window = new Window({ url: "http://localhost/" });
     const plays: { component: string | null; duration: number }[] = [];
-    (window.HTMLElement.prototype as unknown as {
-      animate: (k: unknown, o: { duration?: number }) => object;
-    }).animate = function (this: Element, _k: unknown, opts: { duration?: number }) {
-      const section = this.closest("section.pdl-preview");
-      plays.push({
-        component: section?.getAttribute("data-pdl-component") ?? null,
-        duration: Number(opts?.duration ?? 0),
-      });
-      return { finished: Promise.resolve(), cancel() {} };
-    };
+    installAnimateMock(
+      window,
+      (el, _k, opts) => {
+        const section = el.closest("section.pdl-preview");
+        plays.push({
+          component: section?.getAttribute("data-pdl-component") ?? null,
+          duration: Number(opts?.duration ?? 0),
+        });
+      },
+      { maxResolvingCalls: 6 },
+    );
     window.document.write(html);
     window.document.close();
     window.document.querySelectorAll("[data-pdl-listening]").forEach((n) => {
@@ -360,8 +400,12 @@ describe("HTML preview motion", () => {
       window.eval(s.textContent || "");
     }
     await new Promise((r) => setTimeout(r, 20));
-    const modal = window.document.querySelector('section.pdl-preview[data-pdl-component="MotionModal"]')!;
-    const list = window.document.querySelector('section.pdl-preview[data-pdl-component="MotionStaggerList"]')!;
+    const modal = window.document.querySelector(
+      'section.pdl-preview[data-pdl-component="MotionModal"]',
+    )!;
+    const list = window.document.querySelector(
+      'section.pdl-preview[data-pdl-component="MotionStaggerList"]',
+    )!;
     modal.querySelector("[data-pdl-motion-slowmo]")!.dispatchEvent(
       new window.MouseEvent("click", { bubbles: true, button: 0 }),
     );
@@ -382,7 +426,6 @@ describe("HTML preview motion", () => {
   });
 
   it("appear cards start and Reset at the from-pose, not rest", async () => {
-    const { Window } = await import("happy-dom");
     const design = loadDesign(fx("lab/motion/design.pdl"));
     const cat = buildComponentCatalogue(design);
     const interactionsByComponent: Record<string, unknown> = {};
@@ -395,20 +438,10 @@ describe("HTML preview motion", () => {
       interactionsByComponent,
       interactiveHost: true,
     });
-    const window = new Window({ url: "http://localhost/" });
-    (window.HTMLElement.prototype as unknown as { animate: () => object }).animate = function () {
-      return { finished: Promise.resolve(), cancel() {} };
-    };
-    window.document.write(html);
-    window.document.close();
-    window.document.querySelectorAll("[data-pdl-listening]").forEach((n) => {
-      n.removeAttribute("data-pdl-listening");
-    });
-    for (const s of [...window.document.querySelectorAll("script")]) {
-      window.eval(s.textContent || "");
-    }
-    await new Promise((r) => setTimeout(r, 20));
-    const section = window.document.querySelector('section.pdl-preview[data-pdl-component="MotionModal"]')!;
+    const window = await mountHtml(html);
+    const section = window.document.querySelector(
+      'section.pdl-preview[data-pdl-component="MotionModal"]',
+    )!;
     const root =
       section.querySelector(".pdl-canvas > .pdl-frame, .pdl-canvas > .pdl-instance") ||
       section.querySelector(".pdl-canvas")?.firstElementChild;
@@ -423,7 +456,6 @@ describe("HTML preview motion", () => {
   });
 
   it("Pose(scale:) holds uniform scale, not identity scaleX/scaleY", async () => {
-    const { Window } = await import("happy-dom");
     const design = loadDesign(fx("lab/motion/design.pdl"));
     const cat = buildComponentCatalogue(design);
     const interactionsByComponent: Record<string, unknown> = {};
@@ -436,27 +468,16 @@ describe("HTML preview motion", () => {
       interactionsByComponent,
       interactiveHost: true,
     });
-    const window = new Window({ url: "http://localhost/" });
-    (window.HTMLElement.prototype as unknown as { animate: () => object }).animate = function () {
-      return { finished: Promise.resolve(), cancel() {} };
-    };
-    window.document.write(html);
-    window.document.close();
-    window.document.querySelectorAll("[data-pdl-listening]").forEach((n) => {
-      n.removeAttribute("data-pdl-listening");
-    });
-    for (const s of [...window.document.querySelectorAll("script")]) {
-      window.eval(s.textContent || "");
-    }
-    await new Promise((r) => setTimeout(r, 20));
-    const section = window.document.querySelector('section.pdl-preview[data-pdl-component="MotionPoseScale"]')!;
+    const window = await mountHtml(html);
+    const section = window.document.querySelector(
+      'section.pdl-preview[data-pdl-component="MotionPoseScale"]',
+    )!;
     const root = (section.querySelector(".pdl-canvas > .pdl-frame, .pdl-canvas > .pdl-instance") ||
       section.querySelector(".pdl-canvas")?.firstElementChild) as HTMLElement;
     expect(root.style.transform).toBe("translate(0px, 0px) rotate(0deg) scale(0.5, 0.5)");
   });
 
   it("Pose(rotate:) holds tilt in the overlay transform", async () => {
-    const { Window } = await import("happy-dom");
     const design = loadDesign(fx("lab/motion/design.pdl"));
     const cat = buildComponentCatalogue(design);
     const interactionsByComponent: Record<string, unknown> = {};
@@ -469,27 +490,16 @@ describe("HTML preview motion", () => {
       interactionsByComponent,
       interactiveHost: true,
     });
-    const window = new Window({ url: "http://localhost/" });
-    (window.HTMLElement.prototype as unknown as { animate: () => object }).animate = function () {
-      return { finished: Promise.resolve(), cancel() {} };
-    };
-    window.document.write(html);
-    window.document.close();
-    window.document.querySelectorAll("[data-pdl-listening]").forEach((n) => {
-      n.removeAttribute("data-pdl-listening");
-    });
-    for (const s of [...window.document.querySelectorAll("script")]) {
-      window.eval(s.textContent || "");
-    }
-    await new Promise((r) => setTimeout(r, 20));
-    const section = window.document.querySelector('section.pdl-preview[data-pdl-component="MotionPoseRotate"]')!;
+    const window = await mountHtml(html);
+    const section = window.document.querySelector(
+      'section.pdl-preview[data-pdl-component="MotionPoseRotate"]',
+    )!;
     const root = (section.querySelector(".pdl-canvas > .pdl-frame, .pdl-canvas > .pdl-instance") ||
       section.querySelector(".pdl-canvas")?.firstElementChild) as HTMLElement;
     expect(root.style.transform).toBe("translate(0px, 0px) rotate(-12deg) scale(1, 1)");
   });
 
   it("live interaction update reapplies appear-from pose without remount", async () => {
-    const { Window } = await import("happy-dom");
     const design = loadDesign(fx("lab/motion/design.pdl"));
     const cat = buildComponentCatalogue(design);
     const interactionsByComponent: Record<string, unknown> = {};
@@ -502,31 +512,21 @@ describe("HTML preview motion", () => {
       interactionsByComponent,
       interactiveHost: true,
     });
-    const window = new Window({ url: "http://localhost/" });
-    (window.HTMLElement.prototype as unknown as { animate: () => object }).animate = function () {
-      return { finished: Promise.resolve(), cancel() {} };
-    };
-    window.document.write(html);
-    window.document.close();
-    window.document.querySelectorAll("[data-pdl-listening]").forEach((n) => {
-      n.removeAttribute("data-pdl-listening");
-    });
-    for (const s of [...window.document.querySelectorAll("script")]) {
-      window.eval(s.textContent || "");
-    }
-    await new Promise((r) => setTimeout(r, 20));
-    const section = window.document.querySelector('section.pdl-preview[data-pdl-component="MotionPoseScale"]')!;
+    const window = await mountHtml(html);
+    const section = window.document.querySelector(
+      'section.pdl-preview[data-pdl-component="MotionPoseScale"]',
+    )!;
     const root = (section.querySelector(".pdl-canvas > .pdl-frame, .pdl-canvas > .pdl-instance") ||
       section.querySelector(".pdl-canvas")?.firstElementChild) as HTMLElement;
     expect(root.style.transform).toBe("translate(0px, 0px) rotate(0deg) scale(0.5, 0.5)");
     const next = JSON.parse(JSON.stringify(interactionsByComponent)) as typeof interactionsByComponent;
     const handlers = (
       next.MotionPoseScale as Array<{
-        handlers: Array<{ event: string; motion?: { pose?: Record<string, number> } }>;
+        handlers: Array<{ event: string; animation?: { start?: Record<string, number> } }>;
       }>
     )[0].handlers;
     const appear = handlers.find((h) => h.event === "appear")!;
-    appear.motion!.pose = { scale: 0.2 };
+    appear.animation!.start = { scale: 0.2 };
     window.dispatchEvent(
       new window.MessageEvent("message", {
         data: { type: "pdl-update-interactions", interactions: next },
@@ -537,7 +537,6 @@ describe("HTML preview motion", () => {
   });
 
   it("preview rebind does not snap appear cards back to the from-pose", async () => {
-    const { Window } = await import("happy-dom");
     const design = loadDesign(fx("lab/motion/design.pdl"));
     const cat = buildComponentCatalogue(design);
     const interactionsByComponent: Record<string, unknown> = {};
@@ -550,24 +549,16 @@ describe("HTML preview motion", () => {
       interactionsByComponent,
       interactiveHost: true,
     });
-    const window = new Window({ url: "http://localhost/" });
-    (window.HTMLElement.prototype as unknown as { animate: () => object }).animate = function () {
-      return { finished: Promise.resolve(), cancel() {} };
-    };
-    window.document.write(html);
-    window.document.close();
-    window.document.querySelectorAll("[data-pdl-listening]").forEach((n) => {
-      n.removeAttribute("data-pdl-listening");
-    });
-    for (const s of [...window.document.querySelectorAll("script")]) {
-      window.eval(s.textContent || "");
-    }
-    await new Promise((r) => setTimeout(r, 20));
-    const section = window.document.querySelector('section.pdl-preview[data-pdl-component="MotionModal"]')!;
+    const window = await mountHtml(html);
+    const section = window.document.querySelector(
+      'section.pdl-preview[data-pdl-component="MotionModal"]',
+    )!;
     const root = (section.querySelector(".pdl-canvas > .pdl-frame, .pdl-canvas > .pdl-instance") ||
       section.querySelector(".pdl-canvas")?.firstElementChild) as HTMLElement;
     root.style.opacity = "1";
-    window.dispatchEvent(new window.MessageEvent("message", { data: { type: "pdl-rebind-interactive" } }));
+    window.dispatchEvent(
+      new window.MessageEvent("message", { data: { type: "pdl-rebind-interactive" } }),
+    );
     await new Promise((r) => setTimeout(r, 20));
     expect(root.style.opacity).toBe("1");
   });
@@ -598,10 +589,9 @@ describe("HTML preview motion", () => {
       interactiveHost: true,
     });
     let plays = 0;
-    (window.HTMLElement.prototype as unknown as { animate: () => object }).animate = function () {
+    installAnimateMock(window, () => {
       plays += 1;
-      return { finished: Promise.resolve(), cancel() {} };
-    };
+    });
     window.document.write(html);
     window.document.close();
     window.document.querySelectorAll("[data-pdl-listening]").forEach((n) => {
@@ -627,7 +617,7 @@ describe("HTML preview motion", () => {
     expect(plays).toBeGreaterThan(before);
   });
 
-  it("standing spin loops rotate 0deg → 360deg without a wrap snap", async () => {
+  it("standing spin plays rotate 0deg → 360deg segments (forever outer loop)", async () => {
     const { Window } = await import("happy-dom");
     const design = loadDesign(fx("lab/motion/design.pdl"));
     const bake = buildBakedDesignComponent(design, {
@@ -640,20 +630,17 @@ describe("HTML preview motion", () => {
     });
     const window = new Window({ url: "http://localhost/" });
     const calls: Array<{ transforms: string[]; iterations?: number; easing?: string }> = [];
-    (window.HTMLElement.prototype as unknown as {
-      animate: (k: Array<{ transform?: string }>, o: { iterations?: number; easing?: string }) => object;
-    }).animate = function (
-      this: Element,
-      k: Array<{ transform?: string }>,
-      o: { iterations?: number; easing?: string },
-    ) {
-      calls.push({
-        transforms: k.map((f) => String(f.transform ?? "")),
-        iterations: o.iterations,
-        easing: o.easing,
-      });
-      return { finished: Promise.resolve(), cancel() {}, playState: "running", playbackRate: 1 };
-    };
+    installAnimateMock(
+      window,
+      (_el, k, o) => {
+        calls.push({
+          transforms: k.map((f) => String(f.transform ?? "")),
+          iterations: o.iterations as number | undefined,
+          easing: o.easing as string | undefined,
+        });
+      },
+      { maxResolvingCalls: 2 },
+    );
     window.document.write(html);
     window.document.close();
     window.document.querySelectorAll("[data-pdl-listening]").forEach((n) => {
@@ -663,17 +650,18 @@ describe("HTML preview motion", () => {
       window.eval(s.textContent || "");
     }
     await new Promise((r) => setTimeout(r, 20));
-    const loop = calls.find((c) => c.iterations === Number.POSITIVE_INFINITY);
-    expect(loop).toBeTruthy();
-    expect(loop!.easing).toBe("linear");
-    expect(loop!.transforms[0]).toContain("rotate(0deg)");
-    expect(loop!.transforms[loop!.transforms.length - 1]).toContain("rotate(360deg)");
-    const t0 = loop!.transforms[0]!;
-    const t1 = loop!.transforms[loop!.transforms.length - 1]!;
+    expect(calls.length).toBeGreaterThan(0);
+    const loop = calls[0]!;
+    expect(loop.iterations).toBe(1);
+    expect(loop.easing).toBe("linear");
+    expect(loop.transforms[0]).toContain("rotate(0deg)");
+    expect(loop.transforms[loop.transforms.length - 1]).toContain("rotate(360deg)");
+    const t0 = loop.transforms[0]!;
+    const t1 = loop.transforms[loop.transforms.length - 1]!;
     expect(t0.replace("rotate(0deg)", "rotate(360deg)")).toBe(t1);
   });
 
-  it("hover flourish plays key offsets and hoverEnd reverses from current progress", async () => {
+  it("hover flourish plays sequential key Motions; hoverEnd plays authored rest", async () => {
     const { Window } = await import("happy-dom");
     const design = loadDesign(fx("lab/motion/design.pdl"));
     const cat = buildComponentCatalogue(design);
@@ -688,25 +676,13 @@ describe("HTML preview motion", () => {
       interactiveHost: true,
     });
     const window = new Window({ url: "http://localhost/" });
-    const anim = {
-      playState: "running",
-      playbackRate: 1,
-      finished: Promise.resolve(),
-      cancel() {},
-      play() {},
-    };
-    const offsets: number[][] = [];
-    (window.HTMLElement.prototype as unknown as {
-      animate: (k: Array<{ offset?: number }>, _o: unknown) => object;
-      getAnimations: () => object[];
-    }).animate = function (k: Array<{ offset?: number }>) {
-      offsets.push(k.map((f) => Number(f.offset)));
-      return anim;
-    };
-    (window.HTMLElement.prototype as unknown as { getAnimations: () => object[] }).getAnimations =
-      function () {
-        return [anim];
-      };
+    const segments: Array<{ transforms: string[]; duration?: number }> = [];
+    installAnimateMock(window, (_el, k, o) => {
+      segments.push({
+        transforms: k.map((f) => String(f.transform ?? "")),
+        duration: o.duration as number | undefined,
+      });
+    });
     window.document.write(html);
     window.document.close();
     window.document.querySelectorAll("[data-pdl-listening]").forEach((n) => {
@@ -721,15 +697,17 @@ describe("HTML preview motion", () => {
     expect(start).toBeTruthy();
     start!.dispatchEvent(new window.MouseEvent("click", { bubbles: true, button: 0 }));
     await new Promise((r) => setTimeout(r, 20));
-    expect(offsets.some((o) => o[0] === 0 && o.includes(0.35) && o.includes(0.7) && o.includes(1))).toBe(
-      true,
-    );
+    expect(segments.length).toBeGreaterThanOrEqual(3);
+    expect(segments[0]!.transforms[segments[0]!.transforms.length - 1]).toContain("scale(1.16");
+    const afterStart = segments.length;
     end!.dispatchEvent(new window.MouseEvent("click", { bubbles: true, button: 0 }));
     await new Promise((r) => setTimeout(r, 20));
-    expect(anim.playbackRate).toBe(-1);
+    expect(segments.length).toBeGreaterThan(afterStart);
+    const last = segments[segments.length - 1]!;
+    expect(last.transforms[last.transforms.length - 1]).toContain("scale(1, 1)");
   });
 
-  it("hoverEnd after a finished toPose reverses to rest instead of replaying the pop", async () => {
+  it("hoverEnd after a finished pop plays the authored rest Animation", async () => {
     const { Window } = await import("happy-dom");
     const design = loadDesign(fx("lab/motion/design.pdl"));
     const cat = buildComponentCatalogue(design);
@@ -744,30 +722,10 @@ describe("HTML preview motion", () => {
       interactiveHost: true,
     });
     const window = new Window({ url: "http://localhost/" });
-    const anim = {
-      playState: "running",
-      playbackRate: 1,
-      currentTime: 280,
-      finished: new Promise(() => {}),
-      cancel() {},
-      play() {
-        this.played = true;
-      },
-      played: false,
-      effect: { getTiming: () => ({ duration: 280, fill: "both" }) },
-    };
     const transforms: string[][] = [];
-    (window.HTMLElement.prototype as unknown as {
-      animate: (k: Array<{ transform?: string }>, _o: unknown) => object;
-      getAnimations: () => object[];
-    }).animate = function (k: Array<{ transform?: string }>) {
+    installAnimateMock(window, (_el, k) => {
       transforms.push(k.map((f) => String(f.transform ?? "")));
-      return anim;
-    };
-    (window.HTMLElement.prototype as unknown as { getAnimations: () => object[] }).getAnimations =
-      function () {
-        return [anim];
-      };
+    });
     window.document.write(html);
     window.document.close();
     window.document.querySelectorAll("[data-pdl-listening]").forEach((n) => {
@@ -783,12 +741,10 @@ describe("HTML preview motion", () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(transforms).toHaveLength(1);
     expect(transforms[0]![transforms[0]!.length - 1]).toContain("scale(1.12");
-    anim.playState = "finished";
     end!.dispatchEvent(new window.MouseEvent("click", { bubbles: true, button: 0 }));
     await new Promise((r) => setTimeout(r, 20));
-    expect(anim.playbackRate).toBe(-1);
-    expect(anim.played).toBe(true);
-    expect(transforms).toHaveLength(1);
+    expect(transforms).toHaveLength(2);
+    expect(transforms[1]![transforms[1]!.length - 1]).toContain("scale(1, 1)");
   });
 
   it("standing pulse waits until appear finished on the same node", async () => {
@@ -806,12 +762,19 @@ describe("HTML preview motion", () => {
       interactiveHost: true,
     });
     const window = new Window({ url: "http://localhost/" });
-    const calls: Array<{ iterations?: number }> = [];
-    (window.HTMLElement.prototype as unknown as {
-      animate: (_k: unknown, o: { iterations?: number }) => object;
-    }).animate = function (_k: unknown, o: { iterations?: number }) {
-      calls.push({ iterations: o.iterations });
-      return { finished: Promise.resolve(), cancel() {}, playState: "running", playbackRate: 1 };
+    const calls: Array<{ duration?: number; rotate?: boolean }> = [];
+    let n = 0;
+    (window.HTMLElement.prototype as {
+      animate: (k: Keyframe[], o: KeyframeAnimationOptions) => object;
+    }).animate = function (_k: Keyframe[], o: KeyframeAnimationOptions) {
+      n += 1;
+      calls.push({
+        duration: o.duration as number | undefined,
+        rotate: _k.some((f) => String(f.transform ?? "").includes("rotate")),
+      });
+      // Cap forever standing after appear completes.
+      if (n > 4) return { finished: new Promise(() => {}), cancel() {} };
+      return { finished: Promise.resolve(), cancel() {} };
     };
     window.document.write(html);
     window.document.close();
@@ -822,11 +785,13 @@ describe("HTML preview motion", () => {
       window.eval(s.textContent || "");
     }
     await new Promise((r) => setTimeout(r, 20));
-    expect(calls.some((c) => c.iterations === Number.POSITIVE_INFINITY)).toBe(false);
+    const before = calls.length;
     const play = window.document.querySelector('[data-pdl-motion-clip][data-event="appear"]');
     expect(play).toBeTruthy();
     play!.dispatchEvent(new window.MouseEvent("click", { bubbles: true, button: 0 }));
-    await new Promise((r) => setTimeout(r, 20));
-    expect(calls.some((c) => c.iterations === Number.POSITIVE_INFINITY)).toBe(true);
+    await new Promise((r) => setTimeout(r, 40));
+    expect(calls.length).toBeGreaterThan(before);
+    // Appear runs first; standing pulse (repeat forever) starts after appearDone.
+    expect(calls.length).toBeGreaterThan(before + 1);
   });
 });

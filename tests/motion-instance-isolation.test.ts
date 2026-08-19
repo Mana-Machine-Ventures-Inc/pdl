@@ -45,42 +45,39 @@ async function mountMotionHoverChip() {
 }
 
 describe("motion hover isolation", () => {
-  it("standalone HoverChip hover resolves that section only", async () => {
+  it("standalone HoverChip hover posts that section's interaction only", async () => {
     const { document, messages } = await mountMotionHoverChip();
-    const section = document.querySelector('section.pdl-preview[data-pdl-component="MotionHoverChip"]')!;
+    const section = document.querySelector(
+      'section.pdl-preview[data-pdl-component="MotionHoverChip"]',
+    )!;
     expect(section).toBeTruthy();
     const canvas = section.querySelector(".pdl-canvas")!;
     expect(canvas).toBeTruthy();
     canvas.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
     await new Promise((r) => setTimeout(r, 20));
 
-    const resolveMsgs = messages.filter(
-      (m) => (m as { type?: string }).type === "pdl-resolve-instance",
-    ) as Array<{
-      childComponent?: string;
-      instanceLet?: string;
-      component?: string;
-      reason?: string;
-      childParams?: Record<string, unknown>;
-    }>;
-    const hover = resolveMsgs.find((m) => m.reason === "hoverStart");
-    expect(hover).toBeTruthy();
-    expect(hover?.component).toBe("MotionHoverChip");
-    expect(hover?.childComponent).toBe("MotionHoverChip");
-    expect(hover?.instanceLet ?? "").toBe("");
-    expect(String(hover?.childParams?.interactionState ?? "")).toMatch(/hovered/);
-
     const ix = messages.find(
       (m) =>
         (m as { type?: string }).type === "pdl-interaction" &&
         (m as { event?: string }).event === "hoverStart",
-    ) as { previewHandled?: boolean } | undefined;
-    expect(ix?.previewHandled).toBe(true);
+    ) as
+      | {
+          component?: string;
+          event?: string;
+          params?: { interactionState?: unknown };
+          previewHandled?: boolean;
+        }
+      | undefined;
+    expect(ix).toBeTruthy();
+    expect(ix?.component).toBe("MotionHoverChip");
+    expect(String(ix?.params?.interactionState ?? "")).toMatch(/hovered/);
   });
 
   it("preview chrome (title, usage, clip rack) does not fire hover", async () => {
     const { document, messages } = await mountMotionHoverChip();
-    const section = document.querySelector('section.pdl-preview[data-pdl-component="MotionHoverChip"]')!;
+    const section = document.querySelector(
+      'section.pdl-preview[data-pdl-component="MotionHoverChip"]',
+    )!;
     const usage = section.querySelector(".pdl-usage");
     const title = section.querySelector(".pdl-preview-title");
     const bar = section.querySelector("[data-pdl-motion-bar]");

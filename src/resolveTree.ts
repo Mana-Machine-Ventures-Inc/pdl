@@ -6,7 +6,6 @@ import type { ParamEvalMeta } from "./evaluate.js";
 import { evaluateCondition, evaluateValue, type EvalOptions } from "./evaluate.js";
 import { coerceIconValue, coerceMediaSourceValue } from "./assetRefs.js";
 import { coerceFramePropValue } from "./frameNumericSugar.js";
-import { applyFrameAnimatePlay } from "./motionProps.js";
 import { isKnownSamplePath, lookupSampleField } from "./samples.js";
 
 export type CatalFrame = {
@@ -418,7 +417,6 @@ function assignFrameProp(
     if (name === "icon") next = coerceIconValue(value, entryPath);
     else if (name === "source") next = coerceMediaSourceValue(value, entryPath);
   }
-  if (name === "animate") next = applyFrameAnimatePlay(next);
   if (name === "blur") {
     next = blurSugarToEffect(next);
     name = "effect";

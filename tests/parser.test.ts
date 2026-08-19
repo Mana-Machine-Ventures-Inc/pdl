@@ -147,20 +147,19 @@ describe("parser", () => {
     });
   });
 
-  it("parses Motion/Pose/Stagger on host handlers", () => {
+  it("parses Animation/Pose/Stagger on host handlers", () => {
     const m = parseModule(
       `component Modal <PointerInput>() layout {
          self.appear = {
-           animate = Motion(
-             duration: 250, ease: .out,
-             pose: Pose(opacity: 0, scale: 0.95, translateY: 8),
+           animate = Animation(
+             start: Pose(opacity: 0, scale: 0.95, translateY: 8),
+             keys: [Motion(duration: 250, ease: .out, pose: .rest)],
              stagger: Stagger(step: 30, from: .last)
            )
          }
          self.dismiss = {
-           animate = Motion(
-             duration: 180, ease: .in,
-             pose: Pose(opacity: 0, blur: 4)
+           animate = Animation(
+             keys: [Motion(duration: 180, ease: .in, pose: Pose(opacity: 0, blur: 4))]
            )
          }
        }`,
@@ -175,19 +174,28 @@ describe("parser", () => {
       {
         kind: "animate",
         value: {
-          kind: "motion",
-          timing: {
-            kind: "timing",
-            duration: { kind: "number", value: 250 },
-            ease: { kind: "dotEnum", value: ".out" },
-          },
-          pose: {
+          kind: "animation",
+          start: {
             kind: "pose",
             props: {
               opacity: { kind: "number", value: 0 },
               scale: { kind: "number", value: 0.95 },
               translateY: { kind: "number", value: 8 },
             },
+          },
+          keys: {
+            kind: "array",
+            items: [
+              {
+                kind: "motion",
+                timing: {
+                  kind: "timing",
+                  duration: { kind: "number", value: 250 },
+                  ease: { kind: "dotEnum", value: ".out" },
+                },
+                pose: { kind: "dotEnum", value: ".rest" },
+              },
+            ],
           },
           stagger: {
             kind: "stagger",
@@ -212,10 +220,9 @@ describe("parser", () => {
 
   it("parses frame animate on a child and on self", () => {
     const m = parseModule(
-      `semantic motion.spin: Motion = Motion(
-         duration: 800, ease: .linear,
-         play: .loop,
-         pose: Pose(rotate: 360)
+      `semantic motion.spin: Animation = Animation(
+         keys: [Motion(duration: 800, ease: .linear, pose: Pose(rotate: 360))],
+         repeat: .forever
        )
        component Spin(isLoading: Bool = true) layout {
          let icon = Text(content: "↻")
@@ -253,10 +260,9 @@ describe("parser", () => {
 
   it("parses bare frame animate on the component root", () => {
     const m = parseModule(
-      `semantic motion.spin: Motion = Motion(
-         duration: 800, ease: .linear,
-         play: .loop,
-         pose: Pose(rotate: 360)
+      `semantic motion.spin: Animation = Animation(
+         keys: [Motion(duration: 800, ease: .linear, pose: Pose(rotate: 360))],
+         repeat: .forever
        )
        component Spin() layout {
          children = []
@@ -275,16 +281,18 @@ describe("parser", () => {
     });
   });
 
-  it("parses Motion(token, play:) copy + override", () => {
+  it("parses Animation(token, keys:) copy + override", () => {
     const m = parseModule(
-      `semantic motion.hoverPop: Motion = Motion(
-         duration: 280, ease: .out,
-         keys: [Key(pose: Pose(scale: 1.12), at: 1)]
+      `semantic motion.hoverPop: Animation = Animation(
+         keys: [Motion(duration: 280, ease: .out, pose: Pose(scale: 1.12))]
        )
        component Chip <PointerInput>() layout {
          children = []
          self.hoverEnd = {
-           animate = Motion(motion.hoverPop, play: .toRest)
+           animate = Animation(
+             motion.hoverPop,
+             keys: [Motion(duration: 280, ease: .out, pose: .rest)]
+           )
          }
        }`,
       "motion-override.pdl",
@@ -298,9 +306,22 @@ describe("parser", () => {
       {
         kind: "animate",
         value: {
-          kind: "motion",
+          kind: "animation",
           base: { kind: "ident", name: "motion.hoverPop" },
-          play: { kind: "dotEnum", value: ".toRest" },
+          keys: {
+            kind: "array",
+            items: [
+              {
+                kind: "motion",
+                timing: {
+                  kind: "timing",
+                  duration: { kind: "number", value: 280 },
+                  ease: { kind: "dotEnum", value: ".out" },
+                },
+                pose: { kind: "dotEnum", value: ".rest" },
+              },
+            ],
+          },
         },
       },
     ]);

@@ -62,17 +62,21 @@ export type ValueExpr =
   | { kind: "timing"; duration: ValueExpr; ease: ValueExpr; delay?: ValueExpr }
   | { kind: "pose"; props: Record<string, ValueExpr> }
   | { kind: "stagger"; step: ValueExpr; from?: ValueExpr }
-  | { kind: "key"; pose: ValueExpr; at: ValueExpr; ease?: ValueExpr }
+  /** Segment — clock + destination. Not an `animate =` value. */
   | {
       kind: "motion";
-      /** Positional copy source: `Motion(motion.hoverPop, play: .toRest)`. */
-      base?: ValueExpr;
       timing?: ValueExpr;
-      pose?: ValueExpr;
+      pose: ValueExpr;
+    }
+  /** Clip — type of `animate =`. */
+  | {
+      kind: "animation";
+      /** Positional copy source: `Animation(motion.hoverPop, start: …)`. */
+      base?: ValueExpr;
+      start?: ValueExpr;
       keys?: ValueExpr;
-      play?: ValueExpr;
-      repeat?: ValueExpr;
       stagger?: ValueExpr;
+      repeat?: ValueExpr;
     }
   | {
       kind: "easeBezier";
@@ -330,7 +334,8 @@ export type InteractionIfChain = {
 
 export type InteractionHandlerItem =
   | { kind: "assign"; param: string; value: ValueExpr }
-  | { kind: "animate"; value: ValueExpr }
+  /** Handler motion shot. `target` names a let (`knob.animate = …`); omit for root. */
+  | { kind: "animate"; target?: string; value: ValueExpr }
   | { kind: "emit"; name: string; args: string[] }
   | { kind: "hostVerb"; name: string; args: string[]; qualifier?: string }
   | { kind: "if"; chain: InteractionIfChain };

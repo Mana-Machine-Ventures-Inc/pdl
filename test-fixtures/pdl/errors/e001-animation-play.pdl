@@ -1,0 +1,9 @@
+component BadPlay <PointerInput>() layout {
+  children = []
+  self.appear = {
+    animate = Animation(
+      keys: [Motion(duration: 200, ease: .out, pose: Pose(opacity: 0))],
+      play: .toRest
+    )
+  }
+}

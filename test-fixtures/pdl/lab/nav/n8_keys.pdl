@@ -16,21 +16,17 @@ protocol AppNav: component {
 }
 
 semantic motion.cardToss: PresentationMotion = PresentationMotion(
-  incoming: Motion(
-    duration: 480,
-    ease: .out,
+  incoming: Animation(
+    start: Pose(translateX: 390, translateY: 24, rotate: 8, opacity: 0),
     keys: [
-      Key(pose: Pose(translateX: 390, translateY: 24, rotate: 8, opacity: 0), at: 0),
-      Key(pose: Pose(translateX: 28, translateY: -18, rotate: -2, scale: 1.02), at: 0.55, ease: .out),
-      Key(pose: .rest, at: 1, ease: Ease.bezier(0.2, 1.2, 0.4, 1))
+      Motion(duration: 264, ease: .out, pose: Pose(translateX: 28, translateY: -18, rotate: -2, scale: 1.02)),
+      Motion(duration: 216, ease: Ease.bezier(0.2, 1.2, 0.4, 1), pose: .rest)
     ]
   ),
-  outgoing: Motion(
-    duration: 480,
-    ease: .in,
+  outgoing: Animation(
     keys: [
-      Key(pose: Pose(translateX: -36, translateY: 12, rotate: -6, scale: 0.96), at: 0.45, ease: .in),
-      Key(pose: Pose(translateX: -72, opacity: 0.7), at: 1)
+      Motion(duration: 216, ease: .in, pose: Pose(translateX: -36, translateY: 12, rotate: -6, scale: 0.96)),
+      Motion(duration: 264, ease: .in, pose: Pose(translateX: -72, opacity: 0.7))
     ]
   ),
   front: .outgoing,
@@ -38,21 +34,17 @@ semantic motion.cardToss: PresentationMotion = PresentationMotion(
 )
 
 semantic motion.cardTossBack: PresentationMotion = PresentationMotion(
-  incoming: Motion(
-    duration: 480,
-    ease: .out,
+  incoming: Animation(
+    start: Pose(translateX: -72, opacity: 0.7),
     keys: [
-      Key(pose: Pose(translateX: -72, opacity: 0.7), at: 0),
-      Key(pose: Pose(translateX: -36, translateY: 12, rotate: -6, scale: 0.96), at: 0.55, ease: .out),
-      Key(pose: .rest, at: 1)
+      Motion(duration: 264, ease: .out, pose: Pose(translateX: -36, translateY: 12, rotate: -6, scale: 0.96)),
+      Motion(duration: 216, ease: .out, pose: .rest)
     ]
   ),
-  outgoing: Motion(
-    duration: 480,
-    ease: .in,
+  outgoing: Animation(
     keys: [
-      Key(pose: Pose(translateX: 28, translateY: -18, rotate: -2, scale: 1.02), at: 0.45),
-      Key(pose: Pose(translateX: 390, translateY: 24, rotate: 8, opacity: 0), at: 1, ease: .in)
+      Motion(duration: 216, ease: .in, pose: Pose(translateX: 28, translateY: -18, rotate: -2, scale: 1.02)),
+      Motion(duration: 264, ease: .in, pose: Pose(translateX: 390, translateY: 24, rotate: 8, opacity: 0))
     ]
   ),
   front: .outgoing,

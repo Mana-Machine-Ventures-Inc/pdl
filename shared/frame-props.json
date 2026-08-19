@@ -54,8 +54,12 @@
       "range": [0, 1]
     },
     "motion": {
-      "accept": ["motion", "timing"],
-      "tokenTypes": ["Motion", "Timing"]
+      "accept": ["motion"],
+      "tokenTypes": ["Motion"]
+    },
+    "animation": {
+      "accept": ["animation", "ident"],
+      "tokenTypes": ["Animation"]
     },
     "presentationMotion": {
       "accept": ["presentationMotion", "ident"],
@@ -289,7 +293,7 @@
   "special": {
     "animate": {
       "kinds": ["layout", "text", "icon", "media"],
-      "type": "motion"
+      "type": "animation"
     },
     "effect": {
       "kinds": ["layout", "text", "icon", "media"],

@@ -4,14 +4,22 @@ import {
   implicitTransitionCss,
   isMotionPropName,
   MOTION_IDENTITY,
+  normalizeAnimationTiming,
   normalizeTransition,
   snapshotToCss,
+  type AnimationKey,
+  type AnimationSpec,
   type MotionSnapshot,
-  type MotionSpec,
   type MotionTransition,
 } from "./motionProps.js";
 
-export type { MotionSnapshot, MotionSpec, MotionTransition };
+export type {
+  AnimationKey,
+  AnimationSpec,
+  MotionSnapshot,
+  MotionSpec,
+  MotionTransition,
+} from "./motionProps.js";
 export { implicitTransitionCss, snapshotToCss };
 
 export function numberFromValueExpr(expr: ValueExpr): number | undefined {
@@ -45,63 +53,59 @@ function staggerFromExpr(
   };
 }
 
-function specFromEvaluated(raw: unknown): MotionSpec {
-  if (raw == null || typeof raw !== "object") return {};
-  const o = raw as Record<string, unknown>;
-  const spec: MotionSpec = {};
-  if (o.kind === "motion" || o.timing != null || o.transition != null || o.pose != null) {
-    const t = normalizeTransition(o.timing ?? o.transition ?? o);
-    if (t) spec.transition = t;
-    const poseRaw = o.pose;
-    if (poseRaw && typeof poseRaw === "object") {
-      const pose = snapshotFromUnknown(poseRaw);
-      if (pose) spec.pose = pose;
-    }
-    const st = o.stagger;
-    if (st && typeof st === "object") {
-      const so = st as Record<string, unknown>;
-      const step = Number(so.step);
-      if (Number.isFinite(step) && step >= 0) spec.stagger = step;
-      const from = typeof so.from === "string" ? so.from.replace(/^\./, "") : undefined;
-      if (from === "first" || from === "last") spec.staggerFrom = from;
-    } else if (typeof st === "number" && Number.isFinite(st)) {
-      spec.stagger = st;
-    }
-    if (typeof o.staggerFrom === "string") {
-      const from = o.staggerFrom.replace(/^\./, "");
-      if (from === "first" || from === "last") spec.staggerFrom = from;
-    }
-    const play = typeof o.play === "string" ? o.play.replace(/^\./, "") : undefined;
-    if (play === "toRest" || play === "toPose" || play === "loop") spec.play = play;
-    if (Array.isArray(o.keys)) {
-      const keys = o.keys
-        .map((k) => keyFromUnknown(k))
-        .filter((k): k is NonNullable<typeof k> => k != null);
-      if (keys.length) spec.keys = keys;
-    }
-    const repeat = Number(o.repeat);
-    if (Number.isFinite(repeat) && repeat >= 1) spec.repeat = repeat;
-    return spec;
-  }
-  const t = normalizeTransition(o);
-  if (t) spec.transition = t;
-  return spec;
+function poseFromUnknown(raw: unknown): MotionSnapshot | "rest" | undefined {
+  if (raw === "rest" || raw === ".rest") return "rest";
+  if (typeof raw === "string" && raw.replace(/^\./, "") === "rest") return "rest";
+  return snapshotFromUnknown(raw);
 }
 
-function keyFromUnknown(raw: unknown): import("./motionProps.js").MotionKey | undefined {
-  if (raw == null || typeof raw !== "object") return undefined;
+function animationKeyFromUnknown(raw: unknown): AnimationKey | undefined {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return undefined;
   const o = raw as Record<string, unknown>;
-  const at = Number(o.at);
-  if (!Number.isFinite(at)) return undefined;
-  let pose: import("./motionProps.js").MotionKey["pose"];
-  if (o.pose === "rest" || o.pose === ".rest") pose = "rest";
-  else {
-    const snap = snapshotFromUnknown(o.pose);
-    if (!snap) return undefined;
-    pose = snap;
+  const timing = normalizeAnimationTiming(o.timing ?? o);
+  if (!timing) return undefined;
+  const pose = poseFromUnknown(o.pose);
+  if (pose == null) return undefined;
+  return { timing, pose };
+}
+
+/** Normalize evaluated / catalogue Animation JSON into AnimationSpec. */
+export function specFromEvaluated(raw: unknown): AnimationSpec | undefined {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const o = raw as Record<string, unknown>;
+  const isAnimation = o.kind === "animation" || o.keys != null || o.start != null;
+  if (!isAnimation) return undefined;
+  if (!Array.isArray(o.keys)) return undefined;
+  const keys = o.keys
+    .map((k) => animationKeyFromUnknown(k))
+    .filter((k): k is AnimationKey => k != null);
+  if (!keys.length) return undefined;
+  const spec: AnimationSpec = { kind: "animation", keys };
+  if (o.start != null) {
+    const start = poseFromUnknown(o.start);
+    if (start != null) spec.start = start;
   }
-  const easing = o.ease != null || o.easing != null ? easeToWaapi(o.ease ?? o.easing) : undefined;
-  return { pose, at, ...(easing ? { easing } : {}) };
+  const st = o.stagger;
+  if (st && typeof st === "object" && !Array.isArray(st)) {
+    const so = st as Record<string, unknown>;
+    const step = Number(so.step);
+    if (Number.isFinite(step) && step >= 0) spec.stagger = step;
+    const from = typeof so.from === "string" ? so.from.replace(/^\./, "") : undefined;
+    if (from === "first" || from === "last") spec.staggerFrom = from;
+  } else if (typeof st === "number" && Number.isFinite(st)) {
+    spec.stagger = st;
+  }
+  if (typeof o.staggerFrom === "string") {
+    const from = o.staggerFrom.replace(/^\./, "");
+    if (from === "first" || from === "last") spec.staggerFrom = from;
+  }
+  if (typeof o.repeat === "string" && o.repeat.replace(/^\./, "") === "forever") {
+    spec.repeat = "forever";
+  } else {
+    const repeat = Number(o.repeat);
+    if (Number.isFinite(repeat) && repeat >= 1) spec.repeat = repeat;
+  }
+  return spec;
 }
 
 function snapshotFromUnknown(raw: unknown): MotionSnapshot | undefined {
@@ -135,7 +139,10 @@ function coerceNumber(raw: unknown): number | undefined {
 
 function coerceEase(raw: unknown): unknown {
   if (raw == null) return undefined;
-  if (typeof raw === "string" || (raw && typeof raw === "object" && (raw as { kind?: string }).kind === "easeBezier")) {
+  if (
+    typeof raw === "string" ||
+    (raw && typeof raw === "object" && (raw as { kind?: string }).kind === "easeBezier")
+  ) {
     return raw;
   }
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
@@ -145,7 +152,11 @@ function coerceEase(raw: unknown): unknown {
   return raw;
 }
 
-function pairClock(pair: PresentationMotionEval): { duration: number; ease: unknown; delay: number } {
+function pairClock(pair: PresentationMotionEval): {
+  duration: number;
+  ease: unknown;
+  delay: number;
+} {
   return {
     duration: coerceNumber(pair.duration) ?? 300,
     ease: coerceEase(pair.ease) ?? "out",
@@ -157,49 +168,57 @@ function specFromAnimateExpr(
   expr: ValueExpr,
   evalNumber: (expr: ValueExpr) => number | undefined,
   evalValue: (expr: ValueExpr) => unknown,
-): MotionSpec {
-  if (expr.kind === "motion") {
-    const spec: MotionSpec = {};
-    if (expr.base) Object.assign(spec, specFromEvaluated(evalValue(expr.base)));
-    if (expr.timing) {
-      const t = normalizeTransition(evalValue(expr.timing));
-      if (t) spec.transition = t;
+): AnimationSpec | undefined {
+  if (expr.kind === "animation") {
+    const baseRaw = expr.base ? evalValue(expr.base) : undefined;
+    const base = baseRaw ? specFromEvaluated(baseRaw) : undefined;
+    const keysRaw = expr.keys ? evalValue(expr.keys) : base?.keys;
+    let keys: AnimationKey[] = [];
+    if (Array.isArray(keysRaw)) {
+      keys = keysRaw
+        .map((k) => animationKeyFromUnknown(k))
+        .filter((k): k is AnimationKey => k != null);
+    } else if (base?.keys) {
+      keys = base.keys;
     }
-    if (expr.pose) {
-      const pose =
-        snapshotFromPoseExpr(expr.pose, evalNumber) ?? snapshotFromUnknown(evalValue(expr.pose));
-      if (pose) spec.pose = pose;
-    }
+    if (!keys.length) return undefined;
+    const spec: AnimationSpec = { kind: "animation", keys };
+    const startSrc = expr.start
+      ? (poseFromUnknown(evalValue(expr.start)) ??
+        (expr.start.kind === "pose"
+          ? snapshotFromPoseExpr(expr.start, evalNumber)
+          : undefined))
+      : base?.start;
+    if (startSrc != null) spec.start = startSrc;
     if (expr.stagger) {
       const fromAst = staggerFromExpr(expr.stagger, evalNumber);
       Object.assign(spec, fromAst);
       if (spec.stagger == null) {
-        Object.assign(spec, specFromEvaluated({ kind: "motion", stagger: evalValue(expr.stagger) }));
+        const st = evalValue(expr.stagger);
+        const extra = specFromEvaluated({ kind: "animation", keys, stagger: st });
+        if (extra?.stagger != null) spec.stagger = extra.stagger;
+        if (extra?.staggerFrom) spec.staggerFrom = extra.staggerFrom;
       }
-    }
-    if (expr.play) {
-      const raw = evalValue(expr.play);
-      const play = typeof raw === "string" ? raw.replace(/^\./, "") : undefined;
-      if (play === "toRest" || play === "toPose" || play === "loop") spec.play = play;
-    }
-    if (expr.keys) {
-      const extra = specFromEvaluated({ kind: "motion", keys: evalValue(expr.keys) });
-      if (extra.keys) spec.keys = extra.keys;
+    } else {
+      if (base?.stagger != null) spec.stagger = base.stagger;
+      if (base?.staggerFrom) spec.staggerFrom = base.staggerFrom;
     }
     if (expr.repeat) {
-      const n = Number(evalValue(expr.repeat));
-      if (Number.isFinite(n) && n >= 1) spec.repeat = n;
+      const raw = evalValue(expr.repeat);
+      if (typeof raw === "string" && raw.replace(/^\./, "") === "forever") spec.repeat = "forever";
+      else {
+        const n = Number(raw);
+        if (Number.isFinite(n) && n >= 1) spec.repeat = n;
+      }
+    } else if (base?.repeat != null) {
+      spec.repeat = base.repeat;
     }
     return spec;
-  }
-  if (expr.kind === "timing") {
-    const t = normalizeTransition(evalValue(expr));
-    return t ? { transition: t } : {};
   }
   return specFromEvaluated(evalValue(expr));
 }
 
-export function collectMotionFromHandlerItems(
+export function collectAnimationFromHandlerItems(
   items: InteractionHandlerItem[],
   evalNumber: (expr: ValueExpr) => number | undefined = numberFromValueExpr,
   evalTransition: (expr: ValueExpr) => MotionTransition | undefined = (expr) => {
@@ -246,47 +265,43 @@ export function collectMotionFromHandlerItems(
         ...(expr.from ? { from: evalValue(expr.from) } : {}),
       };
     }
-    if (expr.kind === "key") {
+    if (expr.kind === "motion") {
       return {
-        kind: "key",
+        kind: "motion",
+        ...(expr.timing ? { timing: evalValue(expr.timing) } : {}),
         pose: evalValue(expr.pose),
-        at: evalValue(expr.at),
-        ...(expr.ease ? { ease: evalValue(expr.ease) } : {}),
       };
     }
-    if (expr.kind === "motion") {
-      const out: Record<string, unknown> = { kind: "motion" };
+    if (expr.kind === "animation") {
+      const out: Record<string, unknown> = { kind: "animation" };
       if (expr.base) {
         const base = evalValue(expr.base);
         if (base && typeof base === "object" && !Array.isArray(base)) {
-          Object.assign(out, base, { kind: "motion" });
+          Object.assign(out, base, { kind: "animation" });
         }
       }
-      if (expr.timing) out.timing = evalValue(expr.timing);
-      if (expr.play) out.play = evalValue(expr.play);
-      if (expr.pose) out.pose = evalValue(expr.pose);
+      if (expr.start) out.start = evalValue(expr.start);
       if (expr.keys) out.keys = evalValue(expr.keys);
       if (expr.stagger) out.stagger = evalValue(expr.stagger);
       if (expr.repeat) out.repeat = evalValue(expr.repeat);
       return out;
     }
+    if (expr.kind === "array") return expr.items.map((i) => evalValue(i));
     return undefined;
   },
-): MotionSpec {
-  const spec: MotionSpec = {};
+): AnimationSpec | undefined {
+  let last: AnimationSpec | undefined;
   for (const item of items) {
     if (item.kind !== "animate") continue;
+    if (item.target) continue;
     const next = specFromAnimateExpr(item.value, evalNumber, evalValue);
-    if (next.transition) spec.transition = next.transition;
-    if (next.play) spec.play = next.play;
-    if (next.pose) spec.pose = next.pose;
-    if (next.keys) spec.keys = next.keys;
-    if (next.stagger != null) spec.stagger = next.stagger;
-    if (next.staggerFrom) spec.staggerFrom = next.staggerFrom;
-    if (next.repeat != null) spec.repeat = next.repeat;
+    if (next) last = next;
   }
-  return spec;
+  return last;
 }
+
+/** @deprecated Use collectAnimationFromHandlerItems */
+export const collectMotionFromHandlerItems = collectAnimationFromHandlerItems;
 
 function evalSnapshot(
   props: Record<string, ValueExpr>,
@@ -329,18 +344,20 @@ export function motionKeyframes(
 }
 
 export function staggerDelayMs(
-  spec: MotionSpec,
+  spec: AnimationSpec,
   childIndex: number,
   childCount: number,
+  baseDelay = 0,
 ): number {
-  const base = spec.transition?.delay ?? 0;
   const step = spec.stagger ?? 0;
-  if (step <= 0 || childCount <= 0) return base;
+  if (step <= 0 || childCount <= 0) return baseDelay;
   const i = spec.staggerFrom === "last" ? childCount - 1 - childIndex : childIndex;
-  return base + i * step;
+  return baseDelay + i * step;
 }
 
-export function prefersReducedMotion(win?: { matchMedia?: (q: string) => { matches: boolean } }): boolean {
+export function prefersReducedMotion(win?: {
+  matchMedia?: (q: string) => { matches: boolean };
+}): boolean {
   try {
     return Boolean(win?.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
   } catch {
@@ -348,217 +365,17 @@ export function prefersReducedMotion(win?: { matchMedia?: (q: string) => { match
   }
 }
 
-export function effectiveTransition(
-  spec: MotionSpec,
-  reduced: boolean,
-): MotionTransition {
-  const t = spec.transition ?? { duration: 0, easing: "linear", delay: 0 };
-  if (reduced || t.duration <= 0) return { duration: 0, easing: "linear", delay: 0 };
-  return t;
+export function hasAnimationTrack(spec: AnimationSpec | undefined | null): boolean {
+  return Boolean(spec?.keys?.length);
 }
 
-export type MotionPlayMode = "appear" | "dismiss" | "implicit" | "standing";
-
-export function hasPoseTrack(spec: MotionSpec): boolean {
-  return Boolean(spec.pose || (spec.keys && spec.keys.length));
-}
-
-export function resolvedMotionKeys(spec: MotionSpec): import("./motionProps.js").MotionKey[] {
-  if (spec.keys && spec.keys.length) return spec.keys;
-  if (spec.pose) return [{ pose: spec.pose, at: 1 }];
-  return [];
-}
-
-export function snapshotForKeyPose(
-  pose: import("./motionProps.js").MotionKey["pose"],
+export function resolvePoseDest(
+  pose: MotionSnapshot | "rest",
+  current: MotionSnapshot,
   restOpacity = 1,
 ): MotionSnapshot {
   if (pose === "rest") return identitySnapshot(restOpacity);
-  return { ...identitySnapshot(restOpacity), ...pose };
-}
-
-function cssFields(snap: MotionSnapshot, restOpacity: number): Keyframe {
-  const c = snapshotToCss(snap, restOpacity);
-  return {
-    transform: c.transform,
-    opacity: c.opacity,
-    filter: c.filter,
-    transformOrigin: c.transformOrigin,
-  };
-}
-
-function clamp01(n: number): number {
-  if (!(n > 0)) return 0;
-  if (n > 1) return 1;
-  return n;
-}
-
-/** WAAPI keyframes along `keys` / `pose:` sugar. Offset 0 is identity when the first key is after 0. */
-export function poseTrackKeyframes(spec: MotionSpec, restOpacity = 1): Keyframe[] {
-  const keys = resolvedMotionKeys(spec);
-  if (!keys.length) return [];
-  const frames: Keyframe[] = [];
-  if (keys[0]!.at > 0) {
-    frames.push({ offset: 0, ...cssFields(identitySnapshot(restOpacity), restOpacity) });
-  }
-  for (const k of keys) {
-    frames.push({
-      offset: clamp01(k.at),
-      ...cssFields(snapshotForKeyPose(k.pose, restOpacity), restOpacity),
-      ...(k.easing ? { easing: k.easing } : {}),
-    });
-  }
-  return frames;
-}
-
-export function waapiEffectTiming(
-  spec: MotionSpec,
-  reduced: boolean,
-): KeyframeEffectOptions {
-  const t = effectiveTransition(spec, reduced);
-  const play = spec.play;
-  const repeat = spec.repeat != null && spec.repeat > 1 ? spec.repeat : 1;
-  return {
-    duration: t.duration,
-    easing: t.easing,
-    delay: t.delay,
-    fill: play === "loop" ? "none" : "both",
-    iterations: play === "loop" ? Number.POSITIVE_INFINITY : repeat,
-  };
-}
-
-export function snapshotsForMode(
-  spec: MotionSpec,
-  mode: MotionPlayMode,
-  restOpacity = 1,
-): { from: MotionSnapshot; to: MotionSnapshot } | undefined {
-  const rest: MotionSnapshot = { opacity: restOpacity };
-  const pose = spec.pose;
-  if (!pose || Object.keys(pose).length === 0) return undefined;
-  if (mode === "appear") {
-    return { from: { ...rest, ...pose }, to: rest };
-  }
-  if (mode === "dismiss") {
-    return { from: rest, to: { ...rest, ...pose } };
-  }
-  return undefined;
-}
-
-export function playMotionOnElement(
-  el: Element & {
-    animate?: (keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation;
-    getAnimations?: () => Animation[];
-  },
-  spec: MotionSpec,
-  mode: MotionPlayMode,
-  opts?: { restOpacity?: number; reduced?: boolean; staggerIndex?: number; staggerCount?: number },
-): Animation | undefined {
-  if (typeof el.animate !== "function") return undefined;
-  const restOpacity = opts?.restOpacity ?? 1;
-  const reduced = Boolean(opts?.reduced);
-  const t = effectiveTransition(spec, reduced);
-  const delay =
-    t.delay +
-    (opts?.staggerIndex != null && opts.staggerCount != null
-      ? staggerDelayMs({ ...spec, transition: { ...t, delay: 0 } }, opts.staggerIndex, opts.staggerCount)
-      : 0);
-  try {
-    el.getAnimations?.().forEach((a) => a.cancel());
-  } catch {
-    /* ignore */
-  }
-  if (mode === "appear" || mode === "dismiss") {
-    if (spec.keys && spec.keys.length) {
-      const frames = poseTrackKeyframes(spec, restOpacity);
-      if (!frames.length) return undefined;
-      return el.animate(frames, {
-        duration: t.duration,
-        easing: t.easing,
-        delay,
-        fill: "both",
-      });
-    }
-    const snaps = snapshotsForMode(spec, mode, restOpacity);
-    if (!snaps) return undefined;
-    return el.animate(motionKeyframes(snaps.from, snaps.to, restOpacity), {
-      duration: t.duration,
-      easing: t.easing,
-      delay,
-      fill: "both",
-    });
-  }
-  if (!hasPoseTrack(spec)) return undefined;
-  if (reduced && spec.play === "loop") return undefined;
-  const frames = poseTrackKeyframes(spec, restOpacity);
-  if (!frames.length) return undefined;
-  const timing = waapiEffectTiming(spec, reduced);
-  return el.animate(frames, { ...timing, delay: (timing.delay ?? 0) + (delay - t.delay) });
-}
-
-export type PresentationMotionEval = {
-  kind?: string;
-  incoming?: unknown;
-  outgoing?: unknown;
-  duration?: unknown;
-  ease?: unknown;
-  delay?: unknown;
-  front?: unknown;
-  switchAt?: unknown;
-};
-
-function slotMotionSpec(slot: unknown, pair: PresentationMotionEval): MotionSpec {
-  const clock = pairClock(pair);
-  const inherited = normalizeTransition(clock);
-  if (slot && typeof slot === "object") {
-    const o = slot as Record<string, unknown>;
-    const isMotion =
-      o.kind === "motion" ||
-      o.timing != null ||
-      o.keys != null ||
-      (o.pose != null && o.kind !== "pose");
-    if (isMotion) {
-      const spec = specFromEvaluated(o);
-      if (!spec.transition && inherited) spec.transition = inherited;
-      return spec;
-    }
-  }
-  const pose = snapshotFromUnknown(slot);
-  return {
-    ...(inherited ? { transition: inherited } : {}),
-    ...(pose ? { pose } : {}),
-  };
-}
-
-/** `dismissMove` omits `front` → outgoing stays on top (the page leaving). */
-export function withDismissDefaultFront<T>(raw: T): T {
-  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return raw;
-  const o = raw as Record<string, unknown>;
-  if (o.kind != null && o.kind !== "presentationMotion") return raw;
-  const front = String(o.front ?? "").replace(/^\./, "");
-  if (front === "incoming" || front === "outgoing") return raw;
-  return { ...o, front: ".outgoing" } as T;
-}
-
-function startSnapshotForLane(
-  spec: MotionSpec,
-  mode: "appear" | "dismiss",
-): MotionSnapshot | undefined {
-  if (spec.keys && spec.keys.length) {
-    const first = spec.keys[0]!;
-    if (mode === "appear") return snapshotForKeyPose(first.pose, 1);
-    if (first.at <= 0) return snapshotForKeyPose(first.pose, 1);
-    return identitySnapshot(1);
-  }
-  return snapshotsForMode(spec, mode)?.from;
-}
-
-function presentationIncomingIsFront(
-  raw: PresentationMotionEval,
-  defaultFront: "incoming" | "outgoing" = "incoming",
-): boolean {
-  const frontRaw = coerceEase(raw.front);
-  const front = String(frontRaw ?? raw.front ?? defaultFront).replace(/^\./, "");
-  return front !== "outgoing";
+  return { ...current, ...pose };
 }
 
 function applySnapshotStyle(el: Element, snap: MotionSnapshot, restOpacity: number) {
@@ -580,6 +397,204 @@ function clearMotionOverlayStyle(el: Element) {
   style.transformOrigin = "";
 }
 
+/** Best-effort current overlay from inline styles (interrupt starts here). */
+function readOverlaySnapshot(el: Element, restOpacity: number): MotionSnapshot {
+  const ident = identitySnapshot(restOpacity);
+  if (!("style" in el)) return ident;
+  const style = (el as HTMLElement).style;
+  const out: MotionSnapshot = { ...ident };
+  const op = Number(style.opacity);
+  if (Number.isFinite(op)) out.opacity = op;
+  const t = style.transform || "";
+  const tr = /translate\(\s*([-0-9.]+)px\s*,\s*([-0-9.]+)px\s*\)/.exec(t);
+  if (tr) {
+    out.translateX = Number(tr[1]);
+    out.translateY = Number(tr[2]);
+  }
+  const rot = /rotate\(\s*([-0-9.]+)deg\s*\)/.exec(t);
+  if (rot) out.rotate = Number(rot[1]);
+  const sc = /scale\(\s*([-0-9.]+)\s*,\s*([-0-9.]+)\s*\)/.exec(t);
+  if (sc) {
+    out.scaleX = Number(sc[1]);
+    out.scaleY = Number(sc[2]);
+    if (out.scaleX === out.scaleY) out.scale = out.scaleX;
+  }
+  const blur = /blur\(\s*([-0-9.]+)px\s*\)/.exec(style.filter || "");
+  if (blur) out.blur = Number(blur[1]);
+  return out;
+}
+
+type AnimatableEl = Element & {
+  animate?: (keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation;
+  getAnimations?: () => Animation[];
+};
+
+/**
+ * Sequential WAAPI: optional start snap, then each key Motion from current→pose.
+ * Interrupt: cancel and start next from current (`applyStart` false — ignore start).
+ * Appear/mount: `applyStart` true applies start snap first.
+ */
+export function playAnimationOnElement(
+  el: AnimatableEl,
+  spec: AnimationSpec,
+  opts?: {
+    restOpacity?: number;
+    reduced?: boolean;
+    staggerIndex?: number;
+    staggerCount?: number;
+    applyStart?: boolean;
+    onDone?: () => void;
+  },
+): { cancel: () => void; finished: Promise<void> } | undefined {
+  if (typeof el.animate !== "function") return undefined;
+  if (!spec.keys?.length) return undefined;
+  const restOpacity = opts?.restOpacity ?? 1;
+  const reduced = Boolean(opts?.reduced);
+  const applyStart = Boolean(opts?.applyStart);
+
+  try {
+    el.getAnimations?.().forEach((a) => a.cancel());
+  } catch {
+    /* ignore */
+  }
+
+  let current =
+    applyStart && spec.start != null
+      ? resolvePoseDest(spec.start, identitySnapshot(restOpacity), restOpacity)
+      : readOverlaySnapshot(el, restOpacity);
+
+  if (applyStart && spec.start != null) {
+    applySnapshotStyle(el, current, restOpacity);
+  }
+
+  const staggerExtra =
+    opts?.staggerIndex != null && opts.staggerCount != null
+      ? staggerDelayMs(spec, opts.staggerIndex, opts.staggerCount, 0)
+      : 0;
+
+  let cancelled = false;
+  let active: Animation | undefined;
+  let resolveFinished!: () => void;
+  const finished = new Promise<void>((r) => {
+    resolveFinished = r;
+  });
+
+  const cancel = () => {
+    cancelled = true;
+    try {
+      active?.cancel();
+    } catch {
+      /* ignore */
+    }
+    resolveFinished();
+  };
+
+  const playSegment = (
+    from: MotionSnapshot,
+    to: MotionSnapshot,
+    timing: AnimationKey["timing"],
+    delayExtra: number,
+  ) => {
+    const t = normalizeTransition(timing) ?? { duration: 0, easing: "linear", delay: 0 };
+    const duration = reduced || !(t.duration > 0) ? 0 : t.duration;
+    const delay = reduced ? 0 : t.delay + delayExtra;
+    const anim = el.animate!(motionKeyframes(from, to, restOpacity), {
+      duration,
+      easing: t.easing,
+      delay,
+      fill: "both",
+      iterations: 1,
+    });
+    active = anim;
+    return anim;
+  };
+
+  const runChain = async () => {
+    const forever = spec.repeat === "forever";
+    const times =
+      forever
+        ? Number.POSITIVE_INFINITY
+        : typeof spec.repeat === "number" && spec.repeat > 1
+          ? spec.repeat
+          : 1;
+    let iteration = 0;
+    while (!cancelled && iteration < times) {
+      iteration += 1;
+      for (let i = 0; i < spec.keys.length; i++) {
+        if (cancelled) break;
+        const key = spec.keys[i]!;
+        const to = resolvePoseDest(key.pose, current, restOpacity);
+        const delayExtra = i === 0 && iteration === 1 ? staggerExtra : 0;
+        const anim = playSegment(current, to, key.timing, delayExtra);
+        try {
+          await anim.finished;
+        } catch {
+          /* cancelled */
+        }
+        if (cancelled) break;
+        current = to;
+        applySnapshotStyle(el, current, restOpacity);
+      }
+    }
+    if (!cancelled) opts?.onDone?.();
+    resolveFinished();
+  };
+
+  void runChain();
+  return { cancel, finished };
+}
+
+export type PresentationMotionEval = {
+  kind?: string;
+  incoming?: unknown;
+  outgoing?: unknown;
+  duration?: unknown;
+  ease?: unknown;
+  delay?: unknown;
+  front?: unknown;
+  switchAt?: unknown;
+};
+
+function slotAnimationSpec(
+  slot: unknown,
+  pair: PresentationMotionEval,
+): AnimationSpec | undefined {
+  const clock = pairClock(pair);
+  const evaluated = specFromEvaluated(slot);
+  if (evaluated) return evaluated;
+  const pose = snapshotFromUnknown(slot);
+  if (!pose) return undefined;
+  return {
+    kind: "animation",
+    start: pose,
+    keys: [
+      {
+        timing: { duration: clock.duration, ease: clock.ease, delay: clock.delay },
+        pose: "rest",
+      },
+    ],
+  };
+}
+
+/** `dismissMove` omits `front` → outgoing stays on top (the page leaving). */
+export function withDismissDefaultFront<T>(raw: T): T {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const o = raw as Record<string, unknown>;
+  if (o.kind != null && o.kind !== "presentationMotion") return raw;
+  const front = String(o.front ?? "").replace(/^\./, "");
+  if (front === "incoming" || front === "outgoing") return raw;
+  return { ...o, front: ".outgoing" } as T;
+}
+
+function presentationIncomingIsFront(
+  raw: PresentationMotionEval,
+  defaultFront: "incoming" | "outgoing" = "incoming",
+): boolean {
+  const frontRaw = coerceEase(raw.front);
+  const front = String(frontRaw ?? raw.front ?? defaultFront).replace(/^\./, "");
+  return front !== "outgoing";
+}
+
 function applyPresenterLaneFront(el: Element, front: boolean) {
   el.classList.toggle("pdl-presenter__lane--front", front);
   el.classList.toggle("pdl-presenter__lane--back", !front);
@@ -597,12 +612,7 @@ function clearPresenterLane(el: Element) {
 }
 
 /**
- * Play a Presenter pair clip. Incoming mounts at pose and eases to rest;
- * outgoing eases to its pose. A Motion slot with `keys:` plays that path
- * as authored (`Key.ease` is the curve to the next stop). `front` / `switchAt`
- * set z-order.
- * `dismissMove` should pass `defaultFront: "outgoing"` (or stamp via
- * `withDismissDefaultFront`) so the leaving page stays on top.
+ * Play a Presenter pair clip. Slots are Animation (Pose sugar expanded at eval).
  */
 export function playPresentationMotion(
   incomingEl: Element,
@@ -611,32 +621,33 @@ export function playPresentationMotion(
   opts?: { reduced?: boolean; onDone?: () => void; defaultFront?: "incoming" | "outgoing" },
 ): { cancel: () => void } {
   const reduced = Boolean(opts?.reduced);
-  const incomingSpec = slotMotionSpec(raw.incoming, raw);
-  const outgoingSpec = slotMotionSpec(raw.outgoing, raw);
+  const incomingSpec = slotAnimationSpec(raw.incoming, raw);
+  const outgoingSpec = slotAnimationSpec(raw.outgoing, raw);
   const incomingFront = presentationIncomingIsFront(raw, opts?.defaultFront ?? "incoming");
   incomingEl.classList.add("pdl-presenter__lane");
   outgoingEl.classList.add("pdl-presenter__lane");
   applyPresenterLaneFront(incomingEl, incomingFront);
   applyPresenterLaneFront(outgoingEl, !incomingFront);
-  const incomingFrom = startSnapshotForLane(incomingSpec, "appear");
-  const outgoingFrom = startSnapshotForLane(outgoingSpec, "dismiss");
-  if (incomingFrom) applySnapshotStyle(incomingEl, incomingFrom, 1);
-  if (outgoingFrom) applySnapshotStyle(outgoingEl, outgoingFrom, 1);
-  const incomingAnim = playMotionOnElement(incomingEl, incomingSpec, "appear", { reduced });
-  const outgoingAnim = playMotionOnElement(outgoingEl, outgoingSpec, "dismiss", { reduced });
-  const anims = [incomingAnim, outgoingAnim].filter((a): a is Animation => a != null);
+
+  const handles: Array<{ cancel: () => void; finished: Promise<void> }> = [];
+  if (incomingSpec) {
+    const h = playAnimationOnElement(incomingEl as AnimatableEl, incomingSpec, {
+      reduced,
+      applyStart: true,
+    });
+    if (h) handles.push(h);
+  }
+  if (outgoingSpec) {
+    // Outgoing Pose sugar expands to Animation without start (keys → pose).
+    // Apply start only when the slot authored one.
+    const h = playAnimationOnElement(outgoingEl as AnimatableEl, outgoingSpec, {
+      reduced,
+      applyStart: Boolean(outgoingSpec.start),
+    });
+    if (h) handles.push(h);
+  }
+
   const switchAt = Number(raw.switchAt);
-  const clock = pairClock(raw);
-  const pairMs = Math.max(
-    incomingSpec.transition?.duration ?? 0,
-    outgoingSpec.transition?.duration ?? 0,
-    clock.duration,
-  );
-  const pairDelay = Math.max(
-    incomingSpec.transition?.delay ?? 0,
-    outgoingSpec.transition?.delay ?? 0,
-    clock.delay,
-  );
   let promoteTimer: ReturnType<typeof setTimeout> | undefined;
   if (Number.isFinite(switchAt) && switchAt >= 0) {
     promoteTimer = setTimeout(() => {
@@ -644,42 +655,30 @@ export function playPresentationMotion(
       applyPresenterLaneFront(outgoingEl, incomingFront);
     }, switchAt);
   }
+
   let done = false;
-  let timeout: ReturnType<typeof setTimeout> | undefined;
   const finish = () => {
     if (done) return;
     done = true;
-    if (timeout != null) clearTimeout(timeout);
     if (promoteTimer != null) clearTimeout(promoteTimer);
     clearPresenterLane(incomingEl);
     opts?.onDone?.();
   };
-  if (!anims.length) {
+
+  if (!handles.length) {
     finish();
     return { cancel: finish };
   }
-  let remaining = anims.length;
-  const onOne = () => {
-    remaining -= 1;
-    if (remaining <= 0) finish();
-  };
-  for (const a of anims) {
-    a.addEventListener("finish", onOne);
-    a.addEventListener("cancel", onOne);
-  }
-  timeout = setTimeout(finish, pairMs + pairDelay + 100);
+
+  void Promise.all(handles.map((h) => h.finished)).then(finish);
+
   return {
     cancel: () => {
-      if (timeout != null) clearTimeout(timeout);
       if (promoteTimer != null) clearTimeout(promoteTimer);
-      for (const a of anims) {
-        try {
-          a.cancel();
-        } catch {
-          /* ignore */
-        }
-      }
+      for (const h of handles) h.cancel();
       finish();
     },
   };
 }
+
+void easeToWaapi;

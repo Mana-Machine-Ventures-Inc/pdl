@@ -19,8 +19,12 @@ semantic motion.material: PresentationMotion = PresentationMotion(
 semantic motion.materialBack: PresentationMotion = motion.material.reversed
 
 semantic motion.slotClocks: PresentationMotion = PresentationMotion(
-  incoming: Motion(duration: 200, ease: .out, pose: Pose(translateX: 40)),
-  outgoing: Motion(duration: 200, ease: .in, pose: Pose(opacity: 0)),
+  incoming: Animation(
+    keys: [Motion(duration: 200, ease: .out, pose: Pose(translateX: 40))]
+  ),
+  outgoing: Animation(
+    keys: [Motion(duration: 200, ease: .in, pose: Pose(opacity: 0))]
+  ),
   front: .outgoing
 )
 semantic motion.slotClocksBack: PresentationMotion = motion.slotClocks.reversed
@@ -43,13 +47,11 @@ semantic motion.cardSwap: PresentationMotion = PresentationMotion(
 semantic motion.cardSwapBack: PresentationMotion = motion.cardSwap.reversed
 
 semantic motion.cardToss: PresentationMotion = PresentationMotion(
-  incoming: Motion(
-    duration: 480,
-    ease: .out,
+  incoming: Animation(
+    start: Pose(translateX: 390, opacity: 0),
     keys: [
-      Key(pose: Pose(translateX: 390, opacity: 0), at: 0),
-      Key(pose: Pose(translateX: 40), at: 0.55, ease: .out),
-      Key(pose: .rest, at: 1)
+      Motion(duration: 264, ease: .out, pose: Pose(translateX: 40)),
+      Motion(duration: 216, ease: .out, pose: .rest)
     ]
   ),
   outgoing: Pose(translateX: -48, opacity: 0.86),

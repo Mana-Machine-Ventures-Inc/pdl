@@ -3,9 +3,9 @@
 
 primitive effect.frost: Effect = Effect(.blurBehind, radius: 20)
 
-semantic motion.unblur: Motion = Motion(
-  duration: 400, ease: .out,
-  pose: Pose(blur: 18)
+semantic motion.unblur: Animation = Animation(
+  start: Pose(blur: 18),
+  keys: [Motion(duration: 400, ease: .out, pose: .rest)]
 )
 
 component EffectSelfBlur() layout {

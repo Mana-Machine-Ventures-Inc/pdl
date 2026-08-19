@@ -3518,113 +3518,126 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     });
     return snap;
   }
-  function motionFromHandler(h) {
-    var m = (h && h.motion && typeof h.motion === 'object') ? Object.assign({}, h.motion) : {};
-    if (m.staggerFrom) m.staggerFrom = stripDot(m.staggerFrom);
-    if (typeof m.play === 'string') m.play = stripDot(m.play);
-    if (m.timing && !m.transition) {
-      var timed = transitionFromValue(m.timing);
-      if (timed) m.transition = timed;
+  function animationFromHandler(h) {
+    if (h && h.animation && typeof h.animation === 'object') {
+      return normalizeAnimationSpec(h.animation);
     }
-    var hasEvaluated = (m.pose && Object.keys(m.pose).length) || (m.from && Object.keys(m.from).length) || (m.to && Object.keys(m.to).length) || m.timing || m.transition || (m.keys && m.keys.length);
-    function transitionFromValue(v) {
-      if (!v || typeof v !== 'object') return null;
-      var inner = v.timing || v.transition || v;
-      var dur = numberish(inner.duration);
-      var delay = numberish(inner.delay);
-      var easeRaw = inner.ease != null ? inner.ease : inner.easing;
-      var easing = typeof easeRaw === 'string' ? easeRaw : (easeRaw && easeRaw.value);
-      if (dur == null) return null;
-      return { duration: dur, easing: easing || 'linear', delay: delay || 0 };
-    }
-    function poseFromValue(v) {
-      if (!v || typeof v !== 'object') return null;
-      var props = v.props || v;
-      var snap = snapshotFromProps(props);
-      return Object.keys(snap).length ? snap : null;
-    }
-    function staggerFromValue(v) {
-      if (!v || typeof v !== 'object') return null;
-      var step = numberish(v.step != null ? v.step : v.ms);
-      var from = typeof v.from === 'string' ? v.from : (v.staggerFrom || (v.from && v.from.value));
-      if (from && typeof from === 'string') from = stripDot(from);
-      var out = {};
-      if (step != null) out.stagger = step;
-      if (from === 'first' || from === 'last') out.staggerFrom = from;
-      return Object.keys(out).length ? out : null;
-    }
-    function keysFromValue(v) {
-      if (!Array.isArray(v)) return null;
-      var out = [];
-      for (var i = 0; i < v.length; i++) {
-        var k = v[i];
-        if (!k || typeof k !== 'object') continue;
-        var at = numberish(k.at);
-        if (at == null) continue;
-        var poseRaw = k.pose;
-        var entry = { at: at };
-        if (typeof k.ease === 'string' && k.ease) entry.easing = k.ease;
-        else if (typeof k.easing === 'string' && k.easing) entry.easing = k.easing;
-        if (poseRaw === 'rest' || poseRaw === '.rest') entry.pose = 'rest';
-        else {
-          var snap = poseFromValue(poseRaw);
-          if (!snap) continue;
-          entry.pose = snap;
-        }
-        out.push(entry);
-      }
-      return out.length ? out : null;
-    }
-    function playFromValue(v) {
-      if (typeof v === 'string') {
-        var p = stripDot(v);
-        if (p === 'toRest' || p === 'toPose' || p === 'loop') return p;
-      }
-      if (v && typeof v === 'object') {
-        if (typeof v.value === 'string') return playFromValue(v.value);
-        if (v.kind === 'dotEnum') return playFromValue(v.value);
-      }
-      return null;
-    }
+    var found = null;
     (h && h.body || []).forEach(function(item){
-      if (!item || typeof item !== 'object') return;
-      if (item.kind !== 'animate') return;
-      var v = item.value || {};
-      if (v.kind === 'motion') {
-        if (!hasEvaluated) {
-          var t = transitionFromValue(v.timing || v.transition);
-          if (t) m.transition = t;
-          var pose = poseFromValue(v.pose);
-          if (pose) m.pose = pose;
-        }
-        var st = staggerFromValue(v.stagger);
-        if (st) {
-          if (m.stagger == null && st.stagger != null) m.stagger = st.stagger;
-          if (!m.staggerFrom && st.staggerFrom) m.staggerFrom = st.staggerFrom;
-        }
-        if (!m.keys) {
-          var keys = keysFromValue(v.keys);
-          if (keys) m.keys = keys;
-        }
-        if (!m.play) {
-          var play = playFromValue(v.play);
-          if (play) m.play = play;
-        }
-      } else if (!hasEvaluated) {
-        var t2 = transitionFromValue(v);
-        if (t2) m.transition = t2;
-      }
+      if (!item || item.kind !== 'animate' || item.target) return;
+      var spec = normalizeAnimationSpec(item.value);
+      if (spec && spec.keys && spec.keys.length) found = spec;
     });
-    return m;
+    return found || { kind: 'animation', keys: [] };
+  }
+  function normalizeAnimationSpec(raw) {
+    if (!raw || typeof raw !== 'object') return { kind: 'animation', keys: [] };
+    if (raw.kind === 'animation' || Array.isArray(raw.keys)) {
+      var keys = [];
+      (raw.keys || []).forEach(function(k){
+        if (!k || typeof k !== 'object') return;
+        var timingSrc = k.timing || k;
+        var dur = numberish(timingSrc.duration);
+        if (dur == null) return;
+        var delay = numberish(timingSrc.delay) || 0;
+        var ease = timingSrc.ease != null ? timingSrc.ease : timingSrc.easing;
+        if (typeof ease === 'object' && ease && ease.value != null) ease = ease.value;
+        var poseRaw = k.pose;
+        var pose;
+        if (poseRaw === 'rest' || poseRaw === '.rest') pose = 'rest';
+        else {
+          var snap = snapshotFromProps((poseRaw && poseRaw.props) || poseRaw);
+          if (!Object.keys(snap).length) return;
+          pose = snap;
+        }
+        keys.push({ timing: { duration: dur, ease: ease || 'linear', delay: delay }, pose: pose });
+      });
+      var out = { kind: 'animation', keys: keys };
+      if (raw.start != null) {
+        if (raw.start === 'rest' || raw.start === '.rest') out.start = 'rest';
+        else {
+          var ss = snapshotFromProps((raw.start && raw.start.props) || raw.start);
+          if (Object.keys(ss).length) out.start = ss;
+        }
+      }
+      var st = raw.stagger;
+      if (st && typeof st === 'object') {
+        var step = numberish(st.step);
+        if (step != null) out.stagger = step;
+        var from = typeof st.from === 'string' ? stripDot(st.from) : undefined;
+        if (from === 'first' || from === 'last') out.staggerFrom = from;
+      } else if (typeof st === 'number' && isFinite(st)) {
+        out.stagger = st;
+      }
+      if (typeof raw.staggerFrom === 'string') {
+        var sf = stripDot(raw.staggerFrom);
+        if (sf === 'first' || sf === 'last') out.staggerFrom = sf;
+      }
+      if (typeof raw.repeat === 'string' && stripDot(raw.repeat) === 'forever') out.repeat = 'forever';
+      else {
+        var rep = numberish(raw.repeat);
+        if (rep != null && rep >= 1) out.repeat = rep;
+      }
+      return out;
+    }
+    return { kind: 'animation', keys: [] };
+  }
+  function animationTargetsFromHandler(h) {
+    if (h && Array.isArray(h.animationTargets) && h.animationTargets.length) {
+      return h.animationTargets.map(function(t){
+        return { target: String(t.target || ''), animation: normalizeAnimationSpec(t.animation || t.motion) };
+      }).filter(function(t){ return t.target; });
+    }
+    // Legacy catalogue field
+    if (h && Array.isArray(h.motionTargets) && h.motionTargets.length) {
+      return h.motionTargets.map(function(t){
+        return { target: String(t.target || ''), animation: normalizeAnimationSpec(t.animation || t.motion) };
+      }).filter(function(t){ return t.target; });
+    }
+    var out = [];
+    (h && h.body || []).forEach(function(item){
+      if (!item || item.kind !== 'animate' || !item.target) return;
+      out.push({ target: String(item.target), animation: normalizeAnimationSpec(item.value) });
+    });
+    return out;
   }
   function motionByEvent(decls) {
     var map = {};
     (decls || []).forEach(function(d){
       (d.handlers || []).forEach(function(h){
-        if (h && h.event) map[h.event] = motionFromHandler(h);
+        if (h && h.event) map[h.event] = animationFromHandler(h);
       });
     });
     return map;
+  }
+  function motionTargetsByEvent(decls) {
+    var map = {};
+    (decls || []).forEach(function(d){
+      (d.handlers || []).forEach(function(h){
+        if (!h || !h.event) return;
+        var targets = animationTargetsFromHandler(h);
+        if (targets.length) map[h.event] = targets;
+      });
+    });
+    return map;
+  }
+  function findMotionTargetEl(scope, targetId) {
+    if (!scope || !targetId) return null;
+    try {
+      var esc = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(targetId) : String(targetId).replace(/"/g, '\\"');
+      return scope.querySelector('[data-pdl-id="' + esc + '"]')
+        || scope.querySelector('[data-pdl-instance-let="' + esc + '"]');
+    } catch (e) { return null; }
+  }
+  function playTargetedMotions(scope, targets, event) {
+    if (!targets || !targets.length) return;
+    targets.forEach(function(t){
+      var el = findMotionTargetEl(scope, t.target);
+      if (!el) return;
+      var mspec = t.animation || t.motion || {};
+      if (!hasAnimationTrack(mspec)) return;
+      playMotionTree(el, mspec, event === 'appear' ? 'appear' : 'interrupt');
+    });
   }
   function prefersReducedMotion() {
     try {
@@ -3719,194 +3732,111 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     if (!canvas) return null;
     return canvas.querySelector(':scope > .pdl-frame, :scope > .pdl-instance') || canvas.firstElementChild;
   }
-  function hasPoseTrack(spec) {
-    return !!(spec && (spec.pose || (spec.keys && spec.keys.length)));
+  function hasAnimationTrack(spec) {
+    return !!(spec && spec.keys && spec.keys.length);
   }
-  function resolvedKeys(spec) {
-    if (spec && spec.keys && spec.keys.length) return spec.keys;
-    if (spec && spec.pose) return [{ pose: spec.pose, at: 1 }];
-    return [];
-  }
-  function snapFromKeyPose(pose, ident) {
-    if (pose === 'rest' || pose === '.rest') return ident;
-    if (!pose || typeof pose !== 'object') return ident;
-    return Object.assign({}, ident, pose);
-  }
-  function cssFields(snap, rest) {
-    var c = snapshotCss(snap, rest);
-    return { transform: c.transform, opacity: c.opacity, filter: c.filter, transformOrigin: c.transformOrigin };
-  }
-  function poseTrackFrames(spec, ident, rest) {
-    var keys = resolvedKeys(spec);
-    var frames = [];
-    if (!keys.length) return frames;
-    if (!(typeof keys[0].at === 'number') || keys[0].at > 0) {
-      frames.push(Object.assign({ offset: 0 }, cssFields(ident, rest)));
+  function hasPoseTrack(spec) { return hasAnimationTrack(spec); }
+  function easeToCss(ease) {
+    if (ease && typeof ease === 'object' && ease.kind === 'easeBezier') {
+      return 'cubic-bezier(' + ease.x1 + ', ' + ease.y1 + ', ' + ease.x2 + ', ' + ease.y2 + ')';
     }
-    for (var i = 0; i < keys.length; i++) {
-      var k = keys[i];
-      var at = typeof k.at === 'number' && isFinite(k.at) ? k.at : 1;
-      if (at < 0) at = 0;
-      if (at > 1) at = 1;
-      var frame = Object.assign({ offset: at }, cssFields(snapFromKeyPose(k.pose, ident), rest));
-      if (typeof k.easing === 'string' && k.easing) frame.easing = k.easing;
-      frames.push(frame);
-    }
-    return frames;
+    var s = typeof ease === 'string' ? stripDot(ease) : 'linear';
+    if (s === 'in' || s === 'ease-in') return 'ease-in';
+    if (s === 'out' || s === 'ease-out') return 'ease-out';
+    if (s === 'linear') return 'linear';
+    if (s.indexOf('cubic-bezier') === 0) return s;
+    return 'linear';
   }
-  function playMotionOnEl(el, spec, mode) {
+  function resolvePoseDest(pose, current, ident) {
+    if (pose === 'rest' || pose === '.rest') return Object.assign({}, ident);
+    if (!pose || typeof pose !== 'object') return Object.assign({}, current);
+    return Object.assign({}, current, pose);
+  }
+  function playAnimationOnEl(el, spec, mode) {
     if (!el || !spec || typeof el.animate !== 'function') return null;
+    if (!hasAnimationTrack(spec)) return null;
     try {
       if (el.getAnimations) el.getAnimations().forEach(function(x){ x.cancel(); });
     } catch (e) {}
-    // Rest pose is identity, not the current overlay (dismiss fill would make
-    // appear tween back to opacity 0).
     var rest = 1;
     var ident = identitySnap(rest, restBlurOf(el));
-    var t = spec.transition || { duration: 0, easing: 'linear', delay: 0 };
     var reduced = prefersReducedMotion();
     var scale = motionTimeScale(el);
-    var duration = (reduced || !(t.duration > 0)) ? 0 : t.duration * scale;
-    var delay = reduced ? 0 : (t.delay || 0) * scale;
-    var play = stripDot(spec.play || '');
-    if (mode === 'appear' || mode === 'dismiss') {
-      var from = ident;
-      var to = ident;
-      var pose = spec.pose || (mode === 'appear' ? spec.from : spec.to);
-      if (!pose && spec.keys && spec.keys.length) {
-        pose = spec.keys[mode === 'appear' ? 0 : spec.keys.length - 1].pose;
-        if (pose === 'rest' || pose === '.rest') pose = null;
-      }
-      if (!pose) return null;
-      if (mode === 'appear') from = Object.assign({}, ident, pose);
-      else to = Object.assign({}, ident, pose);
+    var applyStart = mode === 'appear' || mode === 'mount' || mode === 'standing';
+    function readOverlay() {
+      var out = Object.assign({}, ident);
+      try {
+        var st = el.style || {};
+        var op = Number(st.opacity);
+        if (isFinite(op)) out.opacity = op;
+        var t = st.transform || '';
+        var tr = /translate\(\s*([-0-9.]+)px\s*,\s*([-0-9.]+)px\s*\)/.exec(t);
+        if (tr) { out.translateX = Number(tr[1]); out.translateY = Number(tr[2]); }
+        var rot = /rotate\(\s*([-0-9.]+)deg\s*\)/.exec(t);
+        if (rot) out.rotate = Number(rot[1]);
+        var sc = /scale\(\s*([-0-9.]+)\s*,\s*([-0-9.]+)\s*\)/.exec(t);
+        if (sc) { out.scaleX = Number(sc[1]); out.scaleY = Number(sc[2]); if (out.scaleX === out.scaleY) out.scale = out.scaleX; }
+        var blur = /blur\(\s*([-0-9.]+)px\s*\)/.exec(st.filter || '');
+        if (blur) out.blur = Number(blur[1]);
+      } catch (e) {}
+      return out;
+    }
+    var current = applyStart ? Object.assign({}, ident) : readOverlay();
+    if (applyStart && spec.start != null) {
+      current = resolvePoseDest(spec.start, ident, ident);
+      applyOverlayCss(el, snapshotCss(current, rest));
+    }
+    var cancelled = false;
+    var active = null;
+    var finishedResolve;
+    var finished = new Promise(function(r){ finishedResolve = r; });
+    function cancel() {
+      cancelled = true;
+      try { if (active) active.cancel(); } catch (e) {}
+      if (finishedResolve) finishedResolve();
+    }
+    function playSeg(from, to, timing, delayExtra) {
+      var dur = reduced || !(timing.duration > 0) ? 0 : timing.duration * scale;
+      var delay = reduced ? 0 : ((timing.delay || 0) + (delayExtra || 0)) * scale;
       var a = snapshotCss(from, rest);
       var b = snapshotCss(to, rest);
-      var appearAnim = el.animate(
+      active = el.animate(
         [
           { transform: a.transform, opacity: a.opacity, filter: a.filter, transformOrigin: a.transformOrigin },
           { transform: b.transform, opacity: b.opacity, filter: b.filter, transformOrigin: b.transformOrigin }
         ],
-        { duration: duration, easing: t.easing || 'linear', delay: delay, fill: 'both' }
+        { duration: dur, easing: easeToCss(timing.ease), delay: delay, fill: 'both', iterations: 1 }
       );
-      if (mode === 'appear' && appearAnim && appearAnim.finished) {
-        appearAnim.finished.then(function(){
-          applyOverlayCss(el, snapshotCss(ident, rest));
-        }).catch(function(){});
-      }
-      return appearAnim;
+      return active;
     }
-    if (!hasPoseTrack(spec)) return null;
-    if (reduced && play === 'loop') return null;
-    var frames = poseTrackFrames(spec, ident, rest);
-    if (!frames.length) return null;
-    var iterations = play === 'loop' ? Infinity : (spec.repeat > 1 ? spec.repeat : 1);
-    var fill = play === 'loop' ? 'none' : 'both';
-    var trackAnim = el.animate(frames, {
-      duration: duration,
-      easing: t.easing || 'linear',
-      delay: delay,
-      fill: fill,
-      iterations: iterations
-    });
-    try {
-      if (play === 'toPose') el.setAttribute('data-pdl-pose-hold', '1');
-      else el.removeAttribute('data-pdl-pose-hold');
-    } catch (e) {}
-    return trackAnim;
-  }
-  function poseTrackFramesToRest(spec, ident, rest) {
-    var fwd = poseTrackFrames(spec, ident, rest);
-    var frames = [];
-    for (var i = fwd.length - 1; i >= 0; i--) {
-      var f = Object.assign({}, fwd[i]);
-      var off = typeof fwd[i].offset === 'number' ? fwd[i].offset : 0;
-      f.offset = 1 - off;
-      frames.push(f);
-    }
-    return frames;
-  }
-  function animationDuration(a) {
-    try {
-      if (a.effect && a.effect.getComputedTiming) {
-        var ct = a.effect.getComputedTiming();
-        if (ct && typeof ct.duration === 'number' && isFinite(ct.duration)) return ct.duration;
-      }
-      if (a.effect && a.effect.getTiming) {
-        var t = a.effect.getTiming();
-        if (t && typeof t.duration === 'number' && isFinite(t.duration)) return t.duration;
-      }
-    } catch (e) {}
-    if (typeof a.currentTime === 'number' && isFinite(a.currentTime)) return a.currentTime;
-    return 0;
-  }
-  function holdingPose(el) {
-    return !!(el && el.getAttribute && el.getAttribute('data-pdl-pose-hold') === '1');
-  }
-  function reverseInFlight(el) {
-    if (!el || !el.getAnimations) return null;
-    var anims = [];
-    try { anims = el.getAnimations() || []; } catch (e) { return null; }
-    for (var i = 0; i < anims.length; i++) {
-      var a = anims[i];
-      if (!a || a.playState === 'idle') continue;
-      if (a.playState === 'finished' && !holdingPose(el)) continue;
-      try {
-        if (typeof a.reverse === 'function') {
-          a.reverse();
-        } else {
-          if (a.playState === 'finished') {
-            var dur = animationDuration(a);
-            if (dur > 0) a.currentTime = dur;
-          }
-          a.playbackRate = -1;
-          if (a.playState !== 'running') a.play();
+    var forever = spec.repeat === 'forever' || stripDot(String(spec.repeat || '')) === 'forever';
+    var times = forever ? Infinity : (typeof spec.repeat === 'number' && spec.repeat > 1 ? spec.repeat : 1);
+    var step = spec.stagger || 0;
+    (async function run(){
+      var iteration = 0;
+      while (!cancelled && iteration < times) {
+        iteration += 1;
+        for (var i = 0; i < spec.keys.length; i++) {
+          if (cancelled) break;
+          var key = spec.keys[i];
+          var to = resolvePoseDest(key.pose, current, ident);
+          var anim = playSeg(current, to, key.timing, 0);
+          try { await anim.finished; } catch (e) {}
+          if (cancelled) break;
+          current = to;
+          applyOverlayCss(el, snapshotCss(current, rest));
         }
-        if (a.finished) {
-          a.finished.then(function(){
-            try { el.removeAttribute('data-pdl-pose-hold'); } catch (e) {}
-            applyOverlayCss(el, snapshotCss(identitySnap(1, restBlurOf(el)), 1));
-          }).catch(function(){});
-        }
-        return a;
-      } catch (e) {}
-    }
-    return null;
+      }
+      if (finishedResolve) finishedResolve();
+    })();
+    var handle = { cancel: cancel, finished: finished };
+    // Compat: callers that await .finished on a WAAPI Animation
+    handle.then = finished.then.bind(finished);
+    handle.catch = finished.catch.bind(finished);
+    return handle;
   }
-  function playReturnToRest(el, spec) {
-    if (!el || !spec) return null;
-    var reversed = reverseInFlight(el);
-    if (reversed) return reversed;
-    if (!hasPoseTrack(spec)) return null;
-    var rest = 1;
-    var ident = identitySnap(rest, restBlurOf(el));
-    var keys = resolvedKeys(spec);
-    if (!keys.length) return null;
-    var last = snapFromKeyPose(keys[keys.length - 1].pose, ident);
-    applyOverlayCss(el, snapshotCss(last, rest));
-    try {
-      if (el.getAnimations) el.getAnimations().forEach(function(x){ x.cancel(); });
-    } catch (e) {}
-    var t = spec.transition || { duration: 0, easing: 'linear', delay: 0 };
-    var reduced = prefersReducedMotion();
-    var scale = motionTimeScale(el);
-    var duration = (reduced || !(t.duration > 0)) ? 0 : t.duration * scale;
-    var frames = poseTrackFramesToRest(spec, ident, rest);
-    if (!frames.length) return null;
-    try { el.removeAttribute('data-pdl-pose-hold'); } catch (e) {}
-    var anim = el.animate(frames, {
-      duration: duration,
-      easing: t.easing || 'linear',
-      delay: 0,
-      fill: 'both',
-      iterations: 1
-    });
-    if (anim && anim.finished) {
-      anim.finished.then(function(){
-        applyOverlayCss(el, snapshotCss(ident, rest));
-      }).catch(function(){});
-    }
-    return anim;
+  function playMotionOnEl(el, spec, mode) {
+    return playAnimationOnEl(el, spec, mode);
   }
   function parseAnimateAttr(el) {
     if (!el || !el.getAttribute) return null;
@@ -3914,7 +3844,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     if (!raw) return null;
     try {
       var spec = JSON.parse(raw);
-      return spec && typeof spec === 'object' ? spec : null;
+      return spec && typeof spec === 'object' ? normalizeAnimationSpec(spec) : null;
     } catch (e) { return null; }
   }
   function appearHoldOn(el) {
@@ -3935,11 +3865,17 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       applyOverlayCss(el, snapshotCss(identitySnap(1, restBlurOf(el)), 1));
     } catch (e) {}
   }
+  function isForeverRepeat(spec) {
+    if (!spec) return false;
+    if (spec.repeat === 'forever') return true;
+    return stripDot(String(spec.repeat || '')) === 'forever';
+  }
   function startStanding(el, spec) {
-    if (!el || !spec || !hasPoseTrack(spec)) return;
+    if (!el || !spec || !hasAnimationTrack(spec)) return;
+    if (!isForeverRepeat(spec)) return;
     if (appearHoldOn(el)) return;
     var sig = '';
-    try { sig = JSON.stringify(spec); } catch (e) { sig = String(spec.play || ''); }
+    try { sig = JSON.stringify(spec); } catch (e) { sig = 'standing'; }
     if (el.getAttribute('data-pdl-standing') === sig) {
       var live = [];
       try { live = el.getAnimations ? el.getAnimations() : []; } catch (e) {}
@@ -3978,11 +3914,16 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       var n = kids.length;
       for (var i = 0; i < n; i++) {
         var idx = stripDot(spec.staggerFrom) === 'last' ? n - 1 - i : i;
-        var childSpec = Object.assign({}, spec, {
-          transition: Object.assign({}, spec.transition || {}, {
-            delay: ((spec.transition && spec.transition.delay) || 0) + idx * step
-          })
-        });
+        var childSpec = Object.assign({}, spec, { stagger: 0 });
+        // Stagger as delay on first key
+        if (childSpec.keys && childSpec.keys.length) {
+          var keys = childSpec.keys.map(function(k, ki){
+            if (ki !== 0) return k;
+            var t = Object.assign({}, k.timing, { delay: (k.timing.delay || 0) + idx * step });
+            return Object.assign({}, k, { timing: t });
+          });
+          childSpec = Object.assign({}, childSpec, { keys: keys });
+        }
         last = playMotionOnEl(kids[i], childSpec, mode) || last;
       }
       return last;
@@ -3992,7 +3933,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
   function appearSpecOf(spec) {
     if (!spec) return null;
     if (spec.appear) return spec.appear;
-    if (spec.pose || spec.from || (spec.keys && spec.keys.length)) return spec;
+    if (spec.keys && spec.keys.length) return spec;
     return null;
   }
   function holdMotionOnEl(el, spec, pole) {
@@ -4002,10 +3943,11 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     } catch (e) {}
     var rest = 1;
     var ident = identitySnap(rest, restBlurOf(el));
-    var pose = spec.pose || spec.from;
-    var snap = pole === 'from' && pose ? Object.assign({}, ident, pose) : ident;
-    var css = snapshotCss(snap, rest);
-    applyOverlayCss(el, css);
+    var snap = ident;
+    if (pole === 'from' && spec.start != null) {
+      snap = resolvePoseDest(spec.start, ident, ident);
+    }
+    applyOverlayCss(el, snapshotCss(snap, rest));
     try {
       el.style.visibility = '';
       el.removeAttribute('data-pdl-dismissed');
@@ -4021,6 +3963,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     }
     holdMotionOnEl(el, spec, pole);
   }
+
   function runBody(body, params, emits) {
     var changed = false;
     (body || []).forEach(function(item){
@@ -4468,22 +4411,18 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         var declsNow = interactions[name] || [];
         var byEventNow = handlersByEvent(declsNow);
         var byMotionNow = motionByEvent(declsNow);
-        if (!byEventNow[event] && !byMotionNow[event]) return null;
+        var byTargetsNow = motionTargetsByEvent(declsNow);
+        if (!byEventNow[event] && !byMotionNow[event] && !byTargetsNow[event]) return null;
         liveParams = readParams(section);
         var mspec = byMotionNow[event];
         var track = hasPoseTrack(mspec);
-        var implicit = !!(mspec && mspec.transition && !track && event !== 'appear' && event !== 'dismiss');
-        if (implicit) {
-          applyImplicitTransition(motionRootEl(section) || canvas, mspec);
-        }
         if (track && event !== 'appear' && event !== 'dismiss') {
           var rootForTrack = motionRootEl(section);
-          var endPlay = stripDot((mspec && mspec.play) || '');
-          if ((event === 'hoverEnd' || event === 'pressEnd' || event === 'pressCancel') && endPlay === 'toRest') {
-            playReturnToRest(rootForTrack, mspec);
-          } else {
-            playMotionTree(rootForTrack, mspec, event);
-          }
+          // Interrupt: cancel in-flight and play next Animation from current (ignore start).
+          playMotionTree(rootForTrack, mspec, 'interrupt');
+        }
+        if (event !== 'appear' && event !== 'dismiss') {
+          playTargetedMotions(motionRootEl(section) || section, byTargetsNow[event], event);
         }
         if (event === 'appear' || event === 'dismiss') {
           var rootEl = motionRootEl(section);
@@ -4497,6 +4436,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             if (rootEl.hasAttribute && rootEl.hasAttribute('data-pdl-standing')) stopStanding(rootEl);
           }
           var anim = playMotionTree(rootEl, mspec, event);
+          playTargetedMotions(rootEl || section, byTargetsNow[event], event);
           if (event === 'appear' && rootEl) {
             function appearDoneSelf() {
               try { rootEl.removeAttribute('data-pdl-appear-hold'); } catch (e) {}
@@ -4524,12 +4464,10 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             : liveParams.interactionState != null
               ? String(liveParams.interactionState)
               : 'rest';
-        // Implicit animate = needs an in-place style patch (IR), not a state-tree swap.
-        var previewHandled = implicit ? false : showState(section, stateKey);
-        if (!previewHandled && !implicit) previewHandled = showState(section, 'rest');
+        var previewHandled = showState(section, stateKey);
+        if (!previewHandled) previewHandled = showState(section, 'rest');
+        var implicit = false;
         if (implicit && result.changed) {
-          // Patch this section only — do not rebake the component type (that
-          // would paint every other instance of the same type in the gallery).
           requestInstanceResolve({
             component: name,
             instanceLet: '',
@@ -4589,7 +4527,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           var childDecls = interactions[childType] || [];
           var childBy = handlersByEvent(childDecls);
           var childMotion = motionByEvent(childDecls);
-          if (!Object.keys(childBy).length && !Object.keys(childMotion).length) return;
+          var childTargets = motionTargetsByEvent(childDecls);
+          if (!Object.keys(childBy).length && !Object.keys(childMotion).length && !Object.keys(childTargets).length) return;
           var hasPointer =
             childBy.hoverStart || childBy.hoverEnd ||
             childBy.pressStart || childBy.pressEnd || childBy.pressCancel;
@@ -4605,20 +4544,16 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             var childDeclsNow = interactions[childType] || [];
             var childByNow = handlersByEvent(childDeclsNow);
             var childMotionNow = motionByEvent(childDeclsNow);
-            if (!childByNow[event] && !childMotionNow[event]) return;
+            var childTargetsNow = motionTargetsByEvent(childDeclsNow);
+            if (!childByNow[event] && !childMotionNow[event] && !childTargetsNow[event]) return;
             liveParams = readParams(section);
             var childSpec = childMotionNow[event];
             var childTrack = hasPoseTrack(childSpec);
-            if (childSpec && childSpec.transition && !childTrack && event !== 'appear' && event !== 'dismiss') {
-              applyImplicitTransition(node, childSpec);
-            }
             if (childTrack && event !== 'appear' && event !== 'dismiss') {
-              var childEnd = stripDot((childSpec && childSpec.play) || '');
-              if ((event === 'hoverEnd' || event === 'pressEnd' || event === 'pressCancel') && childEnd === 'toRest') {
-                playReturnToRest(node, childSpec);
-              } else {
-                playMotionTree(node, childSpec, event);
-              }
+              playMotionTree(node, childSpec, 'interrupt');
+            }
+            if (event !== 'appear' && event !== 'dismiss') {
+              playTargetedMotions(node, childTargetsNow[event], event);
             }
             if (event === 'appear' || event === 'dismiss') {
               if (event === 'appear') {
@@ -4631,6 +4566,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
                 if (node.hasAttribute && node.hasAttribute('data-pdl-standing')) stopStanding(node);
               }
               var childAnim = playMotionTree(node, childSpec, event);
+              playTargetedMotions(node, childTargetsNow[event], event);
               if (event === 'appear') {
                 function appearDoneChild() {
                   try { node.removeAttribute('data-pdl-appear-hold'); } catch (e) {}
@@ -5276,7 +5212,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       function holdAppearFrom() {
         eachMotionTarget(function(target, spec){
           var appear = appearSpecOf(spec);
-          if (!appear || !(appear.pose || appear.from || (appear.keys && appear.keys.length))) return;
+          if (!appear || !(appear.keys && appear.keys.length)) return;
           try { target.setAttribute('data-pdl-appear-hold', '1'); } catch (e) {}
           if (target.querySelectorAll) {
             target.querySelectorAll('[data-pdl-standing]').forEach(stopStanding);
@@ -5288,7 +5224,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       function playAppearAll() {
         eachMotionTarget(function(target, spec){
           var appear = appearSpecOf(spec);
-          if (!appear || !(appear.pose || appear.from || (appear.keys && appear.keys.length))) return;
+          if (!appear || !(appear.keys && appear.keys.length)) return;
           try {
             target.style.visibility = '';
             target.removeAttribute('data-pdl-dismissed');

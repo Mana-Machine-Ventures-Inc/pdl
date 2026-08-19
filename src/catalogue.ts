@@ -19,8 +19,8 @@ import {
 
 export { PDL_JSON_SCHEMA_VERSION, type GraphThemeEntry, type GraphTokenRow, type GraphTypeStyleEntry } from "./graphJson.js";
 import { serialiseConditionExpr, serialiseValueExpr, serialiseValueExprWithTokenRefs } from "./graph.js";
-import { collectMotionFromHandlerItems } from "./applyMotion.js";
-import { applySiteDefaultPlay, normalizeTransition, type MotionSpec } from "./motionProps.js";
+import { collectAnimationFromHandlerItems } from "./applyMotion.js";
+import { normalizeTransition, type AnimationSpec } from "./motionProps.js";
 import { ruleLineToDef, type RuleDefJson } from "./rulesJson.js";
 import {
   isHiddenFrame,
@@ -111,7 +111,11 @@ function serialiseInteractionHandlerItem(item: InteractionHandlerItem): unknown 
     case "assign":
       return { kind: "assign", param: item.param, value: serialiseValueExpr(item.value) };
     case "animate":
-      return { kind: "animate", value: serialiseValueExpr(item.value) };
+      return {
+        kind: "animate",
+        value: serialiseValueExpr(item.value),
+        ...(item.target ? { target: item.target } : {}),
+      };
     case "emit":
       return { kind: "emit", name: item.name, args: item.args };
     case "hostVerb":
@@ -131,12 +135,33 @@ function serialiseInteractionHandlerItem(item: InteractionHandlerItem): unknown 
   }
 }
 
-function evaluateMotionSpec(
+function animationSpecToCatalogue(spec: AnimationSpec): Record<string, unknown> {
+  const out: Record<string, unknown> = {
+    kind: "animation",
+    keys: spec.keys.map((k) => ({
+      timing: {
+        duration: k.timing.duration,
+        ease: k.timing.ease,
+        delay: k.timing.delay,
+      },
+      pose: k.pose === "rest" ? "rest" : { ...k.pose },
+    })),
+  };
+  if (spec.start != null) {
+    out.start = spec.start === "rest" ? "rest" : { ...spec.start };
+  }
+  if (spec.stagger != null) out.stagger = spec.stagger;
+  if (spec.staggerFrom) out.staggerFrom = spec.staggerFrom;
+  if (spec.repeat != null) out.repeat = spec.repeat;
+  return out;
+}
+
+function evaluateAnimationSpec(
   items: InteractionHandlerItem[],
   design: DesignDefinition,
   tokenMap: Map<string, unknown>,
-): MotionSpec | undefined {
-  const spec = collectMotionFromHandlerItems(
+): AnimationSpec | undefined {
+  return collectAnimationFromHandlerItems(
     items,
     (expr) => {
       try {
@@ -161,18 +186,25 @@ function evaluateMotionSpec(
       }
     },
   );
-  if (
-    !spec.transition &&
-    !spec.pose &&
-    !spec.keys &&
-    !spec.play &&
-    spec.stagger == null &&
-    spec.staggerFrom == null &&
-    spec.repeat == null
-  ) {
-    return undefined;
+}
+
+function evaluateAnimationTargets(
+  items: InteractionHandlerItem[],
+  design: DesignDefinition,
+  tokenMap: Map<string, unknown>,
+): Array<{ target: string; animation: Record<string, unknown> }> {
+  const out: Array<{ target: string; animation: Record<string, unknown> }> = [];
+  for (const item of items) {
+    if (item.kind !== "animate" || !item.target) continue;
+    const animation = evaluateAnimationSpec(
+      [{ kind: "animate", value: item.value }],
+      design,
+      tokenMap,
+    );
+    if (!animation) continue;
+    out.push({ target: item.target, animation: animationSpecToCatalogue(animation) });
   }
-  return spec;
+  return out;
 }
 
 function serialiseInteractionDecl(
@@ -184,18 +216,19 @@ function serialiseInteractionDecl(
     name: decl.name,
     component: decl.component,
     handlers: decl.handlers.map((h) => {
-      const motion = evaluateMotionSpec(h.body, design, tokenMap);
-      const withPlay = motion ? applySiteDefaultPlay(motion, h.event) : undefined;
+      const animation = evaluateAnimationSpec(h.body, design, tokenMap);
+      const animationTargets = evaluateAnimationTargets(h.body, design, tokenMap);
       return {
         event: h.event,
         body: h.body.map(serialiseInteractionHandlerItem),
-        ...(withPlay ? { motion: withPlay } : {}),
+        ...(animation ? { animation: animationSpecToCatalogue(animation) } : {}),
+        ...(animationTargets.length ? { animationTargets } : {}),
       };
     }),
   };
 }
 
-/** Catalogue interaction decls (including evaluated `motion`) keyed by component. */
+/** Catalogue interaction decls (including evaluated `animation`) keyed by component. */
 export function interactionsByComponentFromDesign(
   design: DesignDefinition,
   tokenMap?: Map<string, unknown>,

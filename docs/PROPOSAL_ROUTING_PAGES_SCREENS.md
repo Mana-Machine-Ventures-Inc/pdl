@@ -1,7 +1,7 @@
 # Proposal: Pages, screens, Presenter, and emit propagation
 
 **Status:** proposed (2026-08-16); revised same day — **`Presenter`** prelude frame; **screen-as-parent** capture. **N0–N5 + B7 shipped.** Revised later that day — **N6–N9 proposed:** `appear` / `disappear`; **`PresentationMotion`**; `present(retainPrior:)` / `swap` / `replace`; `dismiss()` pops; per-tab Presenters for retained stacks.  
-**Depends on:** `docs/PROPOSAL_PROTOCOL_CAPABILITIES.md` (API vs host protocol roles; emits); `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` §8 (local vs prototype emit lanes); `docs/PROPOSAL_HOST_ENVIRONMENT.md` (environment vs navigation); `docs/PROPOSAL_MOTION_PLAY.md` (Pose / Motion / appear play defaults; Timing / Ease follow-on)  
+**Depends on:** `docs/PROPOSAL_PROTOCOL_CAPABILITIES.md` (API vs host protocol roles; emits); `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` §8 (local vs prototype emit lanes); `docs/PROPOSAL_HOST_ENVIRONMENT.md` (environment vs navigation); `docs/PROPOSAL_MOTION_PLAY.md` (**superseded:** `animate =` is now `Animation(start?, keys: [Motion…])` — not Play/Key)  
 **Related:** Studio prototypes; nav stack / modal cover; fixtures as previewed worlds  
 **Plan:** [`IMPLEMENTATION_PLAN_ROUTING_PAGES_SCREENS.md`](./IMPLEMENTATION_PLAN_ROUTING_PAGES_SCREENS.md)
 

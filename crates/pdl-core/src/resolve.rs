@@ -12,7 +12,6 @@ use crate::ast::*;
 use crate::design::{component_reads_host, effective_params, DesignDefinition};
 use crate::error::PdlError;
 use crate::evaluate::{evaluate_condition, evaluate_value, Eval, ParamMeta, ParamValues, Tokens};
-use crate::motion::apply_site_default_play;
 use crate::stable_json::number_value;
 
 /// Resolve options (subset used by bake / catalogue paths).
@@ -267,6 +266,11 @@ fn apply_root_frame_overrides(frame: &mut CatalFrame, props: Map<String, Value>)
 
 /// Insert a fully resolved CatalFrame tree into the mutable frame map (letInstance path).
 fn insert_catal_tree(frames: &mut HashMap<String, MutableFrame>, catal: &CatalFrame, id: &str) {
+    // `children = [Pic @ 0.5]` may have already stamped opacity onto a placeholder
+    // frame before this deferred letInstance resolve — keep that mount annotation.
+    let preserved_opacity = frames
+        .get(id)
+        .and_then(|f| f.props.get("opacity").cloned());
     let mut child_entries = Vec::new();
     for (i, ch) in catal.children.iter().enumerate() {
         let cid = if ch.id.is_empty() {
@@ -280,11 +284,17 @@ fn insert_catal_tree(frames: &mut HashMap<String, MutableFrame>, catal: &CatalFr
             opacity: None,
         });
     }
+    let mut props = catal.props.clone();
+    if let Some(op) = preserved_opacity {
+        if !props.contains_key("opacity") {
+            props.insert("opacity".into(), op);
+        }
+    }
     frames.insert(
         id.to_string(),
         MutableFrame {
             kind: catal.kind.clone(),
-            props: catal.props.clone(),
+            props,
             child_entries,
             instance_of: catal.instance_of.clone(),
             instance_kwargs: catal.instance_kwargs.clone(),
@@ -354,11 +364,6 @@ fn coerce_frame_prop_value(prop: &str, value: Value, entry_path: &str) -> Result
         crate::asset_refs::coerce_icon_value(value, entry_path)?
     } else if prop == "source" {
         crate::asset_refs::coerce_media_source_value(value, entry_path)?
-    } else {
-        value
-    };
-    let value = if prop == "animate" {
-        apply_site_default_play(value, "frame")
     } else {
         value
     };

@@ -11,6 +11,7 @@ import {
 } from "./assetRefs.js";
 import type { DesignDefinition } from "./designModel.js";
 import { PdlError } from "./errors.js";
+import { isMotionPropName } from "./motionProps.js";
 import {
   isKnownSamplePath,
   lookupSampleField,
@@ -113,17 +114,25 @@ function slotSpanMs(slot: unknown, pairDuration: number, pairDelay: number): num
     return pairDelay + pairDuration;
   }
   const o = slot as Record<string, unknown>;
-  const isMotion =
-    o.kind === "motion" ||
-    o.timing != null ||
-    o.keys != null ||
-    (o.pose != null && o.kind !== "pose");
-  if (!isMotion) return pairDelay + pairDuration;
+  if (o.kind === "animation" && Array.isArray(o.keys)) {
+    let total = 0;
+    for (const key of o.keys) {
+      if (key == null || typeof key !== "object" || Array.isArray(key)) continue;
+      const seg = key as Record<string, unknown>;
+      const timing =
+        seg.timing && typeof seg.timing === "object" && !Array.isArray(seg.timing)
+          ? (seg.timing as Record<string, unknown>)
+          : seg;
+      total += clockMs(timing.duration, timing.delay, 0);
+    }
+    return total > 0 ? total : pairDelay + pairDuration;
+  }
   const timing =
     o.timing && typeof o.timing === "object" && !Array.isArray(o.timing)
       ? (o.timing as Record<string, unknown>)
       : o;
-  return clockMs(timing.duration, timing.delay, pairDuration);
+  if (timing.duration != null) return clockMs(timing.duration, timing.delay, pairDuration);
+  return pairDelay + pairDuration;
 }
 
 function pairSpanMs(o: Record<string, unknown>): number {
@@ -137,15 +146,9 @@ function pairSpanMs(o: Record<string, unknown>): number {
   );
 }
 
-function reverseSlotClock(slot: unknown): unknown {
-  if (slot == null || typeof slot !== "object" || Array.isArray(slot)) return slot;
-  const o = { ...(slot as Record<string, unknown>) };
-  const isMotion =
-    o.kind === "motion" ||
-    o.timing != null ||
-    o.keys != null ||
-    (o.pose != null && o.kind !== "pose");
-  if (!isMotion) return slot;
+function reverseMotionSegment(seg: unknown): unknown {
+  if (seg == null || typeof seg !== "object" || Array.isArray(seg)) return seg;
+  const o = { ...(seg as Record<string, unknown>) };
   if (o.ease != null) o.ease = reverseEase(o.ease);
   if (o.timing && typeof o.timing === "object" && !Array.isArray(o.timing)) {
     const t = { ...(o.timing as Record<string, unknown>) };
@@ -153,6 +156,18 @@ function reverseSlotClock(slot: unknown): unknown {
     o.timing = t;
   }
   return o;
+}
+
+function reverseAnimationEases(slot: unknown): unknown {
+  if (slot == null || typeof slot !== "object" || Array.isArray(slot)) return slot;
+  const o = { ...(slot as Record<string, unknown>) };
+  if (o.kind === "animation") {
+    if (Array.isArray(o.keys)) {
+      o.keys = o.keys.map(reverseMotionSegment);
+    }
+    return o;
+  }
+  return reverseMotionSegment(o);
 }
 
 function reversePresentationMotion(raw: unknown): unknown {
@@ -165,8 +180,8 @@ function reversePresentationMotion(raw: unknown): unknown {
   }
   const incoming = o.incoming;
   const outgoing = o.outgoing;
-  o.incoming = reverseSlotClock(outgoing);
-  o.outgoing = reverseSlotClock(incoming);
+  o.incoming = reverseAnimationEases(outgoing);
+  o.outgoing = reverseAnimationEases(incoming);
   if (o.ease != null) o.ease = reverseEase(o.ease);
   const switchAt = Number(o.switchAt);
   if (Number.isFinite(switchAt)) {
@@ -180,19 +195,55 @@ function reversePresentationMotion(raw: unknown): unknown {
   return o;
 }
 
-/** Shallow Motion object from a token/value used as `Motion(base, field:)`. */
-function motionObjectFromEval(raw: unknown): Record<string, unknown> {
+function evaluatePoseDest(pose: ValueExpr, opts: EvalOptions): unknown {
+  if (pose.kind === "dotEnum" && stripLeadingDot(pose.value) === "rest") return "rest";
+  return evaluateValue(pose, opts);
+}
+
+function evaluateRepeat(repeat: ValueExpr, opts: EvalOptions): unknown {
+  if (repeat.kind === "dotEnum" && stripLeadingDot(repeat.value) === "forever") return "forever";
+  return evaluateValue(repeat, opts);
+}
+
+/** Shallow Animation object from a token/value used as `Animation(base, field:)`. */
+function animationObjectFromEval(raw: unknown): Record<string, unknown> {
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
-    return { kind: "motion" };
+    return { kind: "animation" };
   }
   const o = raw as Record<string, unknown>;
-  if (o.kind === "motion" || o.pose != null || o.keys != null || o.play != null) {
-    return { ...o, kind: "motion" };
+  const isAnimation = o.kind === "animation" || o.keys != null || o.start != null;
+  if (isAnimation) return { ...o, kind: "animation" };
+  return { ...o, kind: "animation" };
+}
+
+type PresentationSlotSide = "incoming" | "outgoing";
+
+/** Expand PresentationMotion slot Pose sugar to Animation JSON. */
+function expandPresentationSlot(
+  slot: unknown,
+  pairTiming: { duration: unknown; ease: unknown; delay: unknown },
+  side: PresentationSlotSide,
+): unknown {
+  if (slot == null || typeof slot !== "object" || Array.isArray(slot)) return slot;
+  const o = slot as Record<string, unknown>;
+  if (o.kind === "animation") return { ...o, kind: "animation" };
+  const looksLikePose =
+    o.kind === "pose" ||
+    (Object.keys(o).some((k) => isMotionPropName(k)) && o.kind !== "motion");
+  if (looksLikePose) {
+    const pose = slot;
+    const segment = {
+      timing: { ...pairTiming },
+      pose: side === "incoming" ? "rest" : pose,
+    };
+    const out: Record<string, unknown> = {
+      kind: "animation",
+      keys: [segment],
+    };
+    if (side === "incoming") out.start = pose;
+    return out;
   }
-  if (o.duration != null) {
-    return { kind: "motion", timing: o };
-  }
-  return { ...o, kind: "motion" };
+  return slot;
 }
 
 /** Evaluate a variant `if` condition against bound component parameters (values without leading dot). */
@@ -479,14 +530,30 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
       return { kind: "easeBezier", x1: a, y1: b, x2: c, y2: d };
     }
     case "presentationMotion": {
+      const pairDuration =
+        expr.duration !== undefined ? evaluateValue(expr.duration, opts) : 300;
+      const pairEase =
+        expr.ease !== undefined ? evaluateEase(evaluateValue(expr.ease, opts)) : "out";
+      const pairDelay = expr.delay !== undefined ? evaluateValue(expr.delay, opts) : 0;
+      const pairTiming = { duration: pairDuration, ease: pairEase, delay: pairDelay };
+      const incoming = expandPresentationSlot(
+        evaluateValue(expr.incoming, opts),
+        pairTiming,
+        "incoming",
+      );
+      const outgoing = expandPresentationSlot(
+        evaluateValue(expr.outgoing, opts),
+        pairTiming,
+        "outgoing",
+      );
       const out: Record<string, unknown> = {
         kind: "presentationMotion",
-        incoming: evaluateValue(expr.incoming, opts),
-        outgoing: evaluateValue(expr.outgoing, opts),
+        incoming,
+        outgoing,
       };
-      if (expr.duration !== undefined) out.duration = evaluateValue(expr.duration, opts);
-      if (expr.ease !== undefined) out.ease = evaluateEase(evaluateValue(expr.ease, opts));
-      if (expr.delay !== undefined) out.delay = evaluateValue(expr.delay, opts);
+      if (expr.duration !== undefined) out.duration = pairDuration;
+      if (expr.ease !== undefined) out.ease = pairEase;
+      if (expr.delay !== undefined) out.delay = pairDelay;
       if (expr.front !== undefined) out.front = evaluateValue(expr.front, opts);
       if (expr.switchAt !== undefined) out.switchAt = evaluateValue(expr.switchAt, opts);
       return out;
@@ -504,23 +571,20 @@ export function evaluateValue(expr: ValueExpr, opts: EvalOptions): unknown {
         step: evaluateValue(expr.step, opts),
         ...(expr.from !== undefined ? { from: evaluateValue(expr.from, opts) } : {}),
       };
-    case "key":
-      return {
-        kind: "key",
-        pose: evaluateValue(expr.pose, opts),
-        at: evaluateValue(expr.at, opts),
-        ...(expr.ease !== undefined ? { ease: evaluateEase(evaluateValue(expr.ease, opts)) } : {}),
-      };
     case "motion": {
-      const out: Record<string, unknown> = expr.base
-        ? motionObjectFromEval(evaluateValue(expr.base, opts))
-        : { kind: "motion" };
+      const out: Record<string, unknown> = { kind: "motion" };
       if (expr.timing !== undefined) out.timing = evaluateValue(expr.timing, opts);
-      if (expr.play !== undefined) out.play = evaluateValue(expr.play, opts);
-      if (expr.pose !== undefined) out.pose = evaluateValue(expr.pose, opts);
+      out.pose = evaluatePoseDest(expr.pose, opts);
+      return out;
+    }
+    case "animation": {
+      const out = expr.base
+        ? animationObjectFromEval(evaluateValue(expr.base, opts))
+        : { kind: "animation" as const };
+      if (expr.start !== undefined) out.start = evaluatePoseDest(expr.start, opts);
       if (expr.keys !== undefined) out.keys = evaluateValue(expr.keys, opts);
       if (expr.stagger !== undefined) out.stagger = evaluateValue(expr.stagger, opts);
-      if (expr.repeat !== undefined) out.repeat = evaluateValue(expr.repeat, opts);
+      if (expr.repeat !== undefined) out.repeat = evaluateRepeat(expr.repeat, opts);
       return out;
     }
     case "effect": {

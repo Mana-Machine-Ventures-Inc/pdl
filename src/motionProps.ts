@@ -31,62 +31,33 @@ export type MotionTransition = {
   delay: number;
 };
 
+/** Catalogue / eval timing shape (`ease`, not WAAPI `easing`). */
+export type AnimationTiming = {
+  duration: number;
+  ease: unknown;
+  delay: number;
+};
+
 export type MotionSnapshot = Partial<Record<MotionPropName, number>>;
 
-export type MotionPlay = "toRest" | "toPose" | "loop";
-
-export type MotionKey = {
+/** One Motion segment inside Animation.keys. */
+export type AnimationKey = {
+  timing: AnimationTiming;
   pose: MotionSnapshot | "rest";
-  at: number;
-  easing?: string;
 };
 
-export type MotionSpec = {
-  transition?: MotionTransition;
-  play?: MotionPlay;
-  pose?: MotionSnapshot;
-  keys?: MotionKey[];
+/** Clip — type of `animate =` / catalogue `animation`. */
+export type AnimationSpec = {
+  kind?: "animation";
+  start?: MotionSnapshot | "rest";
+  keys: AnimationKey[];
   stagger?: number;
   staggerFrom?: "first" | "last";
-  repeat?: number;
+  repeat?: number | "forever";
 };
 
-/** Site default `play` when the Motion value omitted it. */
-export function defaultMotionPlay(event: string, hasPoseTrack: boolean): MotionPlay | undefined {
-  switch (event) {
-    case "appear":
-      return "toRest";
-    case "dismiss":
-      return "toPose";
-    case "hoverStart":
-    case "pressStart":
-      return hasPoseTrack ? "toPose" : undefined;
-    case "hoverEnd":
-    case "pressEnd":
-    case "pressCancel":
-      return hasPoseTrack ? "toRest" : undefined;
-    default:
-      return hasPoseTrack ? "toRest" : undefined;
-  }
-}
-
-/** Fill `play` on an evaluated frame `animate` value when the spec omitted it. */
-export function applyFrameAnimatePlay(raw: unknown): unknown {
-  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return raw;
-  const o = raw as Record<string, unknown>;
-  if (typeof o.play === "string" && o.play.replace(/^\./, "")) return raw;
-  const hasPath = o.pose != null || o.keys != null;
-  const play = defaultMotionPlay("frame", hasPath);
-  return play ? { ...o, play } : raw;
-}
-
-/** Fill `play` from the handler site when the spec omitted it. */
-export function applySiteDefaultPlay(spec: MotionSpec, event: string): MotionSpec {
-  if (spec.play) return spec;
-  const hasPath = spec.pose != null || spec.keys != null;
-  const play = defaultMotionPlay(event, hasPath);
-  return play ? { ...spec, play } : spec;
-}
+/** @deprecated Use AnimationSpec — kept as alias for gradual renames. */
+export type MotionSpec = AnimationSpec;
 
 export const MOTION_IDENTITY: MotionSnapshot = {
   opacity: 1,
@@ -131,6 +102,20 @@ export function normalizeTransition(raw: unknown): MotionTransition | undefined 
   return {
     duration,
     easing,
+    delay: Number.isFinite(delay) && delay > 0 ? delay : 0,
+  };
+}
+
+export function normalizeAnimationTiming(raw: unknown): AnimationTiming | undefined {
+  if (raw == null) return undefined;
+  if (typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  const duration = Number(o.duration);
+  if (!Number.isFinite(duration) || duration < 0) return undefined;
+  const delay = Number(o.delay);
+  return {
+    duration,
+    ease: o.ease ?? o.easing ?? "linear",
     delay: Number.isFinite(delay) && delay > 0 ? delay : 0,
   };
 }
