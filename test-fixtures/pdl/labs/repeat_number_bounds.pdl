@@ -1,0 +1,82 @@
+// Lab: Repeat + Number(min:, max:) — page control + nested grid.
+
+type PageCount = Number(min: 2, max: 10)
+
+component LabDot(
+  selected: Bool = false
+) layout {
+  width = 8
+  height = 8
+  cornerRadius = 50
+  if selected {
+    background = #007AFF
+  } else {
+    background = #C7C7CC
+  }
+}
+
+component LabPageControl(
+  numberOfPages: PageCount = 3,
+  currentPage: Number(min: 1) = 1
+) layout {
+  direction = .row
+  align = .center
+  gap = 8
+  padding = EdgeInsets(x: 12, y: 8)
+
+  let dots = Repeat(count: numberOfPages) { i in
+    LabDot(selected: i == currentPage)
+  }
+  children = dots
+}
+
+component LabCell(
+  page: Number = 1,
+  row: Number = 1
+) layout {
+  width = 24
+  height = 16
+  background = #34C759
+  cornerRadius = 4
+}
+
+component LabNestedRepeat(
+  pages: Number(min: 1, max: 4) = 2,
+  rows: Number(min: 1, max: 4) = 2
+) layout {
+  direction = .column
+  gap = 8
+
+  children = Repeat(count: pages) { page in
+    Layout(
+      direction: .row,
+      gap: 4,
+      children: Repeat(count: rows) { row in
+        LabCell(page: page, row: row)
+      }
+    )
+  }
+}
+
+component LabRepeatRoot() layout {
+  direction = .column
+  gap = 16
+  padding = 16
+  background = #FFFFFF
+
+  let pages = LabPageControl(numberOfPages: 4, currentPage: 2)
+  let grid = LabNestedRepeat(pages: 2, rows: 3)
+  children = [pages, grid]
+}
+
+fixtures LabPageControl {
+  example "default" {}
+  example "pageOne" {
+    numberOfPages = 3
+    currentPage = 1
+  }
+}
+
+fixtures LabRepeatRoot {
+  example "default" {}
+}

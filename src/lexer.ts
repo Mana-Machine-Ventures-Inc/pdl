@@ -91,6 +91,7 @@ export type TokenKind =
   | "="
   | "=="
   | "!="
+  | "!"
   | ":"
   | ","
   | "+="
@@ -445,6 +446,11 @@ export function tokenize(source: string, filePath = "<input>"): Token[] {
     if (two === "!=") {
       push("!=", "!=", startLine, startCol);
       bump(2);
+      continue;
+    }
+    if (c === "!") {
+      push("!", "!", startLine, startCol);
+      bump(1);
       continue;
     }
     if (two === "+=") {

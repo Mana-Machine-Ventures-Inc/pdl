@@ -70,7 +70,9 @@ fn assert_valid_hidden_rhs(
     design: &DesignDefinition,
 ) -> Result<(), PdlError> {
     match value {
-        ValueExpr::Boolean { .. } | ValueExpr::Condition { .. } => return Ok(()),
+        ValueExpr::Boolean { .. } | ValueExpr::Condition { .. } | ValueExpr::Not { .. } => {
+            return Ok(())
+        }
         ValueExpr::DotEnum { value } => {
             let raw = strip_leading_dot(value);
             if raw == "true" || raw == "false" {
@@ -829,6 +831,12 @@ fn collect_unique_frame_ids_from_body(
                 }
                 seen.insert(id.clone());
             }
+            FrameBodyItem::LetRepeat { id, .. } => {
+                if seen.contains(id) {
+                    return Err(dup(id));
+                }
+                seen.insert(id.clone());
+            }
             FrameBodyItem::If { chain } => {
                 for br in &chain.branches {
                     collect_unique_frame_ids_from_body(&br.body, seen, component_name, design)?;
@@ -1011,6 +1019,9 @@ fn assert_forward_frame_visibility(
             FrameBodyItem::LetInstance { id, .. } => {
                 declared.insert(id.clone());
             }
+            FrameBodyItem::LetRepeat { id, .. } => {
+                declared.insert(id.clone());
+            }
             FrameBodyItem::If { chain } => {
                 for br in &chain.branches {
                     assert_forward_frame_visibility(
@@ -1175,6 +1186,19 @@ fn validate_fixtures_for_component(
                     ex.label, component_name, b.name
                 ),
             )?;
+            if let Some(bounds) = crate::number_bounds::effective_number_bounds(design, p) {
+                if let ValueExpr::Number { value } = &b.value {
+                    crate::number_bounds::assert_number_in_bounds(
+                        design,
+                        &bounds,
+                        *value,
+                        &format!(
+                            "fixture \"{}\" for `{}.{}`",
+                            ex.label, component_name, b.name
+                        ),
+                    )?;
+                }
+            }
         }
     }
     Ok(())
@@ -2470,6 +2494,7 @@ fn value_expr_kind_name(value: &ValueExpr) -> &'static str {
         ValueExpr::Number { .. } => "number",
         ValueExpr::Ratio { .. } => "ratio",
         ValueExpr::Boolean { .. } => "boolean",
+        ValueExpr::Not { .. } => "not",
         ValueExpr::Null => "null",
         ValueExpr::Condition { .. } => "condition",
         ValueExpr::Ident { .. } => "ident",
@@ -3182,6 +3207,7 @@ fn assert_known_param_type(
     if is_builtin_param_type(name)
         || design.variants.contains_key(name)
         || design.components.contains_key(name)
+        || design.type_aliases.contains_key(name)
     {
         return Ok(());
     }
@@ -3197,6 +3223,26 @@ fn assert_known_param_type(
 }
 
 fn validate_param_types(design: &DesignDefinition) -> Result<(), PdlError> {
+    for (name, alias) in &design.type_aliases {
+        if alias.base != "Number" {
+            return Err(err(
+                "PDL-E039",
+                format!("Type alias `{name}` must be `Number(…)` (got `{}`)", alias.base),
+                design,
+            ));
+        }
+        if design.variants.contains_key(name)
+            || design.components.contains_key(name)
+            || design.protocols.contains_key(name)
+            || is_builtin_param_type(name)
+        {
+            return Err(err(
+                "PDL-E003",
+                format!("Type alias `{name}` collides with an existing type name"),
+                design,
+            ));
+        }
+    }
     for c in design.components.values() {
         for p in &c.params {
             assert_known_param_type(
@@ -3204,6 +3250,16 @@ fn validate_param_types(design: &DesignDefinition) -> Result<(), PdlError> {
                 &p.type_name,
                 &format!("on component `{}` parameter `{}`", c.name, p.name),
             )?;
+            if p.number_bounds.is_some() && p.type_name != "Number" {
+                return Err(err(
+                    "PDL-E039",
+                    format!(
+                        "Number bounds on `{}.{}` require type `Number` (got `{}`)",
+                        c.name, p.name, p.type_name
+                    ),
+                    design,
+                ));
+            }
         }
     }
     for h in design.hosts.values() {
@@ -3788,6 +3844,34 @@ fn collect_instances_from_child_entry(entry: &ChildEntry, out: &mut HashSet<Stri
                 }
             }
         }
+        ChildEntry::Repeat { body, .. } => {
+            for item in body {
+                match item {
+                    crate::ast::RepeatBodyItem::Entry(e) => {
+                        collect_instances_from_child_entry(e, out);
+                    }
+                    crate::ast::RepeatBodyItem::If {
+                        branches,
+                        else_body,
+                    } => {
+                        for br in branches {
+                            for it in &br.body {
+                                if let crate::ast::RepeatBodyItem::Entry(e) = it {
+                                    collect_instances_from_child_entry(e, out);
+                                }
+                            }
+                        }
+                        if let Some(else_body) = else_body {
+                            for it in else_body {
+                                if let crate::ast::RepeatBodyItem::Entry(e) = it {
+                                    collect_instances_from_child_entry(e, out);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         _ => {}
     }
 }
@@ -3806,6 +3890,34 @@ fn collect_mounted_component_types(body: &[FrameBodyItem], out: &mut HashSet<Str
             FrameBodyItem::Children { entries, .. } => {
                 for e in entries {
                     collect_instances_from_child_entry(e, out);
+                }
+            }
+            FrameBodyItem::LetRepeat { body, .. } => {
+                for item in body {
+                    match item {
+                        crate::ast::RepeatBodyItem::Entry(e) => {
+                            collect_instances_from_child_entry(e, out);
+                        }
+                        crate::ast::RepeatBodyItem::If {
+                            branches,
+                            else_body,
+                        } => {
+                            for br in branches {
+                                for it in &br.body {
+                                    if let crate::ast::RepeatBodyItem::Entry(e) = it {
+                                        collect_instances_from_child_entry(e, out);
+                                    }
+                                }
+                            }
+                            if let Some(else_body) = else_body {
+                                for it in else_body {
+                                    if let crate::ast::RepeatBodyItem::Entry(e) = it {
+                                        collect_instances_from_child_entry(e, out);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
             FrameBodyItem::Let { body, .. } | FrameBodyItem::ForEach { body, .. } => {

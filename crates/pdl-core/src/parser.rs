@@ -139,6 +139,9 @@ impl Parser {
             TokenKind::Catalog => Ok(TopLevelDecl::Catalog(self.parse_catalog()?)),
             TokenKind::Host => Ok(TopLevelDecl::Host(self.parse_host_profile()?)),
             TokenKind::TypeStyle => Ok(TopLevelDecl::TypeStyle(self.parse_type_style()?)),
+            TokenKind::Ident if self.peek().value == "type" => {
+                Ok(TopLevelDecl::TypeAlias(self.parse_type_alias()?))
+            }
             TokenKind::Variant => Ok(TopLevelDecl::Variant(self.parse_variant()?)),
             TokenKind::Protocol => Ok(TopLevelDecl::Protocol(self.parse_protocol()?)),
             TokenKind::Component => Ok(TopLevelDecl::Component(self.parse_component()?)),
@@ -210,15 +213,106 @@ impl Parser {
         Err(self.err(format!("Expected parameter type name, got {:?}", t.kind)))
     }
 
-    /// `Type` or `[Type]` (array / slot list).
-    fn parse_param_type(&mut self) -> Result<(String, bool), PdlError> {
+    /// `Type`, `[Type]`, or `Number(min:, max:)` (bounds only on Number).
+    fn parse_param_type(&mut self) -> Result<(String, bool, Option<NumberBounds>), PdlError> {
         if self.is(TokenKind::LBracket) {
             self.advance();
             let element = self.consume_param_type_name()?;
             self.consume(TokenKind::RBracket)?;
-            return Ok((element, true));
+            return Ok((element, true, None));
         }
-        Ok((self.consume_param_type_name()?, false))
+        let type_name = self.consume_param_type_name()?;
+        let bounds = if type_name == "Number" && self.is(TokenKind::LParen) {
+            Some(self.parse_number_bounds_args()?)
+        } else {
+            None
+        };
+        Ok((type_name, false, bounds))
+    }
+
+    /// `(min: 2, max: 10)` after `Number` — literals only.
+    fn parse_number_bounds_args(&mut self) -> Result<NumberBounds, PdlError> {
+        self.consume(TokenKind::LParen)?;
+        let mut min = None;
+        let mut max = None;
+        if !self.is(TokenKind::RParen) {
+            loop {
+                let lab = self.consume(TokenKind::Ident)?.value;
+                self.consume(TokenKind::Colon)?;
+                let ValueExpr::Number { value } = self.parse_value_expr()? else {
+                    return Err(self.err(format!(
+                        "`Number({lab}:)` expects a numeric literal"
+                    )));
+                };
+                match lab.as_str() {
+                    "min" => {
+                        if min.is_some() {
+                            return Err(self.err("Duplicate `min:` in Number bounds"));
+                        }
+                        min = Some(value);
+                    }
+                    "max" => {
+                        if max.is_some() {
+                            return Err(self.err("Duplicate `max:` in Number bounds"));
+                        }
+                        max = Some(value);
+                    }
+                    other => {
+                        return Err(self.err(format!(
+                            "Unknown Number bound `{other}` (expected `min` or `max`)"
+                        )));
+                    }
+                }
+                if self.is(TokenKind::RParen) {
+                    break;
+                }
+                self.consume(TokenKind::Comma)?;
+                if self.is(TokenKind::RParen) {
+                    break;
+                }
+            }
+        }
+        self.consume(TokenKind::RParen)?;
+        if min.is_none() && max.is_none() {
+            return Err(self.err("`Number()` requires at least `min:` or `max:`"));
+        }
+        if let (Some(lo), Some(hi)) = (min, max) {
+            if lo > hi {
+                return Err(self.err(format!(
+                    "`Number(min: {lo}, max: {hi})` has min greater than max"
+                )));
+            }
+        }
+        Ok(NumberBounds { min, max })
+    }
+
+    fn parse_type_alias(&mut self) -> Result<TypeAliasDecl, PdlError> {
+        let intro = self.consume(TokenKind::Ident)?;
+        if intro.value != "type" {
+            return Err(self.err("Expected `type` alias introducer"));
+        }
+        let name = self.consume(TokenKind::Ident)?.value;
+        self.consume(TokenKind::Eq)?;
+        let base = self.consume_param_type_name()?;
+        if base != "Number" {
+            return Err(self.err_code(
+                "PDL-E039",
+                format!(
+                    "`type {name} =` only supports `Number(…)` aliases in v1 (got `{base}`)"
+                ),
+            ));
+        }
+        if !self.is(TokenKind::LParen) {
+            return Err(self.err(format!(
+                "`type {name} = Number` requires bounds: `Number(min:, max:)`"
+            )));
+        }
+        let number_bounds = Some(self.parse_number_bounds_args()?);
+        Ok(TypeAliasDecl {
+            name,
+            base,
+            number_bounds,
+        })
     }
 
     fn consume_token_type_name(&mut self) -> Result<String, PdlError> {
@@ -308,13 +402,14 @@ impl Parser {
             loop {
                 let pname = self.consume_param_name()?;
                 self.consume(TokenKind::Colon)?;
-                let (type_name, is_array) = self.parse_param_type()?;
+                let (type_name, is_array, number_bounds) = self.parse_param_type()?;
                 self.consume(TokenKind::Eq)?;
                 let default_value = self.parse_value_expr()?;
                 params.push(ComponentParam {
                     name: pname,
                     type_name,
                     is_array,
+                    number_bounds,
                     default_value,
                 });
                 if self.is(TokenKind::RParen) {
@@ -1020,7 +1115,7 @@ impl Parser {
     fn parse_sample_field(&mut self) -> Result<crate::ast::SampleFieldDecl, PdlError> {
         let name = self.consume(TokenKind::Ident)?.value;
         self.consume(TokenKind::Colon)?;
-        let (type_name, is_array) = self.parse_param_type()?;
+        let (type_name, is_array, _bounds) = self.parse_param_type()?;
         self.consume(TokenKind::Eq)?;
         let value = self.parse_value_expr()?;
         Ok(crate::ast::SampleFieldDecl {
@@ -1456,11 +1551,11 @@ impl Parser {
     /// Protocol / optional-typed param: `name: Type = default` or `name = default`.
     fn parse_protocol_param(&mut self) -> Result<ComponentParam, PdlError> {
         let pname = self.consume(TokenKind::Ident)?.value;
-        let (mut type_name, is_array) = if self.is(TokenKind::Colon) {
+        let (mut type_name, is_array, number_bounds) = if self.is(TokenKind::Colon) {
             self.advance();
             self.parse_param_type()?
         } else {
-            (String::new(), false)
+            (String::new(), false, None)
         };
         self.consume(TokenKind::Eq)?;
         let default_value = self.parse_value_expr()?;
@@ -1487,6 +1582,7 @@ impl Parser {
             name: pname,
             type_name,
             is_array,
+            number_bounds,
             default_value,
         })
     }
@@ -1681,13 +1777,14 @@ impl Parser {
             loop {
                 let pname = self.consume(TokenKind::Ident)?.value;
                 self.consume(TokenKind::Colon)?;
-                let (type_name, is_array) = self.parse_param_type()?;
+                let (type_name, is_array, number_bounds) = self.parse_param_type()?;
                 self.consume(TokenKind::Eq)?;
                 let default_value = self.parse_value_expr()?;
                 params.push(ComponentParam {
                     name: pname,
                     type_name,
                     is_array,
+                    number_bounds,
                     default_value,
                 });
                 if self.is(TokenKind::RParen) {
@@ -1808,7 +1905,7 @@ impl Parser {
         let id = self.peek().clone();
         if id.kind == TokenKind::Ident {
             let name = id.value;
-            // ForEach(list) { … }
+            // ForEach(list) { … } / Repeat(count:) { i in … }
             if name == "ForEach" && self.peek_ahead_kind(1) == TokenKind::LParen {
                 self.advance();
                 return self.parse_foreach();
@@ -1900,6 +1997,142 @@ impl Parser {
         let body = self.parse_foreach_body_until_close(&list, &item)?;
         self.consume(TokenKind::RBrace)?;
         Ok(FrameBodyItem::ForEach { list, item, body })
+    }
+
+    /// `Repeat(count: n [, begin: b]) { i in … }` as a children RHS / child entry.
+    fn parse_repeat_child_entry(&mut self) -> Result<ChildEntry, PdlError> {
+        self.consume(TokenKind::LParen)?;
+        let mut count: Option<ValueExpr> = None;
+        let mut begin: Option<ValueExpr> = None;
+        if self.is(TokenKind::RParen) {
+            return Err(self.err("`Repeat(…)` requires `count:`"));
+        }
+        loop {
+            let lab = self.consume(TokenKind::Ident)?.value;
+            self.consume(TokenKind::Colon)?;
+            let value = self.parse_value_expr()?;
+            match lab.as_str() {
+                "count" => {
+                    if count.is_some() {
+                        return Err(self.err("Duplicate `count:` in Repeat"));
+                    }
+                    count = Some(value);
+                }
+                "begin" => {
+                    if begin.is_some() {
+                        return Err(self.err("Duplicate `begin:` in Repeat"));
+                    }
+                    begin = Some(value);
+                }
+                other => {
+                    return Err(self.err(format!(
+                        "Unknown Repeat arg `{other}` (expected `count` or `begin`)"
+                    )));
+                }
+            }
+            if self.is(TokenKind::RParen) {
+                break;
+            }
+            self.consume(TokenKind::Comma)?;
+            if self.is(TokenKind::RParen) {
+                break;
+            }
+        }
+        self.consume(TokenKind::RParen)?;
+        let Some(count) = count else {
+            return Err(self.err("`Repeat(…)` requires `count:`"));
+        };
+        self.consume(TokenKind::LBrace)?;
+        let binder = self.consume(TokenKind::Ident)?.value;
+        if !self.is(TokenKind::In) {
+            return Err(self.err(format!(
+                "Repeat requires a binder: `Repeat(…) {{ {binder} in … }}` — write `{binder} in`"
+            )));
+        }
+        self.advance(); // `in`
+        let body = self.parse_repeat_body_until_close(&binder)?;
+        self.consume(TokenKind::RBrace)?;
+        Ok(ChildEntry::Repeat {
+            count,
+            begin,
+            binder,
+            body,
+        })
+    }
+
+    fn parse_repeat_body_until_close(
+        &mut self,
+        binder: &str,
+    ) -> Result<Vec<RepeatBodyItem>, PdlError> {
+        let mut body = Vec::new();
+        while !self.is(TokenKind::RBrace) {
+            body.push(self.parse_repeat_body_item(binder)?);
+        }
+        Ok(body)
+    }
+
+    fn parse_repeat_body_item(&mut self, binder: &str) -> Result<RepeatBodyItem, PdlError> {
+        if self.is(TokenKind::If) {
+            let (branches, else_body) = self.parse_repeat_if_chain(binder)?;
+            return Ok(RepeatBodyItem::If {
+                branches,
+                else_body,
+            });
+        }
+        if self.is(TokenKind::Let) {
+            return Err(self.err(
+                "Repeat body cannot declare `let` bindings; mount instances or `if` / `else`",
+            ));
+        }
+        let entry = self.parse_child_entry()?;
+        match &entry {
+            ChildEntry::FrameRef { id, .. } => {
+                return Err(self.err(format!(
+                    "Repeat body cannot mount bare frame id `{id}`; use `Component(…)` or `Layout(…)`"
+                )));
+            }
+            ChildEntry::ForEach { .. } => {
+                return Err(self.err("ForEach is not allowed inside Repeat"));
+            }
+            _ => {}
+        }
+        Ok(RepeatBodyItem::Entry(entry))
+    }
+
+    fn parse_repeat_if_chain(
+        &mut self,
+        binder: &str,
+    ) -> Result<(Vec<RepeatIfBranch>, Option<Vec<RepeatBodyItem>>), PdlError> {
+        let mut branches: Vec<RepeatIfBranch> = Vec::new();
+        self.consume(TokenKind::If)?;
+        let c0 = self.parse_condition_expr()?;
+        self.consume(TokenKind::LBrace)?;
+        let b0 = self.parse_repeat_body_until_close(binder)?;
+        self.consume(TokenKind::RBrace)?;
+        branches.push(RepeatIfBranch {
+            condition: c0,
+            body: b0,
+        });
+        while self.is(TokenKind::Else) {
+            self.advance();
+            if self.is(TokenKind::If) {
+                self.advance();
+                let c = self.parse_condition_expr()?;
+                self.consume(TokenKind::LBrace)?;
+                let b = self.parse_repeat_body_until_close(binder)?;
+                self.consume(TokenKind::RBrace)?;
+                branches.push(RepeatIfBranch {
+                    condition: c,
+                    body: b,
+                });
+            } else {
+                self.consume(TokenKind::LBrace)?;
+                let else_body = self.parse_repeat_body_until_close(binder)?;
+                self.consume(TokenKind::RBrace)?;
+                return Ok((branches, Some(else_body)));
+            }
+        }
+        Ok((branches, None))
     }
 
     fn parse_foreach_body_until_close(
@@ -2260,6 +2493,29 @@ impl Parser {
                     body,
                 });
             }
+            // `let dots = Repeat(count:) { i in … }` — generative mount, named for children.
+            if self.is(TokenKind::Ident)
+                && self.peek().value == "Repeat"
+                && self.peek_ahead_kind(1) == TokenKind::LParen
+            {
+                self.advance();
+                let ChildEntry::Repeat {
+                    count,
+                    begin,
+                    binder,
+                    body,
+                } = self.parse_repeat_child_entry()?
+                else {
+                    return Err(self.err("Internal: expected Repeat child entry"));
+                };
+                return Ok(FrameBodyItem::LetRepeat {
+                    id,
+                    count,
+                    begin,
+                    binder,
+                    body,
+                });
+            }
             // `let x = Comp(…)` → instance; `let blur = Blur(…)` → value let (inferred)
             let value = self.parse_value_expr()?;
             if let ValueExpr::Instance { component, kwargs } = value {
@@ -2465,6 +2721,13 @@ impl Parser {
     }
 
     fn parse_cond_atom(&mut self) -> Result<ConditionExpr, PdlError> {
+        if self.is(TokenKind::Bang) {
+            self.advance();
+            let inner = self.parse_cond_atom()?;
+            return Ok(ConditionExpr::Not {
+                expr: Box::new(inner),
+            });
+        }
         if self.is(TokenKind::LParen) {
             self.advance();
             let inner = self.parse_cond_or()?;
@@ -2546,6 +2809,13 @@ impl Parser {
     }
 
     pub fn parse_value_expr(&mut self) -> Result<ValueExpr, PdlError> {
+        if self.is(TokenKind::Bang) {
+            self.advance();
+            let inner = self.parse_value_expr()?;
+            return Ok(ValueExpr::Not {
+                expr: Box::new(inner),
+            });
+        }
         // Comparison as a value (ForEach binds / kwargs): `self.currentFilter == filter`
         if self.looks_like_condition_start() {
             let start = self.index;
@@ -3296,8 +3566,15 @@ impl Parser {
         Ok(args)
     }
 
-    /// `children = […]` or bare `children = chips` / `children = Tracks.focus.tracks`.
+    /// `children = […]` or bare `children = chips` / `children = Repeat(…)`.
     fn parse_children_rhs(&mut self) -> Result<Vec<ChildEntry>, PdlError> {
+        if self.is(TokenKind::Ident)
+            && self.peek().value == "Repeat"
+            && self.peek_ahead_kind(1) == TokenKind::LParen
+        {
+            self.advance();
+            return Ok(vec![self.parse_repeat_child_entry()?]);
+        }
         if self.is(TokenKind::Ident) && self.peek_ahead_kind(1) != TokenKind::LParen {
             let id = self.parse_qualified_name()?;
             let opacity = self.parse_optional_child_opacity()?;
@@ -3332,6 +3609,13 @@ impl Parser {
             return Err(self.err(
                 "`Effect(…)` is a frame property, not a child — set `effect =` on a layout (or `blur = n` for self blur)",
             ));
+        }
+        if self.is(TokenKind::Ident)
+            && self.peek().value == "Repeat"
+            && self.peek_ahead_kind(1) == TokenKind::LParen
+        {
+            self.advance();
+            return self.parse_repeat_child_entry();
         }
         // World A frame ctors: Ident (`Text`/`Layout`) or keywords (`Icon`/`Media`).
         if let Some(ctor) = self.peek_frame_ctor_name() {
@@ -3497,7 +3781,7 @@ impl Parser {
             let lab = self.consume_frame_field_name()?;
             self.consume(TokenKind::Colon)?;
             if lab == "children" {
-                child_entries = Some(self.parse_children_list()?);
+                child_entries = Some(self.parse_children_rhs()?);
             } else {
                 props.insert(lab, self.parse_value_expr()?);
             }
@@ -3972,19 +4256,136 @@ fn finish_presentation_motion(
 }
 
 /// Lift `self.<channel> = { … }` items out of a kind body into interaction handlers.
+/// Handlers may appear at the top level or inside layout `if` / `else` (and nested
+/// frame `let` bodies). Layout `if` conditions are preserved as handler `if` chains
+/// so `if destination == .one { self.pressEnd = { emit goHome() } }` works.
 fn extract_host_handlers(body: &mut Vec<FrameBodyItem>) -> Vec<InteractionHandler> {
-    let mut handlers = Vec::new();
-    let mut rest = Vec::new();
-    for item in std::mem::take(body) {
+    let mut by_event: indexmap::IndexMap<String, Vec<InteractionHandlerItem>> =
+        indexmap::IndexMap::new();
+    *body = extract_host_handlers_from_items(std::mem::take(body), &mut by_event);
+    by_event
+        .into_iter()
+        .map(|(event, body)| InteractionHandler { event, body })
+        .collect()
+}
+
+fn extract_host_handlers_from_items(
+    items: Vec<FrameBodyItem>,
+    by_event: &mut indexmap::IndexMap<String, Vec<InteractionHandlerItem>>,
+) -> Vec<FrameBodyItem> {
+    let mut out = Vec::new();
+    for item in items {
         match item {
             FrameBodyItem::HostHandler { event, body } => {
-                handlers.push(InteractionHandler { event, body });
+                by_event.entry(event).or_default().extend(body);
             }
-            other => rest.push(other),
+            FrameBodyItem::If { chain } => {
+                let (cleaned, lifted) = extract_host_handlers_from_if_chain(chain);
+                for (event, handler_item) in lifted {
+                    by_event.entry(event).or_default().push(handler_item);
+                }
+                if !if_chain_layout_empty(&cleaned) {
+                    out.push(FrameBodyItem::If { chain: cleaned });
+                }
+            }
+            FrameBodyItem::Let {
+                id,
+                frame_kind,
+                body,
+            } => {
+                let body = extract_host_handlers_from_items(body, by_event);
+                out.push(FrameBodyItem::Let {
+                    id,
+                    frame_kind,
+                    body,
+                });
+            }
+            other => out.push(other),
         }
     }
-    *body = rest;
-    handlers
+    out
+}
+
+fn if_chain_layout_empty(chain: &IfChain) -> bool {
+    chain.branches.iter().all(|b| b.body.is_empty())
+        && chain
+            .else_body
+            .as_ref()
+            .map(|b| b.is_empty())
+            .unwrap_or(true)
+}
+
+fn extract_host_handlers_from_if_chain(
+    chain: IfChain,
+) -> (
+    IfChain,
+    indexmap::IndexMap<String, InteractionHandlerItem>,
+) {
+    let mut cleaned_branches: Vec<IfBranch> = Vec::new();
+    let mut branch_maps: Vec<(
+        ConditionExpr,
+        indexmap::IndexMap<String, Vec<InteractionHandlerItem>>,
+    )> = Vec::new();
+
+    for br in chain.branches {
+        let mut map = indexmap::IndexMap::new();
+        let body = extract_host_handlers_from_items(br.body, &mut map);
+        branch_maps.push((br.condition.clone(), map));
+        cleaned_branches.push(IfBranch {
+            condition: br.condition,
+            body,
+        });
+    }
+
+    let mut else_map: indexmap::IndexMap<String, Vec<InteractionHandlerItem>> =
+        indexmap::IndexMap::new();
+    let had_else = chain.else_body.is_some();
+    let cleaned_else = chain
+        .else_body
+        .map(|body| extract_host_handlers_from_items(body, &mut else_map));
+
+    let mut events: indexmap::IndexSet<String> = indexmap::IndexSet::new();
+    for (_, m) in &branch_maps {
+        for k in m.keys() {
+            events.insert(k.clone());
+        }
+    }
+    for k in else_map.keys() {
+        events.insert(k.clone());
+    }
+
+    let mut lifted: indexmap::IndexMap<String, InteractionHandlerItem> = indexmap::IndexMap::new();
+    for event in events {
+        let branches: Vec<InteractionIfBranch> = branch_maps
+            .iter()
+            .map(|(cond, m)| InteractionIfBranch {
+                condition: cond.clone(),
+                body: m.get(&event).cloned().unwrap_or_default(),
+            })
+            .collect();
+        let else_body = if had_else {
+            Some(else_map.get(&event).cloned().unwrap_or_default())
+        } else {
+            None
+        };
+        lifted.insert(
+            event,
+            InteractionHandlerItem::If {
+                chain: InteractionIfChain {
+                    branches,
+                    else_body,
+                },
+            },
+        );
+    }
+
+    (
+        IfChain {
+            branches: cleaned_branches,
+            else_body: cleaned_else,
+        },
+        lifted,
+    )
 }
 
 pub fn parse_module_source(source: &str, path: &str) -> Result<ModuleAst, PdlError> {

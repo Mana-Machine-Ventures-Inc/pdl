@@ -54,7 +54,7 @@ usage IosProgressBar {
 }
 
 usage IosPageControl {
-  description = "Carousel page dots. Folded from Figma Page control (Dots 2–5 × Selection); 6–7 / 8+ and shrinking dots deferred."
+  description = "Carousel page dots. numberOfPages + currentPage with Repeat; HIG ceilings via Number bounds."
 }
 
 usage IosMaterialSwatch {
@@ -339,16 +339,16 @@ fixtures IosProgressBar {
 
 fixtures IosPageControl {
   example "Three · first" {
-    count = .three
-    selected = .one
+    numberOfPages = 3
+    currentPage = 1
   }
   example "Five · third" {
-    count = .five
-    selected = .three
+    numberOfPages = 5
+    currentPage = 3
   }
   example "Five · Dark" {
-    count = .five
-    selected = .three
+    numberOfPages = 5
+    currentPage = 3
     theme = "Dark"
   }
 }

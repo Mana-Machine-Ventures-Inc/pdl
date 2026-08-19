@@ -28,16 +28,15 @@ pub enum ConditionExpr {
     Truthy {
         param: String,
     },
+    /// Prefix `!` on a condition atom (`if !selected { … }`).
+    Not {
+        expr: Box<ConditionExpr>,
+    },
     And {
         items: Vec<ConditionExpr>,
     },
     Or {
         items: Vec<ConditionExpr>,
-    },
-    /// Synthesised when flattening `rules` `else` / prior-branch negations
-    /// (not a PDL `if` atom).
-    Not {
-        expr: Box<ConditionExpr>,
     },
 }
 
@@ -95,6 +94,10 @@ pub enum ValueExpr {
     },
     Boolean {
         value: bool,
+    },
+    /// Unary Bool negation: `!isOn` / `isOn = !isOn`.
+    Not {
+        expr: Box<ValueExpr>,
     },
     /// Unset a frame property (`prop = null`) — pretend it was never set.
     Null,
@@ -241,6 +244,13 @@ pub enum ValueExpr {
     },
 }
 
+/// Coherence bounds on a `Number` param or `type Name = Number(min:, max:)`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NumberBounds {
+    pub min: Option<f64>,
+    pub max: Option<f64>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComponentParam {
     pub name: String,
@@ -248,7 +258,34 @@ pub struct ComponentParam {
     pub type_name: String,
     /// True when declared as `[T]` (array / slot list).
     pub is_array: bool,
+    /// Optional `Number(min:, max:)` on this param (or resolved from a type alias).
+    pub number_bounds: Option<NumberBounds>,
     pub default_value: ValueExpr,
+}
+
+/// `type PageCount = Number(min: 2, max: 10)` — named Number constraints.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TypeAliasDecl {
+    pub name: String,
+    /// Underlying type (`Number` only in v1).
+    pub base: String,
+    pub number_bounds: Option<NumberBounds>,
+}
+
+/// One statement inside `Repeat(…) { i in … }` (mounts + equality `if`).
+#[derive(Debug, Clone, PartialEq)]
+pub enum RepeatBodyItem {
+    Entry(ChildEntry),
+    If {
+        branches: Vec<RepeatIfBranch>,
+        else_body: Option<Vec<RepeatBodyItem>>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RepeatIfBranch {
+    pub condition: ConditionExpr,
+    pub body: Vec<RepeatBodyItem>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -277,6 +314,14 @@ pub enum ChildEntry {
     ForEach {
         list: String,
         binds: IndexMap<String, ValueExpr>,
+    },
+    /// Bake-time generative mount: `Repeat(count:, begin: = 1) { i in … }`.
+    Repeat {
+        count: ValueExpr,
+        /// Origin of binder `i`; default `1` when `None`.
+        begin: Option<ValueExpr>,
+        binder: String,
+        body: Vec<RepeatBodyItem>,
     },
 }
 
@@ -311,6 +356,14 @@ pub enum FrameBodyItem {
         id: String,
         component: String,
         kwargs: IndexMap<String, ValueExpr>,
+    },
+    /// `let dots = Repeat(count:) { i in … }` — mount via `children = dots` (or in a list).
+    LetRepeat {
+        id: String,
+        count: ValueExpr,
+        begin: Option<ValueExpr>,
+        binder: String,
+        body: Vec<RepeatBodyItem>,
     },
     /// Local typed value: `let ramp: Ramp = Ramp(…)` — not a frame.
     LetValue {
@@ -970,6 +1023,7 @@ pub enum TopLevelDecl {
     Catalog(CatalogDecl),
     Host(HostDecl),
     TypeStyle(TypeStyleDecl),
+    TypeAlias(TypeAliasDecl),
     Variant(VariantDecl),
     Protocol(ProtocolDecl),
     Component(ComponentDecl),

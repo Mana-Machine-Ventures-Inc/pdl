@@ -147,6 +147,8 @@ struct SlotResolveCtx {
     host: Option<Map<String, Value>>,
     /// Fixture / bake pins: presenter let id → stack + optional cover.
     presenter_pins: HashMap<String, crate::presenter::PresenterPin>,
+    /// `let dots = Repeat(…) { … }` — expanded when `children` mounts `dots`.
+    repeat_lets: HashMap<String, ChildEntry>,
 }
 
 /// `chips` or `[chips]` used as a list-forward / mount reference in kwargs.
@@ -593,6 +595,18 @@ fn eval_hidden_expr(
     match value {
         ValueExpr::Condition { expr } => return Ok(evaluate_condition(expr, &scoped)),
         ValueExpr::Boolean { value } => return Ok(*value),
+        ValueExpr::Not { expr } => {
+            let inner = eval_hidden_expr(
+                expr,
+                design,
+                tokens,
+                param_values,
+                param_meta,
+                local_values,
+                opts,
+            )?;
+            return Ok(!inner);
+        }
         ValueExpr::DotEnum { value } => {
             let raw = strip_leading_dot(value);
             if raw == "true" || raw == "false" {
@@ -802,11 +816,14 @@ fn eval_param_default(
 fn build_param_meta(design: &DesignDefinition, c: &ComponentDecl) -> Result<ParamMeta, PdlError> {
     let mut m = ParamMeta::new();
     for p in effective_params(design, c)? {
+        let bounds = crate::number_bounds::effective_number_bounds(design, &p);
         m.insert(
             p.name,
             crate::evaluate::ParamTypeMeta {
                 type_name: p.type_name,
                 is_array: p.is_array,
+                min: bounds.as_ref().and_then(|b| b.min),
+                max: bounds.as_ref().and_then(|b| b.max),
             },
         );
     }
@@ -1062,9 +1079,34 @@ fn process_frame_items(
                 };
                 let kind = frame_kind_or_layout(frames, &tid);
                 ensure_frame(frames, &tid, &kind);
-                frames.get_mut(&tid).unwrap().child_entries = entries.clone();
-                // Mount annotations: `Pic @ 0.5` → set child frame opacity (later Pic.opacity wins).
+                // `let dots = Repeat(…)` then `children = dots` → splice the Repeat entry.
+                let mut rewritten = Vec::with_capacity(entries.len());
                 for e in entries {
+                    match e {
+                        ChildEntry::FrameRef { id, opacity } => {
+                            if let Some(rep) = slot_ctx.repeat_lets.get(id) {
+                                if opacity.is_some() {
+                                    return Err(PdlError::new(
+                                        "PDL-E001",
+                                        format!(
+                                            "Cannot apply `@` opacity to Repeat let `{id}` — set opacity on each Repeated child instead"
+                                        ),
+                                        Some(entry_path.clone()),
+                                        None,
+                                        None,
+                                    ));
+                                }
+                                rewritten.push(rep.clone());
+                            } else {
+                                rewritten.push(e.clone());
+                            }
+                        }
+                        other => rewritten.push(other.clone()),
+                    }
+                }
+                frames.get_mut(&tid).unwrap().child_entries = rewritten.clone();
+                // Mount annotations: `Pic @ 0.5` → set child frame opacity (later Pic.opacity wins).
+                for e in &rewritten {
                     if let ChildEntry::FrameRef {
                         id: cid,
                         opacity: Some(op),
@@ -1106,6 +1148,23 @@ fn process_frame_items(
                     opts,
                     component_root_id,
                 )?;
+            }
+            FrameBodyItem::LetRepeat {
+                id,
+                count,
+                begin,
+                binder,
+                body,
+            } => {
+                slot_ctx.repeat_lets.insert(
+                    id.clone(),
+                    ChildEntry::Repeat {
+                        count: count.clone(),
+                        begin: begin.clone(),
+                        binder: binder.clone(),
+                        body: body.clone(),
+                    },
+                );
             }
             FrameBodyItem::LetValue {
                 id,
@@ -1336,6 +1395,7 @@ fn resolve_component_tree_with_list_forwards(
         param_values.insert(k.clone(), v.clone());
     }
     sync_editable_text_facts(design, &c, &mut param_values, param_overrides)?;
+    assert_param_number_bounds(design, &c, &param_values)?;
     let param_meta = build_param_meta(design, &c)?;
     let mut frames: HashMap<String, MutableFrame> = HashMap::new();
     frames.insert(
@@ -1468,6 +1528,531 @@ fn mount_instance(
 }
 
 /// Expand slot / list instances from `children = […]`, applying slot + ForEach overlays.
+fn assert_param_number_bounds(
+    design: &DesignDefinition,
+    c: &ComponentDecl,
+    param_values: &ParamValues,
+) -> Result<(), PdlError> {
+    for p in effective_params(design, c)? {
+        let Some(bounds) = crate::number_bounds::effective_number_bounds(design, &p) else {
+            continue;
+        };
+        let Some(v) = param_values.get(&p.name) else {
+            continue;
+        };
+        let Some(n) = crate::number_bounds::value_as_f64(v) else {
+            continue;
+        };
+        crate::number_bounds::assert_number_in_bounds(
+            design,
+            &bounds,
+            n,
+            &format!("parameter `{}.{}`", c.name, p.name),
+        )?;
+    }
+    Ok(())
+}
+
+fn expand_repeat_entry(
+    parent_id: &str,
+    count_expr: &ValueExpr,
+    begin_expr: Option<&ValueExpr>,
+    binder: &str,
+    body: &[crate::ast::RepeatBodyItem],
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+    param_values: &ParamValues,
+    param_meta: &ParamMeta,
+    slot_ctx: &SlotResolveCtx,
+    visiting_inst: &mut HashSet<String>,
+    options: ResolveOptions,
+    si: &mut usize,
+    children: &mut Vec<CatalFrame>,
+    product_so_far: u32,
+    active_binders: &HashSet<String>,
+) -> Result<(), PdlError> {
+    if active_binders.contains(binder) {
+        return Err(PdlError::new(
+            "PDL-E060",
+            format!("Repeat binder `{binder}` shadows an outer Repeat binder"),
+            Some(design.entry_path.clone()),
+            None,
+            None,
+        ));
+    }
+    let mut visiting = HashSet::new();
+    let mut ev = Eval {
+        design,
+        tokens,
+        visiting: &mut visiting,
+        param_values: Some(param_values),
+        param_meta: Some(param_meta),
+        use_string_placeholders: false,
+    };
+    let count_v = evaluate_value(count_expr, &mut ev)?;
+    let count_f = crate::number_bounds::value_as_f64(&count_v).ok_or_else(|| {
+        PdlError::new(
+            "PDL-E058",
+            format!("Repeat count must evaluate to a Number (got {count_v})"),
+            Some(design.entry_path.clone()),
+            None,
+            None,
+        )
+    })?;
+    let count = crate::number_bounds::assert_repeat_count(design, count_f, "Repeat")?;
+    let begin = if let Some(bexpr) = begin_expr {
+        let bv = evaluate_value(bexpr, &mut ev)?;
+        crate::number_bounds::value_as_f64(&bv).ok_or_else(|| {
+            PdlError::new(
+                "PDL-E058",
+                format!("Repeat begin must evaluate to a Number (got {bv})"),
+                Some(design.entry_path.clone()),
+                None,
+                None,
+            )
+        })?
+    } else {
+        1.0
+    };
+    if begin.fract() != 0.0 {
+        return Err(PdlError::new(
+            "PDL-E058",
+            format!("Repeat begin must be an integer (got {begin})"),
+            Some(design.entry_path.clone()),
+            None,
+            None,
+        ));
+    }
+    let product = product_so_far.saturating_mul(count);
+    if product > crate::number_bounds::REPEAT_PRODUCT_CEILING {
+        return Err(PdlError::new(
+            "PDL-E058",
+            format!(
+                "Nested Repeat product {product} exceeds ceiling {}",
+                crate::number_bounds::REPEAT_PRODUCT_CEILING
+            ),
+            Some(design.entry_path.clone()),
+            None,
+            None,
+        ));
+    }
+    assert_repeat_selection_in_domain(design, binder, body, param_values, begin, count)?;
+
+    let mut binders = active_binders.clone();
+    binders.insert(binder.to_string());
+    let mut scoped_meta = param_meta.clone();
+    scoped_meta.insert(
+        binder.to_string(),
+        crate::evaluate::ParamTypeMeta {
+            type_name: "Number".to_string(),
+            is_array: false,
+            min: None,
+            max: None,
+        },
+    );
+
+    for offset in 0..count {
+        let i = begin + f64::from(offset);
+        let mut scoped = param_values.clone();
+        scoped.insert(binder.to_string(), crate::stable_json::number_value(i));
+        expand_repeat_body(
+            parent_id,
+            body,
+            design,
+            tokens,
+            &scoped,
+            &scoped_meta,
+            slot_ctx,
+            visiting_inst,
+            options,
+            si,
+            children,
+            product,
+            &binders,
+        )?;
+    }
+    Ok(())
+}
+
+fn assert_repeat_selection_in_domain(
+    design: &DesignDefinition,
+    binder: &str,
+    body: &[crate::ast::RepeatBodyItem],
+    param_values: &ParamValues,
+    begin: f64,
+    count: u32,
+) -> Result<(), PdlError> {
+    let end = begin + f64::from(count) - 1.0;
+    let mut checked: HashSet<String> = HashSet::new();
+    collect_binder_eq_params(body, binder, &mut checked);
+    for param in checked {
+        let Some(v) = param_values.get(&param) else {
+            continue;
+        };
+        let Some(n) = crate::number_bounds::value_as_f64(v) else {
+            continue;
+        };
+        if n < begin || n > end {
+            return Err(PdlError::new(
+                "PDL-E059",
+                format!(
+                    "`{param}` = {n} is outside Repeat `{binder}` domain {begin}…{end}"
+                ),
+                Some(design.entry_path.clone()),
+                None,
+                None,
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn collect_binder_eq_params(
+    body: &[crate::ast::RepeatBodyItem],
+    binder: &str,
+    out: &mut HashSet<String>,
+) {
+    use crate::ast::{ConditionExpr, RepeatBodyItem};
+    fn walk_cond(expr: &ConditionExpr, binder: &str, out: &mut HashSet<String>) {
+        match expr {
+            ConditionExpr::Cmp {
+                param,
+                rhs,
+                rhs_is_param,
+                ..
+            } => {
+                if *rhs_is_param {
+                    if param == binder {
+                        out.insert(rhs.clone());
+                    } else if rhs == binder {
+                        out.insert(param.clone());
+                    }
+                }
+            }
+            ConditionExpr::And { items } | ConditionExpr::Or { items } => {
+                for i in items {
+                    walk_cond(i, binder, out);
+                }
+            }
+            ConditionExpr::Not { expr } => walk_cond(expr, binder, out),
+            ConditionExpr::Truthy { .. } => {}
+        }
+    }
+    for item in body {
+        match item {
+            RepeatBodyItem::Entry(entry) => {
+                if let ChildEntry::Instance { kwargs, .. } = entry {
+                    for v in kwargs.values() {
+                        if let ValueExpr::Condition { expr } = v {
+                            walk_cond(expr, binder, out);
+                        }
+                    }
+                }
+                if let ChildEntry::FrameCtor {
+                    child_entries: Some(cs),
+                    ..
+                } = entry
+                {
+                    for c in cs {
+                        if let ChildEntry::Repeat { body, .. } = c {
+                            collect_binder_eq_params(body, binder, out);
+                        }
+                    }
+                }
+            }
+            RepeatBodyItem::If {
+                branches,
+                else_body,
+            } => {
+                for br in branches {
+                    walk_cond(&br.condition, binder, out);
+                    collect_binder_eq_params(&br.body, binder, out);
+                }
+                if let Some(else_body) = else_body {
+                    collect_binder_eq_params(else_body, binder, out);
+                }
+            }
+        }
+    }
+}
+
+fn expand_repeat_body(
+    parent_id: &str,
+    body: &[crate::ast::RepeatBodyItem],
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+    param_values: &ParamValues,
+    param_meta: &ParamMeta,
+    slot_ctx: &SlotResolveCtx,
+    visiting_inst: &mut HashSet<String>,
+    options: ResolveOptions,
+    si: &mut usize,
+    children: &mut Vec<CatalFrame>,
+    product_so_far: u32,
+    active_binders: &HashSet<String>,
+) -> Result<(), PdlError> {
+    use crate::ast::RepeatBodyItem;
+    use crate::evaluate::evaluate_condition;
+    for item in body {
+        match item {
+            RepeatBodyItem::Entry(entry) => {
+                materialize_repeat_child(
+                    parent_id,
+                    entry,
+                    design,
+                    tokens,
+                    param_values,
+                    param_meta,
+                    slot_ctx,
+                    visiting_inst,
+                    options,
+                    si,
+                    children,
+                    product_so_far,
+                    active_binders,
+                )?;
+            }
+            RepeatBodyItem::If {
+                branches,
+                else_body,
+            } => {
+                let mut taken = false;
+                for br in branches {
+                    if evaluate_condition(&br.condition, param_values) {
+                        expand_repeat_body(
+                            parent_id,
+                            &br.body,
+                            design,
+                            tokens,
+                            param_values,
+                            param_meta,
+                            slot_ctx,
+                            visiting_inst,
+                            options,
+                            si,
+                            children,
+                            product_so_far,
+                            active_binders,
+                        )?;
+                        taken = true;
+                        break;
+                    }
+                }
+                if !taken {
+                    if let Some(else_body) = else_body {
+                        expand_repeat_body(
+                            parent_id,
+                            else_body,
+                            design,
+                            tokens,
+                            param_values,
+                            param_meta,
+                            slot_ctx,
+                            visiting_inst,
+                            options,
+                            si,
+                            children,
+                            product_so_far,
+                            active_binders,
+                        )?;
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn materialize_repeat_child(
+    parent_id: &str,
+    entry: &ChildEntry,
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+    param_values: &ParamValues,
+    param_meta: &ParamMeta,
+    slot_ctx: &SlotResolveCtx,
+    visiting_inst: &mut HashSet<String>,
+    options: ResolveOptions,
+    si: &mut usize,
+    children: &mut Vec<CatalFrame>,
+    product_so_far: u32,
+    active_binders: &HashSet<String>,
+) -> Result<(), PdlError> {
+    match entry {
+        ChildEntry::Spacer => {
+            children.push(CatalFrame {
+                id: format!("{parent_id}_spacer_{si}"),
+                kind: "spacer".to_string(),
+                props: Map::new(),
+                children: Vec::new(),
+                instance_of: None,
+                instance_kwargs: None,
+                foreach_list: None,
+            });
+            *si += 1;
+        }
+        ChildEntry::Instance {
+            component,
+            kwargs,
+            opacity,
+        } => {
+            let child_forwards =
+                collect_foreach_forwards_for_kwargs(kwargs, slot_ctx, param_values, param_meta);
+            let mut kw_overrides = Map::new();
+            for (k, expr) in kwargs {
+                let eval_expr = kwargs_expr_for_eval(k, expr, &child_forwards);
+                let mut visiting = HashSet::new();
+                let mut ev = Eval {
+                    design,
+                    tokens,
+                    visiting: &mut visiting,
+                    param_values: Some(param_values),
+                    param_meta: Some(param_meta),
+                    use_string_placeholders: false,
+                };
+                kw_overrides.insert(k.clone(), evaluate_value(eval_expr, &mut ev)?);
+            }
+            let mut child = mount_instance(
+                parent_id,
+                component,
+                kw_overrides,
+                design,
+                tokens,
+                visiting_inst,
+                options,
+                si,
+                &child_forwards,
+                slot_ctx.host.as_ref(),
+            )?;
+            if let Some(op) = opacity {
+                let mut visiting = HashSet::new();
+                let mut ev = Eval {
+                    design,
+                    tokens,
+                    visiting: &mut visiting,
+                    param_values: Some(param_values),
+                    param_meta: Some(param_meta),
+                    use_string_placeholders: false,
+                };
+                let pv = evaluate_value(op, &mut ev)?;
+                let coerced = coerce_frame_prop_value("opacity", pv, &design.entry_path)?;
+                assign_frame_prop(&mut child.props, "opacity", coerced);
+            }
+            children.push(child);
+        }
+        ChildEntry::FrameCtor {
+            frame_kind,
+            props,
+            child_entries,
+            opacity,
+        } => {
+            let mut frame_props = Map::new();
+            for (name, expr) in props {
+                let mut visiting = HashSet::new();
+                let mut ev = Eval {
+                    design,
+                    tokens,
+                    visiting: &mut visiting,
+                    param_values: Some(param_values),
+                    param_meta: Some(param_meta),
+                    use_string_placeholders: false,
+                };
+                let v = evaluate_value(expr, &mut ev)?;
+                let coerced = coerce_frame_prop_value(name, v, &design.entry_path)?;
+                assign_frame_prop(&mut frame_props, name, coerced);
+            }
+            if let Some(op) = opacity {
+                let mut visiting = HashSet::new();
+                let mut ev = Eval {
+                    design,
+                    tokens,
+                    visiting: &mut visiting,
+                    param_values: Some(param_values),
+                    param_meta: Some(param_meta),
+                    use_string_placeholders: false,
+                };
+                let pv = evaluate_value(op, &mut ev)?;
+                let coerced = coerce_frame_prop_value("opacity", pv, &design.entry_path)?;
+                assign_frame_prop(&mut frame_props, "opacity", coerced);
+            }
+            let mut nested = Vec::new();
+            if let Some(cs) = child_entries {
+                for ch in cs {
+                    materialize_repeat_child(
+                        parent_id,
+                        ch,
+                        design,
+                        tokens,
+                        param_values,
+                        param_meta,
+                        slot_ctx,
+                        visiting_inst,
+                        options,
+                        si,
+                        &mut nested,
+                        product_so_far,
+                        active_binders,
+                    )?;
+                }
+            }
+            children.push(CatalFrame {
+                id: format!("{parent_id}_{frame_kind}_{si}"),
+                kind: frame_kind.clone(),
+                props: frame_props,
+                children: nested,
+                instance_of: None,
+                instance_kwargs: None,
+                foreach_list: None,
+            });
+            *si += 1;
+        }
+        ChildEntry::Repeat {
+            count,
+            begin,
+            binder,
+            body,
+        } => {
+            expand_repeat_entry(
+                parent_id,
+                count,
+                begin.as_ref(),
+                binder,
+                body,
+                design,
+                tokens,
+                param_values,
+                param_meta,
+                slot_ctx,
+                visiting_inst,
+                options,
+                si,
+                children,
+                product_so_far,
+                active_binders,
+            )?;
+        }
+        ChildEntry::FrameRef { id, .. } => {
+            return Err(PdlError::new(
+                "PDL-E001",
+                format!("Internal: bare frame ref `{id}` in Repeat body"),
+                None,
+                None,
+                None,
+            ));
+        }
+        ChildEntry::ForEach { .. } => {
+            return Err(PdlError::new(
+                "PDL-E001",
+                "ForEach is not allowed inside Repeat".to_string(),
+                None,
+                None,
+                None,
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn expand_slot_items(
     parent_id: &str,
     slot_name: &str,
@@ -1817,6 +2402,31 @@ fn materialize(
             }
             ChildEntry::ForEach { .. } => {
                 // Legacy IR path — ForEach no longer auto-mounts; ignore if present.
+            }
+            ChildEntry::Repeat {
+                count,
+                begin,
+                binder,
+                body,
+            } => {
+                expand_repeat_entry(
+                    id,
+                    count,
+                    begin.as_ref(),
+                    binder,
+                    body,
+                    design,
+                    tokens,
+                    param_values,
+                    param_meta,
+                    slot_ctx,
+                    visiting_inst,
+                    options,
+                    &mut si,
+                    &mut children,
+                    1,
+                    &HashSet::new(),
+                )?;
             }
             ChildEntry::FrameCtor { .. } => {
                 return Err(PdlError::new(

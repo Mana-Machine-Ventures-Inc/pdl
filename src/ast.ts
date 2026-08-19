@@ -6,10 +6,10 @@ export type ConditionExpr =
   | { kind: "cmp"; param: string; op: "==" | "!="; rhs: string }
   /** Bare Bool param: `if selected { … }` / `if editing { … }` (Rust `Truthy`). */
   | { kind: "truthy"; param: string }
+  /** Prefix `!` on a condition atom (`if !selected { … }`). Also synthesised for rules-else. */
+  | { kind: "not"; expr: ConditionExpr }
   | { kind: "and"; items: ConditionExpr[] }
-  | { kind: "or"; items: ConditionExpr[] }
-  /** Synthesised when flattening `rules` `else` / prior-branch negations (not a PDL `if` atom). */
-  | { kind: "not"; expr: ConditionExpr };
+  | { kind: "or"; items: ConditionExpr[] };
 
 export type ValueExpr =
   | { kind: "hex"; value: string }
@@ -18,6 +18,8 @@ export type ValueExpr =
   /** `16:9` aspect-ratio sugar — evaluates to `width / height`. */
   | { kind: "ratio"; width: number; height: number }
   | { kind: "boolean"; value: boolean }
+  /** Unary Bool negation: `!isOn` / `isOn = !isOn`. */
+  | { kind: "not"; expr: ValueExpr }
   /** Frame/typeStyle prop clear — "pretend we didn't set this" (resolve deletes the key). */
   | { kind: "null" }
   /** Bool-producing condition: `hidden = …`, ForEach binds, Bool kwargs (`selected: current == .all`). */

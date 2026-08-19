@@ -25,6 +25,7 @@ top-level-decl
     | catalog-decl
     | host-decl
     | type-style-decl
+    | type-alias-decl
     | variant-decl
     | protocol-decl
     | component-decl
@@ -209,7 +210,16 @@ param-decl
 type-name
   ::= IDENT
     | '[' IDENT ']'
+    | 'Number' '(' number-bound { ',' number-bound } [ ',' ] ')'
     ;
+
+number-bound
+  ::= 'min' ':' NUMBER
+    | 'max' ':' NUMBER
+    ;
+
+type-alias-decl
+  ::= 'type' IDENT '=' 'Number' '(' number-bound { ',' number-bound } [ ',' ] ')' ;
 
 default-value
   ::= STRING | NUMBER | DOT_ENUM | HEX_COLOR
@@ -240,6 +250,7 @@ deferred-children-assignment
 let-decl
   ::= 'let' IDENT '=' frame-ctor                (* World A — normative *)
     | 'let' IDENT '=' component-instance
+    | 'let' IDENT '=' repeat-expr               (* name a Repeat; mount with children = id *)
     | 'let' IDENT ':' type-name '=' value-expr  (* typed value let — not a frame *)
     ;
     (* Classic `let IDENT ':' frame-kind '=' '{' … '}'` is removed — PDL-E001 *)
@@ -328,6 +339,7 @@ children-assignment
 children-rhs
   ::= children-list
     | IDENT   (* sugar: `children = chips` ≡ `children = [chips]` *)
+    | repeat-expr
     ;
 
 children-list
@@ -341,6 +353,16 @@ child-entry-base
     | 'Spacer' '(' ')'
     | frame-ctor
     | component-instance
+    | repeat-expr
+    ;
+
+repeat-expr
+  ::= 'Repeat' '(' 'count' ':' value-expr [ ',' 'begin' ':' value-expr ] [ ',' ] ')'
+      '{' IDENT 'in' { repeat-body-item } '}' ;
+
+repeat-body-item
+  ::= child-entry
+    | if-chain   (* body items are repeat-body-item; equality on Number binders OK *)
     ;
 
 component-instance
@@ -360,7 +382,8 @@ condition
     ;
 
 condition-atom
-  ::= IDENT '==' DOT_ENUM
+  ::= '!' condition-atom
+    | IDENT '==' DOT_ENUM
     | IDENT '!=' DOT_ENUM
     | IDENT '==' IDENT          (* e.g. selected == filter — same variant type *)
     | IDENT '!=' IDENT
@@ -368,6 +391,8 @@ condition-atom
     | 'self' '.' IDENT '!=' DOT_ENUM
     | 'self' '.' IDENT '==' IDENT
     | 'self' '.' IDENT '!=' IDENT
+    | IDENT                     (* bare Bool param: `if selected` *)
+    | 'self' '.' IDENT          (* bare Bool: `if self.selected` *)
     | '(' condition ')'
     ;
 
@@ -489,7 +514,8 @@ extend-section
 
 (* 21.9 Value expressions *)
 value-expr
-  ::= HEX_COLOR
+  ::= '!' value-expr            (* Bool negation: `isOn = !isOn`, `hidden = !selected` *)
+    | HEX_COLOR
     | STRING
     | NUMBER
     | ratio-literal

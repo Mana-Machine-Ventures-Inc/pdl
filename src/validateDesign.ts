@@ -55,7 +55,7 @@ function collectLetFrameKinds(items: FrameBodyItem[]): Map<string, string> {
 }
 
 function assertValidHiddenRhs(value: ValueExpr, componentName: string, design: DesignDefinition): void {
-  if (value.kind === "boolean" || value.kind === "condition") return;
+  if (value.kind === "boolean" || value.kind === "condition" || value.kind === "not") return;
   if (value.kind === "dotEnum") {
     const raw = value.value.startsWith(".") ? value.value.slice(1) : value.value;
     if (raw === "true" || raw === "false") return;

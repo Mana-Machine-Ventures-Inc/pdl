@@ -16,6 +16,9 @@ export function collectDeclaredTokenNamesFromValueExpr(
     case "ident":
       if (design.primitives.has(expr.name) || design.semantics.has(expr.name)) sink.add(expr.name);
       return;
+    case "not":
+      collectDeclaredTokenNamesFromValueExpr(expr.expr, design, sink);
+      return;
     case "opacityOf":
       collectDeclaredTokenNamesFromValueExpr(expr.base, design, sink);
       collectDeclaredTokenNamesFromValueExpr(expr.opacity, design, sink);

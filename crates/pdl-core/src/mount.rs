@@ -161,6 +161,8 @@ fn eval_mount_items(
                     ParamTypeMeta {
                         type_name: type_name.clone(),
                         is_array: false,
+                        min: None,
+                        max: None,
                     },
                 );
             }
@@ -428,6 +430,8 @@ fn host_param_meta(profile: &HostDecl) -> ParamMeta {
             ParamTypeMeta {
                 type_name: p.type_name.clone(),
                 is_array: p.is_array,
+                min: None,
+                max: None,
             },
         );
     }

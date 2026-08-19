@@ -109,7 +109,42 @@ pub fn validate_condition_expr(
                     design,
                 ));
             }
-            let vdecl = design.variants.get(type_name).ok_or_else(|| {
+            let vdecl = design.variants.get(type_name);
+            if vdecl.is_none() && crate::number_bounds::is_number_like_type(design, type_name) {
+                // Number equality (Repeat binders / page selection): `i == currentPage`
+                if *rhs_is_param {
+                    let rhs_ty = param_by_name.get(rhs).ok_or_else(|| {
+                        err(
+                            "PDL-E007",
+                            format!(
+                                "Unknown parameter `{}` on RHS of condition (component {})",
+                                rhs, component_name
+                            ),
+                            design,
+                        )
+                    })?;
+                    if !crate::number_bounds::is_number_like_type(design, rhs_ty) {
+                        return Err(err(
+                            "PDL-E010",
+                            format!(
+                                "Condition compares Number `{}` to non-Number `{}` ({})",
+                                param, rhs, rhs_ty
+                            ),
+                            design,
+                        ));
+                    }
+                    return Ok(());
+                }
+                return Err(err(
+                    "PDL-E010",
+                    format!(
+                        "Number condition on `{param}` must compare to another Number parameter \
+                         (literal RHS not supported; use a param or Repeat binder)"
+                    ),
+                    design,
+                ));
+            }
+            let vdecl = vdecl.ok_or_else(|| {
                 err(
                     "PDL-E010",
                     format!(

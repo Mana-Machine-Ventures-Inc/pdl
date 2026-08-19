@@ -8,6 +8,7 @@
     "children": "`children` belongs on `Layout` — that is how PDL draws views and nested views. A child `Layout` has its own `children`. `Text()`, `Icon()`, and `Media()` are leaves: they do not take `children` and do not nest views. Every entry is a component — a built-in frame or one you declared (`Button(…)`). Name them with `let`, then mount them with `children = [heading, save]`. A `let` that never appears in `children` is not drawn. A `let` mounts at most once (PDL-E042); two identical-looking children are two lets or a list. `Spacer()` is the leftover-space exception. A `ForEach` block does not mount views by itself.",
     "spacer": "A child that eats leftover space on the main axis. Write `Spacer()` inside `children = […]`.",
     "forEach": "Use ForEach when a list needs per-row state or click handling — which chip is selected, which row is highlighted. It writes onto items you already put in `children`. It does not create views by itself.",
+    "repeat": "`Repeat(count:, begin: = 1) { i in … }` mounts N copies at bake. Index domain is `begin` … `begin + count − 1` (default begin 1). Nested Repeat is allowed; each count ≤ 32 and nested product ≤ 64. Equality on binders (`i == currentPage`) is OK — not Number algebra. Distinct from ForEach.",
     "let": "Name a nested frame, or a typed value you reuse in props. Prefer a lowercase id (`let title`, `let ramp`) so the name is not the same word as the type. Frame lets go in `children`. Typed value lets do not.",
     "parameters": "The public inbound API of a component. Every name in the parentheses is public. There is no private parameter.",
     "variants": "Closed sets you declare — tone, size, filter id. Write `.case` at use sites. `enum` and `variant` are the same in v1.",
@@ -68,7 +69,7 @@
     },
     {
       "name": "Number",
-      "meaning": "A finite number. Unitless unless the property says otherwise (Duration is milliseconds; Opacity is 0…1; LineHeight is a ratio)."
+      "meaning": "A finite number. Unitless unless the property says otherwise (Duration is milliseconds; Opacity is 0…1; LineHeight is a ratio). Params may add coherence bounds: `Number(min: 2, max: 10)`. Named aliases: `type PageCount = Number(min: 2, max: 10)`. Bake / fixtures keep a scalar; out-of-range is PDL-E057."
     },
     {
       "name": "Bool",
@@ -1768,6 +1769,10 @@
         "meaning": "Boolean. Write `Bool`, not `Boolean`."
       },
       {
+        "form": "isOn = !isOn",
+        "meaning": "Invert a Bool parameter in a host handler (or any Bool value position)."
+      },
+      {
         "form": "tone: BannerTone = .success",
         "meaning": "A variant/enum you declared. Default is a `.case`."
       },
@@ -1897,7 +1902,7 @@
       },
       {
         "form": "!selected",
-        "meaning": "Negation."
+        "meaning": "Negation in a condition (`if !selected { … }`). Same `!` also inverts a Bool value (`isOn = !isOn`, `hidden = !selected`, kwargs)."
       },
       {
         "form": "a && b",
@@ -2037,7 +2042,7 @@
       },
       {
         "form": "self.pressEnd = { … }",
-        "meaning": "Host inbound handler. Bare `pressEnd = { … }` is the same in the kind body."
+        "meaning": "Host inbound handler. Bare `pressEnd = { … }` is the same. Legal at the top of the kind body or inside layout `if` / `else` (conditions are preserved on the handler)."
       },
       {
         "form": "Rule(.should, self == parent.children.last, description: \"…\")",
@@ -2403,6 +2408,25 @@
     }
   ],
   "forEachExample": "component LibrarySubnav(\n  currentFilter: FilterId = .all,\n  chips: [FilterChip] = [\n    FilterChip(title: \"All\", filter: .all),\n    FilterChip(title: \"Pop\", filter: .pop)\n  ]\n) layout {\n  ForEach(chips) { chip in\n    chip.selected = self.currentFilter == filter\n    chip.select(filter_id: FilterId) = {\n      currentFilter = filter_id\n    }\n  }\n  children = chips\n}",
+  "repeatForms": [
+    {
+      "form": "children = Repeat(count: numberOfPages) { i in … }",
+      "meaning": "Mount `numberOfPages` children. Binder `i` runs 1 … N by default."
+    },
+    {
+      "form": "Repeat(count: n, begin: 0) { i in … }",
+      "meaning": "0-based indices: i ∈ {0, 1, …, n − 1}."
+    },
+    {
+      "form": "let dots = Repeat(count: n) { i in … }; children = dots",
+      "meaning": "Name a Repeat, then mount it like any other child. Same bake expansion as `children = Repeat(…)`."
+    },
+    {
+      "form": "LabDot(selected: i == currentPage)",
+      "meaning": "Equality against another Number param — selection chrome without layout math."
+    }
+  ],
+  "repeatExample": "type PageCount = Number(min: 2, max: 10)\n\ncomponent PageControl(\n  numberOfPages: PageCount = 5,\n  currentPage: Number(min: 1) = 1\n) layout {\n  children = Repeat(count: numberOfPages) { i in\n    Dot(selected: i == currentPage)\n  }\n}",
   "sampleForms": [
     {
       "form": "samples Tracks { focus { tracks: [TrackRow] = [ … ] } }",

@@ -312,13 +312,13 @@ const gotoLinkDecorator = new MatchDecorator({
     if (raw.startsWith('"')) {
       const path = raw.slice(1, -1);
       if (gotoImports.has(path)) {
-        add(from, to, Decoration.mark({ class: "cm-pdl-link", attributes: { title: "⌘/Ctrl-click → open file" } }));
+        add(from, to, Decoration.mark({ class: "cm-pdl-link", attributes: { title: "⌘-click, F12, or ⌘B → open file" } }));
       }
       return;
     }
     if (GOTO_KEYWORD_BLOCK.has(raw)) return;
     if (!gotoSymbols.has(raw)) return;
-    add(from, to, Decoration.mark({ class: "cm-pdl-link", attributes: { title: "⌘/Ctrl-click → go to definition" } }));
+    add(from, to, Decoration.mark({ class: "cm-pdl-link", attributes: { title: "⌘-click, F12, or ⌘B → go to definition" } }));
   },
 });
 
@@ -340,16 +340,19 @@ const gotoLinkPlugin = ViewPlugin.fromClass(
   { decorations: (v) => v.decorations },
 );
 
-/** Track Mod/Ctrl so the editor can show a pointer cursor over identifiers. */
+/**
+ * ⌘-click follows definition links. Do not use Ctrl-click — in macOS browsers
+ * that is a right-click and opens the context menu. Keyboard: F12 or ⌘B / Ctrl+B.
+ */
 const gotoCursorMod = EditorView.domEventHandlers({
   keydown(event, view) {
-    if (event.key === "Meta" || event.key === "Control") {
+    if (event.key === "Meta") {
       view.dom.classList.add("cm-mod-goto");
     }
     return false;
   },
   keyup(event, view) {
-    if (event.key === "Meta" || event.key === "Control" || (!event.metaKey && !event.ctrlKey)) {
+    if (event.key === "Meta" || !event.metaKey) {
       view.dom.classList.remove("cm-mod-goto");
     }
     return false;
@@ -359,7 +362,7 @@ const gotoCursorMod = EditorView.domEventHandlers({
     return false;
   },
   click(event, view) {
-    if (!(event.metaKey || event.ctrlKey) || event.button !== 0) return false;
+    if (!event.metaKey || event.button !== 0) return false;
     const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
     if (pos == null) return false;
     if (goToDefinitionAt(pos)) {

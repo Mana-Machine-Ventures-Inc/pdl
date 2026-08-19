@@ -160,7 +160,7 @@ component IosControlsDemo() layout {
   let p0 = IosProgressBar(value: .empty)
   let p50 = IosProgressBar(value: .half)
   let p100 = IosProgressBar(value: .full)
-  let pages = IosPageControl(count: .five, selected: .three)
+  let pages = IosPageControl(numberOfPages: 5, currentPage: 3)
   children = [s0, s25, s50, s100, stepper, p0, p50, p100, pages]
 }
 

@@ -3466,13 +3466,30 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     if (cond.kind === 'not') return !evalCond(cond.expr, params);
     return false;
   }
+  function coerceInteractionBool(value, echoedIdent) {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number' && isFinite(value)) return value !== 0;
+    if (value == null) return false;
+    var s = String(value);
+    if (echoedIdent != null && s === echoedIdent) return false;
+    if (s === 'true' || s === '1') return true;
+    if (s === 'false' || s === '0' || s === '') return false;
+    return false;
+  }
   function evalAssignValue(value, params) {
     if (value == null || typeof value !== 'object') return value;
     if (value.kind === 'dotEnum') return stripDot(value.value);
     if (value.kind === 'string' || value.kind === 'number' || value.kind === 'boolean' || value.kind === 'hex') return value.value;
-    if (value.kind === 'ident') {
+    if (value.kind === 'ident' || value.kind === 'selfMember') {
       if (Object.prototype.hasOwnProperty.call(params, value.name)) return params[value.name];
       return value.name;
+    }
+    if (value.kind === 'not') {
+      var inner = evalAssignValue(value.expr, params);
+      var echoed = (value.expr && (value.expr.kind === 'ident' || value.expr.kind === 'selfMember'))
+        ? value.expr.name
+        : undefined;
+      return !coerceInteractionBool(inner, echoed);
     }
     return value;
   }

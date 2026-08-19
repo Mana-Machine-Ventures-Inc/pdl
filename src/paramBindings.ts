@@ -143,6 +143,10 @@ export function assertParamValueCompatible(
       validateConditionExpr(design, value.expr, callerParams, where);
       return;
     }
+    if (value.kind === "not") {
+      assertParamValueCompatible(design, expected, value.expr, callerParams, where);
+      return;
+    }
     mismatch();
   }
   if (

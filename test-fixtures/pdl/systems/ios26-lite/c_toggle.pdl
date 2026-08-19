@@ -1,6 +1,6 @@
 import "foundation.pdl"
 
-component IosToggle(
+component IosToggle <PointerInput>(
   isOn: Bool = true,
   showAXLabel: Bool = true
 ) layout {
@@ -54,5 +54,9 @@ component IosToggle(
       axOff.hidden = true
     }
     children = [knob, Spacer(), axOff]
+  }
+
+  self.pressEnd = {
+    isOn = !isOn
   }
 }

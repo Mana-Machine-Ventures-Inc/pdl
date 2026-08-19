@@ -284,6 +284,26 @@
       "code": "PDL-E056",
       "name": "sink-missing-handler",
       "trigger": "A component lists an ancestor-sink protocol in receive `<>` (`<ShowEpisode>`) but has no bare `channel(…) =` handler for one of that protocol’s `.ancestors` channels."
+    },
+    {
+      "code": "PDL-E057",
+      "name": "number-out-of-bounds",
+      "trigger": "A Number param default, fixture, or bake value falls outside declared `min:` / `max:` (on the param or a `type Alias = Number(…)`)."
+    },
+    {
+      "code": "PDL-E058",
+      "name": "repeat-count-invalid",
+      "trigger": "`Repeat(count:)` is not a finite integer ≥ 1, exceeds the per-Repeat ceiling (32), or nested Repeat product exceeds 64."
+    },
+    {
+      "code": "PDL-E059",
+      "name": "repeat-selection-out-of-domain",
+      "trigger": "A Number param compared to a Repeat binder (`i == currentPage`) is outside the derived index domain `begin` … `begin + count − 1`."
+    },
+    {
+      "code": "PDL-E060",
+      "name": "repeat-binder-shadow",
+      "trigger": "A Repeat binder name shadows an enclosing component parameter or an outer Repeat binder."
     }
   ],
   "warnings": [

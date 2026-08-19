@@ -27,6 +27,8 @@ pub type ParamValues = Map<String, Value>;
 pub struct ParamTypeMeta {
     pub type_name: String,
     pub is_array: bool,
+    pub min: Option<f64>,
+    pub max: Option<f64>,
 }
 
 pub type ParamMeta = IndexMap<String, ParamTypeMeta>;
@@ -98,7 +100,15 @@ fn js_string(v: &Value) -> String {
     match v {
         Value::String(s) => s.clone(),
         Value::Bool(b) => b.to_string(),
-        Value::Number(n) => n.to_string(),
+        Value::Number(n) => {
+            if let Some(f) = n.as_f64() {
+                if f.is_finite() && f.fract() == 0.0 && f >= i64::MIN as f64 && f <= i64::MAX as f64
+                {
+                    return (f as i64).to_string();
+                }
+            }
+            n.to_string()
+        }
         Value::Null => "null".to_string(),
         other => other.to_string(),
     }
@@ -220,6 +230,19 @@ pub fn evaluate_value(expr: &ValueExpr, ev: &mut Eval) -> Result<Value, PdlError
         ValueExpr::Number { value } => Ok(number_value(*value)),
         ValueExpr::Ratio { width, height } => Ok(number_value(width / height)),
         ValueExpr::Boolean { value } => Ok(Value::Bool(*value)),
+        ValueExpr::Not { expr } => {
+            let inner = evaluate_value(expr, ev)?;
+            match inner {
+                Value::Bool(b) => Ok(Value::Bool(!b)),
+                other => Err(PdlError::new(
+                    "PDL-E003",
+                    format!("`!` requires a Bool; got {other}"),
+                    Some(ev.design.entry_path.clone()),
+                    None,
+                    None,
+                )),
+            }
+        }
         ValueExpr::Null => Ok(Value::Null),
         ValueExpr::Condition { expr } => {
             let pv = ev.param_values.ok_or_else(|| {

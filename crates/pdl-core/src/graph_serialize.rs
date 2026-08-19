@@ -133,6 +133,10 @@ pub fn serialise_value_expr(e: &ValueExpr) -> Value {
             ("value", scalar_value(e)),
         ]),
         ValueExpr::Null => obj(vec![("kind", Value::String("null".to_string()))]),
+        ValueExpr::Not { expr } => obj(vec![
+            ("kind", Value::String("not".to_string())),
+            ("expr", serialise_value_expr(expr)),
+        ]),
         ValueExpr::Ratio { width, height } => obj(vec![
             ("kind", Value::String("ratio".to_string())),
             ("width", number_value(*width)),
@@ -481,6 +485,13 @@ pub fn serialise_value_expr_with_token_refs(expr: &ValueExpr, design: &DesignDef
             ("value", scalar_value(expr)),
         ]),
         ValueExpr::Null => obj(vec![("kind", Value::String("null".to_string()))]),
+        ValueExpr::Not { expr } => obj(vec![
+            ("kind", Value::String("not".to_string())),
+            (
+                "expr",
+                serialise_value_expr_with_token_refs(expr, design),
+            ),
+        ]),
         ValueExpr::Ratio { width, height } => obj(vec![
             ("kind", Value::String("ratio".to_string())),
             ("width", number_value(*width)),
@@ -1029,5 +1040,8 @@ pub fn collect_declared_token_names_from_value_expr(
         | ValueExpr::VibrancyTuple { .. }
         | ValueExpr::SelfRef
         | ValueExpr::SelfMember { .. } => {}
+        ValueExpr::Not { expr } => {
+            collect_declared_token_names_from_value_expr(expr, design, sink);
+        }
     }
 }

@@ -1596,6 +1596,11 @@ export class Parser {
   }
 
   private parseCondAtom(): ConditionExpr {
+    if (this.is("!")) {
+      this.advance();
+      const inner = this.parseCondAtom();
+      return { kind: "not", expr: inner };
+    }
     if (this.is("(")) {
       this.advance();
       const inner = this.parseCondOr();
@@ -1667,6 +1672,11 @@ export class Parser {
   }
 
   parseValueExpr(): ValueExpr {
+    if (this.is("!")) {
+      this.advance();
+      const inner = this.parseValueExpr();
+      return { kind: "not", expr: inner };
+    }
     if (this.looksLikeConditionStart()) {
       const start = this.index;
       const expr = this.parseCondOr();

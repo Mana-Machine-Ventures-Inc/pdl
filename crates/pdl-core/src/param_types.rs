@@ -136,7 +136,7 @@ pub fn infer_value_let_type(value: &ValueExpr) -> Option<&'static str> {
         ValueExpr::Sizing { .. } => Some("Sizing"),
         ValueExpr::String { .. } => Some("String"),
         ValueExpr::Number { .. } => Some("Number"),
-        ValueExpr::Boolean { .. } => Some("Bool"),
+        ValueExpr::Boolean { .. } | ValueExpr::Not { .. } => Some("Bool"),
         _ => None,
     }
 }

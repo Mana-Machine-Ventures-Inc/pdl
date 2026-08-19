@@ -183,6 +183,8 @@ pub struct DesignDefinition {
     /// Environment profiles (`host Name(params) [mount]`).
     pub hosts: IndexMap<String, HostDecl>,
     pub variants: IndexMap<String, VariantDecl>,
+    /// `type Name = Number(min:, max:)` aliases.
+    pub type_aliases: IndexMap<String, crate::ast::TypeAliasDecl>,
     pub type_styles: IndexMap<String, TypeStyleDecl>,
     pub protocols: IndexMap<String, ProtocolDecl>,
     pub components: IndexMap<String, ComponentDecl>,
@@ -295,6 +297,7 @@ pub fn editable_text_injected_params() -> Vec<ComponentParam> {
             name: "value".into(),
             type_name: "String".into(),
             is_array: false,
+            number_bounds: None,
             default_value: ValueExpr::String {
                 value: String::new(),
             },
@@ -303,24 +306,28 @@ pub fn editable_text_injected_params() -> Vec<ComponentParam> {
             name: "isEditing".into(),
             type_name: "Bool".into(),
             is_array: false,
+            number_bounds: None,
             default_value: ValueExpr::Boolean { value: false },
         },
         ComponentParam {
             name: "isEmpty".into(),
             type_name: "Bool".into(),
             is_array: false,
+            number_bounds: None,
             default_value: ValueExpr::Boolean { value: true },
         },
         ComponentParam {
             name: "isOverLimit".into(),
             type_name: "Bool".into(),
             is_array: false,
+            number_bounds: None,
             default_value: ValueExpr::Boolean { value: false },
         },
         ComponentParam {
             name: "activatesOn".into(),
             type_name: TEXT_FIELD_ACTIVATION_VARIANT.into(),
             is_array: false,
+            number_bounds: None,
             default_value: ValueExpr::DotEnum {
                 value: ".focus".into(),
             },
@@ -700,6 +707,7 @@ fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefin
     let mut catalogs = IndexMap::new();
     let mut hosts = IndexMap::new();
     let mut variants = IndexMap::new();
+    let mut type_aliases = IndexMap::new();
     let mut type_styles = IndexMap::new();
     let mut protocols = IndexMap::new();
     let mut components = IndexMap::new();
@@ -765,6 +773,9 @@ fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefin
                 TopLevelDecl::Variant(v) => {
                     variants.insert(v.name.clone(), v.clone());
                 }
+                TopLevelDecl::TypeAlias(a) => {
+                    type_aliases.insert(a.name.clone(), a.clone());
+                }
                 TopLevelDecl::TypeStyle(ts) => {
                     type_styles.insert(ts.name.clone(), ts.clone());
                 }
@@ -825,6 +836,7 @@ fn merge_design(entry_path: &str, ordered: Vec<ModuleAst>) -> Result<DesignDefin
         catalogs,
         hosts,
         variants,
+        type_aliases,
         type_styles,
         protocols,
         components,

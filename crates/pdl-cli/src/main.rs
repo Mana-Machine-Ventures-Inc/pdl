@@ -21,8 +21,8 @@ use pdl_core::pack::{
 };
 use pdl_core::resolve::{resolve_component_tree, RESOLVE_OPTIONS_LITERAL_BAKE};
 use pdl_core::resolve_bundle::build_resolved_component_document;
-use pdl_core::stable_json::{stable_stringify, StableStringifyOptions};
-use serde_json::{Map, Number, Value};
+use pdl_core::stable_json::{number_value, stable_stringify, StableStringifyOptions};
+use serde_json::{Map, Value};
 
 fn usage() -> ! {
     eprintln!(
@@ -80,12 +80,10 @@ fn parse_key_values(args: &[String]) -> Result<Map<String, Value>, String> {
         let k = &a[..eq];
         let v = &a[eq + 1..];
         let value = if looks_like_number(v) {
-            Value::Number(
-                v.parse::<f64>()
-                    .ok()
-                    .and_then(Number::from_f64)
-                    .ok_or_else(|| format!("Bad number in param {a}"))?,
-            )
+            let n: f64 = v
+                .parse()
+                .map_err(|_| format!("Bad number in param {a}"))?;
+            number_value(n)
         } else if v == "true" {
             Value::Bool(true)
         } else if v == "false" {

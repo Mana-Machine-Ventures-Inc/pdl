@@ -1010,8 +1010,17 @@ fn catalogue_params(
             entries.push(("default", resolved_default));
             entries.push(("variantTypeName", Value::String(p.type_name.clone())));
         } else {
-            entries.push(("type", Value::String(p.type_name.clone())));
+            let type_name = crate::number_bounds::resolve_param_type_name(design, &p.type_name);
+            entries.push(("type", Value::String(type_name)));
             entries.push(("default", resolved_default));
+            if let Some(bounds) = crate::number_bounds::effective_number_bounds(design, &p) {
+                if let Some(min) = bounds.min {
+                    entries.push(("min", number_value(min)));
+                }
+                if let Some(max) = bounds.max {
+                    entries.push(("max", number_value(max)));
+                }
+            }
         }
         arr.push(obj(entries));
     }
@@ -1148,6 +1157,27 @@ fn accumulate_from_body(items: &[FrameBodyItem], sink: &mut BTreeSet<String>) {
             FrameBodyItem::Children { entries, .. } => {
                 for e in entries {
                     if let ChildEntry::Instance { component, .. } = e {
+                        sink.insert(component.clone());
+                    }
+                    if let ChildEntry::Repeat { body, .. } = e {
+                        for item in body {
+                            if let crate::ast::RepeatBodyItem::Entry(ChildEntry::Instance {
+                                component,
+                                ..
+                            }) = item
+                            {
+                                sink.insert(component.clone());
+                            }
+                        }
+                    }
+                }
+            }
+            FrameBodyItem::LetRepeat { body, .. } => {
+                for item in body {
+                    if let crate::ast::RepeatBodyItem::Entry(ChildEntry::Instance {
+                        component, ..
+                    }) = item
+                    {
                         sink.insert(component.clone());
                     }
                 }

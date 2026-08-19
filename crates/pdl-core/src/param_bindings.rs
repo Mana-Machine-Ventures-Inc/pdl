@@ -63,11 +63,12 @@ pub fn assert_param_value_compatible(
     caller_params: &HashMap<String, String>,
     where_: &str,
 ) -> Result<(), PdlError> {
-    let expected = unwrap_param_type_name(expected_type_name);
+    let expected = crate::number_bounds::resolve_param_type_name(design, expected_type_name);
+    let expected = expected.as_str();
 
     if let ValueExpr::Ident { name } = value {
         if let Some(caller_ty) = caller_params.get(name) {
-            let got = unwrap_param_type_name(caller_ty);
+            let got = crate::number_bounds::resolve_param_type_name(design, caller_ty);
             if got != expected {
                 return Err(err(
                     "PDL-E040",
@@ -160,6 +161,13 @@ pub fn assert_param_value_compatible(
                 validate_condition_expr(design, expr, caller_params, where_)?;
                 Ok(())
             }
+            ValueExpr::Not { expr } => assert_param_value_compatible(
+                design,
+                expected,
+                expr,
+                caller_params,
+                where_,
+            ),
             _ => Err(mismatch()),
         };
     }
@@ -475,28 +483,102 @@ fn walk_child_entries(
     where_: &str,
 ) -> Result<(), PdlError> {
     for e in entries {
-        let ChildEntry::Instance {
-            component,
-            kwargs,
-            opacity: _,
-        } = e
-        else {
-            continue;
-        };
-        let Some(target) = design.components.get(component) else {
-            return Err(err(
-                "PDL-E037",
-                format!("Unknown component `{component}` {where_}"),
-                design,
-            ));
-        };
-        assert_instance_kwargs(
-            design,
-            target,
-            kwargs,
-            caller_params,
-            &format!("in {where_} instance `{component}`"),
-        )?;
+        match e {
+            ChildEntry::Instance {
+                component,
+                kwargs,
+                opacity: _,
+            } => {
+                let Some(target) = design.components.get(component) else {
+                    return Err(err(
+                        "PDL-E037",
+                        format!("Unknown component `{component}` {where_}"),
+                        design,
+                    ));
+                };
+                assert_instance_kwargs(
+                    design,
+                    target,
+                    kwargs,
+                    caller_params,
+                    &format!("in {where_} instance `{component}`"),
+                )?;
+            }
+            ChildEntry::FrameCtor {
+                props,
+                child_entries,
+                ..
+            } => {
+                for v in props.values() {
+                    if let ValueExpr::Condition { expr } = v {
+                        crate::conditions::validate_condition_expr(
+                            design,
+                            expr,
+                            caller_params,
+                            where_,
+                        )?;
+                    }
+                }
+                if let Some(cs) = child_entries {
+                    walk_child_entries(design, cs, caller_params, where_)?;
+                }
+            }
+            ChildEntry::Repeat {
+                binder,
+                body,
+                count: _,
+                begin: _,
+            } => {
+                if caller_params.contains_key(binder) {
+                    return Err(err(
+                        "PDL-E060",
+                        format!(
+                            "Repeat binder `{binder}` shadows enclosing parameter `{binder}` {where_}"
+                        ),
+                        design,
+                    ));
+                }
+                let mut scoped = caller_params.clone();
+                scoped.insert(binder.clone(), "Number".to_string());
+                walk_repeat_body(design, body, &scoped, binder, where_)?;
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+fn walk_repeat_body(
+    design: &DesignDefinition,
+    body: &[crate::ast::RepeatBodyItem],
+    caller_params: &HashMap<String, String>,
+    binder: &str,
+    where_: &str,
+) -> Result<(), PdlError> {
+    use crate::ast::RepeatBodyItem;
+    for item in body {
+        match item {
+            RepeatBodyItem::Entry(entry) => {
+                walk_child_entries(design, std::slice::from_ref(entry), caller_params, where_)?;
+            }
+            RepeatBodyItem::If {
+                branches,
+                else_body,
+            } => {
+                for br in branches {
+                    crate::conditions::validate_condition_expr(
+                        design,
+                        &br.condition,
+                        caller_params,
+                        where_,
+                    )?;
+                    walk_repeat_body(design, &br.body, caller_params, binder, where_)?;
+                }
+                if let Some(else_body) = else_body {
+                    walk_repeat_body(design, else_body, caller_params, binder, where_)?;
+                }
+            }
+        }
     }
     Ok(())
 }
@@ -537,6 +619,33 @@ pub fn validate_param_bindings_in_body(
                     entries,
                     caller_params,
                     &format!("children of {component_name}"),
+                )?;
+            }
+            FrameBodyItem::LetRepeat {
+                id,
+                binder,
+                body,
+                count: _,
+                begin: _,
+            } => {
+                if caller_params.contains_key(binder) {
+                    return Err(err(
+                        "PDL-E060",
+                        format!(
+                            "Repeat binder `{binder}` shadows enclosing parameter `{binder}` \
+                             in `let {id}` (component {component_name})"
+                        ),
+                        design,
+                    ));
+                }
+                let mut scoped = caller_params.clone();
+                scoped.insert(binder.clone(), "Number".to_string());
+                walk_repeat_body(
+                    design,
+                    body,
+                    &scoped,
+                    binder,
+                    &format!("in `let {id} = Repeat(…)` (component {component_name})"),
                 )?;
             }
             FrameBodyItem::Let { body, .. } => {
@@ -581,6 +690,16 @@ pub fn validate_component_param_defaults(design: &DesignDefinition) -> Result<()
                 &caller,
                 &format!("for default of `{}.{}`", c.name, p.name),
             )?;
+            if let Some(bounds) = crate::number_bounds::effective_number_bounds(design, p) {
+                if let ValueExpr::Number { value } = &p.default_value {
+                    crate::number_bounds::assert_number_in_bounds(
+                        design,
+                        &bounds,
+                        *value,
+                        &format!("default of `{}.{}`", c.name, p.name),
+                    )?;
+                }
+            }
         }
     }
     Ok(())

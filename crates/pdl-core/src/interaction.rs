@@ -22,6 +22,21 @@ pub struct ApplyInteractionResult {
     pub handled: bool,
 }
 
+fn value_as_interaction_bool(v: &Value, echoed_ident: Option<&str>) -> bool {
+    match v {
+        Value::Bool(b) => *b,
+        Value::Number(n) => n.as_f64().map(|x| x != 0.0).unwrap_or(false),
+        Value::String(s) => {
+            if echoed_ident == Some(s.as_str()) {
+                return false;
+            }
+            s == "true" || s == "1"
+        }
+        Value::Null => false,
+        _ => false,
+    }
+}
+
 fn eval_assign_value(expr: &ValueExpr, params: &ParamValues) -> Value {
     match expr {
         ValueExpr::DotEnum { value } => Value::String(strip_leading_dot(value).to_string()),
@@ -29,12 +44,23 @@ fn eval_assign_value(expr: &ValueExpr, params: &ParamValues) -> Value {
         ValueExpr::Number { value } => number_value(*value),
         ValueExpr::Boolean { value } => Value::Bool(*value),
         ValueExpr::Hex { value } => Value::String(value.clone()),
-        ValueExpr::Ident { name } => {
+        ValueExpr::Ident { name } | ValueExpr::SelfMember { name } => {
             if let Some(v) = params.get(name) {
                 v.clone()
             } else {
                 Value::String(name.clone())
             }
+        }
+        ValueExpr::Not { expr } => {
+            let inner = eval_assign_value(expr, params);
+            let echoed = match expr.as_ref() {
+                ValueExpr::Ident { name } | ValueExpr::SelfMember { name } => Some(name.as_str()),
+                _ => None,
+            };
+            Value::Bool(!value_as_interaction_bool(&inner, echoed))
+        }
+        ValueExpr::Condition { expr } => {
+            Value::Bool(crate::evaluate::evaluate_condition(expr, params))
         }
         _ => Value::Null,
     }
@@ -320,6 +346,38 @@ mod tests {
             r3.params.get("interactionState"),
             Some(&Value::String("hovered".into()))
         );
+    }
+
+    #[test]
+    fn bool_not_assign_coerces_stringly_and_missing() {
+        let decl = InteractionDecl {
+            name: "default".into(),
+            component: "Toggle".into(),
+            handlers: vec![InteractionHandler {
+                event: "pressEnd".into(),
+                body: vec![InteractionHandlerItem::Assign {
+                    param: "isOn".into(),
+                    value: ValueExpr::Not {
+                        expr: Box::new(ValueExpr::Ident {
+                            name: "isOn".into(),
+                        }),
+                    },
+                }],
+            }],
+        };
+
+        let mut params = ParamValues::new();
+        params.insert("isOn".into(), Value::Bool(true));
+        let r = apply_interaction_event(&params, &[&decl], "pressEnd");
+        assert_eq!(r.params.get("isOn"), Some(&Value::Bool(false)));
+
+        params.insert("isOn".into(), Value::String("false".into()));
+        let r = apply_interaction_event(&params, &[&decl], "pressEnd");
+        assert_eq!(r.params.get("isOn"), Some(&Value::Bool(true)));
+
+        let empty = ParamValues::new();
+        let r = apply_interaction_event(&empty, &[&decl], "pressEnd");
+        assert_eq!(r.params.get("isOn"), Some(&Value::Bool(true)));
     }
 
     #[test]

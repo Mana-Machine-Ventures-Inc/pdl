@@ -17,6 +17,7 @@ pub mod interaction;
 pub mod lexer;
 pub mod motion;
 pub mod mount;
+pub mod number_bounds;
 pub mod pack;
 pub mod param_bindings;
 pub mod param_types;

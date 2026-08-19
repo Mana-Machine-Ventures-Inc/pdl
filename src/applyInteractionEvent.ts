@@ -74,6 +74,22 @@ export function evaluateSerialisedCondition(cond: unknown, params: ParamMap): bo
 }
 
 /**
+ * Coerce a live param / assign-RHS value to Bool — same rules as host `evalCond`
+ * truthy (`true` / `"true"` / `"1"`). Missing idents echo their name as a string;
+ * treat that as false so `isOn = !isOn` works before the bag is seeded.
+ */
+export function coerceInteractionBool(value: unknown, echoedIdent?: string): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value !== 0;
+  if (value == null) return false;
+  const s = String(value);
+  if (echoedIdent != null && s === echoedIdent) return false;
+  if (s === "true" || s === "1") return true;
+  if (s === "false" || s === "0" || s === "") return false;
+  return false;
+}
+
+/**
  * Resolve a serialised ValueExpr for interaction assign RHS.
  */
 export function evaluateSerialisedAssignValue(value: unknown, params: ParamMap): unknown {
@@ -93,6 +109,23 @@ export function evaluateSerialisedAssignValue(value: unknown, params: ParamMap):
       if (Object.prototype.hasOwnProperty.call(params, name)) return params[name];
       return name;
     }
+    case "selfMember": {
+      const name = String(v.name ?? "");
+      if (Object.prototype.hasOwnProperty.call(params, name)) return params[name];
+      return name;
+    }
+    case "not": {
+      const inner = evaluateSerialisedAssignValue(v.expr, params);
+      let echoed: string | undefined;
+      if (v.expr && typeof v.expr === "object") {
+        const e = v.expr as Record<string, unknown>;
+        if (e.kind === "ident" || e.kind === "selfMember") echoed = String(e.name ?? "");
+      }
+      return !coerceInteractionBool(inner, echoed);
+    }
+    case "condition":
+      // Handled elsewhere for layout; treat as opaque if it reaches assign.
+      return value;
     default:
       return value;
   }

@@ -1,11 +1,11 @@
 # Proposal: `Repeat` + Number param bounds
 
-**Status:** proposed (2026-08-18; revised same day — Range demoted; nested `Repeat` allowed)  
-**Motivating packs:** `test-fixtures/pdl/systems/ios26-lite` (page control, tab count, progress/slider as discrete enums today)  
+**Status:** locked (2026-08-18) — implemented in `pdl-core` (grammar / language-objects / bake / catalogue).  
+**Motivating packs:** `test-fixtures/pdl/systems/ios26-lite` (page control); lab `test-fixtures/pdl/labs/repeat_number_bounds.pdl`  
 **Depends on:** today’s `Number` param type; `ForEach` as overlay-only (§4e); host / catalog for platform ceilings ([`PROPOSAL_HOST_ENVIRONMENT.md`](./PROPOSAL_HOST_ENVIRONMENT.md))  
 **Not a runtime.** Bake expansion + validation. Do not add Number algebra, counters, or generative games in `.pdl`.
 
-Until locked in `shared/*.json` / `grammar/pdl.ebnf`, tooling must not treat this syntax as normative.
+Locked in `shared/*.json` / `grammar/pdl.ebnf` / Rust validate+resolve. Diagnostics: **PDL-E057** (bounds), **PDL-E058** (Repeat count/ceiling), **PDL-E059** (selection outside index domain), **PDL-E060** (binder shadowing).
 
 ---
 

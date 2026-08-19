@@ -1,19 +1,6 @@
 import "foundation.pdl"
 
-variant IosPageDotCount {
-  case two
-  case three
-  case four
-  case five
-}
-
-variant IosPageDotIndex {
-  case one
-  case two
-  case three
-  case four
-  case five
-}
+type IosPageCount = Number(min: 2, max: 10)
 
 component IosPageDot(
   selected: Bool = false
@@ -30,10 +17,10 @@ component IosPageDot(
   }
 }
 
-// Folded from Figma Page control (Dots 2–5 × Selection). Dots 6–7 / 8+ deferred.
+// Folded from Figma Page control — count + selection as Numbers + Repeat.
 component IosPageControl(
-  count: IosPageDotCount = .three,
-  selected: IosPageDotIndex = .one
+  numberOfPages: IosPageCount = 3,
+  currentPage: Number(min: 1) = 1
 ) layout {
   direction = .row
   align = .center
@@ -43,19 +30,7 @@ component IosPageControl(
   height = 24
   width = .hug
 
-  let d1 = IosPageDot(selected: selected == .one)
-  let d2 = IosPageDot(selected: selected == .two)
-  let d3 = IosPageDot(selected: selected == .three)
-  let d4 = IosPageDot(selected: selected == .four)
-  let d5 = IosPageDot(selected: selected == .five)
-
-  if count == .two {
-    children = [d1, d2]
-  } else if count == .three {
-    children = [d1, d2, d3]
-  } else if count == .four {
-    children = [d1, d2, d3, d4]
-  } else {
-    children = [d1, d2, d3, d4, d5]
+  children = Repeat(count: numberOfPages) { i in
+    IosPageDot(selected: i == currentPage)
   }
 }

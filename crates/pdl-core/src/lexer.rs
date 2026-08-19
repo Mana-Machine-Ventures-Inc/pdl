@@ -98,6 +98,8 @@ pub enum TokenKind {
     Eq,
     EqEq,
     Ne,
+    /// Unary Bool negation (`!isOn` / `isOn = !isOn`).
+    Bang,
     Colon,
     Comma,
     PlusEq,
@@ -562,6 +564,17 @@ pub fn tokenize(source: &str, file_path: &str) -> Result<Vec<Token>, PdlError> {
                     start_col,
                 );
                 bump(2, &mut i, &mut line, &mut column, &chars);
+                continue;
+            }
+            _ if c == '!' => {
+                push(
+                    &mut tokens,
+                    TokenKind::Bang,
+                    "!".into(),
+                    start_line,
+                    start_col,
+                );
+                bump(1, &mut i, &mut line, &mut column, &chars);
                 continue;
             }
             "+=" => {

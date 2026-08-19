@@ -93,6 +93,7 @@ fn value_kind_name(value: &ValueExpr) -> &'static str {
         ValueExpr::Number { .. } => "number",
         ValueExpr::Ratio { .. } => "ratio",
         ValueExpr::Boolean { .. } => "boolean",
+        ValueExpr::Not { .. } => "not",
         ValueExpr::Null => "null",
         ValueExpr::Condition { .. } => "condition",
         ValueExpr::Ident { .. } => "ident",
