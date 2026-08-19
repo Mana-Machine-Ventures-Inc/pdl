@@ -1,0 +1,32 @@
+import "foundation.pdl"
+
+// Folded from Figma Text Field (4 states):
+//   Placeholder / Focused / Value Entered / Typing
+// → EditableText facts isEmpty × isEditing (+ placeholder string).
+// Clear glyph and caret chrome deferred (host draws the caret).
+
+component IosTextField <EditableText>(
+  placeholder: String = "Value",
+  activatesOn: TextFieldActivation = .press
+) text {
+  style = IosFieldValue
+  padding = EdgeInsets(x: 16, y: 14)
+  width = .fill
+  background = null
+  borderWidth = 1
+  borderColor = ios.color.separator.nonopaque
+  content = value
+  color = ios.color.label.primary
+
+  if isEditing {
+    borderColor = ios.color.accent.blue
+    borderWidth = 2
+    if isEmpty {
+      content = placeholder
+      color = ios.color.label.tertiary
+    }
+  } else if isEmpty {
+    content = placeholder
+    color = ios.color.label.tertiary
+  }
+}

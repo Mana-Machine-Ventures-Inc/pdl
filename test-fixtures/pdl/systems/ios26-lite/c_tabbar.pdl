@@ -1,0 +1,106 @@
+import "foundation.pdl"
+
+variant IosTabCount {
+  case two
+  case three
+  case four
+  case five
+}
+
+variant IosTabIndex {
+  case one
+  case two
+  case three
+  case four
+  case five
+}
+
+// One tab cell. Folded from `_Tab Bar Button - iPhone - Text`
+// (Selected × Mode). SF Symbol glyphs → string stand-ins.
+component IosTabItem(
+  label: String = "Label",
+  icon: String = "●",
+  selected: Bool = false
+) layout {
+  direction = .column
+  align = .center
+  justify = .center
+  grow = 1
+  padding = EdgeInsets(x: 8, y: 6)
+  height = 54
+  gap = 1
+  width = .hug
+
+  if selected {
+    background = ios.color.tab.selection
+    cornerRadius = ios.radius.pill
+  } else {
+    background = null
+    cornerRadius = 0
+  }
+
+  let glyph = Text(
+    content: icon,
+    fontFamily: "-apple-system, SF Pro, system-ui, sans-serif",
+    fontSize: 18,
+    fontWeight: 600
+  )
+  let caption = Text(
+    content: label,
+    style: IosTabLabel
+  )
+
+  if selected {
+    glyph.color = ios.color.accent.blue
+    caption.color = ios.color.accent.blue
+  } else {
+    glyph.color = ios.color.tab.idle
+    caption.color = ios.color.tab.idle
+  }
+
+  children = [glyph, caption]
+}
+
+// Capsule tab bar. Folded from `Tab Bar - iPhone` (Tabs 2–5);
+// Separate Search + Minimized + full Liquid Glass deferred.
+component IosTabBar(
+  count: IosTabCount = .three,
+  selected: IosTabIndex = .one,
+  label1: String = "Home",
+  label2: String = "Search",
+  label3: String = "Profile",
+  label4: String = "Label",
+  label5: String = "Label",
+  icon1: String = "⌂",
+  icon2: String = "⌕",
+  icon3: String = "☺",
+  icon4: String = "●",
+  icon5: String = "●"
+) layout {
+  direction = .row
+  align = .center
+  justify = .center
+  gap = 0
+  padding = EdgeInsets(x: 2, y: 4)
+  height = 62
+  width = .fill
+  background = ios.color.tab.glass
+  cornerRadius = ios.radius.pill
+  effect = ios.effect.chrome
+
+  let t1 = IosTabItem(label: label1, icon: icon1, selected: selected == .one)
+  let t2 = IosTabItem(label: label2, icon: icon2, selected: selected == .two)
+  let t3 = IosTabItem(label: label3, icon: icon3, selected: selected == .three)
+  let t4 = IosTabItem(label: label4, icon: icon4, selected: selected == .four)
+  let t5 = IosTabItem(label: label5, icon: icon5, selected: selected == .five)
+
+  if count == .two {
+    children = [t1, t2]
+  } else if count == .three {
+    children = [t1, t2, t3]
+  } else if count == .four {
+    children = [t1, t2, t3, t4]
+  } else {
+    children = [t1, t2, t3, t4, t5]
+  }
+}

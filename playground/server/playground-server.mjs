@@ -19,6 +19,11 @@ import { dirname, join, relative, resolve, extname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { bakeAndRender, resolveRepoPath, rustPdlArgs } from "../../scripts/lib/bake-pipeline.mjs";
+import {
+  expandVariantMatrixCombos,
+  formatVariantMatrixLabel,
+  matrixAxesFromParams,
+} from "../src/variant-matrix.js";
 
 /** Known packs for PDL Playground. */
 const PACK_CATALOG = [
@@ -35,6 +40,13 @@ const PACK_CATALOG = [
     entry: "test-fixtures/pdl/systems/airbnb-lite/design.pdl",
     defaultComponent: "AbnPointerLab",
     description: "Flagship veracity pack — coral/teal, Cancel/Save scoping demo",
+  },
+  {
+    id: "ios26-lite",
+    label: "iOS 26 lite",
+    entry: "test-fixtures/pdl/systems/ios26-lite/design.pdl",
+    defaultComponent: "IosPhone",
+    description: "iOS 26 community kit (lite)",
   },
   {
     id: "molecules",
@@ -1291,74 +1303,76 @@ async function handleRender(body) {
     const enriched = await enrichDesignAt(entryAbs, summaryRoot);
     const bakeOutPath = join(REPO_ROOT, ".tmp", "playground.bake.json");
 
-    // Phase 5: variant matrix — bake each combo as a labeled gallery entry
-    if (variantMatrix === true && typeof component === "string" && component.trim()) {
-      const params = enriched.componentParams?.[component] ?? [];
-      const axes = [];
-      for (const p of params) {
-        const cases = enriched.variantCases?.[p.typeName];
-        if (cases?.length) axes.push({ name: p.name, cases: [...cases] });
+    // Phase 5: variant matrix — bake each combo for every requested component.
+    if (variantMatrix === true) {
+      /** @type {string[]} */
+      const matrixTargets =
+        Array.isArray(componentNames) && componentNames.length > 0
+          ? componentNames
+          : typeof component === "string" && component.trim()
+            ? [component.trim()]
+            : [];
+      if (matrixTargets.length === 0) {
+        throw new Error('variantMatrix requires "componentNames" or "component"');
       }
-      /** @type {Array<{ labels: Record<string, string>, kv: Record<string, string> }>} */
-      let combos = [{ labels: {}, kv: {} }];
-      for (const axis of axes) {
-        /** @type {typeof combos} */
-        const next = [];
-        for (const prev of combos) {
-          for (const c of axis.cases) {
-            next.push({
-              labels: { ...prev.labels, [axis.name]: c },
-              kv: { ...prev.kv, [axis.name]: c },
-            });
-            if (next.length >= 16) break;
-          }
-          if (next.length >= 16) break;
-        }
-        combos = next;
-        if (combos.length >= 16) break;
+
+      /** @type {Record<string, Record<string, unknown>>} */
+      let matrixOverrides = {};
+      if (body.componentOverrides && typeof body.componentOverrides === "object") {
+        matrixOverrides = /** @type {Record<string, Record<string, unknown>>} */ (
+          body.componentOverrides
+        );
+      } else if (typeof component === "string" && component.trim() && Object.keys(kvObj).length > 0) {
+        matrixOverrides = { [component]: kvObj };
       }
+
       /** @type {Record<string, unknown>} */
       const mergedComponents = {};
       let lastEngine = engine;
       let duration = 0;
-      for (const combo of combos) {
-        const label =
-          Object.keys(combo.labels).length === 0
-            ? component
-            : `${component} · ${Object.entries(combo.labels)
-                .map(([k, v]) => `${k}=.${v}`)
-                .join(", ")}`;
-        const outPath = join(REPO_ROOT, ".tmp", `playground-var-${Object.keys(mergedComponents).length}.bake.json`);
-        const result = await bakeAndRender({
-          repoRoot: REPO_ROOT,
-          entry: entryAbs,
-          engine,
-          mode: "component",
-          component,
-          theme: typeof theme === "string" ? theme : undefined,
-          host: typeof host === "string" && host.trim() ? host : undefined,
-          hostFacts:
-            hostFacts && typeof hostFacts === "object" && !Array.isArray(hostFacts)
-              ? hostFacts
-              : undefined,
-          paramOverrides: { ...kvObj, ...combo.kv },
-          bakeOutPath: outPath,
-          title: "PDL Playground · variants",
-          singleComponent: component,
-        });
-        duration += result.durationMs ?? 0;
-        lastEngine = result.engine;
-        if (!result.ok) {
-          return {
-            ok: false,
-            error: result.error ?? `Variant bake failed for ${label}`,
-            engine: result.engine,
-            durationMs: duration,
-          };
+      for (const target of matrixTargets) {
+        const params = enriched.componentParams?.[target] ?? [];
+        const axes = matrixAxesFromParams(params, enriched.variantCases ?? {});
+        const combos = expandVariantMatrixCombos(axes);
+        const baseKv = matrixOverrides[target] ?? {};
+        for (const combo of combos) {
+          const label = formatVariantMatrixLabel(target, combo.labels, axes);
+          const outPath = join(
+            REPO_ROOT,
+            ".tmp",
+            `playground-var-${Object.keys(mergedComponents).length}.bake.json`,
+          );
+          const result = await bakeAndRender({
+            repoRoot: REPO_ROOT,
+            entry: entryAbs,
+            engine,
+            mode: "component",
+            component: target,
+            theme: typeof theme === "string" ? theme : undefined,
+            host: typeof host === "string" && host.trim() ? host : undefined,
+            hostFacts:
+              hostFacts && typeof hostFacts === "object" && !Array.isArray(hostFacts)
+                ? hostFacts
+                : undefined,
+            paramOverrides: { ...baseKv, ...combo.kv },
+            bakeOutPath: outPath,
+            title: "PDL Playground · variants",
+            singleComponent: target,
+          });
+          duration += result.durationMs ?? 0;
+          lastEngine = result.engine;
+          if (!result.ok) {
+            return {
+              ok: false,
+              error: result.error ?? `Variant bake failed for ${label}`,
+              engine: result.engine,
+              durationMs: duration,
+            };
+          }
+          const baked = /** @type {{ components?: Record<string, unknown> }} */ (result.baked);
+          const tree = baked?.components?.[target];
+          if (tree) mergedComponents[label] = tree;
         }
-        const baked = /** @type {{ components?: Record<string, unknown> }} */ (result.baked);
-        const tree = baked?.components?.[component];
-        if (tree) mergedComponents[label] = tree;
       }
       const synthetic = {
         schemaVersion: "1.0.0-beta",
@@ -1372,7 +1386,10 @@ async function handleRender(body) {
       };
       const { renderBakedDesignToHtmlDocumentWithReport } = await toolchainPromise;
       const { html, renderFailures } = renderBakedDesignToHtmlDocumentWithReport(synthetic, {
-        title: `Variants — ${component}`,
+        title:
+          matrixTargets.length === 1
+            ? `Variants — ${matrixTargets[0]}`
+            : `Variants — ${matrixTargets.length} components`,
         componentNames: Object.keys(mergedComponents),
         usageByComponent: enriched.usageByComponent,
         rulesByComponent: enriched.rulesByComponent,

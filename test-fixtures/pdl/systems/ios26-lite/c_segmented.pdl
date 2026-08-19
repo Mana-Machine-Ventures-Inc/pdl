@@ -1,0 +1,81 @@
+import "foundation.pdl"
+
+variant IosSegmentCount {
+  case two
+  case three
+  case four
+  case five
+}
+
+variant IosSegmentIndex {
+  case one
+  case two
+  case three
+  case four
+  case five
+}
+
+component IosSegment(
+  label: String = "Label",
+  selected: Bool = false
+) layout {
+  direction = .row
+  align = .center
+  justify = .center
+  grow = 1
+  padding = EdgeInsets(x: 6, y: 3)
+  height = 28
+
+  if selected {
+    background = ios.color.segmented.selected
+    cornerRadius = ios.radius.segment
+  } else {
+    background = null
+    cornerRadius = 0
+  }
+
+  let caption = Text(content: label, color: ios.color.label)
+
+  if selected {
+    caption.style = IosSegmentLabelSelected
+  } else {
+    caption.style = IosSegmentLabel
+  }
+
+  children = [caption]
+}
+
+component IosSegmentedControl(
+  count: IosSegmentCount = .two,
+  selected: IosSegmentIndex = .one,
+  label1: String = "Label",
+  label2: String = "Label",
+  label3: String = "Label",
+  label4: String = "Label",
+  label5: String = "Label"
+) layout {
+  direction = .row
+  align = .center
+  gap = 4
+  padding = 2
+  height = 32
+  width = .fill
+  background = ios.color.segmented.track
+  cornerRadius = ios.radius.pill
+
+  let s1 = IosSegment(label: label1, selected: selected == .one)
+  let s2 = IosSegment(label: label2, selected: selected == .two)
+  let s3 = IosSegment(label: label3, selected: selected == .three)
+  let s4 = IosSegment(label: label4, selected: selected == .four)
+  let s5 = IosSegment(label: label5, selected: selected == .five)
+
+  if count == .two {
+    children = [s1, s2]
+  } else if count == .three {
+    children = [s1, s2, s3]
+  } else if count == .four {
+    children = [s1, s2, s3, s4]
+  } else {
+    children = [s1, s2, s3, s4, s5]
+  }
+}

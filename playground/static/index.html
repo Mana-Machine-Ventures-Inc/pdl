@@ -14,8 +14,8 @@
         <p class="sub">
           File canvas lab (Phase P3–P5). Not PDL Studio.
           Selected <code>.pdl</code> fills the preview.
+          ⌘/Ctrl-click (or F12) an identifier to jump to its definition.
           Default bake: <strong>Rust WASM</strong> (in-browser, fast) → HTML host.
-          Eng stress: <code>npm run preview</code>.
         </p>
       </div>
       <div class="top-right">
@@ -44,35 +44,27 @@
           Reload from disk
         </button>
       </div>
-      <p class="pack-desc" id="packDesc"></p>
-      <p class="hint" id="draftHint" hidden>
-        Preview knobs restored from browser draft — pack sources always reload from disk.
-      </p>
-      <p class="hint" id="canvasHint">Select a file tab — its components (or imports) fill the canvas.</p>
+      <p class="hint" id="draftHint" hidden></p>
+      <p class="hint" id="canvasHint" hidden></p>
 
       <div class="field" id="fixtureField">
-        <span>Fixtures</span>
+        <span title="§11 scenario param bags for the selected component">Fixtures</span>
         <div class="chip-row" id="fixtureChips" role="list"></div>
-        <p class="hint" id="fixtureHint">
-          §11 scenario param bags for the primary component (not typed <code>samples</code>).
-          Each preview section also has its own Fixture control when that component declares fixtures.
-          Screens get a Reset control next to Fixtures that restores declared start.
-        </p>
+        <p class="hint" id="fixtureHint" hidden></p>
       </div>
-      <div class="field">
+      <div class="field" title="Single: in-preview params. Grid: expand variant/Bool params for every canvas component (Analyze first).">
         <span>Variants (preview)</span>
         <div class="row">
           <label><input type="radio" name="variantView" value="single" checked /> Single</label>
           <label><input type="radio" name="variantView" value="grid" /> Grid</label>
         </div>
-        <p class="hint">Single uses in-preview param controls; Grid shows variant combinations.</p>
       </div>
       <label class="field">
         <span>Theme (optional)</span>
         <input type="text" id="theme" list="themeList" placeholder="Default" spellcheck="false" />
         <datalist id="themeList"></datalist>
       </label>
-      <div class="field engine-field">
+      <div class="field engine-field" title="WASM bakes in-browser. Rebuild after language changes: npm run build:wasm">
         <span>Bake engine</span>
         <div class="row">
           <label class="engine-opt engine-opt--preferred">
@@ -89,13 +81,10 @@
             TypeScript
           </label>
         </div>
-        <p class="hint">
-          WASM bakes in-browser (~ms). CLI spawns <code>pdl</code> per tick — much slower for interaction.
-          Rebuild WASM after language changes: <code>npm run build:wasm</code>.
-        </p>
       </div>
       <details class="advanced">
         <summary>Advanced</summary>
+        <p class="pack-desc" id="packDesc" hidden></p>
         <label class="field">
           <span>Param overrides (JSON)</span>
           <textarea id="kvJson" spellcheck="false" rows="3" placeholder='{ "label": "OK" }'></textarea>
@@ -107,8 +96,7 @@
             <label><input type="radio" name="workspace" value="editor" /> Scratch project</label>
           </div>
           <p class="hint">
-            Scratch is a separate browser project (not mixed with Airbnb / fixture packs).
-            Dropping a folder <strong>replaces</strong> the scratch workspace.
+            Scratch is a separate browser project. Dropping a folder replaces it.
           </p>
         </div>
         <div id="editorWorkspace" hidden>

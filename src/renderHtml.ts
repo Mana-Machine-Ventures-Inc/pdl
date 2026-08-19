@@ -2439,6 +2439,84 @@ body.pdl-device-stage .pdl-canvas--fill-height {
 .pdl-doc-title { font-size: 1.1rem; margin: 0 0 12px; }
 .pdl-meta { font-size: 0.85rem; color: #444; margin-bottom: 20px; }
 .pdl-gallery { display: flex; flex-direction: column; gap: 16px; }
+.pdl-gallery.pdl-variant-matrix {
+  gap: 28px;
+}
+.pdl-variant-component {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.pdl-variant-component-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0;
+  color: #111;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e4e6eb;
+}
+.pdl-variant-band--nested {
+  margin: 12px 0 0;
+  padding: 12px 12px 10px;
+  border: 1px solid #e4e6eb;
+  border-radius: 8px;
+  background: #fafbfc;
+}
+.pdl-variant-band--nested .pdl-variant-band-title {
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+}
+.pdl-variant-band--nested .pdl-variant-band--nested {
+  background: #fff;
+  border-color: #eceef2;
+}
+.pdl-variant-band-title {
+  font-size: 0.88rem;
+  font-weight: 650;
+  margin: 0 0 10px;
+  color: #222;
+}
+.pdl-variant-band-title .pdl-variant-axis {
+  color: #667;
+  font-weight: 600;
+}
+.pdl-variant-col-heads,
+.pdl-variant-band-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--pdl-variant-cols, auto-fill), minmax(148px, 1fr));
+  gap: 10px 12px;
+  align-items: start;
+}
+.pdl-variant-col-heads {
+  margin-bottom: 6px;
+}
+.pdl-variant-col-head {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #667;
+  text-align: center;
+  padding: 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pdl-preview--variant-cell {
+  padding: 10px 12px;
+  min-width: 0;
+}
+.pdl-preview--variant-cell .pdl-preview-title {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #444;
+}
+.pdl-preview--variant-cell .pdl-source-link,
+.pdl-preview--variant-cell .pdl-usage,
+.pdl-preview--variant-cell .pdl-rule-list,
+.pdl-preview--variant-cell .pdl-fixture-bar,
+.pdl-preview--variant-cell .pdl-param-bar,
+.pdl-preview--variant-cell .pdl-preview-params {
+  display: none !important;
+}
 .pdl-preview { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 12px 14px; }
 .pdl-preview-head {
   display: flex;
@@ -2955,6 +3033,139 @@ function renderParamsBlock(bakedParams: unknown): string {
 }
 
 /**
+ * Labels from Playground / CLI variant-matrix bakes:
+ * `IosButton · size=.small, style=.prominent`
+ */
+function parseVariantMatrixLabel(name: string): {
+  component: string;
+  axes: Array<{ param: string; value: string }>;
+} {
+  const sep = " · ";
+  const i = name.indexOf(sep);
+  if (i < 0) return { component: name, axes: [] };
+  const component = name.slice(0, i);
+  const rest = name.slice(i + sep.length);
+  const axes: Array<{ param: string; value: string }> = [];
+  for (const part of rest.split(/,\s*/)) {
+    const eq = part.indexOf("=");
+    if (eq < 0) continue;
+    let value = part.slice(eq + 1).trim();
+    if (value.startsWith(".")) value = value.slice(1);
+    const param = part.slice(0, eq).trim();
+    if (param) axes.push({ param, value });
+  }
+  return { component, axes };
+}
+
+/**
+ * Group matrix cells into nested bands by every axis except the column axis.
+ * Column axis = last non-bool param when present (e.g. style); otherwise last axis.
+ * Multiple components each get their own section (bands stay per-component).
+ */
+function assembleVariantMatrixGallery(list: string[], htmlByName: Map<string, string>): string {
+  type Axis = { param: string; value: string };
+  type Parsed = { name: string; component: string; axes: Axis[] };
+  const parsed: Parsed[] = list.map((name) => ({ name, ...parseVariantMatrixLabel(name) }));
+
+  const componentOrder: string[] = [];
+  const byComponent = new Map<string, Parsed[]>();
+  for (const item of parsed) {
+    if (!byComponent.has(item.component)) {
+      componentOrder.push(item.component);
+      byComponent.set(item.component, []);
+    }
+    byComponent.get(item.component)!.push(item);
+  }
+
+  const assembleOne = (items: Parsed[]): string => {
+    const richest = items.reduce(
+      (a, b) => (a.axes.length >= b.axes.length ? a : b),
+      items[0] ?? { name: "", component: "", axes: [] },
+    );
+    const order = richest.axes.map((a) => a.param);
+    if (order.length === 0) {
+      return `<div class="pdl-variant-band-grid">${items
+        .map((p) => htmlByName.get(p.name) ?? "")
+        .join("\n")}</div>`;
+    }
+
+    const isBoolVal = (v: string) => v === "true" || v === "false";
+    let colParam: string | undefined;
+    for (let i = order.length - 1; i >= 0; i--) {
+      const p = order[i]!;
+      const sample = items.find((x) => x.axes.some((a) => a.param === p));
+      const v = sample?.axes.find((a) => a.param === p)?.value;
+      if (v && !isBoolVal(v)) {
+        colParam = p;
+        break;
+      }
+    }
+    if (!colParam) colParam = order[order.length - 1];
+    const bandParams = order.filter((p) => p !== colParam);
+
+    const valuesFor = (param: string, group: Parsed[]): string[] => {
+      const out: string[] = [];
+      for (const item of group) {
+        const v = item.axes.find((a) => a.param === param)?.value;
+        if (v && !out.includes(v)) out.push(v);
+      }
+      return out;
+    };
+
+    const renderLeaf = (group: Parsed[]): string => {
+      const colValues = colParam ? valuesFor(colParam, group) : [];
+      let sorted = group;
+      if (colParam && colValues.length > 0) {
+        sorted = [...group].sort((a, b) => {
+          const av = a.axes.find((x) => x.param === colParam)?.value ?? "";
+          const bv = b.axes.find((x) => x.param === colParam)?.value ?? "";
+          return colValues.indexOf(av) - colValues.indexOf(bv);
+        });
+      }
+      const colsAttr =
+        colValues.length > 0 ? ` style="--pdl-variant-cols:${colValues.length}"` : "";
+      const heads =
+        colValues.length > 0
+          ? `<div class="pdl-variant-col-heads"${colsAttr}>${colValues
+              .map((v) => `<div class="pdl-variant-col-head">${escapeHtml(v)}</div>`)
+              .join("")}</div>`
+          : "";
+      const cells = sorted.map((p) => htmlByName.get(p.name) ?? "").join("\n");
+      return `${heads}<div class="pdl-variant-band-grid"${colsAttr}>${cells}</div>`;
+    };
+
+    const renderBands = (group: Parsed[], remaining: string[], depth: number): string => {
+      if (remaining.length === 0) return renderLeaf(group);
+      const [head, ...rest] = remaining;
+      const values = valuesFor(head!, group);
+      const headingTag = depth === 0 ? "h3" : depth === 1 ? "h4" : "h5";
+      return values
+        .map((bv) => {
+          const subset = group.filter(
+            (p) => (p.axes.find((a) => a.param === head)?.value ?? "—") === bv,
+          );
+          const nested = depth > 0 ? " pdl-variant-band--nested" : "";
+          return `<section class="pdl-variant-band${nested}"><${headingTag} class="pdl-variant-band-title"><span class="pdl-variant-axis">${escapeHtml(head!)}</span> · ${escapeHtml(bv)}</${headingTag}>${renderBands(subset, rest, depth + 1)}</section>`;
+        })
+        .join("\n");
+    };
+
+    return renderBands(items, bandParams, 0);
+  };
+
+  if (componentOrder.length <= 1) {
+    return assembleOne(parsed);
+  }
+
+  return componentOrder
+    .map((comp) => {
+      const items = byComponent.get(comp) ?? [];
+      return `<section class="pdl-variant-component"><h2 class="pdl-variant-component-title">${escapeHtml(comp)}</h2>${assembleOne(items)}</section>`;
+    })
+    .join("\n");
+}
+
+/**
  * Like {@link renderBakedDesignToHtmlDocument} but never throws from individual components:
  * failed previews become error sections and are listed in `renderFailures`.
  */
@@ -3057,10 +3268,21 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         }
       : undefined;
 
-  const sections = list
-    .map((name) => {
+  const isVariantMatrix = doc.provenance.bakeProfile === "variant-matrix";
+  /** @type {Map<string, string>} */
+  const htmlByName = new Map();
+  for (const name of list) {
       const comp = doc.components[name]!;
-      const paramsBlock = renderParamsBlock(comp.bakedParams ?? {});
+      const paramsBlock = isVariantMatrix ? "" : renderParamsBlock(comp.bakedParams ?? {});
+      const parsedLabel = isVariantMatrix ? parseVariantMatrixLabel(name) : null;
+      const previewTitle = parsedLabel
+        ? parsedLabel.axes.length === 0
+          ? parsedLabel.component
+          : parsedLabel.axes.length === 1
+            ? parsedLabel.axes[0]!.value
+            : "" // band titles + column headers carry the labels
+        : name;
+      const cellClass = isVariantMatrix ? " pdl-preview--variant-cell" : "";
       try {
         const violations = evaluateRulesForPreview(comp, rulesByComponent);
         const ruleMarks = ruleMarksFromViolations(violations);
@@ -3161,24 +3383,37 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             : stateExtra
               ? ` data-pdl-chrome-state-param="interactionState"`
               : "";
-        const fixtureBar = renderFixtureBar(
-          name,
-          opts.fixtureControlsByComponent?.[name],
-          opts.componentRolesByComponent?.[name] === "screen",
-        );
-        const paramBar = renderParamBar(name, opts.paramControlsByComponent?.[name]);
+        const fixtureBar = isVariantMatrix
+          ? ""
+          : renderFixtureBar(
+              name,
+              opts.fixtureControlsByComponent?.[name],
+              opts.componentRolesByComponent?.[name] === "screen",
+            );
+        const paramBar = isVariantMatrix
+          ? ""
+          : renderParamBar(name, opts.paramControlsByComponent?.[name]);
         const motionClips = collectMotionClips(
           name,
           opts.interactionsByComponent as Record<string, unknown> | undefined,
           comp.root?.children ?? (comp as { children?: unknown }).children,
         );
         const hasMotionPlayback = motionClips.length > 0;
-        const motionBar = renderMotionReplayBar(name, motionClips);
+        const motionBar = isVariantMatrix ? "" : renderMotionReplayBar(name, motionClips);
         const motionAttr = hasMotionPlayback ? ` data-pdl-motion="1"` : "";
-        const sourceLink = renderSourceFileLink(name, opts.componentSourcesByComponent?.[name]);
-        const usageBlock = renderUsageBlock(usageByComponent[name]);
-        const ruleBlock = renderRuleList(violations, name);
-        return `<section class="pdl-preview" data-pdl-component="${escapeAttr(name)}"${interactiveAttr}${chromeAttr}${motionAttr}><div class="pdl-preview-head"><h2 class="pdl-preview-title">${escapeHtml(name)}</h2>${sourceLink}</div>${usageBlock}${ruleBlock}${fixtureBar}${paramBar}${motionBar}${paramsBlock}${restWrap}</section>`;
+        const sourceLink = isVariantMatrix
+          ? ""
+          : renderSourceFileLink(name, opts.componentSourcesByComponent?.[name]);
+        const usageBlock = isVariantMatrix ? "" : renderUsageBlock(usageByComponent[name]);
+        const ruleBlock = isVariantMatrix ? "" : renderRuleList(violations, name);
+        const headBlock =
+          previewTitle || sourceLink
+            ? `<div class="pdl-preview-head">${previewTitle ? `<h2 class="pdl-preview-title">${escapeHtml(previewTitle)}</h2>` : ""}${sourceLink}</div>`
+            : "";
+        htmlByName.set(
+          name,
+          `<section class="pdl-preview${cellClass}" data-pdl-component="${escapeAttr(name)}"${interactiveAttr}${chromeAttr}${motionAttr}>${headBlock}${usageBlock}${ruleBlock}${fixtureBar}${paramBar}${motionBar}${paramsBlock}${restWrap}</section>`,
+        );
       } catch (err) {
         const message = formatThrownMessage(err);
         const stack = formatThrownStack(err);
@@ -3187,11 +3422,18 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           stack !== undefined
             ? `<details style="margin-top:8px"><summary style="cursor:pointer;font-size:0.82rem">Stack trace</summary><pre class="pdl-render-error-stack">${escapeHtml(stack)}</pre></details>`
             : "";
-        const sourceLink = renderSourceFileLink(name, opts.componentSourcesByComponent?.[name]);
-        return `<section class="pdl-preview pdl-preview--render-error" data-pdl-component="${escapeAttr(name)}"><span class="pdl-render-error-badge">HTML render failed</span><div class="pdl-preview-head"><h2 class="pdl-preview-title">${escapeHtml(name)}</h2>${sourceLink}</div>${paramsBlock}<pre class="pdl-render-error-msg">${escapeHtml(message)}</pre>${stackBlock}</section>`;
+        const errTitle = previewTitle || name;
+        htmlByName.set(
+          name,
+          `<section class="pdl-preview pdl-preview--render-error${cellClass}" data-pdl-component="${escapeAttr(name)}"><span class="pdl-render-error-badge">HTML render failed</span><div class="pdl-preview-head"><h2 class="pdl-preview-title">${escapeHtml(errTitle)}</h2></div>${paramsBlock}<pre class="pdl-render-error-msg">${escapeHtml(message)}</pre>${stackBlock}</section>`,
+        );
       }
-    })
-    .join("\n");
+  }
+
+  const sections = isVariantMatrix
+    ? assembleVariantMatrixGallery(list, htmlByName)
+    : list.map((n) => htmlByName.get(n) ?? "").join("\n");
+  const galleryClass = isVariantMatrix ? "pdl-gallery pdl-variant-matrix" : "pdl-gallery";
 
   const meta = `entry: ${escapeHtml(doc.provenance.entryPath)} · theme: ${escapeHtml(String(doc.provenance.bakedTheme ?? "default"))} · profile: ${escapeHtml(doc.provenance.bakeProfile)}`;
 
@@ -5292,6 +5534,23 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     new ResizeObserver(postHeight).observe(document.body);
   }
   window.addEventListener('load', postHeight);
+
+  /* Tall galleries size the iframe to full content and scroll the Playground
+     panel. Wheel events stay inside the iframe and never move that panel unless
+     we relay them. */
+  if (document.body.getAttribute('data-pdl-parent-scroll') === '1') {
+    window.addEventListener('wheel', function(e) {
+      try {
+        parent.postMessage({
+          type: 'pdl-wheel',
+          deltaY: e.deltaY,
+          deltaX: e.deltaX,
+          deltaMode: e.deltaMode
+        }, '*');
+      } catch (err) {}
+      e.preventDefault();
+    }, { passive: false, capture: true });
+  }
 })();
 </script>`;
 
@@ -5307,10 +5566,10 @@ ${previewBgDecl}
 .pdl-state[hidden] { display: none !important; }
 </style>
 </head>
-<body${opts.hostChrome === "device" ? ' class="pdl-device-stage"' : ""}>
+<body${opts.hostChrome === "device" ? ' class="pdl-device-stage"' : ""}${isVariantMatrix ? ' data-pdl-parent-scroll="1"' : ""}>
 <h1 class="pdl-doc-title">${escapeHtml(title)}</h1>
 <p class="pdl-meta">${meta}</p>
-<div class="pdl-gallery">
+<div class="${galleryClass}">
 ${sections}
 </div>
 ${hostScript}

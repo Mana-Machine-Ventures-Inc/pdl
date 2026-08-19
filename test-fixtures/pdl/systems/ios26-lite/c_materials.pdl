@@ -1,0 +1,92 @@
+import "foundation.pdl"
+
+variant IosMaterialStyle {
+  case ultrathin
+  case thin
+  case regular
+  case thick
+  case chrome
+}
+
+variant IosGlassSize {
+  case small
+  case medium
+  case large
+}
+
+// Folded from Figma `_Materials` (Ultrathin…Chrome) + Mode Options Light/Dark fills.
+// BACKGROUND_BLUR → Effect(.blurBehind). IC modes deferred. Dual-layer Light tints → one Color.
+component IosMaterialSwatch(
+  style: IosMaterialStyle = .regular,
+  label: String = "Regular"
+) layout {
+  direction = .column
+  align = .center
+  justify = .center
+  width = 100
+  height = 100
+  cornerRadius = 16
+  gap = 4
+
+  let caption = Text(
+    content: label,
+    fontFamily: "-apple-system, SF Pro, system-ui, sans-serif",
+    fontSize: 12,
+    fontWeight: 600,
+    color: ios.color.label
+  )
+  children = [caption]
+
+  if style == .ultrathin {
+    background = ios.color.material.ultrathin
+    effect = ios.effect.material
+  } else if style == .thin {
+    background = ios.color.material.thin
+    effect = ios.effect.material
+  } else if style == .regular {
+    background = ios.color.material.regular
+    effect = ios.effect.material
+  } else if style == .thick {
+    background = ios.color.material.thick
+    effect = ios.effect.material
+  } else {
+    background = ios.color.material.chrome
+    effect = ios.effect.chrome
+  }
+}
+
+// Interpretive Liquid Glass tile — Figma uses proprietary GLASS; PDL `.glass` is reserved.
+// Stand-in: translucent fill + blurBehind + soft shadow (Regular Medium / Large / Small).
+component IosLiquidGlassTile(
+  size: IosGlassSize = .medium
+) layout {
+  direction = .column
+  align = .center
+  justify = .center
+  background = ios.color.glass.fill
+  effect = ios.effect.glass
+  shadow = ios.shadow.glass
+
+  let caption = Text(
+    content: "Glass",
+    fontFamily: "-apple-system, SF Pro, system-ui, sans-serif",
+    fontSize: 13,
+    fontWeight: 600,
+    color: ios.color.label
+  )
+  children = [caption]
+
+  if size == .small {
+    width = 48
+    height = 48
+    cornerRadius = ios.radius.pill
+  } else if size == .medium {
+    width = 120
+    height = 120
+    cornerRadius = 34
+  } else {
+    width = 160
+    height = 160
+    cornerRadius = 34
+  }
+}

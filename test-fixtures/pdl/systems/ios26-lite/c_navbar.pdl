@@ -1,0 +1,152 @@
+import "foundation.pdl"
+
+variant IosNavStyle {
+  case inline
+  case large
+}
+
+// Glass capsule control from Toolbar - Top button groups (symbol deferred → label).
+component IosNavChromeButton(
+  label: String = "Edit"
+) layout {
+  direction = .row
+  align = .center
+  justify = .center
+  height = 36
+  padding = EdgeInsets(x: 12, y: 0)
+  background = ios.color.nav.chrome
+  cornerRadius = ios.radius.pill
+  effect = ios.effect.chrome
+
+  let caption = Text(
+    content: label,
+    fontFamily: "-apple-system, SF Pro, system-ui, sans-serif",
+    fontSize: 17,
+    fontWeight: 400,
+    color: ios.color.accent.blue
+  )
+  children = [caption]
+}
+
+// Folded from Figma `Toolbar - Top - iPhone` styles Default + Large Title.
+component IosNavBar(
+  title: String = "Title",
+  subtitle: String = "Subtitle",
+  leading: String = "Back",
+  trailing: String = "Edit",
+  showSubtitle: Bool = false,
+  style: IosNavStyle = .inline
+) layout {
+  direction = .column
+  width = .fill
+  gap = 8
+  background = null
+
+  let leadLarge = IosNavChromeButton(label: leading)
+  let trailLarge = IosNavChromeButton(label: trailing)
+  let leadInline = IosNavChromeButton(label: leading)
+  let trailInline = IosNavChromeButton(label: trailing)
+
+  let largeTitle = Text(
+    content: title,
+    style: IosNavTitleLarge,
+    color: ios.color.tab.idle
+  )
+  let largeTitleSolo = Text(
+    content: title,
+    style: IosNavTitleLarge,
+    color: ios.color.tab.idle
+  )
+  let sub = Text(
+    content: subtitle,
+    style: IosNavSubtitle,
+    color: ios.color.nav.subtitle
+  )
+  let inlineTitle = Text(
+    content: title,
+    style: IosNavTitleInline,
+    color: ios.color.tab.idle
+  )
+
+  let largeLeadSlot = Layout(
+    direction: .row,
+    align: .center,
+    justify: .start,
+    grow: 1,
+    children: [leadLarge]
+  )
+  let largeTrailSlot = Layout(
+    direction: .row,
+    align: .center,
+    justify: .end,
+    grow: 1,
+    children: [trailLarge]
+  )
+  let largeControls = Layout(
+    direction: .row,
+    align: .center,
+    width: .fill,
+    height: 44,
+    padding: EdgeInsets(x: 16, y: 0),
+    children: [largeLeadSlot, largeTrailSlot]
+  )
+  let titleOnly = Layout(
+    direction: .column,
+    align: .start,
+    width: .fill,
+    padding: EdgeInsets(x: 16, y: 0),
+    children: [largeTitleSolo]
+  )
+  let titleWithSub = Layout(
+    direction: .column,
+    align: .start,
+    width: .fill,
+    padding: EdgeInsets(x: 16, y: 0),
+    gap: 0,
+    children: [largeTitle, sub]
+  )
+
+  let inlineLeadSlot = Layout(
+    direction: .row,
+    align: .center,
+    justify: .start,
+    grow: 1,
+    width: .fill,
+    children: [leadInline]
+  )
+  let inlineTitleSlot = Layout(
+    direction: .row,
+    align: .center,
+    justify: .center,
+    grow: 1,
+    width: .fill,
+    children: [inlineTitle]
+  )
+  let inlineTrailSlot = Layout(
+    direction: .row,
+    align: .center,
+    justify: .end,
+    grow: 1,
+    width: .fill,
+    children: [trailInline]
+  )
+  let inlineControls = Layout(
+    direction: .row,
+    align: .center,
+    width: .fill,
+    height: 44,
+    padding: EdgeInsets(x: 16, y: 0),
+    gap: 8,
+    children: [inlineLeadSlot, inlineTitleSlot, inlineTrailSlot]
+  )
+
+  if style == .large {
+    if showSubtitle {
+      children = [largeControls, titleWithSub]
+    } else {
+      children = [largeControls, titleOnly]
+    }
+  } else {
+    children = [inlineControls]
+  }
+}

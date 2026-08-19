@@ -1,0 +1,61 @@
+import "foundation.pdl"
+
+variant IosPageDotCount {
+  case two
+  case three
+  case four
+  case five
+}
+
+variant IosPageDotIndex {
+  case one
+  case two
+  case three
+  case four
+  case five
+}
+
+component IosPageDot(
+  selected: Bool = false
+) layout {
+  direction = .row
+  width = 8
+  height = 8
+  cornerRadius = 50
+
+  if selected {
+    background = ios.color.pageDot.active
+  } else {
+    background = ios.color.pageDot.idle
+  }
+}
+
+// Folded from Figma Page control (Dots 2–5 × Selection). Dots 6–7 / 8+ deferred.
+component IosPageControl(
+  count: IosPageDotCount = .three,
+  selected: IosPageDotIndex = .one
+) layout {
+  direction = .row
+  align = .center
+  justify = .center
+  gap = 8
+  padding = EdgeInsets(x: 12, y: 8)
+  height = 24
+  width = .hug
+
+  let d1 = IosPageDot(selected: selected == .one)
+  let d2 = IosPageDot(selected: selected == .two)
+  let d3 = IosPageDot(selected: selected == .three)
+  let d4 = IosPageDot(selected: selected == .four)
+  let d5 = IosPageDot(selected: selected == .five)
+
+  if count == .two {
+    children = [d1, d2]
+  } else if count == .three {
+    children = [d1, d2, d3]
+  } else if count == .four {
+    children = [d1, d2, d3, d4]
+  } else {
+    children = [d1, d2, d3, d4, d5]
+  }
+}

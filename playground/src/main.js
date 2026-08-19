@@ -1,7 +1,7 @@
 import { autocompletion, completionKeymap } from "@codemirror/autocomplete";
 import { indentWithTab } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
-import { EditorView, keymap } from "@codemirror/view";
+import { Decoration, EditorView, MatchDecorator, ViewPlugin, keymap } from "@codemirror/view";
 import { basicSetup } from "codemirror";
 import {
   formatPropertyInsert,
@@ -19,6 +19,8 @@ import {
   unreachableWorkspaceModules,
 } from "./file-canvas.js";
 import { pdlCompletionSource as buildPdlCompletionSource } from "./pdl-completions.js";
+import { buildGotoSymbolIndex, extractAtPos, resolveGotoTarget } from "./pdl-goto.js";
+import { PDL_KEYWORDS } from "./pdl-keywords.js";
 import { formatTemplateInsert, PDL_TEMPLATES } from "./pdl-templates.js";
 import { applyPresenterOps, refreshPinnedPairMoves, resolvePairMove } from "./presenter-pins.js";
 import { snapshotPresenterOutgoing, startPresenterPairClip } from "./presenter-clip.js";
@@ -31,6 +33,11 @@ import {
   pushPreviewInteractions,
 } from "./preview-apply.js";
 import { allowIrOnlyPreviewApply } from "./dual-bake-policy.js";
+import {
+  expandVariantMatrixCombos,
+  formatVariantMatrixLabel,
+  matrixAxesFromParams,
+} from "./variant-matrix.js";
 import {
   bakedComponentTreesEqual,
   changedEditableSessionTypes,
@@ -169,6 +176,21 @@ const phoneQr = $("phoneQr");
 const phoneUrlBig = $("phoneUrlBig");
 const btnCopyPhone = $("btnCopyPhone");
 
+/** Pack blurb lives on the select tooltip; Advanced keeps a copy when present. */
+function setPackBlurb(desc) {
+  const text = typeof desc === "string" ? desc.trim() : "";
+  if (packSelect) packSelect.title = text;
+  if (packDesc) {
+    packDesc.textContent = text;
+    packDesc.hidden = !text;
+  }
+}
+
+/** Compact status suffix for workspace diagnostics. */
+function warnBit(n) {
+  return n > 0 ? ` · ${n} warn` : "";
+}
+
 /** @type {string | null} */
 let preferredComponent = "AbnPointerLab";
 
@@ -239,6 +261,113 @@ const editorTheme = EditorView.theme({
     borderRight: "1px solid #d8dee4",
   },
   ".cm-activeLineGutter": { backgroundColor: "#e8ebf0" },
+  "&.cm-mod-goto .cm-content": { cursor: "pointer" },
+  ".cm-pdl-link": {
+    color: "#0969da",
+    textDecoration: "underline",
+    textDecorationColor: "rgba(9, 105, 218, 0.35)",
+    textUnderlineOffset: "2px",
+  },
+  "&.cm-mod-goto .cm-pdl-link": {
+    color: "#0550ae",
+    textDecorationColor: "#0969da",
+    backgroundColor: "rgba(9, 105, 218, 0.08)",
+    borderRadius: "2px",
+  },
+});
+
+/** Mutable index — refreshed when the pack/workspace sources change. */
+const gotoSymbols = new Set();
+/** @type {Set<string>} */
+const gotoImports = new Set();
+let gotoIndexGen = 0;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let gotoIndexTimer = null;
+
+const GOTO_KEYWORD_BLOCK = new Set(PDL_KEYWORDS);
+
+function refreshGotoIndex() {
+  const idx = buildGotoSymbolIndex(files);
+  gotoSymbols.clear();
+  gotoImports.clear();
+  for (const s of idx.symbols) gotoSymbols.add(s);
+  for (const s of idx.imports) gotoImports.add(s);
+  gotoIndexGen += 1;
+  // Nudge CodeMirror so link decorations rebuild against the new index.
+  if (editorView) editorView.dispatch({});
+}
+
+function scheduleGotoIndexRefresh() {
+  if (gotoIndexTimer) clearTimeout(gotoIndexTimer);
+  gotoIndexTimer = setTimeout(() => {
+    gotoIndexTimer = null;
+    refreshGotoIndex();
+  }, 400);
+}
+
+const gotoLinkDecorator = new MatchDecorator({
+  regexp: /[A-Za-z_][\w.]*|"[^"]+\.pdl"/g,
+  decorate: (add, from, to, match) => {
+    const raw = match[0];
+    if (raw.startsWith('"')) {
+      const path = raw.slice(1, -1);
+      if (gotoImports.has(path)) {
+        add(from, to, Decoration.mark({ class: "cm-pdl-link", attributes: { title: "⌘/Ctrl-click → open file" } }));
+      }
+      return;
+    }
+    if (GOTO_KEYWORD_BLOCK.has(raw)) return;
+    if (!gotoSymbols.has(raw)) return;
+    add(from, to, Decoration.mark({ class: "cm-pdl-link", attributes: { title: "⌘/Ctrl-click → go to definition" } }));
+  },
+});
+
+const gotoLinkPlugin = ViewPlugin.fromClass(
+  class {
+    /** @param {EditorView} view */
+    constructor(view) {
+      this.decorations = gotoLinkDecorator.createDeco(view);
+      this.gen = gotoIndexGen;
+    }
+    /** @param {import("@codemirror/view").ViewUpdate} update */
+    update(update) {
+      if (update.docChanged || update.viewportChanged || this.gen !== gotoIndexGen) {
+        this.gen = gotoIndexGen;
+        this.decorations = gotoLinkDecorator.updateDeco(update, this.decorations);
+      }
+    }
+  },
+  { decorations: (v) => v.decorations },
+);
+
+/** Track Mod/Ctrl so the editor can show a pointer cursor over identifiers. */
+const gotoCursorMod = EditorView.domEventHandlers({
+  keydown(event, view) {
+    if (event.key === "Meta" || event.key === "Control") {
+      view.dom.classList.add("cm-mod-goto");
+    }
+    return false;
+  },
+  keyup(event, view) {
+    if (event.key === "Meta" || event.key === "Control" || (!event.metaKey && !event.ctrlKey)) {
+      view.dom.classList.remove("cm-mod-goto");
+    }
+    return false;
+  },
+  blur(_event, view) {
+    view.dom.classList.remove("cm-mod-goto");
+    return false;
+  },
+  click(event, view) {
+    if (!(event.metaKey || event.ctrlKey) || event.button !== 0) return false;
+    const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+    if (pos == null) return false;
+    if (goToDefinitionAt(pos)) {
+      event.preventDefault();
+      return true;
+    }
+    return false;
+  },
 });
 
 /** @param {import("@codemirror/autocomplete").CompletionContext} context */
@@ -373,6 +502,24 @@ function bakeKv(obj) {
     out[k] = v;
   }
   return out;
+}
+
+/**
+ * Cartesian product of variant + Bool params (shared with server; cap 64).
+ * @param {string} componentName
+ * @returns {Array<{ labels: Record<string, string>, kv: Record<string, string | boolean> }>}
+ */
+function buildVariantMatrixCombos(componentName) {
+  const params = componentParams[componentName] ?? [];
+  const axes = matrixAxesFromParams(params, variantCases);
+  return expandVariantMatrixCombos(axes);
+}
+
+/** @param {string} componentName @param {Record<string, string>} labels */
+function variantMatrixLabel(componentName, labels) {
+  const params = componentParams[componentName] ?? [];
+  const axes = matrixAxesFromParams(params, variantCases);
+  return formatVariantMatrixLabel(componentName, labels, axes);
 }
 
 /**
@@ -773,9 +920,7 @@ function renderFixtureControls() {
   if (labels.length === 0) {
     if (fixtureHint) {
       fixtureHint.hidden = false;
-      fixtureHint.textContent = owner
-        ? `No fixtures for ${owner}. Per-component Fixture controls appear on each preview when declared.`
-        : "Open a file that declares a component with fixtures.";
+      fixtureHint.textContent = owner ? `No fixtures for ${owner}` : "No fixtures";
     }
     if (isScreenComponent(owner)) appendScreenResetChip(owner);
     syncFixtureBarsInFrame();
@@ -783,8 +928,8 @@ function renderFixtureControls() {
   }
 
   if (fixtureHint) {
-    fixtureHint.hidden = false;
-    fixtureHint.textContent = `§11 scenarios for ${owner} (param bags — not typed samples). Same control lives on that component's preview.`;
+    fixtureHint.hidden = true;
+    fixtureHint.textContent = "";
   }
 
   // Defaults chip
@@ -856,7 +1001,26 @@ function mountEditor() {
         basicSetup,
         EditorView.lineWrapping,
         editorTheme,
-        keymap.of([indentWithTab, ...completionKeymap]),
+        gotoCursorMod,
+        gotoLinkPlugin,
+        keymap.of([
+          indentWithTab,
+          ...completionKeymap,
+          {
+            key: "F12",
+            run: () => {
+              goToDefinitionAt();
+              return true;
+            },
+          },
+          {
+            key: "Mod-b",
+            run: () => {
+              goToDefinitionAt();
+              return true;
+            },
+          },
+        ]),
         autocompletion({ override: [pdlCompletionSource] }),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
@@ -864,6 +1028,7 @@ function mountEditor() {
             if (!suppressEditorDirty) {
               markFileDirty(activePath);
               scheduleDraftSave();
+              scheduleGotoIndexRefresh();
               // Live preview: rebake canvas IR + reconcile deltas (not srcdoc remount).
               scheduleDebouncedRender(undefined, { incremental: true });
             }
@@ -889,6 +1054,26 @@ function showError(msg) {
   errorEl.textContent = String(msg).trim();
 }
 
+const RENDER_CONSOLE_OPEN_KEY = "pdl-playground-render-console-open";
+
+function readRenderConsoleOpenPref() {
+  try {
+    const v = localStorage.getItem(RENDER_CONSOLE_OPEN_KEY);
+    if (v === null) return true;
+    return v === "1";
+  } catch {
+    return true;
+  }
+}
+
+function writeRenderConsoleOpenPref(open) {
+  try {
+    localStorage.setItem(RENDER_CONSOLE_OPEN_KEY, open ? "1" : "0");
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
 /**
  * @param {Array<{ component?: string; phase?: string; message: string; stack?: string }>} entries
  */
@@ -896,12 +1081,16 @@ function updateRenderConsole(entries) {
   renderConsoleBody.replaceChildren();
   if (!entries || entries.length === 0) {
     renderConsole.hidden = true;
-    renderConsole.removeAttribute("open");
     renderConsoleTitle.textContent = "Render console";
+    requestAnimationFrame(() => fitPreviewFrameHeight());
     return;
   }
   renderConsole.hidden = false;
-  renderConsole.setAttribute("open", "");
+  if (readRenderConsoleOpenPref()) {
+    renderConsole.setAttribute("open", "");
+  } else {
+    renderConsole.removeAttribute("open");
+  }
   const n = entries.length;
   renderConsoleTitle.textContent = `Render console (${n} ${n === 1 ? "issue" : "issues"})`;
   for (const e of entries) {
@@ -933,6 +1122,47 @@ function updateRenderConsole(entries) {
       article.append(det);
     }
     renderConsoleBody.append(article);
+  }
+  // Console visibility changes available iframe height — re-cap so it stays on-screen.
+  requestAnimationFrame(() => fitPreviewFrameHeight());
+}
+
+/** Last content height reported by the preview iframe (px), before pane capping. */
+let lastPreviewContentHeight = 240;
+
+/**
+ * Size the preview iframe to content.
+ *
+ * Short previews: iframe hugs content (or fills the pane).
+ * Tall previews (variant grids, etc.): grow the iframe to full content height and
+ * scroll `#outputPanelHtml` — wheel over the preview actually moves, and the render
+ * console stays sticky at the bottom of the pane. Capping the iframe and relying on
+ * in-iframe scroll fails when the parent has overflow:hidden (wheel goes nowhere).
+ */
+function fitPreviewFrameHeight(contentHeight) {
+  if (typeof contentHeight === "number" && Number.isFinite(contentHeight)) {
+    lastPreviewContentHeight = contentHeight;
+  }
+  const pane = outputPanelHtml;
+  if (!pane || !frame) return;
+  const consoleH =
+    renderConsole && !renderConsole.hidden ? Math.ceil(renderConsole.getBoundingClientRect().height) : 0;
+  const gap = consoleH > 0 ? 10 : 0;
+  const avail = Math.max(120, Math.floor(pane.clientHeight - consoleH - gap));
+  const desired = Math.max(120, Math.ceil(lastPreviewContentHeight) + 4);
+  const tall = desired > avail + 8;
+
+  if (tall) {
+    pane.classList.add("is-tall-preview");
+    frame.style.flex = "0 0 auto";
+    const next = `${Math.min(desired, 80000)}px`;
+    if (frame.style.height !== next) frame.style.height = next;
+  } else {
+    pane.classList.remove("is-tall-preview");
+    frame.style.flex = "1 1 auto";
+    const h = Math.min(desired, avail, 12000);
+    const next = `${h}px`;
+    if (frame.style.height !== next) frame.style.height = next;
   }
 }
 
@@ -1541,15 +1771,16 @@ function escapeRegExp(s) {
 }
 
 /**
- * Locate `component Name` (optional `<Protocol>`) in workspace sources.
+ * Locate `component|page|screen Name` in workspace sources.
  * @param {string} componentName
  * @returns {{ path: string, line: number } | null}
  */
 function findComponentSource(componentName) {
   if (!componentName) return null;
-  const re = new RegExp(`^\\s*component\\s+${escapeRegExp(componentName)}\\b`);
+  const re = new RegExp(
+    `^\\s*(?:component|page|screen)\\s+${escapeRegExp(componentName)}\\b`,
+  );
   const paths = sortedFilePaths(Object.keys(files).filter((p) => p.endsWith(".pdl")));
-  // Prefer the active file when it declares the component.
   const ordered = paths.includes(activePath)
     ? [activePath, ...paths.filter((p) => p !== activePath)]
     : paths;
@@ -1580,28 +1811,24 @@ function buildComponentSources(names) {
 }
 
 /**
- * Switch to the declaring file and scroll the editor to the component header.
- * @param {string} componentName
+ * Jump the editor to a declaration site.
+ * @param {{ path: string, line: number, kind?: string, name?: string }} loc
+ * @param {{ selectComponent?: boolean }} [opts]
  */
-function openComponentSource(componentName) {
-  syncEditorToFiles();
-  const loc = findComponentSource(componentName);
-  if (!loc) {
-    setStatus(`Source not found for ${componentName}`);
-    return;
-  }
+function revealSourceLoc(loc, opts = {}) {
   const switched = loc.path !== activePath;
   if (switched) {
     activePath = loc.path;
     setEditorText(files[activePath] ?? "");
     renderTabs();
-    // Keep preview focused on this component; don't clobber pack preference.
-    preferredComponent = componentName;
-    primaryComponent = componentName;
-    if ([...component.options].some((o) => o.value === componentName)) {
-      component.value = componentName;
+    if (opts.selectComponent && loc.name) {
+      preferredComponent = loc.name;
+      primaryComponent = loc.name;
+      if ([...component.options].some((o) => o.value === loc.name)) {
+        component.value = loc.name;
+      }
+      refreshCanvasHint();
     }
-    refreshCanvasHint();
   }
   if (!editorView) return;
   const doc = editorView.state.doc;
@@ -1613,9 +1840,49 @@ function openComponentSource(componentName) {
   });
   editorView.focus();
   const short = loc.path.includes("/") ? loc.path.split("/").slice(-2).join("/") : loc.path;
-  setStatus(`Source · ${componentName} · ${short}:${loc.line}`);
-  // Switching files changes the canvas entry — refresh preview once.
-  if (switched) scheduleDebouncedRender(0);
+  const label = loc.name ?? short;
+  const kindBit = loc.kind ? `${loc.kind} · ` : "";
+  setStatus(`Source · ${kindBit}${label} · ${short}:${loc.line}`);
+  if (switched && opts.selectComponent) scheduleDebouncedRender(0);
+}
+
+/**
+ * Switch to the declaring file and scroll the editor to the component header.
+ * @param {string} componentName
+ */
+function openComponentSource(componentName) {
+  syncEditorToFiles();
+  const loc = findComponentSource(componentName);
+  if (!loc) {
+    setStatus(`Source not found for ${componentName}`);
+    return;
+  }
+  revealSourceLoc({ ...loc, kind: "component", name: componentName }, { selectComponent: true });
+}
+
+/**
+ * Go to definition for the identifier / import under `pos` (or the cursor).
+ * @param {number} [pos]
+ * @returns {boolean} true if a definition was found and revealed
+ */
+function goToDefinitionAt(pos) {
+  if (!editorView) return false;
+  syncEditorToFiles();
+  const doc = editorView.state.doc;
+  const at = pos ?? editorView.state.selection.main.head;
+  const target = extractAtPos(doc, at);
+  if (!target) {
+    setStatus("Go to definition · no identifier under cursor");
+    return false;
+  }
+  const loc = resolveGotoTarget(target, files, activePath);
+  if (!loc) {
+    setStatus(`Go to definition · not found: ${target.text}`);
+    return false;
+  }
+  const selectComponent = loc.kind === "component";
+  revealSourceLoc(loc, { selectComponent });
+  return true;
 }
 
 /** Basename of a workspace path (`a/b/design.pdl` → `design.pdl`). */
@@ -1739,6 +2006,7 @@ function enterScratchProject(opts = {}) {
   }
   files = fileMap;
   lastScratchSnapshot = { ...files };
+  refreshGotoIndex();
   preferredComponent = null;
   primaryComponent = "";
   kvByComponent = {};
@@ -1766,8 +2034,7 @@ function enterScratchProject(opts = {}) {
   if (files[activePath] === undefined) {
     files[activePath] = "";
   }
-  packDesc.textContent =
-    "Scratch project — browser-only workspace, separate from fixture packs on disk.";
+  setPackBlurb("Scratch project — browser-only, separate from disk packs.");
   if (btnReloadPack) {
     btnReloadPack.textContent = "Reset scratch";
     btnReloadPack.title = "Replace this scratch project with the starter lab.pdl";
@@ -2046,7 +2313,10 @@ async function restoreDraft(draft) {
       setEditorText(files[activePath] ?? "");
       renderTabs();
       refreshCanvasHint();
-      if (draftHint) draftHint.hidden = false;
+      if (draftHint) {
+        draftHint.hidden = false;
+        draftHint.textContent = "Draft knobs restored";
+      }
       if (await runAnalyze()) await runRender({ debounced: false });
       return;
     }
@@ -2090,10 +2360,9 @@ async function restoreDraft(draft) {
     syncKvTextareaFromOwner(overrideOwner(lastCanvas?.componentNames ?? [], lastCanvas?.primaryComponent));
     if (draftHint) {
       draftHint.hidden = false;
-      draftHint.textContent =
-        "Restored preview knobs from browser draft — pack sources were reloaded from disk.";
+      draftHint.textContent = "Draft knobs restored";
     }
-    setStatus(`Opened ${packId} from disk (draft knobs restored)`);
+    setStatus(`Opened ${packId} (draft knobs restored)`);
     if (await runAnalyze()) await runRender({ debounced: false });
   } finally {
     suppressDraftSave = false;
@@ -2131,8 +2400,11 @@ function refreshCanvasHint() {
   }
   syncKvTextareaFromOwner(overrideOwner(names, lastCanvas.primaryComponent));
   if (canvasHint) {
+    const file = activePath.split("/").pop() || activePath;
     if (lastCanvas.kind === "components") {
-      canvasHint.textContent = `Canvas: ${lastCanvas.componentNames.join(", ")} (from ${activePath.split("/").pop()})`;
+      const n = lastCanvas.componentNames.length;
+      canvasHint.hidden = false;
+      canvasHint.textContent = `${n} component${n === 1 ? "" : "s"} · ${file}`;
     } else if (lastCanvas.kind === "tokens") {
       const n =
         lastCanvas.tokens.primitives.length +
@@ -2140,9 +2412,11 @@ function refreshCanvasHint() {
         lastCanvas.tokens.themes.length +
         lastCanvas.tokens.variants.length +
         lastCanvas.tokens.typeStyles.length;
-      canvasHint.textContent = `Canvas: ${n} token/theme/variant decl(s) in this file (and imports).`;
+      canvasHint.hidden = false;
+      canvasHint.textContent = `${n} token decl(s) · ${file}`;
     } else {
-      canvasHint.textContent = "Canvas: nothing to preview in this file.";
+      canvasHint.hidden = false;
+      canvasHint.textContent = `Nothing to preview · ${file}`;
     }
   }
   refreshAddPropertyMenu();
@@ -3443,6 +3717,7 @@ async function loadPack(packId, { fromDisk = false, skipAnalyze = false } = {}) 
     files = { ...(data.files ?? {}) };
     adoptDiskBaseline(files);
     dirtyDiskPaths.clear();
+    refreshGotoIndex();
     entryPath.value = data.entry;
     preferredComponent = data.defaultComponent ?? null;
     primaryComponent = data.defaultComponent ?? "";
@@ -3452,7 +3727,7 @@ async function loadPack(packId, { fromDisk = false, skipAnalyze = false } = {}) 
     pinnedFixtureEnv = null;
     hostParamPins = {};
     writeKvObject({});
-    packDesc.textContent = data.pack?.description ?? "";
+    setPackBlurb(data.pack?.description ?? "");
     activePath = data.entry;
     if (files[activePath] === undefined) {
       const keys = sortedFilePaths();
@@ -3532,12 +3807,8 @@ async function runAnalyze() {
     const nComp = data.components?.length ?? 0;
     if (workspaceWarn.length > 0) {
       updateRenderConsole(workspaceWarn);
-      setStatus(
-        `OK — ${nComp} components · ${selectedEngine()} · ${workspaceWarn.length} workspace warning(s)`,
-      );
-    } else {
-      setStatus(`OK — ${nComp} components · ${selectedEngine()}`);
     }
+    setStatus(`OK — ${nComp} components · ${selectedEngine()}${warnBit(workspaceWarn.length)}`);
     lastDesignSummary = data.designSummary ?? null;
     renderDesignSummary(data.designSummary);
     return true;
@@ -3643,6 +3914,94 @@ async function runRender({ debounced = false } = {}) {
       const sourceFiles = await sourcesForWasmBake(entry);
       const { filesJson, entry: virtEntry } = virtualizeSources(sourceFiles, entry);
       const t0 = performance.now();
+      const env = currentBakeEnv();
+      const bakeTarget = owner || canvasPrimary;
+
+      // Grid expands every canvas component (not only the primary).
+      // One design load + N cell resolves (not N full parse+bake cycles).
+      if (variantView === "grid" && names.length > 0) {
+        if (typeof wasm.bake_variant_matrix_sources !== "function") {
+          throw new Error(
+            "WASM bake_variant_matrix_sources missing — run npm run build:wasm and hard-refresh",
+          );
+        }
+        /** @type {Array<{ component: string, label: string, kv: Record<string, unknown> }>} */
+        const cells = [];
+        let componentsWithAxes = 0;
+        for (const target of names) {
+          const combos = buildVariantMatrixCombos(target);
+          if (combos.length > 1) componentsWithAxes += 1;
+          const baseKv = componentOverrides[target] ?? {};
+          for (const combo of combos) {
+            cells.push({
+              component: target,
+              label: variantMatrixLabel(target, combo.labels),
+              kv: bakeKv({ ...baseKv, ...combo.kv }),
+            });
+          }
+        }
+        /** @type {Record<string, unknown>} */
+        const pinsByComponent = {};
+        for (const target of names) {
+          const pins = presenterPinsByComponent[target];
+          if (pins && typeof pins === "object" && Object.keys(pins).length > 0) {
+            pinsByComponent[target] = pins;
+          }
+        }
+        const bakeJson = wasm.bake_variant_matrix_sources(
+          filesJson,
+          virtEntry,
+          JSON.stringify(cells),
+          env.theme,
+          env.host,
+          JSON.stringify(env.hostFacts ?? {}),
+          Object.keys(pinsByComponent).length > 0 ? JSON.stringify(pinsByComponent) : undefined,
+        );
+        const bakeMs = Math.round(performance.now() - t0);
+        const bake = JSON.parse(bakeJson);
+        persistDisk = true;
+        const matrixNames = Object.keys(bake?.components ?? {});
+        const cellCount = matrixNames.length;
+        const res = await fetch("/api/render-from-bake", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bake,
+            componentNames: matrixNames,
+            interactiveHost: false,
+            ...(await previewSourceBody()),
+          }),
+        });
+        const data = await res.json();
+        if (id !== latestRenderId) return;
+        if (!data.ok) {
+          const errMsg = withUnknownComponentHint(
+            data.error || "WASM variant grid render failed",
+            entry,
+          );
+          showError(errMsg);
+          updateRenderConsole([
+            { phase: "WASM variant grid", message: errMsg },
+            ...unreachableModuleConsoleEntries(),
+          ]);
+          frame.removeAttribute("srcdoc");
+          setStatus("");
+          return;
+        }
+        if (!data.baked) data.baked = bake;
+        applyPreviewUpdate(data, { incremental: false });
+        const workspaceWarn = unreachableModuleConsoleEntries();
+        if (workspaceWarn.length > 0) updateRenderConsole(workspaceWarn);
+        const axisHint =
+          componentsWithAxes === 0
+            ? ` · no variant/Bool params on ${names.length} component(s)`
+            : ` · ${names.length} component(s) · ${cellCount} cells`;
+        setStatus(
+          `Preview updated · wasm · grid${axisHint} · bake ${bakeMs}ms${warnBit(workspaceWarn.length)}`,
+        );
+        return;
+      }
+
       // Param/emit hot path: bake only the dirty owner. Source/theme: whole canvas IR.
       const dirtyOnly =
         incremental &&
@@ -3651,8 +4010,6 @@ async function runRender({ debounced = false } = {}) {
         !!lastBakedDesign?.components &&
         names.length > 1 &&
         !!(owner || canvasPrimary);
-      const bakeTarget = owner || canvasPrimary;
-      const env = currentBakeEnv();
       const bakeJson =
         names.length === 1 || dirtyOnly
           ? wasm.bake_component_sources(
@@ -3721,9 +4078,7 @@ async function runRender({ debounced = false } = {}) {
           if (workspaceWarn.length > 0) updateRenderConsole(workspaceWarn);
           const applyBit = " · live apply";
           setStatus(
-            workspaceWarn.length > 0
-              ? `Preview updated · wasm · bake ${bakeMs}ms${applyBit} · ${workspaceWarn.length} workspace warning(s)`
-              : `Preview updated · wasm · bake ${bakeMs}ms${applyBit}`,
+            `Preview updated · wasm · bake ${bakeMs}ms${applyBit}${warnBit(workspaceWarn.length)}`,
           );
           void publishStage();
           // IR-only skip HTML/enrich — source ticks still need a live catalogue.
@@ -3770,9 +4125,7 @@ async function runRender({ debounced = false } = {}) {
       if (workspaceWarn.length > 0) updateRenderConsole(workspaceWarn);
       const applyBit = mode === "incremental" ? " · live apply" : "";
       setStatus(
-        workspaceWarn.length > 0
-          ? `Preview updated · wasm · bake ${bakeMs}ms${applyBit} · ${workspaceWarn.length} workspace warning(s)`
-          : `Preview updated · wasm · bake ${bakeMs}ms${applyBit}`,
+        `Preview updated · wasm · bake ${bakeMs}ms${applyBit}${warnBit(workspaceWarn.length)}`,
       );
       return;
     }
@@ -3792,10 +4145,13 @@ async function runRender({ debounced = false } = {}) {
       bakeOnly: incremental && previewDocumentLive,
     };
 
-    if (variantView === "grid" && (owner || canvasPrimary)) {
-      body.mode = "component";
-      body.component = owner || canvasPrimary;
+    if (variantView === "grid" && names.length > 0) {
+      body.mode = "system";
+      body.componentNames = names;
       body.variantMatrix = true;
+      if (Object.keys(componentOverrides).length > 0) {
+        body.componentOverrides = componentOverrides;
+      }
     } else if (
       names.length === 1 ||
       // Param/emit: bake only the dirty owner; merge + reconcile that section.
@@ -3884,9 +4240,7 @@ async function runRender({ debounced = false } = {}) {
       setStatus(`Preview updated${engLabel}${ms}${varN}${applyBit} — ${failures.length} HTML issue(s)`);
     } else if (workspaceWarn.length > 0) {
       updateRenderConsole(workspaceWarn);
-      setStatus(
-        `Preview updated${engLabel}${ms}${varN}${applyBit} · ${workspaceWarn.length} workspace warning(s)`,
-      );
+      setStatus(`Preview updated${engLabel}${ms}${varN}${applyBit}${warnBit(workspaceWarn.length)}`);
     } else {
       updateRenderConsole([]);
       setStatus(`Preview updated${engLabel}${ms}${varN}${applyBit}`);
@@ -4093,9 +4447,16 @@ window.addEventListener("message", (ev) => {
   const data = ev.data;
   if (!data || typeof data !== "object") return;
   if (data.type === "pdl-resize" && typeof data.height === "number") {
-    const h = Math.max(120, Math.min(Math.ceil(data.height) + 4, 12000));
-    const next = `${h}px`;
-    if (frame.style.height !== next) frame.style.height = next;
+    fitPreviewFrameHeight(data.height);
+    return;
+  }
+  if (data.type === "pdl-wheel") {
+    const pane = outputPanelHtml;
+    if (!pane?.classList.contains("is-tall-preview")) return;
+    const dy = typeof data.deltaY === "number" ? data.deltaY : 0;
+    const dx = typeof data.deltaX === "number" ? data.deltaX : 0;
+    if (dy) pane.scrollTop += dy;
+    if (dx) pane.scrollLeft += dx;
     return;
   }
   if (data.type === "pdl-open-source" && typeof data.component === "string" && data.component) {
@@ -4222,8 +4583,17 @@ btnRender.addEventListener("click", () => {
   void runRender({ debounced: false });
 });
 
+renderConsole?.addEventListener("toggle", () => {
+  writeRenderConsoleOpenPref(renderConsole.open);
+  requestAnimationFrame(() => fitPreviewFrameHeight());
+});
+if (typeof ResizeObserver !== "undefined" && outputPanelHtml) {
+  new ResizeObserver(() => fitPreviewFrameHeight()).observe(outputPanelHtml);
+}
+
 renderDesignSummary(null);
 mountEditor();
+refreshGotoIndex();
 renderTabs();
 refreshControlsUi();
 populateInsertTemplateMenu();

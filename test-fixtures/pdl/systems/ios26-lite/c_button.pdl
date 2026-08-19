@@ -1,0 +1,84 @@
+import "foundation.pdl"
+
+variant IosButtonSize {
+  case small
+  case medium
+  case large
+}
+
+variant IosButtonStyle {
+  case prominent
+  case bordered
+  case secondary
+  case borderless
+}
+
+component IosButton(
+  label: String = "Play",
+  size: IosButtonSize = .medium,
+  style: IosButtonStyle = .prominent,
+  isEnabled: Bool = true,
+  destructive: Bool = false
+) layout {
+  direction = .row
+  align = .center
+  justify = .center
+  cornerRadius = ios.radius.pill
+  width = .hug
+  height = .hug
+
+  if size == .small {
+    padding = EdgeInsets(x: 10, y: 4)
+    gap = 3
+  } else if size == .large {
+    padding = EdgeInsets(x: 20, y: 14)
+    gap = 4
+  } else {
+    padding = EdgeInsets(x: 14, y: 7)
+    gap = 4
+  }
+
+  let caption = Text(content: label, fontFamily: "-apple-system, SF Pro, system-ui, sans-serif")
+
+  if size == .large {
+    caption.fontSize = 17
+  } else {
+    caption.fontSize = 15
+  }
+  caption.fontWeight = 400
+
+  if isEnabled == false {
+    background = ios.color.fill.primary
+    caption.color = ios.color.label.tertiary
+  } else if style == .prominent {
+    if destructive {
+      background = ios.color.accent.red
+    } else {
+      background = ios.color.accent.blue
+    }
+    caption.color = ios.color.gray.white
+  } else if style == .bordered {
+    background = ios.color.fill.primary
+    if destructive {
+      caption.color = ios.color.accent.red
+    } else {
+      caption.color = ios.color.accent.blue
+    }
+  } else if style == .secondary {
+    background = ios.color.fill.primary
+    if destructive {
+      caption.color = ios.color.accent.red
+    } else {
+      caption.color = ios.color.label.primary
+    }
+  } else {
+    background = null
+    if destructive {
+      caption.color = ios.color.accent.red
+    } else {
+      caption.color = ios.color.accent.blue
+    }
+  }
+
+  children = [caption]
+}

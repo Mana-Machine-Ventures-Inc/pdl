@@ -1258,4 +1258,96 @@ describe("renderHtml", () => {
     expect(html).toContain(".pdl-preview-head");
     expect(html).toContain("display: none !important");
   });
+
+  it("lays out variant-matrix bakes in axis bands with column headers", () => {
+    const design = loadDesign(fx("molecules/m_02_buttons_basic.pdl"));
+    const base = buildBakedDesignComponent(design, { componentName: "MoleculeTextButton" });
+    const tree = base.components.MoleculeTextButton!;
+    const names = [
+      "MoleculeTextButton · size=.small, style=.primary",
+      "MoleculeTextButton · size=.small, style=.secondary",
+      "MoleculeTextButton · size=.large, style=.primary",
+      "MoleculeTextButton · size=.large, style=.secondary",
+    ];
+    const components: Record<string, typeof tree> = {};
+    for (const n of names) components[n] = tree;
+    const html = renderBakedDesignToHtmlDocument(
+      {
+        ...base,
+        components,
+        provenance: {
+          ...base.provenance,
+          bakeProfile: "variant-matrix",
+        },
+      },
+      { componentNames: names, title: "Variants" },
+    );
+    expect(html).toContain("pdl-variant-matrix");
+    expect(html).toContain("pdl-variant-band");
+    expect(html).toContain('class="pdl-variant-axis">size</span> · small');
+    expect(html).toContain('class="pdl-variant-axis">size</span> · large');
+    expect(html).toContain("pdl-variant-col-head");
+    expect(html).toContain(">primary</div>");
+    expect(html).toContain(">secondary</div>");
+    expect(html).toContain("--pdl-variant-cols:2");
+  });
+
+  it("nests bool axes as extra variant-matrix sections", () => {
+    const design = loadDesign(fx("molecules/m_02_buttons_basic.pdl"));
+    const base = buildBakedDesignComponent(design, { componentName: "MoleculeTextButton" });
+    const tree = base.components.MoleculeTextButton!;
+    const names = [
+      "Btn · size=.small, style=.primary, destructive=false",
+      "Btn · size=.small, style=.secondary, destructive=false",
+      "Btn · size=.small, style=.primary, destructive=true",
+      "Btn · size=.small, style=.secondary, destructive=true",
+    ];
+    const components: Record<string, typeof tree> = {};
+    for (const n of names) components[n] = tree;
+    const html = renderBakedDesignToHtmlDocument(
+      {
+        ...base,
+        components,
+        provenance: {
+          ...base.provenance,
+          bakeProfile: "variant-matrix",
+        },
+      },
+      { componentNames: names, title: "Variants" },
+    );
+    expect(html).toContain("pdl-variant-band--nested");
+    expect(html).toContain('class="pdl-variant-axis">size</span> · small');
+    expect(html).toContain('class="pdl-variant-axis">destructive</span> · false');
+    expect(html).toContain('class="pdl-variant-axis">destructive</span> · true');
+    expect(html).toContain(">primary</div>");
+    expect(html).toContain("--pdl-variant-cols:2");
+  });
+
+  it("groups multi-component variant-matrix bakes under each component title", () => {
+    const design = loadDesign(fx("molecules/m_02_buttons_basic.pdl"));
+    const base = buildBakedDesignComponent(design, { componentName: "MoleculeTextButton" });
+    const tree = base.components.MoleculeTextButton!;
+    const names = [
+      "Alpha · size=.small, style=.primary",
+      "Alpha · size=.small, style=.secondary",
+      "Beta · on=false",
+      "Beta · on=true",
+    ];
+    const components: Record<string, typeof tree> = {};
+    for (const n of names) components[n] = tree;
+    const html = renderBakedDesignToHtmlDocument(
+      {
+        ...base,
+        components,
+        provenance: {
+          ...base.provenance,
+          bakeProfile: "variant-matrix",
+        },
+      },
+      { componentNames: names, title: "Variants" },
+    );
+    expect(html).toContain('class="pdl-variant-component-title">Alpha</h2>');
+    expect(html).toContain('class="pdl-variant-component-title">Beta</h2>');
+    expect(html).toContain('class="pdl-variant-axis">size</span> · small');
+  });
 });

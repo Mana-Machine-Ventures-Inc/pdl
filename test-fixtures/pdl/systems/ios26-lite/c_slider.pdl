@@ -1,0 +1,119 @@
+import "foundation.pdl"
+
+variant IosSliderValue {
+  case empty
+  case quarter
+  case half
+  case threeQuarters
+  case full
+}
+
+// Folded from Figma Sliders (Value 0% / 25% / 50% / 75% / 100%).
+// Continuous Number + thumb drag deferred — discrete levels via grow split.
+component IosSlider(
+  value: IosSliderValue = .half,
+  showIcons: Bool = true
+) layout {
+  direction = .row
+  align = .center
+  gap = 12
+  width = .fill
+  height = 50
+  padding = EdgeInsets(x: 16, y: 0)
+
+  let minIcon = Text(
+    content: "–",
+    fontSize: 22,
+    fontWeight: 500,
+    color: ios.color.label.secondary
+  )
+  let maxIcon = Text(
+    content: "+",
+    fontSize: 22,
+    fontWeight: 500,
+    color: ios.color.label.secondary
+  )
+
+  let fillQuarter = Layout(height: 6, background: ios.color.accent.blue, cornerRadius: 3, grow: 1)
+  let emptyQuarter = Layout(height: 6, background: null, grow: 3)
+  let trackQuarter = Layout(
+    direction: .row,
+    align: .center,
+    width: .fill,
+    height: 6,
+    background: ios.color.slider.track,
+    cornerRadius: 3,
+    children: [fillQuarter, emptyQuarter]
+  )
+
+  let fillHalf = Layout(height: 6, background: ios.color.accent.blue, cornerRadius: 3, grow: 1)
+  let emptyHalf = Layout(height: 6, background: null, grow: 1)
+  let trackHalf = Layout(
+    direction: .row,
+    align: .center,
+    width: .fill,
+    height: 6,
+    background: ios.color.slider.track,
+    cornerRadius: 3,
+    children: [fillHalf, emptyHalf]
+  )
+
+  let fillThree = Layout(height: 6, background: ios.color.accent.blue, cornerRadius: 3, grow: 3)
+  let emptyThree = Layout(height: 6, background: null, grow: 1)
+  let trackThree = Layout(
+    direction: .row,
+    align: .center,
+    width: .fill,
+    height: 6,
+    background: ios.color.slider.track,
+    cornerRadius: 3,
+    children: [fillThree, emptyThree]
+  )
+
+  let trackEmpty = Layout(
+    direction: .row,
+    width: .fill,
+    height: 6,
+    background: ios.color.slider.track,
+    cornerRadius: 3
+  )
+  let trackFull = Layout(
+    direction: .row,
+    width: .fill,
+    height: 6,
+    background: ios.color.accent.blue,
+    cornerRadius: 3
+  )
+
+  let bodyEmpty = Layout(direction: .row, align: .center, width: .fill, height: 28, children: [trackEmpty])
+  let bodyQuarter = Layout(direction: .row, align: .center, width: .fill, height: 28, children: [trackQuarter])
+  let bodyHalf = Layout(direction: .row, align: .center, width: .fill, height: 28, children: [trackHalf])
+  let bodyThree = Layout(direction: .row, align: .center, width: .fill, height: 28, children: [trackThree])
+  let bodyFull = Layout(direction: .row, align: .center, width: .fill, height: 28, children: [trackFull])
+
+  if showIcons {
+    if value == .empty {
+      children = [minIcon, bodyEmpty, maxIcon]
+    } else if value == .quarter {
+      children = [minIcon, bodyQuarter, maxIcon]
+    } else if value == .half {
+      children = [minIcon, bodyHalf, maxIcon]
+    } else if value == .threeQuarters {
+      children = [minIcon, bodyThree, maxIcon]
+    } else {
+      children = [minIcon, bodyFull, maxIcon]
+    }
+  } else {
+    if value == .empty {
+      children = [bodyEmpty]
+    } else if value == .quarter {
+      children = [bodyQuarter]
+    } else if value == .half {
+      children = [bodyHalf]
+    } else if value == .threeQuarters {
+      children = [bodyThree]
+    } else {
+      children = [bodyFull]
+    }
+  }
+}

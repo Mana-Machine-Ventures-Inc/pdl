@@ -21,6 +21,7 @@ Rebuild whenever `pdl-core` language surface changes (e.g. new keywords like `en
 |--------|------|
 | `analyze_sources(filesJson, entry)` | Component / theme names |
 | `bake_component_sources(filesJson, entry, component, theme?, kvJson?, host?, hostFactsJson?, pinsJson?)` | Bake JSON |
+| `bake_variant_matrix_sources(filesJson, entry, cellsJson, theme?, host?, hostFactsJson?, pinsByComponentJson?)` | Parse once; bake many labeled cells |
 | `apply_presenter_pins(pinsJson, opsJson)` | Apply presenter verbs → next pin bag |
 | `bake_system_sources(filesJson, entry, theme?, host?, hostFactsJson?)` | Full system bake JSON |
 

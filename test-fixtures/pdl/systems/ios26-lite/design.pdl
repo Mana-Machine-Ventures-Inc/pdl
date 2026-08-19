@@ -1,0 +1,19 @@
+// iOS / iPadOS 26 community kit — lite interpretive ingest.
+// Source: https://www.figma.com/design/wsKoOjupxcWAef2rjaevOB
+
+import "foundation.pdl"
+import "c_toggle.pdl"
+import "c_segmented.pdl"
+import "c_button.pdl"
+import "c_field.pdl"
+import "c_tabbar.pdl"
+import "c_list.pdl"
+import "c_navbar.pdl"
+import "c_slider.pdl"
+import "c_stepper.pdl"
+import "c_progress.pdl"
+import "c_pagecontrol.pdl"
+import "c_materials.pdl"
+import "screens.pdl"
+import "demos.pdl"
+import "companions.pdl"

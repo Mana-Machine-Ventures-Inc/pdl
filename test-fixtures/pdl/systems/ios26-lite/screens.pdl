@@ -1,0 +1,217 @@
+import "foundation.pdl"
+import "c_field.pdl"
+import "c_tabbar.pdl"
+import "c_list.pdl"
+import "c_navbar.pdl"
+
+// Destinations + phone chrome. Tab bar stays on the screen; pages fill Presenter.
+
+protocol IosAppNav: component {
+  emits(propagation: .ancestors) {
+    goHome()
+    goSearch()
+    goSettings()
+  }
+}
+
+// Interactive tab cell for screen chrome (gallery `IosTabBar` stays display-only).
+component IosAppTabItem <PointerInput> emits <IosAppNav>(
+  label: String = "Label",
+  icon: String = "●",
+  selected: Bool = false,
+  destination: IosTabIndex = .one
+) layout {
+  direction = .column
+  align = .center
+  justify = .center
+  grow = 1
+  padding = EdgeInsets(x: 8, y: 6)
+  height = 54
+  gap = 1
+  width = .hug
+
+  if selected {
+    background = ios.color.tab.selection
+    cornerRadius = ios.radius.pill
+  } else {
+    background = null
+    cornerRadius = 0
+  }
+
+  let glyph = Text(
+    content: icon,
+    fontFamily: "-apple-system, SF Pro, system-ui, sans-serif",
+    fontSize: 18,
+    fontWeight: 600
+  )
+  let caption = Text(
+    content: label,
+    style: IosTabLabel
+  )
+
+  if selected {
+    glyph.color = ios.color.accent.blue
+    caption.color = ios.color.accent.blue
+  } else {
+    glyph.color = ios.color.tab.idle
+    caption.color = ios.color.tab.idle
+  }
+
+  children = [glyph, caption]
+
+  if destination == .one {
+    self.pressEnd = { emit goHome() }
+  } else if destination == .two {
+    self.pressEnd = { emit goSearch() }
+  } else {
+    self.pressEnd = { emit goSettings() }
+  }
+}
+
+component IosAppTabBar(
+  selected: IosTabIndex = .three
+) layout {
+  direction = .row
+  align = .center
+  justify = .center
+  gap = 0
+  padding = EdgeInsets(x: 2, y: 4)
+  height = 62
+  width = .fill
+  background = ios.color.tab.glass
+  cornerRadius = ios.radius.pill
+  effect = ios.effect.chrome
+
+  let home = IosAppTabItem(label: "Home", icon: "⌂", selected: selected == .one, destination: .one)
+  let search = IosAppTabItem(label: "Search", icon: "⌕", selected: selected == .two, destination: .two)
+  let settings = IosAppTabItem(label: "Settings", icon: "⚙", selected: selected == .three, destination: .three)
+  children = [home, search, settings]
+}
+
+page IosHomePage() layout {
+  direction = .column
+  gap = 12
+  padding = EdgeInsets(x: 0, y: 12)
+  background = ios.color.page
+  width = .fill
+  height = .fill
+
+  let nav = IosNavBar(
+    title: "Home",
+    leading: "Edit",
+    trailing: "⋯",
+    style: .large
+  )
+  let header = IosListSectionHeader(title: "Favorites")
+  let wifi = IosListRow(title: "Living Room", detail: "On", trailing: .disclosure)
+  let lights = IosListRow(title: "Lights", detail: "3", trailing: .disclosure)
+  let group = Layout(
+    direction: .column,
+    gap: 0,
+    width: .fill,
+    cornerRadius: 12,
+    background: ios.color.surface,
+    children: [wifi, lights]
+  )
+  let body = Layout(
+    direction: .column,
+    gap: 8,
+    padding: EdgeInsets(x: 24, y: 0),
+    width: .fill,
+    children: [header, group]
+  )
+  children = [nav, body]
+}
+
+page IosSearchPage() layout {
+  direction = .column
+  gap = 16
+  padding = EdgeInsets(x: 0, y: 12)
+  background = ios.color.page
+  width = .fill
+  height = .fill
+
+  let nav = IosNavBar(
+    title: "Search",
+    leading: "Cancel",
+    trailing: "⋯",
+    style: .large
+  )
+  let field = IosTextField(placeholder: "Apps, Settings, and more")
+  let fieldPad = Layout(
+    direction: .column,
+    padding: EdgeInsets(x: 24, y: 0),
+    width: .fill,
+    children: [field]
+  )
+  let hint = Text(
+    content: "Type to filter — EditableText host fills value at preview time.",
+    fontSize: 13,
+    color: ios.color.label.secondary,
+    padding: EdgeInsets(x: 24, y: 0)
+  )
+  children = [nav, fieldPad, hint]
+}
+
+page IosSettingsPage() layout {
+  direction = .column
+  gap = 12
+  padding = EdgeInsets(x: 0, y: 12)
+  background = ios.color.page
+  width = .fill
+  height = .fill
+
+  let nav = IosNavBar(
+    title: "Settings",
+    leading: "‹",
+    trailing: "Edit",
+    style: .large
+  )
+  let header = IosListSectionHeader(title: "Network")
+  let group = IosListGroupDemo()
+  let body = Layout(
+    direction: .column,
+    gap: 8,
+    padding: EdgeInsets(x: 24, y: 0),
+    width: .fill,
+    children: [header, group]
+  )
+  children = [nav, body]
+}
+
+// Bezel + Presenter hole + frosted tab chrome. Tap tabs to replace the root page.
+screen IosPhone <IosAppNav>(
+  selected: IosTabIndex = .three
+) layout {
+  direction = .column
+  gap = 0
+  width = 390
+  height = 760
+  padding = EdgeInsets(x: 0, y: 12)
+  background = ios.color.page
+  cornerRadius = 44
+
+  let settingsRoot = IosSettingsPage()
+  let presenter = Presenter(root: settingsRoot)
+  let tabs = IosAppTabBar(selected: selected)
+  let tabPad = Layout(
+    direction: .column,
+    padding: EdgeInsets(x: 24, y: 8),
+    width: .fill,
+    children: [tabs]
+  )
+  children = [presenter, tabPad]
+
+  goHome() = {
+    selected = .one
+    presenter.replace(IosHomePage())
+  }
+  goSearch() = {
+    selected = .two
+    presenter.replace(IosSearchPage())
+  }
+  goSettings() = {
+    selected = .three
+    presenter.replace(IosSettingsPage())
+  }
+}

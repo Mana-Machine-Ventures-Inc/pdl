@@ -1,0 +1,58 @@
+import "foundation.pdl"
+
+component IosToggle(
+  isOn: Bool = true,
+  showAXLabel: Bool = true
+) layout {
+  direction = .row
+  align = .center
+  width = 64
+  height = 28
+  padding = 2
+  cornerRadius = ios.radius.pill
+
+  if isOn {
+    background = ios.color.toggle.onTrack
+    justify = .end
+  } else {
+    background = ios.color.toggle.offTrack
+    justify = .start
+  }
+
+  let axOn = Layout(
+    width: 2,
+    height: 10,
+    background: ios.color.gray.white,
+    cornerRadius: 1
+  )
+  let axOff = Layout(
+    width: 10,
+    height: 10,
+    background: ios.color.toggle.axOff,
+    cornerRadius: ios.radius.pill
+  )
+  let knob = Layout(
+    width: 39,
+    height: 24,
+    background: ios.color.gray.white,
+    cornerRadius: ios.radius.pill
+  )
+
+  if isOn {
+    if showAXLabel {
+      axOn.hidden = false
+    } else {
+      axOn.hidden = true
+    }
+    axOff.hidden = true
+    children = [axOn, Spacer(), knob]
+  } else {
+    axOn.hidden = true
+    if showAXLabel {
+      axOff.hidden = false
+    } else {
+      axOff.hidden = true
+    }
+    children = [knob, Spacer(), axOff]
+  }
+}

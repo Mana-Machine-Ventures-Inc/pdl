@@ -1,0 +1,167 @@
+import "foundation.pdl"
+import "c_toggle.pdl"
+
+variant IosListRowHeight {
+  case regular
+  case tall
+}
+
+variant IosListTrailing {
+  case none
+  case detail
+  case disclosure
+  case toggle
+}
+
+// Folded from Figma Lists `Row` (Regular/Tall) + `_Trailing`
+// (Toggle / Disclosure / Default detail). Edit button + leading image deferred.
+component IosListRow(
+  title: String = "Title",
+  subtitle: String = "Subtitle",
+  detail: String = "Detail",
+  height: IosListRowHeight = .regular,
+  trailing: IosListTrailing = .disclosure,
+  isOn: Bool = true
+) layout {
+  direction = .row
+  align = .center
+  width = .fill
+  padding = EdgeInsets(x: 16, y: 0)
+  background = ios.color.surface
+  gap = 12
+
+  if height == .tall {
+    height = 68
+  } else {
+    height = 52
+  }
+
+  let titleLine = Text(content: title, style: IosListTitle, color: ios.color.label.primary)
+  let subtitleLine = Text(content: subtitle, style: IosListSubtitle, color: ios.color.label.secondary)
+
+  let copy = Layout(
+    direction: .column,
+    align: .start,
+    justify: .center,
+    grow: 1,
+    gap: 2,
+    width: .fill
+  )
+
+  if height == .tall {
+    copy.children = [titleLine, subtitleLine]
+  } else {
+    copy.children = [titleLine]
+  }
+
+  let detailText = Text(
+    content: detail,
+    style: IosListDetail,
+    color: ios.color.label.secondary
+  )
+  let chevron = Text(
+    content: "›",
+    fontSize: 20,
+    fontWeight: 600,
+    color: ios.color.label.tertiary
+  )
+  let switchTrail = IosToggle(isOn: isOn, showAXLabel: false)
+
+  let trailDisclosure = Layout(
+    direction: .row,
+    align: .center,
+    gap: 8,
+    width: .hug,
+    children: [detailText, chevron]
+  )
+  let trailDetail = Layout(
+    direction: .row,
+    align: .center,
+    width: .hug,
+    children: [detailText]
+  )
+  let trailToggle = Layout(
+    direction: .row,
+    align: .center,
+    width: .hug,
+    children: [switchTrail]
+  )
+
+  if trailing == .toggle {
+    children = [copy, trailToggle]
+  } else if trailing == .disclosure {
+    children = [copy, trailDisclosure]
+  } else if trailing == .detail {
+    children = [copy, trailDetail]
+  } else {
+    children = [copy]
+  }
+}
+
+// Folded from Figma Lists `Header` Nested.
+component IosListSectionHeader(
+  title: String = "Header"
+) layout {
+  direction = .row
+  align = .center
+  width = .fill
+  padding = EdgeInsets(x: 16, y: 10)
+  background = null
+
+  let caption = Text(
+    content: title,
+    style: IosListHeader,
+    color: ios.color.label.secondary
+  )
+  children = [caption]
+}
+
+// Inset grouped list surface — composition demo, not a Figma set.
+component IosListGroupDemo() layout {
+  direction = .column
+  gap = 0
+  width = .fill
+  cornerRadius = 12
+  background = ios.color.surface
+
+  let wifi = IosListRow(
+    title: "Wi‑Fi",
+    detail: "Home",
+    trailing: .disclosure
+  )
+  let bluetooth = IosListRow(
+    title: "Bluetooth",
+    detail: "On",
+    trailing: .disclosure
+  )
+  let airplane = IosListRow(
+    title: "Airplane Mode",
+    trailing: .toggle,
+    isOn: false
+  )
+  let cellular = IosListRow(
+    title: "Cellular",
+    subtitle: "5G Auto · Unlimited",
+    height: .tall,
+    trailing: .disclosure,
+    detail: ""
+  )
+
+  let sep1 = Layout(
+    width: .fill,
+    height: 1,
+    background: ios.color.separator.nonopaque
+  )
+  let sep2 = Layout(
+    width: .fill,
+    height: 1,
+    background: ios.color.separator.nonopaque
+  )
+  let sep3 = Layout(
+    width: .fill,
+    height: 1,
+    background: ios.color.separator.nonopaque
+  )
+
+  children = [airplane, sep1, wifi, sep2, bluetooth, sep3, cellular]
+}

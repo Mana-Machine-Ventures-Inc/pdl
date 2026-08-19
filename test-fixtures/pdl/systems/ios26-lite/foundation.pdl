@@ -1,0 +1,221 @@
+// iOS 26 community kit — Colors collection, Light as base, Dark as theme.
+// Source: https://www.figma.com/design/wsKoOjupxcWAef2rjaevOB (page Colors).
+// Increased Contrast modes and vibrant/keyboard/window tokens are omitted on purpose.
+
+primitive ios.color.accent.red: Color = #FF383C
+primitive ios.color.accent.orange: Color = #FF8D28
+primitive ios.color.accent.yellow: Color = #FFCC00
+primitive ios.color.accent.green: Color = #34C759
+primitive ios.color.accent.mint: Color = #00C8B3
+primitive ios.color.accent.teal: Color = #00C3D0
+primitive ios.color.accent.cyan: Color = #00C0E8
+primitive ios.color.accent.blue: Color = #0088FF
+primitive ios.color.accent.indigo: Color = #6155F5
+primitive ios.color.accent.purple: Color = #CB30E0
+primitive ios.color.accent.pink: Color = #FF2D55
+primitive ios.color.accent.brown: Color = #AC7F5E
+
+primitive ios.color.gray.black: Color = #000000
+primitive ios.color.gray: Color = #8E8E93
+primitive ios.color.gray2: Color = #AEAEB2
+primitive ios.color.gray3: Color = #C7C7CC
+primitive ios.color.gray4: Color = #D1D1D6
+primitive ios.color.gray5: Color = #E5E5EA
+primitive ios.color.gray6: Color = #F2F2F7
+primitive ios.color.gray.white: Color = #FFFFFF
+
+primitive ios.color.background.primary: Color = #FFFFFF
+primitive ios.color.background.secondary: Color = #F2F2F7
+primitive ios.color.background.tertiary: Color = #FFFFFF
+
+primitive ios.color.label.primary: Color = #000000
+primitive ios.color.label.secondary: Color = #3C3C4399
+primitive ios.color.label.tertiary: Color = #3C3C434D
+primitive ios.color.label.quaternary: Color = #3C3C432E
+
+primitive ios.color.fill.primary: Color = #78787833
+primitive ios.color.fill.secondary: Color = #78788029
+primitive ios.color.fill.tertiary: Color = #7676801F
+
+primitive ios.color.separator.opaque: Color = #C6C6C8
+primitive ios.color.separator.nonopaque: Color = #0000001F
+
+primitive ios.color.segmented.track: Color = #F2F2F7
+primitive ios.color.segmented.selected: Color = #FFFFFF
+primitive ios.color.toggle.offTrack: Color = #3C3C434D
+primitive ios.color.toggle.axOff: Color = #B3B3B3
+
+primitive ios.color.tab.glass: Color = #FFFFFFA6
+primitive ios.color.tab.selection: Color = #EDEDED
+primitive ios.color.tab.idle: Color = #1A1A1A
+primitive ios.color.nav.chrome: Color = #FFFFFFE6
+primitive ios.color.nav.subtitle: Color = #727272
+primitive ios.color.slider.track: Color = #78787833
+primitive ios.color.stepper.well: Color = #74748014
+primitive ios.color.pageDot.active: Color = #000000
+primitive ios.color.pageDot.idle: Color = #0000004D
+
+// Materials (Figma Materials page) — single-fill stand-ins; dual-layer Light tints collapsed.
+// IC modes deferred. True Liquid Glass (Effect(.glass)) reserved in language.
+primitive ios.color.material.ultrathin: Color = #FFFFFF14
+primitive ios.color.material.thin: Color = #FFFFFF66
+primitive ios.color.material.regular: Color = #FFFFFF99
+primitive ios.color.material.thick: Color = #FFFFFFD6
+primitive ios.color.material.chrome: Color = #FFFFFFBF
+primitive ios.color.glass.fill: Color = #FAFAFAB2
+
+primitive ios.effect.material: Effect = Effect(.blurBehind, radius: 100)
+primitive ios.effect.chrome: Effect = Effect(.blurBehind, radius: 50)
+primitive ios.effect.glass: Effect = Effect(.blurBehind, radius: 14)
+
+primitive ios.shadow.glass: Shadow = Shadow(x: 0, y: 8, blurRadius: 40, color: #000000 @ 0.18)
+
+
+semantic ios.color.page: Color = ios.color.background.secondary
+semantic ios.color.surface: Color = ios.color.background.primary
+semantic ios.color.label: Color = ios.color.label.primary
+semantic ios.color.toggle.onTrack: Color = ios.color.accent.green
+
+primitive ios.space.track: Distance = 2
+primitive ios.space.segmentGap: Distance = 4
+primitive ios.radius.pill: Radius = 100
+primitive ios.radius.segment: Radius = 20
+
+typeStyle IosSegmentLabel {
+  fontFamily = "-apple-system, SF Pro, system-ui, sans-serif"
+  fontSize = 13
+  fontWeight = 500
+  lineHeight = 1.35
+}
+
+typeStyle IosSegmentLabelSelected {
+  fontFamily = "-apple-system, SF Pro, system-ui, sans-serif"
+  fontSize = 13
+  fontWeight = 600
+  lineHeight = 1.35
+}
+
+typeStyle IosFieldValue {
+  fontFamily = "-apple-system, SF Pro, system-ui, sans-serif"
+  fontSize = 17
+  fontWeight = 500
+  lineHeight = 1.3
+}
+
+typeStyle IosTabLabel {
+  fontFamily = "-apple-system, SF Pro, system-ui, sans-serif"
+  fontSize = 10
+  fontWeight = 600
+  lineHeight = 1.2
+}
+
+typeStyle IosListTitle {
+  fontFamily = "-apple-system, SF Pro, system-ui, sans-serif"
+  fontSize = 17
+  fontWeight = 400
+  lineHeight = 1.25
+}
+
+typeStyle IosListSubtitle {
+  fontFamily = "-apple-system, SF Pro, system-ui, sans-serif"
+  fontSize = 15
+  fontWeight = 400
+  lineHeight = 1.3
+}
+
+typeStyle IosListDetail {
+  fontFamily = "-apple-system, SF Pro, system-ui, sans-serif"
+  fontSize = 17
+  fontWeight = 400
+  lineHeight = 1.25
+}
+
+typeStyle IosListHeader {
+  fontFamily = "-apple-system, SF Pro, system-ui, sans-serif"
+  fontSize = 17
+  fontWeight = 600
+  lineHeight = 1.25
+}
+
+typeStyle IosNavTitleInline {
+  fontFamily = "-apple-system, SF Pro, system-ui, sans-serif"
+  fontSize = 17
+  fontWeight = 600
+  lineHeight = 1.25
+}
+
+typeStyle IosNavTitleLarge {
+  fontFamily = "-apple-system, SF Pro, system-ui, sans-serif"
+  fontSize = 34
+  fontWeight = 700
+  lineHeight = 1.15
+}
+
+typeStyle IosNavSubtitle {
+  fontFamily = "-apple-system, SF Pro, system-ui, sans-serif"
+  fontSize = 15
+  fontWeight = 500
+  lineHeight = 1.3
+}
+
+theme Dark {
+  ios.color.accent.red = #FF4245
+  ios.color.accent.orange = #FF9230
+  ios.color.accent.yellow = #FFD600
+  ios.color.accent.green = #30D158
+  ios.color.accent.mint = #00DAC3
+  ios.color.accent.teal = #00D2E0
+  ios.color.accent.cyan = #3CD3FE
+  ios.color.accent.blue = #0091FF
+  ios.color.accent.indigo = #6D7CFF
+  ios.color.accent.purple = #DB34F2
+  ios.color.accent.pink = #FF375F
+  ios.color.accent.brown = #B78A66
+
+  ios.color.gray2 = #636366
+  ios.color.gray3 = #48484A
+  ios.color.gray4 = #3A3A3C
+  ios.color.gray5 = #2C2C2E
+  ios.color.gray6 = #1C1C1E
+
+  ios.color.background.primary = #000000
+  ios.color.background.secondary = #1C1C1E
+  ios.color.background.tertiary = #2C2C2E
+
+  ios.color.label.primary = #FFFFFF
+  ios.color.label.secondary = #EBEBF5B2
+  ios.color.label.tertiary = #EBEBF54D
+  ios.color.label.quaternary = #EBEBF529
+
+  ios.color.fill.primary = #7878805C
+  ios.color.fill.secondary = #78788052
+  ios.color.fill.tertiary = #7676803D
+
+  ios.color.separator.opaque = #38383A
+  ios.color.separator.nonopaque = #FFFFFF2B
+
+  ios.color.segmented.track = #2C2C2E
+  ios.color.segmented.selected = #FFFFFF45
+  ios.color.toggle.offTrack = #3C3C4399
+  ios.color.toggle.axOff = #A6A6A6
+
+  ios.color.tab.glass = #2C2C2EA6
+  ios.color.tab.selection = #3A3A3C
+  ios.color.tab.idle = #EBEBF5
+
+  ios.color.nav.chrome = #3A3A3CE6
+  ios.color.nav.subtitle = #EBEBF599
+
+  ios.color.slider.track = #7878805C
+  ios.color.stepper.well = #7474802E
+
+  ios.color.pageDot.active = #FFFFFF
+  ios.color.pageDot.idle = #FFFFFF4D
+
+  ios.color.material.ultrathin = #00000005
+  ios.color.material.thin = #00000042
+  ios.color.material.regular = #00000069
+  ios.color.material.thick = #00000099
+  ios.color.material.chrome = #1C1C1CE5
+  ios.color.glass.fill = #00000099
+}

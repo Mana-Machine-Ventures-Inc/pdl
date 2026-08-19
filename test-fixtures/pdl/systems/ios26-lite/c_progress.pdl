@@ -1,0 +1,89 @@
+import "foundation.pdl"
+
+variant IosProgressValue {
+  case empty
+  case quarter
+  case half
+  case threeQuarters
+  case full
+}
+
+// Folded from Figma Progress bar (Value 0%…100% in 10% steps).
+// Continuous Number deferred — discrete levels via grow split (same track as Slider).
+component IosProgressBar(
+  value: IosProgressValue = .half
+) layout {
+  direction = .row
+  align = .center
+  width = .fill
+  height = 44
+  padding = EdgeInsets(x: 16, y: 8)
+
+  let fillQuarter = Layout(height: 6, background: ios.color.accent.blue, cornerRadius: 3, grow: 1)
+  let emptyQuarter = Layout(height: 6, background: null, grow: 3)
+  let trackQuarter = Layout(
+    direction: .row,
+    align: .center,
+    width: .fill,
+    height: 6,
+    background: ios.color.slider.track,
+    cornerRadius: 3,
+    children: [fillQuarter, emptyQuarter]
+  )
+
+  let fillHalf = Layout(height: 6, background: ios.color.accent.blue, cornerRadius: 3, grow: 1)
+  let emptyHalf = Layout(height: 6, background: null, grow: 1)
+  let trackHalf = Layout(
+    direction: .row,
+    align: .center,
+    width: .fill,
+    height: 6,
+    background: ios.color.slider.track,
+    cornerRadius: 3,
+    children: [fillHalf, emptyHalf]
+  )
+
+  let fillThree = Layout(height: 6, background: ios.color.accent.blue, cornerRadius: 3, grow: 3)
+  let emptyThree = Layout(height: 6, background: null, grow: 1)
+  let trackThree = Layout(
+    direction: .row,
+    align: .center,
+    width: .fill,
+    height: 6,
+    background: ios.color.slider.track,
+    cornerRadius: 3,
+    children: [fillThree, emptyThree]
+  )
+
+  // Figma 0% still shows a 6×6 accent pill on the track.
+  let fillMin = Layout(width: 6, height: 6, background: ios.color.accent.blue, cornerRadius: 3)
+  let emptyRest = Layout(height: 6, background: null, grow: 1)
+  let trackEmpty = Layout(
+    direction: .row,
+    align: .center,
+    width: .fill,
+    height: 6,
+    background: ios.color.slider.track,
+    cornerRadius: 3,
+    children: [fillMin, emptyRest]
+  )
+  let trackFull = Layout(
+    direction: .row,
+    width: .fill,
+    height: 6,
+    background: ios.color.accent.blue,
+    cornerRadius: 3
+  )
+
+  if value == .empty {
+    children = [trackEmpty]
+  } else if value == .quarter {
+    children = [trackQuarter]
+  } else if value == .half {
+    children = [trackHalf]
+  } else if value == .threeQuarters {
+    children = [trackThree]
+  } else {
+    children = [trackFull]
+  }
+}

@@ -1,0 +1,279 @@
+import "foundation.pdl"
+import "c_toggle.pdl"
+import "c_segmented.pdl"
+import "c_button.pdl"
+import "c_field.pdl"
+import "c_tabbar.pdl"
+import "c_list.pdl"
+import "c_navbar.pdl"
+import "c_slider.pdl"
+import "c_stepper.pdl"
+import "c_progress.pdl"
+import "c_pagecontrol.pdl"
+import "c_materials.pdl"
+import "screens.pdl"
+
+component IosToggleRowDemo() layout {
+  direction = .column
+  gap = 12
+  padding = 24
+  background = ios.color.page
+  width = .fill
+
+  let toggleOn = IosToggle(isOn: true)
+  let toggleOff = IosToggle(isOn: false)
+  children = [toggleOn, toggleOff]
+}
+
+component IosSegmentedDemo() layout {
+  direction = .column
+  gap = 16
+  padding = 24
+  background = ios.color.page
+  width = 390
+
+  let two = IosSegmentedControl(
+    count: .two,
+    selected: .one,
+    label1: "Year",
+    label2: "Month"
+  )
+  let three = IosSegmentedControl(
+    count: .three,
+    selected: .two,
+    label1: "Day",
+    label2: "Week",
+    label3: "Month"
+  )
+  children = [two, three]
+}
+
+component IosButtonRowDemo() layout {
+  direction = .column
+  gap = 12
+  padding = 24
+  background = ios.color.page
+  width = .fill
+
+  let prominent = IosButton(label: "Continue", style: .prominent, size: .medium)
+  let bordered = IosButton(label: "Edit", style: .bordered, size: .medium)
+  let secondary = IosButton(label: "More", style: .secondary, size: .medium)
+  let ghost = IosButton(label: "Cancel", style: .borderless, size: .medium)
+  let danger = IosButton(label: "Delete", style: .prominent, size: .medium, destructive: true)
+  let disabled = IosButton(label: "Unavailable", style: .prominent, size: .medium, isEnabled: false)
+
+  let row = Layout(
+    direction: .row,
+    wrap: .wrap,
+    gap: 8,
+    children: [prominent, bordered, secondary, ghost, danger, disabled]
+  )
+  children = [row]
+}
+
+component IosTextFieldDemo() layout {
+  direction = .column
+  gap = 12
+  padding = 24
+  background = ios.color.page
+  width = .fill
+
+  let empty = IosTextField(placeholder: "Name")
+  let filled = IosTextField(placeholder: "Name", value: "Andrew")
+  children = [empty, filled]
+}
+
+component IosTabBarDemo() layout {
+  direction = .column
+  gap = 16
+  padding = 24
+  background = ios.color.page
+  width = 390
+
+  let three = IosTabBar(
+    count: .three,
+    selected: .one,
+    label1: "Home",
+    label2: "Search",
+    label3: "Profile"
+  )
+  let five = IosTabBar(
+    count: .five,
+    selected: .three,
+    label1: "Listen",
+    label2: "Radio",
+    label3: "Library",
+    label4: "Search",
+    label5: "Browse"
+  )
+  children = [three, five]
+}
+
+component IosListDemo() layout {
+  direction = .column
+  gap = 8
+  padding = 24
+  background = ios.color.page
+  width = 390
+
+  let header = IosListSectionHeader(title: "Network")
+  let group = IosListGroupDemo()
+  children = [header, group]
+}
+
+component IosNavBarDemo() layout {
+  direction = .column
+  gap = 16
+  padding = 24
+  background = ios.color.page
+  width = 390
+
+  let inlineBar = IosNavBar(
+    title: "Settings",
+    leading: "Back",
+    trailing: "Edit",
+    style: .inline
+  )
+  let largeBar = IosNavBar(
+    title: "Settings",
+    subtitle: "iPhone",
+    leading: "Back",
+    trailing: "Edit",
+    showSubtitle: true,
+    style: .large
+  )
+  children = [inlineBar, largeBar]
+}
+
+component IosControlsDemo() layout {
+  direction = .column
+  gap = 16
+  padding = 24
+  background = ios.color.page
+  width = 390
+
+  let s0 = IosSlider(value: .empty)
+  let s25 = IosSlider(value: .quarter)
+  let s50 = IosSlider(value: .half)
+  let s100 = IosSlider(value: .full)
+  let stepper = IosStepper()
+  let p0 = IosProgressBar(value: .empty)
+  let p50 = IosProgressBar(value: .half)
+  let p100 = IosProgressBar(value: .full)
+  let pages = IosPageControl(count: .five, selected: .three)
+  children = [s0, s25, s50, s100, stepper, p0, p50, p100, pages]
+}
+
+// Wallpaper under frosted materials so blurBehind is visible in HTML preview.
+component IosMaterialsDemo() layout {
+  direction = .stack
+  width = 390
+  height = 340
+  cornerRadius = 24
+  background = ios.color.accent.indigo
+
+  let wallpaper = Layout(
+    direction: .column,
+    width: .fill,
+    height: .fill,
+    padding: 20,
+    gap: 8,
+    background: ios.color.accent.indigo,
+    children: [
+      Text(content: "Materials", color: #FFFFFF, fontSize: 28, fontWeight: 700),
+      Text(content: "Blur the wallpaper behind each swatch.", color: #E0E7FF, fontSize: 14),
+      Layout(
+        direction: .row,
+        gap: 8,
+        children: [
+          Layout(width: 56, height: 56, background: ios.color.accent.pink, cornerRadius: 12),
+          Layout(width: 56, height: 56, background: ios.color.accent.cyan, cornerRadius: 12),
+          Layout(width: 56, height: 56, background: ios.color.accent.orange, cornerRadius: 12),
+          Layout(width: 56, height: 56, background: ios.color.accent.green, cornerRadius: 12)
+        ]
+      )
+    ]
+  )
+
+  let ultra = IosMaterialSwatch(style: .ultrathin, label: "Ultra")
+  let thin = IosMaterialSwatch(style: .thin, label: "Thin")
+  let regular = IosMaterialSwatch(style: .regular, label: "Regular")
+  let thick = IosMaterialSwatch(style: .thick, label: "Thick")
+  let chrome = IosMaterialSwatch(style: .chrome, label: "Chrome")
+  let glass = IosLiquidGlassTile(size: .medium)
+
+  let row = Layout(
+    direction: .row,
+    align: .center,
+    gap: 8,
+    width: .fill,
+    children: [ultra, thin, regular, thick, chrome]
+  )
+  let overlay = Layout(
+    direction: .column,
+    align: .center,
+    gap: 16,
+    width: .fill,
+    height: .fill,
+    padding: 16,
+    justify: .end,
+    position: .absolute,
+    inset: EdgeInsets(top: 0, right: 0, bottom: 0, left: 0),
+    children: [row, glass]
+  )
+
+  children = [wallpaper, overlay]
+}
+
+// Static gallery twin of `IosSettingsPage` (tabs live on `IosPhone` chrome).
+component IosSettingsDemo() layout {
+  direction = .column
+  gap = 12
+  padding = EdgeInsets(x: 0, y: 12)
+  background = ios.color.page
+  width = 390
+
+  let nav = IosNavBar(
+    title: "Settings",
+    leading: "‹",
+    trailing: "Edit",
+    style: .large
+  )
+  let header = IosListSectionHeader(title: "Network")
+  let group = IosListGroupDemo()
+  let body = Layout(
+    direction: .column,
+    gap: 8,
+    padding: EdgeInsets(x: 24, y: 0),
+    width: .fill,
+    children: [header, group]
+  )
+  children = [nav, body]
+}
+
+component IosKitDemo() layout {
+  direction = .column
+  gap = 24
+  padding = 24
+  background = ios.color.page
+  width = 390
+
+  let title = Text(
+    content: "iOS 26 lite",
+    fontSize: 22,
+    fontWeight: 700,
+    color: ios.color.label
+  )
+  let phone = IosPhone()
+  let settings = IosSettingsDemo()
+  let materials = IosMaterialsDemo()
+  let navs = IosNavBarDemo()
+  let controls = IosControlsDemo()
+  let list = IosListDemo()
+  let fields = IosTextFieldDemo()
+  let buttons = IosButtonRowDemo()
+  let toggles = IosToggleRowDemo()
+  let segments = IosSegmentedDemo()
+  let tabs = IosTabBarDemo()
+  children = [title, phone, settings, materials, navs, controls, list, fields, buttons, toggles, segments, tabs]
+}

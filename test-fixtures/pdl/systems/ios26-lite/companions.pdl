@@ -1,0 +1,412 @@
+import "c_toggle.pdl"
+import "c_segmented.pdl"
+import "c_button.pdl"
+import "c_field.pdl"
+import "c_tabbar.pdl"
+import "c_list.pdl"
+import "c_navbar.pdl"
+import "c_slider.pdl"
+import "c_stepper.pdl"
+import "c_progress.pdl"
+import "c_pagecontrol.pdl"
+import "c_materials.pdl"
+import "screens.pdl"
+import "demos.pdl"
+
+usage IosToggle {
+  description = "A toggle chooses between opposing states (on / off). Folded from Figma Toggle - Switch (On/Off + Show AX Label)."
+}
+
+usage IosSegmentedControl {
+  description = "A linear set of two or more segments. Folded from Figma's 14-variant Segmented control set (Segments × Selected) into count + selected + labels."
+}
+
+usage IosButton {
+  description = "Content-area button. Folded from Figma's 145-variant Button - Content Area into size × style × isEnabled × destructive (text label only; Symbol / Liquid Glass deferred)."
+}
+
+usage IosTextField {
+  description = "Single-line text field. Folded from Figma Text Field's 4 states (Placeholder / Focused / Value Entered / Typing) into EditableText isEmpty × isEditing + placeholder."
+}
+
+usage IosTabBar {
+  description = "iPhone tab bar capsule. Folded from Figma Tab Bar - iPhone (Tabs 2–5) into count + selected + labels/icons; Separate Search, Minimized, and true Liquid Glass deferred."
+}
+
+usage IosListRow {
+  description = "Settings-style list row. Folded from Figma Lists Row (Regular/Tall) + _Trailing (detail / disclosure / toggle). Leading image and edit controls deferred."
+}
+
+usage IosNavBar {
+  description = "Top toolbar / navigation bar. Folded from Figma Toolbar - Top - iPhone Default + Large Title; chrome buttons are labeled glass capsules (symbols deferred)."
+}
+
+usage IosSlider {
+  description = "Continuous slider. Folded from Figma Sliders (0/25/50/75/100%) into discrete IosSliderValue levels; live drag deferred."
+}
+
+usage IosStepper {
+  description = "Increment / decrement capsule. Folded from Figma Steppers Stepper (− / + with center separator)."
+}
+
+usage IosProgressBar {
+  description = "Determinate progress track. Folded from Figma Progress bar (0–100% steps) into discrete IosProgressValue levels; activity spinner deferred."
+}
+
+usage IosPageControl {
+  description = "Carousel page dots. Folded from Figma Page control (Dots 2–5 × Selection); 6–7 / 8+ and shrinking dots deferred."
+}
+
+usage IosMaterialSwatch {
+  description = "System material swatch. Folded from Figma Materials Ultrathin…Chrome + Light/Dark fills; BACKGROUND_BLUR → Effect(.blurBehind). IC modes deferred."
+}
+
+usage IosLiquidGlassTile {
+  description = "Liquid Glass stand-in. Figma GLASS / PDL Effect(.glass) reserved — translucent fill + blurBehind + shadow."
+}
+
+usage IosSettingsPage {
+  description = "Settings destination page — large nav + Network list. Tab chrome lives on IosPhone, not inside the page."
+}
+
+usage IosPhone {
+  description = "Phone screen — Presenter(root:) + interactive frosted tabs (goHome / goSearch / goSettings → replace)."
+}
+
+fixtures IosToggle {
+  example "On" {
+    isOn = true
+    showAXLabel = true
+  }
+  example "Off" {
+    isOn = false
+    showAXLabel = true
+  }
+  example "On · Dark" {
+    isOn = true
+    theme = "Dark"
+  }
+  example "Off · Dark" {
+    isOn = false
+    theme = "Dark"
+  }
+}
+
+fixtures IosSegmentedControl {
+  example "Two segments" {
+    count = .two
+    selected = .one
+    label1 = "Year"
+    label2 = "Month"
+  }
+  example "Three segments" {
+    count = .three
+    selected = .two
+    label1 = "Day"
+    label2 = "Week"
+    label3 = "Month"
+  }
+  example "Five segments" {
+    count = .five
+    selected = .three
+    label1 = "One"
+    label2 = "Two"
+    label3 = "Three"
+    label4 = "Four"
+    label5 = "Five"
+  }
+  example "Two · Dark" {
+    count = .two
+    selected = .one
+    label1 = "Year"
+    label2 = "Month"
+    theme = "Dark"
+  }
+}
+
+fixtures IosButton {
+  example "Prominent" {
+    label = "Continue"
+    style = .prominent
+    size = .medium
+  }
+  example "Bordered" {
+    label = "Edit"
+    style = .bordered
+    size = .medium
+  }
+  example "Secondary" {
+    label = "More"
+    style = .secondary
+    size = .medium
+  }
+  example "Borderless" {
+    label = "Cancel"
+    style = .borderless
+    size = .medium
+  }
+  example "Destructive" {
+    label = "Delete"
+    style = .prominent
+    size = .medium
+    destructive = true
+  }
+  example "Disabled" {
+    label = "Unavailable"
+    style = .prominent
+    size = .medium
+    isEnabled = false
+  }
+  example "Large · Dark" {
+    label = "Continue"
+    style = .prominent
+    size = .large
+    theme = "Dark"
+  }
+}
+
+fixtures IosTextField {
+  example "Placeholder" {
+    placeholder = "Name"
+    value = ""
+    isEditing = false
+  }
+  example "Focused" {
+    placeholder = "Name"
+    value = ""
+    isEditing = true
+  }
+  example "Value Entered" {
+    placeholder = "Name"
+    value = "Andrew"
+    isEditing = false
+  }
+  example "Typing" {
+    placeholder = "Name"
+    value = "Andr"
+    isEditing = true
+  }
+  example "Value · Dark" {
+    placeholder = "Name"
+    value = "Andrew"
+    theme = "Dark"
+  }
+}
+
+fixtures IosTabBar {
+  example "Three tabs" {
+    count = .three
+    selected = .one
+    label1 = "Home"
+    label2 = "Search"
+    label3 = "Profile"
+  }
+  example "Five tabs" {
+    count = .five
+    selected = .three
+    label1 = "Listen"
+    label2 = "Radio"
+    label3 = "Library"
+    label4 = "Search"
+    label5 = "Browse"
+  }
+  example "Three · Dark" {
+    count = .three
+    selected = .two
+    label1 = "Home"
+    label2 = "Search"
+    label3 = "Profile"
+    theme = "Dark"
+  }
+}
+
+fixtures IosListRow {
+  example "Disclosure" {
+    title = "Wi‑Fi"
+    detail = "Home"
+    trailing = .disclosure
+  }
+  example "Toggle" {
+    title = "Airplane Mode"
+    trailing = .toggle
+    isOn = true
+  }
+  example "Tall" {
+    title = "Cellular"
+    subtitle = "5G Auto · Unlimited"
+    height = .tall
+    trailing = .disclosure
+    detail = ""
+  }
+  example "Detail only" {
+    title = "Name"
+    detail = "Andrew"
+    trailing = .detail
+  }
+  example "Disclosure · Dark" {
+    title = "Bluetooth"
+    detail = "On"
+    trailing = .disclosure
+    theme = "Dark"
+  }
+}
+
+fixtures IosListGroupDemo {
+  example "Light" { }
+  example "Dark" {
+    theme = "Dark"
+  }
+}
+
+fixtures IosNavBar {
+  example "Inline" {
+    title = "Settings"
+    leading = "Back"
+    trailing = "Edit"
+    style = .inline
+  }
+  example "Large" {
+    title = "Settings"
+    leading = "Back"
+    trailing = "Edit"
+    style = .large
+  }
+  example "Large + subtitle" {
+    title = "Settings"
+    subtitle = "iPhone"
+    showSubtitle = true
+    leading = "Back"
+    trailing = "Edit"
+    style = .large
+  }
+  example "Inline · Dark" {
+    title = "Settings"
+    leading = "Back"
+    trailing = "Edit"
+    style = .inline
+    theme = "Dark"
+  }
+}
+
+fixtures IosSettingsDemo {
+  example "Light" { }
+  example "Dark" {
+    theme = "Dark"
+  }
+}
+
+fixtures IosSlider {
+  example "Empty" {
+    value = .empty
+  }
+  example "Quarter" {
+    value = .quarter
+  }
+  example "Half" {
+    value = .half
+  }
+  example "Full" {
+    value = .full
+  }
+  example "Half · Dark" {
+    value = .half
+    theme = "Dark"
+  }
+}
+
+fixtures IosStepper {
+  example "Default" { }
+  example "Dark" {
+    theme = "Dark"
+  }
+}
+
+fixtures IosProgressBar {
+  example "Empty" {
+    value = .empty
+  }
+  example "Half" {
+    value = .half
+  }
+  example "Full" {
+    value = .full
+  }
+  example "Half · Dark" {
+    value = .half
+    theme = "Dark"
+  }
+}
+
+fixtures IosPageControl {
+  example "Three · first" {
+    count = .three
+    selected = .one
+  }
+  example "Five · third" {
+    count = .five
+    selected = .three
+  }
+  example "Five · Dark" {
+    count = .five
+    selected = .three
+    theme = "Dark"
+  }
+}
+
+fixtures IosMaterialSwatch {
+  example "Regular" {
+    style = .regular
+    label = "Regular"
+  }
+  example "Chrome" {
+    style = .chrome
+    label = "Chrome"
+  }
+  example "Thick · Dark" {
+    style = .thick
+    label = "Thick"
+    theme = "Dark"
+  }
+}
+
+fixtures IosLiquidGlassTile {
+  example "Medium" {
+    size = .medium
+  }
+  example "Small" {
+    size = .small
+  }
+  example "Large · Dark" {
+    size = .large
+    theme = "Dark"
+  }
+}
+
+fixtures IosMaterialsDemo {
+  example "Light" { }
+  example "Dark" {
+    theme = "Dark"
+  }
+}
+
+fixtures IosPhone {
+  example "Settings" { }
+  example "Home" {
+    selected = .one
+    presenter = [IosHomePage()]
+  }
+  example "Search" {
+    selected = .two
+    presenter = [IosSearchPage()]
+  }
+  example "Dark · Settings" {
+    theme = "Dark"
+  }
+}
+
+fixtures IosKitDemo {
+  example "Light" { }
+  example "Dark" {
+    theme = "Dark"
+  }
+}

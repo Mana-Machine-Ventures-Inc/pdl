@@ -253,6 +253,11 @@ body {
 .panel.sources,
 .panel.preview-wrap {
   overflow: hidden;
+  min-height: 0;
+}
+.panel.preview-wrap {
+  /* Let #outputPanelHtml own tall-grid scrolling. */
+  overscroll-behavior: contain;
 }
 .panel {
   background: #fff;
@@ -437,6 +442,22 @@ select {
 }
 #outputPanelHtml {
   min-height: 0;
+  /* Column: iframe + pinned console. Tall grids switch to panel scroll via .is-tall-preview. */
+  overflow: hidden;
+}
+#outputPanelHtml.is-tall-preview {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+#outputPanelHtml.is-tall-preview #frame {
+  flex: 0 0 auto;
+}
+#outputPanelHtml.is-tall-preview .render-console {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  max-height: min(28vh, 240px);
 }
 #outputPanelDesign {
   min-height: 200px;
@@ -515,7 +536,9 @@ select {
   border: 1px solid #ccd;
   border-radius: 8px;
   background: #fff;
-  flex: 0 0 auto;
+  /* Grow/shrink in the HTML panel; height is capped in JS so the console stays visible. */
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .render-console {
@@ -524,7 +547,13 @@ select {
   border-radius: 8px;
   background: #1e1e24;
   color: #ececf1;
-  overflow: hidden;
+  flex: 0 0 auto;
+  /* Scroll the open console itself — <details> + flex does not give the body a
+     bounded height, so overflow:auto on the body alone never activates. */
+  max-height: min(42vh, 360px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .render-console[open] {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
@@ -536,6 +565,10 @@ select {
   font-weight: 600;
   list-style: none;
   user-select: none;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #1e1e24;
 }
 .render-console-summary::-webkit-details-marker {
   display: none;
@@ -548,8 +581,7 @@ select {
   content: "▾ ";
 }
 .render-console-body {
-  max-height: min(42vh, 360px);
-  overflow: auto;
+  overflow: visible;
   padding: 0 12px 12px;
   font-size: 0.78rem;
   border-top: 1px solid #33333d;

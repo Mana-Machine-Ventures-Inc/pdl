@@ -1,0 +1,47 @@
+import "foundation.pdl"
+
+// Folded from Figma Steppers `Stepper` (− / + capsule with center hairline).
+component IosStepper() layout {
+  direction = .row
+  align = .center
+  width = 92
+  height = 32
+  background = ios.color.stepper.well
+  cornerRadius = 8
+
+  let minus = Text(
+    content: "−",
+    fontSize: 20,
+    fontWeight: 400,
+    color: ios.color.label.primary
+  )
+  let plus = Text(
+    content: "+",
+    fontSize: 20,
+    fontWeight: 400,
+    color: ios.color.label.primary
+  )
+  let dec = Layout(
+    direction: .row,
+    align: .center,
+    justify: .center,
+    grow: 1,
+    height: 32,
+    children: [minus]
+  )
+  let sep = Layout(
+    width: 1,
+    height: 24,
+    background: ios.color.label.tertiary,
+    cornerRadius: 1
+  )
+  let inc = Layout(
+    direction: .row,
+    align: .center,
+    justify: .center,
+    grow: 1,
+    height: 32,
+    children: [plus]
+  )
+  children = [dec, sep, inc]
+}
