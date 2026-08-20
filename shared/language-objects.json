@@ -8,7 +8,8 @@
     "children": "`children` belongs on `Layout` — that is how PDL draws views and nested views. A child `Layout` has its own `children`. `Text()`, `Icon()`, and `Media()` are leaves: they do not take `children` and do not nest views. Every entry is a component — a built-in frame or one you declared (`Button(…)`). Name them with `let`, then mount them with `children = [heading, save]`. A `let` that never appears in `children` is not drawn. A `let` mounts at most once (PDL-E042); two identical-looking children are two lets or a list. `Spacer()` is the leftover-space exception. A `ForEach` block does not mount views by itself.",
     "spacer": "A child that eats leftover space on the main axis. Write `Spacer()` inside `children = […]`.",
     "forEach": "Use ForEach when a list needs per-row state or click handling — which chip is selected, which row is highlighted. It writes onto items you already put in `children`. It does not create views by itself.",
-    "repeat": "`Repeat(count:, begin: = 1) { i in … }` mounts N copies at bake. Index domain is `begin` … `begin + count − 1` (default begin 1). Nested Repeat is allowed; each count ≤ 32 and nested product ≤ 64. Equality on binders (`i == currentPage`) is OK — not Number algebra. Distinct from ForEach.",
+    "repeat": "`Repeat(count:, begin: = 1) { i in … }` mounts N copies at bake. Index domain is `begin` … `begin + count − 1` (default begin 1). Nested Repeat is allowed; each count ≤ 32 and nested product ≤ 64. Equality on binders (`i == currentPage`) is OK — not Number algebra. Distinct from ForEach and Map. Prefer Map when the list needs ForEach emit capture.",
+    "map": "`Map(lo...hi) { i in … }` builds a typed list at bake. The body’s component expression is the element; no yield ⇒ omit (compactMap). Prefer `let dots: [T] = Map(…)`; wire with `ForEach(dots)`; mount with `children = dots`. Same ceilings as Repeat. Distinct from Repeat (mount-only) and ForEach (wire-only).",
     "let": "Name a nested frame, or a typed value you reuse in props. Prefer a lowercase id (`let title`, `let ramp`) so the name is not the same word as the type. Frame lets go in `children`. Typed value lets do not.",
     "parameters": "The public inbound API of a component. Every name in the parentheses is public. There is no private parameter.",
     "variants": "Closed sets you declare — tone, size, filter id. Write `.case` at use sites. `enum` and `variant` are the same in v1.",
@@ -1574,9 +1575,24 @@
       "meaning": "A named bundle of text-frame properties. A text frame sets `style = Title`. See typeStyle."
     },
     {
+      "name": "type",
+      "form": "type Name = Number(min:, max:)",
+      "meaning": "A named Number bounds alias (`type PageCount = Number(min: 2, max: 10)`). Contextual at top level — `font.type` stays an ident path."
+    },
+    {
       "name": "variant",
       "form": "variant Name { case a; case b }",
       "meaning": "A closed set of visual choices (tone, size). Write `.primary` at use sites. Same as enum in v1."
+    },
+    {
+      "name": "Repeat",
+      "form": "Repeat(count:, begin: = 1) { i in … }",
+      "meaning": "Bake-time generative mount from a count. Prefer Map when the list needs ForEach emit capture. See Repeat."
+    },
+    {
+      "name": "Map",
+      "form": "Map(lo...hi) { i in … }",
+      "meaning": "Bake-time typed list from a range (compactMap omit). Prefer `let dots: [T] = Map(…)`, then ForEach + `children = dots`. See Map."
     },
     {
       "name": "enum",
@@ -2440,6 +2456,25 @@
     }
   ],
   "repeatExample": "type PageCount = Number(min: 2, max: 10)\n\ncomponent PageControl(\n  numberOfPages: PageCount = 5,\n  currentPage: Number(min: 1) = 1\n) layout {\n  children = Repeat(count: numberOfPages) { i in\n    Dot(selected: i == currentPage)\n  }\n}",
+  "mapForms": [
+    {
+      "form": "let dots: [IosPageDot] = Map(1...numberOfPages) { i in … }",
+      "meaning": "Bake a typed list from a closed range. Prefer this form when ForEach must wire the list."
+    },
+    {
+      "form": "Map(1..<n) { i in … }",
+      "meaning": "Half-open range: i ∈ {1, …, n − 1}."
+    },
+    {
+      "form": "if gate { Dot(page: i) }",
+      "meaning": "No matching branch / no component expression ⇒ omit that index (compactMap)."
+    },
+    {
+      "form": "ForEach(dots) { dot in … }; children = dots",
+      "meaning": "Wire then mount. Map alone does not draw; ForEach alone does not draw."
+    }
+  ],
+  "mapExample": "type PageCount = Number(min: 2, max: 10)\n\ncomponent PageDot <PointerInput>(\n  page: Number = 1,\n  selected: Bool = false\n) layout {\n  self.pressEnd = { emit select(page) }\n} emits {\n  select(page: Number)\n}\n\ncomponent PageControl(\n  numberOfPages: PageCount = 5,\n  currentPage: Number(min: 1) = 1\n) layout {\n  let dots: [PageDot] = Map(1...numberOfPages) { i in\n    PageDot(page: i)\n  }\n  ForEach(dots) { dot in\n    dot.selected = self.currentPage == page\n    dot.select(page: Number) = { currentPage = page }\n  }\n  children = dots\n}",
   "sampleForms": [
     {
       "form": "samples Tracks { focus { tracks: [TrackRow] = [ … ] } }",

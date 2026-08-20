@@ -365,8 +365,10 @@ export function tokenize(source: string, filePath = "<input>"): Token[] {
       const prevCh = i === 0 ? " " : source[i - 1]!;
       const afterIdentOrNumber = /[A-Za-z0-9_]/.test(prevCh);
       const next = source[i + 1] ?? "";
+      // `.case` DotEnum — never after another `.` (`...` / `..<` ranges).
       if (
         !afterIdentOrNumber &&
+        prevCh !== "." &&
         next !== "" &&
         !/[0-9]/.test(next) &&
         /[A-Za-z_]/.test(next)
@@ -403,16 +405,20 @@ export function tokenize(source: string, filePath = "<input>"): Token[] {
       }
       let isDecimal = false;
       if (source[j] === ".") {
-        isDecimal = true;
-        j++;
-        const fracStart = j;
-        while (j < source.length && source[j]! >= "0" && source[j]! <= "9") j++;
-        if (j === fracStart) {
-          throw new PdlError("PDL-E001", "Malformed decimal literal", {
-            path: filePath,
-            line: startLine,
-            column: startCol,
-          });
+        // `1...n` / `1..<n` — do not treat the first `.` of a range as a decimal point.
+        const afterDot = source[j + 1] ?? "";
+        if (afterDot >= "0" && afterDot <= "9") {
+          isDecimal = true;
+          j++;
+          const fracStart = j;
+          while (j < source.length && source[j]! >= "0" && source[j]! <= "9") j++;
+          if (j === fracStart) {
+            throw new PdlError("PDL-E001", "Malformed decimal literal", {
+              path: filePath,
+              line: startLine,
+              column: startCol,
+            });
+          }
         }
       }
       const raw = source.slice(i, j);

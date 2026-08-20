@@ -1233,9 +1233,30 @@ fn accumulate_from_body(items: &[FrameBodyItem], sink: &mut BTreeSet<String>) {
                             }
                         }
                     }
+                    if let ChildEntry::Map { body, .. } = e {
+                        for item in body {
+                            if let crate::ast::RepeatBodyItem::Entry(ChildEntry::Instance {
+                                component,
+                                ..
+                            }) = item
+                            {
+                                sink.insert(component.clone());
+                            }
+                        }
+                    }
                 }
             }
             FrameBodyItem::LetRepeat { body, .. } => {
+                for item in body {
+                    if let crate::ast::RepeatBodyItem::Entry(ChildEntry::Instance {
+                        component, ..
+                    }) = item
+                    {
+                        sink.insert(component.clone());
+                    }
+                }
+            }
+            FrameBodyItem::LetMap { body, .. } => {
                 for item in body {
                     if let crate::ast::RepeatBodyItem::Entry(ChildEntry::Instance {
                         component, ..

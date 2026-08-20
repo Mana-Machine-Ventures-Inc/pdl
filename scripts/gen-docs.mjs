@@ -940,6 +940,7 @@ function assertExampleCoverage(objects) {
     "emitExample",
     "protocolExample",
     "forEachExample",
+    "mapExample",
     "sampleExample",
   ]) {
     if (!objects[key]) missing.push(key);
@@ -1113,6 +1114,24 @@ ${linkProse(intro.declarations ?? "", catalog)}
       { header: "Meaning", key: "meaning" },
     ], catalog)}\n\n`;
     body += renderPdlExample(sot.forEachExample);
+  }
+
+  if (sot.mapForms?.length) {
+    body += `## Map\n\n${linkProse(intro.map ?? "", catalog)}\n\n`;
+    body += `${renderFormTable(sot.mapForms, [
+      { header: "Form", key: "form" },
+      { header: "Meaning", key: "meaning" },
+    ], catalog)}\n\n`;
+    body += renderPdlExample(sot.mapExample);
+  }
+
+  if (sot.repeatForms?.length) {
+    body += `## Repeat\n\n${linkProse(intro.repeat ?? "", catalog)}\n\n`;
+    body += `${renderFormTable(sot.repeatForms, [
+      { header: "Form", key: "form" },
+      { header: "Meaning", key: "meaning" },
+    ], catalog)}\n\n`;
+    body += renderPdlExample(sot.repeatExample);
   }
 
   body += renderLockedDetail("Let", "let", intro.let, sot.lets, catalog);

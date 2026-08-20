@@ -440,7 +440,9 @@ pub fn tokenize(source: &str, file_path: &str) -> Result<Vec<Token>, PdlError> {
             let prev = if i == 0 { ' ' } else { chars[i - 1] };
             let after_ident_or_number = prev.is_ascii_alphanumeric() || prev == '_';
             let next = chars.get(i + 1).copied().unwrap_or('\0');
+            // `.case` DotEnum — never after another `.` (`...` / `..<` ranges).
             if !after_ident_or_number
+                && prev != '.'
                 && next != '\0'
                 && !next.is_ascii_digit()
                 && is_ident_start(next)
@@ -496,20 +498,24 @@ pub fn tokenize(source: &str, file_path: &str) -> Result<Vec<Token>, PdlError> {
             }
             let mut is_decimal = false;
             if chars.get(j).copied() == Some('.') {
-                is_decimal = true;
-                j += 1;
-                let frac_start = j;
-                while j < chars.len() && chars[j].is_ascii_digit() {
+                // `1...n` / `1..<n` — do not treat the first `.` of a range as a decimal point.
+                let after_dot = chars.get(j + 1).copied().unwrap_or('\0');
+                if after_dot.is_ascii_digit() {
+                    is_decimal = true;
                     j += 1;
-                }
-                if j == frac_start {
-                    return Err(err(
-                        "PDL-E001",
-                        "Malformed decimal literal".into(),
-                        file_path,
-                        start_line,
-                        start_col,
-                    ));
+                    let frac_start = j;
+                    while j < chars.len() && chars[j].is_ascii_digit() {
+                        j += 1;
+                    }
+                    if j == frac_start {
+                        return Err(err(
+                            "PDL-E001",
+                            "Malformed decimal literal".into(),
+                            file_path,
+                            start_line,
+                            start_col,
+                        ));
+                    }
                 }
             }
             let raw: String = chars[i..j].iter().collect();
@@ -736,5 +742,51 @@ primitive color.black: Color = #000000
         // Foo . children — Dot between idents
         let kinds: Vec<_> = toks.iter().map(|t| t.kind).collect();
         assert!(kinds.contains(&TokenKind::Dot));
+    }
+}
+
+#[cfg(test)]
+mod map_range_lex_tests {
+    use super::*;
+    #[test]
+    fn lex_closed_range_after_int() {
+        let toks = tokenize("1...n", "t.pdl").expect("lex");
+        let kinds: Vec<_> = toks
+            .iter()
+            .map(|t| format!("{:?}:{}", t.kind, t.value))
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                "Number:1".to_string(),
+                "Dot:.".to_string(),
+                "Dot:.".to_string(),
+                "Dot:.".to_string(),
+                "Ident:n".to_string(),
+                "Eof:".to_string(),
+            ],
+            "{kinds:?}"
+        );
+    }
+
+    #[test]
+    fn lex_half_open_range_after_int() {
+        let toks = tokenize("1..<n", "t.pdl").expect("lex");
+        let kinds: Vec<_> = toks
+            .iter()
+            .map(|t| format!("{:?}:{}", t.kind, t.value))
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                "Number:1".to_string(),
+                "Dot:.".to_string(),
+                "Dot:.".to_string(),
+                "Lt:<".to_string(),
+                "Ident:n".to_string(),
+                "Eof:".to_string(),
+            ],
+            "{kinds:?}"
+        );
     }
 }

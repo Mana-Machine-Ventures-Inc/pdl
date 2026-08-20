@@ -1,0 +1,86 @@
+// Lab: Map(1...n) → typed list; ForEach wires; children mounts.
+
+type PageCount = Number(min: 2, max: 10)
+
+component MapLabDot <PointerInput>(
+  page: Number = 1,
+  selected: Bool = false
+) layout {
+  width = 8
+  height = 8
+  cornerRadius = 50
+  if selected {
+    background = #007AFF
+  } else {
+    background = #C7C7CC
+  }
+  self.pressEnd = {
+    emit select(page)
+  }
+} emits {
+  select(page: Number)
+}
+
+component MapLabPageControl(
+  numberOfPages: PageCount = 3,
+  currentPage: Number(min: 1) = 1
+) layout {
+  direction = .row
+  align = .center
+  gap = 8
+  padding = EdgeInsets(x: 12, y: 8)
+
+  let dots: [MapLabDot] = Map(1...numberOfPages) { i in
+    MapLabDot(page: i)
+  }
+
+  ForEach(dots) { dot in
+    dot.selected = self.currentPage == page
+    dot.select(page: Number) = {
+      currentPage = page
+    }
+  }
+
+  children = dots
+}
+
+// compactMap omit: when omitAll, every index falls through with no yield.
+component MapLabOmit(
+  numberOfPages: PageCount = 4,
+  omitAll: Bool = true
+) layout {
+  direction = .row
+  gap = 4
+
+  let dots: [MapLabDot] = Map(1...numberOfPages) { i in
+    if omitAll {
+    } else {
+      MapLabDot(page: i)
+    }
+  }
+
+  children = dots
+}
+
+component MapLabRoot() layout {
+  direction = .column
+  gap = 16
+  padding = 16
+  background = #FFFFFF
+
+  let pages = MapLabPageControl(numberOfPages: 5, currentPage: 2)
+  let omit = MapLabOmit(numberOfPages: 4, omitAll: true)
+  children = [pages, omit]
+}
+
+fixtures MapLabPageControl {
+  example "default" {}
+  example "pageOne" {
+    numberOfPages = 3
+    currentPage = 1
+  }
+}
+
+fixtures MapLabRoot {
+  example "default" {}
+}

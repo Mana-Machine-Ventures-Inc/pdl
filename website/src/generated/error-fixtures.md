@@ -6,7 +6,7 @@ Oracle `.pdl` files under [`test-fixtures/pdl/errors/`](https://github.com/Mana-
 
 A conforming compiler **MUST** emit the code encoded in the filename (`e007-…` → **PDL-E007**), except where a test documents a different code (language evolution — see [Filename vs observed](#filename-vs-observed)). Diagnostic meanings: [Diagnostics](./diagnostics.md).
 
-**125** current oracles · **2** support files · **5** legacy · **1** valid controls.
+**127** current oracles · **2** support files · **5** legacy · **1** valid controls.
 
 ## Coverage by catalog code
 
@@ -14,11 +14,11 @@ Active `PDL-E` codes from `shared/diagnostics.json`. **Current** counts ignore `
 
 | Code | Name | Current | Legacy | Status |
 |------|------|---------|--------|--------|
-| **PDL-E001** | `unexpected-token` | 20 | 0 | covered |
+| **PDL-E001** | `unexpected-token` | 21 | 0 | covered |
 | **PDL-E002** | `circular-import` | 1 | 0 | covered |
 | **PDL-E003** | `duplicate-symbol` | 3 | 0 | covered |
 | **PDL-E004** | `unknown-token-type` | 1 | 0 | covered |
-| **PDL-E005** | `token-type-mismatch` | 35 | 0 | covered |
+| **PDL-E005** | `token-type-mismatch` | 36 | 0 | covered |
 | **PDL-E006** | `frame-prop-type-mismatch` | 13 | 0 | covered |
 | **PDL-E007** | `unresolved-reference` | 6 | 1 | covered |
 | **PDL-E008** | `unresolved-type-style` | 0 | 0 | **gap** |
@@ -68,6 +68,10 @@ Active `PDL-E` codes from `shared/diagnostics.json`. **Current** counts ignore `
 | **PDL-E054** | `presenter-missing-root` | 1 | 0 | covered |
 | **PDL-E055** | `presenter-verb-outside-capture` | 2 | 0 | covered |
 | **PDL-E056** | `sink-missing-handler` | 1 | 0 | covered |
+| **PDL-E057** | `number-out-of-bounds` | 0 | 0 | **gap** |
+| **PDL-E058** | `repeat-count-invalid` | 0 | 0 | **gap** |
+| **PDL-E059** | `repeat-selection-out-of-domain` | 0 | 0 | **gap** |
+| **PDL-E060** | `repeat-binder-shadow` | 0 | 0 | **gap** |
 
 ## Codes without an oracle
 
@@ -93,6 +97,10 @@ These codes are in the diagnostic catalog but have no `eNNN-*.pdl` under `errors
 - **PDL-E034** — `array-slot-dotted-override` — `slots.field = …` on an **array** slot/list param; use `ForEach(slots) { item in item.field = … }` (§4b / §4e).
 - **PDL-E035** — `foreach-without-mount` — `ForEach(list)` appears but `list` is never referenced in any `children = […]` / `children = list` of the component (§4e).
 - **PDL-E036** — `list-emit-capture` — Emit capture qualifies an **array/list** param (`chips.select(…) = { … }`); use `ForEach(chips) { chip in chip.select(…) = { … } }` (§4e).
+- **PDL-E057** — `number-out-of-bounds` — A Number param default, fixture, or bake value falls outside declared `min:` / `max:` (on the param or a `type Alias = Number(…)`).
+- **PDL-E058** — `repeat-count-invalid` — `Repeat(count:)` is not a finite integer ≥ 1, exceeds the per-Repeat ceiling (32), or nested Repeat product exceeds 64.
+- **PDL-E059** — `repeat-selection-out-of-domain` — A Number param compared to a Repeat binder (`i == currentPage`) is outside the derived index domain `begin` … `begin + count − 1`.
+- **PDL-E060** — `repeat-binder-shadow` — A Repeat binder name shadows an enclosing component parameter or an outer Repeat binder.
 
 ## Filename vs observed
 
@@ -101,6 +109,10 @@ The filename still records the original intent. TypeScript tests assert a **diff
 | File | Filename | Observed | Phase | Test |
 |------|----------|----------|-------|------|
 | [`e001-import-missing.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-import-missing.pdl) | **PDL-E001** | **ENOENT** | io | `tests/invalid-pdl.test.ts` |
+| [`e005-motion-empty-keys.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-empty-keys.pdl) | **PDL-E005** | **PDL-E001** | load | `tests/validateDesign.test.ts` |
+| [`e005-motion-override-pose-and-keys.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-override-pose-and-keys.pdl) | **PDL-E005** | **PDL-E001** | load | `tests/validateDesign.test.ts` |
+| [`e005-motion-repeat-without-path.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-repeat-without-path.pdl) | **PDL-E005** | **PDL-E001** | load | `tests/validateDesign.test.ts` |
+| [`e005-motion-stagger-without-pose.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-stagger-without-pose.pdl) | **PDL-E005** | **PDL-E001** | load | `tests/validateDesign.test.ts` |
 | [`e010-variant-default-not-enum.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e010-variant-default-not-enum.pdl) | **PDL-E010** | **PDL-E040** | load | `tests/invalid-pdl.test.ts` |
 | [`e012-hidden-disallowed-string.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e012-hidden-disallowed-string.pdl) | **PDL-E012** | **PDL-E001** | load | `tests/invalid-pdl.test.ts` |
 | [`e037-interaction-unknown-component.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e037-interaction-unknown-component.pdl) | **PDL-E037** | **PDL-E001** | load | `tests/invalid-pdl.test.ts` |
@@ -109,6 +121,7 @@ The filename still records the original intent. TypeScript tests assert a **diff
 
 | File | Filename | Observed | Catalog name | Phase | Note |
 |------|----------|----------|--------------|-------|------|
+| [`e001-animation-play.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-animation-play.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | animation play |
 | [`e001-bad-string-escape.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-bad-string-escape.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | bad string escape |
 | [`e001-blur-at-opacity.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-blur-at-opacity.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | blur at opacity |
 | [`e001-blur-legacy-blur-arg.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e001-blur-legacy-blur-arg.pdl) | **PDL-E001** | **PDL-E001** | `unexpected-token` | load | blur legacy blur arg |
@@ -134,6 +147,7 @@ The filename still records the original intent. TypeScript tests assert a **diff
 | [`e003-duplicate-token-import.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e003-duplicate-token-import.pdl) | **PDL-E003** | **PDL-E003** | `duplicate-symbol` | load | duplicate token import |
 | [`e003-duplicate-token.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e003-duplicate-token.pdl) | **PDL-E003** | **PDL-E003** | `duplicate-symbol` | load | duplicate token |
 | [`e004-circular-primitives.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e004-circular-primitives.pdl) | **PDL-E004** | **PDL-E004** | `unknown-token-type` | token-map | Circular aliases must use semantic (primitives cannot reference tokens). |
+| [`e005-animation-forever-repeat.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-animation-forever-repeat.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | animation forever repeat |
 | [`e005-blur-and-effect.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-blur-and-effect.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | blur and effect |
 | [`e005-blur-number-token.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-blur-number-token.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | Blur is a layer object — bare numbers are Radius, not Blur. |
 | [`e005-color-number.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-color-number.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | PDL-E005 — Color tokens must be #hex (or color @ opacity) |
@@ -148,13 +162,12 @@ The filename still records the original intent. TypeScript tests assert a **diff
 | [`e005-letterspacing-string.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-letterspacing-string.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | letterspacing string |
 | [`e005-lineheight-string.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-lineheight-string.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | lineheight string |
 | [`e005-lineheight-zero.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-lineheight-zero.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | lineheight zero |
-| [`e005-motion-key-at-range.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-key-at-range.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | motion key at range |
-| [`e005-motion-loop-with-repeat.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-loop-with-repeat.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | motion loop with repeat |
+| [`e005-motion-as-animate.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-as-animate.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | motion as animate |
+| [`e005-motion-empty-keys.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-empty-keys.pdl) | **PDL-E005** | **PDL-E001** | `token-type-mismatch` | load | motion empty keys |
 | [`e005-motion-override-not-motion.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-override-not-motion.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | motion override not motion |
-| [`e005-motion-override-pose-and-keys.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-override-pose-and-keys.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | motion override pose and keys |
-| [`e005-motion-pose-and-keys.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-pose-and-keys.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | motion pose and keys |
-| [`e005-motion-repeat-without-path.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-repeat-without-path.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | motion repeat without path |
-| [`e005-motion-stagger-without-pose.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-stagger-without-pose.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | motion stagger without pose |
+| [`e005-motion-override-pose-and-keys.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-override-pose-and-keys.pdl) | **PDL-E005** | **PDL-E001** | `token-type-mismatch` | load | motion override pose and keys |
+| [`e005-motion-repeat-without-path.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-repeat-without-path.pdl) | **PDL-E005** | **PDL-E001** | `token-type-mismatch` | load | motion repeat without path |
+| [`e005-motion-stagger-without-pose.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-motion-stagger-without-pose.pdl) | **PDL-E005** | **PDL-E001** | `token-type-mismatch` | load | motion stagger without pose |
 | [`e005-opacity-of-out-of-range.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-opacity-of-out-of-range.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | PDL-E005 — `@` opacity literals must be in 0…1 |
 | [`e005-opacity-string.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-opacity-string.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | PDL-E005 — Opacity tokens must be a number in 0…1 |
 | [`e005-primitive-token-ref.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-primitive-token-ref.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | primitive token ref |
@@ -167,6 +180,7 @@ The filename still records the original intent. TypeScript tests assert a **diff
 | [`e005-size-string.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-size-string.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | PDL-E005 — Size tokens must be numbers |
 | [`e005-sizing-string.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-sizing-string.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | PDL-E005 — Sizing tokens must be sizing literals, not strings |
 | [`e005-switch-at-fraction.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-switch-at-fraction.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | switch at fraction |
+| [`e005-timing-as-animate.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-timing-as-animate.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | timing as animate |
 | [`e005-token-null.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-token-null.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | load | token null |
 | [`e005-unknown-theme.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e005-unknown-theme.pdl) | **PDL-E005** | **PDL-E005** | `token-type-mismatch` | catalogue | unknown theme |
 | [`e006-aspect-overconstrained.pdl`](https://github.com/Mana-Machine-Ventures-Inc/pdl/blob/main/test-fixtures/pdl/errors/e006-aspect-overconstrained.pdl) | **PDL-E006** | **PDL-E006** | `frame-prop-type-mismatch` | load | PDL-E006 — aspectRatio with both width and height closed |

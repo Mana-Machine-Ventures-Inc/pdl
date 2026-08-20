@@ -3,7 +3,8 @@
 **Status:** locked (2026-08-18) — implemented in `pdl-core` (grammar / language-objects / bake / catalogue).  
 **Motivating packs:** `test-fixtures/pdl/systems/ios26-lite` (page control); lab `test-fixtures/pdl/labs/repeat_number_bounds.pdl`  
 **Depends on:** today’s `Number` param type; `ForEach` as overlay-only (§4e); host / catalog for platform ceilings ([`PROPOSAL_HOST_ENVIRONMENT.md`](./PROPOSAL_HOST_ENVIRONMENT.md))  
-**Not a runtime.** Bake expansion + validation. Do not add Number algebra, counters, or generative games in `.pdl`.
+**Not a runtime.** Bake expansion + validation. Do not add Number algebra, counters, or generative games in `.pdl`.  
+**Follow-on (interactive lists + emit):** [`PROPOSAL_MAP_LIST.md`](./PROPOSAL_MAP_LIST.md) — typed `Map(1...n)` list expression, nil omit, `ForEach` for emit capture (closes Q7 without emit-inside-Repeat).
 
 Locked in `shared/*.json` / `grammar/pdl.ebnf` / Rust validate+resolve. Diagnostics: **PDL-E057** (bounds), **PDL-E058** (Repeat count/ceiling), **PDL-E059** (selection outside index domain), **PDL-E060** (binder shadowing).
 

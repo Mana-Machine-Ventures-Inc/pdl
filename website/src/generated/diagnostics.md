@@ -66,6 +66,10 @@ Catalog: [`shared/diagnostics.json`](https://github.com/Mana-Machine-Ventures-In
 | **PDL-E054** | `presenter-missing-root` | `Presenter()` is missing `root:`, uses `children:`, or `root` is not a page let / page instance. |
 | **PDL-E055** | `presenter-verb-outside-capture` | `presenter.replace/push/pop/present/dismiss(…)` appears outside an ancestor-capture body, names a let that is not a Presenter, uses a bad arity, or uses a style other than `.cover`. |
 | **PDL-E056** | `sink-missing-handler` | A component lists an ancestor-sink protocol in receive `<>` (`<ShowEpisode>`) but has no bare `channel(…) =` handler for one of that protocol’s `.ancestors` channels. |
+| **PDL-E057** | `number-out-of-bounds` | A Number param default, fixture, or bake value falls outside declared `min:` / `max:` (on the param or a `type Alias = Number(…)`). |
+| **PDL-E058** | `repeat-count-invalid` | `Repeat(count:)` is not a finite integer ≥ 1, exceeds the per-Repeat ceiling (32), or nested Repeat product exceeds 64. |
+| **PDL-E059** | `repeat-selection-out-of-domain` | A Number param compared to a Repeat binder (`i == currentPage`) is outside the derived index domain `begin` … `begin + count − 1`. |
+| **PDL-E060** | `repeat-binder-shadow` | A Repeat binder name shadows an enclosing component parameter or an outer Repeat binder. |
 
 ## Warnings (PDL-W0xx)
 
@@ -108,7 +112,10 @@ Catalog: [`shared/keywords.json`](https://github.com/Mana-Machine-Ventures-Inc/p
 | `catalog` | Named token override bundle applied by the host (icons, platform assets). |
 | `host` | Environment profile: params + optional mount. Also marks host-role protocol bodies. Prelude `Host` is the opt-in to read those params. |
 | `typeStyle` | Named text-property preset. |
+| `type` | Contextual top-level introducer for `type Name = Number(min:, max:)` (not a reserved keyword — `font.type` stays an Ident path). |
 | `variant` | Closed case set (design-axis combinator). |
+| `Repeat` | Bake-time generative mount from a count (not ForEach). |
+| `Map` | Bake-time typed list from a range (compactMap-shaped; not a mount). |
 | `enum` | Surface alias of variant (same IR in v1). |
 | `protocol` | Shared param/emits or host-role contract. |
 | `component` | UI definition. |
@@ -199,8 +206,8 @@ These are type/ctor names, not user identifiers. World A frame ctors Text / Layo
 | `Timing` | — |
 | `Pose` | — |
 | `Stagger` | — |
-| `Key` | — |
 | `Motion` | — |
+| `Animation` | — |
 | `PresentationMotion` | — |
 | `Effect` | — |
 | `Ramp` | — |

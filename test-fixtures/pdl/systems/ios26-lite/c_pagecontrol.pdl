@@ -2,7 +2,8 @@ import "foundation.pdl"
 
 type IosPageCount = Number(min: 2, max: 10)
 
-component IosPageDot(
+component IosPageDot <PointerInput>(
+  page: Number = 1,
   selected: Bool = false
 ) layout {
   direction = .row
@@ -15,9 +16,15 @@ component IosPageDot(
   } else {
     background = ios.color.pageDot.idle
   }
+
+  self.pressEnd = {
+    emit select(page)
+  }
+} emits {
+  select(page: Number)
 }
 
-// Folded from Figma Page control — count + selection as Numbers + Repeat.
+// Folded from Figma Page control — Map → typed dots, ForEach wires selection + emit.
 component IosPageControl(
   numberOfPages: IosPageCount = 3,
   currentPage: Number(min: 1) = 1
@@ -30,7 +37,16 @@ component IosPageControl(
   height = 24
   width = .hug
 
-  children = Repeat(count: numberOfPages) { i in
-    IosPageDot(selected: i == currentPage)
+  let dots: [IosPageDot] = Map(1...numberOfPages) { i in
+    IosPageDot(page: i)
   }
+
+  ForEach(dots) { dot in
+    dot.selected = self.currentPage == page
+    dot.select(page: Number) = {
+      currentPage = page
+    }
+  }
+
+  children = dots
 }

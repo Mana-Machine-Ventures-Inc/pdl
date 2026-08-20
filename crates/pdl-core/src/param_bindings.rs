@@ -546,6 +546,26 @@ fn walk_child_entries(
                 scoped.insert(binder.clone(), "Number".to_string());
                 walk_repeat_body(design, body, &scoped, binder, where_)?;
             }
+            ChildEntry::Map {
+                binder,
+                body,
+                lo: _,
+                hi: _,
+                half_open: _,
+            } => {
+                if caller_params.contains_key(binder) {
+                    return Err(err(
+                        "PDL-E060",
+                        format!(
+                            "Map binder `{binder}` shadows enclosing parameter `{binder}` {where_}"
+                        ),
+                        design,
+                    ));
+                }
+                let mut scoped = caller_params.clone();
+                scoped.insert(binder.clone(), "Number".to_string());
+                walk_repeat_body(design, body, &scoped, binder, where_)?;
+            }
             _ => {}
         }
     }
@@ -650,6 +670,35 @@ pub fn validate_param_bindings_in_body(
                     &scoped,
                     binder,
                     &format!("in `let {id} = Repeat(…)` (component {component_name})"),
+                )?;
+            }
+            FrameBodyItem::LetMap {
+                id,
+                binder,
+                body,
+                element_type: _,
+                lo: _,
+                hi: _,
+                half_open: _,
+            } => {
+                if caller_params.contains_key(binder) {
+                    return Err(err(
+                        "PDL-E060",
+                        format!(
+                            "Map binder `{binder}` shadows enclosing parameter `{binder}` \
+                             in `let {id}` (component {component_name})"
+                        ),
+                        design,
+                    ));
+                }
+                let mut scoped = caller_params.clone();
+                scoped.insert(binder.clone(), "Number".to_string());
+                walk_repeat_body(
+                    design,
+                    body,
+                    &scoped,
+                    binder,
+                    &format!("in `let {id} = Map(…)` (component {component_name})"),
                 )?;
             }
             FrameBodyItem::Let { body, .. } => {

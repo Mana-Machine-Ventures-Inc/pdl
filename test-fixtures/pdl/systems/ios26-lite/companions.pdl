@@ -54,7 +54,7 @@ usage IosProgressBar {
 }
 
 usage IosPageControl {
-  description = "Carousel page dots. numberOfPages + currentPage with Repeat; HIG ceilings via Number bounds."
+  description = "Carousel page dots. Map(1…n) → [IosPageDot], ForEach for selection + emit; HIG ceilings via Number bounds."
 }
 
 usage IosMaterialSwatch {

@@ -500,6 +500,7 @@ fn validate_if_conditions_in_body(
     items: &[FrameBodyItem],
     param_by_name: &HashMap<String, String>,
     array_params: &HashSet<String>,
+    map_lets: &HashSet<String>,
     component_name: &str,
 ) -> Result<(), PdlError> {
     for item in items {
@@ -512,6 +513,7 @@ fn validate_if_conditions_in_body(
                         &br.body,
                         param_by_name,
                         array_params,
+                        map_lets,
                         component_name,
                     )?;
                 }
@@ -521,6 +523,7 @@ fn validate_if_conditions_in_body(
                         else_body,
                         param_by_name,
                         array_params,
+                        map_lets,
                         component_name,
                     )?;
                 }
@@ -531,6 +534,7 @@ fn validate_if_conditions_in_body(
                     body,
                     param_by_name,
                     array_params,
+                    map_lets,
                     component_name,
                 )?;
             }
@@ -546,11 +550,11 @@ fn validate_if_conditions_in_body(
                 }
             }
             FrameBodyItem::ForEach { list, body, .. } => {
-                if !param_by_name.contains_key(list) {
+                if !param_by_name.contains_key(list) && !map_lets.contains(list) {
                     return Err(err(
                         "PDL-E023",
                         format!(
-                            "ForEach(`{}`): unknown list/slot parameter (component {})",
+                            "ForEach(`{}`): unknown list/slot parameter or Map let (component {})",
                             list, component_name
                         ),
                         design,
@@ -581,6 +585,26 @@ fn validate_if_conditions_in_body(
         }
     }
     Ok(())
+}
+
+fn collect_map_lets(items: &[FrameBodyItem], out: &mut HashSet<String>) {
+    for item in items {
+        match item {
+            FrameBodyItem::LetMap { id, .. } => {
+                out.insert(id.clone());
+            }
+            FrameBodyItem::Let { body, .. } => collect_map_lets(body, out),
+            FrameBodyItem::If { chain } => {
+                for br in &chain.branches {
+                    collect_map_lets(&br.body, out);
+                }
+                if let Some(else_body) = &chain.else_body {
+                    collect_map_lets(else_body, out);
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 /// List name from a kwarg RHS used as a mount forward (`chips` / `[chips]`).
@@ -837,6 +861,12 @@ fn collect_unique_frame_ids_from_body(
                 }
                 seen.insert(id.clone());
             }
+            FrameBodyItem::LetMap { id, .. } => {
+                if seen.contains(id) {
+                    return Err(dup(id));
+                }
+                seen.insert(id.clone());
+            }
             FrameBodyItem::If { chain } => {
                 for br in &chain.branches {
                     collect_unique_frame_ids_from_body(&br.body, seen, component_name, design)?;
@@ -1020,6 +1050,9 @@ fn assert_forward_frame_visibility(
                 declared.insert(id.clone());
             }
             FrameBodyItem::LetRepeat { id, .. } => {
+                declared.insert(id.clone());
+            }
+            FrameBodyItem::LetMap { id, .. } => {
                 declared.insert(id.clone());
             }
             FrameBodyItem::If { chain } => {
@@ -3940,6 +3973,34 @@ fn collect_instances_from_child_entry(entry: &ChildEntry, out: &mut HashSet<Stri
                 }
             }
         }
+        ChildEntry::Map { body, .. } => {
+            for item in body {
+                match item {
+                    crate::ast::RepeatBodyItem::Entry(e) => {
+                        collect_instances_from_child_entry(e, out);
+                    }
+                    crate::ast::RepeatBodyItem::If {
+                        branches,
+                        else_body,
+                    } => {
+                        for br in branches {
+                            for it in &br.body {
+                                if let crate::ast::RepeatBodyItem::Entry(e) = it {
+                                    collect_instances_from_child_entry(e, out);
+                                }
+                            }
+                        }
+                        if let Some(else_body) = else_body {
+                            for it in else_body {
+                                if let crate::ast::RepeatBodyItem::Entry(e) = it {
+                                    collect_instances_from_child_entry(e, out);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         _ => {}
     }
 }
@@ -3961,6 +4022,34 @@ fn collect_mounted_component_types(body: &[FrameBodyItem], out: &mut HashSet<Str
                 }
             }
             FrameBodyItem::LetRepeat { body, .. } => {
+                for item in body {
+                    match item {
+                        crate::ast::RepeatBodyItem::Entry(e) => {
+                            collect_instances_from_child_entry(e, out);
+                        }
+                        crate::ast::RepeatBodyItem::If {
+                            branches,
+                            else_body,
+                        } => {
+                            for br in branches {
+                                for it in &br.body {
+                                    if let crate::ast::RepeatBodyItem::Entry(e) = it {
+                                        collect_instances_from_child_entry(e, out);
+                                    }
+                                }
+                            }
+                            if let Some(else_body) = else_body {
+                                for it in else_body {
+                                    if let crate::ast::RepeatBodyItem::Entry(e) = it {
+                                        collect_instances_from_child_entry(e, out);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            FrameBodyItem::LetMap { body, .. } => {
                 for item in body {
                     match item {
                         crate::ast::RepeatBodyItem::Entry(e) => {
@@ -4282,7 +4371,16 @@ pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError>
             .filter(|p| p.is_array)
             .map(|p| p.name)
             .collect();
-        validate_if_conditions_in_body(design, &c.body, &param_by_name, &array_params, &c.name)?;
+        let mut map_lets = HashSet::new();
+        collect_map_lets(&c.body, &mut map_lets);
+        validate_if_conditions_in_body(
+            design,
+            &c.body,
+            &param_by_name,
+            &array_params,
+            &map_lets,
+            &c.name,
+        )?;
         validate_foreach_mounts(design, c)?;
         validate_unique_frame_mounts(design, c, &all_frame_ids)?;
         let let_kinds = collect_let_frame_kinds(&c.body);

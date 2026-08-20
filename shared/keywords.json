@@ -18,6 +18,7 @@
         { "word": "type", "note": "Contextual top-level introducer for `type Name = Number(min:, max:)` (not a reserved keyword — `font.type` stays an Ident path)." },
         { "word": "variant", "note": "Closed case set (design-axis combinator)." },
         { "word": "Repeat", "note": "Bake-time generative mount from a count (not ForEach)." },
+        { "word": "Map", "note": "Bake-time typed list from a range (compactMap-shaped; not a mount)." },
         { "word": "enum", "note": "Surface alias of variant (same IR in v1)." },
         { "word": "protocol", "note": "Shared param/emits or host-role contract." },
         { "word": "component", "note": "UI definition." },

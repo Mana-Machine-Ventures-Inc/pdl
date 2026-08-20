@@ -321,6 +321,16 @@ pub enum ChildEntry {
         binder: String,
         body: Vec<RepeatBodyItem>,
     },
+    /// Bake-time list expression mount sugar: `children = Map(a...b) { i in … }`.
+    /// Prefer `let dots: [T] = Map(…)`; this form mounts only (no ForEach identity).
+    Map {
+        lo: ValueExpr,
+        hi: ValueExpr,
+        /// `true` ⇒ half-open `a..<b`; `false` ⇒ closed `a...b`.
+        half_open: bool,
+        binder: String,
+        body: Vec<RepeatBodyItem>,
+    },
 }
 
 /// Target of a `children = [...]` assignment.
@@ -360,6 +370,17 @@ pub enum FrameBodyItem {
         id: String,
         count: ValueExpr,
         begin: Option<ValueExpr>,
+        binder: String,
+        body: Vec<RepeatBodyItem>,
+    },
+    /// `let dots: [IosPageDot] = Map(1...n) { i in … }` — typed list for `children` + `ForEach`.
+    LetMap {
+        id: String,
+        /// Element type from `: [T]` (required for ForEach typing).
+        element_type: String,
+        lo: ValueExpr,
+        hi: ValueExpr,
+        half_open: bool,
         binder: String,
         body: Vec<RepeatBodyItem>,
     },

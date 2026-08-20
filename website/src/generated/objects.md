@@ -20,7 +20,10 @@ The top-level blocks in a `.pdl` file. Use them to import files, name tokens, an
 | `catalog` | `catalog Name { token = value … }` | A named remap the environment applies — SF Symbols vs Material icons. Same override shape as a theme. Apply with `use catalog Name` inside `mount` only. Studio must not list catalogs in the theme picker. Token stack is base, then user theme(s), then catalogs (catalog wins on shared keys). See Catalog. |
 | [`host`](#host) | `host Name(params = defaults) [mount { … }]` | An environment profile. Params are what `<Host>` components read. Optional `mount` maps a facts bag onto those params. Every host in the design must share the same param names and types. See [`Host`](#host) environment. |
 | [`typeStyle`](#typestyle) | `typeStyle Name { … }` | A named bundle of text-frame properties. A text frame sets `style = Title`. See [`typeStyle`](#typestyle). |
+| `type` | `type Name = Number(min:, max:)` | A named [`Number`](#number) bounds alias (`type PageCount = Number(min: 2, max: 10)`). Contextual at top level — `font.type` stays an ident path. |
 | [`variant`](#variants) | `variant Name { case a; case b }` | A closed set of visual choices (tone, size). Write `.primary` at use sites. Same as enum in v1. |
+| `Repeat` | `Repeat(count:, begin: = 1) { i in … }` | Bake-time generative mount from a count. Prefer Map when the list needs [`ForEach`](#foreach) emit capture. See Repeat. |
+| `Map` | `Map(lo...hi) { i in … }` | Bake-time typed list from a range (compactMap omit). Prefer `let dots: [T] = Map(…)`, then [`ForEach`](#foreach) + `children = dots`. See Map. |
 | [`enum`](#variants) | `enum Name { case a; case b }` | Same as variant in v1. Prefer [`enum`](#variants) for ids (`FilterId`); prefer [`variant`](#variants) for visual axes. |
 | `protocol` | `protocol P: component { … }  or  protocol P { host … }` | A shared contract. Use an API protocol so mixed chips share `select`; use a host protocol so the preview can deliver clicks. |
 | `component` | `component Name(params) kind { … }` | A reusable UI piece: a name, public parameters, and one root frame. |
@@ -105,7 +108,7 @@ A flex-like container — the usual root of a component, and any nested group. W
 | Property | Type | Values |
 |----------|------|--------|
 | `align` | [`Align`](#align) | [`.start`](#align) · [`.center`](#align) · [`.end`](#align) · [`.stretch`](#align) |
-| `animate` | [`Motion`](#motion), [`Timing`](#timing) | motion, timing |
+| `animate` | [`Animation`](#animation) | animation |
 | `background` | [`Color`](#color), [`Background`](#background), [`Foreground`](#foreground), [`Ramp`](#ramp), [`Blur`](#blur), [`Media`](#media), [`Vibrancy`](#vibrancy) | hex, opacityOf, array |
 | `blur` | [`Radius`](#radius) | ≥ 0 |
 | `borderColor` | [`Color`](#color) | hex, opacityOf |
@@ -146,7 +149,7 @@ A typography node. `content` is the string. Prefer `style:` naming a [`typeStyle
 | Property | Type | Values |
 |----------|------|--------|
 | `align` | [`Align`](#align) | [`.start`](#align) · [`.center`](#align) · [`.end`](#align) |
-| `animate` | [`Motion`](#motion), [`Timing`](#timing) | motion, timing |
+| `animate` | [`Animation`](#animation) | animation |
 | `background` | [`Color`](#color), [`Background`](#background), [`Foreground`](#foreground), [`Ramp`](#ramp), [`Blur`](#blur), [`Media`](#media), [`Vibrancy`](#vibrancy) | hex, opacityOf, array |
 | `blur` | [`Radius`](#radius) | ≥ 0 |
 | `borderColor` | [`Color`](#color) | hex, opacityOf |
@@ -185,7 +188,7 @@ A small tintable glyph. The `icon` property is an [`Icon`](#icon) token or [`Ico
 
 | Property | Type | Values |
 |----------|------|--------|
-| `animate` | [`Motion`](#motion), [`Timing`](#timing) | motion, timing |
+| `animate` | [`Animation`](#animation) | animation |
 | `blur` | [`Radius`](#radius) | ≥ 0 |
 | `color` | [`Color`](#color) | hex, opacityOf |
 | `effect` | [`Effect`](#effect) | effect |
@@ -206,7 +209,7 @@ A box that draws raster, vector, or video from a [`MediaSource`](#mediasource). 
 | Property | Type | Values |
 |----------|------|--------|
 | `align` | [`Align`](#align) | [`.start`](#align) · [`.center`](#align) · [`.end`](#align) |
-| `animate` | [`Motion`](#motion), [`Timing`](#timing) | motion, timing |
+| `animate` | [`Animation`](#animation) | animation |
 | `aspectRatio` | [`Ratio`](#ratio) | number, ratio |
 | `background` | [`Color`](#color), [`Background`](#background), [`Foreground`](#foreground), [`Ramp`](#ramp), [`Blur`](#blur), [`Media`](#media), [`Vibrancy`](#vibrancy) | hex, opacityOf, array |
 | `blur` | [`Radius`](#radius) | ≥ 0 |
@@ -331,6 +334,68 @@ component LibrarySubnav(
 }
 ```
 
+## Map
+
+`Map(lo...hi) { i in … }` builds a typed list at bake. The body’s component expression is the element; no yield ⇒ omit (compactMap). Prefer `let dots: [T] = Map(…)`; wire with `ForEach(dots)`; mount with `children = dots`. Same ceilings as Repeat. Distinct from Repeat (mount-only) and ForEach (wire-only).
+
+| Form | Meaning |
+|------|------|
+| `let dots: [IosPageDot] = Map(1...numberOfPages) { i in … }` | Bake a typed list from a closed range. Prefer this form when [`ForEach`](#foreach) must wire the list. |
+| `Map(1..<n) { i in … }` | Half-open range: i ∈ {1, …, n − 1}. |
+| `if gate { Dot(page: i) }` | No matching branch / no component expression ⇒ omit that index (compactMap). |
+| `ForEach(dots) { dot in … }; children = dots` | Wire then mount. Map alone does not draw; [`ForEach`](#foreach) alone does not draw. |
+
+```pdl
+type PageCount = Number(min: 2, max: 10)
+
+component PageDot <PointerInput>(
+  page: Number = 1,
+  selected: Bool = false
+) layout {
+  self.pressEnd = { emit select(page) }
+} emits {
+  select(page: Number)
+}
+
+component PageControl(
+  numberOfPages: PageCount = 5,
+  currentPage: Number(min: 1) = 1
+) layout {
+  let dots: [PageDot] = Map(1...numberOfPages) { i in
+    PageDot(page: i)
+  }
+  ForEach(dots) { dot in
+    dot.selected = self.currentPage == page
+    dot.select(page: Number) = { currentPage = page }
+  }
+  children = dots
+}
+```
+
+## Repeat
+
+`Repeat(count:, begin: = 1) { i in … }` mounts N copies at bake. Index domain is `begin` … `begin + count − 1` (default begin 1). Nested Repeat is allowed; each count ≤ 32 and nested product ≤ 64. Equality on binders (`i == currentPage`) is OK — not [`Number`](#number) algebra. Distinct from [`ForEach`](#foreach) and Map. Prefer Map when the list needs [`ForEach`](#foreach) emit capture.
+
+| Form | Meaning |
+|------|------|
+| `children = Repeat(count: numberOfPages) { i in … }` | Mount `numberOfPages` children. Binder `i` runs 1 … N by default. |
+| `Repeat(count: n, begin: 0) { i in … }` | 0-based indices: i ∈ {0, 1, …, n − 1}. |
+| `let dots = Repeat(count: n) { i in … }; children = dots` | Name a Repeat, then mount it like any other child. Same bake expansion as `children = Repeat(…)`. |
+| `LabDot(selected: i == currentPage)` | Equality against another [`Number`](#number) param — selection chrome without layout math. |
+
+```pdl
+type PageCount = Number(min: 2, max: 10)
+
+component PageControl(
+  numberOfPages: PageCount = 5,
+  currentPage: Number(min: 1) = 1
+) layout {
+  children = Repeat(count: numberOfPages) { i in
+    Dot(selected: i == currentPage)
+  }
+}
+```
+
 ## Let {#let}
 
 Name a nested frame, or a typed value you reuse in props. Prefer a lowercase id (`let title`, `let ramp`) so the name is not the same word as the type. Frame lets go in [`children`](#children). Typed value lets do not.
@@ -391,6 +456,7 @@ Accepted syntax:
 
 - `label: String = "Chip"` — Quoted string default.
 - `selected: Bool = false` — Boolean. Write [`Bool`](#bool), not `Boolean`.
+- `isOn = !isOn` — Invert a [`Bool`](#bool) parameter in a host handler (or any [`Bool`](#bool) value position).
 - `tone: BannerTone = .success` — A variant/enum you declared. Default is a `.case`.
 - `gap: Distance = 8` — Token or value builtin, with a literal or token default.
 - `content: ModalContent = UpsellBody()` — Single slot — a component or protocol instance.
@@ -428,7 +494,7 @@ Quoted text. Component parameters, text content, font family, easing strings.
 
 ### `Number`
 
-A finite number. Unitless unless the property says otherwise ([`Duration`](#duration) is milliseconds; [`Opacity`](#opacity) is 0…1; [`LineHeight`](#lineheight) is a ratio).
+A finite number. Unitless unless the property says otherwise ([`Duration`](#duration) is milliseconds; [`Opacity`](#opacity) is 0…1; [`LineHeight`](#lineheight) is a ratio). Params may add coherence bounds: `Number(min: 2, max: 10)`. Named aliases: `type PageCount = Number(min: 2, max: 10)`. Bake / fixtures keep a scalar; out-of-range is PDL-E057.
 
 ### `Bool`
 
@@ -487,7 +553,7 @@ Accepted syntax:
 
 - `self.currentFilter` — Enclosing component parameter. Prefer this in [`ForEach`](#foreach) when the item might shadow the name.
 - `self.background = #333` — Root frame property of this component — never an intermediate let.
-- `self.pressEnd = { … }` — [`Host`](#host) inbound handler. Bare `pressEnd = { … }` is the same in the kind body.
+- `self.pressEnd = { … }` — [`Host`](#host) inbound handler. Bare `pressEnd = { … }` is the same. Legal at the top of the kind body or inside layout [`if`](#conditionals) / [`else`](#conditionals) (conditions are preserved on the handler).
 - `Rule(.should, self == parent.children.last, description: "…")` — Rules-query `self` — the instance being checked, not layout `self`.
 
 Rejected:
@@ -561,7 +627,7 @@ Accepted syntax:
 - `tone == .warning` — Parameter equals a variant case.
 - `self.currentFilter == filter` — Same-type compare. `self.` is the enclosing component; bare `filter` is often a [`ForEach`](#foreach) item field.
 - `selected` — A [`Bool`](#bool) is truthy on its own.
-- `!selected` — Negation.
+- `!selected` — Negation in a condition (`if !selected { … }`). Same `!` also inverts a [`Bool`](#bool) value (`isOn = !isOn`, `hidden = !selected`, kwargs).
 - `a && b` — Both. Do not mix with `||` unless you parenthesize.
 - `a || b` — Either. Do not mix with `&&` unless you parenthesize.
 
@@ -608,7 +674,7 @@ component Cleared() layout {
 
 ## Token types
 
-Named values you declare once and reuse. Write `primitive` for the raw palette and `semantic` for the names components should use ([`color.surface`](#color)). Pick a type when a property needs a color, a gap, a shadow, and so on. [`Duration`](#duration), [`Ease`](#ease), [`Timing`](#timing), [`Pose`](#pose), [`Stagger`](#stagger), [`Motion`](#motion), and [`PresentationMotion`](#presentationmotion) are the motion types — they exist for handler `animate =`, frame `animate`, and Presenter pair clips. [`Effect`](#effect) is paint: [`.blurSelf`](#effectkind) softens the node, [`.blurBehind`](#effectkind) samples what is behind.
+Named values you declare once and reuse. Write `primitive` for the raw palette and `semantic` for the names components should use ([`color.surface`](#color)). Pick a type when a property needs a color, a gap, a shadow, and so on. [`Duration`](#duration), [`Ease`](#ease), [`Timing`](#timing), [`Pose`](#pose), [`Stagger`](#stagger), [`Motion`](#motion), [`Animation`](#animation), and [`PresentationMotion`](#presentationmotion) are the motion types — [`Animation`](#animation) is `animate =`; [`Motion`](#motion) is a segment inside [`Animation.keys`](#animation); [`PresentationMotion`](#presentationmotion) is Presenter pair clips. [`Effect`](#effect) is paint: [`.blurSelf`](#effectkind) softens the node, [`.blurBehind`](#effectkind) samples what is behind.
 
 ### `Color`
 
@@ -883,7 +949,7 @@ width = 240
 
 ### `Duration`
 
-Animation length in milliseconds. Unitless — not `150ms`.
+[`Animation`](#animation) length in milliseconds. Unitless — not `150ms`.
 
 Category: motion. Used on: [`Timing`](#timing).[`duration`](#duration), [`Stagger`](#stagger).`step`, `animate`.
 
@@ -901,7 +967,7 @@ primitive motion.duration.standard: Duration = 250
 
 How time is shaped. Named cases `.linear` / `.in` / `.out`, or `Ease.bezier(x1, y1, x2, y2)`. x1 and x2 must be 0…1 (CSS time axis). y1 and y2 may overshoot. Not a CSS string.
 
-Category: motion. Used on: [`Timing`](#timing).[`ease`](#ease), [`Motion`](#motion).[`ease`](#ease), [`Key`](#key).[`ease`](#ease).
+Category: motion. Used on: [`Timing`](#timing).[`ease`](#ease), [`Motion`](#motion).[`ease`](#ease), `Key`.[`ease`](#ease).
 
 Accepted syntax:
 
@@ -933,9 +999,9 @@ semantic motion.instant: Timing = Timing(duration: 0, ease: .linear)
 
 ### `Pose`
 
-An overlay snapshot — not layout. Used on appear / dismiss, hover flourish, keys, and standing frame `animate`. Fields: opacity (0…1), scale (unitless), scaleX, scaleY, translateX, translateY, blur (CSS px), rotate (degrees), originX / originY (0…1, transform origin). At least one field is required. Unknown labels are PDL-E005. Appear plays from the pose to rest; dismiss plays from rest to the pose; other sites follow [`play`](#play). Themes replace a Pose wholly — no field merge.
+An overlay snapshot — not layout. Used on appear / dismiss, hover flourish, keys, and standing frame `animate`. Fields: opacity (0…1), scale (unitless), scaleX, scaleY, translateX, translateY, blur (CSS px), rotate (degrees), originX / originY (0…1, transform origin). At least one field is required. Unknown labels are PDL-E005. Appear plays from the pose to rest; dismiss plays from rest to the pose; other sites follow `play`. Themes replace a Pose wholly — no field merge.
 
-Category: motion. Used on: [`Motion`](#motion).[`pose`](#pose), [`Key`](#key).[`pose`](#pose).
+Category: motion. Used on: [`Motion`](#motion).[`pose`](#pose), `Key`.[`pose`](#pose).
 
 Accepted syntax:
 
@@ -964,39 +1030,69 @@ semantic motion.stagger.list: Stagger = Stagger(step: 30, from: .first)
 
 ### `Motion`
 
-The value of `animate =` (handler or frame). Joins a clock with an optional [`Play`](#play), [`Pose`](#pose) or keys, [`Stagger`](#stagger), and finite repeat. Declare `duration:` / `ease:` / optional `delay:` on the Motion, or pass `timing:` as a [`Timing`](#timing) token or [`Timing(…)`](#timing). Do not mix `timing:` with flattened clock fields (E005). `pose:` and `keys:` together are rejected. `play: .loop` is forever — do not also set `repeat:`. [`stagger`](#stagger) and `repeat` require a pose track. Omit [`play`](#play) on reusable tokens so the site default applies. A [`Timing`](#timing) token or [`Timing(…)`](#timing) is sugar for `Motion(timing: …)`. Themes replace a Motion wholly — no field merge.
+One segment of an [`Animation`](#animation): a clock plus a destination Pose (or `.rest`). Not a valid `animate =` value — wrap segments in `Animation(keys: […])`. Declare `duration:` / `ease:` / optional `delay:`, or `timing:` as a [`Timing`](#timing) token / [`Timing(…)`](#timing). Do not mix `timing:` with flattened clock fields. Themes replace a Motion wholly.
+
+Category: motion. Used on: [`Animation`](#animation).`keys`.
+
+Accepted syntax:
+
+- `Motion(duration: 250, ease: .out, pose: Pose(scale: 1.08))` — [`Ease`](#ease) from current overlay to this pose.
+- `Motion(duration: 400, ease: .out, pose: .rest)` — Settle to identity overlay.
+- `Motion(timing: motion.fast, pose: pose.fadeUp)` — [`Timing`](#timing) token plus destination.
+
+Rejected:
+
+- `animate = Motion(duration: 200, ease: .out, pose: Pose(scale: 1.1))` — `animate =` takes [`Animation`](#animation), not Motion.
+- `Motion(duration: 200, ease: .out, play: .toRest)` — `play:` is removed.
+
+```pdl
+Motion(duration: 280, ease: .out, pose: Pose(scale: 1.12))
+```
+
+### `Animation`
+
+The value of `animate =` (handler or frame). Optional `start:` snaps immediately (omit = from current overlay). `keys:` is a non-empty sequential list of [`Motion`](#motion) segments. Optional `stagger:` and `repeat:` (finite count or `.forever`). `Animation(token, field:)` copies an Animation token and overrides labeled fields. Themes replace an Animation wholly. Concurrent independent clocks use different lets (`box.animate` / `label.animate`), or bundle channels in one [`Pose`](#pose).
 
 Category: motion. Used on: `animate`.
 
 Accepted syntax:
 
-- `Motion(timing: motion.appear)` — Curve only — hover / implicit interpolation.
-- `Motion(timing: motion.appear, pose: Pose(opacity: 0))` — Lifecycle overlay. Handler name is the direction.
-- `Motion(duration: 250, ease: .out, pose: pose.fadeUp, stagger: Stagger(step: 30, from: .first))` — Full join with an explicit clock.
-- `Motion(motion.hoverPop, play: .toRest)` — Shallow copy of a Motion token; labeled fields replace those fields.
-- `motion.appear` — A [`Timing`](#timing) token — sugar for Motion(timing: that).
-- `Timing(duration: 250, ease: .out)` — A [`Timing`](#timing) constructor — same sugar.
-- `motion.enterCard` — A Motion token.
+- `Animation(start: Pose(opacity: 0), keys: [Motion(duration: 250, ease: .out, pose: .rest)])` — Appear: snap start, ease to rest.
+- `Animation(keys: [Motion(duration: 180, ease: .out, pose: Pose(scale: 1.08)), Motion(duration: 280, ease: .out, pose: .rest)])` — Overshoot then settle.
+- `Animation(keys: [Motion(duration: 800, ease: .linear, pose: Pose(rotate: 360))], repeat: .forever)` — Standing spin.
+- `Animation(motion.hoverPop, repeat: .forever)` — Copy a token and override fields.
+- `motion.enterCard` — An Animation token.
+
+Rejected:
+
+- `Animation(keys: [])` — Empty keys rejected.
+- `animate = Timing(duration: 200, ease: .out)` — [`Timing`](#timing) is not animate sugar.
+- `Animation(keys: […], play: .toRest)` — `play:` is removed — put `.rest` in a [`Motion`](#motion) pose.
 
 ```pdl
-semantic motion.hoverPop: Motion = Motion(timing: motion.appear, keys: [Key(pose: Pose(scale: 1.12), at: 1)])
-hoverEnd = { animate = Motion(motion.hoverPop, play: .toRest) }
+semantic motion.hoverPop: Animation = Animation(
+  keys: [
+    Motion(duration: 110, ease: .out, pose: Pose(scale: 1.12)),
+    Motion(duration: 170, ease: .out, pose: Pose(scale: 1.04))
+  ]
+)
+hoverEnd = { animate = Animation(keys: [Motion(duration: 280, ease: .out, pose: .rest)]) }
 ```
 
 ### `PresentationMotion`
 
-A Presenter pair clip. `incoming` plays [`.toRest`](#play) (mounts at pose, eases to rest). `outgoing` plays [`.toPose`](#play). Pair-level [`duration`](#duration) / [`ease`](#ease) / `delay` apply when a slot is a [`Pose`](#pose). A [`Motion`](#motion) slot keeps its own clock. A [`Motion`](#motion) with `keys:` plays that path as authored ([`Key.ease`](#key) is the curve to the next stop). [`front`](#front) is who starts on top ([`.incoming`](#front) or [`.outgoing`](#front)). Omit it: `move` keeps incoming on top; `dismissMove` keeps outgoing on top. `switchAt` is a [`Duration`](#duration) in milliseconds — wall-clock from play start, not eased progress. Omit it to keep [`front`](#front) the whole clip. `.reversed` swaps sides and time-reverses [`ease`](#ease) (`.in`↔`.out`; bezier control points invert). `delay` stays. Omit `switchAt`: flip [`front`](#front). With `switchAt`: keep [`front`](#front) (the side swap remaps who that label is) and invert to `span − switchAt` (span is max of each side’s delay + duration). `keys:` paths are not reversed — write `dismissMove:` for that.
+A Presenter pair clip. Slots are [`Animation`](#animation), or [`Pose`](#pose) sugar with pair-level [`duration`](#duration) / [`ease`](#ease) / `delay` (incoming expands to start→rest; outgoing expands to ease to that [`Pose`](#pose)). [`Animation`](#animation) slots keep their own clocks. [`front`](#front) is who starts on top ([`.incoming`](#front) or [`.outgoing`](#front)). Omit it: `move` keeps incoming on top; `dismissMove` keeps outgoing on top. `switchAt` is milliseconds from play start. `.reversed` swaps sides and time-reverses each [`Motion`](#motion) [`ease`](#ease) (`.in`↔`.out`; bezier control points invert). `delay` stays. Omit `switchAt`: flip [`front`](#front). With `switchAt`: keep [`front`](#front) and invert to `span − switchAt`.
 
 Category: motion. Used on: `Presenter`.`move`, `present`.`move`, `push`.`move`, `dismissMove`.
 
 Accepted syntax:
 
-- `PresentationMotion(incoming: Pose(translateX: 390), outgoing: Pose(translateX: -48, opacity: 0.86), duration: 320, ease: .out)` — Push-style pair. Omit front: move keeps incoming on top.
-- `front: .outgoing` — Who starts on top. [`.incoming`](#front) or [`.outgoing`](#front).
+- `PresentationMotion(incoming: Pose(translateX: 390), outgoing: Pose(translateX: -48, opacity: 0.86), duration: 320, ease: .out)` — Push-style pair via [`Pose`](#pose) sugar.
+- `front: .outgoing` — Who starts on top.
 - `switchAt: 240` — Switch who is on top at that many milliseconds from play start.
-- `PresentationMotion(incoming: Pose(scale: 0.92, translateX: -36), outgoing: Pose(scale: 0.92, translateX: 36), duration: 480, ease: .in, front: .outgoing, switchAt: 240)` — Card swap: outgoing starts in front; incoming takes front at 240ms.
-- `motion.navPush.reversed` — Swap incoming/outgoing, time-reverse ease. No switchAt: flip front. With switchAt: keep front, invert to span − switchAt. [`Key`](#key) lists stay.
-- `incoming: Motion(duration: 480, ease: .out, keys: [Key(pose: Pose(translateX: 390), at: 0), Key(pose: .rest, at: 1)])` — Keyed incoming path. Played as authored. Per-key `ease:` is the curve to the next stop.
+- `PresentationMotion(incoming: Pose(scale: 0.92, translateX: -36), outgoing: Pose(scale: 0.92, translateX: 36), duration: 480, ease: .in, front: .outgoing, switchAt: 240)` — Card swap.
+- `motion.navPush.reversed` — Swap incoming/outgoing, time-reverse ease.
+- `incoming: Animation(start: Pose(translateX: 390), keys: [Motion(duration: 480, ease: .out, pose: .rest)])` — Explicit incoming [`Animation`](#animation).
 
 ```pdl
 semantic motion.navPush: PresentationMotion = PresentationMotion(
@@ -1004,14 +1100,6 @@ semantic motion.navPush: PresentationMotion = PresentationMotion(
   outgoing: Pose(translateX: -48, opacity: 0.86),
   duration: 320,
   ease: .out
-)
-semantic motion.cardSwap: PresentationMotion = PresentationMotion(
-  incoming: Pose(scale: 0.92, translateX: -36),
-  outgoing: Pose(scale: 0.92, translateX: 36),
-  duration: 480,
-  ease: .in,
-  front: .outgoing,
-  switchAt: 240
 )
 ```
 
@@ -1375,10 +1463,10 @@ Asymmetric radii: Corner(tl:, tr:, br:, bl:). Produces [`CornerRadii`](#cornerra
 | [`Shadow(…)`](#shadow) | Shadow(x:, y:, blurRadius:, color: [, spread:]). Axes are numbers or numeric tokens; color is a [`Color`](#color). spread defaults to 0. |
 | [`GradientStop(…)`](#gradientstop) | GradientStop(position: 0…1 [, opacity:] [, color:]). |
 | [`Vibrancy(…)`](#vibrancy) | Vibrancy(saturation:, brightness:). Used on [`Blur`](#blur) or as its own layer token. |
-| [`Pose(…)`](#pose) | Overlay snapshot: Pose(opacity:, scale:, scaleX:, scaleY:, translateX:, translateY:, blur:, rotate:, originX:, originY:). At least one field. Used on [`Motion.pose`](#motion). |
-| [`Stagger(…)`](#stagger) | Stagger(step: [`Duration`](#duration) [, from: .first\|.last]). Used on [`Motion.stagger`](#motion). from defaults to .first. |
-| [`Key(…)`](#key) | Key(pose: [`Pose`](#pose) \| .rest, at: 0…1 [, ease:]). A waypoint on [`Motion.keys`](#motion). `ease:` is the curve from this stop to the next; omit it to use the [`Motion`](#motion) clock. |
-| [`Motion(…)`](#motion) | Motion(transition: Transition [, play:] [, pose: [`Pose`](#pose)] [, keys: [Key, …]] [, stagger: [`Stagger`](#stagger)] [, repeat: n]) or Motion(token, field:). The type of animate =. A bare Transition is sugar for Motion(transition: …). Site default fills play when omitted. |
+| [`Pose(…)`](#pose) | Overlay snapshot: Pose(opacity:, scale:, scaleX:, scaleY:, translateX:, translateY:, blur:, rotate:, originX:, originY:). At least one field. Used on [`Motion.pose`](#motion) and [`Animation.start`](#animation). `.rest` is identity. |
+| [`Stagger(…)`](#stagger) | Stagger(step: [`Duration`](#duration) [, from: .first\|.last]). Used on [`Animation.stagger`](#animation). from defaults to .first. |
+| [`Motion(…)`](#motion) | Motion(duration:, ease: [, delay:] \| timing:, pose:). One [`Animation.keys`](#animation) segment — clock plus destination. Not the type of animate =. |
+| [`Animation(…)`](#animation) | Animation([token,] start?, keys:, stagger?, repeat?). The type of animate =. keys is a non-empty list of [`Motion`](#motion). repeat is a count or .forever. |
 | [`Effect(…)`](#effect) | Effect([`.blurSelf`](#effectkind) \| [`.blurBehind`](#effectkind) \| [`.glass`](#effectkind), radius: [, vibrancy:]). Frame property [`effect`](#effect). `blur = n` is sugar for [`.blurSelf`](#effectkind). [`.glass`](#effectkind) is reserved. Not a layer and not a child. |
 
 ## Layers {#layers}
@@ -1634,23 +1722,6 @@ Used on: [`Effect`](#effect).
 ```pdl
 photo.effect = Effect(.blurSelf, radius: 8)
 sheet.effect = Effect(.blurBehind, radius: 16)
-```
-
-### `Play`
-
-How a [`Motion`](#motion) runs its pose track. Not a token type — only the `play:` field on [`Motion`](#motion). Omit it on reusable tokens so the site default applies.
-
-Used on: [`Motion`](#motion).[`play`](#play).
-
-| Case | Meaning |
-|------|--------|
-| `.toRest` | Run the path and finish on rest (identity overlay). Default for appear, hoverEnd, and pressEnd. |
-| `.toPose` | Run the path and finish on the last key. Default for dismiss, hoverStart, and pressStart when a pose track is present. |
-| `.loop` | Repeat the path forever. Do not also set `repeat:`. |
-
-```pdl
-hoverEnd = { animate = Motion(motion.hoverPop, play: .toRest) }
-icon.animate = Motion(transition: motion.appear, play: .loop, pose: Pose(rotate: 360))
 ```
 
 ### `Front`
@@ -2004,40 +2075,40 @@ component Shell <Host>() layout {
 
 ## Handler motion {#handler-motion}
 
-One `animate =` assignment on a host handler, or a standing `animate` on any frame. Its type is [`Motion`](#motion): a Transition, an optional play mode, [`Pose`](#pose) or keys, [`Stagger`](#stagger), and finite repeat. A bare Transition is sugar for Motion(transition: …). Bake stays at rest; the HTML host plays a CSS overlay.
+One or more `animate =` / `let.animate =` assignments on a host handler, or a standing `animate` on any frame. Its type is [`Animation`](#animation): optional start Pose (snap), sequential [`Motion`](#motion) keys, optional [`Stagger`](#stagger) and repeat (`.forever` or a count). Bake stays at rest; the HTML host plays a CSS overlay.
 
-[`Host`](#host) handler bodies have one motion assignment: `animate =`. Its type is [`Motion`](#motion) — a Transition plus optional play, [`Pose`](#pose) or keys, [`Stagger`](#stagger), and finite repeat. A Transition token or tuple is sugar for `Motion(transition: …)`. `Motion(token, field:)` copies a [`Motion`](#motion) token and overrides labeled fields. Bake is the rest pose. The HTML host plays a CSS overlay — not layout. Units: [`Duration`](#duration) is milliseconds; translate and blur are CSS pixels; scale is unitless; opacity is 0…1; rotate is degrees; originX / originY are 0…1. [`Pose`](#pose) fields: [`opacity`](#opacity), `scale`, `scaleX`, `scaleY`, `translateX`, `translateY`, [`blur`](#blur), `rotate`, `originX`, `originY`. Appear defaults to play toward rest; dismiss toward the last key; hoverStart / pressStart with a pose track default [`.toPose`](#play); hoverEnd / pressEnd default [`.toRest`](#play). Reusable tokens omit [`play`](#play). [`Pose`](#pose) / keys are legal on pointer handlers (flourish). [`stagger`](#stagger) without a pose track is rejected.
+[`Host`](#host) handler bodies assign motion with `animate =` (event target) and/or `let.animate =` (named let). Several animate statements in one handler run concurrently with independent clocks. Each value is [`Animation`](#animation) — optional start Pose (snap), sequential [`Motion`](#motion) keys, optional [`Stagger`](#stagger) and repeat. Bake is rest. The HTML host plays a CSS overlay — not layout. Units: [`Duration`](#duration) is milliseconds; translate and blur are CSS pixels; scale is unitless; opacity is 0…1; rotate is degrees; originX / originY are 0…1. Appear authors `start:` then a [`Motion`](#motion) to `.rest`. Dismiss authors keys to an exit pose. Standing loops use `repeat: .forever`.
 
 Accepted syntax:
 
-- `animate = motion.interactive` — Transition sugar. Use this curve for property changes this handler triggers (implicit interpolation).
-- `animate = Motion(transition: motion.appear, pose: Pose(opacity: 0, scale: 0.95, translateY: 8))` — Lifecycle overlay. appear = from pose; dismiss = to pose.
-- `animate = Motion(transition: motion.appear, pose: pose.fadeUp, stagger: Stagger(step: 30, from: .first))` — [`Pose`](#pose) each direct visible child with this Transition; stagger them like this.
-- `animate = Motion(motion.hoverPop, play: .toRest)` — Copy a [`Motion`](#motion) token and override play (or any other field).
-- `if isLoading { icon.animate = motion.spin }` — Standing overlay on a frame. Bake carries the [`Motion`](#motion) while the if is true; omit the field when false.
-- `self.animate = motion.spin` — Same property on the component root.
+- `animate = Animation(start: Pose(opacity: 0, translateY: 8), keys: [Motion(duration: 250, ease: .out, pose: .rest)])` — Appear: snap start, ease to rest.
+- `knob.animate = Animation(keys: [Motion(duration: 200, ease: .out, pose: Pose(scale: 0.96))])` — Targeted shot on a named let.
+- `frame1.animate = Animation(keys: [Motion(duration: 500, ease: .out, pose: Pose(scale: 1.08))])
+frame2.animate = Animation(keys: [Motion(duration: 1000, ease: .out, pose: Pose(opacity: 0.6))])` — Two independent Animations on two lets from one pressEnd.
+- `animate = Animation(keys: [Motion(duration: 220, ease: .out, pose: Pose(opacity: 0))], stagger: Stagger(step: 30, from: .first))` — [`Stagger`](#stagger) direct children through this [`Animation`](#animation).
+- `if isLoading { icon.animate = motion.spin }` — Standing overlay while the if is true; omit when false. Token should use repeat: .forever.
+- `self.animate = motion.spin` — In a handler, same as bare `animate =`. In layout, standing animate on the component root.
 
 Rejected:
 
-- `interaction Appear { on appear { … } }` — The `interaction` keyword is removed (PDL-E001). Put motion on `self.appear = { … }`.
-- `from { opacity = 0 }` — Removed. Write `pose: Pose(opacity: 0)` on [`Motion`](#motion).
-- `stagger = 30` — Removed. Write `stagger: Stagger(step: 30, from: .first)` on [`Motion`](#motion).
-- `animate = Motion(transition: motion.appear, stagger: Stagger(step: 30))` — [`Stagger`](#stagger) without pose is rejected.
-- `Motion(color.red, play: .toRest)` — Copy base must be a [`Motion`](#motion) token (PDL-E005).
+- `animate = Motion(duration: 200, ease: .out, pose: Pose(scale: 1.1))` — `animate =` takes [`Animation`](#animation), not [`Motion`](#motion).
+- `animate = Timing(duration: 200, ease: .out)` — [`Timing`](#timing) is not animate sugar.
+- `Animation(keys: […], play: .toRest)` — `play:` is removed — put `.rest` on a [`Motion`](#motion) pose.
+- `from { opacity = 0 }` — Removed. Write `start: Pose(opacity: 0)` on [`Animation`](#animation).
 
 ```pdl
 component Modal <PointerInput>() layout {
   let title = Text(content: "Hello")
   children = [title]
   self.appear = {
-    animate = Motion(
-      transition: motion.appear,
-      pose: Pose(opacity: 0, scale: 0.95),
+    animate = Animation(
+      start: Pose(opacity: 0, scale: 0.95),
+      keys: [Motion(duration: 250, ease: .out, pose: .rest)],
       stagger: Stagger(step: 30, from: .first)
     )
   }
   self.dismiss = {
-    animate = Motion(transition: motion.dismiss, pose: Pose(opacity: 0, scale: 0.95))
+    animate = Animation(keys: [Motion(duration: 180, ease: .in, pose: Pose(opacity: 0, scale: 0.95))])
   }
 }
 ```

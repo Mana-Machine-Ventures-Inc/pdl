@@ -251,6 +251,8 @@ let-decl
   ::= 'let' IDENT '=' frame-ctor                (* World A — normative *)
     | 'let' IDENT '=' component-instance
     | 'let' IDENT '=' repeat-expr               (* name a Repeat; mount with children = id *)
+    | 'let' IDENT ':' '[' IDENT ']' '=' map-expr (* typed Map list; ForEach + children *)
+    | 'let' IDENT '=' map-expr                  (* Map with inferred element type from body *)
     | 'let' IDENT ':' type-name '=' value-expr  (* typed value let — not a frame *)
     ;
     (* Classic `let IDENT ':' frame-kind '=' '{' … '}'` is removed — PDL-E001 *)
@@ -340,6 +342,7 @@ children-rhs
   ::= children-list
     | IDENT   (* sugar: `children = chips` ≡ `children = [chips]` *)
     | repeat-expr
+    | map-expr
     ;
 
 children-list
@@ -354,15 +357,21 @@ child-entry-base
     | frame-ctor
     | component-instance
     | repeat-expr
+    | map-expr
     ;
 
 repeat-expr
   ::= 'Repeat' '(' 'count' ':' value-expr [ ',' 'begin' ':' value-expr ] [ ',' ] ')'
       '{' IDENT 'in' { repeat-body-item } '}' ;
 
+(* Typed list from a closed/half-open Number range. Body yields a component or nil (omit). *)
+map-expr
+  ::= 'Map' '(' value-expr ( '...' | '..<' ) value-expr ')'
+      '{' IDENT 'in' { repeat-body-item } '}' ;
+
 repeat-body-item
   ::= child-entry
-    | if-chain   (* body items are repeat-body-item; equality on Number binders OK *)
+    | if-chain   (* body items are repeat-body-item; equality on Number binders OK; Map omits when no branch yields *)
     ;
 
 component-instance

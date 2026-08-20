@@ -2084,6 +2084,54 @@ impl Parser {
         })
     }
 
+    /// `Map(lo...hi)` or `Map(lo..<hi) { i in … }` as a children RHS / child entry / let RHS.
+    fn parse_map_child_entry(&mut self) -> Result<ChildEntry, PdlError> {
+        self.consume(TokenKind::LParen)?;
+        let lo = self.parse_value_expr()?;
+        let half_open = self.consume_range_op()?;
+        let hi = self.parse_value_expr()?;
+        self.consume(TokenKind::RParen)?;
+        self.consume(TokenKind::LBrace)?;
+        let binder = self.consume(TokenKind::Ident)?.value;
+        if !self.is(TokenKind::In) {
+            return Err(self.err(format!(
+                "Map requires a binder: `Map(…) {{ {binder} in … }}` — write `{binder} in`"
+            )));
+        }
+        self.advance(); // `in`
+        let body = self.parse_repeat_body_until_close(&binder)?;
+        self.consume(TokenKind::RBrace)?;
+        Ok(ChildEntry::Map {
+            lo,
+            hi,
+            half_open,
+            binder,
+            body,
+        })
+    }
+
+    /// Consume `...` (closed) or `..<` (half-open). Returns `true` when half-open.
+    fn consume_range_op(&mut self) -> Result<bool, PdlError> {
+        // Lexer emits `.` as Dot; `...` is three Dots; `..<` is Dot Dot Lt.
+        if !self.is(TokenKind::Dot) {
+            return Err(self.err("Map range requires `...` or `..<` between bounds"));
+        }
+        self.advance();
+        if !self.is(TokenKind::Dot) {
+            return Err(self.err("Map range requires `...` or `..<` between bounds"));
+        }
+        self.advance();
+        if self.is(TokenKind::Dot) {
+            self.advance();
+            return Ok(false);
+        }
+        if self.is(TokenKind::Lt) {
+            self.advance();
+            return Ok(true);
+        }
+        Err(self.err("Map range requires `...` (closed) or `..<` (half-open)"))
+    }
+
     fn parse_repeat_body_until_close(
         &mut self,
         binder: &str,
@@ -2105,18 +2153,18 @@ impl Parser {
         }
         if self.is(TokenKind::Let) {
             return Err(self.err(
-                "Repeat body cannot declare `let` bindings; mount instances or `if` / `else`",
+                "Repeat/Map body cannot declare `let` bindings; yield a component or `if` / `else`",
             ));
         }
         let entry = self.parse_child_entry()?;
         match &entry {
             ChildEntry::FrameRef { id, .. } => {
                 return Err(self.err(format!(
-                    "Repeat body cannot mount bare frame id `{id}`; use `Component(…)` or `Layout(…)`"
+                    "Repeat/Map body cannot mount bare frame id `{id}`; use `Component(…)` or `Layout(…)`"
                 )));
             }
             ChildEntry::ForEach { .. } => {
-                return Err(self.err("ForEach is not allowed inside Repeat"));
+                return Err(self.err("ForEach is not allowed inside Repeat/Map"));
             }
             _ => {}
         }
@@ -2540,6 +2588,37 @@ impl Parser {
                     body,
                 });
             }
+            // `let dots = Map(1...n) { i in … }` — infer element type from first Instance yield.
+            if self.is(TokenKind::Ident)
+                && self.peek().value == "Map"
+                && self.peek_ahead_kind(1) == TokenKind::LParen
+            {
+                self.advance();
+                let ChildEntry::Map {
+                    lo,
+                    hi,
+                    half_open,
+                    binder,
+                    body,
+                } = self.parse_map_child_entry()?
+                else {
+                    return Err(self.err("Internal: expected Map child entry"));
+                };
+                let element_type = infer_map_element_type(&body).ok_or_else(|| {
+                    self.err(format!(
+                        "Map let `{id}` needs `let {id}: [Component] = Map(…)` — could not infer element type from body"
+                    ))
+                })?;
+                return Ok(FrameBodyItem::LetMap {
+                    id,
+                    element_type,
+                    lo,
+                    hi,
+                    half_open,
+                    binder,
+                    body,
+                });
+            }
             // `let x = Comp(…)` → instance; `let blur = Blur(…)` → value let (inferred)
             let value = self.parse_value_expr()?;
             if let ValueExpr::Instance { component, kwargs } = value {
@@ -2563,6 +2642,7 @@ impl Parser {
         self.consume(TokenKind::Colon)?;
         // Classic frame let removed — World A only: `let Id = Text|Layout|Icon|Media(…)`
         // Value let: `let ramp: Ramp = Ramp(…)`
+        // Map list: `let dots: [IosPageDot] = Map(1...n) { i in … }`
         let t = self.peek().clone();
         let is_frame_kind = t.kind == TokenKind::Ident
             && matches!(t.value.as_str(), "layout" | "text" | "icon" | "media");
@@ -2578,6 +2658,43 @@ impl Parser {
             return Err(self.err(format!(
                 "Classic frame let `let {id}: {frame_kind} = {{ … }}` was removed; use `let {id} = {ctor}(…)` (World A — see docs/PROPOSAL_WORLD_A_EXPRESSION_TREES.md)"
             )));
+        }
+        if self.is(TokenKind::LBracket) {
+            let (element_type, is_array, _) = self.parse_param_type()?;
+            if !is_array {
+                return Err(self.err(format!(
+                    "Map let `{id}` requires an array element type (`let {id}: [Component] = Map(…)`)"
+                )));
+            }
+            self.consume(TokenKind::Eq)?;
+            if !(self.is(TokenKind::Ident)
+                && self.peek().value == "Map"
+                && self.peek_ahead_kind(1) == TokenKind::LParen)
+            {
+                return Err(self.err(format!(
+                    "`let {id}: [{element_type}] = …` expects `Map(…)` on the RHS"
+                )));
+            }
+            self.advance();
+            let ChildEntry::Map {
+                lo,
+                hi,
+                half_open,
+                binder,
+                body,
+            } = self.parse_map_child_entry()?
+            else {
+                return Err(self.err("Internal: expected Map child entry"));
+            };
+            return Ok(FrameBodyItem::LetMap {
+                id,
+                element_type,
+                lo,
+                hi,
+                half_open,
+                binder,
+                body,
+            });
         }
         let type_name = self.consume_param_type_name()?;
         self.consume(TokenKind::Eq)?;
@@ -3604,6 +3721,13 @@ impl Parser {
             self.advance();
             return Ok(vec![self.parse_repeat_child_entry()?]);
         }
+        if self.is(TokenKind::Ident)
+            && self.peek().value == "Map"
+            && self.peek_ahead_kind(1) == TokenKind::LParen
+        {
+            self.advance();
+            return Ok(vec![self.parse_map_child_entry()?]);
+        }
         if self.is(TokenKind::Ident) && self.peek_ahead_kind(1) != TokenKind::LParen {
             let id = self.parse_qualified_name()?;
             let opacity = self.parse_optional_child_opacity()?;
@@ -3645,6 +3769,13 @@ impl Parser {
         {
             self.advance();
             return self.parse_repeat_child_entry();
+        }
+        if self.is(TokenKind::Ident)
+            && self.peek().value == "Map"
+            && self.peek_ahead_kind(1) == TokenKind::LParen
+        {
+            self.advance();
+            return self.parse_map_child_entry();
         }
         // World A frame ctors: Ident (`Text`/`Layout`) or keywords (`Icon`/`Media`).
         if let Some(ctor) = self.peek_frame_ctor_name() {
@@ -4461,6 +4592,36 @@ fn extract_host_handlers_from_if_chain(
         },
         lifted,
     )
+}
+
+fn infer_map_element_type(body: &[RepeatBodyItem]) -> Option<String> {
+    fn from_items(items: &[RepeatBodyItem]) -> Option<String> {
+        for item in items {
+            match item {
+                RepeatBodyItem::Entry(ChildEntry::Instance { component, .. }) => {
+                    return Some(component.clone());
+                }
+                RepeatBodyItem::Entry(_) => {}
+                RepeatBodyItem::If {
+                    branches,
+                    else_body,
+                } => {
+                    for br in branches {
+                        if let Some(t) = from_items(&br.body) {
+                            return Some(t);
+                        }
+                    }
+                    if let Some(else_body) = else_body {
+                        if let Some(t) = from_items(else_body) {
+                            return Some(t);
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+    from_items(body)
 }
 
 pub fn parse_module_source(source: &str, path: &str) -> Result<ModuleAst, PdlError> {

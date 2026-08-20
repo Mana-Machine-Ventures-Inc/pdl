@@ -34,6 +34,7 @@ top-level-decl
     | catalog-decl
     | host-decl
     | type-style-decl
+    | type-alias-decl
     | variant-decl
     | protocol-decl
     | component-decl
@@ -65,7 +66,7 @@ token-type-name
   ::= 'Color' | 'Opacity' | 'Distance' | 'Radius' | 'Shadow'
     | 'Icon' | 'MediaSource' | 'Ratio' | 'FontFamily' | 'Size'
     | 'Weight' | 'LineHeight' | 'LetterSpacing' | 'Sizing' | 'Duration'
-    | 'Ease' | 'Timing' | 'Pose' | 'Stagger' | 'Motion' | 'PresentationMotion' | 'Effect'
+    | 'Ease' | 'Timing' | 'Pose' | 'Stagger' | 'Motion' | 'Animation' | 'PresentationMotion' | 'Effect'
     | 'Blur' | 'Vibrancy' | 'Ramp' | 'Background' | 'Foreground'
     ;
 
@@ -218,7 +219,16 @@ param-decl
 type-name
   ::= IDENT
     | '[' IDENT ']'
+    | 'Number' '(' number-bound { ',' number-bound } [ ',' ] ')'
     ;
+
+number-bound
+  ::= 'min' ':' NUMBER
+    | 'max' ':' NUMBER
+    ;
+
+type-alias-decl
+  ::= 'type' IDENT '=' 'Number' '(' number-bound { ',' number-bound } [ ',' ] ')' ;
 
 default-value
   ::= STRING | NUMBER | DOT_ENUM | HEX_COLOR
@@ -249,6 +259,9 @@ deferred-children-assignment
 let-decl
   ::= 'let' IDENT '=' frame-ctor                (* World A — normative *)
     | 'let' IDENT '=' component-instance
+    | 'let' IDENT '=' repeat-expr               (* name a Repeat; mount with children = id *)
+    | 'let' IDENT ':' '[' IDENT ']' '=' map-expr (* typed Map list; ForEach + children *)
+    | 'let' IDENT '=' map-expr                  (* Map with inferred element type from body *)
     | 'let' IDENT ':' type-name '=' value-expr  (* typed value let — not a frame *)
     ;
     (* Classic `let IDENT ':' frame-kind '=' '{' … '}'` is removed — PDL-E001 *)
@@ -337,6 +350,8 @@ children-assignment
 children-rhs
   ::= children-list
     | IDENT   (* sugar: `children = chips` ≡ `children = [chips]` *)
+    | repeat-expr
+    | map-expr
     ;
 
 children-list
@@ -350,6 +365,22 @@ child-entry-base
     | 'Spacer' '(' ')'
     | frame-ctor
     | component-instance
+    | repeat-expr
+    | map-expr
+    ;
+
+repeat-expr
+  ::= 'Repeat' '(' 'count' ':' value-expr [ ',' 'begin' ':' value-expr ] [ ',' ] ')'
+      '{' IDENT 'in' { repeat-body-item } '}' ;
+
+(* Typed list from a closed/half-open Number range. Body yields a component or nil (omit). *)
+map-expr
+  ::= 'Map' '(' value-expr ( '...' | '..<' ) value-expr ')'
+      '{' IDENT 'in' { repeat-body-item } '}' ;
+
+repeat-body-item
+  ::= child-entry
+    | if-chain   (* body items are repeat-body-item; equality on Number binders OK; Map omits when no branch yields *)
     ;
 
 component-instance
@@ -369,7 +400,8 @@ condition
     ;
 
 condition-atom
-  ::= IDENT '==' DOT_ENUM
+  ::= '!' condition-atom
+    | IDENT '==' DOT_ENUM
     | IDENT '!=' DOT_ENUM
     | IDENT '==' IDENT          (* e.g. selected == filter — same variant type *)
     | IDENT '!=' IDENT
@@ -377,6 +409,8 @@ condition-atom
     | 'self' '.' IDENT '!=' DOT_ENUM
     | 'self' '.' IDENT '==' IDENT
     | 'self' '.' IDENT '!=' IDENT
+    | IDENT                     (* bare Bool param: `if selected` *)
+    | 'self' '.' IDENT          (* bare Bool: `if self.selected` *)
     | '(' condition ')'
     ;
 
@@ -393,7 +427,7 @@ event-name
 handler-statement
   ::= param-assignment          (* component params only — not FrameId.prop *)
     | emit-statement
-    | animate-statement         (* value-expr is Motion, or Timing sugar *)
+    | animate-statement         (* value-expr is Animation *)
     | if-chain                  (* conditions over params; still param assigns only *)
     ;
 
@@ -406,9 +440,14 @@ param-assignment
     | 'self' '.' IDENT '=' value-expr
     ;
 
+(* Bare `animate =` plays on the event target (component root / instance).
+   `IDENT.animate =` plays on that let (`data-pdl-id`). `self.animate =` ≡ bare.
+   Multiple animate statements in one handler run concurrently (independent clocks). *)
 animate-statement
-  ::= 'animate' '=' value-expr ;   (* Motion(…) or Timing token/tuple *)
-
+  ::= 'animate' '=' value-expr
+    | IDENT '.' 'animate' '=' value-expr
+    | 'self' '.' 'animate' '=' value-expr
+    ;
 (* 21.8 Companion blocks and typed samples *)
 fixtures-decl
   ::= 'fixtures' IDENT '{' { example-decl } '}' ;
@@ -498,7 +537,8 @@ extend-section
 
 (* 21.9 Value expressions *)
 value-expr
-  ::= HEX_COLOR
+  ::= '!' value-expr            (* Bool negation: `isOn = !isOn`, `hidden = !selected` *)
+    | HEX_COLOR
     | STRING
     | NUMBER
     | ratio-literal
@@ -517,8 +557,8 @@ value-expr
     | ease-literal
     | pose-literal
     | stagger-literal
-    | key-literal
     | motion-literal
+    | animation-literal
     | presentation-motion-literal
     | effect-literal
     | vibrancy-literal
@@ -610,31 +650,38 @@ pose-arg
 stagger-literal
   ::= 'Stagger' '(' 'step' ':' value-expr [ ',' 'from' ':' ( '.first' | '.last' ) ] ')' ;
 
-key-literal
-  ::= 'Key' '(' 'pose' ':' value-expr ',' 'at' ':' value-expr
-      [ ',' 'ease' ':' value-expr ] ')' ;
-
+(* Segment: one clock + destination pose. Not an animate = value. *)
 motion-literal
   ::= 'Motion' '(' motion-args ')' ;
 
 motion-args
-  ::= motion-base [ ',' motion-arg { ',' motion-arg } ]
-    | motion-arg { ',' motion-arg } ;
-
-motion-base
-  ::= IDENT { '.' IDENT } ;
+  ::= motion-arg { ',' motion-arg } ;
 
 motion-arg
   ::= 'timing' ':' value-expr
     | 'duration' ':' value-expr
     | 'ease' ':' value-expr
     | 'delay' ':' value-expr
-    | 'play' ':' value-expr
-    | 'pose' ':' value-expr
+    | 'pose' ':' value-expr ;
+
+(* Clip: optional snap start + sequential Motion keys. Type of animate =. *)
+animation-literal
+  ::= 'Animation' '(' animation-args ')' ;
+
+animation-args
+  ::= animation-base [ ',' animation-arg { ',' animation-arg } ]
+    | animation-arg { ',' animation-arg } ;
+
+animation-base
+  ::= IDENT { '.' IDENT } ;
+
+animation-arg
+  ::= 'start' ':' value-expr
     | 'keys' ':' value-expr
     | 'stagger' ':' value-expr
     | 'repeat' ':' value-expr ;
 
+(* Presenter pair. Slots are Animation, or Pose sugar (+ pair clock → Animation). *)
 presentation-motion-literal
   ::= 'PresentationMotion' '(' presentation-motion-arg { ',' presentation-motion-arg } ')' ;
 

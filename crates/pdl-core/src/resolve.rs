@@ -148,6 +148,8 @@ struct SlotResolveCtx {
     presenter_pins: HashMap<String, crate::presenter::PresenterPin>,
     /// `let dots = Repeat(…) { … }` — expanded when `children` mounts `dots`.
     repeat_lets: HashMap<String, ChildEntry>,
+    /// `let dots: [T] = Map(…) { … }` — array of `{ component, params }` for children + ForEach.
+    map_lets: HashMap<String, Value>,
 }
 
 /// `chips` or `[chips]` used as a list-forward / mount reference in kwargs.
@@ -1171,6 +1173,32 @@ fn process_frame_items(
                     },
                 );
             }
+            FrameBodyItem::LetMap {
+                id,
+                element_type,
+                lo,
+                hi,
+                half_open,
+                binder,
+                body,
+            } => {
+                let arr = expand_map_to_array(
+                    lo,
+                    hi,
+                    *half_open,
+                    binder,
+                    body,
+                    element_type,
+                    design,
+                    tokens,
+                    param_values,
+                    param_meta,
+                    local_values,
+                    opts,
+                )?;
+                slot_ctx.map_lets.insert(id.clone(), arr.clone());
+                local_values.insert(id.clone(), arr);
+            }
             FrameBodyItem::LetValue {
                 id,
                 type_name: _,
@@ -1556,6 +1584,217 @@ fn assert_param_number_bounds(
         )?;
     }
     Ok(())
+}
+
+fn expand_map_to_array(
+    lo: &ValueExpr,
+    hi: &ValueExpr,
+    half_open: bool,
+    binder: &str,
+    body: &[crate::ast::RepeatBodyItem],
+    element_type: &str,
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+    param_values: &ParamValues,
+    param_meta: &ParamMeta,
+    local_values: &ParamValues,
+    opts: ResolveOptions,
+) -> Result<Value, PdlError> {
+    let scoped = merge_locals(param_values, local_values);
+    let mut visiting = HashSet::new();
+    let mut ev = Eval {
+        design,
+        tokens,
+        visiting: &mut visiting,
+        param_values: Some(&scoped),
+        param_meta: Some(param_meta),
+        use_string_placeholders: false,
+    };
+    let lo_v = evaluate_value(lo, &mut ev)?;
+    let hi_v = evaluate_value(hi, &mut ev)?;
+    let lo_f = crate::number_bounds::value_as_f64(&lo_v).ok_or_else(|| {
+        PdlError::new(
+            "PDL-E058",
+            "Map range lower bound must evaluate to a Number".to_string(),
+            Some(design.entry_path.clone()),
+            None,
+            None,
+        )
+    })?;
+    let hi_f = crate::number_bounds::value_as_f64(&hi_v).ok_or_else(|| {
+        PdlError::new(
+            "PDL-E058",
+            "Map range upper bound must evaluate to a Number".to_string(),
+            Some(design.entry_path.clone()),
+            None,
+            None,
+        )
+    })?;
+    if lo_f != lo_f.trunc() || hi_f != hi_f.trunc() {
+        return Err(PdlError::new(
+            "PDL-E058",
+            format!("Map range bounds must be integers (got {lo_f}...{hi_f})"),
+            Some(design.entry_path.clone()),
+            None,
+            None,
+        ));
+    }
+    let begin = lo_f as i64;
+    let end_inclusive = if half_open {
+        (hi_f as i64) - 1
+    } else {
+        hi_f as i64
+    };
+    if end_inclusive < begin {
+        return Err(PdlError::new(
+            "PDL-E058",
+            format!("Map range is empty ({lo_f}...{hi_f})"),
+            Some(design.entry_path.clone()),
+            None,
+            None,
+        ));
+    }
+    let count = (end_inclusive - begin + 1) as u32;
+    crate::number_bounds::assert_repeat_count(design, f64::from(count), "Map")?;
+    assert_repeat_selection_in_domain(
+        design,
+        binder,
+        body,
+        &scoped,
+        begin as f64,
+        count,
+    )?;
+
+    let mut out: Vec<Value> = Vec::new();
+    for i in begin..=end_inclusive {
+        let mut iter_params = scoped.clone();
+        iter_params.insert(binder.to_string(), number_value(i as f64));
+        let yields = map_body_yields(body, design, tokens, &iter_params, param_meta, opts)?;
+        if yields.len() > 1 {
+            return Err(PdlError::new(
+                "PDL-E001",
+                format!(
+                    "Map binder `{binder}` = {i} yielded {} components; expected at most one (omit with no yield)",
+                    yields.len()
+                ),
+                Some(design.entry_path.clone()),
+                None,
+                None,
+            ));
+        }
+        if let Some(inst) = yields.into_iter().next() {
+            if !element_type.is_empty() {
+                let got = inst
+                    .as_object()
+                    .and_then(|o| o.get("component"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                if got != element_type {
+                    return Err(PdlError::new(
+                        "PDL-E006",
+                        format!(
+                            "Map yield `{got}` does not match declared element type `[{element_type}]`"
+                        ),
+                        Some(design.entry_path.clone()),
+                        None,
+                        None,
+                    ));
+                }
+            }
+            out.push(inst);
+        }
+    }
+    Ok(Value::Array(out))
+}
+
+fn map_body_yields(
+    body: &[crate::ast::RepeatBodyItem],
+    design: &DesignDefinition,
+    tokens: &mut Tokens,
+    param_values: &ParamValues,
+    param_meta: &ParamMeta,
+    opts: ResolveOptions,
+) -> Result<Vec<Value>, PdlError> {
+    use crate::ast::RepeatBodyItem;
+    use crate::evaluate::evaluate_condition;
+    let mut out = Vec::new();
+    for item in body {
+        match item {
+            RepeatBodyItem::Entry(ChildEntry::Instance { component, kwargs, .. }) => {
+                if design.components.get(component).is_none() {
+                    return Err(PdlError::new(
+                        "PDL-E037",
+                        format!("Unknown component {component} in Map body"),
+                        Some(design.entry_path.clone()),
+                        None,
+                        None,
+                    ));
+                }
+                let mut visiting = HashSet::new();
+                let mut ev = Eval {
+                    design,
+                    tokens,
+                    visiting: &mut visiting,
+                    param_values: Some(param_values),
+                    param_meta: Some(param_meta),
+                    use_string_placeholders: opts.use_string_placeholders,
+                };
+                let mut params = Map::new();
+                for (k, v) in kwargs {
+                    params.insert(k.clone(), evaluate_value(v, &mut ev)?);
+                }
+                out.push(Value::Object({
+                    let mut o = Map::new();
+                    o.insert("component".to_string(), Value::String(component.clone()));
+                    o.insert("params".to_string(), Value::Object(params));
+                    o
+                }));
+            }
+            RepeatBodyItem::Entry(other) => {
+                return Err(PdlError::new(
+                    "PDL-E001",
+                    format!("Map body must yield a component instance (got {other:?})"),
+                    Some(design.entry_path.clone()),
+                    None,
+                    None,
+                ));
+            }
+            RepeatBodyItem::If {
+                branches,
+                else_body,
+            } => {
+                let mut taken = false;
+                for br in branches {
+                    if evaluate_condition(&br.condition, param_values) {
+                        out.extend(map_body_yields(
+                            &br.body,
+                            design,
+                            tokens,
+                            param_values,
+                            param_meta,
+                            opts,
+                        )?);
+                        taken = true;
+                        break;
+                    }
+                }
+                if !taken {
+                    if let Some(else_body) = else_body {
+                        out.extend(map_body_yields(
+                            else_body,
+                            design,
+                            tokens,
+                            param_values,
+                            param_meta,
+                            opts,
+                        )?);
+                    }
+                    // else: nil omit
+                }
+            }
+        }
+    }
+    Ok(out)
 }
 
 fn expand_repeat_entry(
@@ -2036,6 +2275,47 @@ fn materialize_repeat_child(
                 active_binders,
             )?;
         }
+        ChildEntry::Map {
+            lo,
+            hi,
+            half_open,
+            binder,
+            body,
+        } => {
+            // Mount sugar: expand like Repeat (no ForEach list identity).
+            let arr = expand_map_to_array(
+                lo,
+                hi,
+                *half_open,
+                binder,
+                body,
+                "",
+                design,
+                tokens,
+                param_values,
+                param_meta,
+                &Map::new(),
+                ResolveOptions {
+                    use_string_placeholders: options.use_string_placeholders,
+                    catalogue_token_refs: options.catalogue_token_refs,
+                },
+            )?;
+            let items = arr.as_array().cloned().unwrap_or_default();
+            expand_slot_items(
+                parent_id,
+                binder, // stamp unused when no foreach_bodies
+                &items,
+                design,
+                tokens,
+                param_values,
+                param_meta,
+                slot_ctx,
+                visiting_inst,
+                options,
+                si,
+                children,
+            )?;
+        }
         ChildEntry::FrameRef { id, .. } => {
             return Err(PdlError::new(
                 "PDL-E001",
@@ -2288,6 +2568,30 @@ fn materialize(
                             &mut children,
                         )?;
                     }
+                } else if let Some(val) = slot_ctx.map_lets.get(cid) {
+                    let items = val.as_array().ok_or_else(|| {
+                        PdlError::new(
+                            "PDL-E010",
+                            format!("Map let `{cid}` must evaluate to an array"),
+                            Some(design.entry_path.clone()),
+                            None,
+                            None,
+                        )
+                    })?;
+                    expand_slot_items(
+                        id,
+                        cid,
+                        items,
+                        design,
+                        tokens,
+                        param_values,
+                        param_meta,
+                        slot_ctx,
+                        visiting_inst,
+                        options,
+                        &mut si,
+                        &mut children,
+                    )?;
                 } else if crate::samples::is_known_sample_path(design, cid) {
                     // `TrackList.children = Tracks.focus.tracks` — expand like a list param.
                     // ForEach overlays apply via the field name (`tracks`) so selection chrome works.
@@ -2431,6 +2735,46 @@ fn materialize(
                     &mut children,
                     1,
                     &HashSet::new(),
+                )?;
+            }
+            ChildEntry::Map {
+                lo,
+                hi,
+                half_open,
+                binder,
+                body,
+            } => {
+                let arr = expand_map_to_array(
+                    lo,
+                    hi,
+                    *half_open,
+                    binder,
+                    body,
+                    "",
+                    design,
+                    tokens,
+                    param_values,
+                    param_meta,
+                    &Map::new(),
+                    ResolveOptions {
+                        use_string_placeholders: options.use_string_placeholders,
+                        catalogue_token_refs: options.catalogue_token_refs,
+                    },
+                )?;
+                let items = arr.as_array().cloned().unwrap_or_default();
+                expand_slot_items(
+                    id,
+                    "_map",
+                    &items,
+                    design,
+                    tokens,
+                    param_values,
+                    param_meta,
+                    slot_ctx,
+                    visiting_inst,
+                    options,
+                    &mut si,
+                    &mut children,
                 )?;
             }
             ChildEntry::FrameCtor { .. } => {
