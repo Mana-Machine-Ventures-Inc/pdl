@@ -54,6 +54,8 @@ export type AnimationSpec = {
   stagger?: number;
   staggerFrom?: "first" | "last";
   repeat?: number | "forever";
+  /** Handler land choreography — tween to post-mutation bake (`.rest`). */
+  land?: boolean;
 };
 
 /** @deprecated Use AnimationSpec — kept as alias for gradual renames. */

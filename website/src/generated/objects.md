@@ -2077,10 +2077,15 @@ component Shell <Host>() layout {
 
 One or more `animate =` / `let.animate =` assignments on a host handler, or a standing `animate` on any frame. Its type is [`Animation`](#animation): optional start Pose (snap), sequential [`Motion`](#motion) keys, optional [`Stagger`](#stagger) and repeat (`.forever` or a count). Bake stays at rest; the HTML host plays a CSS overlay.
 
-[`Host`](#host) handler bodies assign motion with `animate =` (event target) and/or `let.animate =` (named let). Several animate statements in one handler run concurrently with independent clocks. Each value is [`Animation`](#animation) — optional start Pose (snap), sequential [`Motion`](#motion) keys, optional [`Stagger`](#stagger) and repeat. Bake is rest. The HTML host plays a CSS overlay — not layout. Units: [`Duration`](#duration) is milliseconds; translate and blur are CSS pixels; scale is unitless; opacity is 0…1; rotate is degrees; originX / originY are 0…1. Appear authors `start:` then a [`Motion`](#motion) to `.rest`. Dismiss authors keys to an exit pose. Standing loops use `repeat: .forever`.
+[`Host`](#host) handler bodies assign motion with `animate =` (event target) and/or `let.animate =` (named let). Several animate statements in one handler — and every `animate =` that fires in the same turn via emit capture — run as **parallel tracks** that start together with independent clocks. Within one [`Animation`](#animation) / pose list, keys stay sequential. Prefer [`Animation`](#animation) (optional start [`Pose`](#pose), sequential [`Motion`](#motion) keys, optional [`Stagger`](#stagger) and repeat). Handler land sugar: `animate = Motion(duration:, ease:)` (no flourish pose) means tween to the bake after this handler’s param writes / emits — `.rest` is that still (paint + FLIP as needed). Flourish beats use `Animation(keys: […, Motion(…, pose: .rest)])`; that track’s land also starts at t=0 (not after the beats). Emit-capture bodies take bare `animate =` (group land) and `list.animate =` (chorus flourish on every [`ForEach`](#foreach) mount of that array param / Map let; the pressed child is skipped so its own press animate owns the solo). Completion-based sequencing is deferred. Bake stays at rest; the HTML host plays overlays and land. Units: [`Duration`](#duration) is milliseconds; translate and blur are CSS pixels; scale is unitless; opacity is 0…1; rotate is degrees; originX / originY are 0…1. Appear authors `start:` then a [`Motion`](#motion) to `.rest`. Dismiss authors keys to an exit pose. Standing loops use `repeat: .forever`.
 
 Accepted syntax:
 
+- `animate = [ Pose(scale: 1.12), Pose(scale: 0.96), .rest ]
+selected = !selected` — [`Pose`](#pose)-list sugar: default 200ms `.out` beats; land on the post-handler still starts at t=0 in parallel with the beats.
+- `animate = Motion(duration: 200, ease: .out)` — Handler land sugar: clock-only. [`Host`](#host) First→mutate→Last; paint/FLIP under `.rest`.
+- `animate = Animation(keys: [Motion(duration: 90, ease: .out, pose: Pose(scale: 1.12)), Motion(duration: 200, ease: .out, pose: .rest)])
+selected = !selected` — Flourish keys sequential; land clock starts with the first beat (parallel with flourish).
 - `animate = Animation(start: Pose(opacity: 0, translateY: 8), keys: [Motion(duration: 250, ease: .out, pose: .rest)])` — Appear: snap start, ease to rest.
 - `knob.animate = Animation(keys: [Motion(duration: 200, ease: .out, pose: Pose(scale: 0.96))])` — Targeted shot on a named let.
 - `frame1.animate = Animation(keys: [Motion(duration: 500, ease: .out, pose: Pose(scale: 1.08))])
@@ -2088,11 +2093,26 @@ frame2.animate = Animation(keys: [Motion(duration: 1000, ease: .out, pose: Pose(
 - `animate = Animation(keys: [Motion(duration: 220, ease: .out, pose: Pose(opacity: 0))], stagger: Stagger(step: 30, from: .first))` — [`Stagger`](#stagger) direct children through this [`Animation`](#animation).
 - `if isLoading { icon.animate = motion.spin }` — Standing overlay while the if is true; omit when false. Token should use repeat: .forever.
 - `self.animate = motion.spin` — In a handler, same as bare `animate =`. In layout, standing animate on the component root.
+- `dot.select(page: Number) = {
+  dots.animate = [ Pose(scale: 0.9), .rest ]
+  animate = Motion(duration: 500, ease: .linear)
+  currentPage = page
+}` — List chorus: flourish on every [`ForEach`](#foreach) mount of `dots` (skips the pressed child, which owns its own press animate). Bare `animate =` still lands the whole rebake. All tracks start at t=0.
+- `dot.select(page: Number) = {
+  animate = Motion(duration: 500, ease: .linear)
+  currentPage = page
+}` — Emit capture land: tween this component's whole rebake — every dot, not just the pressed one. Starts with any child press animate in the same turn.
 
 Rejected:
 
-- `animate = Motion(duration: 200, ease: .out, pose: Pose(scale: 1.1))` — `animate =` takes [`Animation`](#animation), not [`Motion`](#motion).
-- `animate = Timing(duration: 200, ease: .out)` — [`Timing`](#timing) is not animate sugar.
+- `animate = Motion(duration: 200, ease: .out, pose: Pose(scale: 1.1))` — Land sugar cannot take a flourish pose — wrap beats in Animation(keys:).
+- `dot.select(page: Number) = {
+  animation = Motion(duration: 500, ease: .linear)
+}` — [`animation`](#animation) is not a statement — the keyword is `animate`. Unknown param is PDL-E007.
+- `dot.select(page: Number) = {
+  knob.animate = Animation(keys: [Motion(duration: 200, ease: .out, pose: .rest)])
+}` — Capture list chorus is `list.animate` (array param or Map let). A single-let target belongs on that frame's own handler.
+- `animate = Timing(duration: 200, ease: .out)` — [`Timing`](#timing) is not animate sugar — use Motion(duration:, ease:) land sugar or [`Animation`](#animation).
 - `Animation(keys: […], play: .toRest)` — `play:` is removed — put `.rest` on a [`Motion`](#motion) pose.
 - `from { opacity = 0 }` — Removed. Write `start: Pose(opacity: 0)` on [`Animation`](#animation).
 

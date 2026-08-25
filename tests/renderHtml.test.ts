@@ -1,21 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { buildBakedDesignComponent } from "../src/bakeDesign.js";
-import { loadDesign } from "../src/loadDesign.js";
+import { bakeComponent, fx } from "./helpers/rustFixtures.js";
 import {
   renderBakedComponentToHtmlFragment,
   renderBakedDesignToHtmlDocument,
   renderBakedDesignToHtmlDocumentWithReport,
 } from "../src/renderHtml.js";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
-const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const fx = (...p: string[]) => resolve(__dirname, "../test-fixtures/pdl", ...p);
 
 describe("renderHtml", () => {
   it("renders layout + text from a real bake", () => {
-    const design = loadDesign(fx("molecules/m_02_buttons_basic.pdl"));
-    const doc = buildBakedDesignComponent(design, { componentName: "MoleculeTextButton" });
+    const doc = bakeComponent(fx("molecules/m_02_buttons_basic.pdl"), "MoleculeTextButton");
     const comp = doc.components.MoleculeTextButton!;
     const frag = renderBakedComponentToHtmlFragment(comp);
     expect(frag).toContain('data-pdl-id="Root"');
@@ -27,8 +21,7 @@ describe("renderHtml", () => {
   });
 
   it("wraps a full HTML document for gallery mode", () => {
-    const design = loadDesign(fx("integration/empty_layout_shell.pdl"));
-    const doc = buildBakedDesignComponent(design, { componentName: "EmptyLayoutShell" });
+    const doc = bakeComponent(fx("integration/empty_layout_shell.pdl"), "EmptyLayoutShell");
     const html = renderBakedDesignToHtmlDocument(doc, { singleComponent: "EmptyLayoutShell" });
     expect(html).toContain("<!DOCTYPE html>");
     expect(html).toContain("EmptyLayoutShell");
@@ -879,12 +872,11 @@ describe("renderHtml", () => {
   });
 
   it("renders frame Effect blurSelf as filter and blurBehind as backdrop-filter", () => {
-    const design = loadDesign(fx("lab/effect/design.pdl"));
-    const self = buildBakedDesignComponent(design, { componentName: "EffectSelfBlur" });
+    const self = bakeComponent(fx("lab/effect/design.pdl"), "EffectSelfBlur");
     const selfFrag = renderBakedComponentToHtmlFragment(self.components.EffectSelfBlur!);
     expect(selfFrag).toMatch(/filter:blur\(8px\)/);
     expect(selfFrag).toContain('data-pdl-rest-blur="8"');
-    const frost = buildBakedDesignComponent(design, { componentName: "EffectFrostPane" });
+    const frost = bakeComponent(fx("lab/effect/design.pdl"), "EffectFrostPane");
     const frostFrag = renderBakedComponentToHtmlFragment(frost.components.EffectFrostPane!);
     expect(frostFrag).toMatch(/backdrop-filter:blur\(20px\)/);
     expect(frostFrag).not.toContain("data-pdl-rest-blur");
@@ -1245,8 +1237,7 @@ describe("renderHtml", () => {
   });
 
   it("device hostChrome marks the stage and keeps the interactive host", () => {
-    const design = loadDesign(fx("integration/empty_layout_shell.pdl"));
-    const doc = buildBakedDesignComponent(design, { componentName: "EmptyLayoutShell" });
+    const doc = bakeComponent(fx("integration/empty_layout_shell.pdl"), "EmptyLayoutShell");
     const html = renderBakedDesignToHtmlDocument(doc, {
       singleComponent: "EmptyLayoutShell",
       interactiveHost: true,
@@ -1260,8 +1251,7 @@ describe("renderHtml", () => {
   });
 
   it("lays out variant-matrix bakes in axis bands with column headers", () => {
-    const design = loadDesign(fx("molecules/m_02_buttons_basic.pdl"));
-    const base = buildBakedDesignComponent(design, { componentName: "MoleculeTextButton" });
+    const base = bakeComponent(fx("molecules/m_02_buttons_basic.pdl"), "MoleculeTextButton");
     const tree = base.components.MoleculeTextButton!;
     const names = [
       "MoleculeTextButton · size=.small, style=.primary",
@@ -1293,8 +1283,7 @@ describe("renderHtml", () => {
   });
 
   it("nests bool axes as extra variant-matrix sections", () => {
-    const design = loadDesign(fx("molecules/m_02_buttons_basic.pdl"));
-    const base = buildBakedDesignComponent(design, { componentName: "MoleculeTextButton" });
+    const base = bakeComponent(fx("molecules/m_02_buttons_basic.pdl"), "MoleculeTextButton");
     const tree = base.components.MoleculeTextButton!;
     const names = [
       "Btn · size=.small, style=.primary, destructive=false",
@@ -1324,8 +1313,7 @@ describe("renderHtml", () => {
   });
 
   it("groups multi-component variant-matrix bakes under each component title", () => {
-    const design = loadDesign(fx("molecules/m_02_buttons_basic.pdl"));
-    const base = buildBakedDesignComponent(design, { componentName: "MoleculeTextButton" });
+    const base = bakeComponent(fx("molecules/m_02_buttons_basic.pdl"), "MoleculeTextButton");
     const tree = base.components.MoleculeTextButton!;
     const names = [
       "Alpha · size=.small, style=.primary",

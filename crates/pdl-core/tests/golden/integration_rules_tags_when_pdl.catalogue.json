@@ -224,6 +224,18 @@
             "tier": "static"
           }
         ],
+        "tagOps": [
+          {
+            "kind": "set",
+            "tags": [
+              "t0"
+            ]
+          },
+          {
+            "kind": "add",
+            "tag": "t1"
+          }
+        ],
         "tags": [
           "t0",
           "t1"

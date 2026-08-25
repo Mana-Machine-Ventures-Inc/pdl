@@ -343,7 +343,7 @@ screen Phone <ShowEpisode, AppNav>() layout {
 }
 ```
 
-Fixtures: Home (default stack), Episode (pinned stack), Settings cover (N5). Do **not** add this lab to the TS oracle `manifest.txt`.
+Fixtures: Home (default stack), Episode (pinned stack), Settings cover (N5).
 
 ---
 

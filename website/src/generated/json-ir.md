@@ -26,7 +26,7 @@ Language `schemaVersion` is **`1.0.0-beta`**. Regenerated with `npm run docs:gen
 
 `components` values are baked instances: `name`, `rootKind`, optional `bakedParams`, `root` (literal frame tree). No `primitive:` / `semantic:` markers — those belong on the catalogue.
 
-`npm run bakeSystem` / `bakeComponent` (and Rust `pdl bake*`) emit this shape.
+`pdl bakeSystem` / `bakeComponent` / `bakePack` emit this shape.
 
 ## `componentCatalogue`
 
@@ -48,7 +48,7 @@ Language `schemaVersion` is **`1.0.0-beta`**. Regenerated with `npm run docs:gen
 
 On CLI output with `omitEmpty`, empty maps may be **absent**. Treat missing `primitives` / `semantics` / `themes` / `typeStyles` / `variantTypes` as `{}`. Empty arrays under `samples` / `fixtures` are **preserved**.
 
-`npm run catalogue` / `graphSystem` emit this shape.
+`pdl catalogue` / `graphSystem` emit this shape.
 
 ## `resolvedComponent`
 
@@ -63,7 +63,7 @@ On CLI output with `omitEmpty`, empty maps may be **absent**. Treat missing `pri
 | `components` | yes | object · map |
 | `system` | yes | object |
 
-`npm run graphComponent` emits this shape.
+`pdl graphComponent` emits this shape.
 
 ## Injection pack
 

@@ -350,35 +350,24 @@ const PORT_FALLBACK_SPAN = 10; // try DEFAULT_FIRST_PORT .. +9 when PLAYGROUND_P
 const envPort = process.env.PLAYGROUND_PORT;
 const strictPort = envPort !== undefined && envPort !== "";
 
+/**
+ * Host-side TypeScript only: bake JSON → HTML. Parse / validate / bake / catalogue
+ * all run in Rust (WASM in the browser, `pdl` CLI on this server).
+ */
 function loadToolchain() {
-  const loadDesignPath = join(DIST, "loadDesign.js");
-  if (!existsSync(loadDesignPath)) {
-    console.error(
-      `Missing ${loadDesignPath}. Run "npm run build" from the repository root first.`,
-    );
+  const renderPath = join(DIST, "renderHtml.js");
+  if (!existsSync(renderPath)) {
+    console.error(`Missing ${renderPath}. Run "npm run build" from the repository root first.`);
     process.exit(1);
   }
-  return import(pathToFileURL(loadDesignPath).href);
+  return import(pathToFileURL(renderPath).href);
 }
 
-const toolchainPromise = loadToolchain().then(async (m) => {
-  const bake = await import(pathToFileURL(join(DIST, "bakeDesign.js")).href);
-  const render = await import(pathToFileURL(join(DIST, "renderHtml.js")).href);
-  const graph = await import(pathToFileURL(join(DIST, "graph.js")).href);
-  const evaluate = await import(pathToFileURL(join(DIST, "evaluate.js")).href);
+const toolchainPromise = loadToolchain().then(async (render) => {
   const companions = await import(pathToFileURL(join(DIST, "evaluateRules.js")).href);
-  const catalogue = await import(pathToFileURL(join(DIST, "catalogue.js")).href);
   return {
-    loadDesign: m.loadDesign,
-    ...bake,
     ...render,
-    serialiseValueExpr: graph.serialiseValueExpr,
-    evaluateValue: evaluate.evaluateValue,
-    buildResolvedTokenMap: evaluate.buildResolvedTokenMap,
-    companionPreviewFromDesign: companions.companionPreviewFromDesign,
     companionPreviewFromCatalogue: companions.companionPreviewFromCatalogue,
-    mergeCompanionPreview: companions.mergeCompanionPreview,
-    interactionsByComponentFromDesign: catalogue.interactionsByComponentFromDesign,
   };
 });
 
@@ -451,80 +440,6 @@ function readJsonBody(req) {
   });
 }
 
-function designMeta(design) {
-  const components = [...design.components.keys()].sort();
-  const themes = [...design.themes.keys()].sort();
-  return { components, themes, componentRoles: componentRolesFromDesign(design) };
-}
-
-/**
- * @param {{ components?: Map<string, { role?: string }> }} design
- * @returns {Record<string, string>}
- */
-function componentRolesFromDesign(design) {
-  /** @type {Record<string, string>} */
-  const out = {};
-  const comps = design?.components;
-  if (!comps || typeof comps.entries !== "function") return out;
-  for (const [name, c] of comps.entries()) {
-    if (c?.role === "page" || c?.role === "screen") out[name] = c.role;
-  }
-  return out;
-}
-
-/**
- * Evaluated fixtures + param schemas for Playground controls.
- * @param {unknown} design
- * @param {(e: unknown, ctx: object) => unknown} evaluateValue
- * @param {Map<string, unknown>} tokenMap
- */
-function buildFixturesAndParams(design, evaluateValue, tokenMap) {
-  /** @type {Record<string, Record<string, Record<string, unknown>>>} */
-  const fixturesByComponent = {};
-  for (const [compName, fxMap] of design.fixtures.entries()) {
-    /** @type {Record<string, Record<string, unknown>>} */
-    const examples = {};
-    for (const [label, ex] of fxMap.entries()) {
-      /** @type {Record<string, unknown>} */
-      const params = {};
-      for (const b of ex.bindings) {
-        params[b.name] = evaluateValue(b.value, {
-          design,
-          tokens: tokenMap,
-          visiting: new Set(),
-          paramValues: {},
-          paramMeta: new Map(),
-        });
-      }
-      examples[label] = params;
-    }
-    fixturesByComponent[compName] = examples;
-  }
-
-  /** @type {Record<string, Array<{ name: string; typeName: string; default: unknown }>>} */
-  const componentParams = {};
-  /** @type {Record<string, string[]>} */
-  const variantCases = {};
-  for (const [vName, v] of design.variants.entries()) {
-    variantCases[vName] = [...v.cases];
-  }
-  for (const [compName, c] of design.components.entries()) {
-    componentParams[compName] = (c.params ?? []).map((p) => ({
-      name: p.name,
-      typeName: p.typeName,
-      default: evaluateValue(p.defaultValue, {
-        design,
-        tokens: tokenMap,
-        visiting: new Set(),
-        paramValues: {},
-        paramMeta: new Map(),
-      }),
-    }));
-  }
-  return { fixturesByComponent, componentParams, variantCases };
-}
-
-/** @param {unknown} v */
 function cssColorFromResolved(v) {
   if (typeof v !== "string") return null;
   const s = v.trim();
@@ -562,25 +477,30 @@ function cssPaintFromHex(hex) {
 }
 
 /**
- * JSON-friendly view of primitives, semantics, themes, variants, type styles (for playground UI).
- * @param {unknown} design - DesignDefinition from loadDesign
- * @param {(e: unknown) => unknown} serialiseValueExpr
+ * Module path relative to the workspace when it sits inside it, else as given.
+ * @param {string} p
  * @param {string} workspaceRoot
- * @param {Map<string, unknown> | undefined} [tokenMap]
  */
-function buildDesignSummary(design, serialiseValueExpr, workspaceRoot, tokenMap) {
-  const relModule = (p) => {
-    try {
-      const r = relative(workspaceRoot, p);
-      if (r && !r.startsWith("..") && r !== "") return r.replace(/\\/g, "/");
-    } catch {
-      /* ignore */
-    }
-    return String(p).replace(/\\/g, "/");
-  };
+function relativeModulePath(p, workspaceRoot) {
+  try {
+    const r = relative(workspaceRoot, p);
+    if (r && !r.startsWith("..") && r !== "") return r.replace(/\\/g, "/");
+  } catch {
+    /* ignore */
+  }
+  return String(p).replace(/\\/g, "/");
+}
 
-  /** @param {string} name @param {string} tokenType @param {unknown} value */
-  const tokenRow = (name, tokenType, value) => {
+/**
+ * One token row for the Playground token browser: declaration plus whatever
+ * preview affordance its type supports (swatch, shadow CSS, numeric, sizing label).
+ * @param {string} name
+ * @param {string} tokenType
+ * @param {unknown} value - serialised declaration
+ * @param {Map<string, unknown> | undefined} tokenMap - resolved values
+ */
+function tokenPreviewRow(name, tokenType, value, tokenMap) {
+  {
     const resolved = tokenMap?.get(name);
 
     // Opacity tokens: preview as black @ alpha over the checkerboard.
@@ -710,107 +630,47 @@ function buildDesignSummary(design, serialiseValueExpr, workspaceRoot, tokenMap)
         : {}),
       ...(display != null ? { resolved: display } : {}),
     };
-  };
-
-  const primitives = [...design.primitives.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([name, p]) => tokenRow(name, p.tokenType, serialiseValueExpr(p.value)));
-
-  const semantics = [...design.semantics.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([name, s]) => tokenRow(name, s.tokenType, serialiseValueExpr(s.value)));
-
-  const themeDefinitions = [...design.themes.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([name, t]) => ({
-      name,
-      baseTheme: t.baseTheme ?? null,
-      overrides: Object.fromEntries(
-        Object.entries(t.overrides)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([k, v]) => [k, serialiseValueExpr(v)]),
-      ),
-    }));
-
-  const variants = [...design.variants.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([name, v]) => ({
-      name,
-      cases: [...v.cases],
-    }));
-
-  const typeStyles = [...design.typeStyles.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([name, ts]) => ({
-      name,
-      props: Object.fromEntries(
-        Object.entries(ts.props)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([k, v]) => [k, serialiseValueExpr(v)]),
-      ),
-    }));
-
-  return {
-    previewBackground: design.previewBackground ?? null,
-    modulePaths: design.modulePaths.map(relModule),
-    primitives,
-    semantics,
-    themeDefinitions,
-    variants,
-    typeStyles,
-  };
-}
-
-function enrichLoadPayload(
-  design,
-  serialiseValueExpr,
-  evaluateValue,
-  buildResolvedTokenMap,
-  workspaceRoot,
-  interactionsByComponentFromDesign,
-) {
-  const tokenMap = buildResolvedTokenMap(design);
-  const designSummary = buildDesignSummary(design, serialiseValueExpr, workspaceRoot, tokenMap);
-  const controls = buildFixturesAndParams(design, evaluateValue, tokenMap);
-  return {
-    ok: true,
-    ...designMeta(design),
-    designSummary,
-    ...controls,
-    interactionsByComponent: interactionsByComponentFromDesign
-      ? interactionsByComponentFromDesign(design, tokenMap)
-      : {},
-  };
-}
-
-/** Rust wins handler lists; keep TS `motion` when a stale rust catalogue omitted it. */
-function mergeInteractionsPreferMotion(tsIx, rustIx) {
-  const out = { ...(tsIx ?? {}), ...(rustIx ?? {}) };
-  for (const [name, rustList] of Object.entries(rustIx ?? {})) {
-    const tsList = tsIx?.[name];
-    if (!Array.isArray(rustList) || !Array.isArray(tsList)) continue;
-    out[name] = rustList.map((rd) => {
-      if (!rd || typeof rd !== "object") return rd;
-      const td = tsList.find((x) => x && x.name === rd.name) ?? tsList[0];
-      const rustHandlers = Array.isArray(rd.handlers) ? rd.handlers : [];
-      const tsHandlers = Array.isArray(td?.handlers) ? td.handlers : [];
-      return {
-        ...rd,
-        handlers: rustHandlers.map((rh) => {
-          if (rh?.motion && (rh.motion.pose || rh.motion.from || rh.motion.to || rh.motion.transition)) {
-            const th = tsHandlers.find((h) => h && h.event === rh?.event);
-            if (th?.motion?.staggerFrom && !rh.motion.staggerFrom) {
-              return { ...rh, motion: { ...rh.motion, staggerFrom: th.motion.staggerFrom } };
-            }
-            return rh;
-          }
-          const th = tsHandlers.find((h) => h && h.event === rh?.event);
-          return th?.motion ? { ...rh, motion: th.motion } : rh;
-        }),
-      };
-    });
   }
-  return out;
+}
+
+/** Name-sorted entries of a catalogue map (Rust emits objects keyed by name). */
+function sortedEntries(obj) {
+  return Object.entries(obj && typeof obj === "object" ? obj : {}).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
+}
+
+/**
+ * Token browser / theme panel view, built from `pdl catalogue` declarations plus
+ * the `pdl tokens` resolved map.
+ * @param {Record<string, any>} cat - `pdl catalogue` JSON
+ * @param {{ tokens?: Record<string, unknown>, modulePaths?: string[], previewBackground?: string | null }} tokensDoc
+ * @param {string} workspaceRoot
+ */
+function buildDesignSummaryFromRust(cat, tokensDoc, workspaceRoot) {
+  const tokenMap = new Map(Object.entries(tokensDoc?.tokens ?? {}));
+  const row = (name, decl) =>
+    tokenPreviewRow(name, decl?.tokenType ?? "String", decl?.definition ?? null, tokenMap);
+
+  return {
+    previewBackground: tokensDoc?.previewBackground ?? null,
+    modulePaths: (tokensDoc?.modulePaths ?? []).map((p) => relativeModulePath(p, workspaceRoot)),
+    primitives: sortedEntries(cat.primitives).map(([name, p]) => row(name, p)),
+    semantics: sortedEntries(cat.semantics).map(([name, s]) => row(name, s)),
+    themeDefinitions: sortedEntries(cat.themes).map(([name, t]) => ({
+      name,
+      baseTheme: t?.baseTheme ?? null,
+      overrides: Object.fromEntries(sortedEntries(t?.overrides)),
+    })),
+    variants: sortedEntries(cat.variantTypes).map(([name, v]) => ({
+      name,
+      cases: Array.isArray(v?.cases) ? [...v.cases] : [],
+    })),
+    typeStyles: sortedEntries(cat.typeStyles).map(([name, ts]) => ({
+      name,
+      props: Object.fromEntries(sortedEntries(ts?.props)),
+    })),
+  };
 }
 
 function formatErr(err) {
@@ -821,30 +681,48 @@ function formatErr(err) {
 }
 
 /**
- * Enrich payload from Rust `pdl catalogue` when TS loadDesign cannot parse
- * Rust-first syntax (protocols, host inbound `[self.]channel = { … }`, emits, ForEach, …).
+ * Run one Rust `pdl` subcommand that writes JSON to `--out`, and read it back.
+ * @param {string} subcommand
  * @param {string} entryAbs
+ * @param {string} outName
  */
-function enrichFromRustCatalogue(entryAbs) {
-  const outPath = join(REPO_ROOT, ".tmp", "playground.catalogue.json");
+function runRustJson(subcommand, entryAbs, outName) {
+  const outPath = join(REPO_ROOT, ".tmp", outName);
   mkdirSync(dirname(outPath), { recursive: true });
   const bin = rustPdlArgs(REPO_ROOT);
   /** @type {string[]} */
   const args =
     bin.length === 1
-      ? ["catalogue", entryAbs, "--out", outPath]
-      : [...bin.slice(1), "catalogue", entryAbs, "--out", outPath];
-  const cmd = bin[0];
-  const r = spawnSync(cmd, args, {
+      ? [subcommand, entryAbs, "--out", outPath]
+      : [...bin.slice(1), subcommand, entryAbs, "--out", outPath];
+  const r = spawnSync(bin[0], args, {
     cwd: REPO_ROOT,
     encoding: "utf8",
     maxBuffer: 32 * 1024 * 1024,
   });
   if (r.status !== 0) {
     const detail = ((r.stderr || "") + (r.stdout || "")).trim();
-    throw new Error(detail || `Rust catalogue failed (exit ${r.status})`);
+    throw new Error(detail || `Rust ${subcommand} failed (exit ${r.status})`);
   }
-  const cat = JSON.parse(readFileSync(outPath, "utf8"));
+  return JSON.parse(readFileSync(outPath, "utf8"));
+}
+
+/**
+ * The `/api/load` payload, entirely from Rust: `pdl catalogue` for components,
+ * params, fixtures, interactions and companions; `pdl tokens` for the resolved
+ * token map behind the token browser.
+ * @param {string} entryAbs
+ * @param {string} summaryRoot
+ */
+function enrichFromRustCatalogue(entryAbs, summaryRoot) {
+  const cat = runRustJson("catalogue", entryAbs, "playground.catalogue.json");
+  /** @type {{ tokens?: Record<string, unknown>, modulePaths?: string[], previewBackground?: string | null }} */
+  let tokensDoc = { tokens: {}, modulePaths: [entryAbs], previewBackground: null };
+  try {
+    tokensDoc = runRustJson("tokens", entryAbs, "playground.tokens.json");
+  } catch {
+    // Token browser degrades to declarations without swatches; components still load.
+  }
   const components = Object.keys(cat.components ?? {}).sort();
   const themes = Object.keys(cat.themes ?? {}).sort();
   /** @type {Record<string, string[]>} */
@@ -901,13 +779,15 @@ function enrichFromRustCatalogue(entryAbs) {
       componentRoles[name] = c.role;
     }
     if (c.rules && typeof c.rules === "object") {
-      const tags = Array.isArray(c.rules.tags) ? c.rules.tags.map(String) : [];
+      // `tagOps` keeps conditional `tags.add(…)` with its `when`; `tags` is the flat fallback.
+      const tagOps = Array.isArray(c.rules.tagOps)
+        ? c.rules.tagOps
+        : Array.isArray(c.rules.tags) && c.rules.tags.length
+          ? [{ kind: "set", tags: c.rules.tags.map(String) }]
+          : [];
       const rules = Array.isArray(c.rules.rules) ? c.rules.rules : [];
-      if (tags.length || rules.length) {
-        rulesByComponent[name] = {
-          tagOps: tags.length ? [{ kind: "set", tags }] : [],
-          rules,
-        };
+      if (tagOps.length || rules.length) {
+        rulesByComponent[name] = { tagOps, rules };
       }
     }
   }
@@ -915,15 +795,7 @@ function enrichFromRustCatalogue(entryAbs) {
     ok: true,
     components,
     themes,
-    designSummary: {
-      previewBackground: null,
-      modulePaths: [entryAbs],
-      primitives: [],
-      semantics: [],
-      themeDefinitions: [],
-      variants: Object.entries(variantCases).map(([name, cases]) => ({ name, cases })),
-      typeStyles: [],
-    },
+    designSummary: buildDesignSummaryFromRust(cat, tokensDoc, summaryRoot),
     fixturesByComponent,
     componentParams,
     componentRoles,
@@ -957,91 +829,15 @@ function hostParamsFromCatalogue(cat) {
 }
 
 /**
- * Prefer TS loadDesign (fixtures / design summary); always merge Rust catalogue
- * emitCaptures + interactions when available. TS still skims ForEach / emit
- * capture assigns, so nested LibrarySubnav-style hosts need the Rust slice.
+ * The `/api/load` payload. Rust-only: `pdl catalogue` + `pdl tokens`.
  * @param {string} entryAbs
  * @param {string} summaryRoot
  */
 async function enrichDesignAt(entryAbs, summaryRoot) {
-  const {
-    loadDesign,
-    serialiseValueExpr,
-    evaluateValue,
-    buildResolvedTokenMap,
-    companionPreviewFromDesign,
-    mergeCompanionPreview,
-    interactionsByComponentFromDesign,
-  } = await toolchainPromise;
-  /** @type {ReturnType<typeof enrichFromRustCatalogue> | null} */
-  let rustEnrich = null;
   try {
-    rustEnrich = enrichFromRustCatalogue(entryAbs);
-  } catch {
-    rustEnrich = null;
-  }
-  try {
-    const design = loadDesign(entryAbs);
-    const tsPayload = enrichLoadPayload(
-      design,
-      serialiseValueExpr,
-      evaluateValue,
-      buildResolvedTokenMap,
-      summaryRoot,
-      interactionsByComponentFromDesign,
-    );
-    const tsCompanions = companionPreviewFromDesign(design);
-    const rustCompanions = rustEnrich
-      ? {
-          usageByComponent: rustEnrich.usageByComponent ?? {},
-          rulesByComponent: rustEnrich.rulesByComponent ?? {},
-        }
-      : { usageByComponent: {}, rulesByComponent: {} };
-    const companions = rustEnrich
-      ? mergeCompanionPreview(rustCompanions, tsCompanions)
-      : tsCompanions;
-    const withCompanions = {
-      ...tsPayload,
-      usageByComponent: companions.usageByComponent,
-      rulesByComponent: companions.rulesByComponent,
-    };
-    if (!rustEnrich) return withCompanions;
-    return {
-      ...withCompanions,
-      // Rust wins for host/emit metadata (ForEach captures, host handlers).
-      interactionsByComponent: mergeInteractionsPreferMotion(
-        tsPayload.interactionsByComponent,
-        rustEnrich.interactionsByComponent,
-      ),
-      emitCapturesByComponent: {
-        ...(tsPayload.emitCapturesByComponent ?? {}),
-        ...(rustEnrich.emitCapturesByComponent ?? {}),
-      },
-      // Prefer Rust variant cases when TS missed protocol/enum surfaces.
-      variantCases: {
-        ...(tsPayload.variantCases ?? {}),
-        ...(rustEnrich.variantCases ?? {}),
-      },
-      componentParams: {
-        ...(tsPayload.componentParams ?? {}),
-        ...(rustEnrich.componentParams ?? {}),
-      },
-      componentRoles: {
-        ...(tsPayload.componentRoles ?? {}),
-        ...(rustEnrich.componentRoles ?? {}),
-      },
-      hostParams: rustEnrich.hostParams ?? [],
-      loader: "ts+rust-catalogue",
-    };
+    return enrichFromRustCatalogue(entryAbs, summaryRoot);
   } catch (err) {
-    if (rustEnrich) return rustEnrich;
-    try {
-      return enrichFromRustCatalogue(entryAbs);
-    } catch (rustErr) {
-      const tsMsg = formatErr(err);
-      const rustMsg = formatErr(rustErr);
-      throw new Error(`${tsMsg}\n(Rust catalogue also failed: ${rustMsg})`);
-    }
+    throw new Error(formatErr(err));
   }
 }
 
@@ -1230,7 +1026,6 @@ async function handleRender(body) {
     hostFacts,
     kv,
     pack,
-    engine: engineRaw,
     diskRoot,
     componentNames: namesRaw,
     variantMatrix,
@@ -1242,8 +1037,8 @@ async function handleRender(body) {
   if (typeof entry !== "string" || !entry.trim()) {
     throw new Error('Expected "entry" path');
   }
-  /** @type {'rust' | 'ts'} */
-  const engine = engineRaw === "ts" ? "ts" : "rust";
+  /** Server-side bake is always Rust; the browser default is Rust WASM. */
+  const engine = "rust";
   if (mode === "component") {
     if (typeof component !== "string" || !component.trim()) {
       throw new Error('In "component" mode, expected non-empty "component" name');
@@ -1299,7 +1094,7 @@ async function handleRender(body) {
       summaryRoot = tmp;
     }
 
-    // TS loadDesign for fixtures/summary; Rust catalogue when grammar is Rust-first (protocol, …).
+    // Rust catalogue + tokens: components, params, fixtures, interactions, companions.
     const enriched = await enrichDesignAt(entryAbs, summaryRoot);
     const bakeOutPath = join(REPO_ROOT, ".tmp", "playground.bake.json");
 

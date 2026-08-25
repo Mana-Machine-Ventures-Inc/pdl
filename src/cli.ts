@@ -1,310 +1,165 @@
 #!/usr/bin/env node
+/**
+ * PDL host CLI — HTML and the thin manifest, from Rust JSON artifacts.
+ *
+ * Parse / validate / bake / catalogue / resolve all live in Rust (`crates/pdl-cli`).
+ * Every command here takes a `pdl bake*` document (and optionally a `pdl catalogue` /
+ * `pdl tokens` document) and never reads `.pdl` source.
+ */
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import type { BakedDesignDocument } from "./bakeDesign.js";
 import {
-  buildBakedDesignComponent,
-  buildBakedDesignSystem,
-  type BakedDesignDocument,
-} from "./bakeDesign.js";
-import { companionPreviewFromDesign, renderBakedDesignToHtmlDocument } from "./renderHtml.js";
-import { buildComponentCatalogue } from "./catalogue.js";
+  companionPreviewFromCatalogue,
+  renderBakedDesignToHtmlDocument,
+} from "./renderHtml.js";
 import { renderCatalogueSystemHtml } from "./renderCatalogueHtml.js";
+import type { ComponentCatalogue } from "./catalogue.js";
 import { stableStringify } from "./stableJson.js";
-import { buildDesignManifest } from "./manifest.js";
-import { loadDesign } from "./loadDesign.js";
-import { buildResolvedTokenMap } from "./evaluate.js";
-import { buildResolvedComponentDocument } from "./resolveBundle.js";
-import { resolveComponentTree } from "./resolveTree.js";
+import { buildDesignManifestFromCatalogue } from "./manifest.js";
 
 function usage(): never {
-  console.error(`PDL toolchain
+  console.error(`PDL host CLI (HTML + manifest from Rust JSON)
 
 Usage:
-  pdl graphSystem <entry.pdl> [--out <file.json>]
-  pdl graphComponent <entry.pdl> <ComponentName> [--theme <ThemeName>] [--out <file.json>] [key=value ...]
-  pdl bakeSystem <entry.pdl> [--theme <ThemeName>] [--out <file.json>]
-  pdl bakeComponent <entry.pdl> <ComponentName> [--theme <ThemeName>] [--out <file.json>] [key=value ...]
-  pdl renderHtml <entry.pdl> <ComponentName> [--theme <ThemeName>] [--out <file.html>] [key=value ...]
-  pdl renderHtml <entry.pdl> --system [--theme <ThemeName>] [--out <file.html>]
-  pdl renderHtml --from-bake <baked.json> [--component <Name>] [--out <file.html>]
-  pdl renderCatalogueHtml <entry.pdl> [--theme <ThemeName>] [--out <file.html>]
-  pdl manifest <entry.pdl> [--out <file.json>]
-  pdl resolve <entry.pdl> <ComponentName> [--tree-only] [--theme <ThemeName>] [key=value ...]
-  pdl catalogue <entry.pdl> [--theme <ThemeName>] [--out <file.json>]
+  pdl renderHtml --from-bake <baked.json> [--catalogue <catalogue.json>] [--component <Name>] [--out <file.html>]
+  pdl renderCatalogueHtml --from-bake <baked.json> --catalogue <catalogue.json> [--out <file.html>]
+  pdl manifest --catalogue <catalogue.json> [--tokens <tokens.json>] [--out <file.json>]
 
-Legacy: catalogue matches graphSystem JSON but allows --theme. resolve without --tree-only matches graphComponent.
+Produce the inputs with the Rust CLI:
+  pdl bakeSystem <entry.pdl> --out sys.bake.json
+  pdl bakeComponent <entry.pdl> <Component> --out comp.bake.json
+  pdl catalogue <entry.pdl> --out cat.json
+  pdl tokens <entry.pdl> --out tokens.json
 
 Options:
-  --theme <name>   Primary theme for token resolution (graphComponent, bake*, catalogue, resolve, renderHtml)
-  --out <path>     Write output to file instead of stdout (JSON or HTML by command)
-  --from-bake      Render HTML from an existing bakedDesign JSON (e.g. Rust \`pdl bake*\` / \`bakePack\` output)
-  --component      With --from-bake: preview only this component (default: all in the bake doc)
+  --from-bake <path>   bakedDesign JSON (\`pdl bakeSystem\` / \`bakeComponent\` / \`bakePack\`)
+  --catalogue <path>   componentCatalogue JSON — adds usage / rules / interactions
+  --tokens <path>      resolvedTokens JSON — adds modulePaths / previewBackground
+  --component <Name>   Render only this component from the bake document
+  --out <path>         Write to file instead of stdout
 
-Note: \`node dist/cli.js …\` uses compiled output in dist/. After changing src/, run \`npm run build\` (or \`tsc\`), or use npm scripts that run \`tsc\` first.
+Note: \`node dist/cli.js …\` runs compiled output. After changing src/, run \`npm run build\`.
 `);
   process.exit(1);
 }
 
-function loadBakedDesignDocument(path: string): BakedDesignDocument {
+function loadJsonFile(path: string, label: string): unknown {
   const abs = resolve(path);
-  let raw: unknown;
   try {
-    raw = JSON.parse(readFileSync(abs, "utf-8"));
+    return JSON.parse(readFileSync(abs, "utf-8"));
   } catch (e) {
-    throw new Error(`Failed to read bake JSON ${abs}: ${e instanceof Error ? e.message : e}`);
+    throw new Error(`Failed to read ${label} ${abs}: ${e instanceof Error ? e.message : e}`);
   }
-  if (!raw || typeof raw !== "object" || (raw as { schemaKind?: string }).schemaKind !== "bakedDesign") {
-    throw new Error(`Expected a bakedDesign document in ${abs}`);
+}
+
+function loadBakedDesignDocument(path: string): BakedDesignDocument {
+  const raw = loadJsonFile(path, "bake JSON");
+  if (
+    !raw ||
+    typeof raw !== "object" ||
+    (raw as { schemaKind?: string }).schemaKind !== "bakedDesign"
+  ) {
+    throw new Error(`Expected a bakedDesign document in ${resolve(path)}`);
   }
   return raw as BakedDesignDocument;
 }
 
-function parseKeyValues(args: string[]): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const a of args) {
-    const eq = a.indexOf("=");
-    if (eq <= 0) throw new Error(`Bad param ${a}, expected key=value`);
-    const k = a.slice(0, eq);
-    let v = a.slice(eq + 1);
-    if (/^-?\d+(\.\d+)?$/.test(v)) out[k] = Number(v);
-    else if (v === "true" || v === "false") out[k] = v === "true";
-    else if (v.startsWith(".")) out[k] = v.slice(1);
-    else out[k] = v;
+function loadCatalogueDocument(path: string): ComponentCatalogue {
+  const raw = loadJsonFile(path, "catalogue JSON");
+  if (!raw || typeof raw !== "object" || !(raw as { components?: unknown }).components) {
+    throw new Error(`Expected a componentCatalogue document in ${resolve(path)}`);
+  }
+  return raw as ComponentCatalogue;
+}
+
+type Flags = {
+  bakePath?: string;
+  cataloguePath?: string;
+  tokensPath?: string;
+  component?: string;
+  outPath?: string;
+};
+
+function parseFlags(args: string[]): Flags {
+  const out: Flags = {};
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]!;
+    const next = () => {
+      const v = args[++i];
+      if (!v || v.startsWith("-")) usage();
+      return v;
+    };
+    if (a === "--from-bake") out.bakePath = next();
+    else if (a === "--catalogue") out.cataloguePath = next();
+    else if (a === "--tokens") out.tokensPath = next();
+    else if (a === "--component") out.component = next();
+    else if (a === "--out") out.outPath = next();
+    else usage();
   }
   return out;
 }
 
-function parseThemeOutAndKv(rest: string[]): { theme?: string; outPath?: string; kvParts: string[] } {
-  const kvParts: string[] = [];
-  let theme: string | undefined;
-  let outPath: string | undefined;
-  for (let i = 0; i < rest.length; i++) {
-    const a = rest[i]!;
-    if (a === "--theme") {
-      const t = rest[++i];
-      if (!t || t.startsWith("-")) usage();
-      theme = t;
-    } else if (a === "--out") {
-      const p = rest[++i];
-      if (!p || p.startsWith("-")) usage();
-      outPath = p;
-    } else {
-      kvParts.push(a);
-    }
-  }
-  return { theme, outPath, kvParts };
-}
-
-function writeJson(outPath: string | undefined, s: string): void {
+function writeOut(outPath: string | undefined, s: string): void {
   if (outPath) writeFileSync(outPath, s, "utf-8");
   else process.stdout.write(s);
+}
+
+/** `usage` / `rules` / `interactions` for the interactive host, when a catalogue is supplied. */
+function hostExtrasFromCatalogue(cat: ComponentCatalogue | undefined) {
+  if (!cat) return { interactiveHost: false } as const;
+  const companions = companionPreviewFromCatalogue(
+    cat.components as unknown as Record<string, unknown>,
+  );
+  const interactionsByComponent: Record<string, unknown> = {};
+  for (const [name, row] of Object.entries(cat.components)) {
+    if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
+  }
+  return {
+    usageByComponent: companions.usageByComponent,
+    rulesByComponent: companions.rulesByComponent,
+    interactionsByComponent,
+    interactiveHost: Object.keys(interactionsByComponent).length > 0,
+  };
 }
 
 function main() {
   const argv = process.argv.slice(2);
   if (argv.length < 1) usage();
   const cmd = argv[0];
+  const flags = parseFlags(argv.slice(1));
 
-  // HTML from pre-baked JSON (Rust or TS bake artifacts) — no .pdl load.
-  if (cmd === "renderHtml" && argv[1] === "--from-bake") {
-    const bakePath = argv[2];
-    if (!bakePath || bakePath.startsWith("-")) usage();
-    let outPath: string | undefined;
-    let component: string | undefined;
-    for (let i = 3; i < argv.length; i++) {
-      const a = argv[i]!;
-      if (a === "--out") {
-        const p = argv[++i];
-        if (!p || p.startsWith("-")) usage();
-        outPath = p;
-      } else if (a === "--component") {
-        const c = argv[++i];
-        if (!c || c.startsWith("-")) usage();
-        component = c;
-      } else {
-        usage();
-      }
+  if (cmd === "renderHtml") {
+    if (!flags.bakePath) usage();
+    const baked = loadBakedDesignDocument(flags.bakePath);
+    if (flags.component && !baked.components[flags.component]) {
+      throw new Error(`Component \`${flags.component}\` not found in bake document`);
     }
-    const baked = loadBakedDesignDocument(bakePath);
-    if (component && !baked.components[component]) {
-      throw new Error(`Component \`${component}\` not found in bake document`);
-    }
+    const cat = flags.cataloguePath ? loadCatalogueDocument(flags.cataloguePath) : undefined;
     const html = renderBakedDesignToHtmlDocument(baked, {
-      singleComponent: component,
+      singleComponent: flags.component,
+      ...hostExtrasFromCatalogue(cat),
     });
-    if (outPath) writeFileSync(outPath, html, "utf-8");
-    else process.stdout.write(html);
-    return;
-  }
-
-  if (argv.length < 2) usage();
-  const entry = resolve(argv[1]!);
-
-  if (cmd === "graphSystem") {
-    const rest = argv.slice(2);
-    for (let i = 0; i < rest.length; i++) {
-      if (rest[i] === "--theme") {
-        console.error("graphSystem accepts only the entry file and optional --out (no --theme).");
-        process.exit(1);
-      }
-    }
-    let outPath: string | undefined;
-    const tail: string[] = [];
-    for (let i = 0; i < rest.length; i++) {
-      if (rest[i] === "--out") {
-        const p = rest[++i];
-        if (!p || p.startsWith("-")) usage();
-        outPath = p;
-      } else {
-        tail.push(rest[i]!);
-      }
-    }
-    if (tail.length) usage();
-    const design = loadDesign(entry);
-    const cat = buildComponentCatalogue(design, {});
-    writeJson(outPath, stableStringify(cat, { omitEmpty: true }));
-    return;
-  }
-
-  if (cmd === "graphComponent") {
-    const comp = argv[2];
-    if (!comp) usage();
-    const { theme, outPath, kvParts } = parseThemeOutAndKv(argv.slice(3));
-    const kv = parseKeyValues(kvParts);
-    const design = loadDesign(entry);
-    const bundle = buildResolvedComponentDocument(design, {
-      componentName: comp,
-      paramOverrides: kv,
-      theme,
-    });
-    writeJson(outPath, stableStringify(bundle, { omitEmpty: true }));
-    return;
-  }
-
-  if (cmd === "bakeSystem") {
-    const { theme, outPath, kvParts } = parseThemeOutAndKv(argv.slice(2));
-    if (kvParts.length) usage();
-    const design = loadDesign(entry);
-    const baked = buildBakedDesignSystem(design, { theme });
-    writeJson(outPath, stableStringify(baked, { omitEmpty: true }));
-    return;
-  }
-
-  if (cmd === "bakeComponent") {
-    const comp = argv[2];
-    if (!comp) usage();
-    const { theme, outPath, kvParts } = parseThemeOutAndKv(argv.slice(3));
-    const kv = parseKeyValues(kvParts);
-    const design = loadDesign(entry);
-    const baked = buildBakedDesignComponent(design, {
-      componentName: comp,
-      theme,
-      paramOverrides: kv,
-    });
-    writeJson(outPath, stableStringify(baked, { omitEmpty: true }));
+    writeOut(flags.outPath, html);
     return;
   }
 
   if (cmd === "renderCatalogueHtml") {
-    const { theme, outPath, kvParts } = parseThemeOutAndKv(argv.slice(2));
-    if (kvParts.length) usage();
-    const design = loadDesign(entry);
-    const catalogue = buildComponentCatalogue(design, { theme });
-    const baked = buildBakedDesignSystem(design, { theme });
-    const html = renderCatalogueSystemHtml(catalogue, baked);
-    if (outPath) writeFileSync(outPath, html, "utf-8");
-    else process.stdout.write(html);
-    return;
-  }
-
-  if (cmd === "renderHtml") {
-    const rest = argv.slice(2);
-    const systemMode = rest[0] === "--system";
-    const compArg = systemMode ? undefined : rest[0];
-    if (!systemMode && !compArg) usage();
-    const { theme, outPath, kvParts } = parseThemeOutAndKv(systemMode ? rest.slice(1) : rest.slice(1));
-    if (kvParts.length && systemMode) usage();
-    const kv = parseKeyValues(kvParts);
-    const design = loadDesign(entry);
-    const baked = systemMode
-      ? buildBakedDesignSystem(design, { theme })
-      : buildBakedDesignComponent(design, {
-          componentName: compArg!,
-          theme,
-          paramOverrides: kv,
-        });
-    const companions = companionPreviewFromDesign(design);
-    const catalogue = buildComponentCatalogue(design, { theme });
-    const interactionsByComponent: Record<string, unknown> = {};
-    for (const [name, row] of Object.entries(catalogue.components)) {
-      if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
-    }
-    const html = renderBakedDesignToHtmlDocument(baked, {
-      singleComponent: systemMode ? undefined : compArg,
-      usageByComponent: companions.usageByComponent,
-      rulesByComponent: companions.rulesByComponent,
-      interactionsByComponent,
-      interactiveHost: Object.keys(interactionsByComponent).length > 0,
-    });
-    if (outPath) writeFileSync(outPath, html, "utf-8");
-    else process.stdout.write(html);
+    if (!flags.bakePath || !flags.cataloguePath) usage();
+    const baked = loadBakedDesignDocument(flags.bakePath);
+    const cat = loadCatalogueDocument(flags.cataloguePath);
+    writeOut(flags.outPath, renderCatalogueSystemHtml(cat, baked));
     return;
   }
 
   if (cmd === "manifest") {
-    let outPath: string | undefined;
-    const rest = argv.slice(2);
-    for (let i = 0; i < rest.length; i++) {
-      if (rest[i] === "--out") {
-        outPath = rest[++i];
-      }
-    }
-    const design = loadDesign(entry);
-    const man = buildDesignManifest(design);
-    const s = stableStringify(man);
-    writeJson(outPath, s);
-    return;
-  }
-
-  if (cmd === "resolve") {
-    const comp = argv[2];
-    if (!comp) usage();
-    const rawArgs = argv.slice(3);
-    let treeOnly = false;
-    let theme: string | undefined;
-    const kvParts: string[] = [];
-    for (let i = 0; i < rawArgs.length; i++) {
-      const a = rawArgs[i]!;
-      if (a === "--tree-only") treeOnly = true;
-      else if (a === "--theme") {
-        const t = rawArgs[++i];
-        if (!t || t.startsWith("-")) usage();
-        theme = t;
-      } else kvParts.push(a);
-    }
-    const kv = parseKeyValues(kvParts);
-    const design = loadDesign(entry);
-    if (treeOnly) {
-      const tokenMap = buildResolvedTokenMap(design, theme);
-      const tree = resolveComponentTree(design, comp, tokenMap, kv);
-      process.stdout.write(stableStringify(tree, { omitEmpty: true }));
-      return;
-    }
-    const bundle = buildResolvedComponentDocument(design, {
-      componentName: comp,
-      paramOverrides: kv,
-      theme,
-    });
-    process.stdout.write(stableStringify(bundle, { omitEmpty: true }));
-    return;
-  }
-
-  if (cmd === "catalogue") {
-    const { theme, outPath, kvParts } = parseThemeOutAndKv(argv.slice(2));
-    if (kvParts.length) usage();
-    const design = loadDesign(entry);
-    const cat = buildComponentCatalogue(design, { theme });
-    writeJson(outPath, stableStringify(cat, { omitEmpty: true }));
+    if (!flags.cataloguePath) usage();
+    const cat = loadCatalogueDocument(flags.cataloguePath);
+    const tokens = flags.tokensPath
+      ? (loadJsonFile(flags.tokensPath, "tokens JSON") as Record<string, unknown>)
+      : undefined;
+    const man = buildDesignManifestFromCatalogue(cat, tokens);
+    writeOut(flags.outPath, stableStringify(man));
     return;
   }
 

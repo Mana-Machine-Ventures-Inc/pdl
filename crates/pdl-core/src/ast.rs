@@ -436,6 +436,13 @@ pub struct LayoutOnAssign {
 #[derive(Debug, Clone, PartialEq)]
 pub enum LayoutOnBodyItem {
     Assign(LayoutOnAssign),
+    /// Bare `animate = …` — land choreography for the capturing component's rebake.
+    /// `target: Some(list)` — `dots.animate = …` flourish on every ForEach mount of that list
+    /// (array param or Map let). Single-let targets belong on the child's own handler.
+    Animate {
+        target: Option<String>,
+        value: ValueExpr,
+    },
     /// `Input.beginEditing(draft)` / `Input.finishEditing()` — target a nested EditableText let.
     HostVerb {
         qualifier: Option<String>,

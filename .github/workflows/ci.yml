@@ -15,7 +15,9 @@ jobs:
         with:
           node-version: "20"
           cache: npm
+      - uses: dtolnay/rust-toolchain@stable
       - run: npm ci
+      # Host tests take their bake / catalogue JSON from the Rust compiler.
       - run: npm test
 
   docs:
@@ -58,18 +60,3 @@ jobs:
           ./target/debug/pdl bakeComponent test-fixtures/pdl/systems/airbnb-lite/design.pdl AbnFormActionsDemo --out /tmp/abn-actions.bake.json
           test -s /tmp/airbnb-lite.bake.json
           test -s /tmp/abn-actions.bake.json
-
-  dual-run:
-    runs-on: ubuntu-latest
-    needs: [typescript, rust]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-      - uses: dtolnay/rust-toolchain@stable
-      - run: npm ci
-      - run: npm run build
-      - run: cargo build -p pdl-cli
-      - run: node scripts/dual-run-compare.mjs

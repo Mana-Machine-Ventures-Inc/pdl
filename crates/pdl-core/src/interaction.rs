@@ -248,6 +248,9 @@ pub fn apply_emit_capture(
                 // Keep scope in sync for multi-assign
                 scope.insert(a.param.clone(), resolved);
             }
+            crate::ast::LayoutOnBodyItem::Animate { .. } => {
+                // Presentation only — the host lands the rebake; params are untouched.
+            }
             crate::ast::LayoutOnBodyItem::HostVerb { .. } => {
                 // Executed by the HTML/preview host against the nested let session bag.
                 changed = true;

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Live disk-watch preview: Rust bake (default) → HTML host with livereload.
+ * Live disk-watch preview: Rust bake → HTML host with livereload.
  *
  * Usage:
  *   npm run preview -- <entry.pdl> <Component>
  *   npm run preview -- <entry.pdl> --system
  *   npm run preview -- <entry.pdl> --pack <pack.json>
- *   npm run preview -- <entry.pdl> <Component> --theme Light --engine rust|ts [key=value…]
+ *   npm run preview -- <entry.pdl> <Component> --theme Light [key=value…]
  *
  * Env:
  *   PREVIEW_PORT   exact port (default: try 3848..3857)
@@ -41,15 +41,14 @@ function usage(code = 1) {
   console.error(`PDL live preview — disk watch → bake → HTML
 
 Usage:
-  npm run preview -- <entry.pdl> <ComponentName> [--theme Name] [--engine rust|ts] [key=value…]
-  npm run preview -- <entry.pdl> --system [--theme Name] [--engine rust|ts]
-  npm run preview -- <entry.pdl> --pack <pack.json> [--engine rust] [--component Name]
+  npm run preview -- <entry.pdl> <ComponentName> [--theme Name] [key=value…]
+  npm run preview -- <entry.pdl> --system [--theme Name]
+  npm run preview -- <entry.pdl> --pack <pack.json> [--component Name]
 
 Options:
   --system         bakeSystem (all components)
-  --pack <path>    bakePack (Rust only)
+  --pack <path>    bakePack
   --theme <name>   theme for bake
-  --engine rust|ts default rust (compiler under test)
   --component <N>  with --pack / --system: limit HTML to one component
   --watch-dir <d>  directory to watch (default: entry's directory, recursive)
   --port <n>       listen port (or PREVIEW_PORT)
@@ -75,8 +74,6 @@ function parseArgs(argv) {
   let pack;
   /** @type {string | undefined} */
   let theme;
-  /** @type {'rust' | 'ts'} */
-  let engine = "rust";
   /** @type {string | undefined} */
   let singleComponent;
   /** @type {string | undefined} */
@@ -100,10 +97,6 @@ function parseArgs(argv) {
       const t = rest[++i];
       if (!t || t.startsWith("-")) usage();
       theme = t;
-    } else if (a === "--engine") {
-      const e = rest[++i];
-      if (e !== "rust" && e !== "ts") usage();
-      engine = e;
     } else if (a === "--component") {
       const c = rest[++i];
       if (!c || c.startsWith("-")) usage();
@@ -155,7 +148,6 @@ function parseArgs(argv) {
     component,
     pack,
     theme,
-    engine,
     singleComponent,
     watchDir: watchDir ?? dirname(entry),
     port,
@@ -203,11 +195,10 @@ async function rebuild(reason) {
   }
   rebuilding = true;
   const label = relative(REPO_ROOT, opts.entry) || opts.entry;
-  console.log(`[preview] bake (${opts.engine}/${opts.mode}) — ${reason}`);
+  console.log(`[preview] bake (${opts.mode}) — ${reason}`);
   const result = await bakeAndRender({
     repoRoot: REPO_ROOT,
     entry: opts.entry,
-    engine: opts.engine,
     mode: opts.mode,
     component: opts.component,
     pack: opts.pack,
@@ -226,7 +217,7 @@ async function rebuild(reason) {
         title: "PDL preview — bake failed",
         message: result.error ?? "Unknown bake error",
         detail: result.stderr,
-        meta: `${opts.engine} · ${opts.mode} · ${label} · gen ${generation}`,
+        meta: `${opts.mode} · ${label} · gen ${generation}`,
       }),
       generation,
     );
@@ -421,7 +412,7 @@ function listen() {
     const p = bound?.port ?? preferred;
     console.log(`PDL preview at http://${HOST}:${p}`);
     console.log(`  entry:  ${relative(REPO_ROOT, opts.entry)}`);
-    console.log(`  engine: ${opts.engine} · mode: ${opts.mode}`);
+    console.log(`  mode: ${opts.mode}`);
     console.log(`  watch:  ${relative(REPO_ROOT, opts.watchDir) || opts.watchDir}`);
     console.log(`  bake:   ${relative(REPO_ROOT, bakeOutPath)}`);
     const watchFiles = [opts.entry, opts.pack].filter(Boolean);

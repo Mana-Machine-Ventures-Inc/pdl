@@ -12,7 +12,6 @@ import {
 } from "./motionClips.js";
 import {
   companionPreviewFromCatalogue,
-  companionPreviewFromDesign,
   evaluateRulesForPreview,
   evaluateRulesOnComponent,
   ruleMarksFromViolations,
@@ -24,7 +23,6 @@ import {
 
 export {
   companionPreviewFromCatalogue,
-  companionPreviewFromDesign,
   evaluateRulesForPreview,
   evaluateRulesOnComponent,
   type CompanionPreview,
@@ -3736,6 +3734,126 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     return !!(spec && spec.keys && spec.keys.length);
   }
   function hasPoseTrack(spec) { return hasAnimationTrack(spec); }
+  function choreoNodeId(el) {
+    if (!el || !el.getAttribute) return null;
+    var id = el.getAttribute('data-pdl-id');
+    if (id) return id;
+    var letId = el.getAttribute('data-pdl-instance-let');
+    if (letId) return 'let:' + letId;
+    return null;
+  }
+  function snapshotChoreoTree(root) {
+    var out = {};
+    if (!root) return out;
+    function visit(el) {
+      var id = choreoNodeId(el);
+      if (id) {
+        var r = el.getBoundingClientRect();
+        var background = '';
+        var opacity = '';
+        try {
+          var cs = getComputedStyle(el);
+          background = cs.backgroundColor || '';
+          opacity = cs.opacity || '';
+        } catch (e) {}
+        out[id] = {
+          id: id,
+          left: r.left,
+          top: r.top,
+          width: r.width,
+          height: r.height,
+          background: background,
+          opacity: opacity
+        };
+      }
+      for (var i = 0; i < el.children.length; i++) visit(el.children[i]);
+    }
+    visit(root);
+    return out;
+  }
+  function splitChoreo(spec) {
+    if (!spec || !spec.keys || !spec.keys.length) {
+      return { flourish: null, landTiming: null, isLand: false };
+    }
+    var keys = spec.keys;
+    var last = keys[keys.length - 1];
+    var lastIsRest = last && (last.pose === 'rest' || last.pose === '.rest');
+    var marked = spec.land === true;
+    if (!lastIsRest && !marked) {
+      return { flourish: null, landTiming: null, isLand: false };
+    }
+    var landKey = lastIsRest ? last : keys[0];
+    var t = (landKey && landKey.timing) || {};
+    var dur = numberish(t.duration);
+    if (dur == null) dur = 200;
+    var delay = numberish(t.delay) || 0;
+    var landTiming = {
+      duration: dur,
+      easing: easeToCss(t.ease != null ? t.ease : t.easing),
+      delay: delay
+    };
+    var flourishKeys = [];
+    for (var i = 0; i < keys.length - 1; i++) {
+      if (keys[i] && keys[i].pose !== 'rest' && keys[i].pose !== '.rest') {
+        flourishKeys.push(keys[i]);
+      }
+    }
+    return {
+      flourish: flourishKeys.length ? { kind: 'animation', keys: flourishKeys } : null,
+      landTiming: landTiming,
+      isLand: true
+    };
+  }
+  function buildChoreoSession(root, spec, targetId) {
+    var split = splitChoreo(spec);
+    if (!split.isLand || !split.landTiming) return null;
+    return {
+      first: snapshotChoreoTree(root),
+      tracks: [{
+        targetId: targetId || undefined,
+        flourish: split.flourish,
+        landTiming: split.landTiming
+      }],
+      land: true
+    };
+  }
+  /** Append tracks; union First. Capture is passed second so its land clock is primary. */
+  function mergeChoreoSessions(a, b) {
+    if (!a && !b) return null;
+    if (!a) return b;
+    if (!b) return a;
+    return {
+      first: Object.assign({}, a.first || {}, b.first || {}),
+      tracks: [].concat(a.tracks || [], b.tracks || []),
+      land: true
+    };
+  }
+  function handlerNeedsLandBake(body) {
+    if (!body || !body.length) return false;
+    function walk(items) {
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        if (!it) continue;
+        if (it.kind === 'assign' || it.kind === 'emit') return true;
+        if (it.kind === 'if' && it.chain) {
+          var br = it.chain.branches || [];
+          for (var b = 0; b < br.length; b++) {
+            if (walk(br[b].body || [])) return true;
+          }
+          if (it.chain.elseBody && walk(it.chain.elseBody)) return true;
+        }
+      }
+      return false;
+    }
+    return walk(body);
+  }
+  function shouldDeferChoreo(event, spec, body) {
+    if (event === 'appear' || event === 'dismiss') return false;
+    // Pose settle to .rest on the same bake (hover) stays immediate WAAPI.
+    // Defer First→mutate→Last only when the handler writes params or emits.
+    if (!splitChoreo(spec).isLand) return false;
+    return handlerNeedsLandBake(body);
+  }
   function easeToCss(ease) {
     if (ease && typeof ease === 'object' && ease.kind === 'easeBezier') {
       return 'cubic-bezier(' + ease.x1 + ', ' + ease.y1 + ', ' + ease.x2 + ', ' + ease.y2 + ')';
@@ -3767,8 +3885,11 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       var out = Object.assign({}, ident);
       try {
         var st = el.style || {};
-        var op = Number(st.opacity);
-        if (isFinite(op)) out.opacity = op;
+        // Number('') === 0 — empty inline opacity must stay at identity, not vanish.
+        if (st.opacity != null && String(st.opacity).trim() !== '') {
+          var op = Number(st.opacity);
+          if (isFinite(op)) out.opacity = op;
+        }
         var t = st.transform || '';
         var tr = /translate\(\s*([-0-9.]+)px\s*,\s*([-0-9.]+)px\s*\)/.exec(t);
         if (tr) { out.translateX = Number(tr[1]); out.translateY = Number(tr[2]); }
@@ -3815,6 +3936,12 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     (async function run(){
       var iteration = 0;
       while (!cancelled && iteration < times) {
+        if (iteration > 0) {
+          current = applyStart && spec.start != null
+            ? resolvePoseDest(spec.start, ident, ident)
+            : Object.assign({}, ident);
+          applyOverlayCss(el, snapshotCss(current, rest));
+        }
         iteration += 1;
         for (var i = 0; i < spec.keys.length; i++) {
           if (cancelled) break;
@@ -4133,9 +4260,24 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     var wantQual = qualifier != null && String(qualifier).length ? String(qualifier) : null;
     var resolved = resolveEmitCapture(captures || [], channel, wantQual, startNode, section);
     if (!resolved || !resolved.capture) {
-      return { params: Object.assign({}, parentParams), changed: false, handled: false, localChrome: false, presenterOps: [] };
+      return {
+        params: Object.assign({}, parentParams),
+        changed: false,
+        handled: false,
+        localChrome: false,
+        presenterOps: [],
+        animation: null,
+        animationTargets: null
+      };
     }
     var capture = resolved.capture;
+    // Capture-body animate: land clip for the rebake this capture causes.
+    var captureAnimation = capture.animation
+      ? normalizeAnimationSpec(capture.animation)
+      : null;
+    var captureTargets = Array.isArray(capture.animationTargets)
+      ? capture.animationTargets
+      : null;
     var scope = Object.assign({}, parentParams);
     (capture.payload || []).forEach(function(p, i){
       var src = emitArgNames[i] || p.name;
@@ -4188,7 +4330,71 @@ export function renderBakedDesignToHtmlDocumentWithReport(
       next[a.param] = resolvedVal;
       scope[a.param] = resolvedVal;
     });
-    return { params: next, changed: changed, handled: true, localChrome: localChrome, presenterOps: presenterOps };
+    return {
+      params: next,
+      changed: changed,
+      handled: true,
+      localChrome: localChrome,
+      presenterOps: presenterOps,
+      animation: captureAnimation,
+      animationTargets: captureTargets
+    };
+  }
+  /**
+   * List chorus (list.animate) → one flourish track per ForEach mount of that list.
+   * Skips the emitting child (solo press owns that node's transform).
+   * List shots are flourish-only; paint/FLIP land stays on bare capture animate.
+   */
+  function expandCaptureListTargets(section, targets, skipNode) {
+    if (!targets || !targets.length || !section) return null;
+    var first = {};
+    var tracks = [];
+    for (var ti = 0; ti < targets.length; ti++) {
+      var t = targets[ti];
+      if (!t || t.list !== true || !t.target || !t.animation) continue;
+      var listName = String(t.target);
+      var spec = normalizeAnimationSpec(t.animation);
+      if (!spec) continue;
+      var split = splitChoreo(spec);
+      var flourish = split.flourish;
+      if (!flourish || !flourish.keys || !flourish.keys.length) continue;
+      var esc =
+        typeof CSS !== 'undefined' && CSS.escape
+          ? CSS.escape(listName)
+          : String(listName).replace(/"/g, '\\"');
+      var nodes = section.querySelectorAll('[data-pdl-foreach-list="' + esc + '"]');
+      for (var ni = 0; ni < nodes.length; ni++) {
+        var node = nodes[ni];
+        if (skipNode && (node === skipNode || node.contains(skipNode) || skipNode.contains(node))) {
+          continue;
+        }
+        var id = choreoNodeId(node);
+        if (!id) continue;
+        Object.assign(first, snapshotChoreoTree(node));
+        tracks.push({
+          targetId: id,
+          flourish: flourish,
+          landTiming: null
+        });
+      }
+    }
+    if (!tracks.length) return null;
+    return { first: first, tracks: tracks, land: true };
+  }
+  /**
+   * Land session for an emit capture. Scope is the capturing component's own tree
+   * (the rebake changes siblings, not just the emitting child). Child press,
+   * list chorus (list.animate), and bare capture land are parallel tracks.
+   * Capture land is merged last so its clock is primary.
+   */
+  function captureChoreoSession(section, capAnimation, capTargets, childSession, targetId, skipNode) {
+    var root = motionRootEl(section) || section;
+    var listSession = expandCaptureListTargets(section, capTargets, skipNode || null);
+    var capSession = null;
+    if (capAnimation && root) {
+      capSession = buildChoreoSession(root, capAnimation, targetId || null);
+    }
+    return mergeChoreoSessions(mergeChoreoSessions(childSession, listSession), capSession);
   }
   function showInstEditingChrome(instNode, on) {
     if (!instNode) return false;
@@ -4226,7 +4432,9 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         instanceLet: opts.instanceLet || '',
         childComponent: opts.childComponent,
         childParams: opts.childParams || {},
-        reason: opts.reason || ''
+        prevChildParams: opts.prevChildParams || null,
+        reason: opts.reason || '',
+        choreography: opts.choreography || null
       }, '*');
     } catch (e) {}
   }
@@ -4416,12 +4624,15 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         liveParams = readParams(section);
         var mspec = byMotionNow[event];
         var track = hasPoseTrack(mspec);
-        if (track && event !== 'appear' && event !== 'dismiss') {
-          var rootForTrack = motionRootEl(section);
+        var rootForTrack = motionRootEl(section);
+        var deferredChoreo = null;
+        if (shouldDeferChoreo(event, mspec, byEventNow[event]) && rootForTrack) {
+          deferredChoreo = buildChoreoSession(rootForTrack, mspec, choreoNodeId(rootForTrack));
+        } else if (track && event !== 'appear' && event !== 'dismiss') {
           // Interrupt: cancel in-flight and play next Animation from current (ignore start).
           playMotionTree(rootForTrack, mspec, 'interrupt');
         }
-        if (event !== 'appear' && event !== 'dismiss') {
+        if (event !== 'appear' && event !== 'dismiss' && !deferredChoreo) {
           playTargetedMotions(motionRootEl(section) || section, byTargetsNow[event], event);
         }
         if (event === 'appear' || event === 'dismiss') {
@@ -4454,6 +4665,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           }
         }
         if (!byEventNow[event]) return { params: liveParams, emits: [], changed: false, handled: true };
+        var prevLiveParams = Object.assign({}, liveParams);
         var result = applyEvent(liveParams, declsNow, event);
         liveParams = result.params;
         writeParams(section, liveParams);
@@ -4466,23 +4678,24 @@ export function renderBakedDesignToHtmlDocumentWithReport(
               : 'rest';
         var previewHandled = showState(section, stateKey);
         if (!previewHandled) previewHandled = showState(section, 'rest');
-        var implicit = false;
-        if (implicit && result.changed) {
-          requestInstanceResolve({
-            component: name,
-            instanceLet: '',
-            childComponent: name,
-            childParams: liveParams,
-            reason: event
-          });
-          previewHandled = true;
-        }
         var needRebake = false;
         var presenterOps = [];
         var emitUnhandled = false;
         if (result.emits && result.emits.length) {
           result.emits.forEach(function(em){
             var cap = applyEmitCapture(liveParams, sectionCaptures(), em.name, em.args || [], liveParams, null, null, section, section);
+            // Snapshot First before any DOM write below.
+            var capSession = captureChoreoSession(
+              section,
+              cap.animation,
+              cap.animationTargets,
+              deferredChoreo,
+              deferredChoreo && deferredChoreo.tracks && deferredChoreo.tracks[0]
+                ? deferredChoreo.tracks[0].targetId
+                : null,
+              null
+            );
+            if (capSession) deferredChoreo = capSession;
             if (cap.presenterOps && cap.presenterOps.length) {
               presenterOps = presenterOps.concat(cap.presenterOps);
             }
@@ -4495,6 +4708,18 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             }
           });
         }
+        if (result.changed && !needRebake && !previewHandled) {
+          requestInstanceResolve({
+            component: name,
+            instanceLet: '',
+            childComponent: name,
+            childParams: liveParams,
+            prevChildParams: prevLiveParams,
+            reason: event,
+            choreography: deferredChoreo
+          });
+          previewHandled = true;
+        }
         postMsg({
           type: 'pdl-interaction',
           component: name,
@@ -4505,7 +4730,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
           handled: result.handled,
           changed: result.changed || needRebake,
           previewHandled: needRebake ? false : previewHandled,
-          unhandledAncestors: emitUnhandled
+          unhandledAncestors: emitUnhandled,
+          choreography: deferredChoreo
         });
         return result;
       }
@@ -4549,10 +4775,17 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             liveParams = readParams(section);
             var childSpec = childMotionNow[event];
             var childTrack = hasPoseTrack(childSpec);
-            if (childTrack && event !== 'appear' && event !== 'dismiss') {
+            var deferredChoreo = null;
+            var snapRoot = node;
+            if (node.getAttribute('data-pdl-foreach-list') && node.parentElement) {
+              snapRoot = node.parentElement;
+            }
+            if (shouldDeferChoreo(event, childSpec, childByNow[event])) {
+              deferredChoreo = buildChoreoSession(snapRoot, childSpec, choreoNodeId(node));
+            } else if (childTrack && event !== 'appear' && event !== 'dismiss') {
               playMotionTree(node, childSpec, 'interrupt');
             }
-            if (event !== 'appear' && event !== 'dismiss') {
+            if (event !== 'appear' && event !== 'dismiss' && !deferredChoreo) {
               playTargetedMotions(node, childTargetsNow[event], event);
             }
             if (event === 'appear' || event === 'dismiss') {
@@ -4591,6 +4824,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
                 JSON.parse(node.getAttribute('data-pdl-instance-kwargs') || '{}')
               );
             } catch (e) {}
+            var prevChildLive = Object.assign({}, childLive);
             var result = applyEvent(childLive, childDeclsNow, event);
             childLive = result.params;
             var needRebake = false;
@@ -4613,6 +4847,16 @@ export function renderBakedDesignToHtmlDocumentWithReport(
                 node,
                 section
               );
+              // Snapshot First before any DOM write below.
+              var capSession = captureChoreoSession(
+                section,
+                cap.animation,
+                cap.animationTargets,
+                deferredChoreo,
+                choreoNodeId(node),
+                node
+              );
+              if (capSession) deferredChoreo = capSession;
               if (cap.presenterOps && cap.presenterOps.length) {
                 presenterOps = presenterOps.concat(cap.presenterOps);
               }
@@ -4631,16 +4875,18 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             // ring after click (selected:false + hover → grey border).
             var localHandled = localVerbChrome;
             if ((result.changed || localVerbChrome) && !needRebake) {
-              try {
-                node.setAttribute('data-pdl-instance-kwargs', JSON.stringify(childLive));
-              } catch (e) {}
               requestInstanceResolve({
                 component: name,
                 instanceLet: instanceLet || '',
                 childComponent: childType,
                 childParams: childLive,
-                reason: event
+                prevChildParams: prevChildLive,
+                reason: event,
+                choreography: deferredChoreo
               });
+              try {
+                node.setAttribute('data-pdl-instance-kwargs', JSON.stringify(childLive));
+              } catch (e) {}
               localHandled = true;
             }
             postMsg({
@@ -4656,7 +4902,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
               changed: result.changed || needRebake,
               // Parent rebake only when emit capture changed parent SoT.
               previewHandled: needRebake ? false : localHandled,
-              unhandledAncestors: emitUnhandled
+              unhandledAncestors: emitUnhandled,
+              choreography: deferredChoreo
             });
           }
           if (instanceLet) childDispatchers[instanceLet] = childDispatch;

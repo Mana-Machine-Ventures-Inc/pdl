@@ -179,6 +179,68 @@ struct FlatRule {
     when: Option<ConditionExpr>,
 }
 
+/// A `tags = [...]` / `tags.add(...)` statement plus the `if` condition it sits under.
+/// Conditional tags cannot collapse into `effective_rule_tags`: a `whereTag` query must
+/// only match instances whose params satisfy the same `when`.
+struct FlatTagOp {
+    kind: &'static str,
+    tags: Vec<String>,
+    when: Option<ConditionExpr>,
+}
+
+fn flatten_tag_ops(statements: &[RulesStatement]) -> Vec<FlatTagOp> {
+    let mut out: Vec<FlatTagOp> = Vec::new();
+    walk_tag_ops(statements, None, &mut out);
+    out
+}
+
+fn walk_tag_ops(
+    xs: &[RulesStatement],
+    parent_when: Option<ConditionExpr>,
+    out: &mut Vec<FlatTagOp>,
+) {
+    for st in xs {
+        match st {
+            RulesStatement::TagsSet { tags } => out.push(FlatTagOp {
+                kind: "set",
+                tags: tags.clone(),
+                when: parent_when.clone(),
+            }),
+            RulesStatement::TagsAdd { tag } => out.push(FlatTagOp {
+                kind: "add",
+                tags: vec![tag.clone()],
+                when: parent_when.clone(),
+            }),
+            RulesStatement::If { chain } => {
+                let mut neg_prior: Vec<ConditionExpr> = Vec::new();
+                for br in &chain.branches {
+                    let inner_when: ConditionExpr = if neg_prior.is_empty() {
+                        br.condition.clone()
+                    } else {
+                        let mut conjuncts: Vec<ConditionExpr> =
+                            neg_prior.iter().map(negate_condition).collect();
+                        conjuncts.push(br.condition.clone());
+                        conjoin_many(conjuncts).expect("non-empty conjuncts")
+                    };
+                    let when = conjoin_when(parent_when.clone(), Some(inner_when));
+                    walk_tag_ops(&br.body, when, out);
+                    neg_prior.push(br.condition.clone());
+                }
+                if let Some(else_body) = &chain.else_body {
+                    let else_inner = if neg_prior.is_empty() {
+                        None
+                    } else {
+                        conjoin_many(neg_prior.iter().map(negate_condition).collect())
+                    };
+                    let else_when = conjoin_when(parent_when.clone(), else_inner);
+                    walk_tag_ops(else_body, else_when, out);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 fn flatten_rules_with_when(statements: &[RulesStatement]) -> Vec<FlatRule> {
     let mut out: Vec<FlatRule> = Vec::new();
     walk_rules(statements, None, &mut out);
@@ -430,6 +492,15 @@ fn animation_key_from_json(raw: &Value) -> Option<Value> {
 
 fn animation_spec_from_eval(raw: &Value) -> Option<Value> {
     let o = raw.as_object()?;
+    // Clock-only handler sugar: evaluated Motion → Animation(keys: [Motion(…, pose: .rest)]).
+    if o.get("kind").and_then(|v| v.as_str()) == Some("motion") {
+        let seg = animation_key_from_json(raw)?;
+        return Some(obj(vec![
+            ("kind", Value::String("animation".into())),
+            ("keys", Value::Array(vec![seg])),
+            ("land", Value::Bool(true)),
+        ]));
+    }
     let is_animation = o.get("kind").and_then(|v| v.as_str()) == Some("animation")
         || o.contains_key("keys")
         || o.contains_key("start");
@@ -448,6 +519,7 @@ fn animation_spec_from_eval(raw: &Value) -> Option<Value> {
             entries.push(("start", start.clone()));
         }
     }
+    let ends_on_rest;
     if let Some(Value::Array(keys)) = o.get("keys") {
         let mut out_keys = Vec::new();
         for k in keys {
@@ -458,6 +530,13 @@ fn animation_spec_from_eval(raw: &Value) -> Option<Value> {
         if out_keys.is_empty() {
             return None;
         }
+        ends_on_rest = out_keys
+            .last()
+            .and_then(|k| k.as_object())
+            .and_then(|o| o.get("pose"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.trim_start_matches('.') == "rest")
+            .unwrap_or(false);
         entries.push(("keys", Value::Array(out_keys)));
     } else {
         return None;
@@ -488,6 +567,9 @@ fn animation_spec_from_eval(raw: &Value) -> Option<Value> {
     {
         entries.retain(|(k, _)| *k != "staggerFrom");
         entries.push(("staggerFrom", Value::String(from)));
+    }
+    if ends_on_rest {
+        entries.push(("land", Value::Bool(true)));
     }
     Some(obj(entries))
 }
@@ -605,6 +687,16 @@ fn serialise_layout_on_handler(
                 ("param", Value::String(a.param.clone())),
                 ("value", serialise_value_expr(&a.value)),
             ]),
+            crate::ast::LayoutOnBodyItem::Animate { target, value } => {
+                let mut entries = vec![
+                    ("kind", Value::String("animate".to_string())),
+                    ("value", serialise_value_expr(value)),
+                ];
+                if let Some(id) = target {
+                    entries.insert(1, ("target", Value::String(id.clone())));
+                }
+                obj(entries)
+            }
             crate::ast::LayoutOnBodyItem::PresenterVerb {
                 qualifier,
                 verb,
@@ -670,6 +762,40 @@ fn serialise_layout_on_handler(
         ("payload", Value::Array(payload)),
         ("body", Value::Array(body)),
     ];
+    // Bare `animate =` → land clip for the rebake. `list.animate =` → animationTargets.
+    let mut animation_targets: Vec<Value> = Vec::new();
+    for item in &handler.body {
+        match item {
+            crate::ast::LayoutOnBodyItem::Animate {
+                target: None,
+                value,
+            } => {
+                if let Some(spec) = try_eval_value(value, design, tokens)
+                    .and_then(|raw| animation_spec_from_eval(&raw))
+                {
+                    entries.push(("animation", spec));
+                }
+            }
+            crate::ast::LayoutOnBodyItem::Animate {
+                target: Some(id),
+                value,
+            } => {
+                if let Some(spec) = try_eval_value(value, design, tokens)
+                    .and_then(|raw| animation_spec_from_eval(&raw))
+                {
+                    animation_targets.push(obj(vec![
+                        ("target", Value::String(id.clone())),
+                        ("list", Value::Bool(true)),
+                        ("animation", spec),
+                    ]));
+                }
+            }
+            _ => {}
+        }
+    }
+    if !animation_targets.is_empty() {
+        entries.push(("animationTargets", Value::Array(animation_targets)));
+    }
     if let Some(q) = qualifier {
         entries.insert(0, ("qualifier", Value::String(q)));
     } else {
@@ -1516,8 +1642,33 @@ pub fn build_catalogue_component_row(
                 .into_iter()
                 .map(Value::String)
                 .collect();
+            // `tags` stays the unconditional set for readers that only want labels;
+            // `tagOps` carries the ordered set/add ops with their `when` conditions.
+            let tag_ops: Vec<Value> = flatten_tag_ops(rstmts)
+                .into_iter()
+                .map(|op| {
+                    let mut entries = vec![("kind", Value::String(op.kind.to_string()))];
+                    if op.kind == "add" {
+                        entries.push((
+                            "tag",
+                            Value::String(op.tags.first().cloned().unwrap_or_default()),
+                        ));
+                    } else {
+                        entries.push((
+                            "tags",
+                            Value::Array(op.tags.into_iter().map(Value::String).collect()),
+                        ));
+                    }
+                    let mut o = obj(entries);
+                    if let (Some(when), Value::Object(m)) = (op.when, &mut o) {
+                        m.insert("when".to_string(), serialise_condition_expr(&when));
+                    }
+                    o
+                })
+                .collect();
             Some(obj(vec![
                 ("tags", Value::Array(tags)),
+                ("tagOps", Value::Array(tag_ops)),
                 ("rules", Value::Array(rules_arr)),
             ]))
         }

@@ -10,7 +10,7 @@ use std::process;
 
 use pdl_core::bake::{
     build_baked_design_component_with_host, build_baked_design_component_with_presenter_pins,
-    build_baked_design_system_with_host,
+    build_baked_design_system_with_host, PDL_JSON_SCHEMA_VERSION,
 };
 use pdl_core::presenter::pins_from_json;
 use pdl_core::catalogue::build_component_catalogue;
@@ -36,9 +36,10 @@ Usage:
   pdl bakePack <entry.pdl> <pack.json> [--out <file.json>]
   pdl validatePack <entry.pdl> <pack.json> [--out <file.json>]
   pdl catalogue <entry.pdl> [--theme <ThemeName>] [--out <file.json>]
+  pdl tokens <entry.pdl> [--theme <ThemeName>] [--out <file.json>]
   pdl resolve <entry.pdl> <ComponentName> [--tree-only] [--theme <ThemeName>] [key=value ...]
 
-HTML (renderHtml / renderCatalogueHtml) and manifest remain on the TypeScript CLI.
+HTML (renderHtml / renderCatalogueHtml) render a bake JSON on the TypeScript CLI.
 
 Options:
   --theme <name>   Primary theme for token resolution (user themes only)
@@ -442,6 +443,61 @@ fn run(cmd: &str, entry: &str, argv: &[String]) -> Result<(), String> {
             let cat = build_component_catalogue(&design, theme.as_deref(), &[], None)
                 .map_err(|e| e.format())?;
             let s = stable_stringify(&cat, omit_empty());
+            write_json(out_path.as_deref(), &s).map_err(|e| e.to_string())?;
+            Ok(())
+        }
+        "tokens" => {
+            let ThemeOutKv {
+                theme,
+                host: _,
+                host_facts: _,
+                presenter_pins: _,
+                out_path,
+                kv_parts,
+            } = parse_theme_out_and_kv(&argv[2..]);
+            if !kv_parts.is_empty() {
+                usage();
+            }
+            let design = load_design(entry).map_err(|e| e.format())?;
+            let token_map = build_resolved_token_map(&design, theme.as_deref(), &[])
+                .map_err(|e| e.format())?;
+            let mut tokens = Map::new();
+            for (name, value) in token_map {
+                tokens.insert(name, value);
+            }
+            let mut doc = Map::new();
+            doc.insert("kind".into(), Value::String("resolvedTokens".into()));
+            doc.insert(
+                "schemaVersion".into(),
+                Value::String(PDL_JSON_SCHEMA_VERSION.to_string()),
+            );
+            doc.insert(
+                "entryPath".into(),
+                Value::String(design.entry_path.clone()),
+            );
+            doc.insert(
+                "modulePaths".into(),
+                Value::Array(
+                    design
+                        .module_paths
+                        .iter()
+                        .map(|p| Value::String(p.clone()))
+                        .collect(),
+                ),
+            );
+            // Bare token name as declared (not resolved CSS) — hosts label it themselves.
+            doc.insert(
+                "previewBackground".into(),
+                match &design.preview_background {
+                    Some(name) => Value::String(name.clone()),
+                    None => Value::Null,
+                },
+            );
+            if let Some(t) = &theme {
+                doc.insert("theme".into(), Value::String(t.clone()));
+            }
+            doc.insert("tokens".into(), Value::Object(tokens));
+            let s = stable_stringify(&Value::Object(doc), omit_empty());
             write_json(out_path.as_deref(), &s).map_err(|e| e.to_string())?;
             Ok(())
         }

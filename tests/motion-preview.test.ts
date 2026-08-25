@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { buildBakedDesignComponent, buildBakedDesignSystem } from "../src/bakeDesign.js";
-import { buildComponentCatalogue, interactionsByComponentFromDesign } from "../src/catalogue.js";
-import { loadDesign } from "../src/loadDesign.js";
+import {
+  bakeComponent,
+  bakeSystem,
+  catalogue,
+  fx,
+  interactionsByComponent as rustInteractions,
+} from "./helpers/rustFixtures.js";
 import { renderBakedDesignToHtmlDocument } from "../src/renderHtml.js";
 
-const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const fx = (...p: string[]) => resolve(__dirname, "../test-fixtures/pdl", ...p);
+const MOTION_LAB = fx("lab/motion/design.pdl");
 
 /** Safe WAAPI mock: forever standing loops must not spin on resolved `finished`. */
 function installAnimateMock(
@@ -45,8 +46,7 @@ async function mountHtml(html: string) {
 
 describe("HTML preview motion", () => {
   it("catalogue evaluates Animation start/keys snapshots", () => {
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const cat = buildComponentCatalogue(design);
+    const cat = catalogue(MOTION_LAB);
     const modal = cat.components.MotionModal!;
     const handlers = (modal.interactions?.[0] as { handlers: Array<Record<string, unknown>> })
       .handlers;
@@ -144,13 +144,8 @@ describe("HTML preview motion", () => {
   });
 
   it("HTML host includes motion transport and WAAPI helpers", () => {
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const cat = buildComponentCatalogue(design);
-    const interactionsByComponent: Record<string, unknown> = {};
-    for (const [name, row] of Object.entries(cat.components)) {
-      if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
-    }
-    const doc = buildBakedDesignComponent(design, { componentName: "MotionModal" });
+    const interactionsByComponent = rustInteractions(MOTION_LAB);
+    const doc = bakeComponent(MOTION_LAB, "MotionModal");
     const html = renderBakedDesignToHtmlDocument(doc, {
       singleComponent: "MotionModal",
       interactionsByComponent,
@@ -180,11 +175,7 @@ describe("HTML preview motion", () => {
   });
 
   it("bakes data-pdl-animate on a standing spinner", () => {
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const doc = buildBakedDesignComponent(design, {
-      componentName: "MotionStandingSpin",
-      paramOverrides: { isLoading: true },
-    });
+    const doc = bakeComponent(MOTION_LAB, "MotionStandingSpin", { params: ["isLoading=true"] });
     const html = renderBakedDesignToHtmlDocument(doc, {
       singleComponent: "MotionStandingSpin",
       interactiveHost: true,
@@ -195,13 +186,8 @@ describe("HTML preview motion", () => {
   });
 
   it("hover pose components get Hover start / Hover end clips", () => {
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const cat = buildComponentCatalogue(design);
-    const interactionsByComponent: Record<string, unknown> = {};
-    for (const [name, row] of Object.entries(cat.components)) {
-      if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
-    }
-    const doc = buildBakedDesignComponent(design, { componentName: "MotionHoverPop" });
+    const interactionsByComponent = rustInteractions(MOTION_LAB);
+    const doc = bakeComponent(MOTION_LAB, "MotionHoverPop");
     const html = renderBakedDesignToHtmlDocument(doc, {
       singleComponent: "MotionHoverPop",
       interactionsByComponent,
@@ -215,8 +201,7 @@ describe("HTML preview motion", () => {
   });
 
   it("playground enrich payload includes evaluated animation", () => {
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const ix = interactionsByComponentFromDesign(design);
+    const ix = rustInteractions(MOTION_LAB);
     const appear = (
       ix.MotionModal as Array<{
         handlers: Array<{ event: string; animation?: { start?: unknown } }>;
@@ -226,8 +211,7 @@ describe("HTML preview motion", () => {
   });
 
   it("HTML host still plays appear when catalogue omitted the animation key", () => {
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const cat = buildComponentCatalogue(design);
+    const cat = catalogue(MOTION_LAB);
     const interactionsByComponent: Record<string, unknown> = {};
     for (const [name, row] of Object.entries(cat.components)) {
       if (!row.interactions?.length) continue;
@@ -238,7 +222,7 @@ describe("HTML preview motion", () => {
         handlers: d.handlers.map(({ animation: _a, ...h }) => h),
       }));
     }
-    const doc = buildBakedDesignComponent(design, { componentName: "MotionModal" });
+    const doc = bakeComponent(MOTION_LAB, "MotionModal");
     const html = renderBakedDesignToHtmlDocument(doc, {
       singleComponent: "MotionModal",
       interactionsByComponent,
@@ -250,13 +234,8 @@ describe("HTML preview motion", () => {
   });
 
   it("device hostChrome still shows motion transport when appear/dismiss is registered", () => {
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const cat = buildComponentCatalogue(design);
-    const interactionsByComponent: Record<string, unknown> = {};
-    for (const [name, row] of Object.entries(cat.components)) {
-      if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
-    }
-    const doc = buildBakedDesignComponent(design, { componentName: "MotionModal" });
+    const interactionsByComponent = rustInteractions(MOTION_LAB);
+    const doc = bakeComponent(MOTION_LAB, "MotionModal");
     const html = renderBakedDesignToHtmlDocument(doc, {
       singleComponent: "MotionModal",
       interactionsByComponent,
@@ -272,13 +251,8 @@ describe("HTML preview motion", () => {
 
   it("Play applies Stagger(from: .last) so the last row starts first", async () => {
     const { Window } = await import("happy-dom");
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const cat = buildComponentCatalogue(design);
-    const interactionsByComponent: Record<string, unknown> = {};
-    for (const [name, row] of Object.entries(cat.components)) {
-      if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
-    }
-    const bake = buildBakedDesignComponent(design, { componentName: "MotionStaggerList" });
+    const interactionsByComponent = rustInteractions(MOTION_LAB);
+    const bake = bakeComponent(MOTION_LAB, "MotionStaggerList");
     const html = renderBakedDesignToHtmlDocument(bake, {
       singleComponent: "MotionStaggerList",
       interactionsByComponent,
@@ -313,8 +287,7 @@ describe("HTML preview motion", () => {
 
   it("stagger still delays children when catalogue omitted staggerFrom", async () => {
     const { Window } = await import("happy-dom");
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const cat = buildComponentCatalogue(design);
+    const cat = catalogue(MOTION_LAB);
     const interactionsByComponent: Record<string, unknown> = {};
     for (const [name, row] of Object.entries(cat.components)) {
       if (!row.interactions?.length) continue;
@@ -334,7 +307,7 @@ describe("HTML preview motion", () => {
         }),
       }));
     }
-    const bake = buildBakedDesignComponent(design, { componentName: "MotionStaggerList" });
+    const bake = bakeComponent(MOTION_LAB, "MotionStaggerList");
     const html = renderBakedDesignToHtmlDocument(bake, {
       singleComponent: "MotionStaggerList",
       interactionsByComponent,
@@ -367,13 +340,8 @@ describe("HTML preview motion", () => {
 
   it("Slow-mo scales only the preview card that owns the toggle", async () => {
     const { Window } = await import("happy-dom");
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const cat = buildComponentCatalogue(design);
-    const interactionsByComponent: Record<string, unknown> = {};
-    for (const [name, row] of Object.entries(cat.components)) {
-      if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
-    }
-    const bake = buildBakedDesignSystem(design);
+    const interactionsByComponent = rustInteractions(MOTION_LAB);
+    const bake = bakeSystem(MOTION_LAB);
     const html = renderBakedDesignToHtmlDocument(bake, {
       interactionsByComponent,
       interactiveHost: true,
@@ -426,13 +394,8 @@ describe("HTML preview motion", () => {
   });
 
   it("appear cards start and Reset at the from-pose, not rest", async () => {
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const cat = buildComponentCatalogue(design);
-    const interactionsByComponent: Record<string, unknown> = {};
-    for (const [name, row] of Object.entries(cat.components)) {
-      if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
-    }
-    const bake = buildBakedDesignComponent(design, { componentName: "MotionModal" });
+    const interactionsByComponent = rustInteractions(MOTION_LAB);
+    const bake = bakeComponent(MOTION_LAB, "MotionModal");
     const html = renderBakedDesignToHtmlDocument(bake, {
       singleComponent: "MotionModal",
       interactionsByComponent,
@@ -456,13 +419,8 @@ describe("HTML preview motion", () => {
   });
 
   it("Pose(scale:) holds uniform scale, not identity scaleX/scaleY", async () => {
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const cat = buildComponentCatalogue(design);
-    const interactionsByComponent: Record<string, unknown> = {};
-    for (const [name, row] of Object.entries(cat.components)) {
-      if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
-    }
-    const bake = buildBakedDesignComponent(design, { componentName: "MotionPoseScale" });
+    const interactionsByComponent = rustInteractions(MOTION_LAB);
+    const bake = bakeComponent(MOTION_LAB, "MotionPoseScale");
     const html = renderBakedDesignToHtmlDocument(bake, {
       singleComponent: "MotionPoseScale",
       interactionsByComponent,
@@ -478,13 +436,8 @@ describe("HTML preview motion", () => {
   });
 
   it("Pose(rotate:) holds tilt in the overlay transform", async () => {
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const cat = buildComponentCatalogue(design);
-    const interactionsByComponent: Record<string, unknown> = {};
-    for (const [name, row] of Object.entries(cat.components)) {
-      if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
-    }
-    const bake = buildBakedDesignComponent(design, { componentName: "MotionPoseRotate" });
+    const interactionsByComponent = rustInteractions(MOTION_LAB);
+    const bake = bakeComponent(MOTION_LAB, "MotionPoseRotate");
     const html = renderBakedDesignToHtmlDocument(bake, {
       singleComponent: "MotionPoseRotate",
       interactionsByComponent,
@@ -500,13 +453,8 @@ describe("HTML preview motion", () => {
   });
 
   it("live interaction update reapplies appear-from pose without remount", async () => {
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const cat = buildComponentCatalogue(design);
-    const interactionsByComponent: Record<string, unknown> = {};
-    for (const [name, row] of Object.entries(cat.components)) {
-      if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
-    }
-    const bake = buildBakedDesignComponent(design, { componentName: "MotionPoseScale" });
+    const interactionsByComponent = rustInteractions(MOTION_LAB);
+    const bake = bakeComponent(MOTION_LAB, "MotionPoseScale");
     const html = renderBakedDesignToHtmlDocument(bake, {
       singleComponent: "MotionPoseScale",
       interactionsByComponent,
@@ -537,13 +485,8 @@ describe("HTML preview motion", () => {
   });
 
   it("preview rebind does not snap appear cards back to the from-pose", async () => {
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const cat = buildComponentCatalogue(design);
-    const interactionsByComponent: Record<string, unknown> = {};
-    for (const [name, row] of Object.entries(cat.components)) {
-      if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
-    }
-    const bake = buildBakedDesignComponent(design, { componentName: "MotionModal" });
+    const interactionsByComponent = rustInteractions(MOTION_LAB);
+    const bake = bakeComponent(MOTION_LAB, "MotionModal");
     const html = renderBakedDesignToHtmlDocument(bake, {
       singleComponent: "MotionModal",
       interactionsByComponent,
@@ -576,13 +519,8 @@ describe("HTML preview motion", () => {
       observe() {}
       disconnect() {}
     };
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const cat = buildComponentCatalogue(design);
-    const interactionsByComponent: Record<string, unknown> = {};
-    for (const [name, row] of Object.entries(cat.components)) {
-      if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
-    }
-    const bake = buildBakedDesignComponent(design, { componentName: "MotionModal" });
+    const interactionsByComponent = rustInteractions(MOTION_LAB);
+    const bake = bakeComponent(MOTION_LAB, "MotionModal");
     const html = renderBakedDesignToHtmlDocument(bake, {
       singleComponent: "MotionModal",
       interactionsByComponent,
@@ -619,11 +557,7 @@ describe("HTML preview motion", () => {
 
   it("standing spin plays rotate 0deg → 360deg segments (forever outer loop)", async () => {
     const { Window } = await import("happy-dom");
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const bake = buildBakedDesignComponent(design, {
-      componentName: "MotionStandingSpin",
-      paramOverrides: { isLoading: true },
-    });
+    const bake = bakeComponent(MOTION_LAB, "MotionStandingSpin", { params: ["isLoading=true"] });
     const html = renderBakedDesignToHtmlDocument(bake, {
       singleComponent: "MotionStandingSpin",
       interactiveHost: true,
@@ -663,13 +597,8 @@ describe("HTML preview motion", () => {
 
   it("hover flourish plays sequential key Motions; hoverEnd plays authored rest", async () => {
     const { Window } = await import("happy-dom");
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const cat = buildComponentCatalogue(design);
-    const interactionsByComponent: Record<string, unknown> = {};
-    for (const [name, row] of Object.entries(cat.components)) {
-      if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
-    }
-    const bake = buildBakedDesignComponent(design, { componentName: "MotionHoverFlourish" });
+    const interactionsByComponent = rustInteractions(MOTION_LAB);
+    const bake = bakeComponent(MOTION_LAB, "MotionHoverFlourish");
     const html = renderBakedDesignToHtmlDocument(bake, {
       singleComponent: "MotionHoverFlourish",
       interactionsByComponent,
@@ -707,15 +636,54 @@ describe("HTML preview motion", () => {
     expect(last.transforms[last.transforms.length - 1]).toContain("scale(1, 1)");
   });
 
+  it("parallel pressEnd plays left and right orbs on independent clocks", async () => {
+    const { Window } = await import("happy-dom");
+    const interactionsByComponent = rustInteractions(MOTION_LAB);
+    const bake = bakeComponent(MOTION_LAB, "MotionParallelDance");
+    const html = renderBakedDesignToHtmlDocument(bake, {
+      singleComponent: "MotionParallelDance",
+      interactionsByComponent,
+      interactiveHost: true,
+    });
+    const window = new Window({ url: "http://localhost/" });
+    const firstSegById = new Map<string, { duration?: number; transform?: string }>();
+    installAnimateMock(
+      window,
+      (el, k, o) => {
+        const id = el.getAttribute("data-pdl-id") || "";
+        if (!id || firstSegById.has(id)) return;
+        firstSegById.set(id, {
+          duration: o.duration as number | undefined,
+          transform: String(k[k.length - 1]?.transform ?? ""),
+        });
+      },
+      { maxResolvingCalls: 24 },
+    );
+    window.document.write(html);
+    window.document.close();
+    window.document.querySelectorAll("[data-pdl-listening]").forEach((n) => {
+      n.removeAttribute("data-pdl-listening");
+    });
+    for (const s of [...window.document.querySelectorAll("script")]) {
+      window.eval(s.textContent || "");
+    }
+    await new Promise((r) => setTimeout(r, 20));
+    const release = window.document.querySelector('[data-pdl-motion-clip][data-event="pressEnd"]');
+    expect(release).toBeTruthy();
+    release!.dispatchEvent(new window.MouseEvent("click", { bubbles: true, button: 0 }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(firstSegById.has("left")).toBe(true);
+    expect(firstSegById.has("right")).toBe(true);
+    expect(firstSegById.get("left")?.duration).toBe(180);
+    expect(firstSegById.get("right")?.duration).toBe(240);
+    expect(firstSegById.get("left")?.transform).toContain("translate(0px, -36px)");
+    expect(firstSegById.get("right")?.transform).toContain("translate(-16px, -48px)");
+  });
+
   it("hoverEnd after a finished pop plays the authored rest Animation", async () => {
     const { Window } = await import("happy-dom");
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const cat = buildComponentCatalogue(design);
-    const interactionsByComponent: Record<string, unknown> = {};
-    for (const [name, row] of Object.entries(cat.components)) {
-      if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
-    }
-    const bake = buildBakedDesignComponent(design, { componentName: "MotionHoverPopOverride" });
+    const interactionsByComponent = rustInteractions(MOTION_LAB);
+    const bake = bakeComponent(MOTION_LAB, "MotionHoverPopOverride");
     const html = renderBakedDesignToHtmlDocument(bake, {
       singleComponent: "MotionHoverPopOverride",
       interactionsByComponent,
@@ -749,13 +717,8 @@ describe("HTML preview motion", () => {
 
   it("standing pulse waits until appear finished on the same node", async () => {
     const { Window } = await import("happy-dom");
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const cat = buildComponentCatalogue(design);
-    const interactionsByComponent: Record<string, unknown> = {};
-    for (const [name, row] of Object.entries(cat.components)) {
-      if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
-    }
-    const bake = buildBakedDesignComponent(design, { componentName: "MotionAppearThenPulse" });
+    const interactionsByComponent = rustInteractions(MOTION_LAB);
+    const bake = bakeComponent(MOTION_LAB, "MotionAppearThenPulse");
     const html = renderBakedDesignToHtmlDocument(bake, {
       singleComponent: "MotionAppearThenPulse",
       interactionsByComponent,

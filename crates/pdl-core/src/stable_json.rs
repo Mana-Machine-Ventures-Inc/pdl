@@ -18,7 +18,7 @@ pub struct StableStringifyOptions {
 struct OmitEmptyCtx {
     strip_empty_strings_outside_props: bool,
     inside_props: bool,
-    /// Under catalogue `fixtures` / `samples` — keep explicit empty arrays.
+    /// Under catalogue `fixtures` / `samples` — keep explicit empty arrays and empty strings.
     inside_fixtures: bool,
 }
 
@@ -88,7 +88,9 @@ fn omit_empty_deep(value: &Value, ctx: Option<OmitEmptyCtx>) -> Option<Value> {
                 let ev = omit_empty_deep(v, next_ctx).unwrap_or(Value::Null);
                 if strip_strings {
                     if let Value::String(s) = &ev {
-                        if s.is_empty() && !child_inside_props {
+                        // A fixture binding is an explicit param value: `helper = ""` must
+                        // reach the host, or the preview falls back to the param default.
+                        if s.is_empty() && !child_inside_props && !child_inside_fixtures {
                             continue;
                         }
                     }
@@ -213,6 +215,23 @@ pub fn number_value(n: f64) -> Value {
 mod fixture_empty_tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn keeps_empty_string_under_fixtures() {
+        let v = json!({
+            "components": {
+                "FieldBlock": {
+                    "fixtures": {
+                        "Compact (no helper)": { "helper": "", "label": "SKU" }
+                    },
+                    "usage": ""
+                }
+            }
+        });
+        let s = stable_stringify(&v, StableStringifyOptions { omit_empty: true });
+        assert!(s.contains("\"helper\": \"\""), "fixture binding dropped: {s}");
+        assert!(!s.contains("\"usage\""), "empty usage should still drop: {s}");
+    }
 
     #[test]
     fn keeps_empty_array_under_fixtures() {

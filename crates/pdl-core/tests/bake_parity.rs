@@ -1,5 +1,9 @@
-//! Bake parity against the TypeScript oracle goldens (generated with
-//! `npm run bakeSystem -- <fixture> --out tests/golden/<name>.bake.json`).
+//! Bake regression goldens under `tests/golden/`.
+//!
+//! These were first cut from the retired TypeScript reference, which is why they read
+//! as "parity"; they are now frozen snapshots of the IR. Refresh an intended change
+//! with `pdl bakeSystem <fixture> --out tests/golden/<name>.bake.json`, keeping the
+//! golden's `generatedAt` / `entryPath` so the volatiles still compare.
 
 use pdl_core::bake::{
     build_baked_design_component, build_baked_design_component_with_host, build_baked_design_system,
@@ -41,7 +45,7 @@ fn golden_volatiles(golden: &Value) -> (String, String) {
 }
 
 /// Data-driven parity: every `<key>|<rel path>` entry in `golden/manifest.txt` must
-/// bake to exactly its committed `golden/<key>.bake.json` (the TS oracle output).
+/// bake to exactly its committed `golden/<key>.bake.json`.
 ///
 /// Set `UPDATE_GOLDENS=1` to rewrite mismatched bake goldens (preserving volatiles).
 #[test]
@@ -126,7 +130,7 @@ fn status_banner_variant_override_bakes() {
     assert_eq!(msg["props"]["color"], "#F43F5E");
 }
 
-/// Rust-only B1/B2 golden (protocols + slot expansion). Not in the TS oracle set.
+/// B1/B2 golden (protocols + slot expansion), cut after the goldens were frozen.
 #[test]
 fn protocols_design_bake_golden() {
     let golden_text =

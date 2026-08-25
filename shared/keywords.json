@@ -1,5 +1,5 @@
 {
-  "$comment": "Reserved words and constructor keywords for PDL. Keep in lockstep with crates/pdl-core/src/lexer.rs keyword() and src/lexer.ts KEYWORDS. Docs append this table to Diagnostics.",
+  "$comment": "Reserved words and constructor keywords for PDL. Keep in lockstep with crates/pdl-core/src/lexer.rs keyword(). Docs append this table to Diagnostics.",
   "schemaVersion": 1,
   "languageVersion": "1.0.0-beta",
   "groups": [

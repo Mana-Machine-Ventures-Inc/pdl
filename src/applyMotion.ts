@@ -1,4 +1,4 @@
-import type { InteractionHandlerItem, ValueExpr } from "./ast.js";
+import type { InteractionHandlerItem, ValueExpr } from "./valueJson.js";
 import {
   easeToWaapi,
   implicitTransitionCss,
@@ -73,6 +73,12 @@ function animationKeyFromUnknown(raw: unknown): AnimationKey | undefined {
 export function specFromEvaluated(raw: unknown): AnimationSpec | undefined {
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return undefined;
   const o = raw as Record<string, unknown>;
+  // Clock-only handler sugar: Motion → Animation(keys: […], land: true).
+  if (o.kind === "motion") {
+    const seg = animationKeyFromUnknown(raw);
+    if (!seg) return undefined;
+    return { kind: "animation", keys: [seg], land: true };
+  }
   const isAnimation = o.kind === "animation" || o.keys != null || o.start != null;
   if (!isAnimation) return undefined;
   if (!Array.isArray(o.keys)) return undefined;
@@ -104,6 +110,11 @@ export function specFromEvaluated(raw: unknown): AnimationSpec | undefined {
   } else {
     const repeat = Number(o.repeat);
     if (Number.isFinite(repeat) && repeat >= 1) spec.repeat = repeat;
+  }
+  if (o.land === true) spec.land = true;
+  else {
+    const last = keys[keys.length - 1];
+    if (last && last.pose === "rest") spec.land = true;
   }
   return spec;
 }
@@ -213,7 +224,16 @@ function specFromAnimateExpr(
     } else if (base?.repeat != null) {
       spec.repeat = base.repeat;
     }
+    const last = keys[keys.length - 1];
+    if (last && last.pose === "rest") spec.land = true;
     return spec;
+  }
+  if (expr.kind === "motion") {
+    return specFromEvaluated({
+      kind: "motion",
+      ...(expr.timing ? { timing: evalValue(expr.timing) } : {}),
+      pose: evalValue(expr.pose),
+    });
   }
   return specFromEvaluated(evalValue(expr));
 }
@@ -403,8 +423,12 @@ function readOverlaySnapshot(el: Element, restOpacity: number): MotionSnapshot {
   if (!("style" in el)) return ident;
   const style = (el as HTMLElement).style;
   const out: MotionSnapshot = { ...ident };
-  const op = Number(style.opacity);
-  if (Number.isFinite(op)) out.opacity = op;
+  // Number('') === 0 — virgin nodes have empty opacity; keep identity, don't vanish.
+  const rawOp = style.opacity;
+  if (rawOp != null && String(rawOp).trim() !== "") {
+    const op = Number(rawOp);
+    if (Number.isFinite(op)) out.opacity = op;
+  }
   const t = style.transform || "";
   const tr = /translate\(\s*([-0-9.]+)px\s*,\s*([-0-9.]+)px\s*\)/.exec(t);
   if (tr) {
@@ -517,8 +541,16 @@ export function playAnimationOnElement(
         : typeof spec.repeat === "number" && spec.repeat > 1
           ? spec.repeat
           : 1;
+    const ident = identitySnapshot(restOpacity);
     let iteration = 0;
     while (!cancelled && iteration < times) {
+      if (iteration > 0) {
+        current =
+          applyStart && spec.start != null
+            ? resolvePoseDest(spec.start, ident, restOpacity)
+            : { ...ident };
+        applySnapshotStyle(el, current, restOpacity);
+      }
       iteration += 1;
       for (let i = 0; i < spec.keys.length; i++) {
         if (cancelled) break;

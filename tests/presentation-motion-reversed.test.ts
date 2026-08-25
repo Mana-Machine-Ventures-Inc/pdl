@@ -1,14 +1,10 @@
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { buildResolvedTokenMap } from "../src/evaluate.js";
-import { loadDesign } from "../src/loadDesign.js";
+import { fx, tokenMap } from "./helpers/rustFixtures.js";
 
-const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const ENTRY = resolve(__dirname, "../test-fixtures/pdl/lab/nav/reversed_ease.pdl");
+const ENTRY = fx("lab/nav/reversed_ease.pdl");
 
 function tokens() {
-  return buildResolvedTokenMap(loadDesign(ENTRY));
+  return tokenMap(ENTRY);
 }
 
 describe("PresentationMotion .reversed ease", () => {
@@ -115,8 +111,7 @@ describe("PresentationMotion .reversed ease", () => {
   });
 
   it("evaluates n8_keys cardToss Animation keys", () => {
-    const design = loadDesign(resolve(__dirname, "../test-fixtures/pdl/lab/nav/n8_keys.pdl"));
-    const toss = buildResolvedTokenMap(design).get("motion.cardToss") as {
+    const toss = tokenMap(fx("lab/nav/n8_keys.pdl")).get("motion.cardToss") as {
       incoming?: { keys?: unknown[]; start?: unknown };
       outgoing?: { keys?: unknown[] };
     };

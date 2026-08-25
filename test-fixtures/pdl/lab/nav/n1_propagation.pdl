@@ -1,6 +1,5 @@
 // N1 — emits(propagation:). Catalogue stamps `.ancestors`; omits `.parent`.
 // EpisodeRow / DeepLink are not mounted under a screen (E053). Chip + Button are.
-// Not on the TS oracle manifest.
 
 variant EpisodeId { case demo }
 variant FilterId { case all }

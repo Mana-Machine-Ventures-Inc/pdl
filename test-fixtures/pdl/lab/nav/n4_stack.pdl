@@ -1,6 +1,5 @@
 // N4 — Presenter stack: push / pop + fixture pin.
 // Screen receives <ShowEpisode, AppNav>. Capture commands the presenter let.
-// Not on the TS oracle manifest.
 
 variant EpisodeId { case demo case late }
 

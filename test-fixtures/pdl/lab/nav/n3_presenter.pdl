@@ -1,6 +1,5 @@
 // N3 — Presenter(root:) + replace. Single painted child; not a stack.
 // Screen receives <ShowEpisode>. Capture commands the presenter let.
-// Not on the TS oracle manifest.
 
 variant EpisodeId { case demo case late }
 

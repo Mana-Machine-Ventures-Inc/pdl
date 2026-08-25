@@ -299,7 +299,10 @@ foreach-chrome
 (* Declared emit capture — handler assignment; not keyword `on`.
    Bare IDENT is ancestor capture (N2). IDENT.IDENT is child-let / ForEach binder.
    Not `Protocol.channel` and not `presenter.channel`.
-   Capture body may include `presenter.replace/push/present(Page(…))` and `pop` / `dismiss` (N5). *)
+   Capture body may include `presenter.replace/push/present(Page(…))` and `pop` / `dismiss` (N5).
+   Bare `animate =` here is land choreography for the rebake this capture causes; the scope is
+   the capturing component's own tree. `emit` re-fire and targeted `IDENT.animate =` are not
+   capture statements. *)
 emit-capture-handler
   ::= emit-channel [ '(' [ emit-arg { ',' emit-arg } [ ',' ] ] ')' ] '=' '{' { handler-statement | presenter-verb } '}' ;
 
@@ -435,9 +438,19 @@ param-assignment
    `IDENT.animate =` plays on that let (`data-pdl-id`). `self.animate =` ≡ bare.
    Multiple animate statements in one handler run concurrently (independent clocks). *)
 animate-statement
-  ::= 'animate' '=' value-expr
-    | IDENT '.' 'animate' '=' value-expr
-    | 'self' '.' 'animate' '=' value-expr
+  ::= 'animate' '=' animate-rhs
+    | IDENT '.' 'animate' '=' animate-rhs
+    | 'self' '.' 'animate' '=' animate-rhs
+    ;
+
+(* Handler land / choreography RHS — Pose-list sugar desugars to Animation(keys:). *)
+animate-rhs
+  ::= '[' pose-or-rest { ',' pose-or-rest } ']'
+    | value-expr
+    ;
+
+pose-or-rest
+  ::= value-expr
     ;
 (* 21.8 Companion blocks and typed samples *)
 fixtures-decl
@@ -641,7 +654,9 @@ pose-arg
 stagger-literal
   ::= 'Stagger' '(' 'step' ':' value-expr [ ',' 'from' ':' ( '.first' | '.last' ) ] ')' ;
 
-(* Segment: one clock + destination pose. Not an animate = value. *)
+(* Segment: clock + destination pose. `pose:` optional → `.rest` (handler land sugar:
+   `animate = Motion(duration:, ease:)` desugars to Animation(keys: [that Motion])).
+   Motion with a non-rest pose is not a valid bare `animate =` value. *)
 motion-literal
   ::= 'Motion' '(' motion-args ')' ;
 

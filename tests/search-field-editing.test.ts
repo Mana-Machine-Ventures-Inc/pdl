@@ -3,32 +3,20 @@
  * Regression: dispatchSelf marked previewHandled via dual-bake "rest", so
  * isEditing flipped in the param bag but border/background/placeholder stayed idle.
  */
-import { spawnSync } from "node:child_process";
 import { Window } from "happy-dom";
 import { describe, expect, it } from "vitest";
+import {
+  bakeComponent as rustBake,
+  catalogue as rustCatalogue,
+} from "./helpers/rustFixtures.js";
 import { renderBakedDesignToHtmlDocumentWithReport } from "../src/renderHtml.js";
 
 const ENTRY = "test-fixtures/pdl/systems/playlist-composer-lite/design.pdl";
 
-function catalogue() {
-  const cat = spawnSync("cargo", ["run", "-q", "-p", "pdl-cli", "--", "catalogue", ENTRY], {
-    encoding: "utf8",
-  });
-  if (cat.status !== 0) throw new Error(cat.stderr || "catalogue failed");
-  return JSON.parse(cat.stdout) as {
-    components: Record<string, { interactions?: unknown; emitCaptures?: unknown }>;
-  };
-}
+const catalogue = () => rustCatalogue(ENTRY) as never;
 
-function bakeSearchField(overrides: string[] = []) {
-  const r = spawnSync(
-    "cargo",
-    ["run", "-q", "-p", "pdl-cli", "--", "bakeComponent", ENTRY, "SearchField", ...overrides],
-    { encoding: "utf8" },
-  );
-  if (r.status !== 0) throw new Error(r.stderr || "bake failed");
-  return JSON.parse(r.stdout);
-}
+const bakeSearchField = (overrides: string[] = []) =>
+  rustBake(ENTRY, "SearchField", { params: overrides });
 
 async function mountInteractive(bake: unknown) {
   const cat = catalogue();
@@ -62,15 +50,8 @@ async function mountInteractive(bake: unknown) {
   return { window, document, html, messages };
 }
 
-function bakeComposer(overrides: string[] = []) {
-  const r = spawnSync(
-    "cargo",
-    ["run", "-q", "-p", "pdl-cli", "--", "bakeComponent", ENTRY, "PlaylistComposer", ...overrides],
-    { encoding: "utf8" },
-  );
-  if (r.status !== 0) throw new Error(r.stderr || "composer bake failed");
-  return JSON.parse(r.stdout);
-}
+const bakeComposer = (overrides: string[] = []) =>
+  rustBake(ENTRY, "PlaylistComposer", { params: overrides });
 
 describe("SearchField root editing chrome", () => {
   it("bake isEditing=true uses accent border + #000 background (no placeholder)", () => {

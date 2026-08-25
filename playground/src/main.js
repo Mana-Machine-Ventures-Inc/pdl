@@ -46,6 +46,8 @@ import {
   reconcileBakedInstanceIntoElement,
 } from "@pdl/bakeReconcile.ts";
 import { collectEditableSessionDefaults } from "@pdl/renderHtml.ts";
+import { playAnimationOnElement } from "@pdl/applyMotion.ts";
+import { armChoreographyLand, playChoreographyLand, normalizeChoreoSession } from "@pdl/stateChoreography.ts";
 
 /** Synthetic pack id for browser-only scratch (never mixed with disk fixture packs). */
 const SCRATCH_PACK_ID = "__scratch__";
@@ -2140,7 +2142,8 @@ function setWorkspaceMode(mode) {
 }
 
 function setEngineValue(eng) {
-  const v = eng === "ts" || eng === "rust" ? eng : "wasm";
+  // A saved draft may still name the retired TypeScript engine; it maps to WASM.
+  const v = eng === "rust" ? eng : "wasm";
   const radio = document.querySelector(`input[name="engine"][value="${v}"]`);
   if (radio) radio.checked = true;
   syncEngineBadge();
@@ -2155,14 +2158,10 @@ function syncEngineBadge() {
     badge.textContent = "Rust WASM";
     badge.classList.add("badge-wasm");
     badge.title = "In-browser bake (default · fast)";
-  } else if (eng === "rust") {
+  } else {
     badge.textContent = "Rust CLI";
     badge.classList.add("badge-rust");
     badge.title = "Spawns pdl per bake — slower for interaction";
-  } else {
-    badge.textContent = "TypeScript";
-    badge.classList.add("badge-muted");
-    badge.title = "TS oracle bake";
   }
 }
 
@@ -2375,8 +2374,7 @@ async function restoreDraft(draft) {
 
 function selectedEngine() {
   const v = document.querySelector('input[name="engine"]:checked')?.value;
-  if (v === "ts" || v === "rust") return v;
-  return "wasm";
+  return v === "rust" ? "rust" : "wasm";
 }
 
 function selectedVariantView() {
@@ -3288,6 +3286,40 @@ function previewSection(doc, owner) {
   return doc.querySelector(`section.pdl-preview[data-pdl-component="${CSS.escape(owner)}"]`);
 }
 
+function choreographySession(data) {
+  return normalizeChoreoSession(data?.choreography);
+}
+
+/** Arm the land transition before Last is painted so fills tween through reconcile. */
+function armChoreographyIfPresent(data, scopeEl) {
+  const session = choreographySession(data);
+  if (!session) return;
+  const doc = frame.contentDocument;
+  if (!doc) return;
+  armChoreographyLand(scopeEl || doc, session);
+}
+
+function applyChoreographyIfPresent(data, scopeEl) {
+  const session = choreographySession(data);
+  if (!session) return;
+  const doc = frame.contentDocument;
+  if (!doc) return;
+  const scope = scopeEl || doc;
+  playChoreographyLand(scope, session, {
+    targetEl: null,
+    playFlourish: (el, spec) => {
+      const h = playAnimationOnElement(
+        /** @type {HTMLElement & { animate: (k: Keyframe[], o?: KeyframeAnimationOptions) => Animation }} */ (
+          el
+        ),
+        spec,
+        { applyStart: false },
+      );
+      return h ?? null;
+    },
+  });
+}
+
 async function applyInstanceResolve(data, token) {
   const doc = frame.contentDocument;
   if (!doc || !previewDocumentLive) return;
@@ -3298,6 +3330,12 @@ async function applyInstanceResolve(data, token) {
     data.childParams && typeof data.childParams === "object" && !Array.isArray(data.childParams)
       ? /** @type {Record<string, unknown>} */ (data.childParams)
       : {};
+  const prevChildParams =
+    data.prevChildParams &&
+    typeof data.prevChildParams === "object" &&
+    !Array.isArray(data.prevChildParams)
+      ? /** @type {Record<string, unknown>} */ (data.prevChildParams)
+      : null;
   if (!childComponent) return;
   const key = instanceResolveKey(data);
   if (instanceResolveToken.get(key) !== token) return;
@@ -3326,6 +3364,7 @@ async function applyInstanceResolve(data, token) {
       root: baked.root,
       bakedParams: baked.bakedParams ?? childParams,
     };
+    armChoreographyIfPresent(data, canvas);
     const ok = reconcileBakedComponentIntoCanvas(canvas, prevComp, nextComp, {
       sessionParams: childParams,
       prevSessionParams:
@@ -3349,6 +3388,7 @@ async function applyInstanceResolve(data, token) {
     setStatus(
       `Instance resolve · ${childComponent}#${owner}${reason ? ` · ${reason}` : ""}`,
     );
+    applyChoreographyIfPresent(data, canvas);
     return;
   }
 
@@ -3356,6 +3396,16 @@ async function applyInstanceResolve(data, token) {
     `[data-pdl-instance-let="${CSS.escape(instanceLet)}"]`,
   );
   if (!node) return;
+
+  /** @type {Record<string, unknown> | undefined} */
+  let prevKwargs = prevChildParams ?? undefined;
+  if (!prevKwargs) {
+    try {
+      prevKwargs = JSON.parse(node.getAttribute("data-pdl-instance-kwargs") || "{}");
+    } catch {
+      prevKwargs = undefined;
+    }
+  }
 
   /** @type {object | null} */
   let prevRoot = null;
@@ -3365,16 +3415,15 @@ async function applyInstanceResolve(data, token) {
   } catch {
     prevRoot = null;
   }
-  /** @type {Record<string, unknown> | undefined} */
-  let prevKwargs;
-  try {
-    prevKwargs = JSON.parse(node.getAttribute("data-pdl-instance-kwargs") || "{}");
-  } catch {
-    prevKwargs = undefined;
+  if (!prevRoot && prevKwargs) {
+    const prevBaked = await bakeChildComponentForResolve(childComponent, prevKwargs);
+    if (instanceResolveToken.get(key) !== token) return;
+    if (prevBaked?.root) prevRoot = prevBaked.root;
   }
 
   if (instanceResolveToken.get(key) !== token) return;
 
+  armChoreographyIfPresent(data, section || node);
   const ok = reconcileBakedInstanceIntoElement(node, prevRoot, baked.root, {
     sessionParams: childParams,
     prevSessionParams: prevKwargs,
@@ -3396,6 +3445,7 @@ async function applyInstanceResolve(data, token) {
       reason ? ` · ${reason}` : ""
     }`,
   );
+  applyChoreographyIfPresent(data, section || node);
 }
 
 /**
@@ -4551,6 +4601,7 @@ window.addEventListener("message", (ev) => {
         }
         nextRenderIncremental = true;
         nextRenderOwnerOnly = true;
+        armChoreographyIfPresent(data, previewSection(frame.contentDocument, owner));
         await runRender({ debounced: false });
         if (pairMove && outgoingSnap) {
           activePairClip = startPresenterPairClip(
@@ -4560,6 +4611,8 @@ window.addEventListener("message", (ev) => {
             owner,
           );
         }
+        const sectionAfter = previewSection(frame.contentDocument, owner);
+        applyChoreographyIfPresent(data, sectionAfter || frame.contentDocument);
       }
     })();
   }

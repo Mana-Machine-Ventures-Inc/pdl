@@ -423,6 +423,164 @@ component Demo <PointerInput>() layout {
 }
 
 #[test]
+fn handler_land_clock_only_motion_and_pose_list_sugar() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::{build_component_catalogue, SourceMap};
+    let src = r#"
+component LandClock <PointerInput>() layout {
+  self.pressEnd = {
+    animate = Motion(duration: 220, ease: .out)
+    emit flip()
+  }
+} emits {
+  flip()
+}
+
+component LandList <PointerInput>() layout {
+  self.pressEnd = {
+    animate = [
+      Pose(scale: 1.2),
+      Pose(scale: 0.92),
+      .rest
+    ]
+    emit flip()
+  }
+} emits {
+  flip()
+}
+"#;
+    let mut files = SourceMap::new();
+    files.insert("land.pdl".into(), src.into());
+    let design = load_design_from_sources("land.pdl", &files).expect("load");
+    let cat =
+        build_component_catalogue(&design, None, &[], Some("2026-01-01T00:00:00.000Z".into()))
+            .expect("catalogue");
+
+    let clock = &cat["components"]["LandClock"]["interactions"][0]["handlers"][0]["animation"];
+    assert_eq!(clock["land"], true);
+    assert_eq!(clock["keys"][0]["pose"], "rest");
+    assert_eq!(clock["keys"][0]["timing"]["duration"], 220.0);
+
+    let list = &cat["components"]["LandList"]["interactions"][0]["handlers"][0]["animation"];
+    assert_eq!(list["land"], true);
+    assert_eq!(list["keys"].as_array().unwrap().len(), 3);
+    assert_eq!(list["keys"][0]["pose"]["scale"], 1.2);
+    assert_eq!(list["keys"][2]["pose"], "rest");
+    assert_eq!(list["keys"][0]["timing"]["duration"], 200.0);
+}
+
+#[test]
+fn handler_land_rejects_motion_with_flourish_pose() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let src = r#"
+component BadFlourish <PointerInput>() layout {
+  self.pressEnd = {
+    animate = Motion(duration: 200, ease: .out, pose: Pose(scale: 1.1))
+  }
+}
+"#;
+    let mut files = SourceMap::new();
+    files.insert("bad.pdl".into(), src.into());
+    let err = load_design_from_sources("bad.pdl", &files).expect_err("should reject");
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("flourish") || msg.contains("PDL-E005") || msg.contains("Animation"),
+        "unexpected error: {msg}"
+    );
+}
+
+#[test]
+fn emit_capture_animate_catalogues_a_land_clip() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::{build_component_catalogue, SourceMap};
+    let src = r#"
+component Dot <PointerInput>(page: Number = 1, selected: Bool = false) layout {
+  width = 8
+  height = 8
+
+  self.pressEnd = {
+    emit select(page)
+  }
+} emits {
+  select(page: Number)
+}
+
+component Control(currentPage: Number = 1) layout {
+  direction = .row
+
+  let dots: [Dot] = Map(1...3) { i in
+    Dot(page: i)
+  }
+
+  ForEach(dots) { dot in
+    dot.selected = self.currentPage == page
+    dot.select(page: Number) = {
+      animate = Motion(duration: 500, ease: .linear)
+      currentPage = page
+    }
+  }
+
+  children = dots
+}
+"#;
+    let mut files = SourceMap::new();
+    files.insert("cap.pdl".into(), src.into());
+    let design = load_design_from_sources("cap.pdl", &files).expect("load");
+    let cat =
+        build_component_catalogue(&design, None, &[], Some("2026-01-01T00:00:00.000Z".into()))
+            .expect("catalogue");
+    let cap = &cat["components"]["Control"]["emitCaptures"][0];
+    assert_eq!(cap["channel"], "select");
+    assert_eq!(cap["animation"]["land"], true);
+    assert_eq!(cap["animation"]["keys"][0]["pose"], "rest");
+    assert_eq!(cap["animation"]["keys"][0]["timing"]["duration"], 500.0);
+    assert_eq!(cap["animation"]["keys"][0]["timing"]["ease"], "linear");
+    // Body keeps the statement so the param assign still runs after the clip is read.
+    assert_eq!(cap["body"][0]["kind"], "animate");
+    assert_eq!(cap["body"][1]["kind"], "assign");
+    assert_eq!(cap["body"][1]["param"], "currentPage");
+}
+
+#[test]
+fn emit_capture_animate_rejects_a_flourish_only_motion() {
+    use pdl_core::design::load_design_from_sources;
+    use pdl_core::SourceMap;
+    let src = r#"
+component Dot <PointerInput>(page: Number = 1) layout {
+  self.pressEnd = {
+    emit select(page)
+  }
+} emits {
+  select(page: Number)
+}
+
+component Control(currentPage: Number = 1) layout {
+  let dots: [Dot] = Map(1...3) { i in
+    Dot(page: i)
+  }
+
+  ForEach(dots) { dot in
+    dot.select(page: Number) = {
+      animate = Motion(duration: 500, ease: .linear, pose: Pose(scale: 1.1))
+      currentPage = page
+    }
+  }
+
+  children = dots
+}
+"#;
+    let mut files = SourceMap::new();
+    files.insert("cap.pdl".into(), src.into());
+    let err = load_design_from_sources("cap.pdl", &files).expect_err("should reject");
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("flourish") || msg.contains("PDL-E005") || msg.contains("Animation"),
+        "unexpected error: {msg}"
+    );
+}
+
+#[test]
 fn motion_lab_catalogue_evaluates_snapshots() {
     use pdl_core::{build_component_catalogue, load_design};
     let path = repo_root().join("test-fixtures/pdl/lab/motion/design.pdl");

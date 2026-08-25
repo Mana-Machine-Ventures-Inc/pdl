@@ -2,31 +2,42 @@
 
 **New to the language?** [Public docs](https://mana-machine-ventures-inc.github.io/pdl/) (`npm run docs:dev` locally): guide, language objects, diagnostics. Binding lock files: **`shared/*.json`**, **`grammar/pdl.ebnf`**, and fixtures. This README is the **compiler repo**.
 
-- **TypeScript** (`src/`) — current reference CLI / oracle (`npm test`)  
-- **Rust** (`crates/pdl-core`, `crates/pdl-cli`) — portable core + JSON CLI (`cargo test -p pdl-core`, `cargo run -q -p pdl-cli -- …`); see **`docs/IMPLEMENTATION_PLAN.md`**
+- **Rust** (`crates/pdl-core`, `crates/pdl-cli`, `crates/pdl-wasm`) — **the compiler**: lexer, parser, merge, validate, resolve, bake, catalogue (`cargo test -p pdl-core`, `cargo run -q -p pdl-cli -- …`); see **`docs/IMPLEMENTATION_PLAN.md`**
+- **TypeScript** (`src/`) — **the host**: HTML emitter, motion/choreography runtime, rules evaluation, manifest. It consumes bake / catalogue / tokens JSON and never parses `.pdl` (`npm test`)
+
+The TypeScript parser (the “oracle” the Rust port was checked against) is retired: Rust is the only implementation of the language.
 
 ## Commands
 
-After `npm install`, use the npm scripts below (each runs **`tsc`** first so **`dist/`** matches **`src/`**). To call **`node dist/cli.js …`** directly, run **`npm run build`** (or **`tsc`**) whenever TypeScript sources change.
+Compile with the Rust CLI, then render its JSON with the TypeScript host.
+
+### Compile (Rust)
+
+`cargo run -q -p pdl-cli -- <cmd>` — or `npm run pdl:rust -- <cmd>`, or `./target/debug/pdl` after `npm run build:rust`.
 
 | Command | Description |
 |---------|-------------|
-| `npm run graphSystem --silent -- <entry.pdl> [--out file.json]` | **Component Catalogue** — same graph shapes as a resolve **`system`** slice (full **`primitives`**, **`semantics`**, **`themes`**, **`typeStyles`**, **`variantTypes`**, components): token **`definition`**s and **`typeStyle`** **`props`** use **`primitive:`** / **`semantic:`** pointers; bake output is the literal-tree counterpart (`shared/schema/component-catalogue.json`). Entry only; **no** `--theme`. |
-| `npm run graphComponent --silent -- <entry.pdl> <Component> [--theme Name] [--out file.json] [key=value …]` | **Component slice** — **`resolvedComponent`** JSON (`shared/schema/resolved-component.json`): trimmed **`system`** + one catalogue row. |
-| `npm run bakeSystem --silent -- <entry.pdl> [--theme Name] [--out file.json]` | **Baked system** — every component at default params, literal trees only (`shared/schema/baked-design.json`). |
-| `npm run bakeComponent --silent -- <entry.pdl> <Component> [--theme Name] [--out file.json] [key=value …]` | **Baked instance** — one component, optional param overrides (`shared/schema/baked-design.json`). |
-| `npm run manifest --silent -- <entry.pdl> [--out file.json]` | Thin **design manifest** JSON (registry only — not a catalogue substitute). |
-| `npm run renderHtml --silent -- <entry.pdl> <Component> [--theme Name] [--out file.html] [key=value …]` | **Bake → HTML5** for one component; optional **`--system`** instead of a component name for a full-library gallery. |
-| `npm run renderHtmlFromBake --silent -- <baked.json> [--component Name] [--out file.html]` | **HTML5 from bake JSON** — use Rust (or TS) `bake*` / `bakePack` output without re-parsing `.pdl`. |
-| `npm run preview --silent -- <entry.pdl> <Component> [opts]` | **Live watch → Rust bake → HTML** with livereload (`scripts/preview-server.mjs`). Eng stress harness — edit in your IDE. |
-| `npm run playground` | **PDL Playground** (P0–P5) — file canvas + editor + HTML preview (`playground/`). Demo/lab, not Studio. |
-| `npm run renderCatalogueHtml --silent -- <entry.pdl> [--theme Name] [--out file.html]` | **Catalogue + bake → HTML5** reference page (`src/renderCatalogueHtml.ts`). |
-| `npm run catalogue --silent -- <entry.pdl> [--theme Name] [--out file.json]` | Same JSON shape as **graphSystem**, but allows **`--theme`** for **tree** resolution (`shared/schema/component-catalogue.json`). |
-| `npm run resolve --silent -- <entry.pdl> <Component> [--tree-only] [--theme Name] [key=value …]` | Legacy: **`resolvedComponent`** (default) or bare **`CatalFrame`** with **`--tree-only`**. Prefer **graphComponent** / **bakeComponent** for new tooling. |
+| `bakeSystem <entry.pdl> [--theme Name] [--host Name] [--hostFacts json] [--out f.json]` | **Baked system** — every component at default params, literal trees only (`shared/schema/baked-design.json`). |
+| `bakeComponent <entry.pdl> <Component> [--theme Name] [--presenterPins json] [--out f.json] [key=value …]` | **Baked instance** — one component, optional param overrides. |
+| `bakePack <entry.pdl> <pack.json> [--out f.json]` | Baked **injection pack** (protocols). `validatePack` checks one without baking. |
+| `catalogue <entry.pdl> [--theme Name] [--out f.json]` | **Component Catalogue** — tokens, themes, `typeStyle`s, variants, params, `usage` / `fixtures` / `rules` / `interactions` / `emitCaptures` (`shared/schema/component-catalogue.json`). |
+| `tokens <entry.pdl> [--theme Name] [--out f.json]` | **Resolved token map** + module paths + preview background. |
+| `graphSystem <entry.pdl>` / `graphComponent <entry.pdl> <Component>` | Pointer-form graph slices (`shared/schema/resolved-component.json`). |
+| `resolve <entry.pdl> <Component> [--tree-only] [--theme Name]` | Legacy `resolvedComponent` / bare `CatalFrame`. Prefer `bakeComponent`. |
 
-`npm test` runs the Vitest suite. `npm run test:rust` runs `cargo test -p pdl-core`.  
-`npm run pdl:rust -- <cmd> …` runs the Rust `pdl` CLI (same bake/graph/catalogue/resolve shapes as the TS CLI).  
-`npm run test:dual` compares TS vs Rust bake/graph JSON (volatiles pinned).
+### Render (TypeScript host)
+
+Each npm script runs **`tsc`** first so **`dist/`** matches **`src/`** (run **`npm run build`** yourself before calling **`node dist/cli.js …`** directly). Inputs are the JSON above — the host does not read `.pdl`.
+
+| Command | Description |
+|---------|-------------|
+| `npm run renderHtmlFromBake --silent -- <baked.json> [--catalogue cat.json] [--component Name] [--out f.html]` | **HTML5 from bake JSON**. With `--catalogue`, adds usage / rules / interactions to the page. |
+| `npm run renderCatalogueHtml --silent -- --from-bake <baked.json> --catalogue <cat.json> [--out f.html]` | **Catalogue reference page** (`src/renderCatalogueHtml.ts`). |
+| `npm run manifest --silent -- --catalogue <cat.json> [--tokens tokens.json] [--out f.json]` | Thin **design manifest** JSON (registry only — not a catalogue substitute). |
+| `npm run preview --silent -- <entry.pdl> <Component> [opts]` | **Live watch → Rust bake → HTML** with livereload (`scripts/preview-server.mjs`). Eng stress harness — edit in your IDE. |
+| `npm run playground` | **PDL Playground** — file canvas + editor + HTML preview (`playground/`). Demo/lab, not Studio. |
+
+`npm test` builds `dist/` **and** the Rust CLI, then runs Vitest: host tests take their bake / catalogue JSON from `pdl`. `npm run test:rust` runs `cargo test -p pdl-core` (language semantics and diagnostics live there).
 
 ### Live preview (edit → bake → HTML)
 
@@ -48,7 +59,7 @@ npm run preview -- test-fixtures/pdl/protocols/design.pdl \
 npm run preview -- test-fixtures/pdl/molecules/design.pdl --system
 ```
 
-Artifacts: `.tmp/preview.bake.json`, `.tmp/preview.html`. Compare engines with `--engine ts`.
+Artifacts: `.tmp/preview.bake.json`, `.tmp/preview.html`.
 
 ### PDL Playground (demo / language lab)
 
@@ -70,7 +81,7 @@ cargo run -q -p pdl-cli -- bakePack \
   test-fixtures/pdl/protocols/packs/modal_confirm.json \
   --out /tmp/modal.bake.json
 
-# 2) Render that artifact with the TS HTML emitter
+# 2) Render that artifact with the TypeScript host
 npm run renderHtmlFromBake --silent -- /tmp/modal.bake.json --out /tmp/modal.html
 open /tmp/modal.html
 ```
@@ -85,7 +96,7 @@ Same pattern with `bakeSystem` / `bakeComponent` for non-protocol designs.
 - **`test-fixtures/pdl/molecules/`** — **`molecules/design.pdl`** aggregates feature modules; **`m_companions.pdl`** (imported last) holds **`usage`**, **`fixtures`**, **`rules`**, and **`interaction`** examples for **`MoleculeTextButton`**, **`MoleculeCardArticle`**, and **`MoleculeFieldBlock`**.
 - **`test-fixtures/pdl/integration/`** — end-to-end and scenario entries: **`integration/design.pdl`** (atoms + molecules + merge chain), **`themed.pdl`**, **`greeting.pdl`**, **`merge_*.pdl`**, **`rules_tags_when.pdl`**, **`companion_*.pdl`**, **`status_banner.pdl`**, etc.
 - **`test-fixtures/pdl/protocols/`** — Rust B1–B5 fixtures (`design.pdl` imports modal + FilterChip). **`library_subnav.pdl`** exercises §4e `ForEach` / layout emit capture (parses + bakes in Rust; intentionally unimported from `design.pdl`).
-- **`test-fixtures/pdl/errors/`** — invalid PDL oracles (e.g. **`e041-unknown-sample-path.pdl`**).
+- **`test-fixtures/pdl/errors/`** — invalid PDL oracles (e.g. **`e041-unknown-sample-path.pdl`**); `crates/pdl-core/tests/error_fixtures.rs` asserts the code each filename names, so a new fixture is a new diagnostics test.
 
 ## Documentation
 

@@ -30,6 +30,11 @@ Open the pack in Playground (Project → **Motion**). The canvas is this file’
 | `MotionAppearThenPulse` | Appear fade, then standing pulse on the same opacity channel |
 | `PressPopButton` | Press shrinks + darkens; release pops forward (scale overshoot) onto a raised shadow |
 | `PressPopLab` | Soft gray stage for the press-pop stub |
+| `MotionTargetedDemo` | One press fires two `let.animate` tracks (box fast, label slow) |
+| `MotionParallelDance` | **Dance** button: release runs left/right orbs on independent multi-key clocks (translate + rotate + blur) |
+| `MotionRippleRisers` | **List chorus:** press a bar → solo hop on the pressed cell ∥ `risers.animate` lean/wobble on siblings ∥ 420ms teal land |
+
+`MotionRippleRisers` is the emit-capture list-chorus preset (`list.animate` + bare capture `animate`). Page-dot scale chorus also lives on `IosPageControl` in **ios26-lite**.
 
 Units: duration **ms**, translate/blur **px**, scale unitless, opacity / origin 0…1, rotate degrees.
 

@@ -1,10 +1,12 @@
 /**
  * n8 Phone: pressEnd posts push with an evaluated PresentationMotion.
  */
-import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import { Window } from "happy-dom";
 import { describe, expect, it } from "vitest";
+import {
+  bakeComponent as rustBake,
+  catalogue as rustCatalogue,
+} from "./helpers/rustFixtures.js";
 import {
   applyPresenterOps,
   refreshPinnedPairMoves,
@@ -13,25 +15,11 @@ import {
 import { renderBakedDesignToHtmlDocumentWithReport } from "../src/renderHtml.js";
 
 const ENTRY = "test-fixtures/pdl/lab/nav/n8_slide.pdl";
-const PDL = existsSync("target/debug/pdl")
-  ? ["target/debug/pdl"]
-  : ["cargo", "run", "-q", "-p", "pdl-cli", "--"];
 
-function pdl(args: string[]) {
-  const r = spawnSync(PDL[0]!, [...PDL.slice(1), ...args], { encoding: "utf8" });
-  if (r.status !== 0) throw new Error(r.stderr || r.stdout || args.join(" "));
-  return r.stdout;
-}
 
-function catalogue() {
-  return JSON.parse(pdl(["catalogue", ENTRY])) as {
-    components: Record<string, { interactions?: unknown; emitCaptures?: unknown }>;
-  };
-}
+const catalogue = () => rustCatalogue(ENTRY) as never;
 
-function bakePhone() {
-  return JSON.parse(pdl(["bakeComponent", ENTRY, "Phone"]));
-}
+const bakePhone = () => rustBake(ENTRY, "Phone");
 
 async function mountPhone() {
   const cat = catalogue();
@@ -72,15 +60,16 @@ describe("n8 Phone pair slide", () => {
     const cat = catalogue();
     const caps = (cat.components.Phone.emitCaptures ?? []) as Array<{
       channel?: string;
-      body?: Array<{ kind?: string; name?: string; move?: { kind?: string; ease?: string; incoming?: { translateX?: number } }; dismissMove?: { kind?: string; ease?: string; outgoing?: { translateX?: number } } }>;
+      body?: Array<{ kind?: string; name?: string; move?: { kind?: string; ease?: string; incoming?: { start?: { translateX?: number } } }; dismissMove?: { kind?: string; ease?: string; outgoing?: { start?: { translateX?: number } } } }>;
     }>;
     const show = caps.find((c) => c.channel === "showEpisode");
     const verb = show?.body?.find((b) => b.kind === "presenterVerb");
     expect(verb?.name).toBe("push");
     expect(verb?.move?.kind).toBe("presentationMotion");
-    expect(verb?.move?.incoming?.translateX).toBe(390);
+    // Pair slots evaluate to Animation clips — the offset lives on `start:`.
+    expect(verb?.move?.incoming?.start?.translateX).toBe(390);
     expect(verb?.dismissMove?.kind).toBe("presentationMotion");
-    expect(verb?.dismissMove?.outgoing?.translateX).toBe(390);
+    expect(verb?.dismissMove?.outgoing?.start?.translateX).toBe(390);
     expect(verb?.move?.ease).toBe("out");
     expect(verb?.dismissMove?.ease).toBe("in");
   }, 20_000);
@@ -118,12 +107,12 @@ describe("n8 Phone pair slide", () => {
     ) as {
       presenter: {
         stack: Array<{ component: string }>;
-        lastDismissMove?: { kind?: string; outgoing?: { translateX?: number } };
+        lastDismissMove?: { kind?: string; outgoing?: { start?: { translateX?: number } } };
       };
     };
     expect(pins.presenter.stack.map((e) => e.component)).toEqual(["Home", "Episode"]);
     expect(pins.presenter.lastDismissMove?.kind).toBe("presentationMotion");
-    expect(pins.presenter.lastDismissMove?.outgoing?.translateX).toBe(390);
+    expect(pins.presenter.lastDismissMove?.outgoing?.start?.translateX).toBe(390);
 
     const popMove = resolvePairMove([{ qualifier: "presenter", name: "pop" }], pins);
     expect(popMove && typeof popMove === "object" && (popMove as { kind?: string }).kind).toBe(

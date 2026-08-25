@@ -3,32 +3,20 @@
  * Regression: host passed instance-let (Root_LabChip_N) while catalogue
  * qualifies ForEach captures as the list name (`chips`) — capture missed.
  */
-import { spawnSync } from "node:child_process";
 import { Window } from "happy-dom";
 import { describe, expect, it } from "vitest";
+import {
+  bakeComponent as rustBake,
+  catalogue as rustCatalogue,
+} from "./helpers/rustFixtures.js";
 import { renderBakedDesignToHtmlDocumentWithReport } from "../src/renderHtml.js";
 
 const ENTRY = "test-fixtures/pdl/playground/lab_world_a.pdl";
 
-function catalogue() {
-  const cat = spawnSync("cargo", ["run", "-q", "-p", "pdl-cli", "--", "catalogue", ENTRY], {
-    encoding: "utf8",
-  });
-  if (cat.status !== 0) throw new Error(cat.stderr || "catalogue failed");
-  return JSON.parse(cat.stdout) as {
-    components: Record<string, { interactions?: unknown; emitCaptures?: unknown }>;
-  };
-}
+const catalogue = () => rustCatalogue(ENTRY) as never;
 
-function bakeLabBar(overrides: string[] = []) {
-  const r = spawnSync(
-    "cargo",
-    ["run", "-q", "-p", "pdl-cli", "--", "bakeComponent", ENTRY, "LabBar", ...overrides],
-    { encoding: "utf8" },
-  );
-  if (r.status !== 0) throw new Error(r.stderr || "bake failed");
-  return JSON.parse(r.stdout);
-}
+const bakeLabBar = (overrides: string[] = []) =>
+  rustBake(ENTRY, "LabBar", { params: overrides });
 
 async function mountInteractive(bake: unknown) {
   const cat = catalogue();

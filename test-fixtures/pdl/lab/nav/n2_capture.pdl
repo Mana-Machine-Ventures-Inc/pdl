@@ -1,6 +1,5 @@
 // N2 — bare ancestor capture. Screen receives <ShowEpisode>; EpisodeRow sends.
 // Handler assigns an ordinary param (Presenter verbs are N3).
-// Not on the TS oracle manifest.
 
 variant EpisodeId { case demo case late }
 

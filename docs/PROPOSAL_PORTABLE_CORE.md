@@ -1,8 +1,8 @@
 # Proposal: Portable PDL Core & Native Instantiation
 
-**Status:** accepted (2026-08-05) — not yet shipped; TypeScript remains the reference oracle until Rust parity  
+**Status:** accepted (2026-08-05) — **shipped** (2026-08-20): Rust is the only compiler; the TypeScript oracle is retired and `src/` is host-only  
 **Schema / reference:** `shared/schema/*.json` (`1.0.0-beta`). **Superseded as binding spec** by lock files; this proposal is design history.  
-**Related:** `docs/manifesto.md`, current TypeScript toolchain in `src/`  
+**Related:** `docs/manifesto.md`, TypeScript host in `src/`  
 **Follow-on:** `docs/PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md` (protocols, `[T]` slots, dual fixtures, emits)  
 **Implementation:** `docs/IMPLEMENTATION_PLAN.md`, crate `crates/pdl-core`
 
@@ -78,7 +78,7 @@ Derived bake/catalogue JSON may fly on the wire for speed, but it is a **cache**
 | Role | Language | Notes |
 |------|----------|--------|
 | **Long-term portable core** | **Rust** | Parse/merge/validate/bake; C ABI for embeddings |
-| **Reference / studio / CLI (near term)** | **TypeScript** (this repo) | Conformance oracle until Rust matches goldens |
+| **Reference / studio / CLI (near term)** | **TypeScript** (this repo) | Was the conformance oracle; retired 2026-08-20 once Rust matched the goldens |
 | **View runtimes** | Swift / Kotlin / TS | Never inside the core |
 
 ### Why Rust (not C / C++)

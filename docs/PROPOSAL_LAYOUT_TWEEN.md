@@ -1,6 +1,6 @@
 # Proposal: Layout tween (`layout: .match`) + shared `match:` identity
 
-**Status:** proposed (2026-08-19) — **author surface amended** by [`PROPOSAL_STATE_CHOREOGRAPHY.md`](./PROPOSAL_STATE_CHOREOGRAPHY.md) (`.nextRest` + host triage; do not teach authors `.paint` vs `.match`)  
+**Status:** proposed (2026-08-19) — **author surface amended** by [`PROPOSAL_STATE_CHOREOGRAPHY.md`](./PROPOSAL_STATE_CHOREOGRAPHY.md) (`.rest` = handler-finished bake + host triage; do not teach authors `.paint` vs `.match`)  
 **Motivating packs:** `test-fixtures/pdl/systems/ios26-lite` (`IosToggle` thumb; later photo → detail)  
 **Depends on:** tree tween vs pose track ([`PROPOSAL_MOTION_PLAY.md`](./PROPOSAL_MOTION_PLAY.md)); Presenter two-node lane + `PresentationMotion` ([`PROPOSAL_ROUTING_PAGES_SCREENS.md`](./PROPOSAL_ROUTING_PAGES_SCREENS.md) §16, N8)  
 **Role after choreography proposal:** this doc is the **FLIP / identity engine**; choreography is how authors steer state transitions.  

@@ -3,45 +3,20 @@
  * Regression: when Input is a bare <input> (no wrapper), querySelector missed self
  * and finishEditing emitted the stale kwargs draft.
  */
-import { spawnSync } from "node:child_process";
 import { Window } from "happy-dom";
 import { describe, expect, it } from "vitest";
+import {
+  bakeComponent as rustBake,
+  catalogue as rustCatalogue,
+} from "./helpers/rustFixtures.js";
 import { renderBakedDesignToHtmlDocumentWithReport } from "../src/renderHtml.js";
 
-function catalogueLab() {
-  const cat = spawnSync(
-    "cargo",
-    ["run", "-q", "-p", "pdl-cli", "--", "catalogue", "test-fixtures/pdl/playground/lab_editable_text.pdl"],
-    { encoding: "utf8" },
-  );
-  if (cat.status !== 0) throw new Error(cat.stderr || "catalogue failed");
-  return JSON.parse(cat.stdout) as {
-    components: Record<
-      string,
-      { interactions?: unknown; emitCaptures?: unknown }
-    >;
-  };
-}
+const ENTRY = "test-fixtures/pdl/playground/lab_editable_text.pdl";
 
-function bakeNoteEditor(overrides: string[]) {
-  const r = spawnSync(
-    "cargo",
-    [
-      "run",
-      "-q",
-      "-p",
-      "pdl-cli",
-      "--",
-      "bakeComponent",
-      "test-fixtures/pdl/playground/lab_editable_text.pdl",
-      "NoteEditor",
-      ...overrides,
-    ],
-    { encoding: "utf8" },
-  );
-  if (r.status !== 0) throw new Error(r.stderr || "bake failed");
-  return JSON.parse(r.stdout);
-}
+const catalogueLab = () => rustCatalogue(ENTRY) as never;
+
+const bakeNoteEditor = (overrides: string[]) =>
+  rustBake(ENTRY, "NoteEditor", { params: overrides });
 
 async function mountInteractive(bake: unknown) {
   const catalogue = catalogueLab();

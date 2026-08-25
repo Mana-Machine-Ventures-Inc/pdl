@@ -43,38 +43,40 @@ table.pdl-data tr:last-child td { border-bottom: none; }
 `.trim();
 
 function tokenTableRows(
-  map: Record<string, { name: string; tokenType: string; definition: unknown }>,
+  map: Record<string, { name: string; tokenType: string; definition: unknown }> | undefined,
 ): string {
-  const names = Object.keys(map).sort();
+  const names = Object.keys(map ?? {}).sort();
   if (names.length === 0) {
     return `<p class="pdl-empty-note">No entries.</p>`;
   }
   const body = names
     .map((k) => {
-      const row = map[k]!;
+      const row = map![k]!;
       return `<tr><td><code>${escapeHtml(row.name)}</code></td><td>${escapeHtml(row.tokenType)}</td><td><pre class="pdl-json">${prettyJson(row.definition)}</pre></td></tr>`;
     })
     .join("\n");
   return `<div class="pdl-table-wrap"><table class="pdl-data"><thead><tr><th>Name</th><th>Type</th><th>Definition</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
-function themesSection(themes: Record<string, { baseTheme: string | null; overrides: Record<string, unknown> }>): string {
-  const names = Object.keys(themes).sort();
+function themesSection(
+  themes: Record<string, { baseTheme: string | null; overrides?: Record<string, unknown> }> | undefined,
+): string {
+  const names = Object.keys(themes ?? {}).sort();
   if (names.length === 0) {
     return `<p class="pdl-empty-note">No themes.</p>`;
   }
   return names
     .map((t) => {
-      const row = themes[t]!;
-      const ov = Object.keys(row.overrides).sort();
+      const row = themes![t]!;
+      const ov = Object.keys(row.overrides ?? {}).sort();
       const ovRows = ov
         .map(
           (lhs) =>
-            `<tr><td><code>${escapeHtml(lhs)}</code></td><td><pre class="pdl-json">${prettyJson(row.overrides[lhs])}</pre></td></tr>`,
+            `<tr><td><code>${escapeHtml(lhs)}</code></td><td><pre class="pdl-json">${prettyJson(row.overrides?.[lhs])}</pre></td></tr>`,
         )
         .join("");
       const base =
-        row.baseTheme === null
+        !row.baseTheme
           ? `<span class="pdl-muted">base: (none)</span>`
           : `<span class="pdl-muted">base:</span> <code>${escapeHtml(row.baseTheme)}</code>`;
       return `<div class="pdl-theme-card"><h3>${escapeHtml(t)}</h3><p>${base}</p><div class="pdl-table-wrap"><table class="pdl-data"><thead><tr><th>Token</th><th>Override RHS</th></tr></thead><tbody>${ovRows || `<tr><td colspan="2" class="pdl-muted">No overrides</td></tr>`}</tbody></table></div></div>`;
@@ -82,27 +84,31 @@ function themesSection(themes: Record<string, { baseTheme: string | null; overri
     .join("\n");
 }
 
-function typeStylesSection(typeStyles: Record<string, { name: string; props: Record<string, unknown> }>): string {
-  const names = Object.keys(typeStyles).sort();
+function typeStylesSection(
+  typeStyles: Record<string, { name: string; props: Record<string, unknown> }> | undefined,
+): string {
+  const names = Object.keys(typeStyles ?? {}).sort();
   if (names.length === 0) {
     return `<p class="pdl-empty-note">No type styles.</p>`;
   }
   return names
     .map((n) => {
-      const row = typeStyles[n]!;
+      const row = typeStyles![n]!;
       return `<div class="pdl-theme-card"><h3><code>${escapeHtml(row.name)}</code></h3><pre class="pdl-json">${prettyJson(row.props)}</pre></div>`;
     })
     .join("\n");
 }
 
-function variantTypesSection(variantTypes: Record<string, { name: string; cases: string[] }>): string {
-  const names = Object.keys(variantTypes).sort();
+function variantTypesSection(
+  variantTypes: Record<string, { name: string; cases: string[] }> | undefined,
+): string {
+  const names = Object.keys(variantTypes ?? {}).sort();
   if (names.length === 0) {
     return `<p class="pdl-empty-note">No variant types.</p>`;
   }
   const rows = names
     .map((k) => {
-      const v = variantTypes[k]!;
+      const v = variantTypes![k]!;
       const cases = v.cases.map((c) => `<code>${escapeHtml(c)}</code>`).join(", ");
       return `<tr><td><code>${escapeHtml(v.name)}</code></td><td>${cases}</td></tr>`;
     })

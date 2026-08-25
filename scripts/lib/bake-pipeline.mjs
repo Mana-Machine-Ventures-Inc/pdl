@@ -1,14 +1,14 @@
 /**
  * Shared bake → HTML pipeline for live preview and playground.
- * Bake IR is the boundary; Rust is the default compiler under test.
+ * Bake IR is the boundary: Rust bakes, TypeScript renders the HTML.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 /**
- * @typedef {'rust' | 'ts'} BakeEngine
+ * @typedef {'rust'} BakeEngine
  * @typedef {'component' | 'system' | 'pack'} BakeMode
  *
  * @typedef {object} BakeRequest
@@ -129,20 +129,16 @@ function buildRustBakeCommand(req) {
 }
 
 /**
+ * Host-side renderer only — bake JSON in, HTML out.
  * @param {string} repoRoot
  */
-async function loadTsToolchain(repoRoot) {
-  const dist = join(repoRoot, "dist");
-  if (!existsSync(join(dist, "loadDesign.js"))) {
-    throw new Error(`Missing ${join(dist, "loadDesign.js")}. Run "npm run build" from the repo root.`);
+async function loadTsRenderer(repoRoot) {
+  const renderPath = join(repoRoot, "dist", "renderHtml.js");
+  if (!existsSync(renderPath)) {
+    throw new Error(`Missing ${renderPath}. Run "npm run build" from the repo root.`);
   }
-  const load = await import(pathToFileURL(join(dist, "loadDesign.js")).href);
-  const bake = await import(pathToFileURL(join(dist, "bakeDesign.js")).href);
-  const render = await import(pathToFileURL(join(dist, "renderHtml.js")).href);
+  const render = await import(pathToFileURL(renderPath).href);
   return {
-    loadDesign: load.loadDesign,
-    buildBakedDesignComponent: bake.buildBakedDesignComponent,
-    buildBakedDesignSystem: bake.buildBakedDesignSystem,
     renderBakedDesignToHtmlDocumentWithReport: render.renderBakedDesignToHtmlDocumentWithReport,
   };
 }
@@ -153,70 +149,43 @@ async function loadTsToolchain(repoRoot) {
  */
 export async function bakeAndRender(req) {
   const started = Date.now();
-  const engine = req.engine ?? "rust";
+  const engine = "rust";
   const bakePath = req.bakeOutPath ?? defaultBakeOut(req.repoRoot);
   mkdirSync(dirname(bakePath), { recursive: true });
 
   try {
-    /** @type {unknown} */
-    let baked;
-    /** @type {string | undefined} */
-    let stderr;
-
-    if (engine === "rust") {
-      const { cmd, args } = buildRustBakeCommand({ ...req, bakeOutPath: bakePath });
-      const r = spawnSync(cmd, args, {
-        cwd: req.repoRoot,
-        encoding: "utf8",
-        maxBuffer: 32 * 1024 * 1024,
-      });
-      stderr = (r.stderr || "") + (r.status !== 0 && r.stdout ? `\n${r.stdout}` : "");
-      if (r.status !== 0) {
-        return {
-          ok: false,
-          engine,
-          mode: req.mode,
-          bakePath,
-          error: (stderr || `Bake failed with exit ${r.status}`).trim(),
-          stderr: stderr?.trim() || undefined,
-          durationMs: Date.now() - started,
-        };
-      }
-      if (!existsSync(bakePath)) {
-        return {
-          ok: false,
-          engine,
-          mode: req.mode,
-          error: `Bake succeeded but output missing: ${bakePath}`,
-          stderr: stderr?.trim() || undefined,
-          durationMs: Date.now() - started,
-        };
-      }
-      baked = JSON.parse(readFileSync(bakePath, "utf8"));
-    } else {
-      if (req.mode === "pack") {
-        return {
-          ok: false,
-          engine,
-          mode: req.mode,
-          error: 'TS engine does not support bakePack; use --engine rust (default)',
-          durationMs: Date.now() - started,
-        };
-      }
-      const tsBake = await loadTsToolchain(req.repoRoot);
-      const design = tsBake.loadDesign(req.entry);
-      baked =
-        req.mode === "system"
-          ? tsBake.buildBakedDesignSystem(design, { theme: req.theme })
-          : tsBake.buildBakedDesignComponent(design, {
-              componentName: req.component,
-              theme: req.theme,
-              paramOverrides: req.paramOverrides ?? {},
-            });
-      writeFileSync(bakePath, JSON.stringify(baked), "utf8");
+    const { cmd, args } = buildRustBakeCommand({ ...req, bakeOutPath: bakePath });
+    const r = spawnSync(cmd, args, {
+      cwd: req.repoRoot,
+      encoding: "utf8",
+      maxBuffer: 32 * 1024 * 1024,
+    });
+    const stderr = (r.stderr || "") + (r.status !== 0 && r.stdout ? `\n${r.stdout}` : "");
+    if (r.status !== 0) {
+      return {
+        ok: false,
+        engine,
+        mode: req.mode,
+        bakePath,
+        error: (stderr || `Bake failed with exit ${r.status}`).trim(),
+        stderr: stderr?.trim() || undefined,
+        durationMs: Date.now() - started,
+      };
     }
+    if (!existsSync(bakePath)) {
+      return {
+        ok: false,
+        engine,
+        mode: req.mode,
+        error: `Bake succeeded but output missing: ${bakePath}`,
+        stderr: stderr?.trim() || undefined,
+        durationMs: Date.now() - started,
+      };
+    }
+    /** @type {unknown} */
+    const baked = JSON.parse(readFileSync(bakePath, "utf8"));
 
-    const ts = await loadTsToolchain(req.repoRoot);
+    const ts = await loadTsRenderer(req.repoRoot);
     const single =
       req.singleComponent ??
       (req.mode === "component" && req.component ? req.component : undefined);

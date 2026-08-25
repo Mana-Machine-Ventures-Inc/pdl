@@ -2,42 +2,20 @@
  * PlaylistComposer multi-ForEach: chips + tracks both emit `select`.
  * Host must use data-pdl-foreach-list (not instance-let) to pick the capture.
  */
-import { spawnSync } from "node:child_process";
 import { Window } from "happy-dom";
 import { describe, expect, it } from "vitest";
+import {
+  bakeComponent as rustBake,
+  catalogue as rustCatalogue,
+} from "./helpers/rustFixtures.js";
 import { renderBakedDesignToHtmlDocumentWithReport } from "../src/renderHtml.js";
 
 const ENTRY = "test-fixtures/pdl/systems/playlist-composer-lite/design.pdl";
 
-function catalogue() {
-  const cat = spawnSync("cargo", ["run", "-q", "-p", "pdl-cli", "--", "catalogue", ENTRY], {
-    encoding: "utf8",
-  });
-  if (cat.status !== 0) throw new Error(cat.stderr || "catalogue failed");
-  return JSON.parse(cat.stdout) as {
-    components: Record<string, { interactions?: unknown; emitCaptures?: unknown }>;
-  };
-}
+const catalogue = () => rustCatalogue(ENTRY) as never;
 
-function bakeComposer(overrides: string[] = []) {
-  const r = spawnSync(
-    "cargo",
-    [
-      "run",
-      "-q",
-      "-p",
-      "pdl-cli",
-      "--",
-      "bakeComponent",
-      ENTRY,
-      "PlaylistComposer",
-      ...overrides,
-    ],
-    { encoding: "utf8" },
-  );
-  if (r.status !== 0) throw new Error(r.stderr || "bake failed");
-  return JSON.parse(r.stdout);
-}
+const bakeComposer = (overrides: string[] = []) =>
+  rustBake(ENTRY, "PlaylistComposer", { params: overrides });
 
 async function mountInteractive(bake: unknown) {
   const cat = catalogue();

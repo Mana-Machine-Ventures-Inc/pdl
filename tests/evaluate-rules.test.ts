@@ -1,24 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { buildBakedDesignComponent } from "../src/bakeDesign.js";
 import {
-  companionPreviewFromDesign,
+  companionPreviewFromCatalogue,
   evaluateRulesForPreview,
   evaluateRulesOnComponent,
 } from "../src/evaluateRules.js";
-import { loadDesign } from "../src/loadDesign.js";
 import { renderBakedDesignToHtmlDocument } from "../src/renderHtml.js";
+import { bakeComponent, catalogue, fx } from "./helpers/rustFixtures.js";
 
-const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const fx = (...p: string[]) => resolve(__dirname, "../test-fixtures/pdl", ...p);
+/** `usage` / `rules` the way the host gets them: off the Rust catalogue. */
+function companionsFor(entry: string) {
+  return companionPreviewFromCatalogue(catalogue(entry).components);
+}
 
 function bakeNamed(name: string) {
-  const design = loadDesign(fx("integration/rules_preview.pdl"));
-  const companions = companionPreviewFromDesign(design);
-  const doc = buildBakedDesignComponent(design, { componentName: name });
+  const entry = fx("integration/rules_preview.pdl");
+  const companions = companionsFor(entry);
+  const doc = bakeComponent(entry, name);
   const violations = evaluateRulesOnComponent(doc.components[name]!, companions.rulesByComponent);
-  return { design, companions, doc, violations };
+  return { companions, doc, violations };
 }
 
 describe("evaluateRules", () => {
@@ -138,9 +137,9 @@ describe("renderHtml companions", () => {
 
 describe("playground usage-rules pack", () => {
   it("UsageRulesLab renders usage text plus must and should banners", () => {
-    const design = loadDesign(fx("lab/usage-rules/design.pdl"));
-    const companions = companionPreviewFromDesign(design);
-    const doc = buildBakedDesignComponent(design, { componentName: "UsageRulesLab" });
+    const entry = fx("lab/usage-rules/design.pdl");
+    const companions = companionsFor(entry);
+    const doc = bakeComponent(entry, "UsageRulesLab");
     const html = renderBakedDesignToHtmlDocument(doc, {
       singleComponent: "UsageRulesLab",
       usageByComponent: companions.usageByComponent,

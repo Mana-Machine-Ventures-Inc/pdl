@@ -13,7 +13,8 @@ type OmitEmptyCtx = {
   insideProps: boolean;
   /**
    * True under a catalogue **`fixtures`** / **`samples`** bag. Explicit empty arrays (e.g. filtered
-   * `tracks = []`) must survive omitEmpty so Playground / CLI can apply them.
+   * `tracks = []`) and empty strings (e.g. `helper = ""`) must survive omitEmpty so Playground /
+   * CLI can apply them — a dropped binding falls back to the param default.
    */
   insideFixtures: boolean;
 };
@@ -63,7 +64,13 @@ export function omitEmptyDeep(value: unknown, ctx?: OmitEmptyCtx): unknown {
     const childInsideProps = insideProps || k === "props";
     const childInsideFixtures = insideFixtures || k === "fixtures" || k === "samples";
     const ev = omitEmptyDeep(v, nextCtx(childInsideProps, childInsideFixtures));
-    if (stripStrings && typeof ev === "string" && ev === "" && !childInsideProps) {
+    if (
+      stripStrings &&
+      typeof ev === "string" &&
+      ev === "" &&
+      !childInsideProps &&
+      !childInsideFixtures
+    ) {
       continue;
     }
     if (isEmptyContainer(ev)) {

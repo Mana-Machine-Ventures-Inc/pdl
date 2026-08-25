@@ -410,7 +410,7 @@ ${schemaFieldTable(bake)}
 
 \`components\` values are baked instances: \`name\`, \`rootKind\`, optional \`bakedParams\`, \`root\` (literal frame tree). No \`primitive:\` / \`semantic:\` markers — those belong on the catalogue.
 
-\`npm run bakeSystem\` / \`bakeComponent\` (and Rust \`pdl bake*\`) emit this shape.
+\`pdl bakeSystem\` / \`bakeComponent\` / \`bakePack\` emit this shape.
 
 ## \`componentCatalogue\`
 
@@ -418,13 +418,13 @@ ${schemaFieldTable(cat)}
 
 On CLI output with \`omitEmpty\`, empty maps may be **absent**. Treat missing \`primitives\` / \`semantics\` / \`themes\` / \`typeStyles\` / \`variantTypes\` as \`{}\`. Empty arrays under \`samples\` / \`fixtures\` are **preserved**.
 
-\`npm run catalogue\` / \`graphSystem\` emit this shape.
+\`pdl catalogue\` / \`graphSystem\` emit this shape.
 
 ## \`resolvedComponent\`
 
 ${schemaFieldTable(resolved)}
 
-\`npm run graphComponent\` emits this shape.
+\`pdl graphComponent\` emits this shape.
 
 ## Injection pack
 
@@ -469,68 +469,80 @@ function slugNote(base) {
     .replace(/-/g, " ");
 }
 
+/**
+ * Diagnostics coverage lives in one Rust table test that walks `errors/` and asserts
+ * the code encoded in each filename, so the generator scrapes that table rather than
+ * a per-fixture test: the `OVERRIDES` entries (filename records intent, value records
+ * today's code), `INCLUDE_ONLY` (import targets, valid on their own), and the fixtures
+ * a named test drives because the table cannot supply their input.
+ */
 function collectObservedFromTests() {
-  const dir = join(ROOT, "tests");
+  const TABLE = "crates/pdl-core/tests/error_fixtures.rs";
+  const src = readFileSync(join(ROOT, TABLE), "utf8");
+
+  const table = (name) => {
+    const m = src.match(new RegExp(`const ${name}[^=]*=\\s*&\\[([\\s\\S]*?)\\];`));
+    return m ? m[1] : "";
+  };
+  const pairs = (name) =>
+    new Map([...table(name).matchAll(/\("([^"]+\.pdl)"\s*,\s*"([^"]+)"\)/g)].map((m) => [m[1], m[2]]));
+
+  const includeOnly = new Set(
+    [...table("INCLUDE_ONLY").matchAll(/"([^"]+\.pdl)"/g)].map((m) => m[1]),
+  );
+  const overrides = pairs("OVERRIDES");
+  const drivenElsewhere = pairs("DRIVEN_ELSEWHERE");
+
+  // A named Rust test that mentions a fixture, and the first code it asserts.
+  /** @type {Map<string, { via: string, code: string | null }>} */
+  const namedTests = new Map();
+  const testsDir = join(ROOT, "crates/pdl-core/tests");
+  for (const name of readdirSync(testsDir)) {
+    if (!name.endsWith(".rs")) continue;
+    const rel = `crates/pdl-core/tests/${name}`;
+    const body = readFileSync(join(testsDir, name), "utf8");
+    for (const m of body.matchAll(/errors\/((?:legacy\/)?[\w.-]+\.pdl)/g)) {
+      const base = m[1].replace(/^.*\//, "");
+      const before = body.slice(0, m.index);
+      const fn = [...before.matchAll(/fn\s+(\w+)\s*\(/g)].at(-1)?.[1];
+      const after = body.slice(m.index, m.index + 1200);
+      const code = after.match(/"(PDL-E\d{3})"/)?.[1] ?? null;
+      if (!namedTests.has(base)) {
+        namedTests.set(base, { via: fn ? `${rel}::${fn}` : rel, code });
+      }
+    }
+  }
+
   /** @type {Map<string, { code: string, via: string, phase: string }>} */
   const observed = new Map();
   const loadEntries = new Set();
-
-  function record(file, code, via, phase = "load") {
-    const base = file.replace(/^.*\//, "");
+  for (const abs of walkPdlFiles(join(ROOT, "test-fixtures/pdl/errors"))) {
+    const base = abs.replace(/^.*\//, "");
+    if (includeOnly.has(base)) continue;
     loadEntries.add(base);
-    const prev = observed.get(base);
-    if (!prev) observed.set(base, { code, via, phase });
-  }
-
-  for (const name of readdirSync(dir)) {
-    if (!name.endsWith(".ts")) continue;
-    const src = readFileSync(join(dir, name), "utf8");
-    const via = `tests/${name}`;
-
-    for (const m of src.matchAll(/err\("([^"]+\.pdl)"\)/g)) loadEntries.add(m[1].replace(/^.*\//, ""));
-    for (const m of src.matchAll(/fx\("errors\/([^"]+\.pdl)"\)/g)) loadEntries.add(m[1].replace(/^.*\//, ""));
-    for (const m of src.matchAll(/"errors\/((?:legacy\/)?[^"]+\.pdl)"/g)) {
-      loadEntries.add(m[1].replace(/^.*\//, ""));
+    const named = namedTests.get(base);
+    if (base.startsWith("valid-")) {
+      observed.set(base, { code: "(valid)", via: named?.via ?? TABLE, phase: "load" });
+      continue;
     }
-
-    for (const m of src.matchAll(/expectLoadFails\(\s*"(PDL-E\d{3})"\s*,\s*"errors\/([^"]+)"/g)) {
-      record(m[2], m[1], via);
-    }
-    for (const m of src.matchAll(/\["([^"]+\.pdl)"\s*,\s*"(PDL-E\d{3})"/g)) {
-      record(m[1], m[2], via);
-    }
-    for (const m of src.matchAll(/loadDesign\(err\("([^"]+\.pdl)"\)\)[\s\S]{0,400}?"(PDL-E\d{3})"/g)) {
-      const slice = src.slice(m.index, m.index + m[0].length);
-      const phase = /buildComponentCatalogue/.test(slice)
-        ? "catalogue"
-        : /buildResolvedTokenMap/.test(slice)
-          ? "token-map"
-          : "load";
-      record(m[1], m[2], via, phase);
-    }
-    for (const m of src.matchAll(/const cases[^=]*=\s*\[([\s\S]*?)\];\s*\n\s*it\.each\(cases\)\("([^"]+)"/g)) {
-      const titleCode = m[2].match(/PDL-E\d{3}/);
-      if (!titleCode) continue;
-      for (const fm of m[1].matchAll(/"([^"]+\.pdl)"/g)) {
-        record(fm[1], titleCode[0], via);
+    if (drivenElsewhere.has(base)) {
+      const code = named?.code ?? overrides.get(base) ?? filenameCodeOf(base);
+      if (code) {
+        observed.set(base, { code, via: named?.via ?? TABLE, phase: code === "PDL-E000" ? "io" : "pipeline" });
       }
+      continue;
     }
-    for (const m of src.matchAll(/\(e as PdlError\)\.code\)\.toBe\("(PDL-E\d{3})"\)/g)) {
-      const windowStart = Math.max(0, m.index - 500);
-      const window = src.slice(windowStart, m.index);
-      const files = [...window.matchAll(/[\w./-]*e\d{3}-[\w.-]+\.pdl/g)];
-      const last = files.at(-1);
-      if (last) record(last[0], m[1], via);
-    }
-    if (src.includes("e001-import-missing.pdl") && src.includes("ENOENT")) {
-      record("e001-import-missing.pdl", "ENOENT", via, "io");
-    }
-    if (src.includes("valid-duplicate-component-name.pdl") && /load succeeds/.test(src)) {
-      record("valid-duplicate-component-name.pdl", "(valid)", via, "load");
-    }
+    const code = overrides.get(base) ?? filenameCodeOf(base);
+    if (code) observed.set(base, { code, via: TABLE, phase: "pipeline" });
   }
 
   return { observed, loadEntries };
+}
+
+/** `e006-…` / `e10-…` → `PDL-E006` / `PDL-E010`. */
+function filenameCodeOf(base) {
+  const m = base.match(/^e(\d{2,3})-/i);
+  return m ? `PDL-E${m[1].padStart(3, "0")}` : null;
 }
 
 function collectImportedByOracles(files) {
@@ -556,7 +568,7 @@ function classifyErrorFixture(rel, src, observed, loadEntries, importedByOracles
       filenameCode: digits ? `PDL-E${digits[1].padStart(3, "0")}` : hit?.code ?? null,
       observedCode: hit?.code ?? null,
       phase: hit?.phase ?? "load",
-      via: hit?.via ?? "tests/validateDesign.test.ts",
+      via: hit?.via ?? "crates/pdl-core/tests/error_fixtures.rs",
       note: firstComment(src) || "Pre-renumber / historical oracle.",
     };
   }
@@ -642,7 +654,7 @@ function renderErrorFixtures(rows, diagnostics) {
   let body = `${GENERATED_BANNER}
 # Error fixtures
 
-Oracle \`.pdl\` files under [\`test-fixtures/pdl/errors/\`](${REPO_BLOB.replace("/blob/main", "/tree/main")}/test-fixtures/pdl/errors). Regenerated with \`npm run docs:gen\` by scanning the directory and joining TypeScript tests under \`tests/\`. Do not maintain this table by hand.
+Oracle \`.pdl\` files under [\`test-fixtures/pdl/errors/\`](${REPO_BLOB.replace("/blob/main", "/tree/main")}/test-fixtures/pdl/errors). Regenerated with \`npm run docs:gen\` by scanning the directory and joining the Rust table test \`crates/pdl-core/tests/error_fixtures.rs\`. Do not maintain this table by hand.
 
 A conforming compiler **MUST** emit the code encoded in the filename (\`e007-…\` → **PDL-E007**), except where a test documents a different code (language evolution — see [Filename vs observed](#filename-vs-observed)). Diagnostic meanings: [Diagnostics](./diagnostics.md).
 
@@ -679,7 +691,7 @@ ${missing.map((d) => `- **${d.code}**${d.name ? ` — \`${d.name}\`` : ""} — $
     body += `
 ## Filename vs observed
 
-The filename still records the original intent. TypeScript tests assert a **different** code (usually because the language moved: a construct is now a parse error, or a type check was renumbered). Conformance follows the **test**, and treats the filename as historical.
+The filename still records the original intent. The compiler raises a **different** code (usually because the language moved: a construct is now a parse error, or a type check was renumbered), and the Rust table pins it. Conformance follows the **test**, and treats the filename as historical.
 
 | File | Filename | Observed | Phase | Test |
 |------|----------|----------|-------|------|
@@ -719,7 +731,7 @@ Loaded only as \`import\` targets of another oracle (cycle partners, shared toke
   body += `
 ## Legacy oracles
 
-Kept for historical tests (\`tests/validateDesign.test.ts\`). Prefer the current \`eNNN-\` names for new coverage. Legacy filenames sometimes use two-digit codes (\`e07-\`, \`e10-\`, \`e12-\`).
+Kept for historical coverage. Prefer the current \`eNNN-\` names for new coverage. Legacy filenames sometimes use two-digit codes (\`e07-\`, \`e10-\`, \`e12-\`).
 
 | File | Observed | Note |
 |------|----------|------|
@@ -747,9 +759,9 @@ These files **must load**. They document merge / last-wins behaviour, not failur
 
 Current files use \`eNNN-slug.pdl\` (example: [\`e041-unknown-sample-path.pdl\`](${REPO_BLOB}/test-fixtures/pdl/errors/e041-unknown-sample-path.pdl) → **PDL-E041**). The withdrawn layout \`test-fixtures/pdl/09_error_cases/PDL-E007-unresolved-reference.pdl\` is **not** used.
 
-Some diagnostics fire after parse: **catalogue** (\`buildComponentCatalogue\`) or **token-map** (\`buildResolvedTokenMap\`). \`e001-import-missing.pdl\` is an I/O failure (\`ENOENT\`), not a \`PdlError\`.
+Fixtures marked **pipeline** run load → token map → catalogue → resolve → bake, and the first diagnostic wins, so it does not matter which stage a fixture trips. \`e001-import-missing.pdl\` is an I/O failure (**PDL-E000**), not a language diagnostic.
 
-\`e004-circular-primitives.pdl\` is asserted as **PDL-E004** by tests, while the catalog names **PDL-E013** \`circular-token-reference\`. Treat that as numbering drift in the catalog, not a missing circular-token oracle.
+\`e004-circular-primitives.pdl\` is asserted as **PDL-E004**, while the catalog names **PDL-E013** \`circular-token-reference\`. Treat that as numbering drift in the catalog, not a missing circular-token oracle.
 `;
   return body;
 }

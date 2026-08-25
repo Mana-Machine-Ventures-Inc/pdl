@@ -842,7 +842,7 @@ impl Parser {
                 self.consume(TokenKind::Eq)?;
                 items.push(InteractionHandlerItem::Animate {
                     target: None,
-                    value: self.parse_value_expr()?,
+                    value: self.parse_animate_rhs()?,
                 });
                 continue;
             }
@@ -934,7 +934,7 @@ impl Parser {
                 };
                 items.push(InteractionHandlerItem::Animate {
                     target,
-                    value: self.parse_value_expr()?,
+                    value: self.parse_animate_rhs()?,
                 });
                 continue;
             }
@@ -2410,6 +2410,17 @@ impl Parser {
         self.consume(TokenKind::LBrace)?;
         let mut body = Vec::new();
         while !self.is(TokenKind::RBrace) {
+            // Land choreography for the rebake this capture causes (`animate` is a keyword).
+            if self.is(TokenKind::Animate) {
+                self.advance();
+                self.consume(TokenKind::Eq)?;
+                let value = self.parse_animate_rhs()?;
+                body.push(LayoutOnBodyItem::Animate {
+                    target: None,
+                    value,
+                });
+                continue;
+            }
             let first = if self.is(TokenKind::SelfKw) {
                 self.advance();
                 self.consume(TokenKind::Dot)?;
@@ -2417,6 +2428,18 @@ impl Parser {
             } else {
                 self.consume(TokenKind::Ident)?.value
             };
+            // List chorus: `dots.animate = [ Pose…, .rest ]` (ForEach mounts of that list).
+            if self.is(TokenKind::Dot) && self.peek_ahead_kind(1) == TokenKind::Animate {
+                self.advance(); // .
+                self.advance(); // animate
+                self.consume(TokenKind::Eq)?;
+                let value = self.parse_animate_rhs()?;
+                body.push(LayoutOnBodyItem::Animate {
+                    target: Some(first),
+                    value,
+                });
+                continue;
+            }
             // `Input.beginEditing(draft)` / `presenter.replace(Episode(…))`
             if self.is(TokenKind::Dot)
                 && self.peek_ahead_kind(1) == TokenKind::Ident
@@ -2947,6 +2970,74 @@ impl Parser {
         } else {
             Err(self.err("Expected variant case (.case), boolean, or parameter name in condition"))
         }
+    }
+
+    /// Handler `animate =` RHS: Animation, clock-only Motion, or Pose-list sugar `[Pose…, .rest]`.
+    fn parse_animate_rhs(&mut self) -> Result<ValueExpr, PdlError> {
+        if self.is(TokenKind::LBracket) {
+            return self.parse_pose_list_animation();
+        }
+        self.parse_value_expr()
+    }
+
+    /// `animate = [ Pose(…), Pose(…), .rest ]` → Animation(keys: [Motion…]) with default 200ms `.out`.
+    fn parse_pose_list_animation(&mut self) -> Result<ValueExpr, PdlError> {
+        self.consume(TokenKind::LBracket)?;
+        let mut poses: Vec<ValueExpr> = Vec::new();
+        while !self.is(TokenKind::RBracket) {
+            if self.is(TokenKind::DotEnum)
+                && self.peek().value.trim_start_matches('.') == "rest"
+            {
+                poses.push(ValueExpr::DotEnum {
+                    value: self.advance().value,
+                });
+            } else if self.is(TokenKind::Pose) {
+                poses.push(self.parse_value_expr()?);
+            } else {
+                return Err(self.err(
+                    "`animate = [ … ]` expects Pose(…) entries and a final `.rest`",
+                ));
+            }
+            if self.is(TokenKind::RBracket) {
+                break;
+            }
+            self.consume(TokenKind::Comma)?;
+            if self.is(TokenKind::RBracket) {
+                break;
+            }
+        }
+        self.consume(TokenKind::RBracket)?;
+        if poses.is_empty() {
+            return Err(self.err("`animate = [ … ]` needs at least `.rest`"));
+        }
+        let last_rest = matches!(
+            poses.last(),
+            Some(ValueExpr::DotEnum { value }) if value.trim_start_matches('.') == "rest"
+        );
+        if !last_rest {
+            return Err(self.err("`animate = [ … ]` must end with `.rest`"));
+        }
+        let default_clock = || ValueExpr::Timing {
+            duration: Box::new(ValueExpr::Number { value: 200.0 }),
+            ease: Box::new(ValueExpr::DotEnum {
+                value: ".out".into(),
+            }),
+            delay: None,
+        };
+        let mut keys: Vec<ValueExpr> = Vec::new();
+        for pose in poses {
+            keys.push(ValueExpr::Motion {
+                timing: Some(Box::new(default_clock())),
+                pose: Box::new(pose),
+            });
+        }
+        Ok(ValueExpr::Animation {
+            base: None,
+            start: None,
+            keys: Some(Box::new(ValueExpr::Array { items: keys })),
+            stagger: None,
+            repeat: None,
+        })
     }
 
     pub fn parse_value_expr(&mut self) -> Result<ValueExpr, PdlError> {
@@ -4310,21 +4401,26 @@ fn finish_motion(mut args: indexmap::IndexMap<String, ValueExpr>) -> Result<Valu
     let clock = clock.ok_or_else(|| {
         "`Motion(…)` requires `duration:` / `ease:` (optional `delay:`) or `timing:`".to_string()
     })?;
-    let pose = args
-        .swap_remove("pose")
-        .ok_or_else(|| "`Motion(…)` requires `pose:` (a Pose, Pose token, or `.rest`)".to_string())?;
+    // `pose:` optional — omit for clock-only land sugar (`animate = Motion(duration:, ease:)` → pose .rest).
+    let pose = if let Some(p) = args.swap_remove("pose") {
+        let rest = matches!(
+            &p,
+            ValueExpr::DotEnum { value } if value.trim_start_matches('.') == "rest"
+        );
+        if !matches!(p, ValueExpr::Pose { .. } | ValueExpr::Ident { .. }) && !rest {
+            return Err("`Motion` `pose:` must be a Pose, a Pose token, or `.rest`".to_string());
+        }
+        p
+    } else {
+        ValueExpr::DotEnum {
+            value: ".rest".into(),
+        }
+    };
     if !args.is_empty() {
         let unknown = args.keys().cloned().collect::<Vec<_>>().join(", ");
         return Err(format!(
-            "Motion unknown label(s): {unknown} (expected timing or duration/ease/delay, and pose)"
+            "Motion unknown label(s): {unknown} (expected timing or duration/ease/delay, and optional pose)"
         ));
-    }
-    let rest = matches!(
-        &pose,
-        ValueExpr::DotEnum { value } if value.trim_start_matches('.') == "rest"
-    );
-    if !matches!(pose, ValueExpr::Pose { .. } | ValueExpr::Ident { .. }) && !rest {
-        return Err("`Motion` `pose:` must be a Pose, a Pose token, or `.rest`".to_string());
     }
     Ok(ValueExpr::Motion {
         timing: Some(Box::new(clock)),

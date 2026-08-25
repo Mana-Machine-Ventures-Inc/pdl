@@ -1,9 +1,9 @@
-//! Catalogue / resolved-component parity against the TypeScript oracle goldens.
+//! Catalogue / resolved-component regression goldens under `tests/golden/`.
 //!
-//! Catalogue goldens were generated with
-//! `node dist/cli.js graphSystem <fixture> --out tests/golden/<key>.catalogue.json`
-//! and resolved-component goldens with
-//! `node dist/cli.js graphComponent <fixture> <Component> --out tests/golden/<key>.<Component>.resolved.json`.
+//! First cut from the retired TypeScript reference, now frozen snapshots of the IR.
+//! Refresh an intended change with
+//! `pdl graphSystem <fixture> --out tests/golden/<key>.catalogue.json`
+//! and `pdl graphComponent <fixture> <Component> --out tests/golden/<key>.<Component>.resolved.json`.
 //!
 //! Volatile fields (`generatedAt`, absolute `entryPath`) are pinned to the golden's
 //! value the same way `bake_parity.rs` does, so output compares byte-for-byte.

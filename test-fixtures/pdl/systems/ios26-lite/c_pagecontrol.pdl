@@ -18,6 +18,11 @@ component IosPageDot <PointerInput>(
   }
 
   self.pressEnd = {
+    animate = [
+      Pose(scale: 1.2),
+      Pose(scale: 0.92),
+      .rest
+    ]
     emit select(page)
   }
 } emits {
@@ -25,6 +30,7 @@ component IosPageDot <PointerInput>(
 }
 
 // Folded from Figma Page control — Map → typed dots, ForEach wires selection + emit.
+// Parallel tracks: child press poses ∥ dots.animate chorus ∥ capture Motion(500) land.
 component IosPageControl(
   numberOfPages: IosPageCount = 3,
   currentPage: Number(min: 1) = 1
@@ -44,6 +50,9 @@ component IosPageControl(
   ForEach(dots) { dot in
     dot.selected = self.currentPage == page
     dot.select(page: Number) = {
+      // Chorus: every sibling mount of `dots` (pressed node keeps its solo press).
+      dots.animate = [ Pose(scale: 0.85), .rest ]
+      animate = Motion(duration: 500, ease: .linear)
       currentPage = page
     }
   }

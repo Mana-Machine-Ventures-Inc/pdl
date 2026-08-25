@@ -4,9 +4,12 @@
  * Instance resolve: bake(child, kwargs) → IR-patch [data-pdl-instance-let].
  * Nested chrome must not require dual-bake siblings.
  */
-import { spawnSync } from "node:child_process";
 import { Window } from "happy-dom";
 import { describe, expect, it } from "vitest";
+import {
+  bakeComponent as rustBake,
+  catalogue as rustCatalogue,
+} from "./helpers/rustFixtures.js";
 import { reconcileBakedInstanceIntoElement } from "../src/bakeReconcile.js";
 import type { BakedFrame } from "../src/bakeDesign.js";
 import {
@@ -124,45 +127,12 @@ describe("reconcileBakedInstanceIntoElement", () => {
   });
 });
 
-function catalogueLab() {
-  const cat = spawnSync(
-    "cargo",
-    [
-      "run",
-      "-q",
-      "-p",
-      "pdl-cli",
-      "--",
-      "catalogue",
-      "test-fixtures/pdl/playground/lab_editable_text.pdl",
-    ],
-    { encoding: "utf8" },
-  );
-  if (cat.status !== 0) throw new Error(cat.stderr || "catalogue failed");
-  return JSON.parse(cat.stdout) as {
-    components: Record<string, { interactions?: unknown; emitCaptures?: unknown }>;
-  };
-}
+const ENTRY = "test-fixtures/pdl/playground/lab_editable_text.pdl";
 
-function bakeComponent(name: string, overrides: string[] = []) {
-  const r = spawnSync(
-    "cargo",
-    [
-      "run",
-      "-q",
-      "-p",
-      "pdl-cli",
-      "--",
-      "bakeComponent",
-      "test-fixtures/pdl/playground/lab_editable_text.pdl",
-      name,
-      ...overrides,
-    ],
-    { encoding: "utf8" },
-  );
-  if (r.status !== 0) throw new Error(r.stderr || "bake failed");
-  return JSON.parse(r.stdout);
-}
+const catalogueLab = () => rustCatalogue(ENTRY) as never;
+
+const bakeComponent = (name: string, overrides: string[] = []) =>
+  rustBake(ENTRY, name, { params: overrides });
 
 async function mountInteractive(bake: unknown, component: string) {
   const catalogue = catalogueLab();
@@ -229,6 +199,10 @@ describe("host posts pdl-resolve-instance", () => {
     expect(hover.childComponent).toBe("EditorBtn");
     expect(hover.instanceLet).toBe("Edit");
     expect(String(hover.childParams.state)).toMatch(/hovering/);
+    expect((hover as { prevChildParams?: Record<string, unknown> }).prevChildParams).toBeTruthy();
+    expect(String((hover as { prevChildParams?: { state?: string } }).prevChildParams?.state)).not.toMatch(
+      /hovering/,
+    );
 
     const interactions = messages.filter(
       (m) => (m as { type?: string }).type === "pdl-interaction",

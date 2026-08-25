@@ -4,11 +4,8 @@
  * Layout wrappers are skipped for navigator axes.
  */
 
-import type { ConditionExpr, RulesStatement } from "./ast.js";
 import type { BakedComponentJson, BakedFrame } from "./bakeDesign.js";
-import type { DesignDefinition } from "./designModel.js";
-import { serialiseConditionExpr } from "./graph.js";
-import { ruleLineToDef, type RuleDefJson } from "./rulesJson.js";
+import type { RuleDefJson } from "./rulesJson.js";
 
 export type RuleSeverity = "error" | "warn";
 
@@ -50,75 +47,6 @@ type RuleInstance = {
   parent: RuleInstance | null;
   children: RuleInstance[];
 };
-
-function negateCondition(c: ConditionExpr): ConditionExpr {
-  return { kind: "not", expr: c };
-}
-
-function conjoinWhen(
-  outer: ConditionExpr | undefined,
-  inner: ConditionExpr | undefined,
-): ConditionExpr | undefined {
-  if (!outer) return inner;
-  if (!inner) return outer;
-  return { kind: "and", items: [outer, inner] };
-}
-
-function conjoinMany(conjuncts: ConditionExpr[]): ConditionExpr | undefined {
-  if (conjuncts.length === 0) return undefined;
-  if (conjuncts.length === 1) return conjuncts[0];
-  return { kind: "and", items: conjuncts };
-}
-
-function flattenCompanionRules(statements: RulesStatement[]): RulesPreviewJson {
-  const tagOps: TagOpJson[] = [];
-  const rules: RulePreviewDef[] = [];
-  const walk = (xs: RulesStatement[], parentWhen?: ConditionExpr) => {
-    for (const st of xs) {
-      const whenJson = parentWhen ? serialiseConditionExpr(parentWhen) : undefined;
-      if (st.kind === "tagsSet") {
-        tagOps.push(whenJson ? { kind: "set", tags: [...st.tags], when: whenJson } : { kind: "set", tags: [...st.tags] });
-      } else if (st.kind === "tagsAdd") {
-        tagOps.push(whenJson ? { kind: "add", tag: st.tag, when: whenJson } : { kind: "add", tag: st.tag });
-      } else if (st.kind === "ruleLine") {
-        const def = ruleLineToDef(st.strength, st.query, st.description);
-        rules.push(whenJson ? { ...def, when: whenJson } : def);
-      } else if (st.kind === "if") {
-        const negPrior: ConditionExpr[] = [];
-        for (const br of st.chain.branches) {
-          const innerWhen: ConditionExpr =
-            negPrior.length === 0
-              ? br.condition
-              : (conjoinMany([...negPrior.map(negateCondition), br.condition]) as ConditionExpr);
-          walk(br.body, conjoinWhen(parentWhen, innerWhen));
-          negPrior.push(br.condition);
-        }
-        if (st.chain.elseBody) {
-          const elseInner =
-            negPrior.length === 0 ? undefined : conjoinMany(negPrior.map(negateCondition));
-          walk(st.chain.elseBody, conjoinWhen(parentWhen, elseInner));
-        }
-      }
-    }
-  };
-  walk(statements);
-  return { tagOps, rules };
-}
-
-/** Build usage + flattened rules (including `if`-scoped tags) from a loaded design. */
-export function companionPreviewFromDesign(design: DesignDefinition): CompanionPreview {
-  const usageByComponent: Record<string, string> = {};
-  const rulesByComponent: Record<string, RulesPreviewJson> = {};
-  for (const [name, keys] of design.usage.entries()) {
-    const desc = keys.get("description")?.trim();
-    if (desc) usageByComponent[name] = desc;
-  }
-  for (const [name, stmts] of design.rules.entries()) {
-    if (!stmts?.length) continue;
-    rulesByComponent[name] = flattenCompanionRules(stmts);
-  }
-  return { usageByComponent, rulesByComponent };
-}
 
 /** Build companions from a catalogue JSON row map (Rust or TS catalogue). */
 export function companionPreviewFromCatalogue(components: Record<string, unknown>): CompanionPreview {

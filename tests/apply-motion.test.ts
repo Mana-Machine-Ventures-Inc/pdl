@@ -13,7 +13,7 @@ import {
   withDismissDefaultFront,
 } from "../src/applyMotion.js";
 import { snapshotToCss } from "../src/motionProps.js";
-import type { InteractionHandlerItem } from "../src/ast.js";
+import type { InteractionHandlerItem } from "../src/valueJson.js";
 
 const appearBody: InteractionHandlerItem[] = [
   {
@@ -154,6 +154,25 @@ describe("applyMotion", () => {
     expect(calls[0]?.opts.duration).toBe(0);
   });
 
+  it("interrupt from a virgin node does not treat empty opacity as 0", async () => {
+    const { el, calls } = mockAnimatable();
+    // HTMLElement.style.opacity defaults to "" — Number("") === 0 would vanish the node.
+    (el as { style: { opacity: string } }).style.opacity = "";
+    const handle = playAnimationOnElement(
+      el as never,
+      {
+        kind: "animation",
+        keys: [{ timing: { duration: 120, ease: "in", delay: 0 }, pose: { scale: 0.94 } }],
+      },
+      { applyStart: false },
+    );
+    expect(handle).toBeTruthy();
+    await handle!.finished;
+    expect(calls[0]?.frames[0]?.opacity).toBe("1");
+    expect(calls[0]?.frames[1]?.opacity).toBe("1");
+    expect(String(calls[0]?.frames[1]?.transform)).toContain("scale(0.94");
+  });
+
   it("plays sequential keys with per-segment timing", async () => {
     const { el, calls } = mockAnimatable();
     const handle = playAnimationOnElement(
@@ -204,6 +223,34 @@ describe("applyMotion", () => {
     expect(calls[0]?.opts.iterations).toBe(1);
     expect(String(calls[0]?.frames[0]?.transform)).toContain("rotate(0deg)");
     expect(String(calls[0]?.frames[1]?.transform)).toContain("rotate(360deg)");
+  });
+
+  it("forever repeat resets overlay between iterations (spin loops)", async () => {
+    const { el, calls } = mockAnimatable();
+    let n = 0;
+    el.animate = (frames: Keyframe[], opts: KeyframeAnimationOptions) => {
+      n += 1;
+      calls.push({ frames, opts });
+      if (n > 2) return { finished: new Promise(() => {}), cancel() {} };
+      return { finished: Promise.resolve(), cancel() {} };
+    };
+    const handle = playAnimationOnElement(
+      el as never,
+      {
+        kind: "animation",
+        keys: [{ timing: { duration: 800, ease: "linear", delay: 0 }, pose: { rotate: 360 } }],
+        repeat: "forever",
+      },
+      { applyStart: true },
+    );
+    expect(handle).toBeTruthy();
+    await Promise.resolve();
+    await Promise.resolve();
+    handle!.cancel();
+    await handle!.finished;
+    expect(calls.length).toBeGreaterThanOrEqual(2);
+    expect(String(calls[1]?.frames[0]?.transform)).toContain("rotate(0deg)");
+    expect(String(calls[1]?.frames[1]?.transform)).toContain("rotate(360deg)");
   });
 
   it("builds implicit CSS transition from Timing", () => {

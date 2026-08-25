@@ -2,46 +2,34 @@
  * n5 Phone: pressEnd on a nested EpisodeRow must post presenterOps (push Episode).
  * Gallery Home/EpisodeRow cards have no capture — only the screen does.
  */
-import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import { Window } from "happy-dom";
 import { describe, expect, it } from "vitest";
+import {
+  bakeComponent as rustBake,
+  catalogue as rustCatalogue,
+} from "./helpers/rustFixtures.js";
 import { applyPresenterOps } from "../playground/src/presenter-pins.js";
 import { renderBakedDesignToHtmlDocumentWithReport } from "../src/renderHtml.js";
 
 const ENTRY = "test-fixtures/pdl/lab/nav/n5_cover.pdl";
-const PDL = existsSync("target/debug/pdl")
-  ? ["target/debug/pdl"]
-  : ["cargo", "run", "-q", "-p", "pdl-cli", "--"];
 
-function pdl(args: string[]) {
-  const r = spawnSync(PDL[0]!, [...PDL.slice(1), ...args], { encoding: "utf8" });
-  if (r.status !== 0) throw new Error(r.stderr || r.stdout || args.join(" "));
-  return r.stdout;
-}
 
-function catalogue() {
-  return JSON.parse(pdl(["catalogue", ENTRY])) as {
-    components: Record<string, { interactions?: unknown; emitCaptures?: unknown }>;
-  };
-}
+const catalogue = () => rustCatalogue(ENTRY) as never;
 
-function bakePhone() {
-  return JSON.parse(pdl(["bakeComponent", ENTRY, "Phone"]));
-}
+const bakePhone = () => rustBake(ENTRY, "Phone");
 
-function bakePhoneCovered() {
-  const pins = JSON.stringify({
-    presenter: {
-      stack: [
-        { component: "Home", params: {} },
-        { component: "Episode", params: { episodeId: "demo" } },
-      ],
-      cover: { component: "Settings", params: {} },
+const bakePhoneCovered = () =>
+  rustBake(ENTRY, "Phone", {
+    presenterPins: {
+      presenter: {
+        stack: [
+          { component: "Home", params: {} },
+          { component: "Episode", params: { episodeId: "demo" } },
+        ],
+        cover: { component: "Settings", params: {} },
+      },
     },
   });
-  return JSON.parse(pdl(["bakeComponent", ENTRY, "Phone", "--presenterPins", pins]));
-}
 
 async function mountPhone() {
   const cat = catalogue();

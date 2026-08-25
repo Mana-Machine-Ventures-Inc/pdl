@@ -1,7 +1,7 @@
 /**
  * Canonical JSON for `Rule(…)` queries (`shared/language-objects.json` ruleQuery) from parsed companion AST.
  */
-import type { RuleChainTerminalParsed, RulePathExpr, RuleQueryParsed } from "./ast.js";
+import type { RuleChainTerminalParsed, RulePathExpr, RuleQueryParsed } from "./valueJson.js";
 
 export type RuleDefJson = {
   strength: "must" | "mustNot" | "should" | "shouldNot";

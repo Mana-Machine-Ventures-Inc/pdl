@@ -745,6 +745,196 @@ component MotionTargetedDemo <PointerInput>() layout {
   }
 }
 
+usage MotionTargetedDemo {
+  description = "One press fires two let.animate tracks on independent clocks (box fast, label slow)."
+}
+
+/// Button press drives two sibling orbs with different multi-key paths (true parallel).
+component MotionParallelDance <PointerInput>() layout {
+  direction = .column
+  align = .center
+  gap = 16
+  padding = 20
+  width = 280
+  background = #0F172A
+  cornerRadius = 16
+
+  let left = Layout(
+    width: 56,
+    height: 56,
+    background: #38BDF8,
+    cornerRadius: 28
+  )
+  let right = Layout(
+    width: 56,
+    height: 56,
+    background: #FBBF24,
+    cornerRadius: 28
+  )
+  let stage = Layout(
+    direction: .row,
+    align: .center,
+    justify: .center,
+    gap: 48,
+    width: .fill,
+    height: 120
+  )
+  stage.children = [left, right]
+
+  let go = Layout(
+    direction: .row,
+    align: .center,
+    justify: .center,
+    padding: EdgeInsets(x: 22, y: 12),
+    width: .hug,
+    cornerRadius: 12,
+    background: #F8FAFC
+  )
+  go.children = [Text(content: "Dance", color: #0F172A, fontSize: 15, fontWeight: 700)]
+
+  let hint = Text(
+    content: "Release fires both orbs at once — different paths & clocks.",
+    color: #94A3B8,
+    fontSize: 12
+  )
+  children = [stage, go, hint]
+
+  self.pressStart = {
+    go.animate = Animation(
+      keys: [Motion(duration: 90, ease: .in, pose: Pose(scale: 0.94))]
+    )
+  }
+
+  self.pressEnd = {
+    go.animate = Animation(
+      keys: [Motion(duration: 160, ease: .out, pose: .rest)]
+    )
+    // Blue: hop up, twist while drifting right, settle — ~900ms total.
+    left.animate = Animation(
+      keys: [
+        Motion(duration: 180, ease: .out, pose: Pose(translateY: -36, scale: 1.18)),
+        Motion(duration: 320, ease: Ease.bezier(0.42, 0, 0.58, 1), pose: Pose(translateY: -20, translateX: 28, rotate: 180, scale: 1.05)),
+        Motion(duration: 220, ease: .out, pose: Pose(translateY: 8, translateX: 12, rotate: 200, scale: 0.92)),
+        Motion(duration: 200, ease: .out, pose: .rest)
+      ]
+    )
+    // Amber: opposite side, longer hold in midair, blur pulse — ~1280ms total.
+    right.animate = Animation(
+      keys: [
+        Motion(duration: 240, ease: .out, pose: Pose(translateY: -48, translateX: -16, scale: 1.22)),
+        Motion(duration: 400, ease: Ease.bezier(0.42, 0, 0.58, 1), pose: Pose(translateY: -28, translateX: -40, rotate: -220, scale: 1.08, blur: 4)),
+        Motion(duration: 280, ease: .out, pose: Pose(translateY: 4, translateX: -8, rotate: -240, scale: 0.9, blur: 0)),
+        Motion(duration: 360, ease: .out, pose: .rest)
+      ]
+    )
+  }
+
+  self.pressCancel = {
+    go.animate = Animation(
+      keys: [Motion(duration: 120, ease: .out, pose: .rest)]
+    )
+    left.animate = Animation(
+      keys: [Motion(duration: 200, ease: .out, pose: .rest)]
+    )
+    right.animate = Animation(
+      keys: [Motion(duration: 200, ease: .out, pose: .rest)]
+    )
+  }
+}
+
+usage MotionParallelDance {
+  description = "pressEnd runs three concurrent Animations: button rest + left/right orbs on independent multi-key clocks."
+}
+
+/// One equalizer riser. Solo press shoots up; emit pick(step) for the rail capture.
+component MotionRiserCell <PointerInput>(
+  step: Number = 1,
+  lit: Bool = false
+) layout {
+  direction = .column
+  width = 28
+  height = 72
+  cornerRadius = 10
+
+  if lit {
+    background = #14B8A6
+  } else {
+    background = #334155
+  }
+
+  self.pressEnd = {
+    // Solo: hop + stretch — siblings get the list chorus, not this track.
+    animate = [
+      Pose(translateY: -22, scaleY: 1.22),
+      Pose(translateY: -8, scaleY: 1.06),
+      .rest
+    ]
+    emit pick(step)
+  }
+} emits {
+  pick(step: Number)
+}
+
+/// List-chorus lab: press a riser → siblings lean/wobble (risers.animate) ∥ teal land (420ms).
+component MotionRippleRisers(
+  active: Number = 2,
+  count: Number = 5
+) layout {
+  direction = .column
+  align = .center
+  gap = 14
+  padding = 20
+  width = 280
+  background = #0B1220
+  cornerRadius = 16
+
+  let title = Text(
+    content: "Ripple risers",
+    color: #E2E8F0,
+    fontSize: 15,
+    fontWeight: 700
+  )
+  let hint = Text(
+    content: "Press any bar — siblings chorus (lean) while fill lands.",
+    color: #64748B,
+    fontSize: 12
+  )
+
+  let risers: [MotionRiserCell] = Map(1...count) { i in
+    MotionRiserCell(step: i)
+  }
+
+  ForEach(risers) { cell in
+    cell.lit = self.active == step
+    cell.pick(step: Number) = {
+      // Chorus on every ForEach mount of `risers` (pressed cell skipped — owns solo hop).
+      risers.animate = [
+        Pose(rotate: 14, opacity: 0.5, scaleX: 0.82),
+        Pose(rotate: -8, opacity: 0.72, scaleX: 0.92),
+        .rest
+      ]
+      animate = Motion(duration: 420, ease: .linear)
+      active = step
+    }
+  }
+
+  let rail = Layout(
+    direction: .row,
+    align: .end,
+    justify: .center,
+    gap: 10,
+    width: .fill,
+    height: 96
+  )
+  rail.children = risers
+
+  children = [title, rail, hint]
+}
+
+usage MotionRippleRisers {
+  description = "Emit list chorus: risers.animate wobbles every sibling mount ∥ capture land tints the lit bar (parallel to the pressed cell's solo hop)."
+}
+
 component MotionLab() layout {
   direction = .column
   gap = 20
@@ -766,7 +956,9 @@ component MotionLab() layout {
   let appearPulse = MotionAppearThenPulse()
   let pressPop = PressPopButton()
   let targeted = MotionTargetedDemo()
-  children = [modal, list, blur, chip, flourish, pop, overridePop, spin, spinSelf, pulse, sheen, appearPulse, pressPop, targeted]
+  let dance = MotionParallelDance()
+  let ripple = MotionRippleRisers()
+  children = [modal, list, blur, chip, flourish, pop, overridePop, spin, spinSelf, pulse, sheen, appearPulse, pressPop, targeted, dance, ripple]
 }
 
 usage MotionLab {

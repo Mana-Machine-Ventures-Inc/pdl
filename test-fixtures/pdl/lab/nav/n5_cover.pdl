@@ -1,7 +1,6 @@
 // N5 — Presenter cover: present(.cover) / dismiss + fixture pin.
 // Cover is centered over the stack top; the prior page stays visible around it.
 // Vacant cover is omitted. Screen receives <ShowEpisode, AppNav>.
-// Not on the TS oracle manifest.
 
 variant EpisodeId { case demo case late }
 

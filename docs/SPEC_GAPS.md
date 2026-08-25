@@ -1,6 +1,14 @@
 # Spec notes and implementation gaps
 
-This document records ambiguities between the **lock files** (`shared/*.json`, `grammar/pdl.ebnf`, `shared/schema/*.json`) and the TypeScript oracle (`src/`), plus intentional v1 limits. The public site (Guide, Language objects, Diagnostics) is the human spec.
+This document records ambiguities between the **lock files** (`shared/*.json`, `grammar/pdl.ebnf`, `shared/schema/*.json`) and the compiler (`crates/pdl-core`), plus intentional v1 limits. The public site (Guide, Language objects, Diagnostics) is the human spec.
+
+## One compiler (2026-08-20)
+
+**Rust is the language.** `crates/pdl-core` lexes, parses, merges, validates, resolves, bakes, and builds the catalogue; `pdl-cli` and `pdl-wasm` are its two front ends, and the Playground defaults to WASM.
+
+The **TypeScript oracle is retired** — `src/` no longer contains a parser, loader, validator, evaluator, or catalogue builder. What remains is the **host**: the HTML emitter, the motion / choreography runtime, rules evaluation, and the manifest, all fed by bake / catalogue / tokens JSON. `src/bakeDesign.ts`, `src/catalogue.ts`, and `src/valueJson.ts` are type-only statements of that wire contract.
+
+Consequences for anyone reading older notes here or in `docs/`: a caveat of the form “Rust implements this, the TS oracle lags” is now moot, and language semantics are only ever asserted in `cargo test -p pdl-core`. The goldens under `crates/pdl-core/tests/golden/` began life as TypeScript output and stay as **frozen** regression snapshots; refresh them with the Rust CLI when a change to the IR is intended.
 
 ## Retirement checklist (`docs/full-spec.md`)
 
@@ -55,18 +63,18 @@ Documented in lock files + Language objects:
 
 **Additive (2026-08-09):** Frame **`overflow`** is **`.visible` | `.scroll` | `.clip`** only (no **`.hidden`** / **`.auto`**). Hard crop without scroll = **`.clip`**. See `shared/frame-props.json` `enumOverflow`.
 
-Rust B4b/B5 + host-protocol validation + `self.<channel> = { … }` parse landed; `interaction` keyword rejected. TS oracle still has legacy `expose` and lags some protocols/emits/ForEach (Playground uses Rust bake).
+Rust B4b/B5 + host-protocol validation + `self.<channel> = { … }` parse landed; `interaction` keyword rejected.
 
 ## Accepted proposals (status)
 
 | Proposal | Status | Notes |
 |----------|--------|--------|
-| [`PROPOSAL_PORTABLE_CORE.md`](./PROPOSAL_PORTABLE_CORE.md) | **Accepted** 2026-08-05 | Rust portable core; TS oracle until bake parity |
-| [`PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md`](./PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md) | **Accepted** 2026-08-05 | **B1–B5** in Rust + §4a–§4e; B6 chrome deferred; **B7a–c shipped** (presenter pins + click verbs + ancestor climb); TS oracle not yet for B1–B5 |
+| [`PROPOSAL_PORTABLE_CORE.md`](./PROPOSAL_PORTABLE_CORE.md) | **Accepted** 2026-08-05 | Rust portable core; **shipped** — Rust is the only compiler and the TypeScript oracle is retired |
+| [`PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md`](./PROPOSAL_SLOTS_PROTOCOLS_FIXTURES.md) | **Accepted** 2026-08-05 | **B1–B5** in Rust + §4a–§4e; B6 chrome deferred; **B7a–c shipped** (presenter pins + click verbs + ancestor climb) |
 | [`PROPOSAL_PROTOCOL_CAPABILITIES.md`](./PROPOSAL_PROTOCOL_CAPABILITIES.md) | **Accepted** 2026-08-07 | Host vs API protocol roles; E030/E031; EditableText D3; D5 compat matrix later |
 | [`PROPOSAL_QUICK_PREVIEW.md`](./PROPOSAL_QUICK_PREVIEW.md) | **Proposed** | Disk-watch `preview` harness; amended by Playground proposal §7 |
 | [`PROPOSAL_PDL_PLAYGROUND.md`](./PROPOSAL_PDL_PLAYGROUND.md) | **Accepted** — P0–P5 shipped | Demo/lab vs Studio; file canvas, interactive HTML, variants. Overview: [`PLAYGROUND_OVERVIEW.md`](./PLAYGROUND_OVERVIEW.md) |
-| [`PROPOSAL_TYPED_SAMPLES.md`](./PROPOSAL_TYPED_SAMPLES.md) | **Accepted** 2026-08-12 | Folded into `shared/language-objects.json` `samples` + `shared/schema/component-catalogue.json`. Rust bake + TS oracle; playlist-composer-lite + `lab/samples-tracks.pdl`. Open follow-ups below. |
+| [`PROPOSAL_TYPED_SAMPLES.md`](./PROPOSAL_TYPED_SAMPLES.md) | **Accepted** 2026-08-12 | Folded into `shared/language-objects.json` `samples` + `shared/schema/component-catalogue.json`. Rust bake; playlist-composer-lite + `lab/samples-tracks.pdl`. Open follow-ups below. |
 | [`PROPOSAL_LANGUAGE_SITE.md`](./PROPOSAL_LANGUAGE_SITE.md) | **Accepted** 2026-08-12 | Public VitePress site (`website/`) **is** the human spec. Lock files in `shared/*` + `grammar/pdl.ebnf`. |
 | [`PROPOSAL_MOTION_PLAY.md`](./PROPOSAL_MOTION_PLAY.md) | **Accepted** — **P** + **M0–M3** shipped | Play / keys / frame `animate` / HTML WAAPI. **M5** breaking rename `Transition` → `Timing`, `Easing` → `Ease` (before M4 tokens and N8). Plan: [`IMPLEMENTATION_PLAN_MOTION_NAMING.md`](./IMPLEMENTATION_PLAN_MOTION_NAMING.md). |
 | [`PROPOSAL_FRAME_BLUR.md`](./PROPOSAL_FRAME_BLUR.md) | **Accepted** — **E0** + **E2** + E3 lab shipped | Frame `effect` / `blur =`. **E1** `Blur()` alias window; leftover E3 `material.sheet`; **E4** `.glass` reserved. |
@@ -77,8 +85,8 @@ Rust B4b/B5 + host-protocol validation + `self.<channel> = { … }` parse landed
 | [`PROPOSAL_SPEC_STORIES.md`](./PROPOSAL_SPEC_STORIES.md) | **Proposed** 2026-08-17 | Eng Spec storytelling: inferred component wiki vs authored `spec` / `story` / `point`; don’ts from rules; spec-scoped `if` tree; viewer iterate + de-dupe. Not locked — do not treat syntax as normative. |
 | [`PROPOSAL_REPEAT_NUMBER_BOUNDS.md`](./PROPOSAL_REPEAT_NUMBER_BOUNDS.md) | **Locked** 2026-08-18 | `Repeat(count:, begin: = 1)` bake mount (nested OK); `Number(min:, max:)` + `type Name = Number(…)`; page control = count + currentPage. Ceilings 32 / 64. Errors PDL-E057…E060. Interactive list + emit: see **Map** proposal. |
 | [`PROPOSAL_MAP_LIST.md`](./PROPOSAL_MAP_LIST.md) | **Locked** 2026-08-19 | `Map(1...n) { i in }` → typed list (compactMap omit); `ForEach` wires; `children` mounts. G0–G3 shipped. G4 (Repeat deprecate) open. |
-| [`PROPOSAL_LAYOUT_TWEEN.md`](./PROPOSAL_LAYOUT_TWEEN.md) | **Proposed** 2026-08-19 | FLIP engine + `match:` identity for in-place rebake and Presenter crossings. **Author surface amended by** [`PROPOSAL_STATE_CHOREOGRAPHY.md`](./PROPOSAL_STATE_CHOREOGRAPHY.md) — no author `.paint` / `.match` enum; land via `.nextRest`. Not locked. |
-| [`PROPOSAL_STATE_CHOREOGRAPHY.md`](./PROPOSAL_STATE_CHOREOGRAPHY.md) | **Proposed** 2026-08-19 | Fun poses → land on post-mutation still (`.nextRest`). Host triage paint/FLIP. Amends layout-tween author model. Motivating: page dots, toggle. Not locked. |
+| [`PROPOSAL_LAYOUT_TWEEN.md`](./PROPOSAL_LAYOUT_TWEEN.md) | **Proposed** 2026-08-19 | FLIP engine + `match:` identity for in-place rebake and Presenter crossings. **Author surface amended by** [`PROPOSAL_STATE_CHOREOGRAPHY.md`](./PROPOSAL_STATE_CHOREOGRAPHY.md) — no author `.paint` / `.match` enum; land via `.rest` (handler-finished bake). Not locked. |
+| [`PROPOSAL_STATE_CHOREOGRAPHY.md`](./PROPOSAL_STATE_CHOREOGRAPHY.md) | **Accepted** 2026-08-19 — **S0–S3 + S3b shipping** | Fun poses → `.rest` (bake after handler). Host triage paint/FLIP. Clock-only `Motion(duration:, ease:)` land sugar. Emit-capture bare `animate =` lands the capturing rebake. **Parallel tracks** (2026-08-20): every `animate =` in a turn starts at t=0; land not delayed by foreign flourish. S4 Presenter match deferred. |
 
 **Follow-up — `children` list spelling (2026-08-12):** Bare `children = tracks` / `Frame.children = Tracks.focus.tracks` reads as **replace** with a list; `children = [Header, tracks, Footer]` reads as **compose** (lists splice). Solo `children = [tracks]` is legal sugar (bare ≡ brackets) but feels like “array-in-array.” Guidance lives in `shared/language-objects.json` `arrayChildren`; later lints may prefer bare for pure replace. Do not ban `[list]` in v1.
 
@@ -89,13 +97,13 @@ Rust B4b/B5 + host-protocol validation + `self.<channel> = { … }` parse landed
 **Coverage matrix:** [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) — *Language & host coverage*.  
 **Roadmap:** same file. Crate: **`crates/pdl-core`**.
 
-Until a feature is locked in **`shared/*.json`** / **`grammar/pdl.ebnf`**, tooling **must not** treat proposal-only syntax as normative. **ForEach** is implemented in **Rust** (bake expand + emit capture validate); TypeScript oracle still lags. **Typed samples** are locked in `language-objects.json` (proposal retained as history).
+Until a feature is locked in **`shared/*.json`** / **`grammar/pdl.ebnf`**, tooling **must not** treat proposal-only syntax as normative. **ForEach** is implemented in **Rust** (bake expand + emit capture validate). **Typed samples** are locked in `language-objects.json` (proposal retained as history).
 
 ---
 
 ## EBNF catch-up (B1–B4 + B5)
 
-`grammar/pdl.ebnf` includes `protocol`, array/`[T]` params, instance literals, `emits`, host inbound `self.<channel> = { … }`, `emit`, and `ForEach` / handler assignment. Rust implements these; TS oracle lags.
+`grammar/pdl.ebnf` includes `protocol`, array/`[T]` params, instance literals, `emits`, host inbound `self.<channel> = { … }`, `emit`, and `ForEach` / handler assignment. Rust implements these.
 
 ## Lexer: frame kind keywords vs `icon` / `media` property names
 
@@ -112,12 +120,12 @@ Until a feature is locked in **`shared/*.json`** / **`grammar/pdl.ebnf`**, tooli
 
 ## Serialised `ValueExpr` slices (`SerialisedValueExpr`)
 
-- Embedded **`ValueExpr`** / **`ConditionExpr`** fragments inside **Component Catalogue** and **`resolvedComponent.system`** are produced by `serialiseValueExpr` / `serialiseConditionExpr` in **`src/graph.ts`**. There is no standalone merged-AST JSON CLI output. Shapes are implied by catalogue/resolved schemas.
+- Embedded **`ValueExpr`** / **`ConditionExpr`** fragments inside **Component Catalogue** and **`resolvedComponent.system`** are produced by `serialise_value_expr` / `serialise_condition_expr` in **`crates/pdl-core/src/graph_serialize.rs`**; the host's view of the wire shapes is **`src/valueJson.ts`**. There is no standalone merged-AST JSON CLI output. Shapes are implied by catalogue/resolved schemas.
 
 ## Graph and bake CLI (`graphSystem`, `graphComponent`, `bakeSystem`, `bakeComponent`)
 
-- **`shared/schema/*.json`** document **`pdl graph*`** (catalogue / **`resolvedComponent`**) and **`pdl bake*`** (**`bakedDesign`** — literal trees only). Implementation: **`src/cli.ts`**, **`src/bakeDesign.ts`**.
-- **`graphComponent` / `resolve` (default):** **`buildResolvedComponentDocument`** emits a catalogue row for the **primary** component and **each** transitive **`requiredComponents`** dependency, plus **`primaryComponent`** and a trimmed **`system`** — it does **not** build the full multi-component catalogue (see **`src/resolveBundle.ts`**). **`graphSystem` / `catalogue`** still use **`buildComponentCatalogue`** for the whole design.
+- **`shared/schema/*.json`** document **`pdl graph*`** (catalogue / **`resolvedComponent`**) and **`pdl bake*`** (**`bakedDesign`** — literal trees only). Implementation: **`crates/pdl-cli/src/main.rs`**, **`crates/pdl-core/src/bake.rs`**; the host's type-only contracts are **`src/bakeDesign.ts`** / **`src/catalogue.ts`**.
+- **`graphComponent` / `resolve` (default):** **`buildResolvedComponentDocument`** emits a catalogue row for the **primary** component and **each** transitive **`requiredComponents`** dependency, plus **`primaryComponent`** and a trimmed **`system`** — it does **not** build the full multi-component catalogue (see **`crates/pdl-core/src/resolve_bundle.rs`**). **`graphSystem` / `catalogue`** still build the catalogue for the whole design.
 
 ## Component Catalogue
 
@@ -128,20 +136,20 @@ Until a feature is locked in **`shared/*.json`** / **`grammar/pdl.ebnf`**, tooli
 - **CLI `modifiers`:** the catalogue’s **`primitives` / `semantics` / `themes` / `typeStyles`** graph is **not** modifier-aware; if **`buildComponentCatalogue`** is called with non-empty **`modifiers`**, **tree** resolution still uses **`buildResolvedTokenMap`** with those modifiers. Emitters that replay themes from JSON alone cannot reproduce modifier-specific trees unless they mirror that resolution path.
 - **Variant deltas:** only **single-parameter** axes are expanded automatically against the default instance. Combined variant rows (e.g. `emphasis` + `size` interaction) must be authored explicitly; not generated yet.
 - **`$ref` in `children`:** structural variant entries in the spec use `{ "$ref": "Label" }` for reuse. The current diff emits full child trees; emitters can still consume them, but JSON may be larger than the spec’s examples.
-- **`expose` removed (language):** Rust rejects `expose` blocks. Catalogue may still emit transitional `expose: [all params]`. Prefer reading `params` / `emits`. TS oracle may still parse legacy `expose` until ported.
-- **`rules` tags:** only **top-level** `tags =` / `tags.add` inside `rules C { … }` feed **`components[C].rules.tags`** today; tag lines inside nested `rules if { … }` arms are not merged into that array (see TODO in **`src/catalogue.ts`**).
+- **`expose` removed (language):** Rust rejects `expose` blocks. Catalogue may still emit transitional `expose: [all params]`. Prefer reading `params` / `emits`.
+- **`rules` tags:** only **top-level** `tags =` / `tags.add` inside `rules C { … }` feed **`components[C].rules.tags`** today; nested `rules if { … }` arms are emitted as conditional **`tagOps`** (with a `when`) rather than folded into that array.
 
 ## Companion blocks, typed samples, and `rules` / queries — implemented
 
-**`fixtures`**, **`usage`**, **`rules`**, **`extend`**, and **`interaction`** are parsed in TS; Rust rejects **`expose`** (**`src/parser.ts`**), merged into **`DesignDefinition`** (**`src/loadDesign.ts`**), validated (**`src/validateDesign.ts`**), and emitted on **Component Catalogue** component rows (**`src/catalogue.ts`**: **`fixtures`**, **`usage`** / **`usageByKey`**, flattened **`rules`**, **`interactions`**). **`pdl graphSystem`**, **`catalogue`**, and **`graphComponent`** / **`resolve`** surfaces include this metadata where applicable.
+**`fixtures`**, **`usage`**, **`rules`**, and **`extend`** are parsed (**`crates/pdl-core/src/parser.rs`**; **`expose`** and the `interaction` keyword are rejected), merged into **`DesignDefinition`** (**`design.rs`**), validated (**`validate.rs`**), and emitted on **Component Catalogue** component rows (**`catalogue.rs`**: **`fixtures`**, **`usage`** / **`usageByKey`**, flattened **`rules`**, **`interactions`**, **`emitCaptures`**). **`pdl graphSystem`**, **`catalogue`**, and **`graphComponent`** / **`resolve`** surfaces include this metadata where applicable.
 
 **`samples`** banks are design-global (not per-component companions): merge/replace by bank name, paths `Bank.entry.field` in value / children / defaults / fixture bodies, catalogue root **`samples`**, empty arrays preserved under omitEmpty, unknown paths **PDL-E041**. See `shared/language-objects.json` `samples`.
 
-Motion (play / keys / frame `animate`) and frame `effect` are locked in `language-objects.json` and implemented in both compilers. Layer `Blur()` remains an alias window (E1). Composite-token edges may still outpace the reference compiler in spots — see the gap notes below.
+Motion (play / keys / frame `animate`) and frame `effect` are locked in `language-objects.json` and implemented in the compiler. Layer `Blur()` remains an alias window (E1). Composite-token edges may still outpace the reference compiler in spots — see the gap notes below.
 
 ## Design manifest — thin only
 
-The reference **`pdl manifest`** command emits the **thin** **`designManifest`** registry only (**`src/manifest.ts`**). A heavier “fat manifest” is **not** emitted; consume **`usage`**, **`fixtures`**, **`rules`**, and **`interactions`** from **Component Catalogue** JSON when you need them.
+The host **`pdl manifest`** command emits the **thin** **`designManifest`** registry only, from catalogue + tokens JSON (**`src/manifest.ts`**). A heavier “fat manifest” is **not** emitted; consume **`usage`**, **`fixtures`**, **`rules`**, and **`interactions`** from **Component Catalogue** JSON when you need them.
 
 ## Other minor notes
 

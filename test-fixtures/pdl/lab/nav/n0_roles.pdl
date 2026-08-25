@@ -1,5 +1,4 @@
 // N0 — page / screen roles + prelude Page as a slot type.
-// Not on the TS oracle manifest.
 
 page Home() layout {
   direction = .column

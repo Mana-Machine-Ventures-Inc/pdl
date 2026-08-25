@@ -1,4 +1,4 @@
-import type { DesignDefinition } from "./designModel.js";
+import type { ComponentCatalogue } from "./catalogue.js";
 import { PDL_JSON_SCHEMA_VERSION } from "./graphJson.js";
 
 /** Top-level keys on `buildDesignManifest()` output (stable for tests / validators). */
@@ -39,26 +39,55 @@ export type DesignManifest = {
   components: ManifestComponent[];
 };
 
-export function buildDesignManifest(design: DesignDefinition): DesignManifest {
-  const components: ManifestComponent[] = [...design.components.values()]
-    .map((c) => ({
-      name: c.name,
-      rootKind: c.rootKind,
-      params: c.params.map((p) => ({ name: p.name, type: p.typeName })),
-      expose: design.expose.get(c.name) ?? c.params.map((p) => p.name),
-    }))
+/** Shape of the fields this module reads out of a `pdl tokens` document. */
+export type ResolvedTokensDocument = {
+  entryPath?: unknown;
+  modulePaths?: unknown;
+  previewBackground?: unknown;
+};
+
+const sortedNames = (o: unknown): string[] =>
+  Object.keys(o && typeof o === "object" ? o : {}).sort();
+
+/**
+ * Build the registry from a `pdl catalogue` document, plus an optional `pdl tokens`
+ * document for the entry / module / preview-background fields the catalogue omits.
+ */
+export function buildDesignManifestFromCatalogue(
+  catalogue: ComponentCatalogue,
+  tokens?: ResolvedTokensDocument,
+): DesignManifest {
+  const components: ManifestComponent[] = Object.entries(catalogue.components ?? {})
+    .map(([name, row]) => {
+      const params = (row.params ?? []).map((p) => ({
+        name: p.name,
+        type: typeof p.type === "string" ? p.type : String(p.type ?? "String"),
+      }));
+      return {
+        name: row.name ?? name,
+        rootKind: row.root?.kind ?? "layout",
+        params,
+        // `expose` is gone from the language; absent means every param is exposed.
+        expose: row.expose ?? params.map((p) => p.name),
+      };
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
+
+  const modulePaths = Array.isArray(tokens?.modulePaths)
+    ? tokens!.modulePaths.map(String)
+    : [];
 
   return {
     kind: "designManifest",
     schemaVersion: PDL_JSON_SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
-    entryPath: design.entryPath,
-    modulePaths: [...design.modulePaths],
-    previewBackground: design.previewBackground ?? null,
-    themes: [...design.themes.keys()].sort(),
-    variants: [...design.variants.keys()].sort(),
-    typeStyles: [...design.typeStyles.keys()].sort(),
+    entryPath: typeof tokens?.entryPath === "string" ? tokens.entryPath : "",
+    modulePaths,
+    previewBackground:
+      typeof tokens?.previewBackground === "string" ? tokens.previewBackground : null,
+    themes: sortedNames(catalogue.themes),
+    variants: sortedNames(catalogue.variantTypes),
+    typeStyles: sortedNames(catalogue.typeStyles),
     components,
   };
 }

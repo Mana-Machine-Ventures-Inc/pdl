@@ -1,22 +1,30 @@
-import type { DesignDefinition } from "./designModel.js";
-import { PdlError } from "./errors.js";
-import { PDL_JSON_SCHEMA_VERSION } from "./graphJson.js";
-import { buildResolvedTokenMap, evaluateValue } from "./evaluate.js";
-import { coerceFramePropValue } from "./frameNumericSugar.js";
-import {
-  pruneHiddenChildrenTree,
-  RESOLVE_OPTIONS_LITERAL_BAKE,
-  resolveComponentTree,
-  resolveDefaultParamValues,
-  type CatalFrame,
-} from "./resolveTree.js";
+/**
+ * The `bakedDesign` JSON contract, as produced by `pdl bakeSystem` / `bakeComponent` /
+ * `bakePack` in the Rust compiler and consumed by the host (renderHtml, bakeReconcile,
+ * evaluateRules). Types only — nothing here parses or bakes PDL.
+ */
 
-export type BakedFrame = CatalFrame;
+/** One frame in a baked tree. Every prop value is already literal. */
+export type BakedFrame = {
+  id: string;
+  kind: string;
+  props: Record<string, unknown>;
+  children: BakedFrame[];
+  /** Source component name when this frame is the root of an inlined instance child. */
+  instanceOf?: string;
+  /** Evaluated call-site `kwargs` for that instance. */
+  instanceKwargs?: Record<string, unknown>;
+  /**
+   * Owning ForEach / list param name when the instance came from a list (`chips`,
+   * `tracks`). Hosts match catalogue emit captures against this.
+   */
+  foreachList?: string;
+};
 
 export type BakedComponentJson = {
   name: string;
   rootKind: string;
-  /** Omitted when empty under omitEmpty (Rust / TS bake). */
+  /** Omitted when empty under omitEmpty. */
   bakedParams?: Record<string, unknown>;
   root: BakedFrame;
 };
@@ -28,7 +36,7 @@ export type BakedDesignDocument = {
   provenance: {
     entryPath: string;
     bakedTheme: string | null;
-    /** `system-defaults` | `component-explicit` | `injection-pack` (Rust packs) | future profiles */
+    /** `system-defaults` | `component-explicit` | `injection-pack` | future profiles */
     bakeProfile: string;
   };
   /**
@@ -39,158 +47,7 @@ export type BakedDesignDocument = {
   components: Record<string, BakedComponentJson>;
 };
 
-/** Resolve entry `previewBackground` token to a CSS color string for HTML hosts. */
-function resolvePreviewBackgroundCss(
-  design: DesignDefinition,
-  tokenMap: Map<string, unknown>,
-): string | undefined {
-  const name = design.previewBackground;
-  if (!name) return undefined;
-  const v = tokenMap.get(name);
-  if (typeof v === "string" && v.trim().length > 0) return v.trim();
-  return undefined;
-}
-
-/**
- * Bake must be fully literal: expand `style = TypeStyle` into concrete text props,
- * then drop the `typeStyle` name. Explicit frame props win over preset defaults.
- */
-function expandTypeStyleIntoFrame(
-  design: DesignDefinition,
-  tokens: Map<string, unknown>,
-  frame: CatalFrame,
-): CatalFrame {
-  const props = { ...frame.props };
-  const tsRaw = props.typeStyle;
-  if (typeof tsRaw === "string") {
-    const name = tsRaw.startsWith("typeStyle:") ? tsRaw.slice("typeStyle:".length) : tsRaw;
-    const decl = design.typeStyles.get(name);
-    if (decl) {
-      const fromStyle: Record<string, unknown> = {};
-      for (const [k, expr] of Object.entries(decl.props)) {
-        if (expr.kind === "null") continue;
-        const v = evaluateValue(expr, {
-          design,
-          tokens,
-          visiting: new Set(),
-          paramValues: {},
-          paramMeta: new Map(),
-        });
-        if (v === null) continue;
-        fromStyle[k] = coerceFramePropValue(k, v, design.entryPath);
-      }
-      const { typeStyle: _drop, ...frameRest } = props;
-      Object.assign(props, fromStyle);
-      for (const [k, v] of Object.entries(frameRest)) {
-        if (v === null) delete props[k];
-        else props[k] = v;
-      }
-      delete props.typeStyle;
-    } else if (Object.keys(props).length > 1) {
-      delete props.typeStyle;
-    }
-  }
-  // Strip any remaining null sentinels (unset → absent default).
-  for (const k of Object.keys(props)) {
-    if (props[k] === null) delete props[k];
-  }
-  return {
-    id: frame.id,
-    kind: frame.kind,
-    props,
-    children: frame.children.map((c) => expandTypeStyleIntoFrame(design, tokens, c)),
-    ...(frame.instanceOf !== undefined
-      ? {
-          instanceOf: frame.instanceOf,
-          instanceKwargs: { ...(frame.instanceKwargs ?? {}) },
-        }
-      : {}),
-    ...(frame.foreachList !== undefined ? { foreachList: frame.foreachList } : {}),
-  };
-}
-
-function bakeFrameTree(
-  design: DesignDefinition,
-  tokens: Map<string, unknown>,
-  raw: CatalFrame,
-): BakedFrame {
-  return expandTypeStyleIntoFrame(design, tokens, pruneHiddenChildrenTree(raw));
-}
-
-/**
- * Fully materialised, draw-oriented JSON: one **`BakedComponentJson`** per component (default params),
- * no token tables or variant registries.
- */
-export function buildBakedDesignSystem(
-  design: DesignDefinition,
-  opts: { theme?: string } = {},
-): BakedDesignDocument {
-  const tokenMap = buildResolvedTokenMap(design, opts.theme, []);
-  const resolveOpts = RESOLVE_OPTIONS_LITERAL_BAKE;
-  const components: Record<string, BakedComponentJson> = {};
-
-  for (const c of [...design.components.values()].sort((a, b) => a.name.localeCompare(b.name))) {
-    const bakedParams = resolveDefaultParamValues(design, tokenMap, c);
-    const raw = resolveComponentTree(design, c.name, tokenMap, {}, resolveOpts);
-    components[c.name] = {
-      name: c.name,
-      rootKind: c.rootKind,
-      bakedParams,
-      root: bakeFrameTree(design, tokenMap, raw),
-    };
-  }
-
-  const previewBackground = resolvePreviewBackgroundCss(design, tokenMap);
-  return {
-    schemaKind: "bakedDesign",
-    schemaVersion: PDL_JSON_SCHEMA_VERSION,
-    generatedAt: new Date().toISOString(),
-    provenance: {
-      entryPath: design.entryPath,
-      bakedTheme: opts.theme ?? null,
-      bakeProfile: "system-defaults",
-    },
-    ...(previewBackground ? { previewBackground } : {}),
-    components,
-  };
-}
-
-/**
- * Single-component bake (explicit params + optional theme).
- */
-export function buildBakedDesignComponent(
-  design: DesignDefinition,
-  opts: { componentName: string; theme?: string; paramOverrides?: Record<string, unknown> },
-): BakedDesignDocument {
-  const { componentName, theme, paramOverrides = {} } = opts;
-  const c = design.components.get(componentName);
-  if (!c) {
-    throw new PdlError("PDL-E037", `Unknown component ${componentName}`, { path: design.entryPath });
-  }
-  const tokenMap = buildResolvedTokenMap(design, theme, []);
-  const resolveOpts = RESOLVE_OPTIONS_LITERAL_BAKE;
-  const defaults = resolveDefaultParamValues(design, tokenMap, c);
-  const bakedParams = { ...defaults, ...paramOverrides };
-  const raw = resolveComponentTree(design, componentName, tokenMap, paramOverrides, resolveOpts);
-
-  const previewBackground = resolvePreviewBackgroundCss(design, tokenMap);
-  return {
-    schemaKind: "bakedDesign",
-    schemaVersion: PDL_JSON_SCHEMA_VERSION,
-    generatedAt: new Date().toISOString(),
-    provenance: {
-      entryPath: design.entryPath,
-      bakedTheme: theme ?? null,
-      bakeProfile: "component-explicit",
-    },
-    ...(previewBackground ? { previewBackground } : {}),
-    components: {
-      [componentName]: {
-        name: componentName,
-        rootKind: c.rootKind,
-        bakedParams,
-        root: bakeFrameTree(design, tokenMap, raw),
-      },
-    },
-  };
+/** Frames with `props.hidden === true` are not painted. */
+export function isHiddenFrame(f: BakedFrame): boolean {
+  return f.props.hidden === true;
 }

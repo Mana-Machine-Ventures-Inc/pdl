@@ -447,6 +447,19 @@
             }
           }
         ],
+        "tagOps": [
+          {
+            "kind": "set",
+            "tags": [
+              "molecule",
+              "card"
+            ]
+          },
+          {
+            "kind": "add",
+            "tag": "layout"
+          }
+        ],
         "tags": [
           "molecule",
           "card",
@@ -953,6 +966,7 @@
       ],
       "fixtures": {
         "Compact (no helper)": {
+          "helper": "",
           "label": "SKU",
           "layoutMode": "noHelp",
           "value": "PDL-001"
@@ -1085,6 +1099,15 @@
               },
               "kind": "not"
             }
+          }
+        ],
+        "tagOps": [
+          {
+            "kind": "set",
+            "tags": [
+              "molecule",
+              "form"
+            ]
           }
         ],
         "tags": [
@@ -1880,6 +1903,19 @@
             },
             "strength": "should",
             "tier": "static"
+          }
+        ],
+        "tagOps": [
+          {
+            "kind": "set",
+            "tags": [
+              "molecule",
+              "button"
+            ]
+          },
+          {
+            "kind": "add",
+            "tag": "cta"
           }
         ],
         "tags": [

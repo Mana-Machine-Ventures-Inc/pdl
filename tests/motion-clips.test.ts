@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { buildBakedDesignComponent } from "../src/bakeDesign.js";
-import { buildComponentCatalogue } from "../src/catalogue.js";
 import { collectMotionClips, motionClipLabel } from "../src/motionClips.js";
-import { loadDesign } from "../src/loadDesign.js";
+import {
+  bakeComponent,
+  catalogue,
+  fx,
+  interactionsByComponent as rustInteractions,
+} from "./helpers/rustFixtures.js";
 
-const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const fx = (...p: string[]) => resolve(__dirname, "../test-fixtures/pdl", ...p);
+const MOTION_LAB = fx("lab/motion/design.pdl");
 
 describe("motion clips", () => {
   it("labels lifecycle and pointer events", () => {
@@ -18,13 +18,8 @@ describe("motion clips", () => {
   });
 
   it("collects one clip per animating handler, grouped by instance", () => {
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const cat = buildComponentCatalogue(design);
-    const interactionsByComponent: Record<string, unknown> = {};
-    for (const [name, row] of Object.entries(cat.components)) {
-      if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
-    }
-    const bake = buildBakedDesignComponent(design, { componentName: "MotionLab" });
+    const interactionsByComponent = rustInteractions(MOTION_LAB);
+    const bake = bakeComponent(MOTION_LAB, "MotionLab");
     const clips = collectMotionClips(
       "MotionLab",
       interactionsByComponent,
@@ -50,17 +45,30 @@ describe("motion clips", () => {
       "targeted:pressStart",
       "targeted:pressEnd",
       "targeted:pressCancel",
+      "dance:pressStart",
+      "dance:pressEnd",
+      "dance:pressCancel",
     ]);
   });
 
+  it("MotionParallelDance pressEnd catalogues three concurrent animationTargets", () => {
+    const cat = catalogue(MOTION_LAB);
+    const pressEnd = (
+      cat.components.MotionParallelDance!.interactions?.[0] as {
+        handlers: Array<{
+          event: string;
+          animationTargets?: Array<{ target: string; animation?: { keys?: unknown[] } }>;
+        }>;
+      }
+    ).handlers.find((h) => h.event === "pressEnd");
+    expect(pressEnd?.animationTargets?.map((t) => t.target)).toEqual(["go", "left", "right"]);
+    expect(pressEnd?.animationTargets?.find((t) => t.target === "left")?.animation?.keys).toHaveLength(4);
+    expect(pressEnd?.animationTargets?.find((t) => t.target === "right")?.animation?.keys).toHaveLength(4);
+  });
+
   it("MotionPoseLab exposes one Appear/Dismiss pair per Pose field", () => {
-    const design = loadDesign(fx("lab/motion/design.pdl"));
-    const cat = buildComponentCatalogue(design);
-    const interactionsByComponent: Record<string, unknown> = {};
-    for (const [name, row] of Object.entries(cat.components)) {
-      if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
-    }
-    const bake = buildBakedDesignComponent(design, { componentName: "MotionPoseLab" });
+    const interactionsByComponent = rustInteractions(MOTION_LAB);
+    const bake = bakeComponent(MOTION_LAB, "MotionPoseLab");
     const clips = collectMotionClips(
       "MotionPoseLab",
       interactionsByComponent,

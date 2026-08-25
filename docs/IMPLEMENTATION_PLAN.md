@@ -8,8 +8,8 @@
 
 ## Principles
 
-1. **TypeScript is the oracle** until Rust bake/catalogue matches goldens.  
-2. **New language features prefer Rust** once load→bake parity exists (avoid double implementation).  
+1. **Rust is the language** — the TypeScript oracle was retired on 2026-08-20 once bake/catalogue matched the goldens; `src/` is the host (HTML, motion, rules, manifest).  
+2. **Language features land in Rust only**; goldens are frozen snapshots, refreshed with the Rust CLI.  
 3. **Vertical slices** — one feature train at a time, each with fixtures + goldens + lock-file update.  
 4. **Bake JSON** is the stability boundary for HTML / future SwiftUI hosts.  
 5. Proposal text is **accepted intent**, not grammar law, until locked in `shared/*.json` / `grammar/pdl.ebnf`.
@@ -53,8 +53,8 @@ Implement **after A2** unless a spike is explicitly throwaway.
 | Layer | Covered now | Not covered yet |
 |-------|-------------|-----------------|
 | Classic PDL → bake / catalogue (TS + Rust parity) | Tokens, themes, variants, components, `if`, companions | — |
-| Rust-first language | **B1–B4** (`protocol`, `[T]`, packs, `emits` / host inbound handlers) | TS oracle port of B1–B4 |
-| Normative grammar | `grammar/pdl.ebnf` + language-objects; Rust B4b/B5 | **B6** chrome; TS oracle lag; B7 host dispatch |
+| Rust-first language | **B1–B4** (`protocol`, `[T]`, packs, `emits` / host inbound handlers) | — |
+| Normative grammar | `grammar/pdl.ebnf` + language-objects; Rust B4b/B5 | **B6** chrome; B7 host dispatch |
 | Typed samples | `samples` banks + `Bank.entry.field`; Rust + TS; catalogue `samples`; playlist-composer-lite + `lab/samples-tracks.pdl`; **PDL-E041** | ForEach over sample path; sample RHS in emit-assign; lints for bare `children = list` |
 | HTML host (C1) | Static draw of bake IR; interactive host; handler + standing motion overlay (appear/dismiss, play / keys, frame `animate`, `rotate`, clip rack); frame `effect` / `blur =` (filter + backdrop-filter); **B7** presenter pins + click-to-push/pop/present | M5 Timing / Ease; M4 teaching tokens; E1 `Blur()` alias close; E4 `.glass` |
 | Native / prototype | — | C2 SwiftUI; C3 / Track N (`Presenter` stack); A5 C ABI |
@@ -146,9 +146,9 @@ Unified `host Name(params) [mount]`, `<Host>` inject, opaque facts bag, `theme` 
    - `test-fixtures/pdl/molecules/design.pdl`
    - `test-fixtures/pdl/integration/design.pdl`  
    (Exact golden directory layout TBD in A2.)
-2. CI: `npm test` (TS) + `cargo test -p pdl-core`.
-3. Dual-bake compare job once A2 exists.
-4. Error fixtures in `test-fixtures/pdl/errors/` remain the validate/parse oracle.
+2. CI: `cargo test -p pdl-core` (language) + `npm test` (host, fed by the Rust CLI).
+3. Dual-bake compare job — retired with the TS oracle; goldens carry the same guarantee.
+4. Error fixtures in `test-fixtures/pdl/errors/` remain the validate/parse oracle, table-driven in `crates/pdl-core/tests/error_fixtures.rs`.
 ---
 
 ## Decisions (owner)
@@ -179,14 +179,14 @@ None from the A0 question set. Further grammar nits can be decided when updating
 - [x] A2 bake goldens + parity *(53 TS bakeSystem goldens, byte match)*  
 - [x] A3 catalogue / graph *(53 TS `graphSystem` goldens + 4 `graphComponent` goldens, byte match)*  
 - [x] A4 Rust CLI (`crates/pdl-cli` / `pdl`) for bake/graph/catalogue/resolve  
-- [x] Dual-run CI job (TS vs Rust JSON, volatiles normalized) — `.github/workflows/ci.yml` + `scripts/dual-run-compare.mjs`  
+- [x] Dual-run CI job (TS vs Rust JSON, volatiles normalized) — served its purpose; removed with the TS oracle (2026-08-20)  
 - [x] B1 protocols locked (Rust-first)  
 - [x] B2 `[T]` / instance literals / children expand (Rust-first)  
 - [x] B3 injection packs (`bakePack` / `validatePack`)  
 - [x] B4 emits + host inbound `[self.]channel = { … }` (declare/fire; host dispatch B7)  
 - [x] C1a live preview (`npm run preview` + playground Rust bake path)  
 - [x] B5 ForEach locked; Rust parse + bake expand shipped (B4b/B5)  
-- [x] Typed samples — Rust + TS; catalogue `samples`; playlist-composer-lite + lab; **PDL-E041**; Playground per-component fixtures  
+- [x] Typed samples — Rust; catalogue `samples`; playlist-composer-lite + lab; **PDL-E041**; Playground per-component fixtures  
 - [x] Public docs site (`website/`) + generated reference (frame props, diagnostics, keywords, bake/catalogue JSON Schema sketches)  
 - [ ] Align published `schemaVersion` string to plain **`1.0.0`** when touching normative version prose (drop `-beta` framing; still unreleased)
 - [ ] Track M — **P** + **M0–M3** shipped; next **M5** Timing / Ease rename then **M4** tokens (`docs/IMPLEMENTATION_PLAN_MOTION_NAMING.md`)

@@ -247,6 +247,8 @@ fn validate_layout_on_handler(
     handler: &LayoutOnHandler,
     param_by_name: &HashMap<String, String>,
     array_params: &HashSet<String>,
+    // Map lets (`let dots: [T] = Map(…)`) — legal `dots.animate` targets in captures.
+    map_lets: &HashSet<String>,
     component_name: &str,
     // ForEach binder captures store `qualifier: None` (catalogue uses the list name).
     foreach_binder: bool,
@@ -349,6 +351,24 @@ fn validate_layout_on_handler(
                         ),
                         design,
                     ));
+                }
+            }
+            crate::ast::LayoutOnBodyItem::Animate { target, value } => {
+                validate_animate_animation(design, value, component_name, "")?;
+                if let Some(id) = target {
+                    if array_params.contains(id) || map_lets.contains(id) {
+                        // List chorus — ok.
+                    } else {
+                        return Err(err(
+                            "PDL-E007",
+                            format!(
+                                "`{id}.animate = …` in an emit capture must name a list \
+                                 (array param or Map let) on component {component_name}; \
+                                 targeted shots on a single let belong on that frame's own handler"
+                            ),
+                            design,
+                        ));
+                    }
                 }
             }
             crate::ast::LayoutOnBodyItem::HostVerb {
@@ -566,6 +586,7 @@ fn validate_if_conditions_in_body(
                         h,
                         param_by_name,
                         array_params,
+                        map_lets,
                         component_name,
                         true,
                     )?;
@@ -577,6 +598,7 @@ fn validate_if_conditions_in_body(
                     handler,
                     param_by_name,
                     array_params,
+                    map_lets,
                     component_name,
                     false,
                 )?;
@@ -951,6 +973,53 @@ fn validate_let_values_in_body(
                         frame_ids,
                         value_ids,
                         caller_params,
+                        component_name,
+                    )?;
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+/// § PDL-E007: a value `let` (`let ramp: Ramp = …`) names a value, not a frame, so it
+/// cannot be mounted. Without this the mount fails much later as a missing frame.
+fn assert_value_lets_are_not_mounted(
+    design: &DesignDefinition,
+    items: &[FrameBodyItem],
+    value_ids: &HashSet<String>,
+    component_name: &str,
+) -> Result<(), PdlError> {
+    for it in items {
+        match it {
+            FrameBodyItem::Children { entries, .. } => {
+                for e in entries {
+                    if let ChildEntry::FrameRef { id, .. } = e {
+                        if value_ids.contains(id) {
+                            return Err(err(
+                                "PDL-E007",
+                                format!(
+                                    "Value let `{id}` cannot be mounted in `children` (component {component_name}) — it is a value, not a frame; use it as a property value instead"
+                                ),
+                                design,
+                            ));
+                        }
+                    }
+                }
+            }
+            FrameBodyItem::Let { body, .. } => {
+                assert_value_lets_are_not_mounted(design, body, value_ids, component_name)?;
+            }
+            FrameBodyItem::If { chain } => {
+                for br in &chain.branches {
+                    assert_value_lets_are_not_mounted(design, &br.body, value_ids, component_name)?;
+                }
+                if let Some(else_body) = &chain.else_body {
+                    assert_value_lets_are_not_mounted(
+                        design,
+                        else_body,
+                        value_ids,
                         component_name,
                     )?;
                 }
@@ -1830,13 +1899,46 @@ fn validate_animate_animation(
                 design,
             )),
         },
-        ValueExpr::Motion { .. } => Err(err(
-            "PDL-E005",
-            format!(
-                "`animate =` must be `Animation(…)` — Motion is a segment inside Animation.keys in {component_name}"
-            ),
-            design,
-        )),
+        ValueExpr::Motion { timing, pose } => {
+            // Handler land sugar: `animate = Motion(duration:, ease:)` (pose omitted → .rest).
+            // Standing frame animate and Motion-with-flourish-pose stay illegal as the animate value.
+            if _event == "frame" {
+                return Err(err(
+                    "PDL-E005",
+                    format!(
+                        "`animate =` on a frame must be `Animation(…)` in {component_name}"
+                    ),
+                    design,
+                ));
+            }
+            let is_rest = matches!(
+                pose.as_ref(),
+                ValueExpr::DotEnum { value } if value.trim_start_matches('.') == "rest"
+            );
+            if !is_rest {
+                return Err(err(
+                    "PDL-E005",
+                    format!(
+                        "`animate = Motion(…)` land sugar cannot take a flourish `pose:` in {component_name} — write `Animation(keys: [Motion(…), Motion(…, pose: .rest)])`"
+                    ),
+                    design,
+                ));
+            }
+            match timing {
+                Some(t) => validate_transition_value(
+                    design,
+                    t,
+                    &format!("Motion land clock in {component_name}"),
+                ),
+                None => Err(err(
+                    "PDL-E005",
+                    format!(
+                        "`animate = Motion(…)` requires `duration:` / `ease:` (or `timing:`) in {component_name}"
+                    ),
+                    design,
+                )),
+            }
+        }
         ValueExpr::Timing { .. } => Err(err(
             "PDL-E005",
             format!(
@@ -4353,6 +4455,7 @@ pub fn validate_merged_design(design: &DesignDefinition) -> Result<(), PdlError>
             &caller_params,
             &c.name,
         )?;
+        assert_value_lets_are_not_mounted(design, &c.body, &value_ids, &c.name)?;
         let param_names: HashSet<String> = effective_params(design, c)?
             .into_iter()
             .map(|p| p.name)

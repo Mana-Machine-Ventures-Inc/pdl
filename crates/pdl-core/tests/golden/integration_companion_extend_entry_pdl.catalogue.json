@@ -103,6 +103,14 @@
             "tier": "static"
           }
         ],
+        "tagOps": [
+          {
+            "kind": "set",
+            "tags": [
+              "demo"
+            ]
+          }
+        ],
         "tags": [
           "demo"
         ]

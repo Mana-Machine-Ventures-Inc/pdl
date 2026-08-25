@@ -6,22 +6,18 @@
  */
 import { Window } from "happy-dom";
 import { describe, expect, it } from "vitest";
-import { resolve } from "node:path";
-import { buildBakedDesignComponent } from "../src/bakeDesign.js";
-import { buildComponentCatalogue } from "../src/catalogue.js";
-import { loadDesign } from "../src/loadDesign.js";
+import {
+  bakeComponent,
+  fx,
+  interactionsByComponent as rustInteractions,
+} from "./helpers/rustFixtures.js";
 import { renderBakedDesignToHtmlDocumentWithReport } from "../src/renderHtml.js";
 
-const fx = (...p: string[]) => resolve(process.cwd(), "test-fixtures/pdl", ...p);
+const MOTION_LAB = fx("lab/motion/design.pdl");
 
 async function mountMotionHoverChip() {
-  const design = loadDesign(fx("lab/motion/design.pdl"));
-  const cat = buildComponentCatalogue(design);
-  const interactionsByComponent: Record<string, unknown> = {};
-  for (const [name, row] of Object.entries(cat.components)) {
-    if (row.interactions?.length) interactionsByComponent[name] = row.interactions;
-  }
-  const doc = buildBakedDesignComponent(design, { componentName: "MotionHoverChip" });
+  const interactionsByComponent = rustInteractions(MOTION_LAB);
+  const doc = bakeComponent(MOTION_LAB, "MotionHoverChip");
   const { html } = renderBakedDesignToHtmlDocumentWithReport(doc, {
     singleComponent: "MotionHoverChip",
     interactionsByComponent,

@@ -9,6 +9,8 @@ import {
   collectEditableSessionDefaults,
   renderBakedDesignToHtmlDocumentWithReport,
 } from "@pdl/renderHtml.ts";
+import { playAnimationOnElement } from "@pdl/applyMotion.ts";
+import { armChoreographyLand, playChoreographyLand, normalizeChoreoSession } from "@pdl/stateChoreography.ts";
 import { applyPresenterOps, resolvePairMove } from "./presenter-pins.js";
 import { snapshotPresenterOutgoing, startPresenterPairClip } from "./presenter-clip.js";
 import { loadWasmBake, virtualizeSources } from "./wasm-bake.js";
@@ -667,6 +669,38 @@ function instanceKey(data) {
   return instanceLet ? `${owner}::${instanceLet}` : `${owner}::__root__::${child}`;
 }
 
+function choreographySession(data) {
+  return normalizeChoreoSession(data?.choreography);
+}
+
+/** Arm the land transition before Last is painted so fills tween through reconcile. */
+function armChoreographyIfPresent(data, scopeEl) {
+  const session = choreographySession(data);
+  if (!session) return;
+  const doc = frame?.contentDocument;
+  if (!doc) return;
+  armChoreographyLand(scopeEl || doc, session);
+}
+
+function applyChoreographyIfPresent(data, scopeEl) {
+  const session = choreographySession(data);
+  if (!session) return;
+  const doc = frame?.contentDocument;
+  if (!doc) return;
+  playChoreographyLand(scopeEl || doc, session, {
+    playFlourish: (el, spec) => {
+      const h = playAnimationOnElement(
+        /** @type {HTMLElement & { animate: (k: Keyframe[], o?: KeyframeAnimationOptions) => Animation }} */ (
+          el
+        ),
+        spec,
+        { applyStart: false },
+      );
+      return h ?? null;
+    },
+  });
+}
+
 async function applyInstanceResolve(data, token) {
   const doc = frame.contentDocument;
   if (!doc || !previewLive) return;
@@ -677,6 +711,12 @@ async function applyInstanceResolve(data, token) {
     data.childParams && typeof data.childParams === "object" && !Array.isArray(data.childParams)
       ? data.childParams
       : {};
+  const prevChildParams =
+    data.prevChildParams &&
+    typeof data.prevChildParams === "object" &&
+    !Array.isArray(data.prevChildParams)
+      ? data.prevChildParams
+      : null;
   if (!childComponent) return;
   const key = instanceKey(data);
   if (instanceResolveToken.get(key) !== token) return;
@@ -699,6 +739,7 @@ async function applyInstanceResolve(data, token) {
       root: baked.root,
       bakedParams: baked.bakedParams ?? childParams,
     };
+    armChoreographyIfPresent(data, canvas);
     const ok = reconcileBakedComponentIntoCanvas(canvas, prevComp, nextComp, {
       sessionParams: childParams,
       prevSessionParams:
@@ -708,12 +749,22 @@ async function applyInstanceResolve(data, token) {
     });
     if (!ok) return;
     if (lastBaked?.components) lastBaked.components[owner] = nextComp;
+    applyChoreographyIfPresent(data, canvas);
     return;
   }
   const node = (section || doc).querySelector(
     `[data-pdl-instance-let="${CSS.escape(instanceLet)}"]`,
   );
   if (!node) return;
+  /** @type {Record<string, unknown> | undefined} */
+  let prevKwargs = prevChildParams ?? undefined;
+  if (!prevKwargs) {
+    try {
+      prevKwargs = JSON.parse(node.getAttribute("data-pdl-instance-kwargs") || "{}");
+    } catch {
+      prevKwargs = undefined;
+    }
+  }
   let prevRoot = null;
   try {
     const raw = node.getAttribute("data-pdl-instance-bake");
@@ -721,13 +772,13 @@ async function applyInstanceResolve(data, token) {
   } catch {
     prevRoot = null;
   }
-  let prevKwargs;
-  try {
-    prevKwargs = JSON.parse(node.getAttribute("data-pdl-instance-kwargs") || "{}");
-  } catch {
-    prevKwargs = undefined;
+  if (!prevRoot && prevKwargs) {
+    const prevBaked = await bakeChild(childComponent, prevKwargs);
+    if (instanceResolveToken.get(key) !== token) return;
+    if (prevBaked?.root) prevRoot = prevBaked.root;
   }
   if (instanceResolveToken.get(key) !== token) return;
+  armChoreographyIfPresent(data, section || node);
   const ok = reconcileBakedInstanceIntoElement(node, prevRoot, baked.root, {
     sessionParams: childParams,
     prevSessionParams: prevKwargs,
@@ -739,6 +790,7 @@ async function applyInstanceResolve(data, token) {
   } catch {
     /* ignore */
   }
+  applyChoreographyIfPresent(data, section || node);
 }
 
 function queueInstanceResolve(data) {
@@ -896,6 +948,15 @@ window.addEventListener("message", (ev) => {
     if (data.previewHandled !== true && (pinsChanged || assignChanged)) {
       leaveFollow("Local · interaction");
       if (data.params && typeof data.params === "object") kv = { ...data.params };
+      const docBefore = frame?.contentDocument;
+      armChoreographyIfPresent(
+        data,
+        comp
+          ? docBefore?.querySelector(
+              `section.pdl-preview[data-pdl-component="${CSS.escape(comp)}"]`,
+            )
+          : null,
+      );
       void runRender().then(() => {
         if (pairMove && outgoingSnap) {
           activePairClip = startPresenterPairClip(
@@ -904,6 +965,11 @@ window.addEventListener("message", (ev) => {
             pairMove,
           );
         }
+        const doc = frame?.contentDocument;
+        const section = comp
+          ? doc?.querySelector(`section.pdl-preview[data-pdl-component="${CSS.escape(comp)}"]`)
+          : null;
+        applyChoreographyIfPresent(data, section || doc);
       });
     }
   }

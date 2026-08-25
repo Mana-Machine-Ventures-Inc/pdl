@@ -2,7 +2,7 @@
 
 Rust **portable PDL core** (lex → parse → merge → validate → bake → catalogue / graph).
 
-**Status:** **A4** + **B1–B4** (Rust-first) — bake/catalogue/CLI parity for current PDL; protocols, slots, injection packs, emits/inline interaction. TypeScript in `src/` remains the oracle for pre-protocol designs.
+**Status:** the **only** implementation of the language. Protocols, slots, injection packs, emits / inline interaction, `ForEach`, host environment, and state choreography all live here; `src/` is a host (HTML, motion, rules, manifest) that reads this crate's JSON and never parses `.pdl`.
 
 ## Develop
 
@@ -41,21 +41,24 @@ let resolved =
 | `evaluate` | Token map / value eval |
 | `resolve` | Component tree materialization |
 | `bake` | `bakedDesign` JSON documents |
-| `graph_serialize` | `ValueExpr` / `ConditionExpr` serialisation + token refs (`src/graph.ts`, `src/valueExprRefs.ts`) |
-| `rules_json` | `Rule(…)` query canonical JSON (`src/rulesJson.ts`) |
-| `catalogue` | `componentCatalogue` document (`graphSystem` / `src/catalogue.ts`) |
-| `resolve_bundle` | `resolvedComponent` document (`graphComponent` / `src/resolveBundle.ts`) |
+| `graph_serialize` | `ValueExpr` / `ConditionExpr` serialisation + token refs (host contract: `src/valueJson.ts`) |
+| `rules_json` | `Rule(…)` query canonical JSON (host reader: `src/rulesJson.ts`) |
+| `catalogue` | `componentCatalogue` document (`graphSystem`; host contract: `src/catalogue.ts`) |
+| `resolve_bundle` | `resolvedComponent` document (`graphComponent`) |
 | `stable_json` | Deterministic stringify for goldens |
 | `error` | `PdlError` |
 
-Goldens (`tests/golden/`):
-- `*.bake.json` — TS `bakeSystem`
-- `*.catalogue.json` — TS `graphSystem`
-- `*.<Component>.resolved.json` — TS `graphComponent`
+Goldens (`tests/golden/`) are frozen IR snapshots — first cut from the retired
+TypeScript reference, now refreshed with this crate's CLI when a change is intended:
+- `*.bake.json` — `bakeSystem`
+- `*.catalogue.json` — `graphSystem`
+- `*.<Component>.resolved.json` — `graphComponent`
+
+Diagnostics live in `tests/error_fixtures.rs`, which walks `test-fixtures/pdl/errors`
+and asserts the code each filename names.
 
 ## Next
 
 - **A5** — C ABI (later)  
-- **B5+** — layout `on` capture, `ForEach` bindings/chrome  
-- Host emit dispatch / prototype runtime  
-- TS port of B1–B4 when hosts need the oracle to accept the new grammar
+- **B6** — `ForEach` chrome (`before` / `between` / `after`)  
+- Host emit dispatch / prototype runtime
