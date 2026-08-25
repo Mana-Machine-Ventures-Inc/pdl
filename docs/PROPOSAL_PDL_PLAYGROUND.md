@@ -150,7 +150,7 @@ pdl/
 |---------|-----|
 | **Playground** | Demo + iterative language testing in-browser |
 | **`npm run preview`** | Disk-watch stress; Cursor/VS Code as editor |
-| **PDL Studio (future)** | Full authoring; may move to `apps/studio` or another repo |
+| **PDL Studio (future)** | Full authoring; may move to `apps/studio` or another repo — see [`PROPOSAL_PDL_STUDIO.md`](./PROPOSAL_PDL_STUDIO.md) |
 
 Playground depends on **stable contracts** (CLI bake flags, bake JSON schema, HTML render entrypoints) — not ad hoc `src/` internals — so Studio extraction stays mechanical.
 
