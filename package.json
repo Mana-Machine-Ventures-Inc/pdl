@@ -22,6 +22,8 @@
     "manifest": "tsc && node dist/cli.js manifest",
     "playground": "npm run build && npm run build:rust && npm run build --prefix playground && node playground/server/playground-server.mjs",
     "playground:fresh": "npm run build && npm run build:rust && npm run build:wasm && npm run build --prefix playground && node playground/server/playground-server.mjs",
+    "studio": "npm run build && npm run build:rust && npm run build --prefix apps/studio && node apps/studio/server/studio-server.mjs",
+    "studio:fresh": "npm run build && npm run build:rust && npm run build:wasm && npm run build --prefix apps/studio && node apps/studio/server/studio-server.mjs",
     "build:wasm": "./scripts/build-pdl-wasm.sh",
     "build:rust": "cargo build -p pdl-cli",
     "pdl:rust": "cargo run -q -p pdl-cli --",

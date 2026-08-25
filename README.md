@@ -20,6 +20,7 @@ After `npm install`, use the npm scripts below (each runs **`tsc`** first so **`
 | `npm run renderHtmlFromBake --silent -- <baked.json> [--component Name] [--out file.html]` | **HTML5 from bake JSON** — use Rust (or TS) `bake*` / `bakePack` output without re-parsing `.pdl`. |
 | `npm run preview --silent -- <entry.pdl> <Component> [opts]` | **Live watch → Rust bake → HTML** with livereload (`scripts/preview-server.mjs`). Eng stress harness — edit in your IDE. |
 | `npm run playground` | **PDL Playground** (P0–P5) — file canvas + editor + HTML preview (`playground/`). Demo/lab, not Studio. |
+| `npm run studio` | **PDL Studio** (S1) — project open/save, System\|Files nav, World panel, WASM→HTML preview, export (`apps/studio/`). |
 | `npm run renderCatalogueHtml --silent -- <entry.pdl> [--theme Name] [--out file.html]` | **Catalogue + bake → HTML5** reference page (`src/renderCatalogueHtml.ts`). |
 | `npm run catalogue --silent -- <entry.pdl> [--theme Name] [--out file.json]` | Same JSON shape as **graphSystem**, but allows **`--theme`** for **tree** resolution (`shared/schema/component-catalogue.json`). |
 | `npm run resolve --silent -- <entry.pdl> <Component> [--tree-only] [--theme Name] [key=value …]` | Legacy: **`resolvedComponent`** (default) or bare **`CatalFrame`** with **`--tree-only`**. Prefer **graphComponent** / **bakeComponent** for new tooling. |
@@ -52,7 +53,7 @@ Artifacts: `.tmp/preview.bake.json`, `.tmp/preview.html`. Compare engines with `
 
 ### PDL Playground (demo / language lab)
 
-In-browser **pack → edit PDL → Rust bake → HTML** loop for demonstrating the language. Not long-term DS maintenance (that’s future **PDL Studio**).
+In-browser **pack → edit PDL → Rust bake → HTML** loop for demonstrating the language. Not long-term DS maintenance (that’s **PDL Studio**).
 
 ```bash
 npm run playground
@@ -60,6 +61,19 @@ npm run playground
 ```
 
 See `playground/README.md`, `docs/PLAYGROUND_OVERVIEW.md`, and `docs/PROPOSAL_PDL_PLAYGROUND.md`.
+
+### PDL Studio (project authoring)
+
+Open a folder, edit `.pdl`, preview via the same bake → HTML host, save, and export.
+
+```bash
+npm install --prefix apps/studio
+npm run studio
+# → http://127.0.0.1:3857
+# After language / WASM changes: npm run studio:fresh
+```
+
+See `apps/studio/README.md` and `docs/PROPOSAL_PDL_STUDIO.md`.
 
 ### End-to-end: Rust bake → HTML preview (one-shot)
 

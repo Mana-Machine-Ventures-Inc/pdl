@@ -1,6 +1,6 @@
 # Proposal: PDL Studio (authoring product)
 
-**Status:** proposed (2026-08-25)  
+**Status:** proposed (2026-08-25); **S1 scaffold in-repo** — `apps/studio/` (`npm run studio`)  
 **Related:** [`PROPOSAL_PDL_PLAYGROUND.md`](./PROPOSAL_PDL_PLAYGROUND.md), [`PLAYGROUND_OVERVIEW.md`](./PLAYGROUND_OVERVIEW.md), [`PROPOSAL_HOST_ENVIRONMENT.md`](./PROPOSAL_HOST_ENVIRONMENT.md), [`PROPOSAL_ROUTING_PAGES_SCREENS.md`](./PROPOSAL_ROUTING_PAGES_SCREENS.md), [`PROPOSAL_TYPED_SAMPLES.md`](./PROPOSAL_TYPED_SAMPLES.md), [`PROPOSAL_PORTABLE_CORE.md`](./PROPOSAL_PORTABLE_CORE.md)  
 **Placement:** new app shell (`apps/studio/` or extract later); **not** a Playground rewrite  
 **Non-goals (v1):** Figma parity, spatial-only authoring, multiplayer, governance pipelines, native codegen as primary SoT
@@ -113,7 +113,20 @@ Switching modes never loses unsaved work. It changes **which roles are promoted*
 
 ## 6. Ideal layout
 
+### 6.0 Selection model (locked)
+
+| Concept | Meaning |
+|---------|---------|
+| **System \| Files** | Navigator tabs: role catalogue vs file explorer |
+| **Edit target** | Full `.pdl` file in the work surface (symbol scrolled into view) |
+| **Preview root** | One primary symbol (component / page / screen) |
+| **Pin preview** | Edit can wander without changing preview root |
+| **File gallery** | Opt-in preview of all symbols declared in the edit file — not the default |
+
+Import-only entry files (`design.pdl`) must **not** auto-expand all imports into the preview.
+
 ### 6.1 Design mode (default)
+
 
 ```text
 ┌─ Project ──────────────────────────────────────────────────────────────┐

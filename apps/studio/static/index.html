@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PDL Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/studio.css" />
+</head>
+<body>
+  <div id="app" class="app">
+    <header class="chrome">
+      <div class="chrome-brand">
+        <span class="brand-mark">PDL</span>
+        <span class="brand-name">Studio</span>
+        <span class="project-name" id="projectName">No project</span>
+        <span class="save-state" id="saveState" aria-live="polite"></span>
+      </div>
+      <div class="chrome-modes" role="tablist" aria-label="Studio mode">
+        <button type="button" class="mode-btn is-active" data-mode="design" role="tab" aria-selected="true">Design</button>
+        <button type="button" class="mode-btn" data-mode="prototype" role="tab" aria-selected="false">Prototype</button>
+        <button type="button" class="mode-btn" data-mode="review" role="tab" aria-selected="false">Review</button>
+      </div>
+      <div class="chrome-actions">
+        <button type="button" class="btn" id="btnOpen">Open…</button>
+        <button type="button" class="btn" id="btnSave" disabled>Save</button>
+        <div class="menu">
+          <button type="button" class="btn primary" id="btnExport" disabled>Export ▾</button>
+          <div class="menu-panel" id="exportMenu" hidden>
+            <button type="button" data-export="bake">Bake JSON</button>
+            <button type="button" data-export="html">HTML preview</button>
+            <button type="button" data-export="catalogue">Catalogue JSON</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="welcome" id="welcome">
+      <div class="welcome-inner">
+        <h1>PDL Studio</h1>
+        <p>Open a design-system project to edit <code>.pdl</code>, preview through the bake → HTML host, and export.</p>
+        <div class="welcome-actions">
+          <button type="button" class="btn primary" id="btnWelcomeOpen">Open project folder…</button>
+        </div>
+        <h2>Starters</h2>
+        <ul class="starter-list" id="starterList"></ul>
+      </div>
+    </div>
+
+    <main class="workspace" id="workspace" hidden>
+      <aside class="nav-pane" aria-label="Navigator">
+        <div class="nav-tabs" role="tablist">
+          <button type="button" class="nav-tab is-active" data-nav="system" role="tab">System</button>
+          <button type="button" class="nav-tab" data-nav="files" role="tab">Files</button>
+        </div>
+        <input type="search" id="navSearch" class="nav-search" placeholder="Search…" spellcheck="false" />
+        <div class="nav-body" id="navSystem"></div>
+        <div class="nav-body" id="navFiles" hidden></div>
+      </aside>
+
+      <section class="work-pane" aria-label="Work surface">
+        <div class="work-header">
+          <div class="work-meta">
+            <span class="symbol-label" id="symbolLabel">—</span>
+            <span class="file-label" id="fileLabel"></span>
+          </div>
+          <div class="work-tabs" role="tablist">
+            <button type="button" class="work-tab is-active" data-work="source" role="tab">Source</button>
+            <button type="button" class="work-tab" data-work="structure" role="tab" title="Coming soon — bake tree map">Structure</button>
+          </div>
+        </div>
+        <div id="editorMount" class="editor-mount" aria-label="PDL source editor"></div>
+        <div class="world-panel" id="worldPanel">
+          <div class="world-header">
+            <strong>World</strong>
+            <span class="hint">Scenario fixtures for the preview root</span>
+          </div>
+          <div class="world-chips" id="worldChips" role="list"></div>
+          <div class="samples-used" id="samplesUsed" hidden></div>
+          <div class="param-knobs" id="paramKnobs"></div>
+        </div>
+      </section>
+
+      <section class="preview-pane" aria-label="Preview">
+        <div class="preview-toolbar">
+          <label class="field-inline">
+            <span>Theme</span>
+            <select id="themeSelect"></select>
+          </label>
+          <label class="field-inline pin-field">
+            <input type="checkbox" id="previewPin" />
+            <span>Pin preview</span>
+          </label>
+          <div class="preview-mode" role="group" aria-label="Preview mode">
+            <button type="button" class="seg is-active" data-preview-mode="primary">Primary</button>
+            <button type="button" class="seg" data-preview-mode="gallery">File gallery</button>
+          </div>
+          <button type="button" class="btn ghost" id="btnResetWorld" title="Clear world, knobs, and presenter pins">Reset</button>
+        </div>
+        <div class="host-chrome" id="hostChrome" hidden></div>
+        <div class="preview-frame-wrap">
+          <iframe id="previewFrame" title="PDL preview" sandbox="allow-scripts allow-same-origin"></iframe>
+        </div>
+        <div class="preview-aside" id="previewAside">
+          <div class="usage-box" id="usageBox" hidden></div>
+          <div class="problems" id="problems" hidden></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="status-bar">
+      <span id="statusLeft">Ready</span>
+      <span id="statusRight"></span>
+    </footer>
+  </div>
+
+  <dialog id="openDialog">
+    <form method="dialog" class="dialog-form" id="openForm">
+      <h2>Open project</h2>
+      <p class="hint">Repo-relative or absolute path to a folder with a <code>design.pdl</code> (or pick entry below).</p>
+      <label class="field">
+        <span>Project root</span>
+        <input type="text" id="openRoot" spellcheck="false" placeholder="test-fixtures/pdl/systems/airbnb-lite" required />
+      </label>
+      <label class="field">
+        <span>Entry (optional)</span>
+        <input type="text" id="openEntry" spellcheck="false" placeholder="design.pdl" />
+      </label>
+      <div class="dialog-actions">
+        <button type="submit" class="btn primary" value="open">Open</button>
+        <button type="button" class="btn" id="openCancel">Cancel</button>
+      </div>
+      <p class="error" id="openError" hidden></p>
+    </form>
+  </dialog>
+
+  <script type="module" src="/studio-app.js"></script>
+</body>
+</html>
