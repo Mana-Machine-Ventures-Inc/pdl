@@ -24,8 +24,9 @@
         <button type="button" class="mode-btn" data-mode="review" role="tab" aria-selected="false">Review</button>
       </div>
       <div class="chrome-actions">
-        <button type="button" class="btn" id="btnOpen">Open…</button>
-        <button type="button" class="btn" id="btnSave" disabled>Save</button>
+        <button type="button" class="btn" id="btnReload" disabled title="Discard unsaved buffers and reload from disk">Reload</button>
+        <button type="button" class="btn" id="btnOpen" title="Open project (⌘O)">Open…</button>
+        <button type="button" class="btn" id="btnSave" disabled title="Save all dirty files (⌘S)">Save</button>
         <div class="menu">
           <button type="button" class="btn primary" id="btnExport" disabled>Export ▾</button>
           <div class="menu-panel" id="exportMenu" hidden>
@@ -44,6 +45,8 @@
         <div class="welcome-actions">
           <button type="button" class="btn primary" id="btnWelcomeOpen">Open project folder…</button>
         </div>
+        <h2 id="recentHeading" hidden>Recent</h2>
+        <ul class="starter-list" id="recentList" hidden></ul>
         <h2>Starters</h2>
         <ul class="starter-list" id="starterList"></ul>
       </div>
@@ -55,7 +58,7 @@
           <button type="button" class="nav-tab is-active" data-nav="system" role="tab">System</button>
           <button type="button" class="nav-tab" data-nav="files" role="tab">Files</button>
         </div>
-        <input type="search" id="navSearch" class="nav-search" placeholder="Search…" spellcheck="false" />
+        <input type="search" id="navSearch" class="nav-search" placeholder="Search… (⌘K)" spellcheck="false" />
         <div class="nav-body" id="navSystem"></div>
         <div class="nav-body" id="navFiles" hidden></div>
       </aside>
@@ -68,18 +71,42 @@
           </div>
           <div class="work-tabs" role="tablist">
             <button type="button" class="work-tab is-active" data-work="source" role="tab">Source</button>
-            <button type="button" class="work-tab" data-work="structure" role="tab" title="Coming soon — bake tree map">Structure</button>
+            <button type="button" class="work-tab" data-work="structure" role="tab" title="Coming soon">Structure</button>
           </div>
         </div>
+        <div class="editor-toolbar">
+          <label class="tool">
+            <span>Insert</span>
+            <select id="insertTemplate" aria-label="Insert PDL template">
+              <option value="">Template…</option>
+            </select>
+          </label>
+          <label class="tool">
+            <span>Add</span>
+            <select id="addProperty" aria-label="Insert frame property">
+              <option value="">Property…</option>
+            </select>
+          </label>
+          <span class="hint" id="addPropertyKind">Kind: …</span>
+          <span class="hint tool-hint">⌘-click / F12 go to definition · ⌘S save</span>
+        </div>
         <div id="editorMount" class="editor-mount" aria-label="PDL source editor"></div>
-        <div class="world-panel" id="worldPanel">
-          <div class="world-header">
-            <strong>World</strong>
-            <span class="hint">Scenario fixtures for the preview root</span>
+        <div class="dock">
+          <div class="dock-tabs" role="tablist">
+            <button type="button" class="dock-tab is-active" data-dock="world" role="tab">World</button>
+            <button type="button" class="dock-tab" data-dock="notes" role="tab">Notes</button>
           </div>
-          <div class="world-chips" id="worldChips" role="list"></div>
-          <div class="samples-used" id="samplesUsed" hidden></div>
-          <div class="param-knobs" id="paramKnobs"></div>
+          <div class="dock-body" id="dockWorld">
+            <div class="world-header">
+              <span class="hint">Scenario fixtures for the preview root</span>
+            </div>
+            <div class="world-chips" id="worldChips" role="list"></div>
+            <div class="samples-used" id="samplesUsed" hidden></div>
+            <div class="param-knobs" id="paramKnobs"></div>
+          </div>
+          <div class="dock-body" id="dockNotes" hidden>
+            <div class="companion-dock" id="companionDock"></div>
+          </div>
         </div>
       </section>
 
@@ -100,11 +127,15 @@
           <button type="button" class="btn ghost" id="btnResetWorld" title="Clear world, knobs, and presenter pins">Reset</button>
         </div>
         <div class="host-chrome" id="hostChrome" hidden></div>
+        <div class="legend" id="interactionLegend" hidden></div>
         <div class="preview-frame-wrap">
           <iframe id="previewFrame" title="PDL preview" sandbox="allow-scripts allow-same-origin"></iframe>
         </div>
         <div class="preview-aside" id="previewAside">
-          <div class="usage-box" id="usageBox" hidden></div>
+          <div class="aside-head">
+            <strong>Problems</strong>
+            <button type="button" class="btn ghost btn-tiny" id="btnClearProblems" hidden>Clear</button>
+          </div>
           <div class="problems" id="problems" hidden></div>
         </div>
       </section>

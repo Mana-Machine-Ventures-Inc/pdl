@@ -16,15 +16,18 @@ npm run studio:fresh
 
 Open **http://127.0.0.1:3857**.
 
-## What it does (S1)
+## What it does (S1+)
 
 - Open any project folder (repo-relative or absolute) with `.pdl` files
 - **System | Files** navigator (role tree vs file explorer)
 - Selection model: full-file work surface + primary preview root; **Pin preview**; **File gallery** opt-in
-- **World** panel (fixtures) with samples-used chips and preview-only param knobs
+- **World | Notes** dock: fixtures + samples-used; usage/rules + open companions/layout
+- Insert templates, Add property, pack-aware completions, ⌘-click / F12 go to definition
+- **⌘S** save · **⌘O** open · **⌘K** focus navigator search · Reload from disk
+- Recent projects on welcome; Problems panel with click-to-goto
 - Design / Prototype / Review modes
-- Save dirty files to disk; Export bake JSON / HTML / catalogue
 - Same fidelity path as Playground: **WASM bake → bake JSON → HTML host**
+- Export bake JSON / HTML / catalogue
 
 ## Layout
 

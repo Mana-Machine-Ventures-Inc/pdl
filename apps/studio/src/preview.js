@@ -175,7 +175,7 @@ export async function runPreview() {
 
     applyHtml(data.html);
     onStatus?.(`Preview · wasm · bake ${bakeMs}ms`);
-    updateUsage(component || componentNames?.[0]);
+    onError?.(null);
   } catch (err) {
     if (id !== renderSeq) return;
     const msg = err instanceof Error ? err.message : String(err);
@@ -207,19 +207,6 @@ function bakeKv(overrides) {
     out[k] = v;
   }
   return out;
-}
-
-function updateUsage(name) {
-  const box = document.getElementById("usageBox");
-  if (!box) return;
-  const usage = name && state.catalogue?.usageByComponent?.[name];
-  if (usage) {
-    box.hidden = false;
-    box.textContent = usage;
-  } else {
-    box.hidden = true;
-    box.textContent = "";
-  }
 }
 
 export function fillThemes() {

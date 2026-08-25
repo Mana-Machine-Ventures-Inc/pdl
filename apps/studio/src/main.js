@@ -6,9 +6,17 @@ import {
   writeFile,
   exportArtifact,
 } from "./api.js";
-import { mountEditor, syncEditorFromState, focusSymbol, flushEditorToFiles } from "./editor.js";
+import {
+  mountEditor,
+  syncEditorFromState,
+  focusSymbol,
+  focusLine,
+  flushEditorToFiles,
+} from "./editor.js";
 import { mountNavigator } from "./navigator.js";
 import { mountWorld } from "./world.js";
+import { mountCompanionDock } from "./companions.js";
+import { mountProblems, setProblemText, clearProblems } from "./problems.js";
 import {
   mountPreview,
   schedulePreview,
@@ -17,6 +25,9 @@ import {
   fillHostChrome,
 } from "./preview.js";
 import { symbolsInFile } from "./symbols.js";
+
+const RECENT_KEY = "pdl-studio-recent-v1";
+const LAST_KEY = "pdl-studio-last-v1";
 
 const welcome = document.getElementById("welcome");
 const workspace = document.getElementById("workspace");
@@ -33,11 +44,46 @@ const world = mountWorld({
     handleNavSelect({ kind: "samples", name: bank });
   },
 });
+const companions = mountCompanionDock({
+  onReveal: (file, sym) => {
+    state.editFile = file;
+    syncEditorFromState();
+    if (sym) focusSymbol(sym);
+    nav.renderNavigator();
+    updateChrome();
+  },
+});
+
+mountProblems({
+  onGoto: (p) => {
+    if (!p.file) return;
+    const hit =
+      Object.keys(state.files).find(
+        (f) => f === p.file || f.endsWith(`/${p.file}`) || p.file.endsWith(f),
+      ) || p.file;
+    if (!state.files[hit]) return;
+    state.editFile = hit;
+    syncEditorFromState();
+    if (p.line) focusLine(p.line);
+    nav.renderNavigator();
+    updateChrome();
+  },
+});
 
 mountEditor(document.getElementById("editorMount"), {
   onChange: () => {
     updateChrome();
     schedulePreview(450);
+  },
+  onGoto: (path, line, name) => {
+    if (!state.files[path]) return;
+    state.editFile = path;
+    if (name) state.selectedSymbol = name;
+    syncEditorFromState();
+    focusLine(line);
+    nav.renderNavigator();
+    companions.renderCompanion();
+    updateChrome();
   },
 });
 
@@ -46,15 +92,21 @@ mountPreview(document.getElementById("previewFrame"), {
     document.getElementById("statusLeft").textContent = msg;
   },
   onError: (err) => {
-    const el = document.getElementById("problems");
-    if (!err) {
-      el.hidden = true;
-      el.textContent = "";
-      return;
-    }
-    el.hidden = false;
-    el.textContent = err;
+    setProblemText(err, { file: state.editFile || undefined });
   },
+});
+
+// Dock tabs
+document.querySelectorAll(".dock-tab").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const dock = btn.getAttribute("data-dock");
+    document.querySelectorAll(".dock-tab").forEach((b) => {
+      b.classList.toggle("is-active", b === btn);
+    });
+    document.getElementById("dockWorld").hidden = dock !== "world";
+    document.getElementById("dockNotes").hidden = dock !== "notes";
+    if (dock === "notes") companions.renderCompanion();
+  });
 });
 
 // Modes
@@ -72,14 +124,16 @@ document.querySelectorAll(".mode-btn").forEach((btn) => {
       promotePrototypeRoot();
     }
     nav.renderNavigator();
+    companions.renderCompanion();
     schedulePreview();
     updateChrome();
   });
 });
 
-document.getElementById("btnOpen")?.addEventListener("click", () => openDialog.showModal());
-document.getElementById("btnWelcomeOpen")?.addEventListener("click", () => openDialog.showModal());
+document.getElementById("btnOpen")?.addEventListener("click", () => openOpenDialog());
+document.getElementById("btnWelcomeOpen")?.addEventListener("click", () => openOpenDialog());
 document.getElementById("openCancel")?.addEventListener("click", () => openDialog.close());
+document.getElementById("btnReload")?.addEventListener("click", () => void reloadProject());
 
 document.getElementById("openForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -88,6 +142,7 @@ document.getElementById("openForm")?.addEventListener("submit", async (e) => {
   const errEl = document.getElementById("openError");
   try {
     errEl.hidden = true;
+    if (isDirty() && !confirm("Discard unsaved changes and open another project?")) return;
     await loadProject(root, entry);
     openDialog.close();
   } catch (err) {
@@ -124,20 +179,43 @@ exportMenu?.querySelectorAll("[data-export]").forEach((btn) => {
       });
       downloadText(data.filename, data.content, data.mime);
       setStatusRight(`Exported ${data.filename}`);
+      clearProblems();
     } catch (err) {
-      document.getElementById("problems").hidden = false;
-      document.getElementById("problems").textContent =
-        err instanceof Error ? err.message : String(err);
+      setProblemText(err instanceof Error ? err.message : String(err), {
+        file: state.editFile || undefined,
+      });
     }
   });
+});
+
+// Keyboard shortcuts
+window.addEventListener("keydown", (e) => {
+  const mod = e.metaKey || e.ctrlKey;
+  if (mod && e.key === "s") {
+    e.preventDefault();
+    void saveAll();
+  } else if (mod && e.key === "o") {
+    e.preventDefault();
+    openOpenDialog();
+  } else if (mod && e.key === "k") {
+    e.preventDefault();
+    const search = document.getElementById("navSearch");
+    search?.focus();
+    search?.select();
+  } else if (e.key === "Escape") {
+    exportMenu.hidden = true;
+    if (openDialog.open) openDialog.close();
+  }
 });
 
 subscribe(() => {
   updateChrome();
   world.renderWorld();
+  companions.renderCompanion();
 });
 
 async function init() {
+  renderRecent();
   const data = await fetchStarters();
   const list = document.getElementById("starterList");
   list.innerHTML = (data.starters ?? [])
@@ -152,9 +230,8 @@ async function init() {
     });
   });
 
-  // Restore last project
   try {
-    const raw = localStorage.getItem("pdl-studio-last-v1");
+    const raw = localStorage.getItem(LAST_KEY);
     if (raw) {
       const last = JSON.parse(raw);
       if (last?.root) await loadProject(last.root, last.entry);
@@ -164,12 +241,63 @@ async function init() {
   }
 }
 
+function openOpenDialog() {
+  if (state.rootDisplay) {
+    document.getElementById("openRoot").value = state.rootDisplay;
+  }
+  openDialog.showModal();
+  document.getElementById("openRoot")?.focus();
+}
+
+function readRecent() {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+function pushRecent(root, entry, label) {
+  const next = [
+    { root, entry, label, at: Date.now() },
+    ...readRecent().filter((r) => r.root !== root),
+  ].slice(0, 6);
+  localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+}
+
+function renderRecent() {
+  const list = document.getElementById("recentList");
+  const heading = document.getElementById("recentHeading");
+  const recent = readRecent();
+  if (!recent.length) {
+    list.hidden = true;
+    heading.hidden = true;
+    return;
+  }
+  list.hidden = false;
+  heading.hidden = false;
+  list.innerHTML = recent
+    .map(
+      (r) =>
+        `<li><button type="button" data-root="${escapeAttr(r.root)}" data-entry="${escapeAttr(r.entry || "design.pdl")}"><strong>${escapeHtml(r.label || r.root)}</strong><span>${escapeHtml(r.root)}</span></button></li>`,
+    )
+    .join("");
+  list.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      void loadProject(btn.getAttribute("data-root"), btn.getAttribute("data-entry"));
+    });
+  });
+}
+
 /**
  * @param {string} root
  * @param {string} [entry]
  */
 async function loadProject(root, entry) {
   document.getElementById("statusLeft").textContent = "Opening…";
+  clearProblems();
   const opened = await openProject(root, entry);
   state.root = opened.root;
   state.rootDisplay = opened.rootDisplay;
@@ -185,15 +313,20 @@ async function loadProject(root, entry) {
   state.previewPinned = false;
   document.getElementById("previewPin").checked = false;
 
-  const cat = await loadCatalogue(state.root, state.entry, dirtyOverlay());
-  state.catalogue = cat;
+  try {
+    const cat = await loadCatalogue(state.root, state.entry, dirtyOverlay());
+    state.catalogue = cat;
+  } catch (err) {
+    state.catalogue = null;
+    setProblemText(err instanceof Error ? err.message : String(err));
+  }
 
   welcome.hidden = true;
   workspace.hidden = false;
   document.getElementById("btnSave").disabled = false;
   document.getElementById("btnExport").disabled = false;
+  document.getElementById("btnReload").disabled = false;
 
-  // Default selection
   pickDefaultSelection();
   fillThemes();
   fillHostChrome();
@@ -203,13 +336,25 @@ async function loadProject(root, entry) {
     focusSymbol(state.selectedSymbol);
   }
   world.renderWorld();
+  companions.renderCompanion();
   updateChrome();
   await runPreview();
 
   localStorage.setItem(
-    "pdl-studio-last-v1",
+    LAST_KEY,
     JSON.stringify({ root: state.rootDisplay || state.root, entry: state.entry }),
   );
+  pushRecent(state.rootDisplay || state.root, state.entry, state.rootLabel);
+  renderRecent();
+}
+
+async function reloadProject() {
+  if (!state.root) return;
+  if (isDirty() && !confirm("Discard unsaved changes and reload from disk?")) return;
+  const root = state.rootDisplay || state.root;
+  const entry = state.entry;
+  await loadProject(root, entry);
+  setStatusRight("Reloaded from disk");
 }
 
 function pickDefaultSelection() {
@@ -224,8 +369,6 @@ function pickDefaultSelection() {
     }
   }
 
-  // Prefer a known default from starters by looking at first non-page component,
-  // or entry file's first component.
   const entrySymbols = symbolsInFile(state.entry, state.files, cat);
   if (entrySymbols.length === 1) {
     selectSymbol(entrySymbols[0]);
@@ -270,16 +413,13 @@ function handleNavSelect(sel) {
       state.entry;
     state.selectedSymbol = "__tokens__";
     state.editFile = file;
-    if (!state.previewPinned) {
-      // Keep previous preview root when browsing tokens, or clear
-    }
     syncEditorFromState();
     nav.renderNavigator();
+    companions.renderCompanion();
     updateChrome();
     return;
   }
   if (sel.kind === "samples" && sel.name) {
-    // Jump to samples declaration in any file.
     for (const [path, src] of Object.entries(state.files)) {
       if (new RegExp(`\\bsamples\\s+${sel.name}\\b`).test(src)) {
         state.selectedSymbol = sel.name;
@@ -287,6 +427,7 @@ function handleNavSelect(sel) {
         syncEditorFromState();
         focusSymbol(sel.name);
         nav.renderNavigator();
+        companions.renderCompanion();
         updateChrome();
         return;
       }
@@ -325,6 +466,7 @@ function selectSymbol(name, fileHint) {
   focusSymbol(name);
   nav.renderNavigator();
   world.renderWorld();
+  companions.renderCompanion();
   updateChrome();
   schedulePreview(50);
 }
@@ -344,49 +486,50 @@ function selectFile(file) {
       state.selectedSymbol = syms[0];
       focusSymbol(syms[0]);
     } else if (syms.length > 1) {
-      // Keep prior preview if still in file; else first.
       if (!syms.includes(state.previewRoot)) {
         state.previewRoot = syms[0];
       }
       state.selectedSymbol = state.previewRoot;
-    } else if (/design\.pdl$/i.test(file)) {
-      // Import-only entry: do not expand all imports — keep previous preview root.
-    } else {
-      // Token / companion file — keep preview pinned to prior root.
     }
   }
 
   nav.renderNavigator();
   world.renderWorld();
+  companions.renderCompanion();
   updateChrome();
   schedulePreview(50);
 }
 
 async function saveAll() {
   flushEditorToFiles();
-  if (!state.root || !state.dirty.size) return;
+  if (!state.root || !state.dirty.size) {
+    setStatusRight(state.root ? "Nothing to save" : "");
+    return;
+  }
   const paths = [...state.dirty];
   for (const path of paths) {
     const content = state.files[path];
     const result = await writeFile(state.root, path, content, state.baselines[path]);
     if (result.conflict) {
-      document.getElementById("problems").hidden = false;
-      document.getElementById("problems").textContent =
-        `Conflict saving ${path}: file changed on disk. Reload project to merge.`;
+      setProblemText(
+        `Conflict saving ${path}: file changed on disk. Use Reload to discard local edits.`,
+        { file: path },
+      );
       return;
     }
     state.baselines[path] = content;
     clearDirty(path);
   }
-  // Refresh catalogue after save
   try {
     state.catalogue = await loadCatalogue(state.root, state.entry, {});
     fillThemes();
     fillHostChrome();
     nav.renderNavigator();
     world.renderWorld();
-  } catch {
-    /* keep prior catalogue */
+    companions.renderCompanion();
+    clearProblems();
+  } catch (err) {
+    setProblemText(err instanceof Error ? err.message : String(err));
   }
   updateChrome();
   setStatusRight(`Saved ${paths.length} file(s)`);
@@ -406,6 +549,8 @@ function updateChrome() {
   const saveState = document.getElementById("saveState");
   saveState.textContent = isDirty() ? "● Unsaved" : state.root ? "Saved" : "";
   document.getElementById("btnSave").disabled = !state.root || !isDirty();
+  document.getElementById("btnReload").disabled = !state.root;
+  document.getElementById("btnExport").disabled = !state.root;
 
   const sym = state.selectedSymbol || state.previewRoot;
   document.getElementById("symbolLabel").textContent = sym
@@ -416,10 +561,35 @@ function updateChrome() {
   document.getElementById("fileLabel").textContent = state.editFile || "";
 
   const pin = state.previewPinned ? " · preview pinned" : "";
-  const mode = state.mode;
   document.getElementById("statusRight").textContent = state.root
-    ? `${mode}${pin} · ${state.dirty.size} dirty`
+    ? `${state.mode}${pin} · ${state.dirty.size} dirty`
     : "";
+
+  updateLegend();
+}
+
+function updateLegend() {
+  const el = document.getElementById("interactionLegend");
+  if (!el) return;
+  const name = state.previewRoot;
+  const ix = name && state.catalogue?.interactionsByComponent?.[name];
+  if (!Array.isArray(ix) || !ix.length) {
+    el.hidden = true;
+    el.innerHTML = "";
+    return;
+  }
+  const events = new Set();
+  for (const block of ix) {
+    for (const h of block.handlers ?? []) {
+      if (h?.event) events.add(String(h.event));
+    }
+  }
+  if (!events.size) {
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  el.innerHTML = `<strong>Host events</strong> ${[...events].map(escapeHtml).join(" · ")} <span class="hint">— inbound from the runtime, not parent emits</span>`;
 }
 
 function setStatusRight(msg) {
@@ -441,6 +611,10 @@ function escapeHtml(s) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+function escapeAttr(s) {
+  return escapeHtml(s).replace(/"/g, "&quot;");
 }
 
 void init();
