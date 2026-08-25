@@ -67,7 +67,7 @@ Pack (.pdl files)
 
 **Device stage:** `/device` on the same LAN — one component, HTML host, WASM bake + local HTML / IR reconcile in Safari. Not a mobile editor. See [`playground/README.md`](../playground/README.md) (Phone / same-network stage).
 
-**Still deferred:** Phase S (Studio) — authoring-first product, governance, possibly separate repo.
+**Still deferred:** Phase S (Studio) — authoring-first product; proposal: [`PROPOSAL_PDL_STUDIO.md`](./PROPOSAL_PDL_STUDIO.md).
 
 ---
 

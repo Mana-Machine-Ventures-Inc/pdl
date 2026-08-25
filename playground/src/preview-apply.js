@@ -298,6 +298,16 @@ export function morphElement(live, next) {
   if (live.tagName === "INPUT") {
     return;
   }
+  // <select>: option morph can leave stale `selected` attrs; pin .value from next.
+  if (live.tagName === "SELECT") {
+    const liveHasElKids = live.children.length > 0;
+    const nextHasElKids = next.children.length > 0;
+    if (liveHasElKids || nextHasElKids) morphChildren(live, next);
+    const nextSel = /** @type {HTMLSelectElement} */ (next);
+    const liveSel = /** @type {HTMLSelectElement} */ (live);
+    if (liveSel.value !== nextSel.value) liveSel.value = nextSel.value;
+    return;
+  }
   const liveHasElKids = live.children.length > 0;
   const nextHasElKids = next.children.length > 0;
   if (!liveHasElKids && !nextHasElKids) {
@@ -325,12 +335,20 @@ export function applyPreviewHtml(liveDoc, nextHtml) {
     return false;
   }
 
-  for (let i = 0; i < liveSections.length; i++) {
-    const liveSec = liveSections[i];
-    const nextSec = nextSections[i];
-    if (liveSec.getAttribute("data-pdl-component") !== nextSec.getAttribute("data-pdl-component")) {
-      return false;
-    }
+  /** @type {Map<string, Element>} */
+  const nextByName = new Map();
+  for (const sec of nextSections) {
+    const name = sec.getAttribute("data-pdl-component");
+    if (name) nextByName.set(name, sec);
+  }
+
+  for (const liveSec of liveSections) {
+    const name = liveSec.getAttribute("data-pdl-component");
+    const nextSec = name ? nextByName.get(name) : null;
+    if (!nextSec) return false;
+    // Preserve fixtures|params chrome mode across incremental updates.
+    const liveWorldMode = liveSec.getAttribute("data-world-mode");
+
     // Params JSON mirror (collapsed <details> or legacy <p>)
     const liveParams = liveSec.querySelector(".pdl-preview-params");
     const nextParams = nextSec.querySelector(".pdl-preview-params");
@@ -359,29 +377,57 @@ export function applyPreviewHtml(liveDoc, nextHtml) {
       if (!liveLine && !liveFull) liveParams.textContent = json;
     }
 
-    // Fixture bar (§11 scenarios) — per component, above param knobs
+    // Fixtures | Params toggle
+    const liveMode = liveSec.querySelector(".pdl-world-mode");
+    const nextMode = nextSec.querySelector(".pdl-world-mode");
+    if (liveMode && nextMode) morphElement(liveMode, nextMode);
+    else if (!liveMode && nextMode) {
+      const head = liveSec.querySelector(".pdl-preview-head");
+      const imported = liveSec.ownerDocument.importNode(nextMode, true);
+      if (head) head.insertAdjacentElement("afterend", imported);
+      else liveSec.insertBefore(imported, liveSec.firstChild);
+    } else if (liveMode && !nextMode) {
+      liveMode.remove();
+    }
+
+    // Fixture / param chrome — replace wholesale. Morphing <select> options
+    // does not reliably sync selected state, which locks variant knobs.
     const liveFix = liveSec.querySelector(".pdl-fixture-bar");
     const nextFix = nextSec.querySelector(".pdl-fixture-bar");
-    if (liveFix && nextFix) morphElement(liveFix, nextFix);
-    else if (!liveFix && nextFix) {
+    if (liveFix && nextFix) {
+      liveFix.replaceWith(liveSec.ownerDocument.importNode(nextFix, true));
+    } else if (!liveFix && nextFix) {
       const head = liveSec.querySelector(".pdl-preview-head");
+      const after = liveSec.querySelector(".pdl-world-mode") || head;
       const imported = liveSec.ownerDocument.importNode(nextFix, true);
-      if (head) head.insertAdjacentElement("afterend", imported);
+      if (after) after.insertAdjacentElement("afterend", imported);
       else liveSec.insertBefore(imported, liveSec.firstChild);
     } else if (liveFix && !nextFix) {
       liveFix.remove();
     }
 
-    // Param bar values — insert when WASM/full HTML gains controls the live doc lacked
     const liveBar = liveSec.querySelector(".pdl-param-bar");
     const nextBar = nextSec.querySelector(".pdl-param-bar");
-    if (liveBar && nextBar) morphElement(liveBar, nextBar);
-    else if (!liveBar && nextBar) {
+    if (liveBar && nextBar) {
+      liveBar.replaceWith(liveSec.ownerDocument.importNode(nextBar, true));
+    } else if (!liveBar && nextBar) {
       const head = liveSec.querySelector(".pdl-preview-head");
-      const after = liveSec.querySelector(".pdl-fixture-bar") || head;
+      const after =
+        liveSec.querySelector(".pdl-fixture-bar") ||
+        liveSec.querySelector(".pdl-world-mode") ||
+        head;
       const imported = liveSec.ownerDocument.importNode(nextBar, true);
       if (after) after.insertAdjacentElement("afterend", imported);
       else liveSec.insertBefore(imported, liveSec.firstChild);
+    } else if (liveBar && !nextBar) {
+      liveBar.remove();
+    }
+
+    if (liveWorldMode) {
+      liveSec.setAttribute("data-world-mode", liveWorldMode);
+      liveSec.querySelectorAll(".pdl-world-mode [data-world-mode]").forEach((btn) => {
+        btn.classList.toggle("is-active", btn.getAttribute("data-world-mode") === liveWorldMode);
+      });
     }
 
     // State trees / canvas: morph each top-level visual root inside section
@@ -409,6 +455,7 @@ function visualRoots(section) {
     if (ch.classList.contains("pdl-preview-params")) continue;
     if (ch.classList.contains("pdl-param-bar")) continue;
     if (ch.classList.contains("pdl-fixture-bar")) continue;
+    if (ch.classList.contains("pdl-world-mode")) continue;
     if (ch.classList.contains("pdl-source-link")) continue;
     // (details.pdl-preview-params already skipped via class above)
     roots.push(ch);

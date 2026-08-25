@@ -2515,7 +2515,15 @@ body.pdl-device-stage .pdl-canvas--fill-height {
 .pdl-preview--variant-cell .pdl-preview-params {
   display: none !important;
 }
-.pdl-preview { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 12px 14px; }
+.pdl-preview { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 12px 14px; cursor: pointer; }
+.pdl-preview .pdl-param-bar,
+.pdl-preview .pdl-fixture-bar,
+.pdl-preview .pdl-world-mode,
+.pdl-preview .pdl-motion-bar,
+.pdl-preview .pdl-preview-params,
+.pdl-preview .pdl-source-link {
+  cursor: default;
+}
 .pdl-preview-head {
   display: flex;
   flex-wrap: wrap;
@@ -2525,6 +2533,15 @@ body.pdl-device-stage .pdl-canvas--fill-height {
   margin: 0 0 8px;
 }
 .pdl-preview-title { font-size: 0.9rem; font-weight: 600; margin: 0; }
+.pdl-preview--focus {
+  outline: 2px solid #0f6e56;
+  outline-offset: 2px;
+  border-radius: 10px;
+  background: rgba(15, 110, 86, 0.04);
+}
+.pdl-preview--focus > .pdl-preview-head .pdl-preview-title {
+  color: #0f6e56;
+}
 .pdl-usage { font-size: 0.8rem; color: #52525b; margin: 0 0 10px; max-width: 72ch; line-height: 1.4; }
 .pdl-rule-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .pdl-rule {
@@ -2724,6 +2741,38 @@ body.pdl-device-stage .pdl-canvas--fill-height {
 .pdl-fixture-bar {
   background: #f4f7fb;
   border-color: #d0dae8;
+}
+.pdl-world-mode {
+  display: inline-flex;
+  gap: 2px;
+  margin: 0 0 8px;
+  padding: 2px;
+  background: #e8ecf1;
+  border-radius: 8px;
+}
+.pdl-world-mode-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #556;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.pdl-world-mode-btn.is-active {
+  background: #fff;
+  color: #223;
+  box-shadow: 0 1px 2px rgba(20, 32, 48, 0.12);
+}
+.pdl-preview[data-world-mode="fixtures"] > .pdl-param-bar,
+.pdl-preview[data-world-mode="fixtures"] > .pdl-preview-params {
+  display: none;
+}
+.pdl-preview[data-world-mode="params"] > .pdl-fixture-bar {
+  display: none;
 }
 .pdl-motion-bar {
   display: flex;
@@ -2929,9 +2978,11 @@ function renderParamBar(
       const id = `pdl-param-${escapeAttr(componentName)}-${escapeAttr(c.name)}`;
       if (c.cases && c.cases.length > 0) {
         const boolLike = c.typeName === "Bool" || c.typeName === "Boolean";
+        const valueNorm = String(c.value).replace(/^\./, "");
         const opts = c.cases
           .map((cas) => {
-            const sel = String(c.value) === cas ? " selected" : "";
+            const sel =
+              valueNorm === cas || String(c.value) === cas ? " selected" : "";
             const label = boolLike ? cas : `.${cas}`;
             return `<option value="${escapeAttr(cas)}"${sel}>${escapeHtml(label)}</option>`;
           })
@@ -2942,6 +2993,12 @@ function renderParamBar(
     })
     .join("");
   return `<div class="pdl-param-bar" data-pdl-param-bar="${escapeAttr(componentName)}">${fields}</div>`;
+}
+
+/** Fixtures | Params toggle — only when both chrome bars are present. */
+function renderWorldModeToggle(hasFixtures: boolean, hasParams: boolean): string {
+  if (!hasFixtures || !hasParams) return "";
+  return `<div class="pdl-world-mode" role="group" aria-label="Fixtures or params"><button type="button" class="pdl-world-mode-btn is-active" data-world-mode="fixtures">Fixtures</button><button type="button" class="pdl-world-mode-btn" data-world-mode="params">Params</button></div>`;
 }
 
 /** §11 scenario fixture picker — per component, next to param knobs. */
@@ -3212,6 +3269,8 @@ export function renderBakedDesignToHtmlDocumentWithReport(
      * Falls back to `doc.previewBackground` when set by bake.
      */
     previewBackground?: string;
+    /** Preferred fixtures|params chrome mode when both bars exist. */
+    worldMode?: "fixtures" | "params";
     /** `usage.description` keyed by component name. */
     usageByComponent?: Record<string, string>;
     /** Flattened `rules` (tag ops + Rule lines) keyed by component name. */
@@ -3391,6 +3450,25 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         const paramBar = isVariantMatrix
           ? ""
           : renderParamBar(name, opts.paramControlsByComponent?.[name]);
+        const hasFixtureChrome = Boolean(
+          opts.fixtureControlsByComponent?.[name]?.labels?.length,
+        );
+        const hasParamChrome = Boolean(opts.paramControlsByComponent?.[name]?.length);
+        const worldModeToggle = isVariantMatrix
+          ? ""
+          : renderWorldModeToggle(hasFixtureChrome, hasParamChrome);
+        const initialWorldMode =
+          hasFixtureChrome && hasParamChrome
+            ? opts.worldMode === "params"
+              ? "params"
+              : "fixtures"
+            : hasParamChrome && !hasFixtureChrome
+              ? "params"
+              : "fixtures";
+        const worldModeAttr =
+          worldModeToggle || fixtureBar || paramBar
+            ? ` data-world-mode="${initialWorldMode}"`
+            : "";
         const motionClips = collectMotionClips(
           name,
           opts.interactionsByComponent as Record<string, unknown> | undefined,
@@ -3410,7 +3488,7 @@ export function renderBakedDesignToHtmlDocumentWithReport(
             : "";
         htmlByName.set(
           name,
-          `<section class="pdl-preview${cellClass}" data-pdl-component="${escapeAttr(name)}"${interactiveAttr}${chromeAttr}${motionAttr}>${headBlock}${usageBlock}${ruleBlock}${fixtureBar}${paramBar}${motionBar}${paramsBlock}${restWrap}</section>`,
+          `<section class="pdl-preview${cellClass}" data-pdl-component="${escapeAttr(name)}"${interactiveAttr}${chromeAttr}${motionAttr}${worldModeAttr}>${headBlock}${usageBlock}${ruleBlock}${worldModeToggle}${fixtureBar}${paramBar}${motionBar}${paramsBlock}${restWrap}</section>`,
         );
       } catch (err) {
         const message = formatThrownMessage(err);
@@ -5614,6 +5692,28 @@ export function renderBakedDesignToHtmlDocumentWithReport(
     });
   }
   function bindChromeControls() {
+    document.querySelectorAll('.pdl-world-mode').forEach(function(group){
+      if (group.getAttribute('data-pdl-listening') === '1') return;
+      group.setAttribute('data-pdl-listening', '1');
+      var section = group.closest('section.pdl-preview');
+      group.querySelectorAll('[data-world-mode]').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var mode = btn.getAttribute('data-world-mode');
+          if (!section || (mode !== 'fixtures' && mode !== 'params')) return;
+          section.setAttribute('data-world-mode', mode);
+          group.querySelectorAll('[data-world-mode]').forEach(function(b){
+            b.classList.toggle('is-active', b === btn);
+          });
+          try {
+            parent.postMessage({
+              type: 'pdl-world-mode',
+              component: section.getAttribute('data-pdl-component'),
+              mode: mode
+            }, '*');
+          } catch (e) {}
+        });
+      });
+    });
     document.querySelectorAll('.pdl-param-bar').forEach(function(bar){
       if (bar.getAttribute('data-pdl-listening') === '1') return;
       bar.setAttribute('data-pdl-listening', '1');
@@ -5670,6 +5770,25 @@ export function renderBakedDesignToHtmlDocumentWithReport(
         ev.stopPropagation();
         var component = btn.getAttribute('data-pdl-open-source');
         if (!component) return;
+        try {
+          parent.postMessage({ type: 'pdl-open-source', component: component }, '*');
+        } catch (e) {}
+      });
+    });
+    // Click a preview card (title / rendered tree) → select that component in the host.
+    document.querySelectorAll('section.pdl-preview[data-pdl-component]').forEach(function(section){
+      if (section.getAttribute('data-pdl-select-listening') === '1') return;
+      section.setAttribute('data-pdl-select-listening', '1');
+      section.addEventListener('click', function(ev){
+        var t = ev.target;
+        if (!t || !t.closest) return;
+        if (t.closest('.pdl-param-bar, .pdl-fixture-bar, .pdl-world-mode, .pdl-motion-bar, .pdl-preview-params, .pdl-source-link')) return;
+        if (t.closest('input, select, textarea, option')) return;
+        var component = section.getAttribute('data-pdl-component');
+        if (!component) return;
+        document.querySelectorAll('section.pdl-preview[data-pdl-component]').forEach(function(s){
+          s.classList.toggle('pdl-preview--focus', s === section);
+        });
         try {
           parent.postMessage({ type: 'pdl-open-source', component: component }, '*');
         } catch (e) {}

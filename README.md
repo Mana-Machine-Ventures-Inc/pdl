@@ -36,6 +36,7 @@ Each npm script runs **`tsc`** first so **`dist/`** matches **`src/`** (run **`n
 | `npm run manifest --silent -- --catalogue <cat.json> [--tokens tokens.json] [--out f.json]` | Thin **design manifest** JSON (registry only — not a catalogue substitute). |
 | `npm run preview --silent -- <entry.pdl> <Component> [opts]` | **Live watch → Rust bake → HTML** with livereload (`scripts/preview-server.mjs`). Eng stress harness — edit in your IDE. |
 | `npm run playground` | **PDL Playground** — file canvas + editor + HTML preview (`playground/`). Demo/lab, not Studio. |
+| `npm run studio` | **PDL Studio** (S1) — project open/save, System\|Files nav, World panel, WASM→HTML preview, export (`apps/studio/`). |
 
 `npm test` builds `dist/` **and** the Rust CLI, then runs Vitest: host tests take their bake / catalogue JSON from `pdl`. `npm run test:rust` runs `cargo test -p pdl-core` (language semantics and diagnostics live there).
 
@@ -63,7 +64,7 @@ Artifacts: `.tmp/preview.bake.json`, `.tmp/preview.html`.
 
 ### PDL Playground (demo / language lab)
 
-In-browser **pack → edit PDL → Rust bake → HTML** loop for demonstrating the language. Not long-term DS maintenance (that’s future **PDL Studio**).
+In-browser **pack → edit PDL → Rust bake → HTML** loop for demonstrating the language. Not long-term DS maintenance (that’s **PDL Studio**).
 
 ```bash
 npm run playground
@@ -71,6 +72,19 @@ npm run playground
 ```
 
 See `playground/README.md`, `docs/PLAYGROUND_OVERVIEW.md`, and `docs/PROPOSAL_PDL_PLAYGROUND.md`.
+
+### PDL Studio (project authoring)
+
+Open a folder, edit `.pdl`, preview via the same bake → HTML host, save, and export.
+
+```bash
+npm install --prefix apps/studio
+npm run studio
+# → http://127.0.0.1:3857 (falls back to 3858–3866 if busy)
+# After language / WASM changes: npm run studio:fresh
+```
+
+See `apps/studio/README.md` and `docs/PROPOSAL_PDL_STUDIO.md`.
 
 ### End-to-end: Rust bake → HTML preview (one-shot)
 

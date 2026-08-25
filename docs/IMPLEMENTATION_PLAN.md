@@ -73,7 +73,7 @@ Implement **after A2** unless a spike is explicitly throwaway.
 | **C2** | SwiftUI mapper spike on bake IR |
 | **C3** | Prototype env — superseded in-language by Track N (`Presenter`); remaining host blob is data / B7 dispatch |
 
-**Fence:** `preview` = eng disk-watch loop; **Playground** = language demo / iterative testing; **Studio** (future) = full authoring — not Track C1b.
+**Fence:** `preview` = eng disk-watch loop; **Playground** = language demo / iterative testing; **Studio** (proposed) = full authoring — not Track C1b. Proposal: [`PROPOSAL_PDL_STUDIO.md`](./PROPOSAL_PDL_STUDIO.md) (Phase S0–S3).
 
 ---
 
