@@ -22,6 +22,20 @@ export function openProject(root, entry) {
   return post("/api/open-project", { root, entry });
 }
 
+/** Open without throwing on empty folders (returns `{ ok: false, empty: true }`). */
+export async function tryOpenProject(root, entry) {
+  const res = await fetch("/api/open-project", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ root, entry }),
+  });
+  return res.json();
+}
+
+export function newProject(body) {
+  return post("/api/new-project", body);
+}
+
 export function loadCatalogue(root, entry, files) {
   return post("/api/load", { root, entry, files });
 }

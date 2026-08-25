@@ -25,6 +25,7 @@
       </div>
       <div class="chrome-actions">
         <button type="button" class="btn" id="btnReload" disabled title="Discard unsaved buffers and reload from disk">Reload</button>
+        <button type="button" class="btn" id="btnNew" title="Create a starter design system">New…</button>
         <button type="button" class="btn" id="btnOpen" title="Open project (⌘O)">Open…</button>
         <button type="button" class="btn" id="btnSave" disabled title="Save all dirty files (⌘S)">Save</button>
         <div class="menu">
@@ -43,7 +44,8 @@
         <h1>PDL Studio</h1>
         <p>Open a design-system project to edit <code>.pdl</code>, preview through the bake → HTML host, and export.</p>
         <div class="welcome-actions">
-          <button type="button" class="btn primary" id="btnWelcomeOpen">Open project folder…</button>
+          <button type="button" class="btn primary" id="btnWelcomeNew">New design system…</button>
+          <button type="button" class="btn" id="btnWelcomeOpen">Open project…</button>
         </div>
         <h2 id="recentHeading" hidden>Recent</h2>
         <ul class="starter-list" id="recentList" hidden></ul>
@@ -164,6 +166,38 @@
         <button type="button" class="btn" id="openCancel">Cancel</button>
       </div>
       <p class="error" id="openError" hidden></p>
+      <p class="hint" id="openEmptyHint" hidden>
+        This folder has no <code>.pdl</code> files.
+        <button type="button" class="btn primary" id="btnScaffoldHere">Create starter pack here</button>
+      </p>
+    </form>
+  </dialog>
+
+  <dialog id="newDialog">
+    <form method="dialog" class="dialog-form" id="newForm">
+      <h2>New design system</h2>
+      <p class="hint">
+        Choose a folder (created if missing). Studio writes a small starter pack:
+        tokens, Dark theme, <code>Button</code>, fixtures, and <code>design.pdl</code>.
+      </p>
+      <label class="field">
+        <span>Folder path</span>
+        <input type="text" id="newRoot" spellcheck="false" placeholder="/Users/you/Developer/my-design-system" required />
+      </label>
+      <label class="field">
+        <span>Display name</span>
+        <input type="text" id="newTitle" spellcheck="false" placeholder="My Design System" />
+      </label>
+      <label class="field">
+        <span>Token prefix</span>
+        <input type="text" id="newPrefix" spellcheck="false" placeholder="ds" />
+        <span class="hint">Used as <code>ds.color.brand</code>, etc. Letters/numbers only.</span>
+      </label>
+      <div class="dialog-actions">
+        <button type="submit" class="btn primary" value="create">Create &amp; open</button>
+        <button type="button" class="btn" id="newCancel">Cancel</button>
+      </div>
+      <p class="error" id="newError" hidden></p>
     </form>
   </dialog>
 

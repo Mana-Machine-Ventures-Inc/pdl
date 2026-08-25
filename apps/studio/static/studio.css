@@ -256,6 +256,9 @@ body {
 
 .welcome-actions {
   margin-bottom: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .starter-list {
@@ -917,6 +920,20 @@ dialog::backdrop {
   color: var(--danger);
   font-size: 0.78rem;
   margin: 0;
+}
+
+#openEmptyHint {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+#openEmptyHint[hidden] {
+  display: none !important;
+}
+
+#openEmptyHint .btn {
+  justify-self: start;
 }
 
 code {

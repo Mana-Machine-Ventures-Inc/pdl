@@ -2,6 +2,8 @@ import { state, emit, isDirty, clearDirty, subscribe } from "./state.js";
 import {
   fetchStarters,
   openProject,
+  tryOpenProject,
+  newProject,
   loadCatalogue,
   writeFile,
   exportArtifact,
@@ -32,6 +34,7 @@ const LAST_KEY = "pdl-studio-last-v1";
 const welcome = document.getElementById("welcome");
 const workspace = document.getElementById("workspace");
 const openDialog = document.getElementById("openDialog");
+const newDialog = document.getElementById("newDialog");
 
 const nav = mountNavigator({ onSelect: handleNavSelect });
 const world = mountWorld({
@@ -132,23 +135,90 @@ document.querySelectorAll(".mode-btn").forEach((btn) => {
 
 document.getElementById("btnOpen")?.addEventListener("click", () => openOpenDialog());
 document.getElementById("btnWelcomeOpen")?.addEventListener("click", () => openOpenDialog());
+document.getElementById("btnNew")?.addEventListener("click", () => openNewDialog());
+document.getElementById("btnWelcomeNew")?.addEventListener("click", () => openNewDialog());
 document.getElementById("openCancel")?.addEventListener("click", () => openDialog.close());
+document.getElementById("newCancel")?.addEventListener("click", () => newDialog.close());
 document.getElementById("btnReload")?.addEventListener("click", () => void reloadProject());
+document.getElementById("btnScaffoldHere")?.addEventListener("click", () => {
+  const root = document.getElementById("openRoot").value.trim();
+  openDialog.close();
+  openNewDialog({ root });
+});
 
 document.getElementById("openForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const root = document.getElementById("openRoot").value.trim();
   const entry = document.getElementById("openEntry").value.trim() || undefined;
   const errEl = document.getElementById("openError");
+  const emptyHint = document.getElementById("openEmptyHint");
   try {
     errEl.hidden = true;
+    emptyHint.hidden = true;
     if (isDirty() && !confirm("Discard unsaved changes and open another project?")) return;
+    const probed = await tryOpenProject(root, entry);
+    if (probed.empty) {
+      errEl.hidden = false;
+      errEl.textContent = probed.error || "No .pdl files in project";
+      emptyHint.hidden = false;
+      return;
+    }
+    if (!probed.ok) throw new Error(probed.error || "Open failed");
     await loadProject(root, entry);
     openDialog.close();
   } catch (err) {
     errEl.hidden = false;
     errEl.textContent = err instanceof Error ? err.message : String(err);
+    emptyHint.hidden = true;
   }
+});
+
+document.getElementById("newForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const root = document.getElementById("newRoot").value.trim();
+  const title = document.getElementById("newTitle").value.trim();
+  const prefix = document.getElementById("newPrefix").value.trim();
+  const errEl = document.getElementById("newError");
+  try {
+    errEl.hidden = true;
+    if (isDirty() && !confirm("Discard unsaved changes and create a new project?")) return;
+    const created = await newProject({
+      root,
+      title: title || undefined,
+      prefix: prefix || undefined,
+    });
+    newDialog.close();
+    await applyOpenedProject(created, { preferComponent: created.defaultComponent || "Button" });
+    setStatusRight(`Created ${created.created?.length || 0} starter files`);
+  } catch (err) {
+    errEl.hidden = false;
+    errEl.textContent = err instanceof Error ? err.message : String(err);
+  }
+});
+
+document.getElementById("newRoot")?.addEventListener("input", () => {
+  const root = document.getElementById("newRoot").value.trim();
+  const titleEl = document.getElementById("newTitle");
+  const prefixEl = document.getElementById("newPrefix");
+  if (!root || (titleEl.value && prefixEl.dataset.touched === "1")) return;
+  const base = root.replace(/\\/g, "/").replace(/\/$/, "").split("/").pop() || "";
+  if (!titleEl.value) {
+    titleEl.value = base.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  if (!prefixEl.value || prefixEl.dataset.autFilled === "1") {
+    const slug = base
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "")
+      .replace(/^[^a-z]+/, "")
+      .slice(0, 8);
+    prefixEl.value = slug || "ds";
+    prefixEl.dataset.autFilled = "1";
+  }
+});
+
+document.getElementById("newPrefix")?.addEventListener("input", () => {
+  document.getElementById("newPrefix").dataset.touched = "1";
+  document.getElementById("newPrefix").dataset.autFilled = "0";
 });
 
 document.getElementById("btnSave")?.addEventListener("click", () => void saveAll());
@@ -205,6 +275,7 @@ window.addEventListener("keydown", (e) => {
   } else if (e.key === "Escape") {
     exportMenu.hidden = true;
     if (openDialog.open) openDialog.close();
+    if (newDialog.open) newDialog.close();
   }
 });
 
@@ -242,11 +313,36 @@ async function init() {
 }
 
 function openOpenDialog() {
+  document.getElementById("openError").hidden = true;
+  document.getElementById("openEmptyHint").hidden = true;
   if (state.rootDisplay) {
     document.getElementById("openRoot").value = state.rootDisplay;
   }
   openDialog.showModal();
   document.getElementById("openRoot")?.focus();
+}
+
+/**
+ * @param {{ root?: string, title?: string }} [seed]
+ */
+function openNewDialog(seed = {}) {
+  document.getElementById("newError").hidden = true;
+  const rootEl = document.getElementById("newRoot");
+  const titleEl = document.getElementById("newTitle");
+  const prefixEl = document.getElementById("newPrefix");
+  if (seed.root) rootEl.value = seed.root;
+  else if (!rootEl.value && state.rootDisplay) {
+    // Suggest sibling folder
+    const base = String(state.rootDisplay).replace(/\\/g, "/").replace(/\/[^/]+\/?$/, "");
+    rootEl.value = base ? `${base}/my-design-system` : "";
+  }
+  if (seed.title) titleEl.value = seed.title;
+  prefixEl.dataset.touched = "0";
+  prefixEl.dataset.autFilled = "0";
+  // Trigger autofill from path
+  rootEl.dispatchEvent(new Event("input"));
+  newDialog.showModal();
+  rootEl.focus();
 }
 
 function readRecent() {
@@ -294,11 +390,22 @@ function renderRecent() {
 /**
  * @param {string} root
  * @param {string} [entry]
+ * @param {{ preferComponent?: string }} [opts]
  */
-async function loadProject(root, entry) {
+async function loadProject(root, entry, opts = {}) {
   document.getElementById("statusLeft").textContent = "Opening…";
   clearProblems();
   const opened = await openProject(root, entry);
+  await applyOpenedProject(opened, opts);
+}
+
+/**
+ * @param {object} opened
+ * @param {{ preferComponent?: string }} [opts]
+ */
+async function applyOpenedProject(opened, opts = {}) {
+  document.getElementById("statusLeft").textContent = "Opening…";
+  clearProblems();
   state.root = opened.root;
   state.rootDisplay = opened.rootDisplay;
   state.rootLabel = opened.rootLabel;
@@ -327,7 +434,7 @@ async function loadProject(root, entry) {
   document.getElementById("btnExport").disabled = false;
   document.getElementById("btnReload").disabled = false;
 
-  pickDefaultSelection();
+  pickDefaultSelection(opts.preferComponent);
   fillThemes();
   fillHostChrome();
   nav.renderNavigator();
@@ -357,9 +464,17 @@ async function reloadProject() {
   setStatusRight("Reloaded from disk");
 }
 
-function pickDefaultSelection() {
+/**
+ * @param {string} [preferComponent]
+ */
+function pickDefaultSelection(preferComponent) {
   const cat = state.catalogue;
   if (!cat) return;
+
+  if (preferComponent && cat.components?.includes(preferComponent)) {
+    selectSymbol(preferComponent);
+    return;
+  }
 
   if (state.mode === "prototype") {
     const screen = (cat.components ?? []).find((n) => cat.componentRoles?.[n] === "screen");
@@ -375,7 +490,14 @@ function pickDefaultSelection() {
     return;
   }
 
-  const preferred = ["PlaylistComposer", "AbnPointerLab", "AbnButton", "IosPhone", "UsageRulesLab"];
+  const preferred = [
+    "Button",
+    "PlaylistComposer",
+    "AbnPointerLab",
+    "AbnButton",
+    "IosPhone",
+    "UsageRulesLab",
+  ];
   for (const name of preferred) {
     if (cat.components?.includes(name)) {
       selectSymbol(name);

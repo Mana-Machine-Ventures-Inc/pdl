@@ -18,6 +18,7 @@ import { dirname, join, relative, resolve, basename, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { bakeAndRender, resolveRepoPath, rustPdlArgs } from "../../../scripts/lib/bake-pipeline.mjs";
+import { buildStarterPack } from "./starter-pack.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const STUDIO_DIR = resolve(__dirname, "..");
@@ -129,10 +130,11 @@ function assertSafeRelativePath(rel) {
 }
 
 /**
- * Resolve a project root: absolute path, or repo-relative.
+ * Resolve a project root path. Creates the directory when `create` is true.
  * @param {string} root
+ * @param {{ create?: boolean }} [opts]
  */
-function resolveProjectRoot(root) {
+function resolveProjectRoot(root, opts = {}) {
   if (typeof root !== "string" || !root.trim()) {
     throw new Error('Expected "root" path');
   }
@@ -140,7 +142,14 @@ function resolveProjectRoot(root) {
   const abs = trimmed.startsWith("/") || /^[A-Za-z]:[\\/]/.test(trimmed)
     ? resolve(trimmed)
     : resolveRepoPath(REPO_ROOT, trimmed);
-  if (!existsSync(abs) || !statSync(abs).isDirectory()) {
+  if (!existsSync(abs)) {
+    if (opts.create) {
+      mkdirSync(abs, { recursive: true });
+    } else {
+      throw new Error(`Not a directory: ${abs}`);
+    }
+  }
+  if (!statSync(abs).isDirectory()) {
     throw new Error(`Not a directory: ${abs}`);
   }
   return abs;
@@ -206,6 +215,15 @@ function pickEntry(files, preferred) {
   return keys[0] || null;
 }
 
+function projectMeta(rootAbs) {
+  const relRoot = relative(REPO_ROOT, rootAbs);
+  return {
+    root: rootAbs,
+    rootLabel: basename(rootAbs),
+    rootDisplay: relRoot.startsWith("..") ? rootAbs : relRoot.split(sep).join("/"),
+  };
+}
+
 function handleStarters() {
   return { ok: true, starters: STARTERS };
 }
@@ -214,16 +232,65 @@ function handleOpenProject(body) {
   const rootAbs = resolveProjectRoot(body.root);
   const files = collectPdlFiles(rootAbs, rootAbs);
   const entry = pickEntry(files, body.entry ? assertSafeRelativePath(body.entry) : null);
-  if (!entry) throw new Error("No .pdl files in project");
-  const relRoot = relative(REPO_ROOT, rootAbs);
+  if (!entry) {
+    return {
+      ok: false,
+      empty: true,
+      error: "No .pdl files in project",
+      ...projectMeta(rootAbs),
+      fileList: [],
+      files: {},
+    };
+  }
   return {
     ok: true,
-    root: rootAbs,
-    rootLabel: basename(rootAbs),
-    rootDisplay: relRoot.startsWith("..") ? rootAbs : relRoot.split(sep).join("/"),
+    ...projectMeta(rootAbs),
     entry,
     files,
     fileList: Object.keys(files).sort(),
+  };
+}
+
+/**
+ * Scaffold a starter pack into an empty (or new) folder.
+ * @param {{ root: string, title?: string, prefix?: string, force?: boolean }} body
+ */
+function handleNewProject(body) {
+  const rootAbs = resolveProjectRoot(body.root, { create: true });
+  const existing = collectPdlFiles(rootAbs, rootAbs);
+  const existingKeys = Object.keys(existing);
+  if (existingKeys.length && !body.force) {
+    return {
+      ok: false,
+      error: `Folder already has .pdl files (${existingKeys.slice(0, 4).join(", ")}). Open it instead, or enable overwrite.`,
+      ...projectMeta(rootAbs),
+    };
+  }
+
+  const title =
+    (typeof body.title === "string" && body.title.trim()) ||
+    basename(rootAbs).replace(/[-_]+/g, " ") ||
+    "My Design System";
+  const pack = buildStarterPack({
+    title,
+    prefix: typeof body.prefix === "string" ? body.prefix : undefined,
+  });
+
+  for (const [rel, content] of Object.entries(pack)) {
+    const abs = resolve(rootAbs, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, content, "utf8");
+  }
+
+  const files = collectPdlFiles(rootAbs, rootAbs);
+  return {
+    ok: true,
+    created: Object.keys(pack),
+    ...projectMeta(rootAbs),
+    entry: "design.pdl",
+    files,
+    fileList: Object.keys(files).sort(),
+    defaultComponent: "Button",
   };
 }
 
@@ -685,6 +752,11 @@ const server = createServer(async (req, res) => {
     if (req.method === "POST" && pathname === "/api/open-project") {
       const body = await readJsonBody(req);
       json(res, 200, handleOpenProject(body));
+      return;
+    }
+    if (req.method === "POST" && pathname === "/api/new-project") {
+      const body = await readJsonBody(req);
+      json(res, 200, handleNewProject(body));
       return;
     }
     if (req.method === "POST" && pathname === "/api/read") {

@@ -18,7 +18,8 @@ Open **http://127.0.0.1:3857**.
 
 ## What it does (S1+)
 
-- Open any project folder (repo-relative or absolute) with `.pdl` files
+- **New design system…** — pick/create a folder; stubs `foundation.pdl`, `c_button.pdl`, companions, `design.pdl`
+- Open any project folder (repo-relative or absolute) with `.pdl` files; empty folders offer “Create starter pack here”
 - **System | Files** navigator (role tree vs file explorer)
 - Selection model: full-file work surface + primary preview root; **Pin preview**; **File gallery** opt-in
 - **World | Notes** dock: fixtures + samples-used; usage/rules + open companions/layout
