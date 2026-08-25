@@ -26,7 +26,10 @@ const REPO_ROOT = resolve(STUDIO_DIR, "../..");
 const STATIC_DIR = resolve(STUDIO_DIR, "static");
 const DIST_DIR = resolve(REPO_ROOT, "dist");
 
-const PORT = Number(process.env.STUDIO_PORT || 3857);
+const DEFAULT_FIRST_PORT = 3857;
+const PORT_FALLBACK_SPAN = 10; // try 3857..3866 when STUDIO_PORT is unset
+const envPort = process.env.STUDIO_PORT;
+const strictPort = envPort !== undefined && envPort !== "";
 const HOST = process.env.STUDIO_HOST || "127.0.0.1";
 
 /** Starter projects (repo-relative). */
@@ -278,8 +281,18 @@ function handleNewProject(body) {
 
   for (const [rel, content] of Object.entries(pack)) {
     const abs = resolve(rootAbs, rel);
-    mkdirSync(dirname(abs), { recursive: true });
-    writeFileSync(abs, content, "utf8");
+    try {
+      mkdirSync(dirname(abs), { recursive: true });
+      writeFileSync(abs, content, "utf8");
+    } catch (err) {
+      const code = err && typeof err === "object" && "code" in err ? err.code : "";
+      if (code === "EPERM" || code === "EACCES") {
+        throw new Error(
+          `Can't write to ${abs} (${code}). Quit Studio and run it from your own terminal with: npm run studio — then create the project again (agent-started servers can't write outside the pdl repo).`,
+        );
+      }
+      throw err;
+    }
   }
 
   const files = collectPdlFiles(rootAbs, rootAbs);
@@ -802,7 +815,46 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, HOST, () => {
-  console.log(`PDL Studio  http://${HOST}:${PORT}`);
-  console.log(`Repo root   ${REPO_ROOT}`);
-});
+function portHint(busyPort) {
+  return (
+    `Port ${busyPort} is already in use. Stop it (lsof -iTCP:${busyPort} -sTCP:LISTEN) ` +
+    `or set an exact port: STUDIO_PORT=3858 npm run studio`
+  );
+}
+
+function listenStudio() {
+  const first = strictPort ? Number(envPort) : DEFAULT_FIRST_PORT;
+  if (!Number.isInteger(first) || first < 1 || first > 65535) {
+    console.error(`Invalid STUDIO_PORT: ${envPort}`);
+    process.exit(1);
+  }
+  const maxTries = strictPort ? 1 : PORT_FALLBACK_SPAN;
+  let attempt = 0;
+
+  server.on("error", (err) => {
+    if (err.code !== "EADDRINUSE") {
+      console.error(err);
+      process.exit(1);
+    }
+    attempt += 1;
+    if (attempt >= maxTries) {
+      console.error(portHint(first + attempt - 1));
+      process.exit(1);
+    }
+    const next = first + attempt;
+    console.error(`Port ${first + attempt - 1} busy, trying ${next}…`);
+    server.listen(next, HOST);
+  });
+
+  server.listen(first, HOST, () => {
+    const bound = /** @type {import("node:net").AddressInfo} */ (server.address());
+    const p = bound?.port ?? first;
+    console.log(`PDL Studio  http://${HOST}:${p}`);
+    console.log(`Repo root   ${REPO_ROOT}`);
+    if (!strictPort && p !== DEFAULT_FIRST_PORT) {
+      console.error(`(Using ${p} because ${DEFAULT_FIRST_PORT} was busy.)`);
+    }
+  });
+}
+
+listenStudio();

@@ -69,7 +69,7 @@ Open a folder, edit `.pdl`, preview via the same bake → HTML host, save, and e
 ```bash
 npm install --prefix apps/studio
 npm run studio
-# → http://127.0.0.1:3857
+# → http://127.0.0.1:3857 (falls back to 3858–3866 if busy)
 # After language / WASM changes: npm run studio:fresh
 ```
 

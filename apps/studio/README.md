@@ -14,7 +14,7 @@ npm run studio
 npm run studio:fresh
 ```
 
-Open **http://127.0.0.1:3857**.
+Open **http://127.0.0.1:3857** (if that port is busy, Studio tries 3858–3866 and prints the URL).
 
 ## What it does (S1+)
 
