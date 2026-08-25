@@ -32,9 +32,16 @@ export function mountNavigator(opts) {
     return `<div class="nav-section"><div class="nav-section-title">${escapeHtml(title)}</div>${items.join("")}</div>`;
   }
 
-  function itemButton({ id, label, role, selected, kind, file }) {
+  function itemButton({ id, label, role, selected, inFile, kind, file }) {
     const roleBit = role ? `<span class="role">${escapeHtml(role)}</span>` : "";
-    return `<button type="button" class="nav-item${selected ? " is-selected" : ""}" data-kind="${kind}" data-name="${escapeAttr(id)}" data-file="${escapeAttr(file || "")}">${escapeHtml(label)}${roleBit}</button>`;
+    const cls = [
+      "nav-item",
+      selected ? "is-selected" : "",
+      !selected && inFile ? "is-in-file" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    return `<button type="button" class="${cls}" data-kind="${kind}" data-name="${escapeAttr(id)}" data-file="${escapeAttr(file || "")}">${escapeHtml(label)}${roleBit}</button>`;
   }
 
   function renderSystem() {
@@ -45,16 +52,47 @@ export function mountNavigator(opts) {
       return;
     }
 
+    /** @type {Set<string>} */
+    const siblings = new Set();
+    if (state.editFile && state.selectedKind === "component") {
+      for (const name of cat.components ?? []) {
+        const file = resolveComponentFile(name);
+        if (file && file === state.editFile) siblings.add(name);
+      }
+      // Also scrape open buffer — catalogue paths can lag / disagree.
+      const src = state.files[state.editFile] || "";
+      const re = /^\s*(?:component|page|screen)\s+([A-Za-z_][\w]*)/gm;
+      let m;
+      while ((m = re.exec(src))) siblings.add(m[1]);
+    }
+
     const foundations = [];
     const summary = cat.designSummary ?? {};
-    if ((summary.primitives?.length || summary.semantics?.length) && (!q || "tokens".includes(q) || "foundation".includes(q))) {
+    const tables = cat.tokenTables ?? {};
+    const hasTokens =
+      (summary.primitives?.length || summary.semantics?.length) ||
+      Object.keys(tables.primitives ?? {}).length ||
+      Object.keys(tables.semantics ?? {}).length;
+    if (hasTokens && (!q || "tokens".includes(q) || "foundation".includes(q))) {
       foundations.push(
         itemButton({
           id: "__tokens__",
           label: "Tokens",
           kind: "foundation",
           file: guessFoundationFile(),
-          selected: state.selectedSymbol === "__tokens__",
+          selected: state.selectedKind === "tokens",
+        }),
+      );
+    }
+    const typeStyleNames = summary.typeStyles ?? Object.keys(tables.typeStyles ?? {});
+    if (typeStyleNames.length && (!q || "type".includes(q) || "styles".includes(q))) {
+      foundations.push(
+        itemButton({
+          id: "__typeStyles__",
+          label: "Type styles",
+          kind: "typeStyles",
+          file: guessFoundationFile(),
+          selected: state.selectedKind === "typeStyles",
         }),
       );
     }
@@ -66,7 +104,7 @@ export function mountNavigator(opts) {
           label: t,
           role: "theme",
           kind: "theme",
-          selected: state.selectedSymbol === t,
+          selected: state.selectedKind === "theme" && state.selectedSymbol === t,
         }),
       );
     }
@@ -78,13 +116,16 @@ export function mountNavigator(opts) {
       if (q && !name.toLowerCase().includes(q)) continue;
       const role = cat.componentRoles?.[name];
       const file = resolveComponentFile(name);
+      const isCurrent =
+        state.selectedKind === "component" && state.selectedSymbol === name;
       const btn = itemButton({
         id: name,
         label: name,
         role,
         kind: "symbol",
         file,
-        selected: state.selectedSymbol === name || state.previewRoot === name,
+        selected: isCurrent,
+        inFile: !isCurrent && siblings.has(name),
       });
       if (role === "screen") screens.push(btn);
       else if (role === "page") pages.push(btn);
@@ -100,7 +141,7 @@ export function mountNavigator(opts) {
           label: bank,
           role: "samples",
           kind: "samples",
-          selected: state.selectedSymbol === bank,
+          selected: state.selectedKind === "samples" && state.selectedSymbol === bank,
         }),
       );
     }
@@ -155,7 +196,17 @@ export function mountNavigator(opts) {
       ? `<div class="nav-section">${paths
           .filter((p) => !q || p.toLowerCase().includes(q))
           .map((p) => {
-            const sel = state.editFile === p ? " is-selected" : "";
+            const sel =
+              state.selectedKind === "file" && state.editFile === p
+                ? " is-selected"
+                : state.editFile === p && state.selectedKind === "component"
+                  ? " is-selected"
+                  : state.editFile === p &&
+                      (state.selectedKind === "tokens" ||
+                        state.selectedKind === "theme" ||
+                        state.selectedKind === "typeStyles")
+                    ? " is-selected"
+                    : "";
             return `<button type="button" class="nav-item nav-file${sel}" data-kind="file" data-name="${escapeAttr(p)}" data-file="${escapeAttr(p)}">${escapeHtml(p)}</button>`;
           })
           .join("")}</div>`

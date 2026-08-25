@@ -23,9 +23,26 @@ export function mountCompanionDock(opts) {
 
   function renderCompanion() {
     if (!el) return;
+    if (
+      state.selectedKind === "tokens" ||
+      state.selectedKind === "theme" ||
+      state.selectedKind === "typeStyles" ||
+      state.selectedKind === "samples" ||
+      state.selectedKind === "file"
+    ) {
+      const labels = {
+        tokens: "Tokens",
+        theme: "Theme",
+        typeStyles: "Type styles",
+        samples: "Samples",
+        file: "File",
+      };
+      el.innerHTML = `<p class="hint">${labels[state.selectedKind] || "Selection"} scope — usage and rules appear for components.</p>`;
+      return;
+    }
     const name = state.previewRoot || state.selectedSymbol;
     const cat = state.catalogue;
-    if (!name || name === "__tokens__" || !cat) {
+    if (!name || name === "__tokens__" || name === "__typeStyles__" || !cat) {
       el.innerHTML = `<p class="hint">Select a component to see usage and rules.</p>`;
       return;
     }

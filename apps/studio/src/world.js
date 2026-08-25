@@ -10,15 +10,39 @@ export function mountWorld(opts) {
   const chips = document.getElementById("worldChips");
   const samplesEl = document.getElementById("samplesUsed");
   const knobs = document.getElementById("paramKnobs");
+  const modeGroup = document.getElementById("worldMode");
+
+  modeGroup?.querySelectorAll("[data-world-mode]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const mode = btn.getAttribute("data-world-mode");
+      state.worldMode = mode === "params" ? "params" : "fixtures";
+      emit();
+      renderWorld();
+    });
+  });
 
   function currentRoot() {
     return state.previewRoot;
   }
 
+  function syncModeChrome(hasFixtures, hasParams) {
+    if (!modeGroup) return;
+    const showToggle = hasFixtures && hasParams;
+    modeGroup.hidden = !showToggle;
+    if (!showToggle) {
+      if (hasParams && !hasFixtures) state.worldMode = "params";
+      else if (hasFixtures && !hasParams) state.worldMode = "fixtures";
+    }
+    modeGroup.querySelectorAll("[data-world-mode]").forEach((btn) => {
+      btn.classList.toggle("is-active", btn.getAttribute("data-world-mode") === state.worldMode);
+    });
+  }
+
   function renderWorld() {
     const root = currentRoot();
     const cat = state.catalogue;
-    if (!root || !cat) {
+    if (!root || !cat || state.selectedKind !== "component") {
+      if (modeGroup) modeGroup.hidden = true;
       chips.innerHTML = `<span class="hint">Select a component to choose a world.</span>`;
       samplesEl.hidden = true;
       knobs.innerHTML = "";
@@ -28,9 +52,22 @@ export function mountWorld(opts) {
     const fixtures = cat.fixturesByComponent?.[root] ?? {};
     const labels = Object.keys(fixtures);
     const active = state.activeWorld[root] ?? null;
+    const params = cat.componentParams?.[root] ?? [];
+    const knobParams = params.filter((p) => p.typeName !== "object").slice(0, 12);
+    const hasFixtures = labels.length > 0;
+    const hasParams = knobParams.length > 0;
+    syncModeChrome(hasFixtures, hasParams);
 
-    if (!labels.length) {
-      chips.innerHTML = `<span class="hint">No worlds (fixtures) for ${escapeHtml(root)}.</span>`;
+    const showFixtures = state.worldMode === "fixtures" || !hasParams;
+    const showParams = state.worldMode === "params" || !hasFixtures;
+
+    if (!showFixtures) {
+      chips.innerHTML = "";
+      samplesEl.hidden = true;
+      samplesEl.innerHTML = "";
+    } else if (!hasFixtures) {
+      chips.innerHTML = `<span class="hint">No fixtures for ${escapeHtml(root)}. Switch to Params to edit knobs.</span>`;
+      samplesEl.hidden = true;
     } else {
       chips.innerHTML = [
         `<button type="button" class="chip${!active ? " is-active" : ""}" data-world="">Default</button>`,
@@ -43,7 +80,7 @@ export function mountWorld(opts) {
         btn.addEventListener("click", () => {
           const w = btn.getAttribute("data-world") || null;
           state.activeWorld[root] = w;
-          // Apply fixture bag into ephemeral overrides (preview only).
+          state.worldMode = "fixtures";
           if (w && fixtures[w]) {
             state.paramOverrides[root] = {
               ...(state.paramOverrides[root] ?? {}),
@@ -57,37 +94,40 @@ export function mountWorld(opts) {
           renderWorld();
         });
       });
+
+      const bag = active && fixtures[active] ? fixtures[active] : {};
+      const refs = sampleRefsInBag(bag);
+      if (refs.length) {
+        samplesEl.hidden = false;
+        samplesEl.innerHTML =
+          `Samples used ` +
+          refs
+            .map(
+              (r) =>
+                `<button type="button" data-sample="${escapeAttr(r)}">${escapeHtml(r)}</button>`,
+            )
+            .join(" ");
+        samplesEl.querySelectorAll("button").forEach((btn) => {
+          btn.addEventListener("click", () => opts.onSampleClick?.(btn.getAttribute("data-sample")));
+        });
+      } else {
+        samplesEl.hidden = true;
+        samplesEl.innerHTML = "";
+      }
     }
 
-    const bag = active && fixtures[active] ? fixtures[active] : {};
-    const refs = sampleRefsInBag(bag);
-    if (refs.length) {
-      samplesEl.hidden = false;
-      samplesEl.innerHTML =
-        `Samples used ` +
-        refs
-          .map(
-            (r) =>
-              `<button type="button" data-sample="${escapeAttr(r)}">${escapeHtml(r)}</button>`,
-          )
-          .join(" ");
-      samplesEl.querySelectorAll("button").forEach((btn) => {
-        btn.addEventListener("click", () => opts.onSampleClick?.(btn.getAttribute("data-sample")));
-      });
-    } else {
-      samplesEl.hidden = true;
-      samplesEl.innerHTML = "";
+    if (!showParams) {
+      knobs.innerHTML = "";
+      return;
     }
 
-    const params = cat.componentParams?.[root] ?? [];
     const kv = state.paramOverrides[root] ?? {};
-    const knobParams = params.filter((p) => p.typeName !== "object").slice(0, 12);
     if (!knobParams.length) {
-      knobs.innerHTML = `<span class="hint">Preview only — knobs are not saved until you edit a world in source.</span>`;
+      knobs.innerHTML = `<span class="hint">No editable params on this component.</span>`;
       return;
     }
     knobs.innerHTML =
-      `<div class="hint" style="margin-bottom:6px">Preview only · not saved to world</div>` +
+      `<div class="hint" style="margin-bottom:6px">Param knobs · preview only (clears active fixture)</div>` +
       knobParams
         .map((p) => {
           const cases = cat.variantCases?.[p.typeName];
@@ -108,9 +148,11 @@ export function mountWorld(opts) {
       const apply = () => {
         const name = el.getAttribute("data-param");
         if (!name) return;
+        // Editing knobs leaves fixture mode — same as Playground iframe param bar.
+        state.activeWorld[root] = null;
+        state.worldMode = "params";
         if (!state.paramOverrides[root]) state.paramOverrides[root] = {};
         let v = el.value;
-        // Variant cases often need leading-dot form in bake overrides.
         const cases = cat.variantCases?.[knobParams.find((p) => p.name === name)?.typeName];
         if (Array.isArray(cases) && cases.includes(v)) v = `.${v.replace(/^\./, "")}`;
         if (v === "true") v = true;
@@ -118,6 +160,7 @@ export function mountWorld(opts) {
         else if (v !== "" && !Number.isNaN(Number(v)) && /^-?\d+(\.\d+)?$/.test(v)) v = Number(v);
         state.paramOverrides[root][name] = v;
         opts.onChange();
+        renderWorld();
       };
       el.addEventListener("change", apply);
       el.addEventListener("keydown", (e) => {

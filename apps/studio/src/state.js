@@ -1,6 +1,8 @@
 /** @typedef {'design' | 'prototype' | 'review'} StudioMode */
 /** @typedef {'system' | 'files'} NavTab */
 /** @typedef {'primary' | 'gallery'} PreviewMode */
+/** @typedef {'component' | 'tokens' | 'theme' | 'typeStyles' | 'samples' | 'file'} SelectionKind */
+/** @typedef {'fixtures' | 'params'} WorldMode */
 
 /**
  * @typedef {object} StudioState
@@ -18,6 +20,8 @@
  * @property {string | null} editFile
  * @property {string | null} previewRoot
  * @property {string | null} selectedSymbol
+ * @property {SelectionKind | null} selectedKind
+ * @property {WorldMode} worldMode
  * @property {object | null} catalogue
  * @property {string} theme
  * @property {Record<string, string | null>} activeWorld
@@ -42,6 +46,8 @@ export const state = {
   editFile: null,
   previewRoot: null,
   selectedSymbol: null,
+  selectedKind: null,
+  worldMode: "fixtures",
   catalogue: null,
   theme: "",
   activeWorld: {},

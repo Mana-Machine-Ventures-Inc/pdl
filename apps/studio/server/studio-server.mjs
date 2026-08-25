@@ -448,6 +448,11 @@ function enrichFromRustCatalogue(entryAbs) {
     }
   }
 
+  const primitives = cat.primitives ?? {};
+  const semantics = cat.semantics ?? {};
+  const themeDefs = cat.themes ?? {};
+  const typeStyles = cat.typeStyles ?? {};
+
   return {
     ok: true,
     components,
@@ -463,13 +468,20 @@ function enrichFromRustCatalogue(entryAbs) {
     rulesByComponent,
     hostParams: hostParamsFromCatalogue(cat),
     samples: cat.samples ?? {},
+    /** Full token / theme / typeStyle maps for the Studio inspector. */
+    tokenTables: {
+      primitives,
+      semantics,
+      themes: themeDefs,
+      typeStyles,
+    },
     designSummary: {
       previewBackground: null,
-      primitives: Object.keys(cat.primitives ?? {}),
-      semantics: Object.keys(cat.semantics ?? {}),
+      primitives: Object.keys(primitives),
+      semantics: Object.keys(semantics),
       themeDefinitions: themes,
       variants: Object.entries(variantCases).map(([name, cases]) => ({ name, cases })),
-      typeStyles: Object.keys(cat.typeStyles ?? {}),
+      typeStyles: Object.keys(typeStyles),
     },
     loader: "rust-catalogue",
   };
@@ -623,6 +635,7 @@ async function handleRenderFromBake(body) {
               body.activeFixturesByComponent ?? {},
             )
           : undefined,
+      worldMode: body.worldMode === "params" ? "params" : "fixtures",
       componentRolesByComponent:
         enriched != null
           ? componentRolesFromEnriched(enriched)

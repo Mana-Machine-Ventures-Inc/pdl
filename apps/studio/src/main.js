@@ -14,6 +14,7 @@ import {
   focusSymbol,
   focusLine,
   flushEditorToFiles,
+  getCursorOffset,
 } from "./editor.js";
 import { mountNavigator } from "./navigator.js";
 import { mountWorld } from "./world.js";
@@ -25,8 +26,10 @@ import {
   runPreview,
   fillThemes,
   fillHostChrome,
+  highlightPreviewComponent,
+  syncPreviewModeChrome,
 } from "./preview.js";
-import { symbolsInFile } from "./symbols.js";
+import { symbolsInFile, declarationAtOffset } from "./symbols.js";
 
 const RECENT_KEY = "pdl-studio-recent-v1";
 const LAST_KEY = "pdl-studio-last-v1";
@@ -88,6 +91,9 @@ mountEditor(document.getElementById("editorMount"), {
     companions.renderCompanion();
     updateChrome();
   },
+  onCursorScope: () => {
+    syncSelectionFromCursor();
+  },
 });
 
 mountPreview(document.getElementById("previewFrame"), {
@@ -96,6 +102,13 @@ mountPreview(document.getElementById("previewFrame"), {
   },
   onError: (err) => {
     setProblemText(err, { file: state.editFile || undefined });
+  },
+  onOpenSource: (name) => {
+    selectSymbol(name);
+  },
+  onWorldMutated: () => {
+    world.renderWorld();
+    updateChrome();
   },
 });
 
@@ -439,7 +452,12 @@ async function applyOpenedProject(opened, opts = {}) {
   fillHostChrome();
   nav.renderNavigator();
   syncEditorFromState();
-  if (state.selectedSymbol && state.selectedSymbol !== "__tokens__") {
+  if (
+    state.selectedSymbol &&
+    state.selectedSymbol !== "__tokens__" &&
+    state.selectedSymbol !== "__typeStyles__" &&
+    state.selectedKind === "component"
+  ) {
     focusSymbol(state.selectedSymbol);
   }
   world.renderWorld();
@@ -507,10 +525,16 @@ function pickDefaultSelection(preferComponent) {
 
   const first = (cat.components ?? []).find((n) => !cat.componentRoles?.[n]) || cat.components?.[0];
   if (first) selectSymbol(first);
-  else {
+  else if (
+    (cat.designSummary?.primitives?.length || cat.designSummary?.semantics?.length) ||
+    Object.keys(cat.tokenTables?.primitives ?? {}).length
+  ) {
+    selectTokens();
+  } else {
     state.editFile = state.entry;
     state.previewRoot = null;
     state.selectedSymbol = null;
+    state.selectedKind = "file";
   }
 }
 
@@ -529,48 +553,119 @@ function handleNavSelect(sel) {
     return;
   }
   if (sel.kind === "foundation" || sel.name === "__tokens__") {
-    const file =
-      sel.file ||
-      Object.keys(state.files).find((p) => /foundation\.pdl$/i.test(p)) ||
-      state.entry;
-    state.selectedSymbol = "__tokens__";
-    state.editFile = file;
-    syncEditorFromState();
-    nav.renderNavigator();
-    companions.renderCompanion();
-    updateChrome();
+    selectTokens(sel.file);
+    return;
+  }
+  if (sel.kind === "typeStyles" || sel.name === "__typeStyles__") {
+    selectTypeStyles(sel.file);
     return;
   }
   if (sel.kind === "samples" && sel.name) {
-    for (const [path, src] of Object.entries(state.files)) {
-      if (new RegExp(`\\bsamples\\s+${sel.name}\\b`).test(src)) {
-        state.selectedSymbol = sel.name;
-        state.editFile = path;
-        syncEditorFromState();
-        focusSymbol(sel.name);
-        nav.renderNavigator();
-        companions.renderCompanion();
-        updateChrome();
-        return;
-      }
-    }
-  }
-  if (sel.kind === "theme" && sel.name) {
-    state.theme = sel.name;
-    fillThemes();
-    schedulePreview();
+    selectSamples(sel.name);
     return;
   }
-  if ((sel.kind === "symbol" || sel.kind === "samples") && sel.name) {
+  if (sel.kind === "theme" && sel.name) {
+    selectTheme(sel.name);
+    return;
+  }
+  if (sel.kind === "symbol" && sel.name) {
     selectSymbol(sel.name, sel.file);
   }
 }
 
 /**
- * @param {string} name
  * @param {string} [fileHint]
  */
-function selectSymbol(name, fileHint) {
+function selectTokens(fileHint) {
+  const file =
+    fileHint ||
+    Object.keys(state.files).find((p) => /foundation\.pdl$/i.test(p)) ||
+    Object.keys(state.files).find((p) => /token/i.test(p)) ||
+    state.entry;
+  state.selectedKind = "tokens";
+  state.selectedSymbol = "__tokens__";
+  state.editFile = file;
+  syncEditorFromState();
+  nav.renderNavigator();
+  companions.renderCompanion();
+  updateChrome();
+  schedulePreview(0);
+}
+
+/**
+ * @param {string} [fileHint]
+ */
+function selectTypeStyles(fileHint) {
+  const file =
+    fileHint ||
+    Object.keys(state.files).find((p) => /foundation\.pdl$/i.test(p)) ||
+    state.entry;
+  state.selectedKind = "typeStyles";
+  state.selectedSymbol = "__typeStyles__";
+  state.editFile = file;
+  syncEditorFromState();
+  nav.renderNavigator();
+  companions.renderCompanion();
+  updateChrome();
+  schedulePreview(0);
+}
+
+/**
+ * @param {string} name
+ */
+function selectTheme(name) {
+  state.selectedKind = "theme";
+  state.selectedSymbol = name;
+  state.theme = name;
+  const themeFile =
+    Object.keys(state.files).find((p) =>
+      new RegExp(`\\btheme\\s+${name}\\b`).test(state.files[p]),
+    ) ||
+    Object.keys(state.files).find((p) => /theme/i.test(p)) ||
+    state.editFile;
+  if (themeFile) state.editFile = themeFile;
+  fillThemes();
+  syncEditorFromState();
+  nav.renderNavigator();
+  companions.renderCompanion();
+  updateChrome();
+  schedulePreview(0);
+}
+
+/**
+ * @param {string} name
+ */
+function selectSamples(name) {
+  for (const [path, src] of Object.entries(state.files)) {
+    if (new RegExp(`\\bsamples\\s+${name}\\b`).test(src)) {
+      state.selectedKind = "samples";
+      state.selectedSymbol = name;
+      state.editFile = path;
+      syncEditorFromState();
+      focusSymbol(name);
+      nav.renderNavigator();
+      companions.renderCompanion();
+      updateChrome();
+      schedulePreview(0);
+      return;
+    }
+  }
+  state.selectedKind = "samples";
+  state.selectedSymbol = name;
+  nav.renderNavigator();
+  companions.renderCompanion();
+  updateChrome();
+  schedulePreview(0);
+}
+
+/**
+ * @param {string} name
+ * @param {string} [fileHint]
+ * @param {{ focus?: boolean }} [opts]
+ */
+function selectSymbol(name, fileHint, opts = {}) {
+  const focus = opts.focus !== false;
+  state.selectedKind = "component";
   state.selectedSymbol = name;
   const file =
     fileHint ||
@@ -584,8 +679,9 @@ function selectSymbol(name, fileHint) {
   if (!state.previewPinned) {
     state.previewRoot = name;
   }
+  applyFileGalleryPreference(file);
   syncEditorFromState();
-  focusSymbol(name);
+  if (focus) focusSymbol(name);
   nav.renderNavigator();
   world.renderWorld();
   companions.renderCompanion();
@@ -594,25 +690,110 @@ function selectSymbol(name, fileHint) {
 }
 
 /**
+ * Prefer file gallery whenever the open buffer declares multiple components.
+ * @param {string | null} file
+ */
+function applyFileGalleryPreference(file) {
+  if (!file) return;
+  const syms = symbolsInFile(file, state.files, state.catalogue);
+  if (syms.length > 1) {
+    state.previewMode = "gallery";
+  } else if (syms.length === 1) {
+    state.previewMode = "primary";
+  }
+  syncPreviewModeChrome();
+}
+
+/**
+ * Cursor section → selected symbol (nav hard-select); siblings soft-highlight.
+ * Does not move the cursor.
+ */
+function syncSelectionFromCursor() {
+  const file = state.editFile;
+  if (!file) return;
+  const offset = getCursorOffset();
+  if (offset == null) return;
+  const src = state.files[file] ?? "";
+  const decl = declarationAtOffset(src, offset);
+  if (!decl || !["component", "page", "screen"].includes(decl.kind)) return;
+
+  const syms = symbolsInFile(file, state.files, state.catalogue);
+  const changed =
+    state.selectedKind !== "component" ||
+    state.selectedSymbol !== decl.name ||
+    state.editFile !== file;
+
+  state.selectedKind = "component";
+  state.selectedSymbol = decl.name;
+  if (!state.previewPinned) state.previewRoot = decl.name;
+
+  if (syms.length > 1 && state.previewMode !== "gallery") {
+    state.previewMode = "gallery";
+    syncPreviewModeChrome();
+    schedulePreview(50);
+  } else if (changed && state.previewMode === "primary") {
+    schedulePreview(80);
+  } else {
+    highlightPreviewComponent(decl.name);
+  }
+
+  if (changed) {
+    nav.renderNavigator();
+    world.renderWorld();
+    companions.renderCompanion();
+    updateChrome();
+  } else {
+    nav.renderNavigator();
+  }
+}
+
+/**
  * @param {string} file
  */
 function selectFile(file) {
   state.editFile = file;
-  state.selectedSymbol = null;
   syncEditorFromState();
 
-  if (!state.previewPinned) {
-    const syms = symbolsInFile(file, state.files, state.catalogue);
-    if (syms.length === 1) {
-      state.previewRoot = syms[0];
-      state.selectedSymbol = syms[0];
-      focusSymbol(syms[0]);
-    } else if (syms.length > 1) {
-      if (!syms.includes(state.previewRoot)) {
-        state.previewRoot = syms[0];
-      }
+  const src = state.files[file] ?? "";
+  const hasTokens = /\b(primitive|semantic)\s+/.test(src);
+  const hasTheme = /\btheme\s+\w+/.test(src);
+  const hasType = /\btypeStyle\s+/.test(src);
+  const syms = symbolsInFile(file, state.files, state.catalogue);
+
+  if (syms.length) {
+    applyFileGalleryPreference(file);
+    if (state.previewPinned && state.previewRoot && syms.includes(state.previewRoot)) {
+      state.selectedKind = "component";
       state.selectedSymbol = state.previewRoot;
+    } else {
+      const offset = getCursorOffset();
+      const decl = offset != null ? declarationAtOffset(src, offset) : null;
+      const pick =
+        decl && syms.includes(decl.name)
+          ? decl.name
+          : syms.length === 1
+            ? syms[0]
+            : syms.includes(state.previewRoot)
+              ? state.previewRoot
+              : syms[0];
+      selectSymbol(pick, file, { focus: false });
+      return;
     }
+  } else if (hasTokens) {
+    state.selectedKind = "tokens";
+    state.selectedSymbol = "__tokens__";
+  } else if (hasTheme) {
+    const m = src.match(/\btheme\s+(\w+)/);
+    state.selectedKind = "theme";
+    state.selectedSymbol = m?.[1] ?? state.theme;
+    if (m?.[1]) state.theme = m[1];
+    fillThemes();
+  } else if (hasType) {
+    state.selectedKind = "typeStyles";
+    state.selectedSymbol = "__typeStyles__";
+  } else {
+    state.selectedKind = "file";
+    state.selectedSymbol = null;
   }
 
   nav.renderNavigator();
@@ -675,11 +856,14 @@ function updateChrome() {
   document.getElementById("btnExport").disabled = !state.root;
 
   const sym = state.selectedSymbol || state.previewRoot;
-  document.getElementById("symbolLabel").textContent = sym
-    ? sym === "__tokens__"
-      ? "Tokens"
-      : sym
-    : "—";
+  let label = "—";
+  if (state.selectedKind === "tokens") label = "Tokens";
+  else if (state.selectedKind === "typeStyles") label = "Type styles";
+  else if (state.selectedKind === "theme") label = sym ? `Theme · ${sym}` : "Theme";
+  else if (state.selectedKind === "samples") label = sym ? `Samples · ${sym}` : "Samples";
+  else if (state.selectedKind === "file") label = state.editFile || "File";
+  else if (sym) label = sym === "__tokens__" ? "Tokens" : sym;
+  document.getElementById("symbolLabel").textContent = label;
   document.getElementById("fileLabel").textContent = state.editFile || "";
 
   const pin = state.previewPinned ? " · preview pinned" : "";
@@ -693,6 +877,11 @@ function updateChrome() {
 function updateLegend() {
   const el = document.getElementById("interactionLegend");
   if (!el) return;
+  if (state.selectedKind && state.selectedKind !== "component") {
+    el.hidden = true;
+    el.innerHTML = "";
+    return;
+  }
   const name = state.previewRoot;
   const ix = name && state.catalogue?.interactionsByComponent?.[name];
   if (!Array.isArray(ix) || !ix.length) {

@@ -12,15 +12,16 @@ const DECL_RE =
  */
 export function findSymbolInSource(source, symbolName) {
   if (!source || !symbolName) return null;
+  // Use [ \t]* not \s* — \s* after ^ can swallow a blank line's \n and land one line early.
   const patterns = [
     new RegExp(
-      `^\\s*(component|page|screen)\\s+${escapeReg(symbolName)}\\b`,
+      `^[ \\t]*(component|page|screen)\\s+${escapeReg(symbolName)}\\b`,
       "m",
     ),
-    new RegExp(`^\\s*fixtures\\s+${escapeReg(symbolName)}\\b`, "m"),
-    new RegExp(`^\\s*samples\\s+${escapeReg(symbolName)}\\b`, "m"),
+    new RegExp(`^[ \\t]*fixtures\\s+${escapeReg(symbolName)}\\b`, "m"),
+    new RegExp(`^[ \\t]*samples\\s+${escapeReg(symbolName)}\\b`, "m"),
     new RegExp(
-      `^\\s*(primitive|semantic)\\s+[\\w.]*${escapeReg(symbolName)}\\b`,
+      `^[ \\t]*(primitive|semantic)\\s+[\\w.]*${escapeReg(symbolName)}\\b`,
       "m",
     ),
   ];
@@ -44,8 +45,8 @@ export function listDeclarations(source) {
   const out = [];
   const lines = String(source || "").split("\n");
   const re =
-    /^\s*(component|page|screen|samples|fixtures|theme|catalog|host|typeStyle|protocol|variant|enum)\s+([A-Za-z_][\w]*)/;
-  const tokenRe = /^\s*(primitive|semantic)\s+([A-Za-z_][\w.]*)/;
+    /^[ \t]*(component|page|screen|samples|fixtures|theme|catalog|host|typeStyle|protocol|variant|enum)\s+([A-Za-z_][\w]*)/;
+  const tokenRe = /^[ \t]*(primitive|semantic)\s+([A-Za-z_][\w.]*)/;
   lines.forEach((line, i) => {
     let m = re.exec(line);
     if (m) {
@@ -59,12 +60,17 @@ export function listDeclarations(source) {
 }
 
 /**
- * Components declared in a file (from catalogue file map or scrape).
+ * Components declared in a file (source order preferred).
  * @param {string} filePath
  * @param {Record<string, string>} files
  * @param {object | null} catalogue
  */
 export function symbolsInFile(filePath, files, catalogue) {
+  const decls = listDeclarations(files[filePath] || "")
+    .filter((d) => ["component", "page", "screen"].includes(d.kind))
+    .map((d) => d.name);
+  if (decls.length) return unique(decls);
+
   const names = [];
   if (catalogue?.componentFiles) {
     for (const [name, path] of Object.entries(catalogue.componentFiles)) {
@@ -73,9 +79,43 @@ export function symbolsInFile(filePath, files, catalogue) {
       }
     }
   }
-  if (names.length) return names;
-  const decls = listDeclarations(files[filePath] || "");
-  return decls.filter((d) => ["component", "page", "screen"].includes(d.kind)).map((d) => d.name);
+  return unique(names);
+}
+
+/**
+ * Top-level declaration enclosing a character offset (cursor).
+ * @param {string} source
+ * @param {number} offset
+ * @returns {{ kind: string, name: string, line: number } | null}
+ */
+export function declarationAtOffset(source, offset) {
+  const decls = listDeclarations(source);
+  if (!decls.length) return null;
+  const safe = Math.max(0, Math.min(Number(offset) || 0, String(source || "").length));
+  const line = String(source || "")
+    .slice(0, safe)
+    .split("\n").length - 1;
+  let hit = null;
+  for (const d of decls) {
+    if (d.line <= line) hit = d;
+    else break;
+  }
+  return hit;
+}
+
+/**
+ * @param {string[]} names
+ */
+function unique(names) {
+  const seen = new Set();
+  /** @type {string[]} */
+  const out = [];
+  for (const n of names) {
+    if (!n || seen.has(n)) continue;
+    seen.add(n);
+    out.push(n);
+  }
+  return out;
 }
 
 function normalizePath(p) {

@@ -100,7 +100,11 @@
           </div>
           <div class="dock-body" id="dockWorld">
             <div class="world-header">
-              <span class="hint">Scenario fixtures for the preview root</span>
+              <div class="world-mode" id="worldMode" role="group" aria-label="Fixtures or params" hidden>
+                <button type="button" class="seg is-active" data-world-mode="fixtures">Fixtures</button>
+                <button type="button" class="seg" data-world-mode="params">Params</button>
+              </div>
+              <span class="hint" id="worldHint">One mode at a time — fixtures or raw params</span>
             </div>
             <div class="world-chips" id="worldChips" role="list"></div>
             <div class="samples-used" id="samplesUsed" hidden></div>
@@ -133,6 +137,7 @@
         <div class="preview-frame-wrap">
           <iframe id="previewFrame" title="PDL preview" sandbox="allow-scripts allow-same-origin"></iframe>
         </div>
+        <div class="inspect-pane" id="inspectPane" hidden aria-label="Selection inspector"></div>
         <div class="preview-aside" id="previewAside">
           <div class="aside-head">
             <strong>Problems</strong>

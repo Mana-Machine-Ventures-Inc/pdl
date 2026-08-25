@@ -22,6 +22,8 @@ let boundPath = null;
 let onChange = null;
 /** @type {((path: string, line: number, name?: string) => void) | null} */
 let onGoto = null;
+/** @type {(() => void) | null} */
+let onCursorScope = null;
 let syncing = false;
 
 function completionSymbols() {
@@ -64,6 +66,7 @@ function gotoDefinition() {
 export function mountEditor(parent, handlers = {}) {
   onChange = handlers.onChange ?? null;
   onGoto = handlers.onGoto ?? null;
+  onCursorScope = handlers.onCursorScope ?? null;
 
   view = new EditorView({
     parent,
@@ -103,12 +106,17 @@ export function mountEditor(parent, handlers = {}) {
           },
         }),
         EditorView.updateListener.of((update) => {
-          if (syncing || !update.docChanged || !boundPath) return;
-          const text = update.state.doc.toString();
-          state.files[boundPath] = text;
-          markDirty(boundPath);
-          onChange?.(boundPath, text);
-          if (update.selectionSet) refreshPropertyMenu();
+          if (syncing) return;
+          if (update.docChanged && boundPath) {
+            const text = update.state.doc.toString();
+            state.files[boundPath] = text;
+            markDirty(boundPath);
+            onChange?.(boundPath, text);
+          }
+          if (update.selectionSet || update.docChanged) {
+            refreshPropertyMenu();
+            onCursorScope?.();
+          }
         }),
         EditorView.theme({
           "&": { height: "100%" },
@@ -238,6 +246,12 @@ export function flushEditorToFiles() {
 
 export function getEditorView() {
   return view;
+}
+
+/** Current cursor offset in the active editor doc, or null. */
+export function getCursorOffset() {
+  if (!view) return null;
+  return view.state.selection.main.head;
 }
 
 function escapeHtml(s) {
