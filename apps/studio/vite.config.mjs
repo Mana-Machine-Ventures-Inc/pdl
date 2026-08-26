@@ -9,6 +9,7 @@ export default defineConfig({
     alias: {
       "@pdl": resolve(studioDir, "../../src"),
       "@playground": resolve(studioDir, "../../playground/src"),
+      "@shared": resolve(studioDir, "../../shared"),
     },
   },
   build: {

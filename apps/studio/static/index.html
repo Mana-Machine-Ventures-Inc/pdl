@@ -117,7 +117,11 @@
       </section>
 
       <section class="preview-pane" aria-label="Preview">
-        <div class="preview-toolbar">
+        <div class="right-pane-tabs" role="tablist" aria-label="Right column mode">
+          <button type="button" class="seg is-active" data-right-pane="preview" role="tab">Preview</button>
+          <button type="button" class="seg" data-right-pane="canvas" role="tab">Canvas</button>
+        </div>
+        <div class="preview-toolbar" id="previewToolbar">
           <label class="field-inline">
             <span>Theme</span>
             <select id="themeSelect"></select>
@@ -138,6 +142,28 @@
           <iframe id="previewFrame" title="PDL preview" sandbox="allow-scripts allow-same-origin"></iframe>
         </div>
         <div class="inspect-pane" id="inspectPane" hidden aria-label="Selection inspector"></div>
+        <div class="canvas-pane" id="canvasPane" hidden aria-label="Canvas authoring">
+          <div class="canvas-header">
+            <div class="canvas-header-meta">
+              <strong id="canvasTitle">Canvas</strong>
+              <span class="hint" id="canvasMeta">Select a component</span>
+            </div>
+            <div class="canvas-header-actions">
+              <button type="button" class="btn ghost btn-tiny" id="btnCanvasDiscard" disabled>Discard</button>
+              <button type="button" class="btn primary btn-tiny" id="btnCanvasApply" disabled>Apply</button>
+            </div>
+          </div>
+          <div class="canvas-variants" id="canvasVariants" hidden></div>
+          <div class="canvas-warnings" id="canvasWarnings" hidden></div>
+          <div class="canvas-body">
+            <div class="canvas-layers" id="canvasLayers" aria-label="Layers"></div>
+            <div class="canvas-stage">
+              <iframe id="canvasStageFrame" title="Canvas stage" sandbox="allow-scripts allow-same-origin"></iframe>
+            </div>
+            <div class="canvas-inspector" id="canvasInspector" aria-label="Inspector"></div>
+          </div>
+          <div class="canvas-pending" id="canvasPending"></div>
+        </div>
         <div class="preview-aside" id="previewAside">
           <div class="aside-head">
             <strong>Problems</strong>

@@ -1,6 +1,6 @@
 # Proposal: PDL Studio (authoring product)
 
-**Status:** proposed (2026-08-25); **S1 scaffold in-repo** — `apps/studio/` (`npm run studio`)  
+**Status:** proposed (2026-08-25); **S1 + Canvas P0/P1 in-repo** — `apps/studio/` (`npm run studio`)  
 **Related:** [`PROPOSAL_PDL_PLAYGROUND.md`](./PROPOSAL_PDL_PLAYGROUND.md), [`PLAYGROUND_OVERVIEW.md`](./PLAYGROUND_OVERVIEW.md), [`PROPOSAL_HOST_ENVIRONMENT.md`](./PROPOSAL_HOST_ENVIRONMENT.md), [`PROPOSAL_ROUTING_PAGES_SCREENS.md`](./PROPOSAL_ROUTING_PAGES_SCREENS.md), [`PROPOSAL_TYPED_SAMPLES.md`](./PROPOSAL_TYPED_SAMPLES.md), [`PROPOSAL_PORTABLE_CORE.md`](./PROPOSAL_PORTABLE_CORE.md)  
 **Placement:** new app shell (`apps/studio/` or extract later); **not** a Playground rewrite  
 **Non-goals (v1):** Figma parity, spatial-only authoring, multiplayer, governance pipelines, native codegen as primary SoT
@@ -137,18 +137,19 @@ Import-only entry files (`design.pdl`) must **not** auto-expand all imports into
 │ Foundations│  Symbol header                │  Device / canvas          │
 │  Tokens    │  AbnButton · c_button.pdl     │  ┌─────────────────────┐  │
 │  Type      │                               │  │                     │  │
-│  Themes    │  [ Source | Structure ]       │  │   live HTML host    │  │
-│            │                               │  │                     │  │
+│  Themes    │  [ Source | Structure* ]      │  │   live HTML host    │  │
+│            │                               │  │   or Canvas mode   │  │
 │ Components │  CodeMirror  or  param/frame  │  └─────────────────────┘  │
-│  Button    │  inspector that writes PDL    │  Fixture · Reset · Theme  │
-│  Field     │                               │  Usage · Rules banners    │
-│            │                               │                           │
+│  Button    │  inspector that writes PDL    │  Preview | Canvas         │
+│  Field     │                               │  Layers · Stage · Inspect │
+│            │                               │  Fixture · Reset · Theme  │
 │ Samples *  │───────────────────────────────│                           │
 │ Companions*│  WORLD                        │                           │
 │            │  Fixture worlds for selection │                           │
 │            │  Samples used → link          │                           │
 │            │  Param knobs (ephemeral)      │                           │
 └────────────┴───────────────────────────────┴───────────────────────────┘
+* Structure = optional overlay; Canvas owns layers + inspector authoring
 * Samples / Companions sections collapse when empty
 ```
 
@@ -241,11 +242,22 @@ When the selection conforms to host or API protocols, show a small legend:
 
 Copy can cite the glossary one-liners from the public site — not eng protocol IDs.
 
-### 7.7 Structure view (optional inspector)
+### 7.7 Canvas (layers + inspector)
 
-Beside Source: a read-only **frame tree** of the baked selection (lets, children, `if` branches) with click-to-source. Not a second editor — a map for deep components (ios26 screens, playlist composer).
+Right column toggles **Preview | Canvas**. Canvas is the Figma-like authoring surface:
 
-v1 can ship Source-only and add Structure once reconcile/instance-resolve paint is stable.
+| Region | Role |
+|--------|------|
+| **Layers** | Effective bake tree for the selected component (`let`s / instances) |
+| **Stage** | Mini live bake sketch; selection highlights |
+| **Inspector** | Frame / text props; pending edits |
+| **Variant bar** | Switch axis cases (`tone`, `size`, …); subsequent edits target that axis’s `if` chain |
+
+**SoT remains `.pdl`.** Edits accumulate as pending; **Apply** surgically rewrites the component body (unconditional props in P0; axis-scoped `if` / `else if` chains in P1), bakes to validate, then marks the file dirty. **Save** is the existing disk write.
+
+Cross-axis ambiguity (e.g. non-default `tone` + `size` while editing `padding`) warns and requires choosing which axis owns the property. Canonical write style is **one chain per axis**, not a full cartesian matrix.
+
+**Structure** (read-only bake map with click-to-source) remains optional / future overlay on Canvas layers — not a second editor.
 
 ### 7.8 Diagnostics
 
@@ -375,7 +387,8 @@ Success metric: an author can maintain **airbnb-lite** and **playlist-composer-l
 - Companion dock  
 - Samples table editor  
 - Prototype mode (screens / pages / Presenter stack UI)  
-- Structure (bake tree) inspector  
+- **Canvas** (layers + inspector + axis-scoped PDL rewrite) — P0/P1 in `apps/studio/src/canvas/`  
+- Structure overlay on Canvas layers (conditions)  
 - Review mode + quieter export walkthrough  
 - New-project template ladder  
 

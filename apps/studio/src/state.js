@@ -1,6 +1,7 @@
 /** @typedef {'design' | 'prototype' | 'review'} StudioMode */
 /** @typedef {'system' | 'files'} NavTab */
 /** @typedef {'primary' | 'gallery'} PreviewMode */
+/** @typedef {'preview' | 'canvas'} RightPaneMode */
 /** @typedef {'component' | 'tokens' | 'theme' | 'typeStyles' | 'samples' | 'file'} SelectionKind */
 /** @typedef {'fixtures' | 'params'} WorldMode */
 
@@ -9,6 +10,7 @@
  * @property {StudioMode} mode
  * @property {NavTab} navTab
  * @property {PreviewMode} previewMode
+ * @property {RightPaneMode} rightPaneMode
  * @property {boolean} previewPinned
  * @property {string | null} root
  * @property {string | null} rootDisplay
@@ -35,6 +37,7 @@ export const state = {
   mode: "design",
   navTab: "system",
   previewMode: "primary",
+  rightPaneMode: "preview",
   previewPinned: false,
   root: null,
   rootDisplay: null,

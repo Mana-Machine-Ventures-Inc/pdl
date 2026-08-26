@@ -26,7 +26,7 @@ Open **http://127.0.0.1:3857** (if that port is busy, Studio tries 3858–3866 a
 - Insert templates, Add property, pack-aware completions, ⌘-click / F12 go to definition
 - **⌘S** save · **⌘O** open · **⌘K** focus navigator search · Reload from disk
 - Recent projects on welcome; Problems panel with click-to-goto
-- Design / Prototype / Review modes
+- Design / Prototype / Review modes; Preview | **Canvas** (layers + inspector → Apply rewrites `.pdl`)
 - Same fidelity path as Playground: **WASM bake → bake JSON → HTML host**
 - Export bake JSON / HTML / catalogue
 

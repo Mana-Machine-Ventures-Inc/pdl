@@ -29,6 +29,7 @@ import {
   highlightPreviewComponent,
   syncPreviewModeChrome,
 } from "./preview.js";
+import { mountCanvas, syncCanvasToSelection, syncRightPaneChrome } from "./canvas/index.js";
 import { symbolsInFile, declarationAtOffset } from "./symbols.js";
 
 const RECENT_KEY = "pdl-studio-recent-v1";
@@ -109,6 +110,22 @@ mountPreview(document.getElementById("previewFrame"), {
   onWorldMutated: () => {
     world.renderWorld();
     updateChrome();
+  },
+});
+
+mountCanvas({
+  onStatus: (msg) => {
+    document.getElementById("statusLeft").textContent = msg;
+  },
+  onError: (err, meta) => {
+    if (err) setProblemText(err, { file: meta?.file || state.editFile || undefined });
+    else clearProblems();
+  },
+  onApplied: () => {
+    world.renderWorld();
+    updateChrome();
+    // Keep Preview in sync for when the user switches back; Canvas already rebaked.
+    if (state.rightPaneMode !== "canvas") schedulePreview(80);
   },
 });
 
@@ -589,6 +606,7 @@ function selectTokens(fileHint) {
   nav.renderNavigator();
   companions.renderCompanion();
   updateChrome();
+  syncCanvasToSelection();
   schedulePreview(0);
 }
 
@@ -686,6 +704,7 @@ function selectSymbol(name, fileHint, opts = {}) {
   world.renderWorld();
   companions.renderCompanion();
   updateChrome();
+  syncCanvasToSelection();
   schedulePreview(50);
 }
 
@@ -742,6 +761,7 @@ function syncSelectionFromCursor() {
     world.renderWorld();
     companions.renderCompanion();
     updateChrome();
+    syncCanvasToSelection();
   } else {
     nav.renderNavigator();
   }
